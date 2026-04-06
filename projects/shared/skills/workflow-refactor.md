@@ -28,7 +28,7 @@ Analyze → Plan → Implement → Verify → Close
 No refactoring until you've mapped every caller of every symbol you plan to change. Changing a function signature without updating all call sites is not a refactor — it's a breakage.
 </HARD-GATE>
 
-**Post analysis** — `aeqi_notes` post with key `task:{id}:analysis` containing: symbols to change, blast radius, all affected files.
+**Store analysis** — `aeqi_remember` with key `quest:{id}:analysis` containing: symbols to change, blast radius, all affected files.
 
 **Terminal state:** Full blast radius mapped, proceed to Plan.
 
@@ -38,17 +38,17 @@ No refactoring until you've mapped every caller of every symbol you plan to chan
 
 Break the refactor into atomic, independently-testable steps.
 
-1. **Create task** — `aeqi_create_task` with the refactoring description
+1. **Create quest** — `aeqi_create_task` with the refactoring description
 2. **Order operations** — each step must leave the codebase compilable and tests passing:
    - Renames before signature changes
    - Add new before remove old (expand-contract pattern)
    - Internal changes before public API changes
-3. **Decompose into tasks** — each task changes ONE thing. Include:
+3. **Decompose into quests** — each quest changes ONE thing. Include:
    - Exact file paths and symbols affected
    - What changes and the mechanical transformation
    - Test command to verify behavior preservation
 4. **Validate with architect** — `aeqi_delegate` with the architect agent to review the plan
-5. **Post plan** — `aeqi_notes` post with key `task:{id}:plan`
+5. **Store plan** — `aeqi_remember` with key `quest:{id}:plan`
 
 ### Plan Quality Checklist
 - [ ] Every step compiles independently (no "fix compile errors in next step")
@@ -67,7 +67,7 @@ Execute the plan step by step. Tests must pass after EVERY step.
 
 ### Per-Step Workflow
 
-1. **Delegate to implementer** — `aeqi_delegate` with the implementer agent, full task context inline
+1. **Delegate to implementer** — `aeqi_delegate` with the implementer agent, full quest context inline
 2. **Handle status:** DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
 3. **Run tests immediately** — after each step, full test suite. Not "I'll test at the end."
 4. **If tests fail** — the refactor step is wrong. Revert and re-examine. Don't fix forward.
@@ -90,7 +90,7 @@ Prove the refactor is behavior-preserving.
 
 1. **Full test suite** — `cargo test --workspace` / `npm test` — zero failures, zero new warnings
 2. **Delegate verification** — `aeqi_delegate` with the reviewer agent to check ALL changes against the original plan
-3. **Read findings** — `aeqi_notes` query for reviewer's posted findings
+3. **Recall findings** — `aeqi_recall` for reviewer's stored findings
 4. **Impact re-check** — `aeqi_graph` impact on every changed symbol to confirm no missed call sites
 
 ### Verification Gate (MANDATORY)
@@ -112,7 +112,7 @@ A refactor that changes behavior is not a refactor — it's a bug. If any test f
 
 1. **Store learnings** — `aeqi_remember` any non-obvious discoveries (e.g., hidden coupling, circular dependencies)
 2. **Commit** with a message that describes the structural change and WHY it was done
-3. **Close task** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_task`
 
 ---
 

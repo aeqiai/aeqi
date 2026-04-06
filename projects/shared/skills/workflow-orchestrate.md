@@ -1,12 +1,12 @@
 ---
 name: "workflow-orchestrate"
-description: "Use when decomposing work across multiple parallel agents. Triggers: parallel execution, multi-agent task, orchestrator pattern, fan-out delegation."
+description: "Use when decomposing work across multiple parallel agents. Triggers: parallel execution, multi-agent quest, orchestrator pattern, fan-out delegation."
 tags: [workflow]
 ---
 
 # Orchestration Workflow
 
-Decompose work into independent units, delegate to parallel workers, aggregate results. For tasks too large or diverse for a single agent.
+Decompose work into independent units, delegate to parallel workers, aggregate results. For quests too large or diverse for a single agent.
 
 ```
 Discover → Plan → Delegate → Aggregate → Report
@@ -35,15 +35,15 @@ Workers receive context from the orchestrator. They NEVER:
 - Wait for another worker to complete
 - Share state with peers during execution
 
-If workers need shared state, the orchestrator mediates via notes between phases.
+If workers need shared state, the orchestrator mediates via memory between phases.
 
 ---
 
 ## Phase 3: Delegate
 
 1. **Fan out** — `aeqi_delegate` with each worker in parallel (async mode)
-2. **Track** — post to `aeqi_notes` key `task:{id}:workers` with worker IDs and status
-3. **Monitor** — as workers complete, read their findings from notes
+2. **Track** — `aeqi_remember` key `quest:{id}:workers` with worker IDs and status
+3. **Monitor** — as workers complete, `aeqi_recall` their findings from memory
 
 ### Scaling Rules
 - **1-3 workers** — orchestrate directly
@@ -58,7 +58,7 @@ Never overload a single orchestrator with 8+ parallel workers. Add hierarchy ins
 
 ## Phase 4: Aggregate
 
-1. **Collect results** — `aeqi_notes` query for all `task:{id}:worker:*` entries
+1. **Collect results** — `aeqi_recall` for all `quest:{id}:worker:*` entries
 2. **Merge** — combine findings, deduplicate, resolve conflicts
 3. **Synthesize** — the orchestrator must UNDERSTAND and RESTATE findings, not pass through. Lazy delegation (forwarding without synthesis) is a failure.
 

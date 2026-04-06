@@ -39,7 +39,9 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
     try {
-      await api.createCompany({ name: companyName.trim(), tagline: tagline.trim() || undefined });
+      const result = await api.createCompany({ name: companyName.trim(), tagline: tagline.trim() || undefined });
+      localStorage.setItem("aeqi_company", companyName.trim());
+      if (result?.tagline) localStorage.setItem("aeqi_company_tagline", result.tagline);
       setStep(2);
     } catch (e: any) {
       setError(e?.message || "Failed to create company");

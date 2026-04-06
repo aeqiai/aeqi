@@ -30,7 +30,7 @@ Analyze → Plan → Migrate Incrementally → Verify → Clean Up → Close
 No migration without a documented rollback plan. If you can't describe how to undo a step, you don't understand it well enough to execute it.
 </HARD-GATE>
 
-**Post analysis** — `aeqi_notes` post with key `task:{id}:migration-analysis` containing: what's changing, blast radius, all breaking changes, rollback plan.
+**Store analysis** — `aeqi_remember` with key `quest:{id}:migration-analysis` containing: what's changing, blast radius, all breaking changes, rollback plan.
 
 **Terminal state:** Full analysis posted, proceed to Plan.
 
@@ -45,7 +45,7 @@ Use the **expand-contract pattern** (parallel run):
 
 ### Planning Steps
 
-1. **Create parent task** — `aeqi_create_task` with the migration description
+1. **Create parent quest** — `aeqi_create_task` with the migration description
 2. **Map all consumers** — `aeqi_graph` context on each symbol being migrated to find every caller
 3. **Decompose into steps** — each step is ONE atomic change. Include:
    - Exact file paths and symbols affected
@@ -55,7 +55,7 @@ Use the **expand-contract pattern** (parallel run):
    - Must compile and pass tests independently
 4. **Order for safety** — expand steps before migrate steps before contract steps. Internal before public API.
 5. **Validate with architect** — `aeqi_delegate` with the architect agent to review the migration plan
-6. **Post plan** — `aeqi_notes` post with key `task:{id}:plan`
+6. **Store plan** — `aeqi_remember` with key `quest:{id}:plan`
 
 ### Plan Quality Checklist
 - [ ] Every step compiles and passes tests independently
@@ -119,7 +119,7 @@ Prove the migration is complete and correct. Adversarial mindset.
 </HARD-GATE>
 
 1. **Delegate final review** — `aeqi_delegate` with the reviewer agent to check ALL changes against the original plan
-2. **Read findings** — `aeqi_notes` query for the reviewer's posted findings
+2. **Recall findings** — `aeqi_recall` for the reviewer's stored findings
 3. **Handle review result:**
    - **Approved** → proceed to Clean Up
    - **Issues found** → fix issues, re-verify (respect the 3-fix rule)
@@ -150,7 +150,7 @@ Remove the old code now that the new code is verified.
    - Rollback steps that were or weren't needed
    - How long it actually took vs. estimate
 2. **Commit** with a clear message describing the migration and why
-3. **Close task** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_task`
 4. **Consider skill creation** — if this migration type will recur, codify the specific steps as a project skill
 
 ---

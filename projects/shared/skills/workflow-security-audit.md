@@ -38,7 +38,7 @@ For each component in the attack surface:
 | **Denial of Service** | Can the system be overwhelmed? | Rate limits, resource caps, circuit breakers |
 | **Elevation of Privilege** | Can a user gain unauthorized access? | RBAC, least privilege, permission checks |
 
-Post findings: `aeqi_notes` post with key `task:{id}:threat-model`
+Store findings: `aeqi_remember` with key `quest:{id}:threat-model`
 
 ---
 
@@ -75,7 +75,7 @@ For each finding, score:
 | **Medium** | Requires specific conditions, moderate impact | Fix next sprint |
 | **Low** | Theoretical risk, minimal impact | Track and review |
 
-Post: `aeqi_notes` post with key `task:{id}:risk-assessment`
+Store: `aeqi_remember` with key `quest:{id}:risk-assessment`
 
 ---
 
@@ -93,4 +93,4 @@ For each Critical/High finding:
 
 1. **Store findings** — `aeqi_remember` threat model and key vulnerabilities for future reference
 2. **Track trends** — compare with previous audits if available
-3. **Close task** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_task`

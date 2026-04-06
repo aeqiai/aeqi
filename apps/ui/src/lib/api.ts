@@ -32,12 +32,16 @@ async function parseResponseBody(res: Response): Promise<any> {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const token = getToken();
+  const company = localStorage.getItem("aeqi_company");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+  }
+  if (company && !path.startsWith("/auth/") && !path.startsWith("/billing/")) {
+    headers["X-Company"] = company;
   }
 
   const res = await fetch(url, { ...options, headers });

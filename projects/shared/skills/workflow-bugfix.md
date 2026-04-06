@@ -28,7 +28,7 @@ Diagnose → Fix → Verify → Close
 No fix until root cause is identified. Fixing symptoms creates new bugs. If you can't explain WHY it's broken, you don't understand it yet.
 </HARD-GATE>
 
-**Post diagnosis** — `aeqi_notes` post with key `task:{id}:diagnosis` containing: symptom, root cause, affected code paths, proposed fix.
+**Store diagnosis** — `aeqi_remember` with key `quest:{id}:diagnosis` containing: symptom, root cause, affected code paths, proposed fix.
 
 **Terminal state:** Root cause identified and posted, proceed to Fix.
 
@@ -38,14 +38,14 @@ No fix until root cause is identified. Fixing symptoms creates new bugs. If you 
 
 Minimal, targeted change.
 
-1. **Create task** — `aeqi_create_task` with the bug description and root cause
+1. **Create quest** — `aeqi_create_task` with the bug description and root cause
 2. **Understand the file** — `aeqi_graph` file before editing anything
 3. **Write the fix** — change ONLY what's needed. No "while I'm here" improvements.
 4. **Check impact** — `aeqi_graph` impact on the changed symbol to verify the fix doesn't break callers
 5. **Run targeted tests** — tests for the specific module changed
 
 ### Fix Scope Rule
-The fix should be proportional to the bug. A null check bug gets a null check fix — not a refactor of the error handling system. If the bug reveals a deeper architectural problem, file that as a separate task.
+The fix should be proportional to the bug. A null check bug gets a null check fix — not a refactor of the error handling system. If the bug reveals a deeper architectural problem, file that as a separate quest.
 
 ### 3-Fix Escalation Rule
 If 3 fix attempts fail: **STOP.** The diagnosis is wrong. Go back to Phase 1 and re-diagnose from scratch. Don't keep patching.
@@ -80,7 +80,7 @@ Prove the fix works. Adversarial mindset.
    - How it was fixed
    - What class of bug this represents (so you recognize the pattern next time)
 2. **Commit** with a message that explains the root cause and fix
-3. **Close task** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_task`
 
 ---
 

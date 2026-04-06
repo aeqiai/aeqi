@@ -129,7 +129,7 @@ Root (manager: Shadow)
 
 Departments control:
 - **Escalation** -- blocked agents escalate to their department manager, then up the chain
-- **Blackboard visibility** -- entries scoped by department
+- **Memory visibility** -- insights scoped by department
 - **Clarification routing** -- questions follow the department hierarchy
 
 ### Tasks
@@ -204,14 +204,14 @@ POST /api/approvals/:id/resolve  -- approve or reject
 
 Types: `permission` (dangerous action), `clarification` (agent question), `budget` (spend limit hit). Integrates with the middleware chain and department escalation.
 
-### Blackboard
+### Memory
 
-A department-scoped coordination surface for inter-agent knowledge sharing:
+Persistent insight store with hybrid search (SQLite FTS5 + vector embeddings):
 
-- **Transient** entries (24h TTL) for active coordination
-- **Durable** entries (7d TTL) for findings and decisions
-- Tag-based queries, cross-project search
-- Department visibility scoping via `query_scoped()`
+- **Knowledge graph** — typed edges (caused_by, supports, contradicts, supersedes) with strength weights
+- **Hybrid search** — BM25 keyword + vector cosine similarity + graph boost + MMR reranking
+- **Temporal decay** — exponential with configurable halflife, evergreen category exempt
+- **Obsidian export** — `aeqi memory export --vault <path>` dumps memories as markdown with `[[wikilinks]]` for graph visualization
 
 ### Dispatch Bus
 

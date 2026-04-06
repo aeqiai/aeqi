@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Notification hook: posts Claude Code notifications to AEQI notes.
+# Notification hook: stores Claude Code notifications in AEQI memory.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/hook-log.sh"
@@ -16,8 +16,8 @@ PROJECT=$(detect_project)
 
 TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 
-printf '{"cmd":"post_notes","project":"%s","key":"signal:notification:%s","content":"Claude Code session notification in project %s","tags":["notification","claude-code"],"durability":"transient"}' \
+printf '{"cmd":"knowledge_store","project":"%s","key":"signal:notification:%s","content":"Claude Code session notification in project %s","category":"context"}' \
     "$PROJECT" "$TIMESTAMP" "$PROJECT" \
     | socat -t2 - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1 || true
 
-log_hook "notify-aeqi" "posted" "project=$PROJECT"
+log_hook "notify-aeqi" "stored" "project=$PROJECT"

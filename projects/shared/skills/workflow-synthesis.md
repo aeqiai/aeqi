@@ -20,7 +20,7 @@ Analyze Source → Map AEQI → Gap Analysis → Prioritize → Implement → Cl
 
 1. **Read thoroughly** — code, docs, architecture. Don't skim.
 2. **Extract patterns** — what design decisions did they make? What problems do they solve? What trade-offs did they accept?
-3. **Post findings** — `aeqi_notes` post with key `task:{id}:external-analysis`
+3. **Store findings** — `aeqi_remember` with key `quest:{id}:external-analysis`
 4. **Delegate deep dives** — `aeqi_delegate` with the researcher agent for specific subsystems
 
 ### What to Extract
@@ -45,7 +45,7 @@ Understand AEQI's current equivalent for every pattern found.
 1. **Recall existing knowledge** — `aeqi_recall` for each area the external source covers
 2. **Search codebase** — `aeqi_graph` search/context for AEQI's existing implementations
 3. **Map equivalences** — for each external pattern, find AEQI's corresponding mechanism (or note its absence)
-4. **Post mapping** — `aeqi_notes` post with key `task:{id}:aeqi-mapping`
+4. **Store mapping** — `aeqi_remember` with key `quest:{id}:aeqi-mapping`
 
 ### Mapping Quality
 Every external pattern gets ONE of:
@@ -70,7 +70,7 @@ For each capability in the external source:
 | **Present but weaker** | AEQI has this but the external source does it better | Candidate for improvement |
 | **Present in external, unnecessary** | Solving a problem AEQI doesn't have | Skip — don't bloat |
 
-Post analysis: `aeqi_notes` post with key `task:{id}:gap-analysis`
+Store analysis: `aeqi_remember` with key `quest:{id}:gap-analysis`
 
 <HARD-GATE>
 Don't adopt patterns just because a respected project uses them. Every adoption must solve a REAL problem in AEQI. "They have it" is not a reason. "Our users need X and this solves X" is.
@@ -100,17 +100,17 @@ Order improvements by impact × effort. Not everything worth doing is worth doin
 
 Execute the prioritized improvements using the appropriate workflow for each.
 
-1. **Create parent task** — `aeqi_create_task` for the synthesis effort
+1. **Create parent quest** — `aeqi_create_task` for the synthesis effort
 2. **For each improvement**, load the right workflow:
    - New capability → `aeqi_prompts` get workflow-feature
    - Restructuring existing code → `aeqi_prompts` get workflow-refactor
    - Fixing identified weakness → `aeqi_prompts` get workflow-bugfix
 3. **After each improvement**, verify it integrates cleanly — no dead code, no orphaned features
-4. **Post progress** — `aeqi_notes` post with key `task:{id}:progress`
+4. **Store progress** — `aeqi_remember` with key `quest:{id}:progress`
 
 ### Synthesis Discipline
 - Adapt patterns to AEQI's architecture. Don't transplant foreign idioms.
-- Express borrowed ideas in AEQI's existing primitives (triggers, skills, notes, memory).
+- Express borrowed ideas in AEQI's existing primitives (triggers, skills, memory).
 - If a pattern requires a new primitive, justify why existing primitives can't handle it.
 - Every adopted pattern must have tests proving it works in AEQI's context.
 
@@ -124,7 +124,7 @@ Execute the prioritized improvements using the appropriate workflow for each.
    - What was adopted and why
    - What was rejected and why (equally valuable)
    - Architectural insights that apply beyond this specific source
-2. **Close task** — `aeqi_close_task`
+2. **Close quest** — `aeqi_close_task`
 3. **Update skills** — if the synthesis revealed reusable procedures, create or update skills
 
 ---

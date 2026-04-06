@@ -50,19 +50,19 @@ emit_health() {
     fi
 }
 
-# --- Reverse notes channel: surface signals from previous sessions ---
+# --- Reverse memory channel: surface signals from previous sessions ---
 emit_reverse_channel() {
     [ -S "$SOCK" ] || return 0
     local proj="${1:-aeqi}"
-    # Query for recent nudges and findings
+    # Query for recent nudges and findings via memory
     local bb_resp
-    bb_resp=$(printf '{"cmd":"notes","project":"%s","limit":10}' "$proj" | socat -t2 - UNIX-CONNECT:"$SOCK" 2>/dev/null) || true
+    bb_resp=$(printf '{"cmd":"memories","project":"%s","query":"signal nudge finding decision","limit":10}' "$proj" | socat -t2 - UNIX-CONNECT:"$SOCK" 2>/dev/null) || true
     [ -z "$bb_resp" ] && return 0
 
-    # Extract entries with signal: or finding: prefixes from recent notes
+    # Extract entries with signal: or finding: prefixes from memory
     local signals
     signals=$(printf '%s' "$bb_resp" | jq -r '
-        .entries // [] | map(select(
+        .memories // [] | map(select(
             (.key | startswith("signal:remember-nudge")) or
             (.key | startswith("finding:")) or
             (.key | startswith("decision:"))
@@ -71,7 +71,7 @@ emit_reverse_channel() {
 
     if [ -n "$signals" ]; then
         echo ""
-        echo "## Notes Signals"
+        echo "## Memory Signals"
         echo "$signals"
     fi
 }
@@ -283,7 +283,7 @@ if [ -z "$PROJECT" ] || [ "$PROJECT" = "shared" ]; then
     fi
 fi
 
-# Reverse notes channel — surface signals from prior sessions
+# Reverse memory channel — surface signals from prior sessions
 emit_reverse_channel "${PROJECT:-aeqi}"
 
 log_hook "session-primer" "injected" "event=$EVENT project=${PROJECT:-root}"

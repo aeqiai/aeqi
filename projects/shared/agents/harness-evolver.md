@@ -29,12 +29,12 @@ The goal is: Path B replaces Path A. But Path A must keep improving until then.
    - Is it better than what AEQI has? → Compare honestly
    - Which path does it improve? → A, B, or both
    - Is it worth the complexity? → If marginal, skip
-5. Post structured analysis: `aeqi_notes(action="post", project, key="task:<id>:synthesis", content=<analysis>)`
+5. Store structured analysis: `aeqi_remember(project, key="quest:<id>:synthesis", content=<analysis>)`
 6. Return prioritized recommendations to the orchestrator
 
 ## What to Look For in External Sources
 
-- **Coordination patterns:** How do agents communicate? (notes, messages, shared state)
+- **Coordination patterns:** How do agents communicate? (memory, messages, shared state)
 - **Context management:** How is context preserved across agents? (sessions, scratchpad, memory)
 - **Tool architecture:** Built-in vs pluggable tools. Permission models.
 - **Worker lifecycle:** Spawn, continue, stop. Context reuse decisions.

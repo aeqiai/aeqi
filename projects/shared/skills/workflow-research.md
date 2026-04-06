@@ -21,10 +21,10 @@ Scope → Investigate → Synthesize → Close
 1. **Check existing knowledge** — `aeqi_recall` for prior research on this topic
 2. **Define the question** — one clear question this research answers. Not "understand X" but "how does X handle Y when Z happens?"
 3. **Set boundaries** — what's in scope, what's out. Research without scope becomes rabbit-holing.
-4. **Create task** — `aeqi_create_task` with the specific question
+4. **Create quest** — `aeqi_create_task` with the specific question
 
 <HARD-GATE>
-No investigation without a scoped question. "Look into the auth system" is not a research task. "How does the auth system validate JWT expiry across time zones?" is.
+No investigation without a scoped question. "Look into the auth system" is not a research quest. "How does the auth system validate JWT expiry across time zones?" is.
 </HARD-GATE>
 
 **Terminal state:** Scoped question defined, proceed to Investigate.
@@ -39,7 +39,7 @@ Systematic evidence gathering. Parallel where possible.
 2. **Delegate deep research** — `aeqi_delegate` with the researcher agent for parallel investigation paths. Each researcher gets ONE sub-question.
 3. **External sources** — if the question involves external systems, APIs, or dependencies, check docs and source
 4. **Collect evidence** — every claim needs a file:line reference or external source citation
-5. **Read delegate findings** — `aeqi_notes` query for researcher agents' posted findings
+5. **Recall delegate findings** — `aeqi_recall` for researcher agents' stored findings
 
 ### Investigation Discipline
 - Start with the code graph, not grep. Structure reveals intent; text matches reveal tokens.
@@ -61,11 +61,11 @@ Systematic evidence gathering. Parallel where possible.
 
 Turn raw findings into actionable knowledge.
 
-1. **Gather all findings** — `aeqi_notes` query for all `task:{id}:*` entries
+1. **Gather all findings** — `aeqi_recall` for all `quest:{id}:*` entries
 2. **Organize by theme** — group findings into coherent sections, not chronological order
 3. **Distinguish fact from inference** — clearly mark what's confirmed vs. what's extrapolated
 4. **Answer the original question** — directly. If the answer is "we don't know X because Y", that's a valid finding.
-5. **Post synthesis** — `aeqi_notes` post with key `task:{id}:findings`
+5. **Store synthesis** — `aeqi_remember` with key `quest:{id}:findings`
 
 ### Synthesis Quality Checklist
 - [ ] The original scoped question is answered directly
@@ -85,8 +85,8 @@ Research without a clear deliverable is exploration, not research. The synthesis
 ## Phase 4: Close
 
 1. **Store findings** — `aeqi_remember` the key insights as institutional knowledge
-2. **Close task** — `aeqi_close_task`
-3. **Consider follow-up** — if research revealed bugs or improvement opportunities, note them for separate tasks
+2. **Close quest** — `aeqi_close_task`
+3. **Consider follow-up** — if research revealed bugs or improvement opportunities, note them for separate quests
 
 ---
 
@@ -98,5 +98,5 @@ Research without a clear deliverable is exploration, not research. The synthesis
 | "This is too complex to scope narrowly" | Complex topics need MORE scoping, not less. Break it into sub-questions. |
 | "I think I understand it" | "Think" is not "know". Show the evidence. |
 | "The code is self-explanatory" | If it were, you wouldn't need research. Document the non-obvious. |
-| "I'll document this later" | Post to notes as you go. Findings lost to context compaction are findings lost. |
+| "I'll document this later" | Store to memory as you go. Findings lost to context compaction are findings lost. |
 | "One more rabbit hole" | Check your scope. If this tangent doesn't answer the original question, stop. |

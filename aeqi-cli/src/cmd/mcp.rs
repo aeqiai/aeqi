@@ -146,7 +146,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
         ToolDef {
             name: "aeqi_notes".to_string(),
-            description: "Shared coordination surface. Post discoveries, claim resources, signal state, query entries, and coordinate across agents and projects.".to_string(),
+            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use aeqi_remember instead.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
