@@ -33,7 +33,7 @@ export const PLANS = [
   {
     id: "growth" as const,
     name: "Growth",
-    price: 79,
+    price: 89,
     popular: true,
     tagline: "Run a portfolio at scale.",
     desc: "For teams running multiple companies with higher volume.",
