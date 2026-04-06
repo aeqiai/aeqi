@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
-import { events } from "@/lib/analytics";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
 
@@ -99,7 +98,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: resp.user || null, loading: false });
-        events.login("email");
         return true;
       }
       set({ loading: false, error: "Invalid email or password" });
@@ -114,7 +112,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const resp = await api.signup(email, password, name);
-      if (resp.ok) events.signup("email");
       if (resp.ok && (resp as any).pending_verification) {
         // Save token so user can onboard while unverified.
         if (resp.token) {
