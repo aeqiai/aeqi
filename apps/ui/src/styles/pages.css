@@ -196,6 +196,102 @@
   color: rgba(0, 0, 0, 0.5);
 }
 
+/* ── Signup split-screen ─────────────────────────── */
+
+.signup-split {
+  display: flex;
+  min-height: 100vh;
+}
+
+.signup-form-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: #ffffff;
+}
+
+.signup-pitch-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.signup-pitch-content {
+  max-width: 360px;
+}
+
+.signup-pitch-heading {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.signup-pitch-sub {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.4);
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+
+.signup-features {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.signup-feature {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.signup-feature-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.signup-feature-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.75);
+  margin-bottom: 2px;
+}
+
+.signup-feature-desc {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.35);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .signup-split {
+    flex-direction: column;
+  }
+  .signup-pitch-side {
+    border-left: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding: 32px 24px;
+  }
+}
+
 /* Verification code inputs */
 .verify-code-inputs {
   display: flex;
@@ -3949,11 +4045,15 @@
 
 /* Billing toggle */
 .bill-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.bill-toggle-inner {
   display: inline-flex;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 3px;
-  margin-bottom: 24px;
   background: rgba(0, 0, 0, 0.02);
 }
 
