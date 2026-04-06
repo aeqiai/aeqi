@@ -160,7 +160,7 @@ export default function BillingPage() {
       <p className="bill-footer">
         All prices in USD. Cancel anytime, no questions asked.
         <br />
-        Need something custom? <a href="mailto:hello@aeqi.ai">Talk to us</a>
+        Need something custom? <a href="https://booking.aeqi.ai">Book a demo</a>
       </p>
     </div>
   );
