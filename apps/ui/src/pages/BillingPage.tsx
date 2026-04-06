@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import { PLANS } from "../../../shared/pricing";
+import { events } from "@/lib/analytics";
 
 export default function BillingPage() {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ export default function BillingPage() {
   const subscribe = async (plan: "starter" | "growth") => {
     setLoading(plan);
     try {
+      events.checkoutStarted(plan);
       const { url } = await api.createCheckoutSession(plan);
       window.location.href = url;
     } catch {

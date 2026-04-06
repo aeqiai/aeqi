@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { events } from "@/lib/analytics";
 
 const AGENT_TEMPLATES = [
   { name: "Engineer", desc: "Writes code, reviews PRs, fixes bugs", template: "agents/engineer" },
@@ -42,6 +43,7 @@ export default function OnboardingPage() {
       const result = await api.createCompany({ name: companyName.trim(), tagline: tagline.trim() || undefined });
       localStorage.setItem("aeqi_company", companyName.trim());
       if (result?.tagline) localStorage.setItem("aeqi_company_tagline", result.tagline);
+      events.companyCreated(companyName.trim());
       setStep(2);
     } catch (e: any) {
       setError(e?.message || "Failed to create company");
@@ -55,6 +57,7 @@ export default function OnboardingPage() {
     if (selectedAgent) {
       try {
         await api.spawnAgent({ template: selectedAgent, project: companyName.trim() });
+        events.agentSpawned(selectedAgent);
       } catch { /* non-critical */ }
     }
     await fetchMe();
