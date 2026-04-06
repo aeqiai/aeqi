@@ -12,6 +12,7 @@ export const PLANS = [
     id: "starter" as const,
     name: "Starter",
     price: 29,
+    annualPrice: 25,
     popular: false,
     tagline: "Launch your first autonomous company.",
     desc: "For individuals getting started with autonomous agents.",
@@ -34,6 +35,7 @@ export const PLANS = [
     id: "growth" as const,
     name: "Growth",
     price: 89,
+    annualPrice: 75,
     popular: true,
     tagline: "Run a portfolio at scale.",
     desc: "For teams running multiple companies with higher volume.",
@@ -58,3 +60,4 @@ export const PLANS = [
 ] as const;
 
 export type PlanId = (typeof PLANS)[number]["id"];
+export type BillingInterval = "monthly" | "annual";

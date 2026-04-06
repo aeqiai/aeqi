@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import { PLANS } from "../../../shared/pricing";
+import type { BillingInterval } from "../../../shared/pricing";
 
 export default function BillingPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function BillingPage() {
   const trialDaysLeft = useAuthStore((s) => s.trialDaysLeft);
   const [loading, setLoading] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
 
   useEffect(() => { fetchMe(); }, [fetchMe]);
 
@@ -29,7 +31,7 @@ export default function BillingPage() {
   const subscribe = async (plan: "starter" | "growth") => {
     setLoading(plan);
     try {
-      const { url } = await api.createCheckoutSession(plan);
+      const { url } = await api.createCheckoutSession(plan, interval);
       window.location.href = url;
     } catch {
       setLoading(null);
@@ -67,6 +69,7 @@ export default function BillingPage() {
   const days = trialDaysLeft();
   const trialing = isTrialing();
   const expired = trialing && days === 0;
+  const isAnnual = interval === "annual";
 
   return (
     <div className="bill">
@@ -118,10 +121,27 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Billing toggle */}
+      <div className="bill-toggle">
+        <button
+          className={`bill-toggle-btn${!isAnnual ? " active" : ""}`}
+          onClick={() => setInterval("monthly")}
+        >
+          Monthly
+        </button>
+        <button
+          className={`bill-toggle-btn${isAnnual ? " active" : ""}`}
+          onClick={() => setInterval("annual")}
+        >
+          Annual <span className="bill-toggle-save">Save ~14%</span>
+        </button>
+      </div>
+
       {/* Plans */}
       <div className="bill-plans">
         {PLANS.map((p) => {
           const current = status === "active" && plan === p.id;
+          const displayPrice = isAnnual ? p.annualPrice : p.price;
           return (
             <div key={p.id} className={`bill-card${p.popular ? " popular" : ""}${current ? " current" : ""}`}>
               {p.popular && <div className="bill-card-badge">Recommended</div>}
@@ -129,9 +149,12 @@ export default function BillingPage() {
                 <h2 className="bill-card-name">{p.name}</h2>
                 <p className="bill-card-desc">{p.desc}</p>
                 <div className="bill-card-price">
-                  <span className="bill-card-amount">${p.price}</span>
-                  <span className="bill-card-period">/month</span>
+                  <span className="bill-card-amount">${displayPrice}</span>
+                  <span className="bill-card-period">/{isAnnual ? "mo, billed yearly" : "month"}</span>
                 </div>
+                {isAnnual && (
+                  <p className="bill-card-annual-total">${displayPrice * 12}/year</p>
+                )}
               </div>
               <div className="bill-card-divider" />
               <span className="bill-card-includes">What's included</span>

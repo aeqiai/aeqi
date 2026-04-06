@@ -386,10 +386,10 @@ export const api = {
   getTriggers: () => request<any>("/triggers"),
 
   // Billing
-  createCheckoutSession: (plan: "starter" | "growth") =>
+  createCheckoutSession: (plan: "starter" | "growth", interval: "monthly" | "annual" = "monthly") =>
     request<{ url: string }>("/billing/checkout", {
       method: "POST",
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, interval }),
     }),
 
   getSubscription: () =>
