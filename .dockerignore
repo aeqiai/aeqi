@@ -1,0 +1,8 @@
+target/
+node_modules/
+apps/landing/
+apps/ui/node_modules/
+apps/ui/dist/
+.git/
+*.md
+docs/

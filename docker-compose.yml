@@ -1,0 +1,14 @@
+services:
+  aeqi:
+    build: .
+    ports:
+      - "8400:8400"
+    volumes:
+      - ./config:/home/aeqi/config
+      - aeqi-data:/home/aeqi/.aeqi
+    environment:
+      - AEQI_CONFIG=/home/aeqi/config/aeqi.toml
+    restart: unless-stopped
+
+volumes:
+  aeqi-data:

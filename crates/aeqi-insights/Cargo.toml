@@ -1,0 +1,22 @@
+[package]
+name = "aeqi-insights"
+version.workspace = true
+edition.workspace = true
+description = "Hybrid insight store with SQLite FTS5 and vector search"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[dependencies]
+aeqi-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+rusqlite = { workspace = true }
+sha2 = { workspace = true }

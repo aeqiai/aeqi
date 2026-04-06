@@ -1,0 +1,29 @@
+[package]
+name = "aeqi-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Code intelligence graph — tree-sitter parsing, symbol extraction, call resolution, community detection"
+
+[dependencies]
+# Workspace
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+rusqlite.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+
+# Tree-sitter
+tree-sitter = "0.26"
+tree-sitter-rust = "0.24"
+tree-sitter-typescript = "0.23"
+tree-sitter-solidity = "1.2"
+
+# Internal
+aeqi-core = { path = "../aeqi-core" }
+
+[dev-dependencies]
+tempfile.workspace = true

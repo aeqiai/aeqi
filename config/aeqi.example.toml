@@ -1,0 +1,91 @@
+# AEQI Configuration
+# Copy this to config/aeqi.toml and customize.
+
+[aeqi]
+name = "my-project"
+data_dir = "~/.aeqi"
+# patrol_interval_secs = 30  # Daemon patrol loop interval (reloadable via SIGHUP)
+
+[providers.openrouter]
+api_key = "${OPENROUTER_API_KEY}"
+default_model = "xiaomi/mimo-v2-pro"
+# embedding_model = "openai/text-embedding-3-small"
+
+# [providers.anthropic]
+# api_key = "${ANTHROPIC_API_KEY}"
+
+[security]
+autonomy = "supervised"
+workspace_only = true
+max_cost_per_day_usd = 10.0
+
+[memory]
+backend = "sqlite"
+temporal_decay_halflife_days = 30
+
+# Global repo pool — all agents can access all repos
+[repos]
+my-project = "/path/to/your/project"
+
+# System team — the orchestrator
+[team]
+leader = "leader"
+router_cooldown_secs = 60
+max_background_cost_usd = 0.50
+
+# Agents are discovered from agents/{name}/agent.toml files on disk.
+# See agents/README.md for the directory structure.
+
+# Optional: Telegram channel integration
+# [channels.telegram]
+# token_secret = "TELEGRAM_BOT_TOKEN"
+# allowed_chats = []
+# debounce_window_ms = 3000
+# main_chat_id = -1001234567890
+#
+# [[channels.telegram.routes]]
+# chat_id = -1001234567890
+# name = "AEQI HQ"
+#
+# [[channels.telegram.routes]]
+# chat_id = -1009876543210
+# project = "my-project"
+# department = "backend"
+# name = "my-project/backend"
+
+# Orchestration tuning parameters (all have sensible defaults)
+# [orchestrator]
+# background_automation_enabled = true  # false disables cron, watchdogs, lifecycle, and worker reflection
+# max_resolution_attempts = 1   # project-level retries before escalation
+# max_task_retries = 3          # handoff/failure retries before auto-cancel
+# shell_timeout_secs = 30       # shell tool timeout
+# max_description_chars = 8000  # task description truncation limit
+# executor_max_retries = 3      # worker execution transient failure retries
+# dispatch_ttl_secs = 3600      # dispatch message TTL
+# council_max_rounds = 1        # max council debate rounds
+# expertise_routing = false     # enable expertise-based smart routing (v3)
+# notes_transient_ttl_hours = 24  # notes transient entry TTL
+# notes_durable_ttl_days = 7      # notes durable entry TTL
+# adaptive_retry = false        # enable LLM failure analysis for retries (v3)
+# preflight_enabled = false     # enable pre-flight assessment before workers (v3)
+# infer_deps_threshold = 0.0    # confidence threshold for auto-inferred deps (0=disabled)
+
+# Companies (repos, tasks, knowledge)
+[[companies]]
+name = "my-project"
+prefix = "mp"
+repo = "/path/to/your/project"
+model = "xiaomi/mimo-v2-pro"
+max_workers = 2
+execution_mode = "agent"
+worker_timeout_secs = 1800
+# team.leader = "leader"
+# team.agents = ["leader"]
+
+# [web]
+# enabled = true
+# bind = "0.0.0.0:8400"
+# ui_dist_dir = "/abs/path/to/aeqi/apps/ui/dist"  # optional: overrides the embedded dashboard (for development)
+# cors_origins = ["https://dashboard.example.com", "http://localhost:5173"]
+# auth_secret = "${AEQI_WEB_SECRET}"
+# ws_poll_interval_secs = 5

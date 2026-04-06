@@ -1,0 +1,21 @@
+[package]
+name = "aeqi-tools"
+version.workspace = true
+edition.workspace = true
+description = "Built-in tools for shell, file, git, task, and agent delegation"
+
+[dependencies]
+aeqi-core = { workspace = true }
+aeqi-quests = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

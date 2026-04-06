@@ -1,0 +1,112 @@
+[workspace]
+resolver = "2"
+members = [
+    "aeqi-cli",
+    "crates/aeqi-core",
+    "crates/aeqi-quests",
+    "crates/aeqi-providers",
+    "crates/aeqi-tools",
+    "crates/aeqi-orchestrator",
+    "crates/aeqi-insights",
+    "crates/aeqi-gates",
+    "crates/aeqi-web",
+    "crates/aeqi-graph",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "BSL-1.1"
+authors = ["AEQI Contributors"]
+description = "Agent runtime, multi-agent harness, orchestration engine, and web control plane"
+repository = "https://github.com/aeqiai/aeqi"
+homepage = "https://github.com/aeqiai/aeqi"
+categories = ["development-tools", "command-line-utilities"]
+keywords = ["agents", "runtime", "orchestration", "automation", "control-plane"]
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "stream"] }
+axum = { version = "0.8", features = ["ws"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+jsonwebtoken = "9"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Crypto
+chacha20poly1305 = "0.10"
+rand = "0.9"
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# SQLite
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Dirs
+dirs = "6"
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Tokio stream
+tokio-stream = "0.1"
+futures = "0.3"
+
+# TUI
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+tungstenite = "0.26"
+pulldown-cmark = "0.12"
+syntect = "5.2"
+similar = "2"
+
+# Embedded assets
+rust-embed = { version = "8", features = ["compression"] }
+mime_guess = "2"
+
+# Test
+tempfile = "3"
+
+# Internal crates
+aeqi-quests = { path = "crates/aeqi-quests" }
+aeqi-core = { path = "crates/aeqi-core" }
+aeqi-providers = { path = "crates/aeqi-providers" }
+aeqi-tools = { path = "crates/aeqi-tools" }
+aeqi-orchestrator = { path = "crates/aeqi-orchestrator" }
+aeqi-insights = { path = "crates/aeqi-insights" }
+aeqi-gates = { path = "crates/aeqi-gates" }
+aeqi-web = { path = "crates/aeqi-web" }
+aeqi-graph = { path = "crates/aeqi-graph" }
+
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

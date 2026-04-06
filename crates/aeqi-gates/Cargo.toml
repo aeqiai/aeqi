@@ -1,0 +1,16 @@
+[package]
+name = "aeqi-gates"
+version.workspace = true
+edition.workspace = true
+description = "Channel integrations for Telegram, Discord, and Slack"
+
+[dependencies]
+aeqi-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }

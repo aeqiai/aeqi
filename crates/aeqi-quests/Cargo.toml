@@ -1,0 +1,17 @@
+[package]
+name = "aeqi-quests"
+version.workspace = true
+edition.workspace = true
+description = "Quest DAG management, missions, and dependency inference"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }

@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/install-state.gz
+
+# build output
+/dist
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*.local
+.env
+
+# typescript
+*.tsbuildinfo

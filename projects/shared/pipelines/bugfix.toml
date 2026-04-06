@@ -1,0 +1,27 @@
+name = "Bugfix: {{bug_description}}"
+description = "Investigate and fix: {{bug_description}}"
+
+[[variables]]
+name = "bug_description"
+description = "Description of the bug"
+required = true
+
+[[variables]]
+name = "reproduction"
+description = "Steps to reproduce"
+default = "Check logs and code for root cause"
+
+[[steps]]
+name = "Investigate: {{bug_description}}"
+description = "Find root cause of: {{bug_description}}. Reproduction: {{reproduction}}"
+priority = "high"
+labels = ["investigation"]
+sequential = false
+acceptance_criteria = "Root cause identified with file path and line number"
+
+[[steps]]
+name = "Fix: {{bug_description}}"
+description = "Implement fix for the root cause. Include regression test."
+priority = "high"
+labels = ["fix"]
+acceptance_criteria = "Bug fixed, regression test added, all existing tests still pass"

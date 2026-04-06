@@ -1,0 +1,34 @@
+name = "Incident: {{incident_summary}}"
+description = "Handle production incident: {{incident_summary}}"
+
+[[variables]]
+name = "incident_summary"
+description = "Brief summary of the incident"
+required = true
+
+[[variables]]
+name = "severity"
+description = "Incident severity"
+default = "high"
+
+[[steps]]
+name = "Triage: {{incident_summary}}"
+description = "Check service health, logs, and metrics. Identify scope of impact for: {{incident_summary}}"
+priority = "critical"
+labels = ["incident", "triage"]
+sequential = false
+acceptance_criteria = "Impact scope identified, affected services listed, initial assessment complete"
+
+[[steps]]
+name = "Mitigate: {{incident_summary}}"
+description = "Apply immediate mitigation. Prioritize restoring service over root cause analysis."
+priority = "critical"
+labels = ["incident", "mitigation"]
+acceptance_criteria = "Service restored or degraded gracefully, user impact minimized"
+
+[[steps]]
+name = "Root Cause: {{incident_summary}}"
+description = "Deep investigation into root cause. Document findings and preventive measures."
+priority = "high"
+labels = ["incident", "postmortem"]
+acceptance_criteria = "Root cause documented, preventive measures identified, follow-up tasks created"

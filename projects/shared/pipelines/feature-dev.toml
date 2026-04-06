@@ -1,0 +1,34 @@
+name = "Feature: {{feature_name}}"
+description = "End-to-end feature development for {{feature_name}} using AEQI's adaptive execution pipeline"
+
+[[variables]]
+name = "feature_name"
+description = "Name of the feature to implement"
+required = true
+
+[[variables]]
+name = "context"
+description = "Additional context or requirements"
+default = ""
+
+[[steps]]
+name = "Research: {{feature_name}}"
+description = "Explore the codebase to understand existing patterns, identify affected files, and map dependencies for {{feature_name}}. {{context}}"
+priority = "high"
+labels = ["discover", "adaptive-pipeline"]
+sequential = false
+acceptance_criteria = "List of affected files, existing patterns identified, dependencies mapped, implementation approach documented"
+
+[[steps]]
+name = "Implement: {{feature_name}}"
+description = "Implement {{feature_name}} following the patterns identified in research. Work in a worktree, write tests, ensure compilation. {{context}}"
+priority = "high"
+labels = ["implement", "adaptive-pipeline"]
+acceptance_criteria = "Code compiles, tests pass, implementation matches research findings"
+
+[[steps]]
+name = "Review: {{feature_name}}"
+description = "Review the implementation of {{feature_name}} for correctness, security, performance, and style. Check for anti-patterns and ensure it follows project conventions."
+priority = "normal"
+labels = ["verify", "adaptive-pipeline"]
+acceptance_criteria = "No critical issues found, code follows project conventions, all review comments addressed"

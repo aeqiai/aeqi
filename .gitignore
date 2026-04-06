@@ -1,0 +1,38 @@
+**/target/
+*.swp
+*.swo
+.DS_Store
+
+# Runtime state
+.aeqi/
+**/.tasks/
+*.db
+*.db-wal
+*.db-shm
+
+# Build artifacts
+apps/ui/node_modules/
+apps/ui/dist/
+apps/ui/*.tsbuildinfo
+apps/landing/node_modules/
+apps/landing/dist/
+node_modules/
+
+# Local config
+apps/ui/.env
+apps/ui/.env*.local
+.env
+.env.local
+
+# Agent runtime state (track templates, ignore state)
+agents/*/.aeqi/
+!agents/*/agent.toml
+!agents/*/agent.md
+
+# Project directories (personal)
+projects/*/
+!projects/shared/
+!projects/README.md
+
+# Claude Code
+.claude/worktrees/

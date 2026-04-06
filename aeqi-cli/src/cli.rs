@@ -1,0 +1,576 @@
+use clap::Subcommand;
+
+#[derive(Subcommand)]
+pub enum Commands {
+    /// Run a one-shot agent with a prompt.
+    Run {
+        prompt: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+        #[arg(short, long)]
+        model: Option<String>,
+        #[arg(long, default_value = "20")]
+        max_iterations: u32,
+    },
+    /// Start daemon + web server in a single process.
+    Start {
+        /// Override web server bind address (default: from config or 0.0.0.0:8400).
+        #[arg(long)]
+        bind: Option<String>,
+    },
+    /// Initialize AEQI in the current directory.
+    Init,
+    /// Bootstrap a ready-to-run AEQI workspace.
+    Setup {
+        /// Default runtime preset (for example: openrouter_agent, anthropic_agent, ollama_agent).
+        #[arg(long, default_value = "openrouter_agent")]
+        runtime: String,
+        /// Install a per-user daemon service after bootstrapping the workspace.
+        #[arg(long)]
+        service: bool,
+        /// Overwrite starter files that already exist.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Manage encrypted secrets.
+    Secrets {
+        #[command(subcommand)]
+        action: SecretsAction,
+    },
+    /// Run diagnostics.
+    Doctor {
+        /// Auto-fix detected issues.
+        #[arg(long)]
+        fix: bool,
+        /// Exit with a non-zero status if any issues remain.
+        #[arg(long)]
+        strict: bool,
+    },
+    /// Show system status.
+    Status,
+    /// Show a consolidated operator monitor view.
+    Monitor {
+        /// Focus on a single company.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+        /// Refresh the monitor continuously.
+        #[arg(long)]
+        watch: bool,
+        /// Refresh interval in seconds when --watch is enabled.
+        #[arg(long, default_value = "5")]
+        interval_secs: u64,
+        /// Emit the monitor report as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+
+    // --- Phase 2: Tasks ---
+    /// Assign a task to a company.
+    Assign {
+        subject: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        #[arg(short, long, default_value = "")]
+        description: String,
+        #[arg(short, long)]
+        priority: Option<String>,
+    },
+    /// Show unblocked (ready) work.
+    Ready {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Show all open tasks.
+    Tasks {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+        #[arg(long)]
+        all: bool,
+    },
+    /// Close a task.
+    Close {
+        id: String,
+        #[arg(short, long, default_value = "completed")]
+        reason: String,
+    },
+
+    // --- Phase 3: Orchestrator ---
+    /// Manage the daemon.
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonAction,
+    },
+
+    // --- Phase 4: Memory ---
+    /// Search collective memory.
+    Recall {
+        query: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+        #[arg(short, long, default_value = "5")]
+        top_k: usize,
+    },
+    /// Store a memory.
+    Remember {
+        key: String,
+        content: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Memory management (export/import).
+    Memory {
+        #[command(subcommand)]
+        action: MemoryAction,
+    },
+
+    // --- Phase 5: Pipelines ---
+    /// Pipeline workflow commands.
+    Pipeline {
+        #[command(subcommand)]
+        action: PipelineAction,
+    },
+
+    // --- Phase 6: Triggers ---
+    /// Manage agent triggers (scheduled + event-driven).
+    Trigger {
+        #[command(subcommand)]
+        action: TriggerAction,
+    },
+
+    // --- Phase 7: Prompts ---
+    /// List or run prompts.
+    Prompt {
+        #[command(subcommand)]
+        action: PromptAction,
+    },
+
+    // --- Missions ---
+    // --- Cross-company ---
+    /// Track work across companies.
+    Operation {
+        #[command(subcommand)]
+        action: OperationAction,
+    },
+
+    // --- Worker management ---
+    /// Development tools for Claude Code hook scripts.
+    Hooks {
+        #[command(subcommand)]
+        action: HooksAction,
+    },
+    /// Pin work to a worker.
+    Hook { worker: String, task_id: String },
+    /// Mark task as done, trigger cleanup.
+    Done {
+        task_id: String,
+        #[arg(short, long, default_value = "completed")]
+        reason: String,
+    },
+
+    /// Show system team and per-company teams.
+    Team {
+        /// Show team for a specific company.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+
+    // --- Config ---
+    /// Reload configuration.
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
+    /// Manage agent discovery and configuration.
+    Agent {
+        #[command(subcommand)]
+        action: AgentAction,
+    },
+
+    /// Query the decision audit trail.
+    Audit {
+        /// Filter by company name.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+        /// Filter by task ID.
+        #[arg(short, long)]
+        task: Option<String>,
+        /// Show last N events.
+        #[arg(short, long, default_value = "20")]
+        last: u32,
+    },
+
+    /// Query or post to the inter-agent notes.
+    Notes {
+        #[command(subcommand)]
+        action: NotesAction,
+    },
+
+    /// Suggest or apply inferred task dependencies.
+    Deps {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Auto-apply dependencies above this confidence threshold.
+        #[arg(long)]
+        apply: Option<f64>,
+    },
+
+    /// Start the web API server.
+    Web {
+        #[command(subcommand)]
+        action: WebAction,
+    },
+
+    /// Code intelligence graph — index, query, and analyze code structure.
+    Graph {
+        #[command(subcommand)]
+        action: GraphAction,
+    },
+
+    /// Interactive streaming chat with a AEQI agent (TUI).
+    Chat {
+        /// Persistent agent to chat with (default: auto-select based on company).
+        #[arg(short, long)]
+        agent: Option<String>,
+        /// Company scope for agent selection and memory.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+
+    /// Run as an MCP (Model Context Protocol) server.
+    Mcp,
+}
+
+#[derive(Subcommand)]
+pub enum GraphAction {
+    /// Index (or re-index) the code graph for a company.
+    Index {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Full re-index instead of incremental (git-diff based).
+        #[arg(long)]
+        full: bool,
+    },
+    /// Show graph statistics for a company.
+    Stats {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum NotesAction {
+    /// List note entries for a company.
+    List {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        #[arg(short, long, default_value = "20")]
+        limit: u32,
+    },
+    /// Post a new note entry.
+    Post {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        key: String,
+        content: String,
+        #[arg(short, long)]
+        tags: Vec<String>,
+        #[arg(long, default_value = "transient")]
+        durability: String,
+    },
+    /// Query notes by tags.
+    Query {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        #[arg(short, long)]
+        tags: Vec<String>,
+        #[arg(short, long, default_value = "10")]
+        limit: u32,
+    },
+    /// Get a specific entry by key.
+    Get {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        key: String,
+    },
+    /// Claim exclusive access to a resource.
+    Claim {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Resource to claim (e.g. file path, module name).
+        resource: String,
+        /// Description of what you're doing with the resource.
+        content: String,
+        /// Agent name (defaults to "cli").
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// Release a previously claimed resource.
+    Release {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Resource to release.
+        resource: String,
+        /// Agent name (defaults to "cli").
+        #[arg(long)]
+        agent: Option<String>,
+        /// Force release even if claimed by another agent.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Delete an entry by key.
+    Delete {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        key: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AgentAction {
+    /// List all discovered agents (from disk + TOML).
+    List,
+    /// Spawn a new persistent agent from a template file.
+    Spawn {
+        /// Path to the agent template file (frontmatter + system prompt).
+        template: String,
+        /// Override company scope from template.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Show details of a persistent agent.
+    Show {
+        /// Agent name.
+        name: String,
+    },
+    /// Retire a persistent agent (preserves memory).
+    Retire {
+        /// Agent name.
+        name: String,
+    },
+    /// Reactivate a paused or retired agent.
+    Activate {
+        /// Agent name.
+        name: String,
+    },
+    /// List all persistent agents from the registry.
+    Registry {
+        /// Filter by company.
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Migrate `[[agents]]` from aeqi.toml to agent.toml files on disk.
+    Migrate {
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SecretsAction {
+    Set { name: String, value: String },
+    Get { name: String },
+    List,
+    Delete { name: String },
+}
+
+#[derive(Subcommand)]
+pub enum DaemonAction {
+    /// Start the daemon (runs in foreground).
+    Start,
+    /// Install a per-user daemon service.
+    Install {
+        /// Start the service immediately after installing it.
+        #[arg(long)]
+        start: bool,
+        /// Overwrite an existing service definition.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Print the generated service definition.
+    PrintService,
+    /// Stop a running daemon.
+    Stop,
+    /// Uninstall the per-user daemon service.
+    Uninstall {
+        /// Stop the service before removing it.
+        #[arg(long)]
+        stop: bool,
+    },
+    /// Show daemon status.
+    Status,
+    /// Query the running daemon via IPC socket.
+    Query {
+        /// Command to send (ping, status, readiness, companies, dispatches, cost, metrics, audit, notes, expertise).
+        cmd: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfigAction {
+    /// Reload configuration (send SIGHUP to daemon).
+    Reload,
+    /// Show current config.
+    Show,
+}
+
+#[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)]
+pub enum TriggerAction {
+    /// Create a new trigger for an agent.
+    Create {
+        /// Trigger name.
+        name: String,
+        /// Agent name (must be a persistent agent).
+        #[arg(short, long)]
+        agent: String,
+        /// Cron expression or interval (e.g., "0 9 * * *" or "every 1h").
+        #[arg(short, long)]
+        schedule: Option<String>,
+        /// One-shot timestamp (ISO 8601).
+        #[arg(long)]
+        at: Option<String>,
+        /// Event pattern: task_completed, task_failed, tool_call_completed.
+        #[arg(short, long)]
+        event: Option<String>,
+        /// Event company filter (optional).
+        #[arg(long, alias = "event-project")]
+        event_company: Option<String>,
+        /// Event tool filter (optional).
+        #[arg(long)]
+        event_tool: Option<String>,
+        /// Cooldown in seconds for event triggers.
+        #[arg(long)]
+        cooldown: Option<u64>,
+        /// Create a webhook trigger (externally fired via HTTP POST).
+        #[arg(long)]
+        webhook: bool,
+        /// HMAC-SHA256 signing secret for webhook payload verification.
+        #[arg(long)]
+        signing_secret: Option<String>,
+        /// Skill to run when triggered.
+        #[arg(long)]
+        skill: String,
+        /// Maximum budget per execution in USD.
+        #[arg(long)]
+        max_budget: Option<f64>,
+    },
+    /// List triggers.
+    List {
+        /// Filter by agent name.
+        #[arg(short, long)]
+        agent: Option<String>,
+    },
+    /// Show trigger details.
+    Show { id: String },
+    /// Enable a trigger.
+    Enable { id: String },
+    /// Disable a trigger.
+    Disable { id: String },
+    /// Delete a trigger.
+    Delete { id: String },
+}
+
+#[derive(Subcommand)]
+pub enum PromptAction {
+    /// List available prompts for a company.
+    List {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Run a prompt by name.
+    Run {
+        name: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Additional user prompt appended after the prompt's user_prefix.
+        prompt: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum OperationAction {
+    /// Create an operation tracking tasks across companies.
+    Create {
+        name: String,
+        /// Task IDs to track (e.g. as-001 rd-002).
+        task_ids: Vec<String>,
+    },
+    /// List active operations.
+    List,
+    /// Show operation status.
+    Status { id: String },
+}
+
+#[derive(Subcommand)]
+pub enum PipelineAction {
+    /// Pour (instantiate) a pipeline workflow.
+    Pour {
+        template: String,
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: String,
+        /// Variables as key=value pairs.
+        #[arg(long = "var")]
+        vars: Vec<String>,
+    },
+    /// List available pipeline templates.
+    List {
+        #[arg(short = 'r', long = "company", alias = "project")]
+        company: Option<String>,
+    },
+    /// Show status of a pipeline (parent task and its children).
+    Status { id: String },
+}
+
+#[derive(Subcommand)]
+pub enum HooksAction {
+    /// Test a hook script with simulated input.
+    Test {
+        /// Script name (e.g., "check-recall") or full path.
+        script: String,
+        /// Tool input JSON.
+        #[arg(long)]
+        input: Option<String>,
+        /// Tool name context.
+        #[arg(long, default_value = "Edit")]
+        tool: String,
+    },
+    /// Validate all hook scripts from Claude Code settings.
+    Validate,
+    /// List active hooks from Claude Code settings.
+    List,
+    /// Benchmark hook execution times.
+    Bench {
+        /// Script name to benchmark (benchmarks all hot-path hooks if omitted).
+        script: Option<String>,
+        /// Number of iterations.
+        #[arg(long, default_value = "20")]
+        iterations: u32,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum WebAction {
+    /// Start the web API server.
+    Start {
+        /// Override bind address (default: from config or 0.0.0.0:8400).
+        #[arg(long)]
+        bind: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum MemoryAction {
+    /// Export all memories to an Obsidian vault.
+    Export {
+        /// Path to the Obsidian vault directory.
+        #[arg(long)]
+        vault: std::path::PathBuf,
+    },
+    /// Import memories from an Obsidian vault.
+    Import {
+        /// Path to the Obsidian vault directory.
+        #[arg(long)]
+        vault: std::path::PathBuf,
+    },
+}
