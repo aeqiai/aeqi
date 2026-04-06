@@ -549,15 +549,23 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                         Ok(p) => p,
                         Err(e) => {
                             warn!(error = %e, "scheduler: failed to build provider, using default");
-                            default_provider
-                                .clone()
-                                .expect("no provider available for scheduler")
+                            match default_provider.clone() {
+                                Some(p) => p,
+                                None => {
+                                    warn!("no provider available — scheduler will not process agent tasks");
+                                    Arc::new(aeqi_providers::noop::NoopProvider)
+                                }
+                            }
                         }
                     }
                 } else {
-                    default_provider
-                        .clone()
-                        .expect("no provider available for scheduler")
+                    match default_provider.clone() {
+                        Some(p) => p,
+                        None => {
+                            warn!("no provider available — scheduler will not process agent tasks");
+                            Arc::new(aeqi_providers::noop::NoopProvider)
+                        }
+                    }
                 };
 
             // Collect base tools for the scheduler (union of project tools).

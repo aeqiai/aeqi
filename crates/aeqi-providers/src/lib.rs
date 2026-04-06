@@ -12,6 +12,7 @@ pub mod fallback;
 pub mod ollama;
 pub mod openrouter;
 pub mod pricing;
+pub mod noop;
 pub mod reliable;
 
 pub use anthropic::AnthropicProvider;
