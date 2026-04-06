@@ -57,6 +57,15 @@
   gap: 10px;
 }
 
+.auth-name-row {
+  display: flex;
+  gap: 8px;
+}
+.auth-name-row .auth-input {
+  flex: 1;
+  min-width: 0;
+}
+
 .auth-input {
   width: 100%;
   padding: 9px 12px;

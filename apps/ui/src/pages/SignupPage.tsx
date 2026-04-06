@@ -35,7 +35,9 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const { loading, error, signup, googleOAuth, fetchAuthMode } = useAuthStore();
 
-  const [name, setName] = useState("");
+  const [step, setStep] = useState<"info" | "password">("info");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -43,9 +45,16 @@ export default function SignupPage() {
     fetchAuthMode();
   }, [fetchAuthMode]);
 
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+  const handleContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (firstName.trim() && lastName.trim() && email.trim()) setStep("password");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await signup(email, password, name);
+    const result = await signup(email, password, fullName);
     if (result === "pending" || result === "verified") navigate("/onboarding");
   };
 
@@ -59,49 +68,82 @@ export default function SignupPage() {
       <div className="signup-form-side">
         <div className="auth-container">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
-          <h1 className="auth-heading">Create your account</h1>
-          <p className="auth-subheading">Start building with autonomous agents</p>
+          <h1 className="auth-heading">
+            {step === "info" ? "Create your account" : "Set a password"}
+          </h1>
+          <p className="auth-subheading">
+            {step === "info" ? "Start building with autonomous agents" : email}
+          </p>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <input
-              className="auth-input"
-              type="text"
-              placeholder="Full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-            <input
-              className="auth-input"
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <input
-              className="auth-input"
-              type="password"
-              placeholder="Password (8+ characters)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            {error && <div className="auth-error">{error}</div>}
-            <button
-              className="auth-btn-primary"
-              type="submit"
-              disabled={loading || !email || !name.trim() || password.length < 8}
-            >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </form>
-
-          {googleOAuth && (
+          {step === "info" ? (
             <>
-              <div className="auth-divider"><span>or</span></div>
-              <button className="auth-btn-google" onClick={handleGoogle} type="button">
-                <GoogleIcon />
-                Continue with Google
-              </button>
+              <form className="auth-form" onSubmit={handleContinue}>
+                <div className="auth-name-row">
+                  <input
+                    className="auth-input"
+                    type="text"
+                    placeholder="First name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    autoFocus
+                  />
+                  <input
+                    className="auth-input"
+                    type="text"
+                    placeholder="Last name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+                <input
+                  className="auth-input"
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <button
+                  className="auth-btn-primary"
+                  type="submit"
+                  disabled={!firstName.trim() || !lastName.trim() || !email.trim()}
+                >
+                  Continue
+                </button>
+              </form>
+
+              {googleOAuth && (
+                <>
+                  <div className="auth-divider"><span>or</span></div>
+                  <button className="auth-btn-google" onClick={handleGoogle} type="button">
+                    <GoogleIcon />
+                    Continue with Google
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <form className="auth-form" onSubmit={handleSubmit}>
+                <input
+                  className="auth-input"
+                  type="password"
+                  placeholder="Password (8+ characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoFocus
+                />
+                {error && <div className="auth-error">{error}</div>}
+                <button
+                  className="auth-btn-primary"
+                  type="submit"
+                  disabled={loading || password.length < 8}
+                >
+                  {loading ? "Creating account..." : "Create account"}
+                </button>
+              </form>
+              <p className="auth-switch">
+                <a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a>
+              </p>
             </>
           )}
 
