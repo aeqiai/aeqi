@@ -79,20 +79,6 @@ export default function AppLayout() {
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
               </span>
             </a>
-          </nav>
-          <nav className="sidebar-nav sidebar-nav-agents">
-            <a className={`sidebar-nav-item ${isActive("/agents") ? "active" : ""}`} href="/agents" onClick={(e) => { e.preventDefault(); navigate("/agents"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="7" cy="5" r="2.5" /><path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" /></svg>
-              <span className="sidebar-nav-label">Agents</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/agents?create=1"); }} title="New agent">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
-              </span>
-            </a>
-          </nav>
-          <div className="left-sidebar-body">
-            <AgentTree />
-          </div>
-          <nav className="sidebar-nav sidebar-nav-bottom">
             <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
               <span className="sidebar-nav-label">Company</span>
@@ -106,6 +92,18 @@ export default function AppLayout() {
               <span className="sidebar-nav-label">Apps</span>
             </a>
           </nav>
+          <nav className="sidebar-nav sidebar-nav-agents">
+            <a className={`sidebar-nav-item ${isActive("/agents") ? "active" : ""}`} href="/agents" onClick={(e) => { e.preventDefault(); navigate("/agents"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="7" cy="5" r="2.5" /><path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" /></svg>
+              <span className="sidebar-nav-label">Agents</span>
+              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/agents?create=1"); }} title="New agent">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              </span>
+            </a>
+          </nav>
+          <div className="left-sidebar-body">
+            <AgentTree />
+          </div>
           <ProfileMenu />
         </div>
 

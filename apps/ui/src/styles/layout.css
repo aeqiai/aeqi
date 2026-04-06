@@ -95,11 +95,6 @@
   border-top: 1px solid var(--border);
   padding: 4px 8px 8px;
 }
-.sidebar-nav-bottom {
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-  padding: 4px 8px 8px;
-}
 
 /* ── Shared sidebar menu (company + profile) ── */
 .sidebar-menu {
