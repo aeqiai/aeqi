@@ -16,7 +16,7 @@ PROJECT=$(detect_project)
 
 TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 
-printf '{"cmd":"knowledge_store","project":"%s","key":"signal:notification:%s","content":"Claude Code session notification in project %s","category":"context"}' \
+printf '{"cmd":"knowledge_store","project":"%s","key":"signal:notification:%s","content":"Claude Code session notification in project %s","category":"context","ttl_secs":3600}' \
     "$PROJECT" "$TIMESTAMP" "$PROJECT" \
     | socat -t2 - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1 || true
 

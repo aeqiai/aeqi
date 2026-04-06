@@ -3298,12 +3298,46 @@ impl Daemon {
                                 _ => aeqi_core::traits::InsightCategory::Fact,
                             };
                             let agent_id = request.get("agent_id").and_then(|v| v.as_str());
-                            match mem.store(key, content, cat, agent_id).await {
+                            let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
+                            match mem.store_with_ttl(key, content, cat, agent_id, ttl_secs).await {
                                 Ok(id) => serde_json::json!({"ok": true, "id": id}),
                                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                             }
                         } else {
                             serde_json::json!({"ok": false, "error": format!("no insight store available: {project}")})
+                        }
+                    } else {
+                        serde_json::json!({"ok": false, "error": "chat engine not initialized"})
+                    }
+                }
+
+                "memory_prefix" => {
+                    let prefix = request.get("prefix").and_then(|v| v.as_str()).unwrap_or("");
+                    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+
+                    if prefix.is_empty() {
+                        serde_json::json!({"ok": false, "error": "prefix required"})
+                    } else if let Some(ref engine) = message_router {
+                        if let Some(mem) = engine.insight_store.as_ref() {
+                            match mem.search_by_prefix(prefix, limit) {
+                                Ok(entries) => {
+                                    let memories: Vec<serde_json::Value> = entries
+                                        .iter()
+                                        .map(|e| serde_json::json!({
+                                            "id": e.id,
+                                            "key": e.key,
+                                            "content": e.content,
+                                            "category": e.category,
+                                            "agent_id": e.agent_id,
+                                            "created_at": e.created_at.to_rfc3339(),
+                                        }))
+                                        .collect();
+                                    serde_json::json!({"ok": true, "memories": memories, "count": memories.len()})
+                                }
+                                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                            }
+                        } else {
+                            serde_json::json!({"ok": false, "error": "no insight store available"})
                         }
                     } else {
                         serde_json::json!({"ok": false, "error": "chat engine not initialized"})

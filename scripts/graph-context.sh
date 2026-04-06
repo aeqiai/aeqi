@@ -43,11 +43,14 @@ REPO_PATH=$(awk -v proj="$PROJECT" -v home="$HOME" '
 REL_PATH="${FILE_PATH#$REPO_PATH/}"
 [ "$REL_PATH" = "$FILE_PATH" ] && exit 0
 
+# Escape single quotes for safe SQLite interpolation
+SAFE_PATH="${REL_PATH//\'/\'\'}"
+
 # Query file summary
 SUMMARY=$(sqlite3 "$GRAPH_DB" "
     SELECT label || ':' || c FROM (
         SELECT label, COUNT(*) as c FROM code_nodes
-        WHERE file_path = '$REL_PATH'
+        WHERE file_path = '$SAFE_PATH'
         AND label NOT IN ('file','community','process')
         GROUP BY label ORDER BY c DESC
     )
@@ -59,8 +62,8 @@ SUMMARY=$(sqlite3 "$GRAPH_DB" "
 CALLERS=$(sqlite3 "$GRAPH_DB" "
     SELECT COUNT(*) FROM code_edges e
     JOIN code_nodes t ON t.id = e.target_id
-    WHERE t.file_path = '$REL_PATH' AND e.edge_type = 'calls'
-    AND e.source_id NOT IN (SELECT id FROM code_nodes WHERE file_path = '$REL_PATH')
+    WHERE t.file_path = '$SAFE_PATH' AND e.edge_type = 'calls'
+    AND e.source_id NOT IN (SELECT id FROM code_nodes WHERE file_path = '$SAFE_PATH')
 " 2>/dev/null) || true
 
 CONTEXT="Graph: $SUMMARY"

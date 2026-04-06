@@ -117,6 +117,28 @@ pub trait Insight: Send + Sync {
         Ok(all)
     }
 
+    /// Store with an optional TTL in seconds. Default delegates to store() ignoring TTL.
+    async fn store_with_ttl(
+        &self,
+        key: &str,
+        content: &str,
+        category: InsightCategory,
+        agent_id: Option<&str>,
+        _ttl_secs: Option<u64>,
+    ) -> anyhow::Result<String> {
+        self.store(key, content, category, agent_id).await
+    }
+
+    /// Search by key prefix (exact prefix match, not FTS). Default returns empty.
+    fn search_by_prefix(&self, _prefix: &str, _limit: usize) -> anyhow::Result<Vec<InsightEntry>> {
+        Ok(Vec::new())
+    }
+
+    /// Delete expired entries. Default is no-op.
+    fn cleanup_expired(&self) -> anyhow::Result<usize> {
+        Ok(0)
+    }
+
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
 
     fn name(&self) -> &str;

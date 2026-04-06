@@ -38,11 +38,14 @@ for abs_path in $EDITED_FILES; do
     REL="${abs_path#$REPO_PATH/}"
     [ "$REL" = "$abs_path" ] && continue
 
+    # Escape single quotes for safe SQLite interpolation
+    SAFE_REL="${REL//\'/\'\'}"
+
     # Find exported symbols in this file with zero incoming CALLS edges
     ORPHANS=$(sqlite3 "$GRAPH_DB" "
         SELECT n.name || ' (' || n.label || ')'
         FROM code_nodes n
-        WHERE n.file_path = '$REL'
+        WHERE n.file_path = '$SAFE_REL'
         AND n.is_exported = 1
         AND n.label NOT IN ('file','module','community','process','property')
         AND NOT EXISTS (

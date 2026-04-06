@@ -19,7 +19,7 @@ TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 
 # Nudge 1: work done but no learnings stored
 if [ -f "$RECALL_GATE" ] && [ ! -f "$REMEMBER_FLAG" ] && [ -S "$SOCK" ]; then
-    printf '{"cmd":"knowledge_store","project":"%s","key":"signal:remember-nudge:%s","content":"Previous session did work but stored no learnings. Consider: were there non-obvious decisions or patterns worth preserving?","category":"context"}' \
+    printf '{"cmd":"knowledge_store","project":"%s","key":"signal:remember-nudge:%s","content":"Previous session did work but stored no learnings. Consider: were there non-obvious decisions or patterns worth preserving?","category":"context","ttl_secs":86400}' \
         "$PROJECT" "$TIMESTAMP" \
         | socat -t2 - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1 || true
     log_hook "session-finalize" "nudge" "no-remember in project=$PROJECT"
@@ -29,7 +29,7 @@ fi
 if [ -f "$EDITS_LOG" ] && [ -S "$SOCK" ]; then
     DISTINCT_FILES=$(sort -u "$EDITS_LOG" | wc -l)
     if [ "$DISTINCT_FILES" -gt 5 ]; then
-        printf '{"cmd":"knowledge_store","project":"%s","key":"signal:primer-update-nudge:%s","content":"Previous session edited %s distinct files in %s. The project primer (AEQI.md) may need updating.","category":"context"}' \
+        printf '{"cmd":"knowledge_store","project":"%s","key":"signal:primer-update-nudge:%s","content":"Previous session edited %s distinct files in %s. The project primer (AEQI.md) may need updating.","category":"context","ttl_secs":86400}' \
             "$PROJECT" "$TIMESTAMP" "$DISTINCT_FILES" "$PROJECT" \
             | socat -t2 - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1 || true
         log_hook "session-finalize" "nudge" "primer-update files=$DISTINCT_FILES project=$PROJECT"

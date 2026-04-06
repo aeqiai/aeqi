@@ -136,6 +136,9 @@ impl SqliteInsights {
         // Always ensure embeddings table exists for future use.
         VectorStore::open(&conn, 1536)?;
 
+        // Migrate: add expires_at column for optional TTL.
+        Self::migrate_ttl(&conn)?;
+
         // Migrate: add content_hash column for embedding cache dedup.
         Self::migrate_embedding_hash(&conn)?;
 
@@ -276,6 +279,23 @@ impl SqliteInsights {
         Ok(())
     }
 
+    /// Migrate: add optional expires_at column for TTL support.
+    fn migrate_ttl(conn: &Connection) -> Result<()> {
+        let has_expires: bool = conn
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('insights') WHERE name='expires_at'")?
+            .query_row([], |row| row.get(0))?;
+
+        if !has_expires {
+            conn.execute_batch(
+                "ALTER TABLE insights ADD COLUMN expires_at TEXT;
+                 CREATE INDEX IF NOT EXISTS idx_insights_expires ON insights(expires_at);",
+            )?;
+            debug!("migrated insights: added expires_at column + index");
+        }
+
+        Ok(())
+    }
+
     /// Compute SHA256 hash of content for embedding cache lookup.
     fn content_hash(content: &str) -> String {
         use sha2::{Digest, Sha256};
@@ -297,15 +317,18 @@ impl SqliteInsights {
 
     // ── Bulk queries for export ──
 
-    /// List all insights (unscored, no search ranking).
+    /// List all non-expired insights (unscored, no search ranking).
     pub fn list_all(&self) -> Result<Vec<InsightEntry>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let now = Utc::now().to_rfc3339();
         let mut stmt = conn.prepare(
             "SELECT id, key, content, category, agent_id, session_id, created_at
-             FROM insights ORDER BY created_at DESC",
+             FROM insights
+             WHERE expires_at IS NULL OR expires_at > ?1
+             ORDER BY created_at DESC",
         )?;
         let entries = stmt
-            .query_map([], |row| {
+            .query_map(rusqlite::params![now], |row| {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
                 let content: String = row.get(2)?;
@@ -376,6 +399,99 @@ impl SqliteInsights {
         Ok(edges)
     }
 
+    // ── TTL and prefix queries ──
+
+    /// Search insights by key prefix (exact prefix match, not FTS5).
+    /// Filters out expired entries. Returns newest first.
+    pub fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<InsightEntry>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let now = Utc::now().to_rfc3339();
+        let like_pattern = format!("{prefix}%");
+        let mut stmt = conn.prepare(
+            "SELECT id, key, content, category, agent_id, session_id, created_at
+             FROM insights
+             WHERE key LIKE ?1
+             AND (expires_at IS NULL OR expires_at > ?2)
+             ORDER BY created_at DESC
+             LIMIT ?3",
+        )?;
+        let entries = stmt
+            .query_map(rusqlite::params![like_pattern, now, limit as i64], |row| {
+                let id: String = row.get(0)?;
+                let key: String = row.get(1)?;
+                let content: String = row.get(2)?;
+                let cat_str: String = row.get(3)?;
+                let agent_id: Option<String> = row.get(4)?;
+                let session_id: Option<String> = row.get(5)?;
+                let created_str: String = row.get(6)?;
+                Ok((id, key, content, cat_str, agent_id, session_id, created_str))
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|(id, key, content, cat_str, agent_id, session_id, created_str)| {
+                let category: InsightCategory =
+                    serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .ok()?
+                    .with_timezone(&Utc);
+                Some(InsightEntry {
+                    id,
+                    key,
+                    content,
+                    category,
+                    agent_id,
+                    created_at,
+                    session_id,
+                    score: 1.0,
+                })
+            })
+            .collect();
+        Ok(entries)
+    }
+
+    /// Delete expired insights and their embeddings.
+    /// Returns the number of entries cleaned up.
+    pub fn cleanup_expired(&self) -> Result<usize> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let now = Utc::now().to_rfc3339();
+
+        // Get IDs of expired entries (for embedding cleanup).
+        let expired_ids: Vec<String> = conn
+            .prepare("SELECT id FROM insights WHERE expires_at IS NOT NULL AND expires_at <= ?1")?
+            .query_map(rusqlite::params![now], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if expired_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let count = expired_ids.len();
+
+        // Delete embeddings for expired entries.
+        for id in &expired_ids {
+            conn.execute(
+                "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                rusqlite::params![id],
+            )
+            .ok();
+        }
+
+        // Delete the expired insights.
+        conn.execute(
+            "DELETE FROM insights WHERE expires_at IS NOT NULL AND expires_at <= ?1",
+            rusqlite::params![now],
+        )?;
+
+        debug!(count, "cleaned up expired insights");
+        Ok(count)
+    }
+
     fn decay_factor(&self, created_at: &DateTime<Utc>) -> f64 {
         let age_days = (Utc::now() - *created_at).num_seconds() as f64 / 86400.0;
         if age_days <= 0.0 {
@@ -400,6 +516,12 @@ impl SqliteInsights {
         let mut conditions = vec!["insights_fts MATCH ?1".to_string()];
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(fts_query)];
         let mut idx = 2usize;
+
+        // Filter out expired entries.
+        let now = Utc::now().to_rfc3339();
+        conditions.push(format!("(m.expires_at IS NULL OR m.expires_at > ?{idx})"));
+        params.push(Box::new(now));
+        idx += 1;
 
         if let Some(ref agent_id) = query.agent_id {
             conditions.push(format!("m.agent_id = ?{idx}"));
@@ -1091,6 +1213,42 @@ impl Insight for SqliteInsights {
             rusqlite::params![id],
         )?;
         Ok(())
+    }
+
+    async fn store_with_ttl(
+        &self,
+        key: &str,
+        content: &str,
+        category: InsightCategory,
+        agent_id: Option<&str>,
+        ttl_secs: Option<u64>,
+    ) -> Result<String> {
+        let id = self.store(key, content, category, agent_id).await?;
+        if id.is_empty() {
+            return Ok(id);
+        }
+        if let Some(ttl) = ttl_secs {
+            let expires = Utc::now() + chrono::Duration::seconds(ttl as i64);
+            let expires_str = expires.to_rfc3339();
+            let conn = self
+                .conn
+                .lock()
+                .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+            conn.execute(
+                "UPDATE insights SET expires_at = ?1 WHERE id = ?2",
+                rusqlite::params![expires_str, id],
+            )?;
+        }
+        Ok(id)
+    }
+
+    fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<InsightEntry>> {
+        // Delegate to inherent method.
+        SqliteInsights::search_by_prefix(self, prefix, limit)
+    }
+
+    fn cleanup_expired(&self) -> Result<usize> {
+        SqliteInsights::cleanup_expired(self)
     }
 
     fn name(&self) -> &str {

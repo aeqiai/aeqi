@@ -54,25 +54,24 @@ emit_health() {
 emit_reverse_channel() {
     [ -S "$SOCK" ] || return 0
     local proj="${1:-aeqi}"
-    # Query for recent nudges and findings via memory
-    local bb_resp
-    bb_resp=$(printf '{"cmd":"memories","project":"%s","query":"signal nudge finding decision","limit":10}' "$proj" | socat -t2 - UNIX-CONNECT:"$SOCK" 2>/dev/null) || true
-    [ -z "$bb_resp" ] && return 0
+    local all_signals=""
 
-    # Extract entries with signal: or finding: prefixes from memory
-    local signals
-    signals=$(printf '%s' "$bb_resp" | jq -r '
-        .memories // [] | map(select(
-            (.key | startswith("signal:remember-nudge")) or
-            (.key | startswith("finding:")) or
-            (.key | startswith("decision:"))
-        )) | .[:5] | .[] | "- [\(.key)] \(.content[:120])"
-    ' 2>/dev/null) || true
+    # Query each signal prefix directly (exact prefix match, not FTS5)
+    for prefix in "signal:" "finding:" "decision:"; do
+        local resp
+        resp=$(printf '{"cmd":"memory_prefix","prefix":"%s","limit":5}' "$prefix" | socat -t2 - UNIX-CONNECT:"$SOCK" 2>/dev/null) || true
+        [ -z "$resp" ] && continue
+        local entries
+        entries=$(printf '%s' "$resp" | jq -r '
+            .memories // [] | .[] | "- [\(.key)] \(.content[:120])"
+        ' 2>/dev/null) || true
+        [ -n "$entries" ] && all_signals="${all_signals}${entries}\n"
+    done
 
-    if [ -n "$signals" ]; then
+    if [ -n "$all_signals" ]; then
         echo ""
         echo "## Memory Signals"
-        echo "$signals"
+        printf '%b' "$all_signals"
     fi
 }
 
@@ -205,6 +204,12 @@ cat <<'QREF'
   mcp__aeqi__aeqi_recall, mcp__aeqi__aeqi_remember, mcp__aeqi__aeqi_primer
   mcp__aeqi__aeqi_prompts, mcp__aeqi__aeqi_agents, mcp__aeqi__aeqi_notes
   mcp__aeqi__aeqi_create_task, mcp__aeqi__aeqi_close_task, mcp__aeqi__aeqi_status
+
+## Workflow — Memory is the coordination surface
+  Knowledge/plans/findings → aeqi_remember (persistent, searchable via FTS5+vector)
+  Prior context → aeqi_recall (hybrid search with temporal decay)
+  File locks → aeqi_notes claim/release (ephemeral resource claims)
+  Tasks are "quests" → aeqi_create_task / aeqi_close_task
 QREF
 
 # Skills list (id=4) — workflow skills first, then by phase
