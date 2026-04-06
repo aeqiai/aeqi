@@ -24,7 +24,7 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <div className="auth-container">
-        <div className="auth-logo"><BrandMark size={48} color="rgba(0,0,0,0.5)" /></div>
+        <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
         <h1 className="auth-heading">Create your account</h1>
         <p className="auth-subheading">Start building with autonomous agents</p>
 

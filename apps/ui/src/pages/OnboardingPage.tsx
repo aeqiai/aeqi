@@ -15,6 +15,9 @@ const TOTAL_STEPS = 4;
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { pendingEmail, verifyEmail, resendCode, fetchMe } = useAuthStore();
+  const [verifyEmail_, setVerifyEmail] = useState(
+    pendingEmail || localStorage.getItem("aeqi_pending_email") || ""
+  );
   const [step, setStep] = useState(1);
   const [companyName, setCompanyName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -26,7 +29,16 @@ export default function OnboardingPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const email = pendingEmail || localStorage.getItem("aeqi_pending_email") || "";
+
+  // On mount, resolve email for verification from user object if needed
+  useEffect(() => {
+    if (!verifyEmail_) {
+      fetchMe().then(() => {
+        const u = useAuthStore.getState().user;
+        if (u?.email && u.email_verified === false) setVerifyEmail(u.email);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -34,33 +46,36 @@ export default function OnboardingPage() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const handleCreateCompany = async () => {
-    if (!companyName.trim() || loading) return;
+  // Step 1: just collect company info locally, don't hit the API yet
+  const handleCreateCompany = () => {
+    if (!companyName.trim()) return;
+    localStorage.setItem("aeqi_company", companyName.trim());
+    if (tagline.trim()) localStorage.setItem("aeqi_company_tagline", tagline.trim());
+    setError("");
+    setStep(2);
+  };
+
+  // Step 2: collect agent choice, then go to verify (or done if no verification needed)
+  const handleHireAgent = () => {
+    setError("");
+    setStep(verifyEmail_ ? 3 : 4);
+  };
+
+  // After verification succeeds (or if already verified), actually create company + agent
+  const handlePostVerification = async () => {
     setLoading(true);
     setError("");
     try {
-      const result = await api.createCompany({ name: companyName.trim(), tagline: tagline.trim() || undefined });
-      localStorage.setItem("aeqi_company", companyName.trim());
-      if (result?.tagline) localStorage.setItem("aeqi_company_tagline", result.tagline);
-      setStep(2);
-    } catch (e: any) {
-      setError(e?.message || "Failed to create company");
-    }
-    setLoading(false);
-  };
-
-  const handleHireAgent = async () => {
-    if (loading) return;
-    setLoading(true);
+      await api.createCompany({ name: companyName.trim(), tagline: tagline.trim() || undefined });
+    } catch { /* best-effort, may already exist */ }
     if (selectedAgent) {
       try {
         await api.spawnAgent({ template: selectedAgent, project: companyName.trim() });
       } catch { /* non-critical */ }
     }
     await fetchMe();
-    // If there's a pending email, go to verify step. Otherwise skip to done.
-    setStep(email ? 3 : 4);
     setLoading(false);
+    setStep(4);
   };
 
   // Verification handlers
@@ -75,12 +90,12 @@ export default function OnboardingPage() {
     if (full.length === 6) {
       setLoading(true);
       setError("");
-      verifyEmail(email, full).then((ok) => {
-        setLoading(false);
+      verifyEmail(verifyEmail_, full).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          setStep(4);
+          handlePostVerification();
         } else {
+          setLoading(false);
           setError("Invalid or expired code");
         }
       });
@@ -101,12 +116,12 @@ export default function OnboardingPage() {
       inputRefs.current[5]?.focus();
       setLoading(true);
       setError("");
-      verifyEmail(email, text).then((ok) => {
-        setLoading(false);
+      verifyEmail(verifyEmail_, text).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          setStep(4);
+          handlePostVerification();
         } else {
+          setLoading(false);
           setError("Invalid or expired code");
         }
       });
@@ -115,7 +130,7 @@ export default function OnboardingPage() {
 
   const handleResend = async () => {
     if (resendCooldown > 0) return;
-    const ok = await resendCode(email);
+    const ok = await resendCode(verifyEmail_);
     if (ok) setResendCooldown(60);
   };
 
@@ -125,9 +140,9 @@ export default function OnboardingPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-container" style={{ maxWidth: 420 }}>
+      <div className="auth-container" style={{ maxWidth: 380 }}>
         {/* Progress dots */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 40 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 32 }}>
           {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
             <div
               key={s}
@@ -169,9 +184,9 @@ export default function OnboardingPage() {
               <button
                 className="auth-btn-primary"
                 onClick={handleCreateCompany}
-                disabled={!companyName.trim() || loading}
+                disabled={!companyName.trim()}
               >
-                {loading ? "Creating..." : "Continue"}
+                Continue
               </button>
             </div>
           </>
@@ -182,7 +197,7 @@ export default function OnboardingPage() {
           <>
             <h1 className="auth-heading">Hire your first agent</h1>
             <p className="auth-subheading">Pick a role to get started. You can add more later.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 20 }}>
               {AGENT_TEMPLATES.map((t) => (
                 <button
                   key={t.name}
@@ -191,27 +206,26 @@ export default function OnboardingPage() {
                     display: "flex",
                     flexDirection: "column",
                     gap: 2,
-                    padding: "14px 16px",
+                    padding: "10px 14px",
                     background: selectedAgent === t.template ? "rgba(0,0,0,0.04)" : "transparent",
                     border: `1px solid ${selectedAgent === t.template ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.08)"}`,
-                    borderRadius: 12,
+                    borderRadius: 8,
                     cursor: "pointer",
                     textAlign: "left",
                     transition: "all 0.15s",
                     fontFamily: "var(--font-sans)",
                   }}
                 >
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(0,0,0,0.85)" }}>{t.name}</span>
-                  <span style={{ fontSize: 12, color: "rgba(0,0,0,0.4)" }}>{t.desc}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(0,0,0,0.85)" }}>{t.name}</span>
+                  <span style={{ fontSize: 11, color: "rgba(0,0,0,0.4)" }}>{t.desc}</span>
                 </button>
               ))}
             </div>
             <button
               className="auth-btn-primary"
               onClick={handleHireAgent}
-              disabled={loading}
             >
-              {loading ? "Setting up..." : selectedAgent ? "Hire & continue" : "Skip for now"}
+              {selectedAgent ? "Hire & continue" : "Skip for now"}
             </button>
           </>
         )}
@@ -221,7 +235,7 @@ export default function OnboardingPage() {
           <>
             <h1 className="auth-heading">Verify your email</h1>
             <p className="auth-subheading">
-              Enter the 6-digit code sent to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong>
+              Enter the 6-digit code sent to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{verifyEmail_}</strong>
             </p>
             <div className="verify-code-inputs" onPaste={handlePaste}>
               {code.map((digit, i) => (
@@ -240,7 +254,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             {error && <div className="auth-error">{error}</div>}
-            {loading && <p className="auth-subheading">Verifying...</p>}
+            {loading && <p className="auth-subheading">Setting up your workspace...</p>}
             <p className="auth-switch" style={{ marginTop: 24 }}>
               Didn't get the code?{" "}
               {resendCooldown > 0 ? (

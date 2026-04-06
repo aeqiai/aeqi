@@ -8,6 +8,7 @@ interface User {
   email: string;
   name: string;
   avatar_url?: string;
+  email_verified?: boolean;
   companies?: string[];
   subscription_status: "trialing" | "active" | "canceled" | "past_due" | "none";
   subscription_plan: "starter" | "growth" | null;
