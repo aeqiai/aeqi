@@ -69,17 +69,6 @@ pub fn signing_secret(state: &AppState) -> &str {
     }
 }
 
-/// Extract user_id from a validated request (for data scoping).
-pub fn extract_user_id(state: &AppState, req: &Request) -> Option<String> {
-    if state.auth_mode != AuthMode::Accounts {
-        return None;
-    }
-    let token = extract_bearer(req)?;
-    let secret = signing_secret(state);
-    let claims = validate_token(token, secret).ok()?;
-    claims.user_id
-}
-
 /// Axum middleware — dispatches by auth mode.
 pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
     match state.auth_mode {
@@ -98,58 +87,6 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             };
             match validate_token(token, secret) {
                 Ok(claims) => {
-                    req.extensions_mut().insert(claims);
-                    next.run(req).await
-                }
-                Err(_) => {
-                    tracing::warn!("auth: invalid or expired token");
-                    (
-                        StatusCode::UNAUTHORIZED,
-                        axum::Json(
-                            serde_json::json!({"ok": false, "error": "invalid or expired token"}),
-                        ),
-                    )
-                        .into_response()
-                }
-            }
-        }
-        AuthMode::Accounts => {
-            let secret = signing_secret(&state);
-            let Some(token) = extract_bearer(&req) else {
-                tracing::warn!("auth: missing authorization header");
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    axum::Json(
-                        serde_json::json!({"ok": false, "error": "missing authorization header"}),
-                    ),
-                )
-                    .into_response();
-            };
-            match validate_token(token, secret) {
-                Ok(claims) => {
-                    // Check email_verified for accounts mode.
-                    if let Some(ref uid) = claims.user_id
-                        && let Some(ref store) = state.user_store
-                        && !store.is_email_verified(uid)
-                    {
-                        // Allow only auth endpoints and companies for unverified users.
-                        let path = req.uri().path();
-                        // Nested routers strip /api prefix, so check both forms.
-                        let allowed = path.starts_with("/api/auth/")
-                            || path.starts_with("/auth/")
-                            || path.starts_with("/api/companies")
-                            || path.starts_with("/companies");
-                        if !allowed {
-                            tracing::info!(user_id = %uid, "auth: email not verified, restricted access");
-                            return (
-                                StatusCode::FORBIDDEN,
-                                axum::Json(
-                                    serde_json::json!({"ok": false, "error": "email not verified"}),
-                                ),
-                            )
-                                .into_response();
-                        }
-                    }
                     req.extensions_mut().insert(claims);
                     next.run(req).await
                 }

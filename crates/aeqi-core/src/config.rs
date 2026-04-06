@@ -628,33 +628,15 @@ pub enum AuthMode {
     /// Shared secret passphrase (current behavior).
     #[default]
     Secret,
-    /// Full user accounts with email/password + Google OAuth.
-    Accounts,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AuthConfig {
     #[serde(default)]
     pub mode: AuthMode,
-    #[serde(default)]
-    pub google_client_id: Option<String>,
-    #[serde(default)]
-    pub google_client_secret: Option<String>,
-    /// Base URL for OAuth redirects and email links.
+    /// Base URL for dashboard links.
     #[serde(default)]
     pub base_url: Option<String>,
-    /// Resend API key for transactional emails.
-    #[serde(default)]
-    pub resend_api_key: Option<String>,
-    /// From address for emails (default: "aeqi <hello@aeqi.ai>").
-    #[serde(default)]
-    pub from_email: Option<String>,
-    /// Stripe secret key for payment integration.
-    #[serde(default)]
-    pub stripe_secret_key: Option<String>,
-    /// Stripe webhook signing secret.
-    #[serde(default)]
-    pub stripe_webhook_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

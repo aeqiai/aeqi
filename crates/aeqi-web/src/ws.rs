@@ -23,7 +23,7 @@ pub async fn handler(
     // Validate token from query param, dispatching by auth mode.
     match state.auth_mode {
         AuthMode::None => { /* allow without validation */ }
-        AuthMode::Secret | AuthMode::Accounts => {
+        AuthMode::Secret => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");
             if auth::validate_token(token, secret).is_err() {
