@@ -4,6 +4,7 @@ WORKDIR /build/apps/ui
 COPY apps/ui/package.json apps/ui/package-lock.json ./
 RUN npm ci --silent
 COPY apps/ui/ ./
+COPY apps/shared/ /build/apps/shared/
 RUN npm run build
 
 # ── Stage 2: Build Rust binary ──
@@ -26,9 +27,9 @@ RUN cargo build --release -p aeqi
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /build/target/release/aeqi /usr/local/bin/aeqi
-RUN useradd -m aeqi
-USER aeqi
-WORKDIR /home/aeqi
+# No hardcoded USER — aeqi-cloud passes --user uid:gid matching the host
+# so bind-mounted /data is writable without chown.
+WORKDIR /
 EXPOSE 8400
 ENTRYPOINT ["aeqi"]
 CMD ["start"]
