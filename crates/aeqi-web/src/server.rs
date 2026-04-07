@@ -208,14 +208,11 @@ async fn auth_mode_handler(
         AuthMode::Secret => "secret",
         AuthMode::Accounts => "accounts",
     };
-    let first_signup = state.accounts.as_ref()
-        .and_then(|a| a.is_empty().ok())
-        .unwrap_or(false);
     axum::Json(serde_json::json!({
         "mode": mode,
         "google_oauth": state.auth_config.google_oauth_enabled(),
         "github_oauth": state.auth_config.github_oauth_enabled(),
-        "waitlist": state.auth_config.waitlist && !first_signup,
+        "waitlist": state.auth_config.waitlist,
     }))
     .into_response()
 }
@@ -295,9 +292,9 @@ async fn signup_handler(
     }
 
     // Validate invite code when waitlist is enabled.
-    // First signup ever is admin — no invite code needed.
-    let is_first_user = accounts.is_empty().unwrap_or(false);
-    if state.auth_config.waitlist && !is_first_user {
+    // Admin email bypasses invite code requirement.
+    let is_admin = email.eq_ignore_ascii_case("0x@aeqi.ai");
+    if state.auth_config.waitlist && !is_admin {
         if invite_code.is_empty() {
             return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
                 "ok": false, "error": "invite code required"
