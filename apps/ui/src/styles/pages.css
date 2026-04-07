@@ -88,6 +88,33 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
+.auth-password-wrap {
+  position: relative;
+  width: 100%;
+}
+.auth-input-password {
+  padding-right: 40px !important;
+}
+.auth-password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.auth-password-toggle:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
 .auth-error {
   font-family: var(--font-sans);
   font-size: 13px;

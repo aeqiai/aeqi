@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import BrandMark from "@/components/BrandMark";
+import PasswordInput from "@/components/PasswordInput";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24">
@@ -128,9 +129,7 @@ export default function SignupPage() {
           ) : (
             <>
               <form className="auth-form" onSubmit={handleSubmit}>
-                <input
-                  className="auth-input"
-                  type="password"
+                <PasswordInput
                   placeholder="Password (8+ characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

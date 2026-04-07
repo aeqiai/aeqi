@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import BrandMark from "@/components/BrandMark";
+import PasswordInput from "@/components/PasswordInput";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24">
@@ -82,9 +83,7 @@ export default function LoginPage() {
           <h1 className="auth-heading">Welcome back</h1>
           <p className="auth-subheading">Enter your access key to continue</p>
           <form className="auth-form" onSubmit={handleSecretSubmit}>
-            <input
-              className="auth-input"
-              type="password"
+            <PasswordInput
               placeholder="Access key"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
@@ -151,9 +150,7 @@ export default function LoginPage() {
         ) : (
           <>
             <form className="auth-form" onSubmit={handlePasswordSubmit}>
-              <input
-                className="auth-input"
-                type="password"
+              <PasswordInput
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
