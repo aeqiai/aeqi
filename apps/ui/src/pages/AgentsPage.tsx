@@ -11,7 +11,7 @@ export default function AgentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    const handler = () => setModalOpen(true);
+    const handler = () => { console.log("aeqi:create received on AgentsPage"); setModalOpen(true); };
     window.addEventListener("aeqi:create", handler);
     return () => window.removeEventListener("aeqi:create", handler);
   }, []);

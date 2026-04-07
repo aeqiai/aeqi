@@ -10,6 +10,7 @@ import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import WelcomePage from "@/pages/WelcomePage";
 import NewWorkspacePage from "@/pages/NewWorkspacePage";
 import DashboardHome from "@/components/DashboardHome";
+import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
 import InsightsPage from "@/pages/InsightsPage";
@@ -57,7 +58,7 @@ export default function App() {
       >
         <Route index element={<WelcomePage />} />
         <Route path="new" element={<NewWorkspacePage />} />
-        <Route path="agents" element={<DashboardHome />} />
+        <Route path="agents" element={<AgentsPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="insights" element={<InsightsPage />} />
