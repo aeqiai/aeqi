@@ -639,17 +639,21 @@ pub struct AuthConfig {
     pub base_url: Option<String>,
     /// Google OAuth configuration (optional).
     #[serde(default)]
-    pub google: Option<GoogleOAuthConfig>,
+    pub google: Option<OAuthProviderConfig>,
+    /// GitHub OAuth configuration (optional).
+    #[serde(default)]
+    pub github: Option<OAuthProviderConfig>,
     /// SMTP configuration for verification emails (optional).
     #[serde(default)]
     pub smtp: Option<SmtpConfig>,
 }
 
+/// OAuth provider configuration (works for Google, GitHub, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GoogleOAuthConfig {
+pub struct OAuthProviderConfig {
     pub client_id: String,
     pub client_secret: String,
-    /// Defaults to {base_url}/api/auth/google/callback
+    /// Override the callback URL. Defaults to {base_url}/api/auth/{provider}/callback.
     #[serde(default)]
     pub redirect_uri: Option<String>,
 }
@@ -671,9 +675,11 @@ fn default_smtp_port() -> u16 {
 }
 
 impl AuthConfig {
-    /// Whether Google OAuth is configured and available.
     pub fn google_oauth_enabled(&self) -> bool {
         self.google.is_some()
+    }
+    pub fn github_oauth_enabled(&self) -> bool {
+        self.github.is_some()
     }
 }
 

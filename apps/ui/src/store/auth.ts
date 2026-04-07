@@ -19,6 +19,7 @@ interface AuthState {
   token: string | null;
   authMode: AuthMode;
   googleOAuth: boolean;
+  githubOAuth: boolean;
   user: User | null;
   loading: boolean;
   error: string | null;
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("aeqi_token"),
   authMode: (localStorage.getItem("aeqi_auth_mode") as AuthMode) || null,
   googleOAuth: false,
+  githubOAuth: false,
   user: null,
   loading: false,
   error: null,
@@ -57,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.getAuthMode();
       const mode = (resp.mode || "secret") as AuthMode;
       localStorage.setItem("aeqi_auth_mode", mode || "secret");
-      set({ authMode: mode, googleOAuth: resp.google_oauth, authModeLoaded: true });
+      set({ authMode: mode, googleOAuth: resp.google_oauth, githubOAuth: resp.github_oauth, authModeLoaded: true });
 
       if (mode === "none" && !get().token) {
         try {
