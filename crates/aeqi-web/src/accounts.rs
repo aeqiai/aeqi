@@ -76,6 +76,22 @@ impl AccountStore {
         })
     }
 
+    /// Check if there are zero users (first signup becomes admin).
+    pub fn is_empty(&self) -> anyhow::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let count: i32 = conn.query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))?;
+        Ok(count == 0)
+    }
+
+    /// Delete all users, invite codes, waitlist entries, and company links.
+    pub fn purge_all(&self) -> anyhow::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch(
+            "DELETE FROM invite_codes; DELETE FROM user_companies; DELETE FROM waitlist; DELETE FROM users;"
+        )?;
+        Ok(())
+    }
+
     /// Create a new user with email + password. Returns the user.
     pub fn create_user(&self, email: &str, name: &str, password: &str) -> anyhow::Result<User> {
         let id = Uuid::new_v4().to_string();
