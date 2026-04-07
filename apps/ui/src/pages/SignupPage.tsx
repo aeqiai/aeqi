@@ -13,6 +13,10 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const GithubIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+);
+
 const FEATURES = [
   {
     title: "Autonomous agents",
@@ -40,7 +44,7 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, waitlist, fetchAuthMode } = useAuthStore();
 
-  const [step, setStep] = useState<"info" | "password" | "verify">("info");
+  const [step, setStep] = useState<"email" | "info" | "password" | "verify">("email");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,9 +56,7 @@ export default function SignupPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  useEffect(() => {
-    fetchAuthMode();
-  }, [fetchAuthMode]);
+  useEffect(() => { fetchAuthMode(); }, [fetchAuthMode]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -64,19 +66,21 @@ export default function SignupPage() {
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleEmailContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    if (firstName.trim() && lastName.trim() && email.trim()) setStep("password");
+    if (email.trim()) setStep("info");
+  };
+
+  const handleInfoContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (firstName.trim() && lastName.trim() && (!waitlist || inviteCode.trim())) setStep("password");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await signup(email, password, fullName, inviteCode || undefined);
-    if (result === "pending") {
-      setStep("verify");
-    } else if (result === "verified") {
-      navigate("/", { replace: true });
-    }
+    if (result === "pending") setStep("verify");
+    else if (result === "verified") navigate("/", { replace: true });
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -85,27 +89,20 @@ export default function SignupPage() {
     next[index] = value.slice(-1);
     setCode(next);
     if (value && index < 5) inputRefs.current[index + 1]?.focus();
-
     const full = next.join("");
     if (full.length === 6) {
       setVerifyLoading(true);
       setVerifyError("");
       verifyEmail(email, full).then((ok) => {
         setVerifyLoading(false);
-        if (ok) {
-          localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
-        } else {
-          setVerifyError("Invalid or expired code");
-        }
+        if (ok) { localStorage.removeItem("aeqi_pending_email"); navigate("/", { replace: true }); }
+        else setVerifyError("Invalid or expired code");
       });
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
+    if (e.key === "Backspace" && !code[index] && index > 0) inputRefs.current[index - 1]?.focus();
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -118,12 +115,8 @@ export default function SignupPage() {
       setVerifyError("");
       verifyEmail(email, text).then((ok) => {
         setVerifyLoading(false);
-        if (ok) {
-          localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
-        } else {
-          setVerifyError("Invalid or expired code");
-        }
+        if (ok) { localStorage.removeItem("aeqi_pending_email"); navigate("/", { replace: true }); }
+        else setVerifyError("Invalid or expired code");
       });
     }
   };
@@ -139,107 +132,81 @@ export default function SignupPage() {
 
   return (
     <div className="signup-split">
-      {/* Left: form */}
       <div className="signup-form-side">
         <div className="auth-container">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
-          <h1 className="auth-heading">
-            {step === "info" ? "Create your account" : step === "password" ? "Set a password" : "Verify your email"}
-          </h1>
-          <p className="auth-subheading">
-            {step === "info"
-              ? "Start building with autonomous agents"
-              : step === "password"
-              ? email
-              : <>We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></>}
-          </p>
+
+          {step === "email" && (
+            <>
+              <h1 className="auth-heading">Create your account</h1>
+              <p className="auth-subheading">Start building with autonomous agents</p>
+              <form className="auth-form" onSubmit={handleEmailContinue}>
+                <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+                <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>Continue</button>
+              </form>
+              {(googleOAuth || githubOAuth) && (
+                <>
+                  <div className="auth-divider"><span>or</span></div>
+                  {googleOAuth && <button className="auth-btn-google" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
+                  {githubOAuth && <button className="auth-btn-google" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
+                </>
+              )}
+              {waitlist && (
+                <p className="auth-switch" style={{ marginTop: 20 }}>
+                  No invite code? <Link to="/waitlist">Join the waitlist</Link>
+                </p>
+              )}
+              <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
+            </>
+          )}
 
           {step === "info" && (
             <>
-              <form className="auth-form" onSubmit={handleContinue}>
+              <h1 className="auth-heading">Your details</h1>
+              <p className="auth-subheading">{email}</p>
+              <form className="auth-form" onSubmit={handleInfoContinue}>
                 <div className="auth-name-row">
                   <input className="auth-input" type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
                   <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </div>
-                <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
                 {waitlist && (
                   <input className="auth-input" type="text" placeholder="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.05em" }} />
                 )}
-                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim() || (waitlist && !inviteCode.trim())}>
-                  Continue
-                </button>
+                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>Continue</button>
               </form>
-
-              {(googleOAuth || githubOAuth) && (
-                <>
-                  <div className="auth-divider"><span>or</span></div>
-                  {googleOAuth && (
-                    <button className="auth-btn-google" onClick={handleGoogle} type="button">
-                      <GoogleIcon /> Continue with Google
-                    </button>
-                  )}
-                  {githubOAuth && (
-                    <button className="auth-btn-google" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-                      Continue with GitHub
-                    </button>
-                  )}
-                </>
-              )}
+              <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); }}>Back</a></p>
             </>
           )}
 
           {step === "password" && (
             <>
+              <h1 className="auth-heading">Set a password</h1>
+              <p className="auth-subheading">{email}</p>
               <form className="auth-form" onSubmit={handleSubmit}>
                 <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
                 {error && <div className="auth-error">{error}</div>}
-                <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>
-                  {loading ? "Creating account..." : "Create account"}
-                </button>
+                <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
               </form>
-              <p className="auth-switch">
-                <a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a>
-              </p>
+              <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a></p>
             </>
           )}
 
           {step === "verify" && (
             <>
+              <h1 className="auth-heading">Verify your email</h1>
+              <p className="auth-subheading">We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></p>
               <div className="verify-code-inputs" onPaste={handlePaste}>
                 {code.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { inputRefs.current[i] = el; }}
-                    className="verify-code-digit"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleCodeChange(i, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(i, e)}
-                    autoFocus={i === 0}
-                  />
+                  <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className="verify-code-digit" type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleCodeChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
                 ))}
               </div>
               {verifyError && <div className="auth-error">{verifyError}</div>}
               {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
               <p className="auth-switch" style={{ marginTop: 16 }}>
                 Didn't get the code?{" "}
-                {resendCooldown > 0 ? (
-                  <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span>
-                ) : (
-                  <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>
-                )}
+                {resendCooldown > 0 ? <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span> : <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>}
               </p>
             </>
-          )}
-
-          {step !== "verify" && (
-            <p className="auth-switch">
-              Already have an account?{" "}
-              <Link to="/login">Sign in</Link>
-            </p>
           )}
 
           <div className="auth-footer">
@@ -253,12 +220,10 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right: pitch content */}
+      {/* Right: pitch + book a call */}
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <div style={{ marginBottom: 32 }}>
-            <BrandMark size={28} color="rgba(0,0,0,0.15)" />
-          </div>
+          <div style={{ marginBottom: 32 }}><BrandMark size={28} color="rgba(0,0,0,0.15)" /></div>
           <h2 className="signup-pitch-heading">Launch a company that never sleeps</h2>
           <p className="signup-pitch-sub">
             aeqi gives you autonomous agents that work together — writing code,
@@ -274,6 +239,13 @@ export default function SignupPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "rgba(0,0,0,0.5)", margin: "0 0 12px" }}>Want a demo or have questions?</p>
+            <a href="https://booking.aeqi.ai" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "transparent", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, color: "rgba(0,0,0,0.7)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, textDecoration: "none" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5" /><path d="M2 7h12M5 1v4M11 1v4" /></svg>
+              Book a call
+            </a>
           </div>
         </div>
       </div>
