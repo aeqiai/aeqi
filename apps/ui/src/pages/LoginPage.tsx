@@ -52,8 +52,12 @@ export default function LoginPage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = await loginWithEmail(email, password);
-    if (ok) {
+    const result = await loginWithEmail(email, password);
+    if (result === "unverified") {
+      navigate("/verify");
+      return;
+    }
+    if (result === "ok") {
       try {
         const me = await api.getMe();
         if (!me.companies || me.companies.length === 0) {

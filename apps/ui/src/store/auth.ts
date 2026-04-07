@@ -27,7 +27,7 @@ interface AuthState {
 
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
-  loginWithEmail: (email: string, password: string) => Promise<boolean>;
+  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "error">;
   signup: (email: string, password: string, name: string) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
@@ -99,13 +99,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: resp.user || null, loading: false });
-        return true;
+        return "ok";
       }
       set({ loading: false, error: "Invalid email or password" });
-      return false;
+      return "error";
     } catch (e: any) {
+      if (e?.message?.includes("not verified")) {
+        localStorage.setItem("aeqi_pending_email", email);
+        set({ loading: false, pendingEmail: email });
+        return "unverified";
+      }
       set({ loading: false, error: e?.message || "Login failed" });
-      return false;
+      return "error";
     }
   },
 

@@ -12,13 +12,27 @@ const GoogleIcon = () => (
   </svg>
 );
 
-/** Simulated agent activity for the right panel */
-const ACTIVITY = [
-  { agent: "riftdecks", msg: "Analyzed 3 competitor pricing pages. Found opportunity in the $20-30 range.", time: "2m ago", color: "#000" },
-  { agent: "engineer", msg: "Shipped checkout redesign. 14 files changed, all tests passing.", time: "8m ago", color: "#3b82f6" },
-  { agent: "researcher", msg: "Monthly report ready. Revenue up 12% vs last month.", time: "15m ago", color: "#8b5cf6" },
-  { agent: "designer", msg: "New landing page mockup uploaded to Drive.", time: "22m ago", color: "#f59e0b" },
-  { agent: "riftdecks", msg: "Delegating homepage update to designer based on research findings.", time: "25m ago", color: "#000" },
+const FEATURES = [
+  {
+    title: "Autonomous agents",
+    desc: "Agents that write code, review PRs, research, and design — running 24/7.",
+    icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="6" r="3" /><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" /></svg>,
+  },
+  {
+    title: "Your company is an agent",
+    desc: "Launch a company that thinks, delegates, and compounds value on its own.",
+    icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 7h12" /></svg>,
+  },
+  {
+    title: "Real-time collaboration",
+    desc: "Chat with your company, assign tasks, and watch agents work in real time.",
+    icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeLinecap="round"><path d="M2 4h9l3 3-3 3H2z" /></svg>,
+  },
+  {
+    title: "Built-in knowledge",
+    desc: "Agents learn and remember — insights accumulate across every session.",
+    icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="6" /><path d="M8 5v3l2 2" /></svg>,
+  },
 ];
 
 export default function SignupPage() {
@@ -153,27 +167,27 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right: live activity preview */}
+      {/* Right: pitch content */}
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <p className="signup-pitch-label">Your company, working right now</p>
-          <div className="signup-activity">
-            {ACTIVITY.map((a, i) => (
-              <div key={i} className="signup-activity-item" style={{ animationDelay: `${i * 0.15}s` }}>
-                <div className="signup-activity-dot" style={{ background: a.color }} />
-                <div className="signup-activity-body">
-                  <div className="signup-activity-header">
-                    <span className="signup-activity-agent">{a.agent}</span>
-                    <span className="signup-activity-time">{a.time}</span>
-                  </div>
-                  <p className="signup-activity-msg">{a.msg}</p>
+          <div style={{ marginBottom: 32 }}>
+            <BrandMark size={28} color="rgba(0,0,0,0.15)" />
+          </div>
+          <h2 className="signup-pitch-heading">Launch a company that never sleeps</h2>
+          <p className="signup-pitch-sub">
+            aeqi gives you autonomous agents that work together — writing code,
+            researching markets, designing products, and scaling operations around the clock.
+          </p>
+          <div className="signup-features">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="signup-feature">
+                <div className="signup-feature-dot">{f.icon}</div>
+                <div>
+                  <div className="signup-feature-title">{f.title}</div>
+                  <div className="signup-feature-desc">{f.desc}</div>
                 </div>
               </div>
             ))}
-          </div>
-          <div className="signup-pitch-footer">
-            <p>Agents that work, coordinate, and compound value.</p>
-            <p>No prompting. No babysitting. Just results.</p>
           </div>
         </div>
       </div>
