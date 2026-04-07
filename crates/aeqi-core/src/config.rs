@@ -640,6 +640,9 @@ pub struct AuthConfig {
     /// Google OAuth configuration (optional).
     #[serde(default)]
     pub google: Option<GoogleOAuthConfig>,
+    /// SMTP configuration for verification emails (optional).
+    #[serde(default)]
+    pub smtp: Option<SmtpConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -649,6 +652,22 @@ pub struct GoogleOAuthConfig {
     /// Defaults to {base_url}/api/auth/google/callback
     #[serde(default)]
     pub redirect_uri: Option<String>,
+}
+
+/// SMTP configuration for sending verification emails.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmtpConfig {
+    pub host: String,
+    #[serde(default = "default_smtp_port")]
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+    /// Sender email address (e.g. "noreply@aeqi.ai").
+    pub from: String,
+}
+
+fn default_smtp_port() -> u16 {
+    587
 }
 
 impl AuthConfig {

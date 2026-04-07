@@ -1,6 +1,7 @@
 pub mod accounts;
 pub mod auth;
 pub mod config;
+pub mod email;
 #[cfg(feature = "embed-ui")]
 pub mod embedded_ui;
 pub mod ipc;

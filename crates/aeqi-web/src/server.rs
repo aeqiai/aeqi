@@ -17,6 +17,7 @@ use tower_http::{
 };
 use tracing::info;
 
+use aeqi_core::config::SmtpConfig;
 use crate::accounts::AccountStore;
 use crate::auth;
 use crate::ipc::IpcClient;
@@ -33,6 +34,7 @@ pub struct AppState {
     pub agents_config: Vec<PeerAgentConfig>,
     pub ui_dist_dir: Option<PathBuf>,
     pub accounts: Option<Arc<AccountStore>>,
+    pub smtp: Option<SmtpConfig>,
 }
 
 /// Start the web server using settings from AEQIConfig.
@@ -57,6 +59,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         agents_config: config.agents.clone(),
         ui_dist_dir: web.ui_dist_dir.as_ref().map(PathBuf::from),
         accounts,
+        smtp: web.auth.smtp.clone(),
     };
 
     // Error if auth mode requires a secret but signing_secret resolves to the default.
@@ -274,10 +277,20 @@ async fn signup_handler(
         }
     };
 
-    // Generate verification code.
-    let _code = accounts.set_verify_code(&user.id).unwrap_or_default();
-    // TODO: send email with code via SMTP.
-    tracing::info!("signup: verification code for {} = {}", email, _code);
+    // Generate verification code and send email.
+    let code = accounts.set_verify_code(&user.id).unwrap_or_default();
+    if let Some(smtp) = &state.smtp {
+        let smtp = smtp.clone();
+        let email_addr = email.to_string();
+        let code_copy = code.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await {
+                tracing::error!("failed to send verification email to {}: {e}", email_addr);
+            }
+        });
+    } else {
+        tracing::info!("signup: verification code for {} = {} (no SMTP configured)", email, code);
+    }
 
     let signing_key = auth::signing_secret(&state);
     match auth::create_token(signing_key, 24, Some(&user.id), Some(email)) {
@@ -373,8 +386,18 @@ async fn resend_code_handler(
 
     if let Ok(Some(user)) = accounts.get_user_by_email(email) {
         if let Ok(code) = accounts.set_verify_code(&user.id) {
-            // TODO: send email via SMTP.
-            tracing::info!("resend: verification code for {} = {}", email, code);
+            if let Some(smtp) = &state.smtp {
+                let smtp = smtp.clone();
+                let email_addr = email.to_string();
+                let code_copy = code.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await {
+                        tracing::error!("failed to resend verification email to {}: {e}", email_addr);
+                    }
+                });
+            } else {
+                tracing::info!("resend: verification code for {} = {} (no SMTP configured)", email, code);
+            }
         }
     }
 

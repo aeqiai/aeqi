@@ -50,7 +50,6 @@ max_background_cost_usd = 0.50
 # [[channels.telegram.routes]]
 # chat_id = -1009876543210
 # project = "my-project"
-# department = "backend"
 # name = "my-project/backend"
 
 # Orchestration tuning parameters (all have sensible defaults)
@@ -66,9 +65,10 @@ max_background_cost_usd = 0.50
 # expertise_routing = false     # enable expertise-based smart routing (v3)
 # notes_transient_ttl_hours = 24  # notes transient entry TTL
 # notes_durable_ttl_days = 7      # notes durable entry TTL
-# adaptive_retry = false        # enable LLM failure analysis for retries (v3)
-# preflight_enabled = false     # enable pre-flight assessment before workers (v3)
+# adaptive_retry = false        # enable LLM failure analysis for retries
+# failure_analysis_model = ""   # model for failure analysis (when adaptive_retry=true)
 # infer_deps_threshold = 0.0    # confidence threshold for auto-inferred deps (0=disabled)
+# notes_claim_ttl_hours = 2     # notes claim TTL
 
 # Companies (repos, tasks, knowledge)
 [[companies]]
@@ -79,8 +79,8 @@ model = "xiaomi/mimo-v2-pro"
 max_workers = 2
 execution_mode = "agent"
 worker_timeout_secs = 1800
-# team.leader = "leader"
-# team.agents = ["leader"]
+# max_turns = 25
+# primer = "Project description for agent context"
 
 # [web]
 # enabled = true
@@ -89,3 +89,21 @@ worker_timeout_secs = 1800
 # cors_origins = ["https://dashboard.example.com", "http://localhost:5173"]
 # auth_secret = "${AEQI_WEB_SECRET}"
 # ws_poll_interval_secs = 5
+#
+# [web.auth]
+# mode = "secret"              # "none", "secret", or "accounts"
+# base_url = "https://your-domain.com"
+#
+# # Google OAuth (only for accounts mode)
+# [web.auth.google]
+# client_id = "xxx.apps.googleusercontent.com"
+# client_secret = "GOCSPX-xxx"
+# # redirect_uri = "https://your-domain.com/api/auth/google/callback"  # auto-derived from base_url
+#
+# # SMTP for verification emails (only for accounts mode)
+# [web.auth.smtp]
+# host = "smtp.gmail.com"
+# port = 587
+# username = "noreply@aeqi.ai"
+# password = "${SMTP_PASSWORD}"
+# from = "noreply@aeqi.ai"

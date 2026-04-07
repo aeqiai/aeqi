@@ -8,8 +8,8 @@ export default function AuthCallbackPage() {
   const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
 
   useEffect(() => {
-    // Token comes in the URL hash fragment: /#/auth/callback?token=JWT
-    const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    // Token comes in query string: /auth/callback?token=JWT
+    const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
 
     if (token) {

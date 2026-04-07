@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
+use crate::auth::Claims;
 use crate::server::AppState;
 
 /// Build the public webhook route (no auth required).
@@ -53,7 +54,6 @@ pub fn api_routes() -> Router<AppState> {
         .route("/agents/{name}/identity", get(agent_identity))
         .route("/agents/{name}/prompts", get(agent_prompts))
         .route("/agents/{name}/files", post(save_agent_file))
-        .route("/departments", get(departments))
         .route("/approvals", get(approvals))
         .route("/approvals/{id}/resolve", post(resolve_approval))
         .route("/sessions", get(sessions).post(create_session))
@@ -79,9 +79,27 @@ async fn projects(State(state): State<AppState>) -> Response {
 
 async fn create_company(
     State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
+    req: axum::extract::Request,
 ) -> Response {
-    ipc_proxy(state, "create_company", body).await
+    // Extract claims and body.
+    let claims = req.extensions().get::<Claims>().cloned();
+    let body: serde_json::Value = match axum::body::to_bytes(req.into_body(), 1_048_576).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+        Err(_) => serde_json::Value::Null,
+    };
+
+    let resp = ipc_proxy(state.clone(), "create_company", body.clone()).await;
+
+    // Link company to user in accounts store.
+    if let (Some(accounts), Some(claims)) = (&state.accounts, &claims) {
+        if let Some(user_id) = claims.user_id.as_deref() {
+            if let Some(name) = body.get("name").and_then(|v| v.as_str()) {
+                let _ = accounts.add_company(user_id, name);
+            }
+        }
+    }
+
+    resp
 }
 
 // --- Tasks ---
@@ -514,7 +532,6 @@ async fn chat_poll(
 struct ChatHistoryQuery {
     chat_id: Option<i64>,
     project: Option<String>,
-    department: Option<String>,
     channel_name: Option<String>,
     agent_id: Option<String>,
     limit: Option<u64>,
@@ -531,9 +548,6 @@ async fn chat_history(
     }
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());
-    }
-    if let Some(department) = &q.department {
-        params["department"] = serde_json::Value::String(department.clone());
     }
     if let Some(channel_name) = &q.channel_name {
         params["channel_name"] = serde_json::Value::String(channel_name.clone());
@@ -560,9 +574,6 @@ async fn chat_timeline(
     }
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());
-    }
-    if let Some(department) = &q.department {
-        params["department"] = serde_json::Value::String(department.clone());
     }
     if let Some(channel_name) = &q.channel_name {
         params["channel_name"] = serde_json::Value::String(channel_name.clone());
@@ -608,12 +619,6 @@ async fn post_note_entry(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, "post_notes", body).await
-}
-
-// --- Departments ---
-
-async fn departments(State(state): State<AppState>) -> Response {
-    ipc_proxy(state, "departments", serde_json::json!({})).await
 }
 
 // --- Approvals ---
