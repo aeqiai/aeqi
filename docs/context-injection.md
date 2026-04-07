@@ -470,7 +470,7 @@ Anything beyond the one-level tree window requires the agent to call `recall`:
 - Historical session transcripts
 - Code graph context (what files are related to this quest)
 
-The agent has 4 tools for this: `create_task`, `close_task`, `recall`, `remember`.
+The agent has 4 tools for this: `create_quest`, `close_quest`, `recall`, `remember`.
 The `recall` tool searches the memory system, which includes:
 - Domain memories (project-level knowledge)
 - Entity memories (this agent's personal knowledge across sessions)
@@ -498,9 +498,9 @@ This is the auth-service project. Stack: Rust + Axum. Repo: /home/dev/auth-servi
 
 [Self agent system prompt — scope=self]
 You are an engineer agent. You write production code, tests, and documentation.
-When done, use close_task with a clear summary of what you built.
-When blocked, use close_task with status=blocked and explain what you need.
-When creating sub-quests, use create_task with clear descriptions.
+When done, use close_quest with a clear summary of what you built.
+When blocked, use close_quest with status=blocked and explain what you need.
+When creating sub-quests, use create_quest with clear descriptions.
 
 ---
 

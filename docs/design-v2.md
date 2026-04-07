@@ -344,7 +344,7 @@ Key change: `aeqi-orchestrator` splits into `aeqi-session` (session management) 
 | Axis | Claude Code | AEQI v2 |
 |------|-------------|---------|
 | Multi-agent | Recursive subagents (ephemeral) | Persistent agents with identity, memory, tree hierarchy |
-| Quest tracking | Simple task list tool | Full DAG with deps, priority, retries, escalation |
+| Quest tracking | Simple quest list tool | Full DAG with deps, priority, retries, escalation |
 | Memory | None | Three-tier hierarchical with vector search |
 | Delegation | Agent tool spawns child | spawn() with skills, worktree, permissions, parent chain |
 | Permissions | Multi-source rules | Same + per-session policies + skill intersection + hooks |
