@@ -270,47 +270,31 @@
   margin: 0 0 var(--space-8);
 }
 
-.signup-features {
+.signup-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-}
-
-.signup-feature {
-  display: flex;
   gap: var(--space-3);
-  align-items: flex-start;
-  padding: 14px 0;
-  border-top: 1px solid var(--border);
-}
-.signup-feature:last-child {
-  border-bottom: 1px solid var(--border);
 }
 
-.signup-feature-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  flex-shrink: 0;
-  margin-top: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.signup-feature-title {
+.signup-point {
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
-
-.signup-feature-desc {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.5;
+  padding-left: var(--space-4);
+  position: relative;
+}
+.signup-point::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 1px;
+  background: var(--text-muted);
 }
 
 .signup-cta-section {
