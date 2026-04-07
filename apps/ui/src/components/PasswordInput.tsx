@@ -35,6 +35,7 @@ export default function PasswordInput({
         className={`auth-input auth-input-password${hasError ? " has-error" : ""}`}
         type={visible ? "text" : "password"}
         placeholder={placeholder}
+        aria-label={placeholder}
         value={value}
         onChange={onChange}
         autoFocus={autoFocus}

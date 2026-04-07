@@ -78,6 +78,10 @@
   border-color: var(--border-hover);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
 }
+.auth-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .auth-input.has-error {
   border-color: var(--error);
   background: rgba(239, 68, 68, 0.02);
@@ -106,15 +110,15 @@
   border: none;
   padding: 4px;
   cursor: pointer;
-  color: rgba(0, 0, 0, 0.25);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   transition: color 0.15s;
 }
 .auth-password-toggle:hover {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--text-secondary);
 }
 
 .auth-error {
@@ -156,7 +160,7 @@
 .auth-btn-oauth {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   width: 100%;
   padding: 10px var(--space-5);
   background: var(--bg-base);
@@ -216,6 +220,23 @@
   text-underline-offset: 3px;
 }
 
+.auth-email-highlight {
+  color: var(--text-secondary);
+}
+.auth-verifying {
+  margin: var(--space-2) 0;
+}
+.auth-cooldown {
+  color: var(--text-muted);
+}
+.auth-subheading-last {
+  margin-bottom: 0;
+}
+.auth-input-code {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
 .auth-footer {
   margin-top: var(--space-8);
 }
@@ -231,7 +252,7 @@
   text-underline-offset: 2px;
 }
 .auth-footer a:hover {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--text-secondary);
 }
 
 /* ── Signup split-screen ─────────────────────────── */
@@ -256,7 +277,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-8) 40px;
+  padding: var(--space-8);
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
 }
@@ -359,7 +380,7 @@
   margin-bottom: var(--space-5);
 }
 .verify-code-digit {
-  width: 42px;
+  width: 44px;
   height: 48px;
   text-align: center;
   font-family: var(--font-mono);
@@ -374,6 +395,10 @@
 .verify-code-digit:focus {
   border-color: var(--border-accent);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+}
+.verify-code-digit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .verify-code-digit.has-error {
   border-color: var(--error);

@@ -146,8 +146,8 @@ export default function SignupPage() {
           <>
             <h1 className="auth-heading">You're on the list</h1>
             <p className="auth-subheading">{waitlistMsg}</p>
-            <p className="auth-subheading" style={{ marginBottom: 0 }}>We'll reach out when your spot is ready.</p>
-            <p className="auth-switch" style={{ marginTop: 24 }}>
+            <p className="auth-subheading auth-subheading-last">We'll reach out when your spot is ready.</p>
+            <p className="auth-switch" >
               Have an invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToSignup(); }}>Sign up</a>
             </p>
           </>
@@ -158,10 +158,10 @@ export default function SignupPage() {
           <h1 className="auth-heading">Get early access</h1>
           <p className="auth-subheading">Join the waitlist for autonomous company infrastructure</p>
           <form className="auth-form" onSubmit={handleWaitlistSubmit}>
-            <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            <input className="auth-input" type="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
             <button className="auth-btn-primary" type="submit" disabled={!email.trim() || loading}>Join waitlist</button>
           </form>
-          <p className="auth-switch" style={{ marginTop: 20 }}>
+          <p className="auth-switch" >
             Have an invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToSignup(); }}>Sign up</a>
           </p>
           <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
@@ -176,18 +176,18 @@ export default function SignupPage() {
           <h1 className="auth-heading">Create your account</h1>
           <p className="auth-subheading">Start building with autonomous agents</p>
           <form className="auth-form" onSubmit={handleEmailContinue}>
-            <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            <input className="auth-input" type="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
             <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>Continue</button>
           </form>
           {(googleOAuth || githubOAuth) && (
             <>
               <div className="auth-divider"><span>or</span></div>
               {googleOAuth && <button className="auth-btn-oauth" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
-              {githubOAuth && <button className="auth-btn-oauth" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
+              {githubOAuth && <button className="auth-btn-oauth" onClick={handleGithub} type="button" ><GithubIcon /> Continue with GitHub</button>}
             </>
           )}
           {waitlist && (
-            <p className="auth-switch" style={{ marginTop: 20 }}>
+            <p className="auth-switch" >
               No invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToWaitlist(); }}>Join the waitlist</a>
             </p>
           )}
@@ -204,11 +204,11 @@ export default function SignupPage() {
           <p className="auth-subheading">{email}</p>
           <form className="auth-form" onSubmit={handleInfoContinue}>
             <div className="auth-name-row">
-              <input className="auth-input" type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
-              <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              <input className="auth-input" type="text" placeholder="First name" aria-label="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+              <input className="auth-input" type="text" placeholder="Last name" aria-label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
             {waitlist && (
-              <input className="auth-input" type="text" placeholder="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.05em" }} />
+              <input className="auth-input auth-input-code" type="text" placeholder="Invite code" aria-label="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
             )}
             <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>Continue</button>
           </form>
@@ -238,17 +238,17 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Verify your email</h1>
-          <p className="auth-subheading">We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></p>
+          <p className="auth-subheading">We sent a 6-digit code to <strong className="auth-email-highlight">{email}</strong></p>
           <div className="verify-code-inputs" onPaste={handlePaste}>
             {code.map((digit, i) => (
               <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className={`verify-code-digit${verifyError ? " has-error" : ""}`} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => { handleCodeChange(i, e.target.value); if (verifyError) setVerifyError(""); }} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
             ))}
           </div>
           {verifyError && <div className="auth-error">{verifyError}</div>}
-          {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
-          <p className="auth-switch" style={{ marginTop: 16 }}>
+          {verifyLoading && <p className="auth-subheading auth-verifying">Verifying...</p>}
+          <p className="auth-switch" >
             Didn't get the code?{" "}
-            {resendCooldown > 0 ? <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span> : <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>}
+            {resendCooldown > 0 ? <span className="auth-cooldown">Resend in {resendCooldown}s</span> : <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>}
           </p>
         </>
       );
