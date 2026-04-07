@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import BrandMark from "@/components/BrandMark";
@@ -38,17 +38,28 @@ const FEATURES = [
 
 export default function SignupPage() {
   const navigate = useNavigate();
-  const { loading, error, signup, googleOAuth, githubOAuth, fetchAuthMode } = useAuthStore();
+  const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, fetchAuthMode } = useAuthStore();
 
-  const [step, setStep] = useState<"info" | "password">("info");
+  const [step, setStep] = useState<"info" | "password" | "verify">("info");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchAuthMode();
   }, [fetchAuthMode]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
@@ -60,16 +71,70 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await signup(email, password, fullName);
-    if (result === "pending" || result === "verified") navigate("/onboarding");
+    if (result === "pending") {
+      setStep("verify");
+    } else if (result === "verified") {
+      navigate("/", { replace: true });
+    }
   };
 
-  const handleGoogle = () => {
-    window.location.href = "/api/auth/google";
+  const handleCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const next = [...code];
+    next[index] = value.slice(-1);
+    setCode(next);
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+
+    const full = next.join("");
+    if (full.length === 6) {
+      setVerifyLoading(true);
+      setVerifyError("");
+      verifyEmail(email, full).then((ok) => {
+        setVerifyLoading(false);
+        if (ok) {
+          localStorage.removeItem("aeqi_pending_email");
+          navigate("/", { replace: true });
+        } else {
+          setVerifyError("Invalid or expired code");
+        }
+      });
+    }
   };
 
-  const handleGithub = () => {
-    window.location.href = "/api/auth/github";
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
   };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (text.length === 6) {
+      e.preventDefault();
+      setCode(text.split(""));
+      inputRefs.current[5]?.focus();
+      setVerifyLoading(true);
+      setVerifyError("");
+      verifyEmail(email, text).then((ok) => {
+        setVerifyLoading(false);
+        if (ok) {
+          localStorage.removeItem("aeqi_pending_email");
+          navigate("/", { replace: true });
+        } else {
+          setVerifyError("Invalid or expired code");
+        }
+      });
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    const ok = await resendCode(email);
+    if (ok) setResendCooldown(60);
+  };
+
+  const handleGoogle = () => { window.location.href = "/api/auth/google"; };
+  const handleGithub = () => { window.location.href = "/api/auth/github"; };
 
   return (
     <div className="signup-split">
@@ -78,44 +143,25 @@ export default function SignupPage() {
         <div className="auth-container">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
           <h1 className="auth-heading">
-            {step === "info" ? "Create your account" : "Set a password"}
+            {step === "info" ? "Create your account" : step === "password" ? "Set a password" : "Verify your email"}
           </h1>
           <p className="auth-subheading">
-            {step === "info" ? "Start building with autonomous agents" : email}
+            {step === "info"
+              ? "Start building with autonomous agents"
+              : step === "password"
+              ? email
+              : <>We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></>}
           </p>
 
-          {step === "info" ? (
+          {step === "info" && (
             <>
               <form className="auth-form" onSubmit={handleContinue}>
                 <div className="auth-name-row">
-                  <input
-                    className="auth-input"
-                    type="text"
-                    placeholder="First name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    autoFocus
-                  />
-                  <input
-                    className="auth-input"
-                    type="text"
-                    placeholder="Last name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
+                  <input className="auth-input" type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+                  <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </div>
-                <input
-                  className="auth-input"
-                  type="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <button
-                  className="auth-btn-primary"
-                  type="submit"
-                  disabled={!firstName.trim() || !lastName.trim() || !email.trim()}
-                >
+                <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim()}>
                   Continue
                 </button>
               </form>
@@ -125,8 +171,7 @@ export default function SignupPage() {
                   <div className="auth-divider"><span>or</span></div>
                   {googleOAuth && (
                     <button className="auth-btn-google" onClick={handleGoogle} type="button">
-                      <GoogleIcon />
-                      Continue with Google
+                      <GoogleIcon /> Continue with Google
                     </button>
                   )}
                   {githubOAuth && (
@@ -138,21 +183,14 @@ export default function SignupPage() {
                 </>
               )}
             </>
-          ) : (
+          )}
+
+          {step === "password" && (
             <>
               <form className="auth-form" onSubmit={handleSubmit}>
-                <PasswordInput
-                  placeholder="Password (8+ characters)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoFocus
-                />
+                <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
                 {error && <div className="auth-error">{error}</div>}
-                <button
-                  className="auth-btn-primary"
-                  type="submit"
-                  disabled={loading || password.length < 8}
-                >
+                <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>
                   {loading ? "Creating account..." : "Create account"}
                 </button>
               </form>
@@ -162,10 +200,43 @@ export default function SignupPage() {
             </>
           )}
 
-          <p className="auth-switch">
-            Already have an account?{" "}
-            <Link to="/login">Sign in</Link>
-          </p>
+          {step === "verify" && (
+            <>
+              <div className="verify-code-inputs" onPaste={handlePaste}>
+                {code.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { inputRefs.current[i] = el; }}
+                    className="verify-code-digit"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleCodeChange(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(i, e)}
+                    autoFocus={i === 0}
+                  />
+                ))}
+              </div>
+              {verifyError && <div className="auth-error">{verifyError}</div>}
+              {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
+              <p className="auth-switch" style={{ marginTop: 16 }}>
+                Didn't get the code?{" "}
+                {resendCooldown > 0 ? (
+                  <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span>
+                ) : (
+                  <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>
+                )}
+              </p>
+            </>
+          )}
+
+          {step !== "verify" && (
+            <p className="auth-switch">
+              Already have an account?{" "}
+              <Link to="/login">Sign in</Link>
+            </p>
+          )}
 
           <div className="auth-footer">
             <p>

@@ -19,7 +19,7 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     if (isAuthenticated()) {
       localStorage.removeItem("aeqi_pending_email");
-      navigate("/onboarding", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -49,7 +49,7 @@ export default function VerifyEmailPage() {
       verifyEmail(email, full).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/onboarding", { replace: true });
+          navigate("/", { replace: true });
         }
       });
     }
@@ -71,7 +71,7 @@ export default function VerifyEmailPage() {
       verifyEmail(email, text).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/onboarding", { replace: true });
+          navigate("/", { replace: true });
         }
       });
     }

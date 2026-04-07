@@ -5,7 +5,6 @@ import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
-import OnboardingPage from "@/pages/OnboardingPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import WelcomePage from "@/pages/WelcomePage";
 import NewWorkspacePage from "@/pages/NewWorkspacePage";
@@ -46,7 +45,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify" element={<VerifyEmailPage />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/onboarding" element={<Navigate to="/" replace />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route
         path="/*"

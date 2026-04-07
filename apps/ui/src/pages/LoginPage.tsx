@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -25,13 +25,20 @@ export default function LoginPage() {
     fetchAuthMode,
     login,
     loginWithEmail,
+    verifyEmail,
+    resendCode,
     isAuthenticated,
   } = useAuthStore();
 
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [step, setStep] = useState<"email" | "password" | "verify">("email");
   const [secret, setSecret] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchAuthMode();
@@ -40,6 +47,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated()) navigate("/", { replace: true });
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const handleSecretSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,30 +69,73 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await loginWithEmail(email, password);
     if (result === "unverified") {
-      navigate("/verify");
+      setStep("verify");
       return;
     }
     if (result === "ok") {
-      try {
-        const me = await api.getMe();
-        if (!me.companies || me.companies.length === 0) {
-          navigate("/onboarding");
-          return;
-        }
-      } catch { /* proceed to dashboard */ }
       navigate("/");
     }
   };
 
-  const handleGoogle = () => {
-    window.location.href = "/api/auth/google";
+  const handleCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const next = [...code];
+    next[index] = value.slice(-1);
+    setCode(next);
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+
+    const full = next.join("");
+    if (full.length === 6) {
+      setVerifyLoading(true);
+      setVerifyError("");
+      verifyEmail(email, full).then((ok) => {
+        setVerifyLoading(false);
+        if (ok) {
+          localStorage.removeItem("aeqi_pending_email");
+          navigate("/", { replace: true });
+        } else {
+          setVerifyError("Invalid or expired code");
+        }
+      });
+    }
   };
 
-  const handleGithub = () => {
-    window.location.href = "/api/auth/github";
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
   };
 
-  // Secret mode — unchanged
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (text.length === 6) {
+      e.preventDefault();
+      setCode(text.split(""));
+      inputRefs.current[5]?.focus();
+      setVerifyLoading(true);
+      setVerifyError("");
+      verifyEmail(email, text).then((ok) => {
+        setVerifyLoading(false);
+        if (ok) {
+          localStorage.removeItem("aeqi_pending_email");
+          navigate("/", { replace: true });
+        } else {
+          setVerifyError("Invalid or expired code");
+        }
+      });
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    const ok = await resendCode(email);
+    if (ok) setResendCooldown(60);
+  };
+
+  const handleGoogle = () => { window.location.href = "/api/auth/google"; };
+  const handleGithub = () => { window.location.href = "/api/auth/github"; };
+
+  // Secret mode
   if (authMode === "secret") {
     return (
       <div className="auth-page">
@@ -88,12 +144,7 @@ export default function LoginPage() {
           <h1 className="auth-heading">Welcome back</h1>
           <p className="auth-subheading">Enter your access key to continue</p>
           <form className="auth-form" onSubmit={handleSecretSubmit}>
-            <PasswordInput
-              placeholder="Access key"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              autoFocus
-            />
+            <PasswordInput placeholder="Access key" value={secret} onChange={(e) => setSecret(e.target.value)} autoFocus />
             {error && <div className="auth-error">{error}</div>}
             <button className="auth-btn-primary" type="submit" disabled={loading}>
               {loading ? "Connecting..." : "Continue"}
@@ -112,31 +163,26 @@ export default function LoginPage() {
     );
   }
 
-  // Accounts mode — two-step: email → password
+  // Accounts mode
   return (
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
         <h1 className="auth-heading">
-          {step === "email" ? "Sign in to AEQI" : "Enter your password"}
+          {step === "email" ? "Sign in to AEQI" : step === "password" ? "Enter your password" : "Verify your email"}
         </h1>
         <p className="auth-subheading">
           {step === "email"
             ? "Run companies with autonomous agents"
-            : email}
+            : step === "password"
+            ? email
+            : <>Enter the 6-digit code sent to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></>}
         </p>
 
-        {step === "email" ? (
+        {step === "email" && (
           <>
             <form className="auth-form" onSubmit={handleEmailContinue}>
-              <input
-                className="auth-input"
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoFocus
-              />
+              <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
               <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>
                 Continue
               </button>
@@ -147,8 +193,7 @@ export default function LoginPage() {
                 <div className="auth-divider"><span>or</span></div>
                 {googleOAuth && (
                   <button className="auth-btn-google" onClick={handleGoogle} type="button">
-                    <GoogleIcon />
-                    Continue with Google
+                    <GoogleIcon /> Continue with Google
                   </button>
                 )}
                 {githubOAuth && (
@@ -160,15 +205,12 @@ export default function LoginPage() {
               </>
             )}
           </>
-        ) : (
+        )}
+
+        {step === "password" && (
           <>
             <form className="auth-form" onSubmit={handlePasswordSubmit}>
-              <PasswordInput
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoFocus
-              />
+              <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
               {error && <div className="auth-error">{error}</div>}
               <button className="auth-btn-primary" type="submit" disabled={loading || !password}>
                 {loading ? "Signing in..." : "Sign in"}
@@ -180,10 +222,43 @@ export default function LoginPage() {
           </>
         )}
 
-        <p className="auth-switch">
-          Don't have an account?{" "}
-          <Link to="/signup">Sign up</Link>
-        </p>
+        {step === "verify" && (
+          <>
+            <div className="verify-code-inputs" onPaste={handlePaste}>
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { inputRefs.current[i] = el; }}
+                  className="verify-code-digit"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleCodeChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  autoFocus={i === 0}
+                />
+              ))}
+            </div>
+            {verifyError && <div className="auth-error">{verifyError}</div>}
+            {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
+            <p className="auth-switch" style={{ marginTop: 16 }}>
+              Didn't get the code?{" "}
+              {resendCooldown > 0 ? (
+                <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span>
+              ) : (
+                <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>
+              )}
+            </p>
+          </>
+        )}
+
+        {step !== "verify" && (
+          <p className="auth-switch">
+            Don't have an account?{" "}
+            <Link to="/signup">Sign up</Link>
+          </p>
+        )}
       </div>
       <div className="auth-footer">
         <p>
