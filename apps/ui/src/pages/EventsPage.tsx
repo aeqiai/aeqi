@@ -57,13 +57,6 @@ export default function EventsPage() {
 
   return (
     <div className="page-content">
-      <div className="q-hero">
-        <div className="q-hero-left">
-          <h1 className="q-hero-title">Events</h1>
-          <p className="q-hero-subtitle">Real-time activity stream across all agents</p>
-        </div>
-      </div>
-
       {selectedAgent && (
         <div className="filters">
           <span className="filter-agent-badge">

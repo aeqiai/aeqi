@@ -137,30 +137,14 @@ export default function InsightsPage() {
 
   return (
     <div className="page-content insights-page">
-      {/* Hero */}
-      <div className="q-hero">
-        <div className="q-hero-left">
-          <h1 className="q-hero-title">Insights</h1>
-          <p className="q-hero-subtitle">
-            Knowledge graph — {insights.length} memories
-            {selectedAgent
-              ? ` · ${selectedAgent.display_name || selectedAgent.name}`
-              : ""}
-          </p>
-        </div>
+      {/* View toggle — hero removed, title in ContentTopBar */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+        <span style={{ fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
+          {insights.length} memories{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
+        </span>
         <div className="insights-view-toggle">
-          <button
-            className={`view-btn ${view === "list" ? "active" : ""}`}
-            onClick={() => setView("list")}
-          >
-            List
-          </button>
-          <button
-            className={`view-btn ${view === "graph" ? "active" : ""}`}
-            onClick={() => setView("graph")}
-          >
-            Graph
-          </button>
+          <button className={`view-btn ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>List</button>
+          <button className={`view-btn ${view === "graph" ? "active" : ""}`} onClick={() => setView("graph")}>Graph</button>
         </div>
       </div>
 

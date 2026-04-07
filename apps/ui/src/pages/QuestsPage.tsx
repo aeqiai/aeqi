@@ -397,17 +397,7 @@ export default function QuestsPage() {
 
   return (
     <div className="page-content q-page">
-      {/* Hero */}
-      <div className="q-hero">
-        <div className="q-hero-left">
-          <h1 className="q-hero-title">Quests</h1>
-          <p className="q-hero-subtitle">Track and manage work across all agents</p>
-        </div>
-        <button className="q-btn q-btn-primary" onClick={openModal}>
-          New Quest
-          <kbd className="q-kbd">C</kbd>
-        </button>
-      </div>
+      {/* Actions moved to ContentTopBar — no hero needed */}
 
       {stats.total > 0 && (
         <>
