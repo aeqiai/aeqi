@@ -20,6 +20,7 @@ interface AuthState {
   authMode: AuthMode;
   googleOAuth: boolean;
   githubOAuth: boolean;
+  waitlist: boolean;
   user: User | null;
   loading: boolean;
   error: string | null;
@@ -29,7 +30,7 @@ interface AuthState {
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
   loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "error">;
-  signup: (email: string, password: string, name: string) => Promise<"verified" | "pending" | "error">;
+  signup: (email: string, password: string, name: string, inviteCode?: string) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
   handleOAuthCallback: (token: string) => void;
@@ -47,6 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authMode: (localStorage.getItem("aeqi_auth_mode") as AuthMode) || null,
   googleOAuth: false,
   githubOAuth: false,
+  waitlist: false,
   user: null,
   loading: false,
   error: null,
@@ -59,7 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.getAuthMode();
       const mode = (resp.mode || "secret") as AuthMode;
       localStorage.setItem("aeqi_auth_mode", mode || "secret");
-      set({ authMode: mode, googleOAuth: resp.google_oauth, githubOAuth: resp.github_oauth, authModeLoaded: true });
+      set({ authMode: mode, googleOAuth: resp.google_oauth, githubOAuth: resp.github_oauth, waitlist: resp.waitlist, authModeLoaded: true });
 
       if (mode === "none" && !get().token) {
         try {
@@ -117,10 +119,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signup: async (email: string, password: string, name: string) => {
+  signup: async (email: string, password: string, name: string, inviteCode?: string) => {
     set({ loading: true, error: null });
     try {
-      const resp = await api.signup(email, password, name);
+      const resp = await api.signup(email, password, name, inviteCode);
       if (resp.ok && (resp as any).pending_verification) {
         // Save token so user can onboard while unverified.
         if (resp.token) {

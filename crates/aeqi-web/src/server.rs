@@ -135,7 +135,10 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
             .route(
                 "/api/auth/github/callback",
                 axum::routing::get(github_callback_handler),
-            );
+            )
+            .route("/api/auth/waitlist", axum::routing::post(waitlist_handler))
+            .route("/api/auth/invite/check", axum::routing::post(check_invite_handler))
+            .route("/api/auth/invite/codes", axum::routing::get(my_invite_codes_handler));
     }
 
     let mut app = Router::new()
@@ -209,6 +212,7 @@ async fn auth_mode_handler(
         "mode": mode,
         "google_oauth": state.auth_config.google_oauth_enabled(),
         "github_oauth": state.auth_config.github_oauth_enabled(),
+        "waitlist": state.auth_config.waitlist,
     }))
     .into_response()
 }
@@ -275,6 +279,7 @@ async fn signup_handler(
     let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
     let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
     let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let invite_code = body.get("invite_code").and_then(|v| v.as_str()).unwrap_or("");
 
     if email.is_empty() || password.len() < 8 || name.is_empty() {
         return (
@@ -284,6 +289,23 @@ async fn signup_handler(
             })),
         )
             .into_response();
+    }
+
+    // Validate invite code when waitlist is enabled.
+    if state.auth_config.waitlist {
+        if invite_code.is_empty() {
+            return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
+                "ok": false, "error": "invite code required"
+            }))).into_response();
+        }
+        match accounts.is_invite_code_valid(invite_code) {
+            Ok(true) => {}
+            _ => {
+                return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
+                    "ok": false, "error": "invalid or already used invite code"
+                }))).into_response();
+            }
+        }
     }
 
     // Check if user already exists.
@@ -310,6 +332,12 @@ async fn signup_handler(
                 .into_response();
         }
     };
+
+    // Redeem invite code and generate new ones for the user.
+    if state.auth_config.waitlist && !invite_code.is_empty() {
+        let _ = accounts.redeem_invite_code(invite_code, &user.id);
+    }
+    let _ = accounts.generate_invite_codes(&user.id, state.auth_config.invite_codes_per_user);
 
     // Generate verification code and send email.
     let code = accounts.set_verify_code(&user.id).unwrap_or_default();
@@ -682,6 +710,76 @@ async fn google_callback_handler(
     let base = state.auth_config.base_url.as_deref().unwrap_or("");
     let redirect_url = format!("{}/auth/callback?token={}", base, urlencoding(&token));
     axum::response::Redirect::temporary(&redirect_url).into_response()
+}
+
+// ── Waitlist & Invite Codes ────────────────────────────
+
+async fn waitlist_handler(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    axum::Json(body): axum::Json<serde_json::Value>,
+) -> axum::response::Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
+    if email.is_empty() {
+        return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
+            "ok": false, "error": "email required"
+        }))).into_response();
+    }
+    match accounts.join_waitlist(email) {
+        Ok(true) => axum::Json(serde_json::json!({"ok": true, "message": "You're on the list!"})).into_response(),
+        Ok(false) => axum::Json(serde_json::json!({"ok": true, "message": "You're already on the list."})).into_response(),
+        Err(e) => {
+            tracing::error!("waitlist error: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({
+                "ok": false, "error": "failed to join waitlist"
+            }))).into_response()
+        }
+    }
+}
+
+async fn check_invite_handler(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    axum::Json(body): axum::Json<serde_json::Value>,
+) -> axum::response::Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let code = body.get("code").and_then(|v| v.as_str()).unwrap_or("");
+    match accounts.is_invite_code_valid(code) {
+        Ok(valid) => axum::Json(serde_json::json!({"ok": true, "valid": valid})).into_response(),
+        Err(_) => axum::Json(serde_json::json!({"ok": true, "valid": false})).into_response(),
+    }
+}
+
+async fn my_invite_codes_handler(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    req: Request,
+) -> axum::response::Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let secret = auth::signing_secret(&state);
+    let token = req.headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+    let Some(token) = token else {
+        return (StatusCode::UNAUTHORIZED, "missing token").into_response();
+    };
+    let claims = match auth::validate_token(token, secret) {
+        Ok(c) => c,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "invalid token").into_response(),
+    };
+    let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+    match accounts.get_invite_codes(user_id) {
+        Ok(codes) => axum::Json(serde_json::json!({"ok": true, "codes": codes})).into_response(),
+        Err(e) => {
+            tracing::error!("invite codes error: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "failed to fetch codes").into_response()
+        }
+    }
 }
 
 // ── GitHub OAuth ───────────────────────────────────────

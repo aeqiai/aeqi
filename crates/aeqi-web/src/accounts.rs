@@ -57,6 +57,18 @@ impl AccountStore {
                 user_id    TEXT NOT NULL REFERENCES users(id),
                 company    TEXT NOT NULL,
                 PRIMARY KEY (user_id, company)
+            );
+            CREATE TABLE IF NOT EXISTS invite_codes (
+                code        TEXT PRIMARY KEY,
+                owner_id    TEXT NOT NULL REFERENCES users(id),
+                used_by     TEXT REFERENCES users(id),
+                used_at     TEXT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS waitlist (
+                id          TEXT PRIMARY KEY,
+                email       TEXT UNIQUE NOT NULL COLLATE NOCASE,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
         Ok(Self {
@@ -275,4 +287,82 @@ impl AccountStore {
         )?;
         Ok(())
     }
+
+    // ── Invite codes ──────────────────────────────────
+
+    /// Generate N invite codes for a user.
+    pub fn generate_invite_codes(&self, user_id: &str, count: u32) -> anyhow::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut codes = Vec::new();
+        for _ in 0..count {
+            let code = format!("{}", &Uuid::new_v4().to_string()[..8]);
+            conn.execute(
+                "INSERT INTO invite_codes (code, owner_id) VALUES (?1, ?2)",
+                params![code, user_id],
+            )?;
+            codes.push(code);
+        }
+        Ok(codes)
+    }
+
+    /// Validate and consume an invite code. Returns the owner's user_id.
+    pub fn redeem_invite_code(&self, code: &str, used_by: &str) -> anyhow::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let updated = conn.execute(
+            "UPDATE invite_codes SET used_by = ?2, used_at = datetime('now') WHERE code = ?1 AND used_by IS NULL",
+            params![code, used_by],
+        )?;
+        Ok(updated > 0)
+    }
+
+    /// Check if an invite code is valid (exists and unused).
+    pub fn is_invite_code_valid(&self, code: &str) -> anyhow::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM invite_codes WHERE code = ?1 AND used_by IS NULL",
+            params![code],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    /// Get invite codes for a user.
+    pub fn get_invite_codes(&self, user_id: &str) -> anyhow::Result<Vec<InviteCode>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT code, used_by, used_at, created_at FROM invite_codes WHERE owner_id = ?1"
+        )?;
+        let codes = stmt.query_map(params![user_id], |row| {
+            Ok(InviteCode {
+                code: row.get(0)?,
+                used_by: row.get(1)?,
+                used_at: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?.filter_map(|r| r.ok()).collect();
+        Ok(codes)
+    }
+
+    // ── Waitlist ───────────────────────────────────────
+
+    /// Add an email to the waitlist.
+    pub fn join_waitlist(&self, email: &str) -> anyhow::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let id = Uuid::new_v4().to_string();
+        match conn.execute(
+            "INSERT OR IGNORE INTO waitlist (id, email) VALUES (?1, ?2)",
+            params![id, email],
+        ) {
+            Ok(n) => Ok(n > 0),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InviteCode {
+    pub code: String,
+    pub used_by: Option<String>,
+    pub used_at: Option<String>,
+    pub created_at: String,
 }

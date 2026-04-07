@@ -76,7 +76,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Auth
   getAuthMode: () =>
-    request<{ mode: string; google_oauth: boolean; github_oauth: boolean }>("/auth/mode"),
+    request<{ mode: string; google_oauth: boolean; github_oauth: boolean; waitlist: boolean }>("/auth/mode"),
 
   login: (secret: string) =>
     request<{ ok: boolean; token: string }>("/auth/login", {
@@ -90,11 +90,25 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  signup: (email: string, password: string, name: string) =>
+  signup: (email: string, password: string, name: string, inviteCode?: string) =>
     request<{ ok: boolean; token: string; user?: any }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
     }),
+
+  joinWaitlist: (email: string) =>
+    request<{ ok: boolean; message: string }>("/auth/waitlist", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  checkInviteCode: (code: string) =>
+    request<{ ok: boolean; valid: boolean }>("/auth/invite/check", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  getInviteCodes: () => request<{ ok: boolean; codes: any[] }>("/auth/invite/codes"),
 
   getMe: () => request<any>("/auth/me"),
 

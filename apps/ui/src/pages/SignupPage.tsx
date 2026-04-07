@@ -38,13 +38,14 @@ const FEATURES = [
 
 export default function SignupPage() {
   const navigate = useNavigate();
-  const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, fetchAuthMode } = useAuthStore();
+  const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, waitlist, fetchAuthMode } = useAuthStore();
 
   const [step, setStep] = useState<"info" | "password" | "verify">("info");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [verifyError, setVerifyError] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -70,7 +71,7 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await signup(email, password, fullName);
+    const result = await signup(email, password, fullName, inviteCode || undefined);
     if (result === "pending") {
       setStep("verify");
     } else if (result === "verified") {
@@ -161,7 +162,10 @@ export default function SignupPage() {
                   <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </div>
                 <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim()}>
+                {waitlist && (
+                  <input className="auth-input" type="text" placeholder="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.05em" }} />
+                )}
+                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim() || (waitlist && !inviteCode.trim())}>
                   Continue
                 </button>
               </form>
