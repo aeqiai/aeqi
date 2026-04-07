@@ -292,13 +292,19 @@ export default function QuestsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Open modal from ?create=1
+  // Open modal from ?create=1 or aeqi:create event
   useEffect(() => {
     if (searchParams.get("create") === "1") {
       setModalOpen(true);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const handler = () => setModalOpen(true);
+    window.addEventListener("aeqi:create", handler);
+    return () => window.removeEventListener("aeqi:create", handler);
+  }, []);
 
   // Keyboard shortcut: c or Cmd+N
   useEffect(() => {

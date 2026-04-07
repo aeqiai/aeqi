@@ -11,13 +11,19 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Open modal when ?create=1 is in URL
+  // Open modal from ?create=1 or aeqi:create event
   useEffect(() => {
     if (searchParams.get("create") === "1") {
       setModalOpen(true);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const handler = () => setModalOpen(true);
+    window.addEventListener("aeqi:create", handler);
+    return () => window.removeEventListener("aeqi:create", handler);
+  }, []);
 
   const loadAgents = () => {
     setLoading(true);
