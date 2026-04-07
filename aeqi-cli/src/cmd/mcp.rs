@@ -113,7 +113,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "project": {"type": "string", "description": "Project to search"},
                     "query": {"type": "string", "description": "Natural language query"},
                     "limit": {"type": "integer", "description": "Max results", "default": 5},
-                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"}
+                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
+                    "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity', filters to that agent's memories"}
                 },
                 "required": ["project", "query"]
             }),
@@ -172,13 +173,24 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
         ToolDef {
             name: "aeqi_create_task".to_string(),
-            description: "Create a task in a AEQI project for the team to execute.".to_string(),
+            description: "Create a task in a AEQI project for the team to execute. Supports agent assignment, dependency tracking, and parent-child hierarchies. Prefix subject with 'claim:' for atomic resource locking.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "project": {"type": "string"},
-                    "subject": {"type": "string", "description": "Short task title"},
-                    "description": {"type": "string", "description": "Detailed description (optional)"}
+                    "subject": {"type": "string", "description": "Short task title. Prefix with 'claim:' for atomic resource locking."},
+                    "description": {"type": "string", "description": "Detailed description (optional)"},
+                    "agent": {"type": "string", "description": "Agent name to assign the task to (optional, defaults to project default agent)"},
+                    "skill": {"type": "string", "description": "Skill/prompt to load for execution"},
+                    "labels": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization"},
+                    "depends_on": {
+                        "oneOf": [
+                            {"type": "string", "description": "Single quest ID this task depends on"},
+                            {"type": "array", "items": {"type": "string"}, "description": "Quest IDs this task depends on"}
+                        ],
+                        "description": "Quest ID(s) that must complete before this task can start"
+                    },
+                    "parent": {"type": "string", "description": "Parent quest ID — makes this a child task (e.g. 'sg-001' creates 'sg-001.1')"}
                 },
                 "required": ["project", "subject"]
             }),
@@ -190,7 +202,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "type": "object",
                 "properties": {
                     "task_id": {"type": "string"},
-                    "reason": {"type": "string"}
+                    "reason": {"type": "string", "description": "Completion reason or summary of what was accomplished"}
                 },
                 "required": ["task_id"]
             }),
@@ -201,20 +213,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index"], "description": "search=FTS symbol search, context=360° view of a symbol, impact=blast radius, file=symbols in a file, stats=graph statistics, index=re-index project"},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search=FTS symbol search, context=360° view of a symbol, impact=blast radius, file=symbols in a file, stats=graph statistics, index=re-index project, diff_impact=blast radius from uncommitted changes, file_summary=summary of a file's symbols, incremental=re-index only changed files, synthesize=generate community summary"},
                     "project": {"type": "string", "description": "Project name"},
                     "query": {"type": "string", "description": "Search query (for search action)"},
                     "node_id": {"type": "string", "description": "Node ID (for context/impact actions)"},
-                    "file_path": {"type": "string", "description": "File path relative to project root (for file action)"},
-                    "depth": {"type": "integer", "description": "Max traversal depth (impact, default 3)", "default": 3},
-                    "limit": {"type": "integer", "description": "Max results (default 10)", "default": 10}
+                    "file_path": {"type": "string", "description": "File path relative to project root (for file/file_summary actions)"},
+                    "depth": {"type": "integer", "description": "Max traversal depth (impact/diff_impact, default 3)", "default": 3},
+                    "limit": {"type": "integer", "description": "Max results (default 10)", "default": 10},
+                    "community_id": {"type": "string", "description": "Community ID (for synthesize action)"}
                 },
                 "required": ["action", "project"]
             }),
         },
         ToolDef {
             name: "aeqi_delegate".to_string(),
-            description: "Delegate work to a AEQI agent. Loads the agent template, gathers task context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. One call replaces: aeqi_agents(get) + aeqi_notes(read) + manual prompt assembly.".to_string(),
+            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers task context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer aeqi_create_task with agent param (v2 approach).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -419,9 +432,11 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             .get("scope")
                             .and_then(|v| v.as_str())
                             .unwrap_or("domain");
+                        let agent_id = args.get("agent_id").and_then(|v| v.as_str());
                         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
-                        let cache_key = format!("{project}\0{query}\0{scope}\0{limit}");
+                        let agent_key = agent_id.unwrap_or("");
+                        let cache_key = format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
 
                         let cached_hit = recall_cache.get(&cache_key).and_then(|(ts, val)| {
                             if ts.elapsed().as_secs() < RECALL_CACHE_TTL_SECS {
@@ -435,13 +450,16 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             Ok(val)
                         } else {
                             recall_cache.remove(&cache_key);
-                            let ipc = serde_json::json!({
+                            let mut ipc = serde_json::json!({
                                 "cmd": "memories",
                                 "project": project,
                                 "query": query,
                                 "scope": scope,
                                 "limit": limit,
                             });
+                            if let Some(aid) = agent_id {
+                                ipc["agent_id"] = serde_json::json!(aid);
+                            }
                             let r = ipc_request_sync(&data_dir, &ipc);
                             if let Ok(ref val) = r {
                                 recall_cache.insert(cache_key, (Instant::now(), val.clone()));
@@ -668,6 +686,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "aeqi_create_task" => {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("create_task");
+                        // Normalize depends_on: string → array
+                        if let Some(dep) = ipc.get("depends_on").cloned() {
+                            if dep.is_string() {
+                                ipc["depends_on"] = serde_json::json!([dep.as_str().unwrap_or("")]);
+                            }
+                        }
                         ipc_request_sync(&data_dir, &ipc)
                     }
                     "aeqi_close_task" => {

@@ -55,6 +55,7 @@ pub use runtime::{
     RuntimeSession, RuntimeSessionStatus,
 };
 pub use scheduler::{Scheduler, SchedulerConfig};
+pub use session_manager::SessionManager;
 pub use session_store::SessionStore;
 pub use template::Template;
 pub use trigger::{EventPattern, Trigger, TriggerStore, TriggerType};

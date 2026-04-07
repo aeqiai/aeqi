@@ -76,14 +76,14 @@ export default function InboxPage() {
     const quests = useDaemonStore.getState().quests || [];
     for (const quest of quests.slice(0, 20)) {
       if (quest.status === "blocked" || quest.status === "done") {
-        const agentRecord = agents.find((a) => a.name === quest.assignee);
+        const agentRecord = agents.find((a) => a.name === (quest.agent_id || quest.assignee));
         result.push({
           id: `quest-${quest.id}`,
           type: "notification",
-          agent: quest.assignee || "system",
+          agent: quest.agent_id || quest.assignee || "system",
           agentId: agentRecord?.id,
           summary: `Quest "${quest.subject}" is ${quest.status}`,
-          detail: quest.closed_reason || quest.description,
+          detail: quest.outcome?.summary || quest.closed_reason || quest.description,
           timestamp: quest.updated_at || quest.created_at,
           read: readIds.has(`quest-${quest.id}`),
         });

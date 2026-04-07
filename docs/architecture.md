@@ -1,6 +1,6 @@
 # AEQI Architecture
 
-AEQI is an agent runtime and orchestration engine in Rust. 10 crates, 619 tests.
+AEQI is an agent runtime and orchestration engine in Rust. 10 crates, 545+ tests.
 
 ## Two Orthogonal Concepts
 
@@ -117,7 +117,7 @@ Agents are persistent identities in SQLite (`agents` table):
 - `name` — display label
 - `system_prompt` — personality + instructions
 - `project` / `project_id` — project scope
-- `department_id` — team membership
+- `parent_id` — position in the agent tree
 - `model` — preferred model
 - `capabilities` — permissions
 
@@ -125,11 +125,11 @@ Agents are persistent identities in SQLite (`agents` table):
 
 ```
 Agent scope      → entity_id = agent UUID
-Department scope → entity_id = department UUID
 Project scope    → entity_id = project UUID
+System scope     → cross-project knowledge
 ```
 
-`hierarchical_search` queries all three tiers, deduplicates, returns top-k.
+`hierarchical_search` queries all tiers, deduplicates, returns top-k. Memory searches walk the agent tree upward: an agent sees its own memories, its parent's, and ancestors' up to root.
 
 ## Project Identity
 
@@ -165,7 +165,7 @@ Sessions page shows: sidebar (permanent, active work, spawned work, closed), ses
 | aeqi-tools | Shell, file, web, skills |
 | aeqi-providers | OpenRouter, Anthropic, Ollama |
 | aeqi-insights | SQLite + FTS5, vector search, hierarchical scoping |
-| aeqi-tasks | Task DAG, JSONL persistence, status machine |
+| aeqi-quests | Quest DAG, dependency inference, status machine |
 | aeqi-web | Axum REST + WebSocket API |
 | aeqi-gates | Telegram, Discord, Slack bridges |
 | aeqi-graph | Code intelligence (symbol graph, call chains) |

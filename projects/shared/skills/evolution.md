@@ -2,7 +2,7 @@
 name: evolution
 description: "Autonomous self-reflection and identity evolution. Agent reviews recent experiences, writes introspective journal entry, refines working style."
 when_to_use: "Scheduled periodically (every 24h). Drives agent self-improvement through reflection."
-tools: [memory_recall, memory_store, notes]
+tools: [memory_recall, memory_store]
 tags: [autonomous]
 ---
 

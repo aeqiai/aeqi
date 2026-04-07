@@ -69,8 +69,6 @@ unifutures = "/home/claudedev/unifutures"
 
 [team]
 leader = "assistant"
-agents = ["assistant"]
-router_model = "qwen/qwen3.6-plus:free"
 router_cooldown_secs = 60
 max_background_cost_usd = 0.0
 
@@ -84,9 +82,6 @@ background_automation_enabled = false
 expertise_routing = true
 adaptive_retry = false
 failure_analysis_model = "qwen/qwen3.6-plus:free"
-preflight_enabled = false
-preflight_model = "qwen/qwen3.6-plus:free"
-preflight_max_cost_usd = 0.02
 infer_deps_threshold = 0.6
 notes_transient_ttl_hours = 48
 notes_durable_ttl_days = 14
@@ -106,28 +101,14 @@ worker_timeout_secs = 3600
 primer = """
 AEQI — Agent runtime, orchestration engine, and web control plane in Rust. 10 crates, 634+ tests.
 
-Crates: aeqi-cli (CLI/MCP), aeqi-core (agent loop, config, identity), aeqi-orchestrator (daemon, worker pools, middleware, departments, notes, dispatch), aeqi-web (Axum REST+WS), aeqi-tasks (task DAG, missions), aeqi-insights (SQLite+FTS5, vector search), aeqi-providers (OpenRouter, Anthropic, Ollama), aeqi-tools (shell, file, git, delegate, skills), aeqi-gates (Telegram, Discord, Slack), aeqi-graph (code intelligence).
+Crates: aeqi-cli (CLI/MCP), aeqi-core (agent loop, config, identity), aeqi-orchestrator (daemon, worker pools, middleware, notes, dispatch), aeqi-web (Axum REST+WS), aeqi-quests (quest DAG, missions), aeqi-insights (SQLite+FTS5, vector search), aeqi-providers (OpenRouter, Anthropic, Ollama), aeqi-tools (shell, file, git, delegate, skills), aeqi-gates (Telegram, Discord, Slack), aeqi-graph (code intelligence).
 
-4 primitives: Agent (persistent identity with UUID, entity memory, department), Department (org hierarchy, escalation chains), Task (agent-bound, atomic checkout), Delegation (unified delegate tool, 5 response modes).
+4 primitives: Agent (persistent identity with UUID, entity memory), Quest (agent-bound, atomic checkout), Delegation (unified delegate tool, 5 response modes), AgentSpawn (project config, worker pool).
 
 Middleware chain: 9 layers (guardrails, graph guardrails, loop detection, context compression, context budget, cost tracking, memory refresh, clarification, safety net).
 
 Runtime: daemon patrol loop every 30s. Centralized per-agent spawning with global max_concurrent. Dispatch bus with ACK/retry. Budget policies per scope. Approval queue. Webhook triggers with HMAC signing.
 """
-team.leader = "engineer"
-team.agents = ["engineer", "reviewer"]
-
-[[companies.departments]]
-name = "engineering"
-lead = "engineer"
-agents = ["engineer", "reviewer"]
-description = "Core framework, CLI, daemon, web API"
-
-[[companies.departments]]
-name = "product"
-lead = "designer"
-agents = ["designer"]
-description = "Web dashboard, UX, landing page"
 
 [[companies]]
 name = "algostaking"
@@ -139,26 +120,6 @@ worktree_root = "/home/claudedev/worktrees"
 execution_mode = "agent"
 max_turns = 50
 worker_timeout_secs = 1800
-team.leader = "trader"
-team.agents = ["trader", "engineer"]
-
-[[companies.departments]]
-name = "trading"
-lead = "trader"
-agents = ["trader"]
-description = "Strategy, signals, PMS/OMS/EMS, portfolio management"
-
-[[companies.departments]]
-name = "engineering"
-lead = "engineer"
-agents = ["engineer"]
-description = "Infrastructure, data pipeline, services, deployment"
-
-[[companies.departments]]
-name = "research"
-lead = "researcher"
-agents = ["researcher"]
-description = "Model evaluation, feature research, backtesting"
 
 [[companies]]
 name = "riftdecks-shop"
@@ -168,8 +129,6 @@ model = "qwen/qwen3.6-plus:free"
 max_workers = 2
 execution_mode = "agent"
 worker_timeout_secs = 1800
-team.leader = "designer"
-team.agents = ["designer"]
 
 [[companies]]
 name = "entity-legal"
@@ -179,8 +138,6 @@ model = "qwen/qwen3.6-plus:free"
 max_workers = 2
 execution_mode = "agent"
 worker_timeout_secs = 1800
-team.leader = "designer"
-team.agents = ["designer"]
 
 [[companies]]
 name = "unifutures"
@@ -190,5 +147,3 @@ model = "qwen/qwen3.6-plus:free"
 max_workers = 1
 execution_mode = "agent"
 worker_timeout_secs = 1800
-team.leader = "engineer"
-team.agents = ["engineer"]

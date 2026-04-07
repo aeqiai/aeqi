@@ -103,7 +103,6 @@ impl VfsTree {
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,
             ["config"] => self.list_config().await?,
-            ["departments"] => self.list_departments().await?,
             ["memory"] => self.list_memory().await?,
             ["triggers"] => self.list_triggers().await?,
             ["finance"] => self.list_finance().await?,
@@ -176,7 +175,6 @@ impl VfsTree {
             dir_node("companies", "/companies", Some("🏢"), None),
             dir_node("skills", "/skills", Some("⚡"), None),
             dir_node("sessions", "/sessions", Some("💬"), None),
-            dir_node("departments", "/departments", Some("🏛️"), None),
             dir_node("memory", "/memory", Some("🧠"), None),
             dir_node("triggers", "/triggers", Some("⏰"), None),
             dir_node("finance", "/finance", Some("💰"), None),
@@ -391,25 +389,6 @@ impl VfsTree {
                 Some("💬"),
             ),
         ])
-    }
-
-    // --- Departments ---
-
-    async fn list_departments(&self) -> anyhow::Result<Vec<VfsNode>> {
-        let mut nodes = Vec::new();
-        if let Ok(Some(root)) = self.agent_registry.get_root().await
-            && let Ok(children) = self.agent_registry.get_children(&root.id).await
-        {
-            for child in &children {
-                nodes.push(dir_node(
-                    &child.name,
-                    &format!("/departments/{}", child.id),
-                    Some("🏛️"),
-                    None,
-                ));
-            }
-        }
-        Ok(nodes)
     }
 
     // --- Memory ---

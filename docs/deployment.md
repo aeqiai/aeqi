@@ -179,7 +179,7 @@ Copy `config/aeqi.example.toml` to `config/aeqi.toml` and edit it. Key sections:
 | `[security]` | Autonomy level, cost limits |
 | `[web]` | Bind address, CORS, auth secret |
 | `[repos]` | Repository paths agents can access |
-| `[[companies]]` | Project definitions, worker limits, execution mode |
+| `[[agents]]` | Agent spawn definitions, worker limits |
 
 ### Secrets and environment variables
 

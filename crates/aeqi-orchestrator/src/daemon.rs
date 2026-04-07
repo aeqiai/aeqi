@@ -16,7 +16,7 @@ use crate::progress_tracker::ProgressTracker;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::{
-    SessionStore, agency_chat_id, department_chat_id, named_channel_chat_id, project_chat_id,
+    SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id,
 };
 use crate::trigger::TriggerStore;
 
@@ -103,7 +103,6 @@ fn request_field<'a>(request: &'a serde_json::Value, key: &str) -> Option<&'a st
 fn resolve_web_chat_id(
     explicit_chat_id: Option<i64>,
     project_hint: Option<&str>,
-    department_hint: Option<&str>,
     channel_name: Option<&str>,
 ) -> i64 {
     if let Some(chat_id) = explicit_chat_id {
@@ -111,14 +110,7 @@ fn resolve_web_chat_id(
     }
 
     if let Some(project) = project_hint {
-        if let Some(department) = department_hint {
-            return department_chat_id(project, department);
-        }
         return project_chat_id(project);
-    }
-
-    if department_hint.is_some() {
-        warn!("web chat scope included a department without a project; dropping department scope");
     }
 
     if let Some(name) = channel_name {
@@ -136,7 +128,6 @@ fn task_snapshot(task: &aeqi_quests::Quest) -> serde_json::Value {
         "id": task.id.0,
         "subject": task.name,
         "status": task.status.to_string(),
-        "closed_reason": task.closed_reason,
         "runtime": task.runtime(),
         "outcome": task.task_outcome(),
     })
@@ -318,7 +309,19 @@ impl Daemon {
             .await
         {
             Ok(task) => {
-                self.scheduler.wake.notify_one();
+                let _ = self
+                    .event_store
+                    .emit(
+                        "task_created",
+                        Some(&trigger.agent_id),
+                        None,
+                        Some(&task.id.0),
+                        &serde_json::json!({
+                            "subject": task.name,
+                            "trigger": trigger.name,
+                        }),
+                    )
+                    .await;
                 info!(
                     task = %task.id,
                     trigger = %trigger.name,
@@ -456,7 +459,19 @@ impl Daemon {
                         .await
                     {
                         Ok(task) => {
-                            self.scheduler.wake.notify_one();
+                            let _ = self
+                                .event_store
+                                .emit(
+                                    "task_created",
+                                    Some(agent_id),
+                                    None,
+                                    Some(&task.id.0),
+                                    &serde_json::json!({
+                                        "subject": task.name,
+                                        "delegate_from": dispatch.from,
+                                    }),
+                                )
+                                .await;
                             info!(
                                 task = %task.id,
                                 agent = %agent_name,
@@ -666,7 +681,6 @@ impl Daemon {
         if let Some(ref trigger_store) = self.trigger_store {
             let ts = trigger_store.clone();
             let agent_reg = self.agent_registry.clone();
-            let scheduler = self.scheduler.clone();
             let dispatch_es = self.event_store.clone();
             let mut rx = self.event_broadcaster.subscribe();
             tokio::spawn(async move {
@@ -774,7 +788,18 @@ impl Daemon {
                                 .await
                             {
                                 Ok(_task) => {
-                                    scheduler.wake.notify_one();
+                                    let _ = dispatch_es
+                                        .emit(
+                                            "task_created",
+                                            Some(&trigger_agent_id),
+                                            None,
+                                            Some(&_task.id.0),
+                                            &serde_json::json!({
+                                                "subject": _task.name,
+                                                "trigger": trigger.name,
+                                            }),
+                                        )
+                                        .await;
                                     info!(
                                         trigger = %trigger.name,
                                         project = %project,
@@ -1062,17 +1087,51 @@ impl Daemon {
         }
     }
 
-    /// The main patrol loop: runs until shutdown signal received.
+    /// The main patrol loop: event-driven with a safety-net patrol timer.
+    ///
+    /// Primary dispatch is push-based via EventStore broadcast: when task_created
+    /// or quest_completed events arrive, schedule() runs immediately (sub-ms).
+    /// The full patrol iteration (triggers, metrics, pruning, etc.) runs on a
+    /// 60-second timer as housekeeping.
     async fn run_patrol_loop(&mut self) {
-        while self.running.load(std::sync::atomic::Ordering::SeqCst) {
-            self.run_patrol_iteration().await;
+        let mut event_rx = self.event_store.subscribe();
+        let mut patrol = tokio::time::interval(std::time::Duration::from_secs(60));
+        // Run an initial full patrol iteration on startup.
+        self.run_patrol_iteration().await;
 
-            let wake = self.scheduler.wake.clone();
+        while self.running.load(std::sync::atomic::Ordering::SeqCst) {
             tokio::select! {
-                _ = tokio::time::sleep(std::time::Duration::from_secs(self.patrol_interval_secs)) => {},
-                _ = wake.notified() => {
-                    debug!("woken by scheduler");
-                },
+                // Event-driven: wake immediately on scheduling-relevant events.
+                result = event_rx.recv() => {
+                    match result {
+                        Ok(event) => {
+                            let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                            match event_type {
+                                "task_created" | "quest_completed" => {
+                                    debug!(event_type, "event-driven patrol dispatch");
+                                    if let Err(e) = self.scheduler.schedule().await {
+                                        warn!(error = %e, "schedule cycle failed (event-driven)");
+                                    }
+                                }
+                                _ => {} // Ignore non-scheduling events.
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            warn!(skipped = n, "daemon event receiver lagged");
+                            if let Err(e) = self.scheduler.schedule().await {
+                                warn!(error = %e, "schedule cycle failed (lag recovery)");
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            info!("event broadcast channel closed");
+                            break;
+                        }
+                    }
+                }
+                // Safety-net patrol (60s): full housekeeping iteration.
+                _ = patrol.tick() => {
+                    self.run_patrol_iteration().await;
+                }
                 _ = self.shutdown_notify.notified() => break,
             }
         }
@@ -1817,7 +1876,7 @@ impl Daemon {
                             .find(|t| t.labels.contains(&claim_label));
                         match existing {
                             Some(task) => {
-                                let holder = task.assignee.as_deref().unwrap_or("unknown");
+                                let holder = task.agent_id.as_deref().unwrap_or("unknown");
                                 if holder == agent {
                                     // Same agent — renew (no-op, quest already active).
                                     serde_json::json!({"ok": true, "result": "renewed", "resource": resource})
@@ -1947,8 +2006,8 @@ impl Daemon {
                         .find(|t| t.labels.contains(&claim_label));
                     match existing {
                         Some(task) => {
-                            let agent = task.assignee.as_deref().unwrap_or("unknown");
-                            serde_json::json!({"ok": true, "claimed": true, "agent": agent, "content": task.description})
+                            let holder = task.agent_id.as_deref().unwrap_or("unknown");
+                            serde_json::json!({"ok": true, "claimed": true, "agent": holder, "content": task.description})
                         }
                         None => serde_json::json!({"ok": true, "claimed": false}),
                     }
@@ -2010,7 +2069,7 @@ impl Daemon {
                                     }
                                     // Task prefix (e.g. "sg-001") maps to company prefix.
                                     // Also check agent_id against company agent names.
-                                    task.assignee.as_deref().map(&is_allowed).unwrap_or(true)
+                                    task.agent_id.as_deref().map(&is_allowed).unwrap_or(true)
                                 })
                                 .map(|task| {
                                     serde_json::json!({
@@ -2019,7 +2078,6 @@ impl Daemon {
                                         "description": task.description,
                                         "status": task.status.to_string(),
                                         "priority": task.priority.to_string(),
-                                        "assignee": task.assignee,
                                         "agent_id": task.agent_id,
                                         "skill": task.skill,
                                         "labels": task.labels,
@@ -2028,9 +2086,8 @@ impl Daemon {
                                         "created_at": task.created_at.to_rfc3339(),
                                         "updated_at": task.updated_at.map(|t| t.to_rfc3339()),
                                         "closed_at": task.closed_at.map(|t| t.to_rfc3339()),
-                                        "closed_reason": task.closed_reason,
+                                        "outcome": task.task_outcome(),
                                         "runtime": task.runtime(),
-                                        "task_outcome": task.task_outcome(),
                                     })
                                 })
                                 .collect();
@@ -2054,13 +2111,44 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
                     let explicit_agent_id = request.get("agent_id").and_then(|v| v.as_str());
+                    // v2: agent name resolution (from MCP `agent` parameter)
+                    let agent_name_hint = request.get("agent").and_then(|v| v.as_str());
+                    // v2: depends_on (array of quest ID strings)
+                    let depends_on: Vec<aeqi_quests::QuestId> = request
+                        .get("depends_on")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(|s| aeqi_quests::QuestId(s.to_string())))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    // v2: parent quest ID (makes this a child task)
+                    let parent_id = request.get("parent").and_then(|v| v.as_str());
 
                     if project.is_empty() || subject.is_empty() {
                         serde_json::json!({"ok": false, "error": "project and subject are required"})
                     } else {
+                        // Step 5: Atomic claim check — subjects starting with "claim:" are exclusive locks.
+                        let claim_conflict = if subject.starts_with("claim:") {
+                            agent_registry.find_open_task_by_subject(subject).await.ok().flatten()
+                        } else {
+                            None
+                        };
+                        if let Some(existing_task) = claim_conflict {
+                            let claimer = existing_task.agent_id.as_deref().unwrap_or("unknown");
+                            serde_json::json!({
+                                "ok": false,
+                                "error": format!("Resource claimed by {claimer}"),
+                                "existing_task_id": existing_task.id.0,
+                            })
+                        } else {
                         // AgentRegistry path: resolve agent, then create task in unified store.
+                        // Priority: explicit agent_id > agent name hint > project default
                         let agent = if let Some(aid) = explicit_agent_id {
                             agent_registry.resolve_by_hint(aid).await.ok().flatten()
+                        } else if let Some(name) = agent_name_hint {
+                            agent_registry.resolve_by_hint(name).await.ok().flatten()
                         } else {
                             agent_registry
                                 .default_agent(Some(project))
@@ -2081,11 +2169,35 @@ impl Daemon {
                                     })
                                     .unwrap_or_default();
                                 match agent_registry
-                                    .create_task(&agent.id, subject, description, skill, &labels)
+                                    .create_task_v2(
+                                        &agent.id,
+                                        subject,
+                                        description,
+                                        skill,
+                                        &labels,
+                                        &depends_on,
+                                        parent_id,
+                                    )
                                     .await
                                 {
                                     Ok(task) => {
-                                        scheduler.wake.notify_one();
+                                        // Step 3: Emit task_created event
+                                        let _ = dispatch_es
+                                            .emit(
+                                                "task_created",
+                                                Some(&agent.id),
+                                                agent.session_id.as_deref(),
+                                                Some(&task.id.0),
+                                                &serde_json::json!({
+                                                    "subject": task.name,
+                                                    "project": project,
+                                                    "creator_session_id": agent.session_id,
+                                                    "parent": parent_id,
+                                                    "depends_on": depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
+                                                }),
+                                            )
+                                            .await;
+                                        // The task_created event above triggers the scheduler via broadcast.
                                         serde_json::json!({
                                             "ok": true,
                                             "task": {
@@ -2106,6 +2218,7 @@ impl Daemon {
                                 serde_json::json!({"ok": false, "error": "no agent found for project"})
                             }
                         }
+                        } // close claim_conflict else
                     }
                 }
 
@@ -2127,7 +2240,10 @@ impl Daemon {
                             .update_task(task_id, |task| {
                                 task.status = aeqi_quests::QuestStatus::Done;
                                 task.closed_at = Some(chrono::Utc::now());
-                                task.closed_reason = Some(reason.to_string());
+                                task.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                                    aeqi_quests::QuestOutcomeKind::Done,
+                                    reason,
+                                ));
                             })
                             .await
                         {
@@ -2136,9 +2252,8 @@ impl Daemon {
                                 "task": {
                                     "id": task.id.0,
                                     "status": task.status.to_string(),
-                                    "closed_reason": task.closed_reason,
+                                    "outcome": task.task_outcome(),
                                     "runtime": task.runtime(),
-                                    "task_outcome": task.task_outcome(),
                                 }
                             }),
                             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -2184,7 +2299,6 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
                     let project_hint = request_field(&request, "project");
-                    let department_hint = request_field(&request, "department");
                     let channel_name = request_field(&request, "channel_name");
                     let sender = request
                         .get("sender")
@@ -2196,7 +2310,6 @@ impl Daemon {
                             let chat_id = resolve_web_chat_id(
                                 request.get("chat_id").and_then(|v| v.as_i64()),
                                 project_hint,
-                                department_hint,
                                 channel_name,
                             );
 
@@ -2206,7 +2319,6 @@ impl Daemon {
                                 sender: sender.to_string(),
                                 source: MessageSource::Web,
                                 project_hint: project_hint.map(|s| s.to_string()),
-                                department_hint: department_hint.map(|s| s.to_string()),
                                 channel_name: channel_name.map(|s| s.to_string()),
                                 agent_id: None,
                             };
@@ -2234,7 +2346,6 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
                     let project_hint = request_field(&request, "project");
-                    let department_hint = request_field(&request, "department");
                     let channel_name = request_field(&request, "channel_name");
                     let sender = request
                         .get("sender")
@@ -2250,7 +2361,6 @@ impl Daemon {
                                 let chat_id = resolve_web_chat_id(
                                     request.get("chat_id").and_then(|v| v.as_i64()),
                                     project_hint,
-                                    department_hint,
                                     channel_name,
                                 );
 
@@ -2260,7 +2370,6 @@ impl Daemon {
                                     sender: sender.to_string(),
                                     source: MessageSource::Web,
                                     project_hint: project_hint.map(|s| s.to_string()),
-                                    department_hint: department_hint.map(|s| s.to_string()),
                                     channel_name: channel_name.map(|s| s.to_string()),
                                     agent_id: agent_id.map(|s| s.to_string()),
                                 };
@@ -2330,7 +2439,6 @@ impl Daemon {
                     let offset =
                         request.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
                     let project_hint = request_field(&request, "project");
-                    let department_hint = request_field(&request, "department");
                     let channel_name = request_field(&request, "channel_name");
                     let agent_id_param = request_field(&request, "agent_id").map(|s| s.to_string());
 
@@ -2378,7 +2486,6 @@ impl Daemon {
                                 let resolved_chat_id = resolve_web_chat_id(
                                     if chat_id != 0 { Some(chat_id) } else { None },
                                     project_hint,
-                                    department_hint,
                                     channel_name,
                                 );
                                 match engine.get_history(resolved_chat_id, limit, offset).await {
@@ -2415,7 +2522,6 @@ impl Daemon {
                     let offset =
                         request.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
                     let project_hint = request_field(&request, "project");
-                    let department_hint = request_field(&request, "department");
                     let channel_name = request_field(&request, "channel_name");
 
                     // Tenancy filter: when scoped, require a project hint or channel.
@@ -2431,7 +2537,6 @@ impl Daemon {
                                 let resolved_chat_id = resolve_web_chat_id(
                                     if chat_id != 0 { Some(chat_id) } else { None },
                                     project_hint,
-                                    department_hint,
                                     channel_name,
                                 );
                                 match engine.get_timeline(resolved_chat_id, limit, offset).await {
@@ -2652,7 +2757,18 @@ impl Daemon {
                                                         .await
                                                     {
                                                         Ok(task) => {
-                                                            scheduler.wake.notify_one();
+                                                            let _ = dispatch_es
+                                                                .emit(
+                                                                    "task_created",
+                                                                    Some(&trigger.agent_id),
+                                                                    None,
+                                                                    Some(&task.id.0),
+                                                                    &serde_json::json!({
+                                                                        "subject": task.name,
+                                                                        "trigger": trigger.name,
+                                                                    }),
+                                                                )
+                                                                .await;
                                                             let _ = store
                                                                 .record_fire(&trigger.id, 0.0)
                                                                 .await;
@@ -2798,6 +2914,8 @@ impl Daemon {
                     let query = request.get("query").and_then(|v| v.as_str()).unwrap_or("");
                     let limit =
                         request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+                    let scope = request.get("scope").and_then(|v| v.as_str()).unwrap_or("domain");
+                    let agent_id_param = request.get("agent_id").and_then(|v| v.as_str());
 
                     // Tenancy filter: memories lack a native project field.
                     // When scoped and no specific project is set, return empty.
@@ -2806,11 +2924,22 @@ impl Daemon {
                         serde_json::json!({"ok": true, "memories": [], "count": 0})
                     } else if let Some(ref engine) = message_router {
                         if let Some(mem) = engine.insight_store.as_ref() {
-                            let agent_id_param = request.get("agent_id").and_then(|v| v.as_str());
-
                             let mut mq = aeqi_core::traits::InsightQuery::new(query, limit);
-                            if let Some(aid) = agent_id_param {
-                                mq = mq.with_agent(aid);
+                            match scope {
+                                // entity: filter to a specific agent's memories
+                                "entity" => {
+                                    if let Some(aid) = agent_id_param {
+                                        mq = mq.with_agent(aid);
+                                    }
+                                }
+                                // system: cross-project, no agent filter (search all)
+                                "system" => {}
+                                // domain (default): project-level, apply agent_id if provided
+                                _ => {
+                                    if let Some(aid) = agent_id_param {
+                                        mq = mq.with_agent(aid);
+                                    }
+                                }
                             }
                             match mem.search(&mq).await {
                                 Ok(entries) => {
@@ -3286,6 +3415,8 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("fact");
 
+                    let scope = request.get("scope").and_then(|v| v.as_str()).unwrap_or("domain");
+
                     if project.is_empty() || key.is_empty() || content.is_empty() {
                         serde_json::json!({"ok": false, "error": "project, key, and content required"})
                     } else if let Some(ref engine) = message_router {
@@ -3297,7 +3428,15 @@ impl Daemon {
                                 "evergreen" => aeqi_core::traits::InsightCategory::Evergreen,
                                 _ => aeqi_core::traits::InsightCategory::Fact,
                             };
-                            let agent_id = request.get("agent_id").and_then(|v| v.as_str());
+                            let raw_agent_id = request.get("agent_id").and_then(|v| v.as_str());
+                            // Scope determines agent_id usage:
+                            // - "entity": require agent_id (per-agent memory)
+                            // - "system": store as global (no agent_id)
+                            // - "domain" (default): pass agent_id if provided
+                            let agent_id = match scope {
+                                "system" => None,
+                                _ => raw_agent_id,
+                            };
                             let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
                             match mem.store_with_ttl(key, content, cat, agent_id, ttl_secs).await {
                                 Ok(id) => serde_json::json!({"ok": true, "id": id}),
@@ -4576,7 +4715,7 @@ mod tests {
         resolve_web_chat_id,
     };
     use crate::session_store::{
-        agency_chat_id, department_chat_id, named_channel_chat_id, project_chat_id,
+        agency_chat_id, named_channel_chat_id, project_chat_id,
     };
 
     #[test]
@@ -4722,15 +4861,11 @@ mod tests {
     #[test]
     fn web_chat_resolution_prefers_scoped_channels() {
         assert_eq!(
-            resolve_web_chat_id(None, Some("alpha"), Some("backend"), Some("alpha/backend"),),
-            department_chat_id("alpha", "backend")
-        );
-        assert_eq!(
-            resolve_web_chat_id(None, Some("alpha"), None, Some("alpha"),),
+            resolve_web_chat_id(None, Some("alpha"), Some("alpha")),
             project_chat_id("alpha")
         );
         assert_eq!(
-            resolve_web_chat_id(None, None, None, Some("ops")),
+            resolve_web_chat_id(None, None, Some("ops")),
             named_channel_chat_id("ops")
         );
     }
@@ -4738,11 +4873,11 @@ mod tests {
     #[test]
     fn web_chat_resolution_uses_global_fallback() {
         assert_eq!(
-            resolve_web_chat_id(None, None, None, Some("aeqi")),
+            resolve_web_chat_id(None, None, Some("aeqi")),
             agency_chat_id()
         );
         assert_eq!(
-            resolve_web_chat_id(None, None, None, None),
+            resolve_web_chat_id(None, None, None),
             agency_chat_id()
         );
     }

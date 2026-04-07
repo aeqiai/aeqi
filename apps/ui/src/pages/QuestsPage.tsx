@@ -238,8 +238,8 @@ function QuestRow({ quest }: { quest: Quest }) {
         </div>
       )}
       <div className="q-row-spacer" />
-      {quest.assignee && (
-        <div className="q-row-assignee">{quest.assignee}</div>
+      {(quest.agent_id || quest.assignee) && (
+        <div className="q-row-assignee">{quest.agent_id || quest.assignee}</div>
       )}
       <div className="q-row-time">{timeAgo(quest.updated_at || quest.created_at)}</div>
     </div>

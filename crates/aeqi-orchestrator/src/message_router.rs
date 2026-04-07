@@ -55,7 +55,6 @@ pub struct IncomingMessage {
     pub sender: String,
     pub source: MessageSource,
     pub project_hint: Option<String>,
-    pub department_hint: Option<String>,
     pub channel_name: Option<String>,
     /// Persistent agent UUID for entity memory scoping and routing.
     pub agent_id: Option<String>,
@@ -63,14 +62,9 @@ pub struct IncomingMessage {
 
 impl IncomingMessage {
     fn conversation_channel_type(&self) -> String {
-        match (
-            self.source.channel_type(),
-            self.project_hint.as_deref(),
-            self.department_hint.as_deref(),
-        ) {
-            (base, _, Some(_)) => format!("{base}_department"),
-            (base, Some(_), None) => format!("{base}_project"),
-            (base, None, None) => base.to_string(),
+        match (self.source.channel_type(), self.project_hint.as_deref()) {
+            (base, Some(_)) => format!("{base}_project"),
+            (base, None) => base.to_string(),
         }
     }
 
@@ -79,21 +73,15 @@ impl IncomingMessage {
             return name.clone();
         }
         if let Some(project) = &self.project_hint {
-            if let Some(department) = &self.department_hint {
-                return format!("{project}/{department}");
-            }
             return project.clone();
         }
         self.sender.clone()
     }
 
     fn scope_label(&self) -> String {
-        match (&self.project_hint, &self.department_hint) {
-            (Some(project), Some(department)) => {
-                format!("project={project}, department={department}")
-            }
-            (Some(project), None) => format!("project={project}"),
-            (None, _) => "global".to_string(),
+        match &self.project_hint {
+            Some(project) => format!("project={project}"),
+            None => "global".to_string(),
         }
     }
 }
@@ -203,8 +191,8 @@ pub struct MessageRouter {
     pub task_notify: Arc<tokio::sync::Notify>,
     /// Single insight store for all agents (scoped by agent_id within queries).
     pub insight_store: Option<Arc<dyn Insight>>,
-    /// Wake signal for the global Scheduler.
-    pub scheduler_wake: Arc<tokio::sync::Notify>,
+    /// EventStore for emitting task_created events (drives scheduler via broadcast).
+    pub event_store: Arc<crate::event_store::EventStore>,
 }
 
 impl MessageRouter {
@@ -386,7 +374,19 @@ impl MessageRouter {
         );
 
         if !hold_for_council {
-            self.scheduler_wake.notify_one();
+            let _ = self
+                .event_store
+                .emit(
+                    "task_created",
+                    Some(&agent.id),
+                    None,
+                    Some(&task.id.0),
+                    &serde_json::json!({
+                        "subject": task.name,
+                        "project": project_name,
+                    }),
+                )
+                .await;
         }
 
         Ok(task)
@@ -596,17 +596,13 @@ impl MessageRouter {
             );
         }
 
-        if msg.project_hint.is_some() || msg.department_hint.is_some() || msg.channel_name.is_some()
-        {
+        if msg.project_hint.is_some() || msg.channel_name.is_some() {
             let mut lines = Vec::new();
             if let Some(name) = &msg.channel_name {
                 lines.push(format!("Channel: {name}"));
             }
             if let Some(project) = &msg.project_hint {
                 lines.push(format!("Project scope: {project}"));
-            }
-            if let Some(department) = &msg.department_hint {
-                lines.push(format!("Department scope: {department}"));
             }
             description.push_str("\n\n---\n## Channel Context\n\n");
             description.push_str(&lines.join("\n"));
@@ -696,9 +692,8 @@ impl MessageRouter {
             let conv_context_for_spawn = conv_context_for_advisors.clone();
             let source_tag_for_spawn = source_tag.clone();
             let project_hint = msg.project_hint.clone();
-            let department_hint = msg.department_hint.clone();
             let chat_id = msg.chat_id;
-            let scheduler_wake = self.scheduler_wake.clone();
+            let event_store = self.event_store.clone();
 
             tokio::spawn(async move {
                 MessageRouter::finish_council_enrichment(
@@ -714,8 +709,7 @@ impl MessageRouter {
                     chat_id,
                     source_tag_for_spawn,
                     project_hint,
-                    department_hint,
-                    scheduler_wake,
+                    event_store,
                 )
                 .await;
             });
@@ -1154,7 +1148,10 @@ impl MessageRouter {
                     .update_task(&task_id, |task| {
                         task.status = aeqi_quests::QuestStatus::Done;
                         task.closed_at = Some(chrono::Utc::now());
-                        task.closed_reason = Some("closed via chat".to_string());
+                        task.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                            aeqi_quests::QuestOutcomeKind::Done,
+                            "closed via chat",
+                        ));
                     })
                     .await
                 {
@@ -1185,14 +1182,13 @@ impl MessageRouter {
         is_council: bool,
         chat_id: i64,
         project_hint: Option<&str>,
-        department_hint: Option<&str>,
     ) -> Vec<String> {
         if council_advisors.is_empty() {
             return Vec::new();
         }
 
         let scoped_names =
-            Self::scoped_advisor_names_with(agent_registry, project_hint, department_hint).await;
+            Self::scoped_advisor_names_with(agent_registry, project_hint).await;
         let advisor_refs: Vec<&aeqi_core::config::PeerAgentConfig> = match &scoped_names {
             Some(names) => council_advisors
                 .iter()
@@ -1236,11 +1232,9 @@ impl MessageRouter {
     async fn scoped_advisor_names_with(
         agent_registry: &Arc<AgentRegistry>,
         project_hint: Option<&str>,
-        department_hint: Option<&str>,
     ) -> Option<HashSet<String>> {
-        // Department scoping: find agents that are children of the project agent.
+        // Scope advisors to children of the project agent in the agent tree.
         let project_name = project_hint?;
-        let _department_name = department_hint?;
 
         // Resolve the project agent and collect its subtree names.
         let agent = agent_registry.resolve_by_hint(project_name).await.ok()??;
@@ -1403,8 +1397,7 @@ impl MessageRouter {
         chat_id: i64,
         source_tag: String,
         project_hint: Option<String>,
-        department_hint: Option<String>,
-        scheduler_wake: Arc<tokio::sync::Notify>,
+        event_store: Arc<crate::event_store::EventStore>,
     ) {
         let advisors_to_invoke = Self::classify_advisors_with(
             &agent_registry,
@@ -1414,7 +1407,6 @@ impl MessageRouter {
             is_council,
             chat_id,
             project_hint.as_deref(),
-            department_hint.as_deref(),
         )
         .await;
 
@@ -1485,7 +1477,18 @@ impl MessageRouter {
                         })),
                     )
                     .await;
-                scheduler_wake.notify_one();
+                let _ = event_store
+                    .emit(
+                        "task_created",
+                        None,
+                        None,
+                        Some(&task_id),
+                        &serde_json::json!({
+                            "subject": "council_enrichment_complete",
+                            "project": project_name,
+                        }),
+                    )
+                    .await;
             }
             Err(e) => warn!(
                 project = %project_name,

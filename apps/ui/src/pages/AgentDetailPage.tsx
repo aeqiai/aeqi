@@ -36,7 +36,7 @@ export default function AgentDetailPage() {
         }
       }).catch(() => {}),
       api.getTasks({}).then((d) => {
-        const agentTasks = (d.tasks || []).filter((t: any) => t.assignee === name);
+        const agentTasks = (d.tasks || []).filter((t: any) => (t.agent_id || t.assignee) === name);
         setTasks(agentTasks);
       }),
       api.getAudit({ last: 50 }).then((d) => {

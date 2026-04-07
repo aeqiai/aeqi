@@ -98,7 +98,7 @@ export default function DashboardPage() {
                 return (
                   <div key={q.id} className="dash-active-row">
                     <span className="dash-active-agent">
-                      {q.assignee || q.agent || "\u2014"}
+                      {q.agent_id || q.assignee || q.agent || "\u2014"}
                     </span>
                     <span className="dash-active-subject">{q.subject}</span>
                     {phase && <span className="dash-active-phase">{phase}</span>}

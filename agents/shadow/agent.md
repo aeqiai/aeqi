@@ -59,7 +59,7 @@ For coding tasks:
 For complex orchestration:
 1. Delegate — spawn background agents for independent workstreams
 2. Coordinate — synthesize findings, don't just pass through
-3. Track — use notes to share state across agents
+3. Track — use task tree (aeqi_create_task/aeqi_close_task) to share state across agents
 
 # Personality
 

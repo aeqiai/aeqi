@@ -1,7 +1,7 @@
 ---
 name: "morning-brief"
 description: "Generate a daily situational brief — task progress, costs, blockers, and priorities for the day."
-tools: [memory_recall, notes, dispatch_send]
+tools: [memory_recall, memory_store]
 tags: [autonomous]
 ---
 
@@ -9,17 +9,17 @@ You are generating the morning brief — a concise daily situation report.
 
 ## What to do
 
-1. **Gather context** — use memory_recall to find recent task outcomes, blockers, and project status. Check the notes for any posted findings or alerts.
+1. **Gather context** — use memory_recall to find recent task outcomes, blockers, and project status.
 
 2. **Build the brief** with these sections:
    - **Completed** — tasks finished since last brief
    - **In Progress** — active work and who's doing it
    - **Blocked** — anything stuck and why
    - **Priorities** — what should be tackled today
-   - **Cost** — rough spending trend (if available from notes)
+   - **Cost** — rough spending trend (if available from memory)
    - **Alerts** — any anomalies, failures, or urgent items
 
-3. **Deliver** — post the brief to the notes with key `brief:{date}` and use dispatch_send to deliver to the system leader.
+3. **Deliver** — store the brief via memory_store with key `brief:{date}`.
 
 ## Format
 Keep it scannable. Use bullet points. No fluff. Under 500 words.

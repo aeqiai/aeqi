@@ -48,6 +48,7 @@ export interface Quest {
   description: string;
   status: QuestStatus;
   priority: QuestPriority;
+  /** @deprecated Use agent_id instead. Kept for backward compat with old data. */
   assignee?: string;
   agent_id?: string;
   skill?: string;
@@ -56,14 +57,19 @@ export interface Quest {
   created_at: string;
   updated_at?: string;
   closed_at?: string;
+  /** @deprecated Use outcome.summary instead. Kept for backward compat with old data. */
   closed_reason?: string;
   checkpoints?: Checkpoint[];
   depends_on?: string[];
+  /** @deprecated Removed in v2 (inverse of depends_on, redundant). */
   blocks?: string[];
   acceptance_criteria?: string;
   retry_count?: number;
+  /** @deprecated Removed in v2 (scheduler handles concurrency). */
   locked_by?: string;
+  /** @deprecated Removed in v2 (scheduler handles concurrency). */
   locked_at?: string;
+  outcome?: QuestOutcome;
   metadata?: Record<string, unknown>;
   runtime?: TaskRuntime;
 }

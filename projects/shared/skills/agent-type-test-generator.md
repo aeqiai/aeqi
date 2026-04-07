@@ -2,7 +2,7 @@
 name: "agent-type-test-generator"
 description: "Test generation specialist. Writes tests from existing code — unit, integration, edge cases. Follows TDD principles in reverse: code exists, write tests that prove it works."
 when_to_use: "Use after implementation to add test coverage, or when test suite is incomplete."
-tools: [read_file, write_file, edit_file, glob, grep, shell, memory_recall, notes]
+tools: [read_file, write_file, edit_file, glob, grep, shell, memory_recall]
 tags: [implement]
 ---
 

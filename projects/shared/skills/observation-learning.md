@@ -2,7 +2,7 @@
 name: "observation-learning"
 description: "Autonomous skill: extracts patterns from recent agent sessions. Fires on schedule, analyzes tool usage, suggests new skills or workflow improvements."
 when_to_use: Triggered automatically via schedule. Do not invoke manually.
-tools: [read_file, glob, grep, shell, memory_recall, memory_store, notes]
+tools: [read_file, glob, grep, shell, memory_recall, memory_store]
 deny: [write_file, edit_file, delegate]
 tags: [autonomous]
 ---

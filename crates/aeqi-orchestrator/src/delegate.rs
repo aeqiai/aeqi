@@ -6,7 +6,6 @@
 //! - `origin` — response injected back into the caller's conversation
 //! - `perpetual` — response delivered to the caller's perpetual session
 //! - `async` — fire-and-forget; caller notified on completion
-//! - `department` — response posted to the department channel
 //! - `none` — no response expected
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
@@ -18,18 +17,17 @@ use tracing::info;
 use crate::SessionStore;
 use crate::agent_registry::AgentRegistry;
 use crate::event_store::{Dispatch, DispatchKind, EventStore};
-use crate::execution_events::{EventBroadcaster, ExecutionEvent};
 use crate::session_manager::SessionManager;
 
 // ---------------------------------------------------------------------------
 // DelegateTool
 // ---------------------------------------------------------------------------
 
-/// Unified tool for delegating work to subagents, named agents, or departments.
+/// Unified tool for delegating work to subagents or named agents.
 ///
 /// Routing is determined by the `to` parameter:
 /// - `"subagent"` — delegate to the project-default agent (ephemeral worker)
-/// - `"dept:<name>"` — post to a department conversation channel
+/// - `"dept:<name>"` — resolved to agent lookup by name (backward compat)
 /// - `<agent_name>` — send a DelegateRequest dispatch to a named agent
 pub struct DelegateTool {
     event_store: Arc<EventStore>,
@@ -41,8 +39,6 @@ pub struct DelegateTool {
     project_name: Option<String>,
     /// Fallback target when no project-default agent is found (system escalation target).
     fallback_target: Option<String>,
-    /// Optional event broadcaster for emitting DepartmentMessage events.
-    event_broadcaster: Option<Arc<EventBroadcaster>>,
     /// Session ID of the calling agent, propagated as parent_session_id in delegations.
     session_id: Option<String>,
     /// Provider for direct session spawning (bypasses dispatch bus).
@@ -63,19 +59,12 @@ impl DelegateTool {
             agent_registry: None,
             project_name: None,
             fallback_target: None,
-            event_broadcaster: None,
             session_id: None,
             provider: None,
             session_store: None,
             session_manager: None,
             default_model: String::new(),
         }
-    }
-
-    /// Set the event broadcaster for emitting department message events.
-    pub fn with_event_broadcaster(mut self, broadcaster: Arc<EventBroadcaster>) -> Self {
-        self.event_broadcaster = Some(broadcaster);
-        self
     }
 
     /// Set the agent registry for resolving default agents.
@@ -256,51 +245,6 @@ impl DelegateTool {
         )))
     }
 
-    /// Handle delegation to a department channel.
-    async fn delegate_to_department(
-        &self,
-        dept: &str,
-        prompt: &str,
-        response_mode: &str,
-    ) -> Result<ToolResult> {
-        // Send a DelegateRequest dispatch addressed to the department.
-        // The trigger/routing system will pick it up and deliver to appropriate agents.
-        let kind = DispatchKind::DelegateRequest {
-            prompt: prompt.to_string(),
-            response_mode: response_mode.to_string(),
-            create_task: false,
-            skill: None,
-            reply_to: None,
-            parent_session_id: self.session_id.clone(),
-        };
-
-        let to = format!("dept:{dept}");
-        let dispatch = Dispatch::new_typed(&self.agent_name, &to, kind);
-        let dispatch_id = dispatch.id.clone();
-
-        info!(
-            from = %self.agent_name,
-            department = %dept,
-            dispatch_id = %dispatch_id,
-            "sending DelegateRequest to department"
-        );
-
-        self.event_store.send(dispatch).await;
-
-        // Emit DepartmentMessage event for trigger system / observers.
-        if let Some(ref broadcaster) = self.event_broadcaster {
-            broadcaster.publish(ExecutionEvent::DepartmentMessage {
-                department_id: dept.to_string(),
-                department_name: dept.to_string(),
-                from_agent: self.agent_name.clone(),
-                content: prompt.to_string(),
-            });
-        }
-
-        Ok(ToolResult::success(format!(
-            "Delegation posted to department '{dept}' (dispatch_id: {dispatch_id}, response_mode: {response_mode})"
-        )))
-    }
 }
 
 #[async_trait]
@@ -352,15 +296,20 @@ impl Tool for DelegateTool {
                 }
             }
 
-            // Pattern 3: Department — post to department channel
+            // Pattern 3: dept:<name> — backward compat, resolves to named agent
             dept_target if dept_target.starts_with("dept:") => {
-                let dept_name = &dept_target[5..]; // strip "dept:" prefix
-                if dept_name.is_empty() {
+                let agent_name = &dept_target[5..]; // strip "dept:" prefix
+                if agent_name.is_empty() {
                     return Ok(ToolResult::error(
-                        "Department name cannot be empty. Use 'dept:<name>' format.",
+                        "Agent name cannot be empty. Use 'dept:<name>' or an agent name directly.",
                     ));
                 }
-                self.delegate_to_department(dept_name, prompt, &response_mode)
+                info!(
+                    from = %self.agent_name,
+                    agent = %agent_name,
+                    "dept: prefix resolved to agent lookup"
+                );
+                self.delegate_to_agent(agent_name, prompt, &response_mode, create_task, skill)
                     .await
             }
 
@@ -383,16 +332,15 @@ impl Tool for DelegateTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "aeqi_delegate".to_string(),
-            description: "Delegate work to subagents, named agents, or departments. \
+            description: "Delegate work to subagents or named agents. \
                 Routes based on the 'to' parameter: \
                 'subagent' spawns an ephemeral sub-agent, \
-                'dept:<name>' posts to a department channel, \
+                'dept:<name>' resolves to a named agent (backward compat), \
                 or any other value sends a delegation request to a named agent. \
                 Response mode controls how results are returned: \
                 'origin' (inject back into caller), \
                 'perpetual' (deliver to perpetual session), \
                 'async' (fire-and-forget with notification), \
-                'department' (post to department channel), \
                 'none' (no response expected)."
                 .to_string(),
             input_schema: serde_json::json!({
@@ -400,7 +348,7 @@ impl Tool for DelegateTool {
                 "properties": {
                     "to": {
                         "type": "string",
-                        "description": "Target: 'subagent' for ephemeral agent, 'dept:<name>' for department, or an agent name"
+                        "description": "Target: 'subagent' for ephemeral agent, or an agent name (dept:<name> also accepted for backward compat)"
                     },
                     "prompt": {
                         "type": "string",
@@ -408,7 +356,7 @@ impl Tool for DelegateTool {
                     },
                     "response": {
                         "type": "string",
-                        "enum": ["origin", "perpetual", "async", "department", "none"],
+                        "enum": ["origin", "perpetual", "async", "none"],
                         "default": "origin",
                         "description": "How the response should be routed back"
                     },
@@ -528,7 +476,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_department_mode_detection() {
+    async fn test_dept_prefix_resolves_to_agent() {
         let tool = make_tool();
         let args = serde_json::json!({
             "to": "dept:engineering",
@@ -536,12 +484,13 @@ mod tests {
         });
         let result = tool.execute(args).await.unwrap();
         assert!(!result.is_error);
+        // dept:engineering now resolves to agent "engineering"
         assert!(result.output.contains("engineering"));
         assert!(result.output.contains("dispatch_id"));
     }
 
     #[tokio::test]
-    async fn test_department_empty_name_rejected() {
+    async fn test_dept_prefix_empty_name_rejected() {
         let tool = make_tool();
         let args = serde_json::json!({
             "to": "dept:",
@@ -611,7 +560,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_department_dispatch_sent() {
+    async fn test_dept_prefix_dispatch_sent_to_agent() {
         let es = test_event_store();
         let tool = DelegateTool::new(es.clone(), "leader".to_string());
 
@@ -622,8 +571,8 @@ mod tests {
         let result = tool.execute(args).await.unwrap();
         assert!(!result.is_error);
 
-        // Verify dispatch was sent to "dept:ops".
-        let messages = es.read("dept:ops").await;
+        // dept:ops now resolves to agent "ops".
+        let messages = es.read("ops").await;
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].from, "leader");
         assert_eq!(messages[0].kind.subject_tag(), "DELEGATE_REQUEST");

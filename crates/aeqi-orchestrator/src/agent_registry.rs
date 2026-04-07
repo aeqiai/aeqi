@@ -1,6 +1,6 @@
 //! Agent Registry — the unified agent tree.
 //!
-//! Everything is an agent. A "company" is an agent. A "department" is an agent.
+//! Everything is an agent. A "company" is an agent with children.
 //! A "worker" is an agent. The root agent (parent_id IS NULL) is the user's
 //! workspace — the single point of contact. Structure is emergent, not typed.
 //!
@@ -336,6 +336,16 @@ impl AgentRegistry {
             .any(|col| col == "prompts");
         if !has_task_prompts {
             conn.execute_batch("ALTER TABLE quests ADD COLUMN prompts TEXT DEFAULT '[]';")?;
+        }
+
+        // Idempotent migration: add outcome column (JSON-serialized QuestOutcomeRecord).
+        let has_outcome: bool = conn
+            .prepare("PRAGMA table_info(quests)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == "outcome");
+        if !has_outcome {
+            conn.execute_batch("ALTER TABLE quests ADD COLUMN outcome TEXT;")?;
         }
 
         // Idempotent migration: add public_id column for webhook triggers.
@@ -1171,6 +1181,19 @@ impl AgentRegistry {
 
         let db = self.db.lock().await;
 
+        // Rate limit: reject if agent has exceeded daily task creation limit.
+        let max_daily_tasks: u32 = 50;
+        let today_count: u32 = db.query_row(
+            "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
+            params![agent_id],
+            |row| row.get(0),
+        )?;
+        if today_count >= max_daily_tasks {
+            anyhow::bail!(
+                "Agent has reached daily task creation limit ({max_daily_tasks})"
+            );
+        }
+
         // Get and increment sequence for this prefix.
         db.execute(
             "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
@@ -1192,10 +1215,8 @@ impl AgentRegistry {
             description: description.to_string(),
             status: aeqi_quests::QuestStatus::Pending,
             priority: aeqi_quests::quest::Priority::Normal,
-            assignee: Some(agent.name.clone()),
             agent_id: Some(agent_id.to_string()),
             depends_on: Vec::new(),
-            blocks: Vec::new(),
             skill: skill.map(|s| s.to_string()),
             labels: labels.to_vec(),
             retry_count: 0,
@@ -1204,20 +1225,17 @@ impl AgentRegistry {
             created_at: now,
             updated_at: None,
             closed_at: None,
-            closed_reason: None,
+            outcome: None,
             acceptance_criteria: None,
-            locked_by: None,
-            locked_at: None,
         };
 
         db.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, assignee, agent_id, skill, labels, created_at)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, skill, labels, created_at)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7)",
             params![
                 task_id,
                 subject,
                 description,
-                agent.name,
                 agent_id,
                 skill,
                 labels_json,
@@ -1226,6 +1244,121 @@ impl AgentRegistry {
         )?;
 
         info!(task = %task_id, agent = %agent.name, subject = %subject, "task created");
+        Ok(task)
+    }
+
+    /// Create a task with v2 features: depends_on, parent (child task) support.
+    pub async fn create_task_v2(
+        &self,
+        agent_id: &str,
+        subject: &str,
+        description: &str,
+        skill: Option<&str>,
+        labels: &[String],
+        depends_on: &[aeqi_quests::QuestId],
+        parent_id: Option<&str>,
+    ) -> Result<aeqi_quests::Quest> {
+        // Resolve quest prefix: agent's quest_prefix, or first 2 chars of name, or "t".
+        let agent = self
+            .get(agent_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("agent not found: {agent_id}"))?;
+        let prefix = agent.quest_prefix.unwrap_or_else(|| {
+            let name = &agent.name;
+            if name.len() >= 2 {
+                name[..2].to_lowercase()
+            } else {
+                "t".to_string()
+            }
+        });
+
+        let db = self.db.lock().await;
+
+        // Rate limit: reject if agent has exceeded daily task creation limit.
+        let max_daily_tasks: u32 = 50;
+        let today_count: u32 = db.query_row(
+            "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
+            params![agent_id],
+            |row| row.get(0),
+        )?;
+        if today_count >= max_daily_tasks {
+            anyhow::bail!(
+                "Agent has reached daily task creation limit ({max_daily_tasks})"
+            );
+        }
+
+        // If parent is specified, create a child ID; otherwise create a root ID.
+        let task_id = if let Some(pid) = parent_id {
+            // Find next child sequence for this parent.
+            let child_count: u32 = db.query_row(
+                "SELECT COUNT(*) FROM quests WHERE id LIKE ?1",
+                params![format!("{pid}.%")],
+                |row| row.get(0),
+            )?;
+            let parent_quest_id = aeqi_quests::QuestId(pid.to_string());
+            parent_quest_id.child(child_count + 1).0
+        } else {
+            // Root-level: get and increment sequence for this prefix.
+            db.execute(
+                "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
+                params![prefix],
+            )?;
+            let seq: u32 = db.query_row(
+                "UPDATE quest_sequences SET next_seq = next_seq + 1 WHERE prefix = ?1 RETURNING next_seq - 1",
+                params![prefix],
+                |row| row.get(0),
+            )?;
+            format!("{prefix}-{seq:03}")
+        };
+
+        let now = chrono::Utc::now();
+        let labels_json = serde_json::to_string(labels)?;
+        let deps_json = serde_json::to_string(depends_on)?;
+
+        let mut task = aeqi_quests::Quest::with_agent(
+            aeqi_quests::QuestId(task_id.clone()),
+            subject,
+            Some(agent_id),
+        );
+        task.description = description.to_string();
+        task.depends_on = depends_on.to_vec();
+        task.skill = skill.map(|s| s.to_string());
+        task.labels = labels.to_vec();
+        task.created_at = now;
+
+        db.execute(
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, skill, labels, depends_on, created_at)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
+            params![
+                task_id,
+                subject,
+                description,
+                agent_id,
+                skill,
+                labels_json,
+                deps_json,
+                now.to_rfc3339(),
+            ],
+        )?;
+
+        info!(task = %task_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "task created (v2)");
+        Ok(task)
+    }
+
+    /// Find an open (Pending or InProgress) task by exact subject match.
+    /// Used for atomic claim checking.
+    pub async fn find_open_task_by_subject(
+        &self,
+        subject: &str,
+    ) -> Result<Option<aeqi_quests::Quest>> {
+        let db = self.db.lock().await;
+        let task = db
+            .query_row(
+                "SELECT * FROM quests WHERE subject = ?1 AND status IN ('pending', 'in_progress') LIMIT 1",
+                params![subject],
+                |row| Ok(row_to_task(row)),
+            )
+            .optional()?;
         Ok(task)
     }
 
@@ -1333,24 +1466,25 @@ impl AgentRegistry {
         let labels_json = serde_json::to_string(&task.labels).unwrap_or_default();
         let checkpoints_json = serde_json::to_string(&task.checkpoints).unwrap_or_default();
         let deps_json = serde_json::to_string(&task.depends_on).unwrap_or_default();
-        let blocks_json = serde_json::to_string(&task.blocks).unwrap_or_default();
         let metadata_json = serde_json::to_string(&task.metadata).unwrap_or_default();
+        let outcome_json = task
+            .outcome
+            .as_ref()
+            .and_then(|o| serde_json::to_string(o).ok());
 
         db.execute(
             "UPDATE quests SET
                 subject = ?1, description = ?2, status = ?3, priority = ?4,
-                assignee = ?5, agent_id = ?6, skill = ?7, labels = ?8,
-                retry_count = ?9, checkpoints = ?10, metadata = ?11,
-                depends_on = ?12, blocks = ?13, acceptance_criteria = ?14,
-                locked_by = ?15, locked_at = ?16, updated_at = ?17,
-                closed_at = ?18, closed_reason = ?19
-             WHERE id = ?20",
+                agent_id = ?5, skill = ?6, labels = ?7,
+                retry_count = ?8, checkpoints = ?9, metadata = ?10,
+                depends_on = ?11, acceptance_criteria = ?12,
+                updated_at = ?13, closed_at = ?14, outcome = ?15
+             WHERE id = ?16",
             params![
                 task.name,
                 task.description,
                 task.status.to_string(),
                 task.priority.to_string(),
-                task.assignee,
                 task.agent_id,
                 task.skill,
                 labels_json,
@@ -1358,13 +1492,10 @@ impl AgentRegistry {
                 checkpoints_json,
                 metadata_json,
                 deps_json,
-                blocks_json,
                 task.acceptance_criteria,
-                task.locked_by,
-                task.locked_at.map(|d| d.to_rfc3339()),
                 now,
                 task.closed_at.map(|d| d.to_rfc3339()),
-                task.closed_reason,
+                outcome_json,
                 task.id.0,
             ],
         )?;
@@ -1398,6 +1529,25 @@ impl AgentRegistry {
         let tasks = stmt
             .query_map(params_refs.as_slice(), |row| Ok(row_to_task(row)))?
             .filter_map(|r| r.ok())
+            .collect();
+        Ok(tasks)
+    }
+
+    /// List direct children of a quest by ID prefix.
+    ///
+    /// Returns all quests whose ID starts with `{prefix}.` but does NOT contain
+    /// a further dot (i.e., direct children only, not grandchildren).
+    pub async fn list_tasks_by_prefix(&self, prefix: &str) -> Result<Vec<aeqi_quests::Quest>> {
+        let db = self.db.lock().await;
+        let like_pattern = format!("{prefix}.%");
+        let mut stmt = db.prepare(
+            "SELECT * FROM quests WHERE id LIKE ?1 ORDER BY id ASC",
+        )?;
+        let tasks: Vec<aeqi_quests::Quest> = stmt
+            .query_map(params![like_pattern], |row| Ok(row_to_task(row)))?
+            .filter_map(|r| r.ok())
+            // Filter to direct children only (no grandchildren).
+            .filter(|q| !q.id.0[prefix.len() + 1..].contains('.'))
             .collect();
         Ok(tasks)
     }
@@ -1553,8 +1703,8 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
     let labels_str: String = row.get("labels").unwrap_or_else(|_| "[]".to_string());
     let checkpoints_str: String = row.get("checkpoints").unwrap_or_else(|_| "[]".to_string());
     let deps_str: String = row.get("depends_on").unwrap_or_else(|_| "[]".to_string());
-    let blocks_str: String = row.get("blocks").unwrap_or_else(|_| "[]".to_string());
     let metadata_str: String = row.get("metadata").unwrap_or_else(|_| "{}".to_string());
+    let outcome_str: String = row.get("outcome").unwrap_or_else(|_| String::new());
 
     let status_str: String = row.get("status").unwrap_or_else(|_| "pending".to_string());
     let status = match status_str.as_str() {
@@ -1573,16 +1723,32 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         _ => aeqi_quests::quest::Priority::Normal,
     };
 
+    // Parse outcome from the dedicated column, falling back to legacy closed_reason.
+    let outcome: Option<aeqi_quests::QuestOutcomeRecord> = if !outcome_str.is_empty() {
+        serde_json::from_str(&outcome_str).ok()
+    } else {
+        // Legacy fallback: synthesize from closed_reason if present.
+        row.get::<_, String>("closed_reason")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(|reason| {
+                let kind = if status_str == "cancelled" {
+                    aeqi_quests::QuestOutcomeKind::Cancelled
+                } else {
+                    aeqi_quests::QuestOutcomeKind::Done
+                };
+                aeqi_quests::QuestOutcomeRecord::new(kind, reason)
+            })
+    };
+
     aeqi_quests::Quest {
         id: aeqi_quests::QuestId(row.get("id").unwrap_or_default()),
         name: row.get("subject").unwrap_or_default(),
         description: row.get("description").unwrap_or_default(),
         status,
         priority,
-        assignee: row.get("assignee").ok(),
         agent_id: row.get("agent_id").ok(),
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
-        blocks: serde_json::from_str(&blocks_str).unwrap_or_default(),
         skill: row.get("skill").ok(),
         labels: serde_json::from_str(&labels_str).unwrap_or_default(),
         retry_count: row.get::<_, u32>("retry_count").unwrap_or(0),
@@ -1604,14 +1770,8 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
             .ok()
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
             .map(|d| d.with_timezone(&chrono::Utc)),
-        closed_reason: row.get("closed_reason").ok(),
+        outcome,
         acceptance_criteria: row.get("acceptance_criteria").ok(),
-        locked_by: row.get("locked_by").ok(),
-        locked_at: row
-            .get::<_, String>("locked_at")
-            .ok()
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
-            .map(|d| d.with_timezone(&chrono::Utc)),
     }
 }
 

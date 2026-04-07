@@ -236,8 +236,8 @@ impl QuestBoard {
         Ok(quest)
     }
 
-    /// Atomically claim a task for execution. Returns Err if already locked.
-    pub fn checkout(&mut self, id: &str, worker_id: &str) -> Result<Quest> {
+    /// Atomically claim a task for execution.
+    pub fn checkout(&mut self, id: &str, _worker_id: &str) -> Result<Quest> {
         let quest = self
             .tasks
             .get(id)
@@ -247,23 +247,17 @@ impl QuestBoard {
             anyhow::bail!("quest {} is not Pending (status: {:?})", id, quest.status);
         }
 
-        if let Some(ref locked_by) = quest.locked_by {
-            anyhow::bail!("quest {} already locked by {}", id, locked_by);
-        }
-
+        // Concurrency is now handled by the scheduler via status transitions.
         self.update(id, |t| {
-            t.locked_by = Some(worker_id.to_string());
-            t.locked_at = Some(chrono::Utc::now());
             t.status = QuestStatus::InProgress;
         })
     }
 
-    /// Release the execution lock (on completion or failure).
-    pub fn release(&mut self, id: &str) -> Result<Quest> {
-        self.update(id, |t| {
-            t.locked_by = None;
-            t.locked_at = None;
-        })
+    /// Release a task (on completion or failure) — now a no-op kept for API compat.
+    pub fn release(&mut self, _id: &str) -> Result<Quest> {
+        // Lock fields removed; scheduler handles concurrency via status.
+        // Kept as a no-op for callers that haven't been updated yet.
+        anyhow::bail!("release() is deprecated — use status transitions directly")
     }
 
     /// Close a task (mark as done with reason).
@@ -273,7 +267,6 @@ impl QuestBoard {
         let quest = self.update(id, |b| {
             b.status = QuestStatus::Done;
             b.closed_at = Some(chrono::Utc::now());
-            b.closed_reason = Some(reason.to_string());
             b.set_task_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, reason));
         })?;
 
@@ -309,6 +302,26 @@ impl QuestBoard {
             .all(|cid| self.tasks.get(cid).is_some_and(|b| b.is_closed()));
 
         if all_closed {
+            // Step 6: Smart cascade close — check if parent was actively worked on.
+            let parent_has_checkpoints = self
+                .tasks
+                .get(&parent_id.0)
+                .is_some_and(|p| !p.checkpoints.is_empty());
+
+            if parent_has_checkpoints {
+                // Parent was actively worked on — re-queue for synthesis, do NOT auto-close.
+                if let Err(e) = self.update(&parent_id.0, |b| {
+                    b.status = QuestStatus::Pending;
+                }) {
+                    debug!(parent = %parent_id, error = %e, "failed to re-queue parent for synthesis");
+                    return;
+                }
+                debug!(parent = %parent_id, children = children.len(), "parent has checkpoints — re-queued for synthesis instead of auto-close");
+                // Do NOT recurse — parent is not closed.
+                return;
+            }
+
+            // Parent is a pure container (no checkpoints) — auto-close as before.
             // Check if ALL children were cancelled — parent should be Cancelled, not Done.
             let all_cancelled = children.iter().all(|cid| {
                 self.tasks
@@ -330,8 +343,10 @@ impl QuestBoard {
                 .iter()
                 .filter_map(|cid| {
                     self.tasks.get(cid).map(|b| {
-                        let reason = b.closed_reason.as_deref().unwrap_or(verb);
-                        format!("  {} — {}", b.name, reason)
+                        let summary = b
+                            .outcome_summary()
+                            .unwrap_or_else(|| verb.to_string());
+                        format!("  {} — {}", b.name, summary)
                     })
                 })
                 .collect();
@@ -346,7 +361,6 @@ impl QuestBoard {
             if let Err(e) = self.update(&parent_id.0, |b| {
                 b.status = outcome_status;
                 b.closed_at = Some(chrono::Utc::now());
-                b.closed_reason = Some(reason.clone());
                 b.set_task_outcome(&QuestOutcomeRecord::new(outcome_kind, reason.clone()));
             }) {
                 debug!(parent = %parent_id, error = %e, "failed to auto-close parent task");
@@ -364,7 +378,6 @@ impl QuestBoard {
         self.update(id, |b| {
             b.status = QuestStatus::Cancelled;
             b.closed_at = Some(chrono::Utc::now());
-            b.closed_reason = Some(reason.to_string());
             b.set_task_outcome(&QuestOutcomeRecord::new(
                 QuestOutcomeKind::Cancelled,
                 reason,
@@ -410,16 +423,6 @@ impl QuestBoard {
             }
         })?;
 
-        // Add to blocks on the dependency.
-        let blocker_id = QuestId::from(id);
-        if self.tasks.contains_key(dep_id) {
-            self.update(dep_id, |b| {
-                if !b.blocks.contains(&blocker_id) {
-                    b.blocks.push(blocker_id.clone());
-                }
-            })?;
-        }
-
         Ok(())
     }
 
@@ -462,11 +465,11 @@ impl QuestBoard {
         quests
     }
 
-    /// Get all tasks assigned to a specific agent.
-    pub fn assigned_to(&self, assignee: &str) -> Vec<&Quest> {
+    /// Get all tasks bound to a specific agent.
+    pub fn by_agent(&self, agent_id: &str) -> Vec<&Quest> {
         self.tasks
             .values()
-            .filter(|b| b.assignee.as_deref() == Some(assignee) && !b.is_closed())
+            .filter(|b| b.agent_id.as_deref() == Some(agent_id) && !b.is_closed())
             .collect()
     }
 
@@ -688,7 +691,6 @@ mod tests {
             store
                 .update("as-001", |b| {
                     b.status = QuestStatus::InProgress;
-                    b.assignee = Some("worker-1".to_string());
                 })
                 .unwrap();
         }
@@ -698,7 +700,6 @@ mod tests {
         assert_eq!(store.len(), 1);
         let task = store.get("as-001").unwrap();
         assert_eq!(task.status, QuestStatus::InProgress);
-        assert_eq!(task.assignee.as_deref(), Some("worker-1"));
     }
 
     #[test]
@@ -758,8 +759,7 @@ mod tests {
             store
                 .get(&parent.id.0)
                 .unwrap()
-                .closed_reason
-                .as_ref()
+                .outcome_summary()
                 .unwrap()
                 .contains("3 steps")
         );

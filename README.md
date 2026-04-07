@@ -3,13 +3,13 @@
 [![CI](https://github.com/aeqiai/aeqi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aeqiai/aeqi/actions/workflows/ci.yml)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-2024-black)](Cargo.toml)
-[![Tests](https://img.shields.io/badge/tests-634%2B-brightgreen)](Cargo.toml)
+[![Tests](https://img.shields.io/badge/tests-545%2B-brightgreen)](Cargo.toml)
 
-**Persistent agent orchestration in Rust.** Build organizations of AI agents that remember, coordinate, and act autonomously.
+**Persistent agent orchestration in Rust.** A tree of agents that grows from conversation, remembers everything, acts autonomously, and reshapes itself from within.
 
-AEQI is not another chatbot wrapper. It's a runtime where agents are persistent identities -- they accumulate knowledge across sessions, trigger their own behaviors on schedules and events, coordinate through departments and delegation, and operate under safety middleware that enforces budgets, detects loops, and preserves work on failure.
+AEQI is not another chatbot wrapper. It's a runtime where agents are persistent identities in a tree -- they accumulate knowledge across sessions, trigger their own behaviors on schedules and events, coordinate through delegation and shared memory, and operate under safety middleware that enforces budgets, detects loops, and preserves work on failure.
 
-The orchestrator and runtime are one system. When the orchestrator owns the runtime, it can inject context mid-execution, route by empirical expertise, enforce 9 middleware layers on every tool call, and give every agent entity-scoped memory that persists forever.
+The orchestrator and runtime are one system. When the orchestrator owns the runtime, it can inject context mid-execution, route by empirical expertise, enforce middleware layers on every tool call, and give every agent entity-scoped memory that persists forever.
 
 ```
 aeqi start              # daemon + dashboard on :8400
@@ -22,13 +22,12 @@ aeqi chat --agent cto   # talk to an agent
 
 ### Agents
 
-An agent is a persistent identity with a UUID, a system prompt, entity-scoped memory, and a department. Agents are not running processes -- they're loaded into fresh sessions on demand. Knowledge accumulates across sessions via the memory system.
+An agent is a persistent identity with a UUID, a system prompt, and entity-scoped memory. Agents are nodes in a tree -- they can spawn children, inherit configuration from parents, and delegate work up and down the hierarchy. Agents are not running processes -- they're loaded into fresh sessions on demand. Knowledge accumulates across sessions via the memory system.
 
 ```toml
 # agents/cto/agent.toml
 display_name = "CTO"
 model_tier = "capable"
-department = "engineering"
 expertise = ["architecture", "systems", "rust"]
 capabilities = ["spawn_agents", "manage_triggers"]
 
@@ -103,34 +102,15 @@ delegate(to, prompt, response_mode, create_task, skill)
 | `to` | What happens |
 |------|-------------|
 | Agent name | Task delegation to a persistent agent |
-| `"dept:Engineering"` | Broadcast to department members |
 | `"subagent"` | Spawn an ephemeral worker |
 
 | Response mode | Where the result goes |
 |--------------|----------------------|
 | `origin` | Back into the calling session |
-| `department` | Posted to department channel |
 | `async` | Fresh session for the sender |
 | `none` | Fire and forget |
 
-Delegation creates a `DelegateRequest` dispatch. The daemon consumes dispatches for all active agents every patrol cycle, creates tasks, and routes responses back when complete.
-
-### Departments
-
-Agents are organized into a department hierarchy:
-
-```
-Root (manager: Shadow)
-  +-- Engineering (manager: CTO)
-  |     +-- Backend
-  |     +-- Frontend
-  +-- Operations (manager: COO)
-```
-
-Departments control:
-- **Escalation** -- blocked agents escalate to their department manager, then up the chain
-- **Memory visibility** -- insights scoped by department
-- **Clarification routing** -- questions follow the department hierarchy
+Delegation spawns a child session directly. The delegate tool creates a session linked to the calling session via `parent_id`, and routes responses back on completion.
 
 ### Tasks
 
@@ -138,7 +118,7 @@ Every task is agent-bound. Tasks are created by triggers, delegation, IPC, or di
 
 ```
 Pending → InProgress → Done
-                    → Blocked (escalate via department chain)
+                    → Blocked (escalate via agent tree)
                     → Failed (adaptive retry with LLM failure analysis)
 ```
 
@@ -152,12 +132,11 @@ Tasks have atomic checkout (`locked_by`/`locked_at`) to prevent concurrent execu
 
 `aeqi daemon start` runs the orchestration plane. Every 30 seconds:
 
-1. **Reap** -- each project pool reaps completed workers
-2. **Collect** -- gather ready tasks and running agent counts across all projects
-3. **Spawn** -- enforce per-agent `max_concurrent` globally, then per-project limits
-4. **Consume dispatches** -- read mail for all active agents, create tasks from delegations
-5. **Fire triggers** -- schedule, once, and event-driven
-6. **Housekeeping** -- persist state, retry unacked dispatches, prune expired entries, flush memory writes
+1. **Reap** -- collect completed sessions
+2. **Query** -- gather ready tasks and running agent counts
+3. **Spawn** -- enforce per-agent `max_concurrent`, spawn sessions for ready tasks
+4. **Fire triggers** -- schedule, once, and event-driven
+5. **Housekeeping** -- persist state, prune expired entries, flush memory writes
 
 Per-agent concurrency is enforced globally -- an agent with `max_concurrent=1` cannot get two workers even if tasks exist in different projects.
 
@@ -174,7 +153,7 @@ Every agent execution runs through 9 composable safety layers:
 | 400 | **Context Budget** | Cap enrichment at ~200 lines per attachment |
 | 600 | **Cost Tracking** | Per-task and per-scope budget enforcement |
 | 50 | **Memory Refresh** | Re-search memory every N tool calls |
-| 800 | **Clarification** | Structured questions routed via department chain |
+| 800 | **Clarification** | Structured questions routed via agent tree |
 | 900 | **Safety Net** | Detect and preserve partial work (git diffs, file edits) on failure |
 
 Middleware hooks fire at 8 points: `on_start`, `before_model`, `after_model`, `before_tool`, `after_tool`, `after_turn`, `on_complete`, `on_error`.
@@ -202,7 +181,7 @@ GET  /api/approvals              -- list pending
 POST /api/approvals/:id/resolve  -- approve or reject
 ```
 
-Types: `permission` (dangerous action), `clarification` (agent question), `budget` (spend limit hit). Integrates with the middleware chain and department escalation.
+Types: `permission` (dangerous action), `clarification` (agent question), `budget` (spend limit hit). Integrates with the middleware chain.
 
 ### Memory
 
@@ -213,14 +192,14 @@ Persistent insight store with hybrid search (SQLite FTS5 + vector embeddings):
 - **Temporal decay** — exponential with configurable halflife, evergreen category exempt
 - **Obsidian export** — `aeqi memory export --vault <path>` dumps memories as markdown with `[[wikilinks]]` for graph visualization
 
-### Dispatch Bus
+### Inter-Agent Messaging
 
-Reliable inter-agent messaging with delivery guarantees:
+Reliable agent-to-agent communication via the event store:
 
 - Idempotency keys prevent duplicate execution
 - ACK tracking with automatic retry (60s threshold, max 3 retries)
 - Dead-letter detection for undeliverable messages
-- SQLite-backed persistence across daemon restarts
+- Persisted as events in `aeqi.db` across daemon restarts
 
 ### Expertise Routing
 
@@ -280,12 +259,12 @@ aeqi monitor                   # live terminal dashboard
 
 ```
 CHAT SESSION (CLI / Telegram / Slack / Web)
-    User message → Agent session (identity + memory + tools + department context)
+    User message → Agent session (identity + memory + tools + inherited context)
     → Agent loop: LLM → tool calls → LLM → ... → response
     → Transcript persisted (FTS5 searchable by agent and task)
 
 ASYNC TASK (trigger / delegation / webhook)
-    Task created → Worker loads agent identity + skill + memory + blackboard
+    Task created → Worker loads agent identity + skill + memory
     → Middleware chain wraps execution (9 layers)
     → Agent loop: LLM → tool calls → LLM → ... → outcome
     → DONE: response routed back | BLOCKED: escalate | FAILED: adaptive retry
@@ -296,11 +275,11 @@ ASYNC TASK (trigger / delegation / webhook)
 | Crate | Purpose |
 |-------|---------|
 | `aeqi-cli` | CLI binary, daemon, TUI chat |
-| `aeqi-orchestrator` | Worker pools, triggers, dispatch, departments, blackboard, middleware, approvals, budget |
-| `aeqi-core` | Agent loop, config, identity, compaction, traits |
+| `aeqi-orchestrator` | Daemon, sessions, triggers, delegation, middleware, approvals, budget |
+| `aeqi-core` | Agent loop, config, identity, compaction, streaming executor, traits |
 | `aeqi-web` | Axum REST API + WebSocket streaming + SPA |
 | `aeqi-insights` | SQLite+FTS5, vector search, hybrid ranking, query planning, knowledge graph |
-| `aeqi-tasks` | Task DAG, missions, dependency inference, atomic checkout |
+| `aeqi-quests` | Quest DAG, dependency inference, status machine |
 | `aeqi-providers` | OpenRouter, Anthropic, Ollama + cost estimation |
 | `aeqi-gates` | Telegram, Discord, Slack channels |
 | `aeqi-tools` | Shell, file I/O, git, grep, glob, delegate, skills |
@@ -312,15 +291,10 @@ All state lives in `~/.aeqi/`:
 
 | File | What |
 |------|------|
-| `agents.db` | Agent registry, departments, triggers, budget policies, approvals |
-| `conversations.db` | Chat history + session transcripts (FTS5) |
-| `memory.db` | Entity, domain, and system memories + knowledge graph |
-| `blackboard.db` | Department-scoped coordination entries |
-| `dispatches.db` | Agent-to-agent dispatch queue with ACK tracking |
-| `audit.db` | Decision audit trail with reasoning |
-| `expertise.db` | Agent performance scores per domain |
-| `cost_ledger.jsonl` | Per-call token spend with model/provider attribution |
-| `rm.sock` | Unix IPC socket |
+| `aeqi.db` | Agent registry, quests, events, sessions, triggers, budget policies, approvals |
+| `insights.db` | Entity, domain, and system memories + knowledge graph + vector embeddings |
+| `codegraph/*.db` | Code graph per repository (symbol graph, call chains) |
+| `ipc.sock` | Unix IPC socket |
 
 ---
 
@@ -338,14 +312,14 @@ All state lives in `~/.aeqi/`:
 
 **Add middleware** -- implement the `Middleware` trait with ordered hook points, add to the chain.
 
-**Add a department** -- via `AgentRegistry::create_department()` through IPC or the agent delegate tool.
+**Add an agent** -- create a directory under `agents/` with an `agent.toml`, then spawn via `aeqi agent spawn <name>`. Agents can also spawn children at runtime through the delegate tool.
 
 ---
 
 ## Development
 
 ```bash
-cargo test              # 634+ tests
+cargo test              # 545+ tests
 cargo clippy -- -D warnings
 cargo fmt --check
 ```
@@ -355,11 +329,11 @@ Pre-push hook runs all three automatically.
 ## Docs
 
 - [Architecture](docs/architecture.md)
-- [Orchestration design](docs/orchestration-redesign.md)
 - [Deployment](docs/deployment.md)
-- [Project setup](docs/project-setup.md)
+- [Quick start](docs/quickstart.md)
 - [Vision](docs/vision.md)
+- [Roadmap](docs/roadmap.md)
 
 ## License
 
-MIT
+[Business Source License 1.1](LICENSE) -- free for individuals, converts to Apache 2.0 on April 5, 2030.

@@ -888,11 +888,6 @@ pub(crate) fn named_channel_chat_id(channel_name: &str) -> i64 {
     hashed_chat_id(&format!("channel:{channel_name}"), 2)
 }
 
-/// Deterministic chat ID for a department channel within a company.
-pub(crate) fn department_chat_id(project_name: &str, department: &str) -> i64 {
-    hashed_chat_id(&format!("dept:{project_name}:{department}"), 4)
-}
-
 /// Deterministic chat ID for the agency-wide group chat.
 pub(crate) fn agency_chat_id() -> i64 {
     hashed_chat_id("agency:global", 3)
@@ -1109,15 +1104,11 @@ mod tests {
     #[test]
     fn test_deterministic_chat_ids_use_distinct_tags() {
         let project = project_chat_id("alpha");
-        let department = department_chat_id("alpha", "backend");
         let named = named_channel_chat_id("ops");
         let agency = agency_chat_id();
 
-        assert_ne!(project, department);
         assert_ne!(project, named);
         assert_ne!(project, agency);
-        assert_ne!(department, named);
-        assert_ne!(department, agency);
         assert_ne!(named, agency);
     }
 

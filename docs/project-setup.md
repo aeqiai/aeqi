@@ -1,36 +1,32 @@
-# Company Setup
+# Project Setup
 
 > **Quick start:** Run `aeqi setup` -- it auto-detects whether you're in a workspace (git repo with `config/` and `agents/` dirs) or a fresh install, and creates all necessary structure. Fresh installs write to `~/.aeqi/` automatically. This document covers advanced/manual project configuration.
 
-A **company** is an isolated operating unit in AEQI. Each company has its own:
+A **project** is an agent in the AEQI tree that represents a codebase or work scope. Each project has:
 
-- Git repository (working directory)
-- Task store (`.tasks/` -- JSONL task DAG)
-- Memory database (centralized SQLite + FTS5 + vector search, scoped by company name)
-- Primer (inline in `aeqi.toml` -- injected into every agent's context)
-- Departments (org chart hierarchy with lead agents)
-- Worker pool (concurrent AEQI workers)
-- Checkpoints (`.aeqi/checkpoints/` -- worker work-in-progress)
+- A git repository (working directory)
+- Quest store (tracked work items)
+- Memory (scoped by project agent UUID)
+- Primer (inherited prompts injected into every descendant agent's context)
+- Child agents (the team that works on this project)
 
-## Creating a Company
+## Creating a Project
 
 ### 1. Add to config
 
 In `config/aeqi.toml`:
 
 ```toml
-[[companies]]
-name = "mycompany"
-prefix = "mc"                                    # Task ID prefix (mc-001, mc-002, ...)
-repo = "/home/user/mycompany"                    # Git repo path (absolute)
-model = "xiaomi/mimo-v2-pro"                     # LLM model for workers
-max_workers = 3                                  # Max concurrent workers
-execution_mode = "agent"                         # native AEQI worker runtime
-worker_timeout_secs = 1800                       # 30 min timeout for hung workers
-worktree_root = "/home/user/worktrees"           # Git worktree root (optional)
-max_turns = 25                                   # Max agentic turns per worker
-primer = """
-MyCompany -- a Next.js web application with PostgreSQL backend.
+[[agents]]
+name = "myproject"
+workdir = "/home/user/myproject"
+model = "xiaomi/mimo-v2-pro"
+max_workers = 3
+max_turns = 25
+
+[agents.prompts]
+system = """
+MyProject -- a Next.js web application with PostgreSQL backend.
 
 Stack: Next.js 14 App Router, PostgreSQL 16, Prisma ORM, Redis sessions.
 Deployed on Vercel (frontend) + Railway (API).
@@ -43,47 +39,30 @@ Key patterns:
 """
 ```
 
-The `primer` field is the company's knowledge brief. It is injected into every agent's context when working on this company. Put architecture, stack, conventions, and domain knowledge here.
+The system prompt on a project agent is inherited by all descendant agents (scope=descendants). Put architecture, stack, conventions, and domain knowledge here.
 
-### 2. Add departments (optional)
+### 2. Assign a team
 
-Departments define org chart structure within a company. Each department has a lead agent and member agents.
-
-```toml
-[[companies.departments]]
-name = "engineering"
-lead = "engineer"
-agents = ["engineer", "reviewer"]
-description = "Core application, API, infrastructure"
-
-[[companies.departments]]
-name = "product"
-lead = "designer"
-agents = ["designer"]
-description = "Frontend, UX, design system"
-```
-
-### 3. Assign a team
-
-Each company has a team with a leader and a set of agents:
-
-```toml
-team.leader = "engineer"
-team.agents = ["engineer", "reviewer"]
-```
-
-Agent names here refer to agent templates defined in the `agents/` directory (see Agent Setup below).
-
-### 4. Run diagnostics
+Child agents are spawned under the project agent:
 
 ```bash
-aeqi doctor         # Check all companies
+aeqi agent spawn cto --parent myproject
+aeqi agent spawn engineer --parent myproject
+aeqi agent spawn reviewer --parent myproject
+```
+
+Agent names refer to agent templates defined in the `agents/` directory. Child agents inherit the project's prompts, workdir, model, and budget constraints.
+
+### 3. Run diagnostics
+
+```bash
+aeqi doctor         # Check all projects
 aeqi doctor --fix   # Auto-create missing directories/files
 ```
 
 ## Shared Primer
 
-The `shared_primer` field in the `[aeqi]` section is injected into every agent across all companies. Use it for global rules, tool usage instructions, and cross-cutting standards.
+The root agent's prompts are inherited by every agent in the tree. Use the root's prompts for global rules, tool usage instructions, and cross-cutting standards.
 
 ```toml
 [aeqi]
@@ -121,15 +100,7 @@ max_turns = 30
 expertise = ["architecture", "systems", "rust"]
 capabilities = ["spawn_agents", "manage_triggers"]
 color = "#00BFFF"
-avatar = "⚙"
-
-[faces]
-greeting = "(⌐■_■)"
-thinking = "(¬_¬ )"
-working = "(╯°□°)╯"
-error = "(ಠ_ಠ)"
-complete = "(⌐■_■)b"
-idle = "(-_-)"
+avatar = "gear"
 
 [[triggers]]
 name = "memory-consolidation"
@@ -161,14 +132,11 @@ quality, and technical strategy. Implementation is delegated.
 # Spawn from template directory name
 aeqi agent spawn cto
 
-# Spawn with company scope
-aeqi agent spawn cto --company mycompany
+# Spawn with project scope
+aeqi agent spawn cto --parent myproject
 
 # List all agents in registry
 aeqi agent registry
-
-# List agents for a specific company
-aeqi agent registry --company mycompany
 
 # Show agent details
 aeqi agent show cto
@@ -208,29 +176,28 @@ The `[models]` config in `aeqi.toml` resolves tiers to actual model strings.
 
 ## Memory
 
-Centralized SQLite database with FTS5 full-text search and vector similarity. Memory is scoped by company name and agent entity ID.
+Centralized SQLite database with FTS5 full-text search and vector similarity. Memory is scoped by agent entity ID and walks the agent tree for inheritance.
 
 ```bash
 # Store a memory
-aeqi remember "auth-flow" "Login uses JWT with 24h expiry" --company mycompany
+aeqi remember "auth-flow" "Login uses JWT with 24h expiry" --project myproject
 
 # Search memories
-aeqi recall "how does authentication work?" --company mycompany
+aeqi recall "how does authentication work?" --project myproject
 ```
 
 Hybrid search: BM25 keyword matching + cosine vector similarity + temporal decay (30-day half-life). Results ranked by configurable weights (`vector_weight`, `keyword_weight`).
 
-Agent-specific memories are scoped by the agent's stable UUID (entity ID), so each persistent agent accumulates its own knowledge across sessions.
+Agent-specific memories are scoped by the agent's stable UUID (entity ID), so each persistent agent accumulates its own knowledge across sessions. Memory searches walk upward through the agent tree: an agent sees its own memories, its parent's, and ancestors' up to root.
 
 ## Skills
 
-TOML-defined specialized behaviors in `projects/shared/skills/` or company-specific skill directories:
+TOML-defined specialized behaviors in `projects/shared/skills/` or project-specific skill directories:
 
 ```toml
 [skill]
 name = "reviewer"
 description = "Code review specialist"
-phase = "autonomous"
 
 [tools]
 allow = ["shell", "file_read", "list_dir"]
@@ -246,83 +213,52 @@ You are a code review specialist. Focus on:
 """
 ```
 
-```bash
-# List skills
-aeqi skill list --company mycompany
+Skills are injected at session spawn time. Multiple skills can stack -- tool restrictions are intersected (most restrictive wins).
 
-# Run a skill
-aeqi skill run reviewer --company mycompany --prompt "the auth module"
-```
+## Quests
 
-## Tasks
-
-Each company's tasks are JSONL files in `.tasks/`:
+Tracked work items with status, priority, dependencies, acceptance criteria, checkpoints, and retry logic.
 
 ```bash
-# Create a task
-aeqi assign "Fix login bug" --company mycompany --priority high
+# Create a quest
+aeqi assign "Fix login bug" --project myproject --priority high
 
-# Check ready (unblocked) tasks
-aeqi ready --company mycompany
+# Check ready (unblocked) quests
+aeqi ready --project myproject
 
-# Show all open tasks
-aeqi tasks --company mycompany
+# Show all open quests
+aeqi quests --project myproject
 
-# Close a task
-aeqi close mc-001 --reason "fixed in commit abc123"
-
-# Mark done (also triggers cleanup)
-aeqi done mc-001
+# Close a quest
+aeqi close sg-001 --reason "fixed in commit abc123"
 ```
 
-Task IDs are hierarchical: `mc-001` (parent) -> `mc-001.1` (child) -> `mc-001.1.1` (grandchild).
+Quest IDs are hierarchical: `sg-001` (parent) -> `sg-001.1` (child) -> `sg-001.1.1` (grandchild).
 
 ## Context Layering
 
-When a worker executes, its system prompt is built from these layers (in order):
+When a worker executes, its context is built from these layers:
 
 ```
-1. Shared primer              (from [aeqi].shared_primer)
-2. Company primer             (from [[companies]].primer)
-3. Agent system prompt        (from agent.toml [prompt].system)
-4. Worker protocol            (output format: DONE/BLOCKED/FAILED)
-5. Checkpoint context         (max 8k chars, 5 most recent)
-6. Memory recall              (hybrid search from SQLite, entity-scoped)
-7. Task context               (subject, description, resume brief)
+1. Root agent prompts             (scope=descendants, inherited down the tree)
+2. Parent agent prompts           (scope=descendants, project-level context)
+3. Agent system prompt            (scope=self, from agent.toml)
+4. Task prompts                   (quest description + skill prompts)
+5. Dynamic recall                 (hybrid search from memory, entity-scoped)
+6. Quest tree context             (parent, children, done siblings)
+7. Checkpoints / resume brief     (prior attempts, git state, audit trail)
 ```
 
-The `ContextBudget` system enforces per-layer character limits and truncates at newline boundaries. Total budget defaults to ~120k chars. Configurable via `[context_budget]` in `aeqi.toml`.
+Prompt assembly walks the agent tree from root to leaf, collecting all prompts with `scope=descendants`, then appends the agent's own prompts and task prompts.
 
 ## Budget Control
 
-Per-company budgets can be configured alongside the global daily cap:
+Per-scope budget enforcement with auto-pause:
 
 ```toml
 # In aeqi.toml
 [security]
 max_cost_per_day_usd = 10.0    # Global cap
-
-# Per-company (in [[companies]] block)
-[[companies]]
-name = "mycompany"
-max_cost_per_day_usd = 5.0     # Company-specific cap
 ```
 
-The worker pool checks budget before spawning any worker. Budget status visible via `aeqi daemon query cost`.
-
-## CLI Flag Reference
-
-All company-scoped commands use `--company` (short: `-r`). The old `--project` flag is accepted as a backward-compatible alias.
-
-```bash
-aeqi assign "task" --company mycompany
-aeqi ready --company mycompany
-aeqi recall "query" --company mycompany
-aeqi remember "key" "content" --company mycompany
-aeqi skill run name --company mycompany
-aeqi monitor --company mycompany
-aeqi audit --company mycompany
-aeqi notes list --company mycompany
-aeqi graph index --company mycompany
-aeqi chat --company mycompany
-```
+The scheduler checks budget before spawning any session. Budget status visible via `aeqi daemon query cost`.

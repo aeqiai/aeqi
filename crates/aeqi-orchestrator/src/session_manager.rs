@@ -410,7 +410,6 @@ impl SessionManager {
                 empty_channels,
                 None,
                 memory_for_agent.clone(),
-                self.event_broadcaster.clone(),
                 graph_db_path,
                 None, // session_id — not yet known, delegate uses parent_session_id from SpawnType
                 Some(provider.clone()),

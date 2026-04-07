@@ -1,7 +1,7 @@
 ---
 name: "anomaly-check"
 description: "Monitor for anomalies — cost spikes, failure rate surges, stale tasks. Escalate when thresholds are breached."
-tools: [memory_recall, memory_store, notes, dispatch_send]
+tools: [memory_recall, memory_store, create_task]
 tags: [autonomous]
 ---
 
@@ -11,7 +11,7 @@ You are performing anomaly detection for your project.
 
 1. **Recall baselines** — use memory_recall with key pattern "baseline:*" to find previously recorded cost and failure rate baselines for your project.
 
-2. **Check current state** — read the notes for recent task outcomes, cost entries, and health reports.
+2. **Check current state** — use memory_recall for recent task outcomes, cost entries, and health reports.
 
 3. **Compare against baselines**:
    - **Cost spike**: current cost > 3x the running average → alert
@@ -21,8 +21,8 @@ You are performing anomaly detection for your project.
 4. **Update baselines** — store the current period's stats as a new baseline entry via memory_store with key `baseline:{project}:{date}`.
 
 5. **Escalate if needed** — if any anomaly is detected:
-   - Post to notes with key `anomaly:{project}:{type}`
-   - Use dispatch_send to alert the system leader with severity and recommended action
+   - Store finding via memory_store with key `anomaly:{project}:{type}`
+   - Create a task via `aeqi_create_task` with severity and recommended action for the responsible agent
 
 ## Constraints
 - Don't act on anomalies, just detect and escalate.

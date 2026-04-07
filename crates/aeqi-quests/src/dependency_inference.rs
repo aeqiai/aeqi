@@ -176,10 +176,8 @@ mod tests {
             description: description.to_string(),
             status: QuestStatus::Pending,
             priority: Priority::Normal,
-            assignee: None,
             agent_id: None,
             depends_on: vec![],
-            blocks: vec![],
             skill: None,
             labels: vec![],
             retry_count: 0,
@@ -188,10 +186,8 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: None,
             closed_at: None,
-            closed_reason: None,
+            outcome: None,
             acceptance_criteria: None,
-            locked_by: None,
-            locked_at: None,
         }
     }
 

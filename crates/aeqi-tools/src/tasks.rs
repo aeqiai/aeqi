@@ -168,7 +168,6 @@ impl Tool for QuestUpdateTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing id"))?;
         let status = args.get("status").and_then(|v| v.as_str());
-        let assignee = args.get("assignee").and_then(|v| v.as_str());
 
         let mut store = self
             .store
@@ -185,9 +184,6 @@ impl Tool for QuestUpdateTool {
                     _ => aeqi_quests::QuestStatus::Pending,
                 };
             }
-            if let Some(a) = assignee {
-                t.assignee = Some(a.to_string());
-            }
         })?;
 
         Ok(ToolResult::success(format!(
@@ -199,13 +195,12 @@ impl Tool for QuestUpdateTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "task_update".to_string(),
-            description: "Update a task's status or assignee.".to_string(),
+            description: "Update a task's status.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "id": { "type": "string", "description": "Task ID (e.g. as-001)" },
-                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"] },
-                    "assignee": { "type": "string", "description": "Agent name to assign" }
+                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"] }
                 },
                 "required": ["id"]
             }),
@@ -311,31 +306,21 @@ impl Tool for QuestShowTool {
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            let blocks = if task.blocks.is_empty() {
-                "none".to_string()
-            } else {
-                task.blocks
-                    .iter()
-                    .map(|b| b.0.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            };
-            let assignee = task.assignee.as_deref().unwrap_or("unassigned");
+            let agent = task.agent_id.as_deref().unwrap_or("unbound");
 
             let output = format!(
-                "ID: {}\nSubject: {}\nStatus: {}\nPriority: {}\nAssignee: {}\nDescription: {}\nDepends on: {}\nBlocks: {}\nCreated: {}",
+                "ID: {}\nSubject: {}\nStatus: {}\nPriority: {}\nAgent: {}\nDescription: {}\nDepends on: {}\nCreated: {}",
                 task.id,
                 task.name,
                 task.status,
                 task.priority,
-                assignee,
+                agent,
                 if task.description.is_empty() {
                     "(none)"
                 } else {
                     &task.description
                 },
                 deps,
-                blocks,
                 task.created_at
             );
             Ok(ToolResult::success(output))

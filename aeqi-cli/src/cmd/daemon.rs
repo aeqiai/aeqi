@@ -5,7 +5,7 @@ use aeqi_gates::TelegramChannel;
 use aeqi_orchestrator::tools::build_orchestration_tools;
 use aeqi_orchestrator::{
     AEQIMetrics, AgentRouter, CompanyRecord, Daemon, EventStore, Scheduler, SchedulerConfig,
-    SessionStore,
+    SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -112,10 +112,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 Some(ss)
             };
 
-            // Pre-create the scheduler wake signal so both MessageRouter and
-            // Scheduler share the same Notify instance.
-            let scheduler_wake: Arc<tokio::sync::Notify> = Arc::new(tokio::sync::Notify::new());
-
             // Shared slot for the Scheduler — populated after the scheduler is built,
             // but readable by the telegram message loop for fast-lane commands.
             let shared_scheduler: Arc<std::sync::RwLock<Option<Arc<Scheduler>>>> =
@@ -129,7 +125,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 Arc::new(aeqi_orchestrator::MessageRouter {
                     conversations: cs.clone(),
                     agent_registry: agent_reg.clone(),
-                    scheduler_wake: scheduler_wake.clone(),
+                    event_store: event_store.clone(),
                     agent_router: agent_router.clone(),
                     council_advisors: council_advisors.clone(),
                     auto_council_enabled,
@@ -282,7 +278,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     channels.clone(),
                     get_api_key(&config).ok(),
                     fa_memory,
-                    Some(event_broadcaster.clone()),
                     None,          // graph DB resolved per-session, not at daemon init
                     None,          // session_id resolved per-session, not at daemon init
                     None,          // provider — workers don't need direct session spawning
@@ -579,6 +574,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             let metrics = Arc::new(AEQIMetrics::new());
 
+            // Create SessionManager early so both scheduler and daemon can share it.
+            let session_manager = Arc::new(SessionManager::new());
+
             let scheduler = Scheduler::new(
                 scheduler_config,
                 agent_reg.clone(),
@@ -592,19 +590,20 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Wire optional services into the scheduler.
             let scheduler = {
                 let mut s = scheduler;
-                // Use the pre-allocated wake signal shared with MessageRouter.
-                s.wake = scheduler_wake.clone();
                 s.session_store = session_store.clone();
                 let trigger_store = Arc::new(agent_reg.trigger_store());
                 s.trigger_store = Some(trigger_store.clone());
                 // Wire memory for the scheduler (shared single store).
                 s.insight_store = shared_insight_store.clone();
+                // Wire session manager for session resolution on task completion.
+                s.session_manager = Some(session_manager.clone());
                 Arc::new(s)
             };
 
-            // Construct the daemon.
+            // Construct the daemon — use the shared session_manager.
             let mut daemon =
                 Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), event_store);
+            daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             daemon.leader_agent_name = leader_name.clone();
             daemon.shared_primer = config.shared_primer.clone();
@@ -965,7 +964,6 @@ async fn telegram_message_loop(
                     let message_id = last_message_id;
                     let route = resolve_telegram_route(&telegram_routes, chat_id);
                     let project_hint = route.as_ref().and_then(|route| route.project.clone());
-                    let department_hint = route.as_ref().and_then(|route| route.department.clone());
                     let channel_name = route.as_ref().and_then(|route| route.name.clone());
 
                     // === Fast-Lane ===
@@ -978,7 +976,6 @@ async fn telegram_message_loop(
                         let fast_text = user_text.clone();
                         let fast_sender = sender.clone();
                         let fast_project = project_hint.clone();
-                        let fast_department = department_hint.clone();
                         let fast_channel = channel_name.clone();
                         let fast_scheduler = shared_scheduler.read().ok().and_then(|g| g.clone());
                         tokio::spawn(async move {
@@ -995,7 +992,6 @@ async fn telegram_message_loop(
                                     message_id,
                                 },
                                 project_hint: fast_project,
-                                department_hint: fast_department,
                                 channel_name: fast_channel,
                                 agent_id: None,
                             };
@@ -1023,7 +1019,6 @@ async fn telegram_message_loop(
                         sender: sender.clone(),
                         source: aeqi_orchestrator::message_router::MessageSource::Telegram { message_id },
                         project_hint: project_hint.clone(),
-                        department_hint: department_hint.clone(),
                         channel_name: channel_name.clone(),
                         agent_id: None,
                     };
@@ -1058,7 +1053,6 @@ async fn telegram_message_loop(
                             sender,
                             source: aeqi_orchestrator::message_router::MessageSource::Telegram { message_id },
                             project_hint,
-                            department_hint,
                             channel_name,
                             agent_id: None,
                         };
@@ -1089,13 +1083,6 @@ fn resolve_telegram_route(
     routes: &HashMap<i64, TelegramChatRouteConfig>,
     chat_id: i64,
 ) -> Option<TelegramChatRouteConfig> {
-    let mut route = routes.get(&chat_id).cloned()?;
-    if route.department.is_some() && route.project.is_none() {
-        warn!(
-            chat_id,
-            "telegram route sets a department without a project; dropping the department scope"
-        );
-        route.department = None;
-    }
+    let route = routes.get(&chat_id).cloned()?;
     Some(route)
 }

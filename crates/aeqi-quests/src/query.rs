@@ -6,7 +6,7 @@ pub struct QuestQuery<'a> {
     store: &'a QuestBoard,
     prefix: Option<String>,
     status: Option<QuestStatus>,
-    assignee: Option<String>,
+    agent_id: Option<String>,
     label: Option<String>,
     min_priority: Option<Priority>,
     include_closed: bool,
@@ -18,7 +18,7 @@ impl<'a> QuestQuery<'a> {
             store,
             prefix: None,
             status: None,
-            assignee: None,
+            agent_id: None,
             label: None,
             min_priority: None,
             include_closed: false,
@@ -35,8 +35,8 @@ impl<'a> QuestQuery<'a> {
         self
     }
 
-    pub fn assignee(mut self, assignee: &str) -> Self {
-        self.assignee = Some(assignee.to_string());
+    pub fn agent_id(mut self, agent_id: &str) -> Self {
+        self.agent_id = Some(agent_id.to_string());
         self
     }
 
@@ -75,8 +75,8 @@ impl<'a> QuestQuery<'a> {
                 {
                     return false;
                 }
-                if let Some(ref assignee) = self.assignee
-                    && b.assignee.as_deref() != Some(assignee.as_str())
+                if let Some(ref agent_id) = self.agent_id
+                    && b.agent_id.as_deref() != Some(agent_id.as_str())
                 {
                     return false;
                 }

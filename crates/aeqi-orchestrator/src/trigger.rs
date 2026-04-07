@@ -776,7 +776,6 @@ mod tests {
                  template TEXT NOT NULL DEFAULT '',
                  system_prompt TEXT NOT NULL DEFAULT '',
                  project TEXT,
-                 department TEXT,
                  model TEXT,
                  capabilities TEXT NOT NULL DEFAULT '[]',
                  status TEXT NOT NULL DEFAULT 'active',

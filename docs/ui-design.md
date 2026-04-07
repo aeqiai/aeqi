@@ -22,8 +22,8 @@ The current UI has meaningful coverage:
 
 - sessions are the core interaction surface with persistent agent conversations
 - there are pages for sessions, agents, tasks, triggers, skills, memories, notes, and settings
-- the dashboard surfaces stats, activity feed, budget, and company/agent overview
-- layout: company rail → agent nav → floating nav bar → content
+- the dashboard surfaces stats, activity feed, budget, and project/agent overview
+- layout: project rail → agent nav → floating nav bar → content
 
 The main gaps are coherence and operator flow:
 

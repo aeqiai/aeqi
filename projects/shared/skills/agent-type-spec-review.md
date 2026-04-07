@@ -2,7 +2,7 @@
 name: "agent-type-spec-review"
 description: "Spec compliance reviewer. Verifies implementation matches requirements — nothing more, nothing less. Read-only."
 when_to_use: Use as the FIRST review stage after implementation. Checks spec compliance before code quality review.
-tools: [read_file, glob, grep, shell, memory_recall, notes]
+tools: [read_file, glob, grep, shell, memory_recall]
 deny: [write_file, edit_file, delegate]
 tags: [verify]
 ---

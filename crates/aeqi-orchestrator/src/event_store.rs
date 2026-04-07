@@ -21,7 +21,7 @@ pub enum DispatchKind {
     /// A delegation request from one agent to another.
     DelegateRequest {
         prompt: String,
-        /// How the response should be routed: "origin", "perpetual", "async", "department", "none".
+        /// How the response should be routed: "origin", "perpetual", "async", "none".
         response_mode: String,
         /// Whether to also create a tracked task for this delegation.
         create_task: bool,
@@ -290,16 +290,20 @@ pub struct EventStore {
     dispatch_max_queue: usize,
     /// Optional event broadcaster for emitting DispatchReceived events.
     event_broadcaster: std::sync::RwLock<Option<Arc<crate::execution_events::EventBroadcaster>>>,
+    /// Broadcast channel for push-based event dispatch (scheduler subscribes).
+    broadcast_tx: tokio::sync::broadcast::Sender<serde_json::Value>,
 }
 
 impl EventStore {
     /// Create an EventStore sharing an existing connection (from AgentRegistry).
     pub fn new(db: Arc<Mutex<Connection>>) -> Self {
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             db,
             dispatch_ttl_secs: std::sync::atomic::AtomicU64::new(3600),
             dispatch_max_queue: 1000,
             event_broadcaster: std::sync::RwLock::new(None),
+            broadcast_tx,
         }
     }
 
@@ -311,6 +315,13 @@ impl EventStore {
         if let Ok(mut guard) = self.event_broadcaster.write() {
             *guard = Some(broadcaster);
         }
+    }
+
+    /// Subscribe to the event broadcast channel for push-based dispatch.
+    /// The scheduler uses this to wake immediately on relevant events
+    /// (task_created, quest_completed) instead of polling.
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
+        self.broadcast_tx.subscribe()
     }
 
     pub fn set_dispatch_ttl(&self, secs: u64) {
@@ -376,6 +387,15 @@ impl EventStore {
         )?;
 
         debug!(id = %id, event_type = %event_type, "event emitted");
+
+        // Broadcast for push-based dispatch (scheduler wakes immediately).
+        // Ignore send errors — no subscribers is fine.
+        let _ = self.broadcast_tx.send(serde_json::json!({
+            "type": event_type,
+            "quest_id": quest_id,
+            "agent_id": agent_id,
+        }));
+
         Ok(id)
     }
 

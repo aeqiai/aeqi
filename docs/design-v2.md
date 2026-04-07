@@ -119,7 +119,7 @@ pub struct Agent {
     pub name: String,
     pub display_name: Option<String>,
     pub project_id: Option<Uuid>,
-    pub department_id: Option<Uuid>,
+    pub parent_id: Option<Uuid>,
     pub system_prompt: String,
     pub model: Option<String>,
     pub capabilities: Vec<Capability>,
@@ -130,7 +130,7 @@ pub struct Agent {
 ```
 
 Agents are first-class entities. They have:
-- Memory (scoped by agent UUID, department UUID, project UUID)
+- Memory (scoped by agent UUID, project UUID, system-wide)
 - Sessions (current + historical)
 - Tasks (assigned to them)
 - Capabilities (what they're allowed to do)
@@ -343,7 +343,7 @@ Key change: `aeqi-orchestrator` splits into `aeqi-session` (session management) 
 
 | Axis | Claude Code | AEQI v2 |
 |------|-------------|---------|
-| Multi-agent | Recursive subagents (ephemeral) | Persistent agents with identity, memory, departments |
+| Multi-agent | Recursive subagents (ephemeral) | Persistent agents with identity, memory, tree hierarchy |
 | Task tracking | Simple task list tool | Full DAG with deps, priority, retries, escalation |
 | Memory | None | Three-tier hierarchical with vector search |
 | Delegation | Agent tool spawns child | spawn() with skills, worktree, permissions, parent chain |

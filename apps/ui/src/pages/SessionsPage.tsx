@@ -246,7 +246,7 @@ export default function SessionsPage() {
       const tasks = d.tasks || [];
       const filtered = agentName
         ? tasks.filter((t: any) =>
-            (t.assignee || t.agent_id || "").toLowerCase().includes(agentName.toLowerCase())
+            (t.agent_id || t.assignee || "").toLowerCase().includes(agentName.toLowerCase())
           )
         : tasks;
       for (const t of filtered) {
@@ -272,7 +272,7 @@ export default function SessionsPage() {
     if (!agentName) return;
     api.getTasks({}).then((d: any) => {
       const tasks = (d.tasks || []).filter((t: any) => {
-        const assignee = (t.assignee || "").toLowerCase();
+        const assignee = (t.agent_id || t.assignee || "").toLowerCase();
         return assignee.includes(agentName.toLowerCase());
       });
       setLinkedTasks(tasks);

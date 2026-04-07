@@ -1,14 +1,23 @@
 //! Global Scheduler — the single event-driven worker pool.
 //!
-//! One loop: **wake → reap → query → spawn**
+//! Push-based dispatch: **event → schedule → reap → query → spawn**
 //!
-//! No patrol timers. No per-project pools. The daemon owns one Scheduler.
+//! No patrol timers as primary dispatch. The daemon owns one Scheduler.
 //! The Scheduler owns the running workers. Agent properties (workdir, model,
 //! budget, concurrency) live on the agent tree in AgentRegistry.
 //!
+//! Three dispatch paths (all trigger the same schedule() cycle):
+//! 1. **EventStore broadcast** — `task_created` / `quest_completed` events
+//!    push through a `tokio::broadcast` channel for sub-millisecond dispatch.
+//! 2. **Completion channel** — workers report completion via `mpsc` channel,
+//!    immediately triggering re-scheduling for dependent tasks.
+//! 3. **Safety-net patrol** — 60-second timer catches anything missed.
+//!
 //! ```text
 //! Scheduler
-//! ├── wake signal ← task created / worker finished / config changed
+//! ├── event_rx   ← EventStore broadcast (task_created, quest_completed)
+//! ├── completion_rx ← worker finished (CompletionEvent)
+//! ├── patrol     ← 60s safety net
 //! ├── reap()     → clean finished workers, handle timeouts
 //! ├── ready()    → query tasks WHERE status=pending AND deps met AND agent not maxed
 //! └── spawn()    → tokio::spawn worker for each ready task
@@ -17,16 +26,16 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
 use crate::agent_worker::AgentWorker;
 use crate::escalation::{EscalationPolicy, EscalationTracker};
-use crate::event_store::EventStore;
+use crate::event_store::{EventFilter, EventStore};
 use crate::execution_events::{EventBroadcaster, ExecutionEvent};
 use crate::metrics::AEQIMetrics;
 use crate::middleware::{
@@ -34,6 +43,7 @@ use crate::middleware::{
     CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware,
     InsightRefreshMiddleware, LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
 };
+use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
 use crate::trigger::TriggerStore;
 use aeqi_core::traits::{Channel, Insight, Provider, Tool};
@@ -89,6 +99,16 @@ impl Default for SchedulerConfig {
     }
 }
 
+/// Worker completion event — sent via channel when a worker finishes.
+#[derive(Debug)]
+pub struct CompletionEvent {
+    pub task_id: String,
+    pub agent_id: String,
+    pub agent_name: String,
+    pub outcome: String,
+    pub cost_usd: f64,
+}
+
 /// The global scheduler — one pool, event-driven, no project scoping.
 pub struct Scheduler {
     pub config: SchedulerConfig,
@@ -105,6 +125,7 @@ pub struct Scheduler {
     pub reflect_provider: Option<Arc<dyn Provider>>,
     pub event_store: Arc<EventStore>,
     pub session_store: Option<Arc<SessionStore>>,
+    pub session_manager: Option<Arc<SessionManager>>,
     pub trigger_store: Option<Arc<TriggerStore>>,
     pub gate_channels: Vec<Arc<dyn Channel>>,
 
@@ -113,8 +134,13 @@ pub struct Scheduler {
     #[allow(dead_code)]
     escalation_tracker: Mutex<EscalationTracker>,
 
-    /// Wake signal — coalesces multiple notifications into one schedule() call.
-    pub wake: Arc<Notify>,
+    // Event-driven dispatch channels
+    /// Broadcast receiver for EventStore events (task_created, quest_completed, etc.)
+    event_rx: Mutex<tokio::sync::broadcast::Receiver<serde_json::Value>>,
+    /// Worker completion channel — sender cloned into each spawned worker.
+    completion_tx: mpsc::UnboundedSender<CompletionEvent>,
+    /// Worker completion channel — receiver owned by the scheduler loop.
+    completion_rx: Mutex<mpsc::UnboundedReceiver<CompletionEvent>>,
 }
 
 impl Scheduler {
@@ -127,6 +153,9 @@ impl Scheduler {
         event_broadcaster: Arc<EventBroadcaster>,
         event_store: Arc<EventStore>,
     ) -> Self {
+        // Subscribe to the EventStore broadcast for push-based dispatch.
+        let event_rx = event_store.subscribe();
+        let (completion_tx, completion_rx) = mpsc::unbounded_channel();
         Self {
             config,
             agent_registry,
@@ -138,6 +167,7 @@ impl Scheduler {
             reflect_provider: None,
             event_store,
             session_store: None,
+            session_manager: None,
             trigger_store: None,
             gate_channels: Vec::new(),
             running: Mutex::new(Vec::new()),
@@ -146,7 +176,9 @@ impl Scheduler {
                 cooldown_secs: 300,
                 escalate_model: None,
             })),
-            wake: Arc::new(Notify::new()),
+            event_rx: Mutex::new(event_rx),
+            completion_tx,
+            completion_rx: Mutex::new(completion_rx),
         }
     }
 
@@ -155,14 +187,69 @@ impl Scheduler {
     // -----------------------------------------------------------------------
 
     /// Run the scheduler loop. Blocks until shutdown.
-    /// Call `wake.notify_one()` to trigger immediate scheduling.
+    ///
+    /// Event-driven: wakes immediately on EventStore broadcasts (task_created,
+    /// quest_completed) and worker completion signals.
+    /// A 60-second patrol timer acts as a safety net.
     pub async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
-        info!(max_workers = self.config.max_workers, "scheduler started");
+        info!(max_workers = self.config.max_workers, "scheduler started (event-driven)");
+        let mut patrol = tokio::time::interval(Duration::from_secs(60));
+        // The first tick completes immediately — run an initial schedule cycle.
+        patrol.tick().await;
+        if let Err(e) = self.schedule().await {
+            warn!(error = %e, "initial schedule cycle failed");
+        }
+
+        let mut event_rx = self.event_rx.lock().await;
+        let mut completion_rx = self.completion_rx.lock().await;
+
         loop {
             tokio::select! {
-                _ = self.wake.notified() => {
+                // Event-driven: wake immediately on relevant EventStore events.
+                result = event_rx.recv() => {
+                    match result {
+                        Ok(event) => {
+                            let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                            match event_type {
+                                "task_created" | "quest_completed" => {
+                                    debug!(event_type, "event-driven dispatch triggered");
+                                    if let Err(e) = self.schedule().await {
+                                        warn!(error = %e, "schedule cycle failed (event-driven)");
+                                    }
+                                }
+                                _ => {} // Ignore non-scheduling events.
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            warn!(skipped = n, "scheduler event receiver lagged");
+                            // Catch up by running a schedule cycle.
+                            if let Err(e) = self.schedule().await {
+                                warn!(error = %e, "schedule cycle failed (lag recovery)");
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            info!("event broadcast channel closed, scheduler stopping");
+                            self.shutdown().await;
+                            return;
+                        }
+                    }
+                }
+                // Worker completion: immediately check for newly ready tasks.
+                Some(completion) = completion_rx.recv() => {
+                    debug!(
+                        task_id = %completion.task_id,
+                        agent = %completion.agent_name,
+                        outcome = %completion.outcome,
+                        "worker completion received"
+                    );
                     if let Err(e) = self.schedule().await {
-                        warn!(error = %e, "schedule cycle failed");
+                        warn!(error = %e, "schedule cycle failed (completion)");
+                    }
+                }
+                // Safety net patrol (60s) — catch anything missed.
+                _ = patrol.tick() => {
+                    if let Err(e) = self.schedule().await {
+                        warn!(error = %e, "schedule cycle failed (patrol)");
                     }
                 }
                 _ = shutdown.notified() => {
@@ -377,8 +464,19 @@ impl Scheduler {
                 warn!(task = %task_id, error = %e, "failed to reset timed-out task");
             }
 
-            // Wake to re-schedule.
-            self.wake.notify_one();
+            // Emit event so the broadcast channel triggers re-scheduling.
+            let _ = self
+                .event_store
+                .emit(
+                    "task_created",
+                    None,
+                    None,
+                    Some(&task_id),
+                    &serde_json::json!({
+                        "reason": "worker_timed_out_reset",
+                    }),
+                )
+                .await;
         }
     }
 
@@ -496,6 +594,9 @@ impl Scheduler {
             }
         };
 
+        // Inject agent registry for quest tree context.
+        worker = worker.with_agent_registry(self.agent_registry.clone());
+
         // Inject persistent agent identity.
         worker = worker.with_persistent_agent(agent_id.clone());
 
@@ -585,7 +686,6 @@ impl Scheduler {
                             .update_task(&task_id, |t| {
                                 t.status = aeqi_quests::QuestStatus::Pending;
                                 t.retry_count += 1;
-                                t.assignee = None;
                             })
                             .await;
                     }
@@ -613,7 +713,8 @@ impl Scheduler {
         let registry = self.agent_registry.clone();
         let spawn_event_store = self.event_store.clone();
         let event_broadcaster = self.event_broadcaster.clone();
-        let wake = self.wake.clone();
+        let completion_tx = self.completion_tx.clone();
+        let session_manager = self.session_manager.clone();
 
         let handle = tokio::spawn(async move {
             let result = worker.execute().await;
@@ -667,6 +768,54 @@ impl Scheduler {
                 )
                 .await;
 
+            // Session resolution: notify creator session of task completion.
+            if let Some(ref sm) = session_manager {
+                if let Ok(events) = spawn_event_store
+                    .query(
+                        &EventFilter {
+                            event_type: Some("task_created".to_string()),
+                            quest_id: Some(task_id.clone()),
+                            ..Default::default()
+                        },
+                        1,
+                        0,
+                    )
+                    .await
+                {
+                    if let Some(creation_event) = events.first() {
+                        if let Some(creator_session_id) = creation_event
+                            .content
+                            .get("creator_session_id")
+                            .and_then(|v| v.as_str())
+                        {
+                            if sm.is_running(creator_session_id).await {
+                                let result_text = format!(
+                                    "Task {} completed ({}): {}",
+                                    task_id,
+                                    outcome_status,
+                                    agent_name,
+                                );
+                                // Fire-and-forget: inject result into creator session.
+                                let _ = sm
+                                    .send_streaming(creator_session_id, &result_text)
+                                    .await;
+                                debug!(
+                                    task = %task_id,
+                                    creator_session = %creator_session_id,
+                                    "session resolution: notified creator session"
+                                );
+                            } else {
+                                debug!(
+                                    task = %task_id,
+                                    creator_session = %creator_session_id,
+                                    "session resolution: creator session gone, cascade handles it"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
             let _ = registry.record_session(&agent_id_clone, 0).await;
 
             event_broadcaster.publish(ExecutionEvent::QuestCompleted {
@@ -687,7 +836,16 @@ impl Scheduler {
                 "worker completed"
             );
 
-            wake.notify_one();
+            // Send completion event for immediate re-scheduling.
+            // The quest_completed event broadcast from emit() above also triggers
+            // the scheduler, but the completion channel is a direct, guaranteed path.
+            let _ = completion_tx.send(CompletionEvent {
+                task_id: task_id.clone(),
+                agent_id: agent_id_clone.clone(),
+                agent_name: agent_name.to_string(),
+                outcome: outcome_status.to_string(),
+                cost_usd,
+            });
         });
 
         // Track the running worker.

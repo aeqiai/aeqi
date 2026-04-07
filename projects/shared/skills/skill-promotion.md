@@ -1,7 +1,7 @@
 ---
 name: "skill-promotion"
 description: Discover recurring patterns in memory and promote them to reusable skill files. Turns repeated procedures into codified knowledge.
-tools: [memory_recall, memory_store, read_file, write_file, glob, notes]
+tools: [memory_recall, memory_store, read_file, write_file, glob]
 tags: [autonomous]
 ---
 
@@ -20,7 +20,7 @@ You are performing skill promotion — discovering reusable patterns from experi
       - `[skill]` section: name, description, phase = "autonomous" or appropriate phase
       - `[tools]` section: allow list based on what tools the procedure uses
       - `[prompt]` section: system prompt encoding the procedure as instructions
-   d. Post to notes announcing the new skill: `skill-promoted:{name}`
+   d. Store discovery via memory_store with key `skill-promoted:{name}`
 
 4. **Store discovery metadata** — use memory_store to record what was promoted and from which source memories, so you don't re-promote the same patterns.
 

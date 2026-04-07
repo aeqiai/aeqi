@@ -88,7 +88,7 @@ Order improvements by impact × effort. Not everything worth doing is worth doin
 2. **Classify by path:**
    - **Harness (Path A)** — improves Claude Code + AEQI MCP integration (hooks, primer, skills)
    - **Runtime (Path B)** — improves native agent orchestrator (agent loop, middleware, worker pool)
-   - **Shared** — improves both paths (memory, graph, notes, tools)
+   - **Shared** — improves both paths (memory, graph, task tree, tools)
 3. **Prefer shared improvements** — changes that benefit both paths get priority
 4. **Create implementation plan** — ordered list of changes with the appropriate workflow for each
 

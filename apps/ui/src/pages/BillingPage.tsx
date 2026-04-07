@@ -123,18 +123,20 @@ export default function BillingPage() {
 
       {/* Billing toggle */}
       <div className="bill-toggle">
-        <button
-          className={`bill-toggle-btn${!isAnnual ? " active" : ""}`}
-          onClick={() => setInterval("monthly")}
-        >
-          Monthly
-        </button>
-        <button
-          className={`bill-toggle-btn${isAnnual ? " active" : ""}`}
-          onClick={() => setInterval("annual")}
-        >
-          Annual <span className="bill-toggle-save">Save ~14%</span>
-        </button>
+        <div className="bill-toggle-inner">
+          <button
+            className={`bill-toggle-btn${!isAnnual ? " active" : ""}`}
+            onClick={() => setInterval("monthly")}
+          >
+            Monthly
+          </button>
+          <button
+            className={`bill-toggle-btn${isAnnual ? " active" : ""}`}
+            onClick={() => setInterval("annual")}
+          >
+            Annual <span className="bill-toggle-save">Save ~14%</span>
+          </button>
+        </div>
       </div>
 
       {/* Plans */}

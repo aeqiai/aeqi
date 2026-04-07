@@ -166,18 +166,12 @@ pub struct Quest {
     pub status: QuestStatus,
     #[serde(default)]
     pub priority: Priority,
-    /// Who is working on this quest.
-    #[serde(default)]
-    pub assignee: Option<String>,
     /// Persistent agent UUID that owns this quest. None = legacy/unbound.
     #[serde(default)]
     pub agent_id: Option<String>,
     /// Quest IDs that must be completed before this one can start.
     #[serde(default)]
     pub depends_on: Vec<QuestId>,
-    /// Quest IDs that this quest blocks.
-    #[serde(default)]
-    pub blocks: Vec<QuestId>,
     /// Skill to apply when executing this quest (loaded from project skills dir).
     #[serde(default)]
     pub skill: Option<String>,
@@ -198,17 +192,12 @@ pub struct Quest {
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub closed_at: Option<DateTime<Utc>>,
+    /// Structured outcome record — replaces closed_reason and metadata.aeqi.task_outcome.
     #[serde(default)]
-    pub closed_reason: Option<String>,
+    pub outcome: Option<QuestOutcomeRecord>,
     /// What "done" looks like — worker validates output against this.
     #[serde(default)]
     pub acceptance_criteria: Option<String>,
-    /// Worker that currently holds the execution lock.
-    #[serde(default)]
-    pub locked_by: Option<String>,
-    /// When the execution lock was acquired.
-    #[serde(default)]
-    pub locked_at: Option<DateTime<Utc>>,
 }
 
 impl Quest {
@@ -225,10 +214,8 @@ impl Quest {
             description: String::new(),
             status: QuestStatus::Pending,
             priority: Priority::Normal,
-            assignee: None,
             agent_id: agent_id.map(|s| s.to_string()),
             depends_on: Vec::new(),
-            blocks: Vec::new(),
             skill: None,
             labels: Vec::new(),
             retry_count: 0,
@@ -237,10 +224,8 @@ impl Quest {
             created_at: Utc::now(),
             updated_at: None,
             closed_at: None,
-            closed_reason: None,
+            outcome: None,
             acceptance_criteria: None,
-            locked_by: None,
-            locked_at: None,
         }
     }
 
@@ -306,13 +291,20 @@ impl Quest {
     }
 
     pub fn task_outcome(&self) -> Option<QuestOutcomeRecord> {
+        // Primary: read from the outcome field.
+        if let Some(ref outcome) = self.outcome {
+            return Some(outcome.clone());
+        }
+        // Fallback: legacy metadata path for old quests.
         self.aeqi_metadata("task_outcome")
             .cloned()
             .and_then(|value| serde_json::from_value(value).ok())
     }
 
-    pub fn set_task_outcome(&mut self, outcome: &QuestOutcomeRecord) {
-        if let Ok(value) = serde_json::to_value(outcome) {
+    pub fn set_task_outcome(&mut self, record: &QuestOutcomeRecord) {
+        self.outcome = Some(record.clone());
+        // Also write to legacy metadata for backward compat with JSONL stores.
+        if let Ok(value) = serde_json::to_value(record) {
             self.set_aeqi_metadata("task_outcome", value);
         }
     }
@@ -325,18 +317,15 @@ impl Quest {
         self.task_outcome()
             .map(|outcome| outcome.summary)
             .filter(|summary| !summary.trim().is_empty())
-            .or_else(|| self.closed_reason.clone())
     }
 
     pub fn blocker_context(&self) -> Option<String> {
-        self.task_outcome()
-            .and_then(|outcome| {
-                outcome
-                    .reason
-                    .filter(|reason| !reason.trim().is_empty())
-                    .or_else(|| (!outcome.summary.trim().is_empty()).then_some(outcome.summary))
-            })
-            .or_else(|| self.closed_reason.clone())
+        self.task_outcome().and_then(|outcome| {
+            outcome
+                .reason
+                .filter(|reason| !reason.trim().is_empty())
+                .or_else(|| (!outcome.summary.trim().is_empty()).then_some(outcome.summary))
+        })
     }
 }
 
@@ -345,7 +334,7 @@ mod tests {
     use super::{Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord};
 
     #[test]
-    fn quest_outcome_round_trips_through_aeqi_metadata() {
+    fn quest_outcome_round_trips_through_outcome_field() {
         let mut quest = Quest::new(QuestId::from("sg-001"), "Outcome");
         let outcome = QuestOutcomeRecord {
             kind: QuestOutcomeKind::Blocked,
@@ -356,6 +345,9 @@ mod tests {
 
         quest.set_task_outcome(&outcome);
 
+        // Reads from the outcome field.
+        assert_eq!(quest.outcome, Some(outcome.clone()));
+        // task_outcome() accessor also works.
         assert_eq!(quest.task_outcome(), Some(outcome));
     }
 

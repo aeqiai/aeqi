@@ -149,7 +149,7 @@ export default function DashboardHome() {
           <div className="dash-quest-list">
             {activeQuests.map((q: any) => (
               <div key={q.id} className="dash-quest-row">
-                <span className="dash-quest-agent">{q.assignee || q.agent || "\u2014"}</span>
+                <span className="dash-quest-agent">{q.agent_id || q.assignee || q.agent || "\u2014"}</span>
                 <span className="dash-quest-subject">{q.subject}</span>
                 {runtimeLabel(q.runtime) && <span className="dash-quest-phase">{runtimeLabel(q.runtime)}</span>}
                 <span className="dash-quest-time">{timeAgo(q.started_at || q.updated_at)}</span>

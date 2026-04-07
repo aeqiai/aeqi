@@ -118,7 +118,7 @@ pub(crate) async fn cmd_tasks(
 
             println!("=== {} ===", name);
             for task in tasks {
-                let assignee = task.assignee.as_deref().unwrap_or("-");
+                let agent = task.agent_id.as_deref().unwrap_or("-");
                 let deps = if task.depends_on.is_empty() {
                     String::new()
                 } else {
@@ -137,8 +137,8 @@ pub(crate) async fn cmd_tasks(
                     format!(" checkpoints={}", task.checkpoints.len())
                 };
                 println!(
-                    "  {} [{}] {} — {} assignee={}{}{}",
-                    task.id, task.status, task.priority, task.name, assignee, deps, checkpoints
+                    "  {} [{}] {} — {} agent={}{}{}",
+                    task.id, task.status, task.priority, task.name, agent, deps, checkpoints
                 );
             }
         }
@@ -173,7 +173,6 @@ pub(crate) async fn cmd_hook(
     let mut store = open_tasks_for_project(&project_name)?;
     let task = store.update(task_id, |b| {
         b.status = aeqi_quests::QuestStatus::InProgress;
-        b.assignee = Some(worker.to_string());
     })?;
 
     println!("Hooked {} to {} — {}", worker, task.id, task.name);

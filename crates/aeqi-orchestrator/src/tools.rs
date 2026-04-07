@@ -301,8 +301,8 @@ fn format_task_detail(task: &aeqi_quests::Quest) -> String {
     if !task.description.is_empty() {
         out.push_str(&format!("Description: {}\n", task.description));
     }
-    if let Some(ref assignee) = task.assignee {
-        out.push_str(&format!("Assignee: {}\n", assignee));
+    if let Some(ref agent_id) = task.agent_id {
+        out.push_str(&format!("Agent: {}\n", agent_id));
     }
     if let Some(outcome) = task.task_outcome() {
         out.push_str(&format!("Outcome: {}\n", outcome.kind));
@@ -310,9 +310,6 @@ fn format_task_detail(task: &aeqi_quests::Quest) -> String {
         if let Some(reason) = outcome.reason {
             out.push_str(&format!("Outcome reason: {}\n", reason));
         }
-    }
-    if let Some(ref reason) = task.closed_reason {
-        out.push_str(&format!("Closed reason: {}\n", reason));
     }
     if task.retry_count > 0 {
         out.push_str(&format!("Retries: {}\n", task.retry_count));
@@ -396,8 +393,6 @@ impl Tool for QuestCancelTool {
             .agent_registry
             .update_task(task_id, |q| {
                 q.status = aeqi_quests::QuestStatus::Cancelled;
-                q.assignee = None;
-                q.closed_reason = Some(reason_owned.clone());
                 q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                     aeqi_quests::QuestOutcomeKind::Cancelled,
                     &reason_owned,
@@ -636,7 +631,7 @@ impl Tool for NotesTool {
 
                 match existing {
                     Some(task) => {
-                        let holder = task.assignee.as_deref().unwrap_or("unknown");
+                        let holder = task.agent_id.as_deref().unwrap_or("unknown");
                         if holder == self.agent_name {
                             Ok(ToolResult::success(format!("Renewed claim: {resource}")))
                         } else {
@@ -772,7 +767,7 @@ impl Tool for NotesTool {
 /// NOTE: `channel_reply` is intentionally excluded. The leader agent's final text output
 /// is automatically delivered to the originating channel by the daemon's polling loop.
 /// Including `channel_reply` causes double-delivery: the tool sends once, and the
-/// task's closed_reason (the LLM's confirmation text) gets sent again.
+/// task's outcome summary (the LLM's confirmation text) gets sent again.
 pub fn build_orchestration_tools(
     leader_name: String,
     _default_project: String,
@@ -781,7 +776,6 @@ pub fn build_orchestration_tools(
     _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
     api_key: Option<String>,
     memory: Option<Arc<dyn Insight>>,
-    event_broadcaster: Option<Arc<crate::EventBroadcaster>>,
     graph_db_path: Option<PathBuf>,
     session_id: Option<String>,
     provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
@@ -793,9 +787,6 @@ pub fn build_orchestration_tools(
     let mut delegate_tool = crate::delegate::DelegateTool::new(event_store, leader_name.clone())
         .with_project(project_name)
         .with_agent_registry(agent_registry.clone());
-    if let Some(broadcaster) = event_broadcaster {
-        delegate_tool = delegate_tool.with_event_broadcaster(broadcaster);
-    }
     if let Some(sid) = session_id {
         delegate_tool = delegate_tool.with_session_id(sid);
     }
@@ -1223,8 +1214,7 @@ impl Tool for TriggerManageTool {
     }
 }
 
-// ChannelPostTool removed — department channel posting is now handled by
-// DelegateTool via the "dept:<name>" routing pattern.
+// ChannelPostTool removed — routing is handled by DelegateTool.
 
 // ---------------------------------------------------------------------------
 // TranscriptSearchTool — FTS search across past session transcripts
