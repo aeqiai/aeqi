@@ -198,8 +198,8 @@ export default function SignupPage() {
           {(googleOAuth || githubOAuth) && (
             <>
               <div className="auth-divider"><span>or</span></div>
-              {googleOAuth && <button className="auth-btn-google" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
-              {githubOAuth && <button className="auth-btn-google" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
+              {googleOAuth && <button className="auth-btn-oauth" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
+              {githubOAuth && <button className="auth-btn-oauth" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
             </>
           )}
           {waitlist && (
@@ -292,7 +292,7 @@ export default function SignupPage() {
 
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <div style={{ marginBottom: 32 }}><BrandMark size={28} color="rgba(0,0,0,0.15)" /></div>
+          <div className="auth-logo"><BrandMark size={24} color="rgba(0,0,0,0.12)" /></div>
           <h2 className="signup-pitch-heading">Launch a company that never sleeps</h2>
           <p className="signup-pitch-sub">
             aeqi gives you autonomous agents that work together — writing code,
@@ -309,9 +309,9 @@ export default function SignupPage() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "rgba(0,0,0,0.5)", margin: "0 0 12px" }}>Want a demo or have questions?</p>
-            <a href="https://booking.aeqi.ai" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "transparent", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, color: "rgba(0,0,0,0.7)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, textDecoration: "none" }}>
+          <div className="signup-cta-section">
+            <p className="signup-cta-label">Want a demo or have questions?</p>
+            <a href="https://booking.aeqi.ai" target="_blank" rel="noopener noreferrer" className="signup-cta-link">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5" /><path d="M2 7h12M5 1v4M11 1v4" /></svg>
               Book a call
             </a>
