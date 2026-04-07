@@ -244,7 +244,6 @@ impl DelegateTool {
             spawned.session_id, agent_id
         )))
     }
-
 }
 
 #[async_trait]

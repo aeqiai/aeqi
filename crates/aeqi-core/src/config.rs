@@ -816,7 +816,6 @@ pub struct DomainHintConfig {
     pub files: Vec<String>,
 }
 
-
 fn default_max_workers() -> u32 {
     2
 }

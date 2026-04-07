@@ -192,7 +192,10 @@ impl Scheduler {
     /// quest_completed) and worker completion signals.
     /// A 60-second patrol timer acts as a safety net.
     pub async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
-        info!(max_workers = self.config.max_workers, "scheduler started (event-driven)");
+        info!(
+            max_workers = self.config.max_workers,
+            "scheduler started (event-driven)"
+        );
         let mut patrol = tokio::time::interval(Duration::from_secs(60));
         // The first tick completes immediately — run an initial schedule cycle.
         patrol.tick().await;
@@ -769,8 +772,8 @@ impl Scheduler {
                 .await;
 
             // Session resolution: notify creator session of task completion.
-            if let Some(ref sm) = session_manager {
-                if let Ok(events) = spawn_event_store
+            if let Some(ref sm) = session_manager
+                && let Ok(events) = spawn_event_store
                     .query(
                         &EventFilter {
                             event_type: Some("quest_created".to_string()),
@@ -781,38 +784,30 @@ impl Scheduler {
                         0,
                     )
                     .await
-                {
-                    if let Some(creation_event) = events.first() {
-                        if let Some(creator_session_id) = creation_event
-                            .content
-                            .get("creator_session_id")
-                            .and_then(|v| v.as_str())
-                        {
-                            if sm.is_running(creator_session_id).await {
-                                let result_text = format!(
-                                    "Quest {} completed ({}): {}",
-                                    task_id,
-                                    outcome_status,
-                                    agent_name,
-                                );
-                                // Fire-and-forget: inject result into creator session.
-                                let _ = sm
-                                    .send_streaming(creator_session_id, &result_text)
-                                    .await;
-                                debug!(
-                                    task = %task_id,
-                                    creator_session = %creator_session_id,
-                                    "session resolution: notified creator session"
-                                );
-                            } else {
-                                debug!(
-                                    task = %task_id,
-                                    creator_session = %creator_session_id,
-                                    "session resolution: creator session gone, cascade handles it"
-                                );
-                            }
-                        }
-                    }
+                && let Some(creation_event) = events.first()
+                && let Some(creator_session_id) = creation_event
+                    .content
+                    .get("creator_session_id")
+                    .and_then(|v| v.as_str())
+            {
+                if sm.is_running(creator_session_id).await {
+                    let result_text = format!(
+                        "Quest {} completed ({}): {}",
+                        task_id, outcome_status, agent_name,
+                    );
+                    // Fire-and-forget: inject result into creator session.
+                    let _ = sm.send_streaming(creator_session_id, &result_text).await;
+                    debug!(
+                        task = %task_id,
+                        creator_session = %creator_session_id,
+                        "session resolution: notified creator session"
+                    );
+                } else {
+                    debug!(
+                        task = %task_id,
+                        creator_session = %creator_session_id,
+                        "session resolution: creator session gone, cascade handles it"
+                    );
                 }
             }
 

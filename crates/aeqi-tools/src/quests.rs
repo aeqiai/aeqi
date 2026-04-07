@@ -300,7 +300,8 @@ impl Tool for QuestShowTool {
             let deps = if quest.depends_on.is_empty() {
                 "none".to_string()
             } else {
-                quest.depends_on
+                quest
+                    .depends_on
                     .iter()
                     .map(|d| d.0.as_str())
                     .collect::<Vec<_>>()

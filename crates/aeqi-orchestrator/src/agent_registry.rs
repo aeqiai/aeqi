@@ -1189,9 +1189,7 @@ impl AgentRegistry {
             |row| row.get(0),
         )?;
         if today_count >= max_daily_tasks {
-            anyhow::bail!(
-                "Agent has reached daily quest creation limit ({max_daily_tasks})"
-            );
+            anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
         }
 
         // Get and increment sequence for this prefix.
@@ -1282,9 +1280,7 @@ impl AgentRegistry {
             |row| row.get(0),
         )?;
         if today_count >= max_daily_tasks {
-            anyhow::bail!(
-                "Agent has reached daily quest creation limit ({max_daily_tasks})"
-            );
+            anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
         }
 
         // If parent is specified, create a child ID; otherwise create a root ID.
@@ -1540,9 +1536,7 @@ impl AgentRegistry {
     pub async fn list_tasks_by_prefix(&self, prefix: &str) -> Result<Vec<aeqi_quests::Quest>> {
         let db = self.db.lock().await;
         let like_pattern = format!("{prefix}.%");
-        let mut stmt = db.prepare(
-            "SELECT * FROM quests WHERE id LIKE ?1 ORDER BY id ASC",
-        )?;
+        let mut stmt = db.prepare("SELECT * FROM quests WHERE id LIKE ?1 ORDER BY id ASC")?;
         let tasks: Vec<aeqi_quests::Quest> = stmt
             .query_map(params![like_pattern], |row| Ok(row_to_task(row)))?
             .filter_map(|r| r.ok())

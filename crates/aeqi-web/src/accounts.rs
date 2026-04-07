@@ -59,7 +59,9 @@ impl AccountStore {
                 PRIMARY KEY (user_id, company)
             );",
         )?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Create a new user with email + password. Returns the user.
@@ -102,7 +104,8 @@ impl AccountStore {
                 params![id, name, avatar_url],
             )?;
             drop(conn);
-            return self.get_user_by_id(&id)?
+            return self
+                .get_user_by_id(&id)?
                 .ok_or_else(|| anyhow::anyhow!("user not found after update"));
         }
 
@@ -121,7 +124,8 @@ impl AccountStore {
                 params![id, google_id, avatar_url],
             )?;
             drop(conn);
-            return self.get_user_by_id(&id)?
+            return self
+                .get_user_by_id(&id)?
                 .ok_or_else(|| anyhow::anyhow!("user not found after link"));
         }
 
@@ -194,10 +198,10 @@ impl AccountStore {
             return Ok(false);
         }
 
-        if let Ok(expires) = chrono::DateTime::parse_from_rfc3339(&expires_str) {
-            if chrono::Utc::now() > expires {
-                return Ok(false); // Expired.
-            }
+        if let Ok(expires) = chrono::DateTime::parse_from_rfc3339(&expires_str)
+            && chrono::Utc::now() > expires
+        {
+            return Ok(false); // Expired.
         }
 
         conn.execute(
@@ -232,7 +236,8 @@ impl AccountStore {
 
         match user {
             Some(mut u) => {
-                let mut stmt = conn.prepare("SELECT company FROM user_companies WHERE user_id = ?1")?;
+                let mut stmt =
+                    conn.prepare("SELECT company FROM user_companies WHERE user_id = ?1")?;
                 let companies: Vec<String> = stmt
                     .query_map(params![u.id], |row| row.get(0))?
                     .filter_map(|r| r.ok())

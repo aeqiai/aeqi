@@ -77,10 +77,7 @@ async fn projects(State(state): State<AppState>) -> Response {
     ipc_proxy(state, "companies", serde_json::Value::Null).await
 }
 
-async fn create_company(
-    State(state): State<AppState>,
-    req: axum::extract::Request,
-) -> Response {
+async fn create_company(State(state): State<AppState>, req: axum::extract::Request) -> Response {
     // Extract claims and body.
     let claims = req.extensions().get::<Claims>().cloned();
     let body: serde_json::Value = match axum::body::to_bytes(req.into_body(), 1_048_576).await {
@@ -91,12 +88,11 @@ async fn create_company(
     let resp = ipc_proxy(state.clone(), "create_company", body.clone()).await;
 
     // Link company to user in accounts store.
-    if let (Some(accounts), Some(claims)) = (&state.accounts, &claims) {
-        if let Some(user_id) = claims.user_id.as_deref() {
-            if let Some(name) = body.get("name").and_then(|v| v.as_str()) {
-                let _ = accounts.add_company(user_id, name);
-            }
-        }
+    if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
+        && let Some(user_id) = claims.user_id.as_deref()
+        && let Some(name) = body.get("name").and_then(|v| v.as_str())
+    {
+        let _ = accounts.add_company(user_id, name);
     }
 
     resp
@@ -457,24 +453,14 @@ async fn agent_identity(
     State(state): State<AppState>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(
-        state,
-        "agent_identity",
-        serde_json::json!({"name": name}),
-    )
-    .await
+    ipc_proxy(state, "agent_identity", serde_json::json!({"name": name})).await
 }
 
 async fn agent_prompts(
     State(state): State<AppState>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(
-        state,
-        "agent_info",
-        serde_json::json!({"name": name}),
-    )
-    .await
+    ipc_proxy(state, "agent_info", serde_json::json!({"name": name})).await
 }
 
 async fn save_agent_file(
@@ -495,17 +481,11 @@ async fn rate_limit(State(state): State<AppState>) -> Response {
 
 // --- Chat ---
 
-async fn chat(
-    State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
-) -> Response {
+async fn chat(State(state): State<AppState>, Json(body): Json<serde_json::Value>) -> Response {
     ipc_proxy(state, "chat", body).await
 }
 
-async fn chat_full(
-    State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
-) -> Response {
+async fn chat_full(State(state): State<AppState>, Json(body): Json<serde_json::Value>) -> Response {
     ipc_proxy(state, "chat_full", body).await
 }
 
@@ -520,12 +500,7 @@ async fn chat_poll(
     State(state): State<AppState>,
     axum::extract::Path(task_id): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(
-        state,
-        "chat_poll",
-        serde_json::json!({"task_id": task_id}),
-    )
-    .await
+    ipc_proxy(state, "chat_poll", serde_json::json!({"task_id": task_id})).await
 }
 
 #[derive(Deserialize, Default)]
@@ -628,10 +603,7 @@ struct ApprovalsQuery {
     status: Option<String>,
 }
 
-async fn approvals(
-    State(state): State<AppState>,
-    Query(q): Query<ApprovalsQuery>,
-) -> Response {
+async fn approvals(State(state): State<AppState>, Query(q): Query<ApprovalsQuery>) -> Response {
     let mut params = serde_json::json!({});
     if let Some(status) = &q.status {
         params["status"] = serde_json::Value::String(status.clone());
@@ -656,10 +628,7 @@ struct SessionsQuery {
     agent_id: Option<String>,
 }
 
-async fn sessions(
-    State(state): State<AppState>,
-    Query(q): Query<SessionsQuery>,
-) -> Response {
+async fn sessions(State(state): State<AppState>, Query(q): Query<SessionsQuery>) -> Response {
     let mut params = serde_json::json!({});
     if let Some(agent_id) = &q.agent_id {
         params["agent_id"] = serde_json::Value::String(agent_id.clone());
@@ -796,12 +765,7 @@ struct VfsSearchQuery {
 }
 
 async fn vfs_search(State(state): State<AppState>, Query(q): Query<VfsSearchQuery>) -> Response {
-    ipc_proxy(
-        state,
-        "vfs_search",
-        serde_json::json!({"query": q.query}),
-    )
-    .await
+    ipc_proxy(state, "vfs_search", serde_json::json!({"query": q.query})).await
 }
 
 // --- Helper ---

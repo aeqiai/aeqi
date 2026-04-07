@@ -436,7 +436,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
                         let agent_key = agent_id.unwrap_or("");
-                        let cache_key = format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
+                        let cache_key =
+                            format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
 
                         let cached_hit = recall_cache.get(&cache_key).and_then(|(ts, val)| {
                             if ts.elapsed().as_secs() < RECALL_CACHE_TTL_SECS {
@@ -687,10 +688,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("create_quest");
                         // Normalize depends_on: string → array
-                        if let Some(dep) = ipc.get("depends_on").cloned() {
-                            if dep.is_string() {
-                                ipc["depends_on"] = serde_json::json!([dep.as_str().unwrap_or("")]);
-                            }
+                        if let Some(dep) = ipc.get("depends_on").cloned()
+                            && dep.is_string()
+                        {
+                            ipc["depends_on"] = serde_json::json!([dep.as_str().unwrap_or("")]);
                         }
                         ipc_request_sync(&data_dir, &ipc)
                     }

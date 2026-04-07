@@ -9,10 +9,10 @@ pub mod anthropic;
 pub mod credential_pool;
 pub mod embedder;
 pub mod fallback;
+pub mod noop;
 pub mod ollama;
 pub mod openrouter;
 pub mod pricing;
-pub mod noop;
 pub mod reliable;
 
 pub use anthropic::AnthropicProvider;

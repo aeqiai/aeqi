@@ -372,8 +372,7 @@ impl AgentWorker {
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|t| {
-                    t.id.0.starts_with(&child_prefix)
-                        && !t.id.0[child_prefix.len()..].contains('.')
+                    t.id.0.starts_with(&child_prefix) && !t.id.0[child_prefix.len()..].contains('.')
                 })
                 .collect::<Vec<_>>();
 
@@ -588,12 +587,12 @@ impl AgentWorker {
             None => format!("Task: {}", hook.subject),
         };
         // Layer 3: Quest tree context — parent, siblings, and children.
-        if let Some(ref task) = task_snapshot {
-            if let Some(ref registry) = self.agent_registry {
-                let tree_ctx = build_quest_tree_context(task, registry).await;
-                if !tree_ctx.is_empty() {
-                    task_context.push_str(&tree_ctx);
-                }
+        if let Some(ref task) = task_snapshot
+            && let Some(ref registry) = self.agent_registry
+        {
+            let tree_ctx = build_quest_tree_context(task, registry).await;
+            if !tree_ctx.is_empty() {
+                task_context.push_str(&tree_ctx);
             }
         }
 
@@ -1868,10 +1867,7 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
     // Parent.
     if let Some(ref p) = parent {
         let desc = truncate_str(&p.description, 200);
-        out.push_str(&format!(
-            "Parent: {} [{}] — {}\n",
-            p.id, p.status, p.name
-        ));
+        out.push_str(&format!("Parent: {} [{}] — {}\n", p.id, p.status, p.name));
         if !desc.is_empty() {
             out.push_str(&format!("  Description: {}\n", desc));
         }
@@ -1886,10 +1882,7 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
                 .outcome_summary()
                 .map(|s| format!(" → \"{}\"", truncate_str(&s, 100)))
                 .unwrap_or_default();
-            out.push_str(&format!(
-                "  {} [done] — {}{}\n",
-                sib.id, sib.name, summary
-            ));
+            out.push_str(&format!("  {} [done] — {}{}\n", sib.id, sib.name, summary));
         }
         if done_overflow > 0 {
             out.push_str(&format!(
@@ -1904,10 +1897,7 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
     if !active_siblings.is_empty() {
         out.push_str("Siblings (active):\n");
         for sib in &active_siblings {
-            out.push_str(&format!(
-                "  {} [{}] — {}\n",
-                sib.id, sib.status, sib.name
-            ));
+            out.push_str(&format!("  {} [{}] — {}\n", sib.id, sib.status, sib.name));
         }
         if active_overflow > 0 {
             out.push_str(&format!(

@@ -98,7 +98,9 @@ impl VfsTree {
             ["companies"] => self.list_companies().await?,
             ["companies", name] => self.list_company_detail(name).await?,
             ["companies", name, "knowledge"] => self.list_company_knowledge(name).await?,
-            ["companies", name, "quests"] | ["companies", name, "tasks"] => self.list_company_tasks(name).await?,
+            ["companies", name, "quests"] | ["companies", name, "tasks"] => {
+                self.list_company_tasks(name).await?
+            }
             ["skills"] => self.list_skills().await?,
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,

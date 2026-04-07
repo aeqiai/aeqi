@@ -15,9 +15,7 @@ use crate::metrics::AEQIMetrics;
 use crate::progress_tracker::ProgressTracker;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
-use crate::session_store::{
-    SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id,
-};
+use crate::session_store::{SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id};
 use crate::trigger::TriggerStore;
 
 const ACK_RETRY_AGE_SECS: u64 = 60;
@@ -2119,7 +2117,9 @@ impl Daemon {
                         .and_then(|v| v.as_array())
                         .map(|arr| {
                             arr.iter()
-                                .filter_map(|v| v.as_str().map(|s| aeqi_quests::QuestId(s.to_string())))
+                                .filter_map(|v| {
+                                    v.as_str().map(|s| aeqi_quests::QuestId(s.to_string()))
+                                })
                                 .collect()
                         })
                         .unwrap_or_default();
@@ -2131,7 +2131,11 @@ impl Daemon {
                     } else {
                         // Step 5: Atomic claim check — subjects starting with "claim:" are exclusive locks.
                         let claim_conflict = if subject.starts_with("claim:") {
-                            agent_registry.find_open_task_by_subject(subject).await.ok().flatten()
+                            agent_registry
+                                .find_open_task_by_subject(subject)
+                                .await
+                                .ok()
+                                .flatten()
                         } else {
                             None
                         };
@@ -2143,46 +2147,46 @@ impl Daemon {
                                 "existing_quest_id": existing_quest.id.0,
                             })
                         } else {
-                        // AgentRegistry path: resolve agent, then create task in unified store.
-                        // Priority: explicit agent_id > agent name hint > project default
-                        let agent = if let Some(aid) = explicit_agent_id {
-                            agent_registry.resolve_by_hint(aid).await.ok().flatten()
-                        } else if let Some(name) = agent_name_hint {
-                            agent_registry.resolve_by_hint(name).await.ok().flatten()
-                        } else {
-                            agent_registry
-                                .default_agent(Some(project))
-                                .await
-                                .ok()
-                                .flatten()
-                        };
-                        match agent {
-                            Some(agent) => {
-                                let skill = request.get("skill").and_then(|v| v.as_str());
-                                let labels: Vec<String> = request
-                                    .get("labels")
-                                    .and_then(|v| v.as_array())
-                                    .map(|arr| {
-                                        arr.iter()
-                                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                                            .collect()
-                                    })
-                                    .unwrap_or_default();
-                                match agent_registry
-                                    .create_task_v2(
-                                        &agent.id,
-                                        subject,
-                                        description,
-                                        skill,
-                                        &labels,
-                                        &depends_on,
-                                        parent_id,
-                                    )
+                            // AgentRegistry path: resolve agent, then create task in unified store.
+                            // Priority: explicit agent_id > agent name hint > project default
+                            let agent = if let Some(aid) = explicit_agent_id {
+                                agent_registry.resolve_by_hint(aid).await.ok().flatten()
+                            } else if let Some(name) = agent_name_hint {
+                                agent_registry.resolve_by_hint(name).await.ok().flatten()
+                            } else {
+                                agent_registry
+                                    .default_agent(Some(project))
                                     .await
-                                {
-                                    Ok(quest) => {
-                                        // Step 3: Emit quest_created event
-                                        let _ = dispatch_es
+                                    .ok()
+                                    .flatten()
+                            };
+                            match agent {
+                                Some(agent) => {
+                                    let skill = request.get("skill").and_then(|v| v.as_str());
+                                    let labels: Vec<String> = request
+                                        .get("labels")
+                                        .and_then(|v| v.as_array())
+                                        .map(|arr| {
+                                            arr.iter()
+                                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                                .collect()
+                                        })
+                                        .unwrap_or_default();
+                                    match agent_registry
+                                        .create_task_v2(
+                                            &agent.id,
+                                            subject,
+                                            description,
+                                            skill,
+                                            &labels,
+                                            &depends_on,
+                                            parent_id,
+                                        )
+                                        .await
+                                    {
+                                        Ok(quest) => {
+                                            // Step 3: Emit quest_created event
+                                            let _ = dispatch_es
                                             .emit(
                                                 "quest_created",
                                                 Some(&agent.id),
@@ -2197,27 +2201,27 @@ impl Daemon {
                                                 }),
                                             )
                                             .await;
-                                        // The quest_created event above triggers the scheduler via broadcast.
-                                        serde_json::json!({
-                                            "ok": true,
-                                            "quest": {
-                                                "id": quest.id.0,
-                                                "subject": quest.name,
-                                                "status": quest.status.to_string(),
-                                                "agent_id": quest.agent_id,
-                                                "project": project,
-                                            }
-                                        })
-                                    }
-                                    Err(e) => {
-                                        serde_json::json!({"ok": false, "error": e.to_string()})
+                                            // The quest_created event above triggers the scheduler via broadcast.
+                                            serde_json::json!({
+                                                "ok": true,
+                                                "quest": {
+                                                    "id": quest.id.0,
+                                                    "subject": quest.name,
+                                                    "status": quest.status.to_string(),
+                                                    "agent_id": quest.agent_id,
+                                                    "project": project,
+                                                }
+                                            })
+                                        }
+                                        Err(e) => {
+                                            serde_json::json!({"ok": false, "error": e.to_string()})
+                                        }
                                     }
                                 }
+                                None => {
+                                    serde_json::json!({"ok": false, "error": "no agent found for project"})
+                                }
                             }
-                            None => {
-                                serde_json::json!({"ok": false, "error": "no agent found for project"})
-                            }
-                        }
                         } // close claim_conflict else
                     }
                 }
@@ -2915,7 +2919,10 @@ impl Daemon {
                     let query = request.get("query").and_then(|v| v.as_str()).unwrap_or("");
                     let limit =
                         request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-                    let scope = request.get("scope").and_then(|v| v.as_str()).unwrap_or("domain");
+                    let scope = request
+                        .get("scope")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("domain");
                     let agent_id_param = request.get("agent_id").and_then(|v| v.as_str());
 
                     // Tenancy filter: memories lack a native project field.
@@ -3416,7 +3423,10 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("fact");
 
-                    let scope = request.get("scope").and_then(|v| v.as_str()).unwrap_or("domain");
+                    let scope = request
+                        .get("scope")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("domain");
 
                     if project.is_empty() || key.is_empty() || content.is_empty() {
                         serde_json::json!({"ok": false, "error": "project, key, and content required"})
@@ -3439,7 +3449,10 @@ impl Daemon {
                                 _ => raw_agent_id,
                             };
                             let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
-                            match mem.store_with_ttl(key, content, cat, agent_id, ttl_secs).await {
+                            match mem
+                                .store_with_ttl(key, content, cat, agent_id, ttl_secs)
+                                .await
+                            {
                                 Ok(id) => serde_json::json!({"ok": true, "id": id}),
                                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                             }
@@ -3453,7 +3466,8 @@ impl Daemon {
 
                 "memory_prefix" => {
                     let prefix = request.get("prefix").and_then(|v| v.as_str()).unwrap_or("");
-                    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+                    let limit =
+                        request.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
                     if prefix.is_empty() {
                         serde_json::json!({"ok": false, "error": "prefix required"})
@@ -3463,14 +3477,16 @@ impl Daemon {
                                 Ok(entries) => {
                                     let memories: Vec<serde_json::Value> = entries
                                         .iter()
-                                        .map(|e| serde_json::json!({
-                                            "id": e.id,
-                                            "key": e.key,
-                                            "content": e.content,
-                                            "category": e.category,
-                                            "agent_id": e.agent_id,
-                                            "created_at": e.created_at.to_rfc3339(),
-                                        }))
+                                        .map(|e| {
+                                            serde_json::json!({
+                                                "id": e.id,
+                                                "key": e.key,
+                                                "content": e.content,
+                                                "category": e.category,
+                                                "agent_id": e.agent_id,
+                                                "created_at": e.created_at.to_rfc3339(),
+                                            })
+                                        })
                                         .collect();
                                     serde_json::json!({"ok": true, "memories": memories, "count": memories.len()})
                                 }
@@ -4715,9 +4731,7 @@ mod tests {
         DispatchHealth, EventBuffer, ExecutionEvent, ReadinessContext, readiness_response,
         resolve_web_chat_id,
     };
-    use crate::session_store::{
-        agency_chat_id, named_channel_chat_id, project_chat_id,
-    };
+    use crate::session_store::{agency_chat_id, named_channel_chat_id, project_chat_id};
 
     #[test]
     fn readiness_blocks_when_owner_registration_is_incomplete() {
@@ -4877,9 +4891,6 @@ mod tests {
             resolve_web_chat_id(None, None, Some("aeqi")),
             agency_chat_id()
         );
-        assert_eq!(
-            resolve_web_chat_id(None, None, None),
-            agency_chat_id()
-        );
+        assert_eq!(resolve_web_chat_id(None, None, None), agency_chat_id());
     }
 }

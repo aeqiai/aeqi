@@ -404,10 +404,7 @@ impl SqliteInsights {
     /// Search insights by key prefix (exact prefix match, not FTS5).
     /// Filters out expired entries. Returns newest first.
     pub fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<InsightEntry>> {
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let like_pattern = format!("{prefix}%");
         let mut stmt = conn.prepare(
@@ -430,23 +427,25 @@ impl SqliteInsights {
                 Ok((id, key, content, cat_str, agent_id, session_id, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                let category: InsightCategory =
-                    serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
-                let created_at = DateTime::parse_from_rfc3339(&created_str)
-                    .ok()?
-                    .with_timezone(&Utc);
-                Some(InsightEntry {
-                    id,
-                    key,
-                    content,
-                    category,
-                    agent_id,
-                    created_at,
-                    session_id,
-                    score: 1.0,
-                })
-            })
+            .filter_map(
+                |(id, key, content, cat_str, agent_id, session_id, created_str)| {
+                    let category: InsightCategory =
+                        serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
+                    let created_at = DateTime::parse_from_rfc3339(&created_str)
+                        .ok()?
+                        .with_timezone(&Utc);
+                    Some(InsightEntry {
+                        id,
+                        key,
+                        content,
+                        category,
+                        agent_id,
+                        created_at,
+                        session_id,
+                        score: 1.0,
+                    })
+                },
+            )
             .collect();
         Ok(entries)
     }
@@ -454,10 +453,7 @@ impl SqliteInsights {
     /// Delete expired insights and their embeddings.
     /// Returns the number of entries cleaned up.
     pub fn cleanup_expired(&self) -> Result<usize> {
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
 
         // Get IDs of expired entries (for embedding cleanup).
@@ -1230,10 +1226,7 @@ impl Insight for SqliteInsights {
         if let Some(ttl) = ttl_secs {
             let expires = Utc::now() + chrono::Duration::seconds(ttl as i64);
             let expires_str = expires.to_rfc3339();
-            let conn = self
-                .conn
-                .lock()
-                .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
                 "UPDATE insights SET expires_at = ?1 WHERE id = ?2",
                 rusqlite::params![expires_str, id],

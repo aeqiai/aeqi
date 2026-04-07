@@ -538,30 +538,33 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 .map(|c| config.model_for_company(&c.name))
                 .unwrap_or_default();
 
-            let scheduler_provider: Arc<dyn aeqi_core::traits::Provider> =
-                if let Some(first) = config.agent_spawns.first() {
-                    match build_provider_for_project(&config, &first.name) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            warn!(error = %e, "scheduler: failed to build provider, using default");
-                            match default_provider.clone() {
-                                Some(p) => p,
-                                None => {
-                                    warn!("no provider available — scheduler will not process agent tasks");
-                                    Arc::new(aeqi_providers::noop::NoopProvider)
-                                }
+            let scheduler_provider: Arc<dyn aeqi_core::traits::Provider> = if let Some(first) =
+                config.agent_spawns.first()
+            {
+                match build_provider_for_project(&config, &first.name) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(error = %e, "scheduler: failed to build provider, using default");
+                        match default_provider.clone() {
+                            Some(p) => p,
+                            None => {
+                                warn!(
+                                    "no provider available — scheduler will not process agent tasks"
+                                );
+                                Arc::new(aeqi_providers::noop::NoopProvider)
                             }
                         }
                     }
-                } else {
-                    match default_provider.clone() {
-                        Some(p) => p,
-                        None => {
-                            warn!("no provider available — scheduler will not process agent tasks");
-                            Arc::new(aeqi_providers::noop::NoopProvider)
-                        }
+                }
+            } else {
+                match default_provider.clone() {
+                    Some(p) => p,
+                    None => {
+                        warn!("no provider available — scheduler will not process agent tasks");
+                        Arc::new(aeqi_providers::noop::NoopProvider)
                     }
-                };
+                }
+            };
 
             // Collect base tools for the scheduler (union of project tools).
             let scheduler_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> =

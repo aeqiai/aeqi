@@ -17,12 +17,12 @@ use tower_http::{
 };
 use tracing::info;
 
-use aeqi_core::config::SmtpConfig;
 use crate::accounts::AccountStore;
 use crate::auth;
 use crate::ipc::IpcClient;
 use crate::routes::{api_routes, webhook_routes};
 use crate::ws;
+use aeqi_core::config::SmtpConfig;
 
 /// Shared application state.
 #[derive(Clone)]
@@ -63,9 +63,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     };
 
     // Error if auth mode requires a secret but signing_secret resolves to the default.
-    if matches!(state.auth_mode, AuthMode::Secret)
-        && auth::signing_secret(&state) == "aeqi-dev"
-    {
+    if matches!(state.auth_mode, AuthMode::Secret) && auth::signing_secret(&state) == "aeqi-dev" {
         tracing::error!(
             "SECURITY: auth_mode is {:?} but no auth_secret configured — using insecure default. Set [web] auth_secret in aeqi.toml",
             state.auth_mode
@@ -115,12 +113,24 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     if matches!(state.auth_mode, AuthMode::Accounts) {
         public = public
             .route("/api/auth/signup", axum::routing::post(signup_handler))
-            .route("/api/auth/login/email", axum::routing::post(email_login_handler))
-            .route("/api/auth/verify", axum::routing::post(verify_email_handler))
-            .route("/api/auth/resend-code", axum::routing::post(resend_code_handler))
+            .route(
+                "/api/auth/login/email",
+                axum::routing::post(email_login_handler),
+            )
+            .route(
+                "/api/auth/verify",
+                axum::routing::post(verify_email_handler),
+            )
+            .route(
+                "/api/auth/resend-code",
+                axum::routing::post(resend_code_handler),
+            )
             .route("/api/auth/me", axum::routing::get(me_handler))
             .route("/api/auth/google", axum::routing::get(google_auth_handler))
-            .route("/api/auth/google/callback", axum::routing::get(google_callback_handler));
+            .route(
+                "/api/auth/google/callback",
+                axum::routing::get(google_callback_handler),
+            );
     }
 
     let mut app = Router::new()
@@ -202,15 +212,13 @@ async fn login_handler(
     axum::Json(body): axum::Json<serde_json::Value>,
 ) -> axum::response::Response {
     match state.auth_mode {
-        AuthMode::None => {
-            match auth::create_token("aeqi-dev", 8760, None, None) {
-                Ok(token) => axum::Json(serde_json::json!({
-                    "ok": true, "token": token, "token_type": "Bearer", "expires_in": 31536000,
-                }))
-                .into_response(),
-                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            }
-        }
+        AuthMode::None => match auth::create_token("aeqi-dev", 8760, None, None) {
+            Ok(token) => axum::Json(serde_json::json!({
+                "ok": true, "token": token, "token_type": "Bearer", "expires_in": 31536000,
+            }))
+            .into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        },
         AuthMode::Secret => {
             let secret = body.get("secret").and_then(|s| s.as_str()).unwrap_or("");
             let expected = state.auth_secret.as_deref().unwrap_or("");
@@ -223,7 +231,11 @@ async fn login_handler(
                     .into_response();
             }
 
-            let signing_key = if expected.is_empty() { "aeqi-dev" } else { expected };
+            let signing_key = if expected.is_empty() {
+                "aeqi-dev"
+            } else {
+                expected
+            };
             match auth::create_token(signing_key, 24, None, None) {
                 Ok(token) => axum::Json(serde_json::json!({
                     "ok": true, "token": token, "token_type": "Bearer", "expires_in": 86400,
@@ -234,9 +246,13 @@ async fn login_handler(
         }
         AuthMode::Accounts => {
             // For accounts mode, use /api/auth/login/email instead.
-            (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
-                "ok": false, "error": "use /api/auth/login/email for accounts mode"
-            }))).into_response()
+            (
+                StatusCode::BAD_REQUEST,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "use /api/auth/login/email for accounts mode"
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -255,25 +271,37 @@ async fn signup_handler(
     let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     if email.is_empty() || password.len() < 8 || name.is_empty() {
-        return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
-            "ok": false, "error": "email, name, and password (8+ chars) required"
-        }))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            axum::Json(serde_json::json!({
+                "ok": false, "error": "email, name, and password (8+ chars) required"
+            })),
+        )
+            .into_response();
     }
 
     // Check if user already exists.
     if let Ok(Some(_)) = accounts.get_user_by_email(email) {
-        return (StatusCode::CONFLICT, axum::Json(serde_json::json!({
-            "ok": false, "error": "an account with this email already exists"
-        }))).into_response();
+        return (
+            StatusCode::CONFLICT,
+            axum::Json(serde_json::json!({
+                "ok": false, "error": "an account with this email already exists"
+            })),
+        )
+            .into_response();
     }
 
     let user = match accounts.create_user(email, name, password) {
         Ok(u) => u,
         Err(e) => {
             tracing::error!("signup error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({
-                "ok": false, "error": "failed to create account"
-            }))).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "failed to create account"
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -284,12 +312,18 @@ async fn signup_handler(
         let email_addr = email.to_string();
         let code_copy = code.clone();
         tokio::spawn(async move {
-            if let Err(e) = crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await {
+            if let Err(e) =
+                crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await
+            {
                 tracing::error!("failed to send verification email to {}: {e}", email_addr);
             }
         });
     } else {
-        tracing::info!("signup: verification code for {} = {} (no SMTP configured)", email, code);
+        tracing::info!(
+            "signup: verification code for {} = {} (no SMTP configured)",
+            email,
+            code
+        );
     }
 
     let signing_key = auth::signing_secret(&state);
@@ -299,7 +333,8 @@ async fn signup_handler(
             "token": token,
             "pending_verification": true,
             "user": user,
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -317,15 +352,23 @@ async fn email_login_handler(
     let user = match accounts.verify_password(email, password) {
         Ok(Some(u)) => u,
         Ok(None) => {
-            return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({
-                "ok": false, "error": "invalid email or password"
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "invalid email or password"
+                })),
+            )
+                .into_response();
         }
         Err(e) => {
             tracing::error!("login error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({
-                "ok": false, "error": "login failed"
-            }))).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "login failed"
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -333,7 +376,8 @@ async fn email_login_handler(
     match auth::create_token(signing_key, 24, Some(&user.id), Some(&user.email)) {
         Ok(token) => axum::Json(serde_json::json!({
             "ok": true, "token": token, "user": user,
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -353,24 +397,32 @@ async fn verify_email_handler(
             // Re-issue token with verified status.
             if let Ok(Some(user)) = accounts.get_user_by_email(email) {
                 let signing_key = auth::signing_secret(&state);
-                if let Ok(token) = auth::create_token(signing_key, 24, Some(&user.id), Some(email)) {
+                if let Ok(token) = auth::create_token(signing_key, 24, Some(&user.id), Some(email))
+                {
                     return axum::Json(serde_json::json!({
                         "ok": true, "token": token, "user": user,
-                    })).into_response();
+                    }))
+                    .into_response();
                 }
             }
             axum::Json(serde_json::json!({"ok": true})).into_response()
         }
-        Ok(false) => {
-            (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({
+        Ok(false) => (
+            StatusCode::BAD_REQUEST,
+            axum::Json(serde_json::json!({
                 "ok": false, "error": "invalid or expired code"
-            }))).into_response()
-        }
+            })),
+        )
+            .into_response(),
         Err(e) => {
             tracing::error!("verify error: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({
-                "ok": false, "error": "verification failed"
-            }))).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "verification failed"
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -384,20 +436,26 @@ async fn resend_code_handler(
     };
     let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
 
-    if let Ok(Some(user)) = accounts.get_user_by_email(email) {
-        if let Ok(code) = accounts.set_verify_code(&user.id) {
-            if let Some(smtp) = &state.smtp {
-                let smtp = smtp.clone();
-                let email_addr = email.to_string();
-                let code_copy = code.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await {
-                        tracing::error!("failed to resend verification email to {}: {e}", email_addr);
-                    }
-                });
-            } else {
-                tracing::info!("resend: verification code for {} = {} (no SMTP configured)", email, code);
-            }
+    if let Ok(Some(user)) = accounts.get_user_by_email(email)
+        && let Ok(code) = accounts.set_verify_code(&user.id)
+    {
+        if let Some(smtp) = &state.smtp {
+            let smtp = smtp.clone();
+            let email_addr = email.to_string();
+            let code_copy = code.clone();
+            tokio::spawn(async move {
+                if let Err(e) =
+                    crate::email::send_verification_email(&smtp, &email_addr, &code_copy).await
+                {
+                    tracing::error!("failed to resend verification email to {}: {e}", email_addr);
+                }
+            });
+        } else {
+            tracing::info!(
+                "resend: verification code for {} = {} (no SMTP configured)",
+                email,
+                code
+            );
         }
     }
 
@@ -415,37 +473,54 @@ async fn me_handler(
 
     // Extract user from JWT.
     let secret = auth::signing_secret(&state);
-    let token = req.headers()
+    let token = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
     let Some(token) = token else {
-        return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({
-            "ok": false, "error": "missing token"
-        }))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            axum::Json(serde_json::json!({
+                "ok": false, "error": "missing token"
+            })),
+        )
+            .into_response();
     };
 
     let claims = match auth::validate_token(token, secret) {
         Ok(c) => c,
         Err(_) => {
-            return (StatusCode::UNAUTHORIZED, axum::Json(serde_json::json!({
-                "ok": false, "error": "invalid token"
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "invalid token"
+                })),
+            )
+                .into_response();
         }
     };
 
     let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
     match accounts.get_user_by_id(user_id) {
         Ok(Some(user)) => axum::Json(serde_json::json!(user)).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, axum::Json(serde_json::json!({
-            "ok": false, "error": "user not found"
-        }))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            axum::Json(serde_json::json!({
+                "ok": false, "error": "user not found"
+            })),
+        )
+            .into_response(),
         Err(e) => {
             tracing::error!("me error: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({
-                "ok": false, "error": "failed to fetch user"
-            }))).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(serde_json::json!({
+                    "ok": false, "error": "failed to fetch user"
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -458,7 +533,11 @@ async fn google_auth_handler(
     };
 
     let redirect_uri = google.redirect_uri.clone().unwrap_or_else(|| {
-        let base = state.auth_config.base_url.as_deref().unwrap_or("http://localhost:8400");
+        let base = state
+            .auth_config
+            .base_url
+            .as_deref()
+            .unwrap_or("http://localhost:8400");
         format!("{}/api/auth/google/callback", base)
     });
 
@@ -491,7 +570,11 @@ async fn google_callback_handler(
     };
 
     let redirect_uri = google.redirect_uri.clone().unwrap_or_else(|| {
-        let base = state.auth_config.base_url.as_deref().unwrap_or("http://localhost:8400");
+        let base = state
+            .auth_config
+            .base_url
+            .as_deref()
+            .unwrap_or("http://localhost:8400");
         format!("{}/api/auth/google/callback", base)
     });
 
@@ -514,12 +597,20 @@ async fn google_callback_handler(
             Ok(j) => j,
             Err(e) => {
                 tracing::error!("google oauth token parse error: {e}");
-                return (StatusCode::BAD_GATEWAY, "failed to parse Google token response").into_response();
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    "failed to parse Google token response",
+                )
+                    .into_response();
             }
         },
         Err(e) => {
             tracing::error!("google oauth token request error: {e}");
-            return (StatusCode::BAD_GATEWAY, "failed to exchange code with Google").into_response();
+            return (
+                StatusCode::BAD_GATEWAY,
+                "failed to exchange code with Google",
+            )
+                .into_response();
         }
     };
 
@@ -534,16 +625,18 @@ async fn google_callback_handler(
         return (StatusCode::BAD_GATEWAY, "malformed id_token").into_response();
     }
 
-    let payload = match base64::Engine::decode(
-        &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-        parts[1],
-    ) {
-        Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
-            Ok(v) => v,
-            Err(_) => return (StatusCode::BAD_GATEWAY, "invalid id_token payload").into_response(),
-        },
-        Err(_) => return (StatusCode::BAD_GATEWAY, "invalid id_token encoding").into_response(),
-    };
+    let payload =
+        match base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, parts[1]) {
+            Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(v) => v,
+                Err(_) => {
+                    return (StatusCode::BAD_GATEWAY, "invalid id_token payload").into_response();
+                }
+            },
+            Err(_) => {
+                return (StatusCode::BAD_GATEWAY, "invalid id_token encoding").into_response();
+            }
+        };
 
     let google_id = payload.get("sub").and_then(|v| v.as_str()).unwrap_or("");
     let email = payload.get("email").and_then(|v| v.as_str()).unwrap_or("");
@@ -558,7 +651,11 @@ async fn google_callback_handler(
         Ok(u) => u,
         Err(e) => {
             tracing::error!("google oauth user upsert error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to create/update user").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create/update user",
+            )
+                .into_response();
         }
     };
 
@@ -567,7 +664,11 @@ async fn google_callback_handler(
         Ok(t) => t,
         Err(e) => {
             tracing::error!("google oauth token creation error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to create session").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create session",
+            )
+                .into_response();
         }
     };
 
@@ -578,10 +679,12 @@ async fn google_callback_handler(
 }
 
 fn urlencoding(s: &str) -> String {
-    s.chars().map(|c| match c {
-        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
-        _ => format!("%{:02X}", c as u32),
-    }).collect()
+    s.chars()
+        .map(|c| match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+            _ => format!("%{:02X}", c as u32),
+        })
+        .collect()
 }
 
 // ── SPA Handlers ────────────────────────────────────────

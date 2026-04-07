@@ -343,9 +343,7 @@ impl QuestBoard {
                 .iter()
                 .filter_map(|cid| {
                     self.quests.get(cid).map(|b| {
-                        let summary = b
-                            .outcome_summary()
-                            .unwrap_or_else(|| verb.to_string());
+                        let summary = b.outcome_summary().unwrap_or_else(|| verb.to_string());
                         format!("  {} — {}", b.name, summary)
                     })
                 })

@@ -2,7 +2,8 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use crate::helpers::{
-    format_agent_org_hint, format_project_org_hint, load_config_with_agents, open_quests_for_project,
+    format_agent_org_hint, format_project_org_hint, load_config_with_agents,
+    open_quests_for_project,
 };
 
 pub(crate) async fn cmd_status(config_path: &Option<PathBuf>) -> Result<()> {

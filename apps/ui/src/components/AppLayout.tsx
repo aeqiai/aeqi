@@ -7,6 +7,7 @@ import AgentSessionView from "./AgentSessionView";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import ProfileMenu from "./ProfileMenu";
 import TrialBanner from "./TrialBanner";
+import ContentTopBar from "./ContentTopBar";
 import { useDaemonStore } from "@/store/daemon";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 
@@ -113,6 +114,7 @@ export default function AppLayout() {
             <AgentSessionView agentId={agentId} sessionId={sessionId} />
           ) : (
             <>
+              <ContentTopBar />
               <TrialBanner />
               <div className="content-scroll">
                 <Outlet />

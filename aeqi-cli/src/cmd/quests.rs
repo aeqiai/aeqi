@@ -124,7 +124,8 @@ pub(crate) async fn cmd_quests(
                 } else {
                     format!(
                         " (needs: {})",
-                        quest.depends_on
+                        quest
+                            .depends_on
                             .iter()
                             .map(|d| d.0.as_str())
                             .collect::<Vec<_>>()

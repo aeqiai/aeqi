@@ -1195,8 +1195,7 @@ impl MessageRouter {
             return Vec::new();
         }
 
-        let scoped_names =
-            Self::scoped_advisor_names_with(agent_registry, project_hint).await;
+        let scoped_names = Self::scoped_advisor_names_with(agent_registry, project_hint).await;
         let advisor_refs: Vec<&aeqi_core::config::PeerAgentConfig> = match &scoped_names {
             Some(names) => council_advisors
                 .iter()
