@@ -35,10 +35,7 @@ export default function ContentTopBar() {
         {config.create && (
           <button
             className="content-topbar-btn"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent("aeqi:create"));
-              navigate(config.create!.path);
-            }}
+            onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M6 2.5v7M2.5 6h7" />

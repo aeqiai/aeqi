@@ -1,23 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import CreateAgentModal from "@/components/CreateAgentModal";
 import { DataState } from "@/components/ui";
 import { api } from "@/lib/api";
 
 export default function AgentsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-
-  // Open modal from ?create=1 or aeqi:create event
-  useEffect(() => {
-    if (searchParams.get("create") === "1") {
-      setModalOpen(true);
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const handler = () => setModalOpen(true);

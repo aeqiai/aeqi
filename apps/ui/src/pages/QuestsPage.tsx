@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import "@/styles/quests.css";
 
 import { useDaemonStore } from "@/store/daemon";
@@ -290,16 +289,8 @@ export default function QuestsPage() {
   const [agentFilter, setAgentFilter] = useState("");
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [modalOpen, setModalOpen] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Open modal from ?create=1 or aeqi:create event
-  useEffect(() => {
-    if (searchParams.get("create") === "1") {
-      setModalOpen(true);
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
-
+  // Open modal from aeqi:create event
   useEffect(() => {
     const handler = () => setModalOpen(true);
     window.addEventListener("aeqi:create", handler);
