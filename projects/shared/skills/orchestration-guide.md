@@ -2,7 +2,7 @@
 name: "orchestration-guide"
 description: "Guide for team leaders — how to delegate, monitor, coordinate, and synthesize across direct reports."
 when_to_use: "Loaded for agents with direct reports. Guides delegation, monitoring, and synthesis."
-tools: [aeqi_create_quest, aeqi_close_quest, aeqi_delegate, memory_recall, memory_store]
+tools: [aeqi_create_quest, aeqi_close_quest, aeqi_delegate, aeqi_recall, aeqi_remember]
 tags: [autonomous]
 ---
 

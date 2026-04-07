@@ -19,7 +19,7 @@ The goal is: Path B replaces Path A. But Path A must keep improving until then.
 ## Protocol
 
 1. Load synthesis workflow:
-   - `aeqi_prompts(action="get", name="workflow-synthesis")`
+   - `aeqi_prompts(action="get", name="workflow-synthesis")` — the workflow-synthesis skill is loaded automatically when this agent is spawned with the `workflow-synthesis` skill parameter.
 2. Load AEQI's current architecture:
    - `aeqi_recall(project="aeqi", query="architecture crates agent runtime harness")`
    - `aeqi_prompts(action="get", name="rust-architect")`

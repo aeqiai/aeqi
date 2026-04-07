@@ -23,13 +23,12 @@ You are an implementer. Execute a specific, scoped implementation unit.
 
 ## Implementation Rules
 
-- Create a worktree if not already in one
 - Read existing code first — match patterns exactly
-- No comments except `///` on public APIs
-- No backward compat hacks
 - Build must pass before committing
 - One logical change per commit
-- If blocked, report FAILED with the specific error
+- If blocked by missing context or credentials, report `blocked` with what you need
+- If implementation fails after 3 attempts, report `failed` with the specific error and what you tried
+- If done but uncertain about edge cases, report `done_with_concerns` listing the concerns
 
 ## Changes Format
 

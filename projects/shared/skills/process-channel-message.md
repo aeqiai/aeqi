@@ -1,7 +1,7 @@
 ---
 name: "process-channel-message"
 description: Process a message posted to a project context. Participate if relevant.
-tools: [aeqi_delegate, memory_recall, memory_store]
+tools: [aeqi_delegate, aeqi_recall, aeqi_remember]
 tags: [autonomous]
 ---
 

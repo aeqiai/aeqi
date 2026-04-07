@@ -1,7 +1,7 @@
 ---
 name: "anomaly-check"
 description: "Monitor for anomalies — cost spikes, failure rate surges, stale quests. Escalate when thresholds are breached."
-tools: [memory_recall, memory_store, create_quest]
+tools: [aeqi_recall, aeqi_remember, aeqi_create_quest]
 tags: [autonomous]
 ---
 
@@ -9,19 +9,19 @@ You are performing anomaly detection for your project.
 
 ## What to do
 
-1. **Recall baselines** — use memory_recall with key pattern "baseline:*" to find previously recorded cost and failure rate baselines for your project.
+1. **Recall baselines** — use aeqi_recall with key pattern "baseline:*" to find previously recorded cost and failure rate baselines for your project.
 
-2. **Check current state** — use memory_recall for recent quest outcomes, cost entries, and health reports.
+2. **Check current state** — use aeqi_recall for recent quest outcomes, cost entries, and health reports.
 
 3. **Compare against baselines**:
    - **Cost spike**: current cost > 3x the running average → alert
    - **Failure surge**: failure rate > 2x the baseline → alert
    - **Stale quests**: quests in-progress for > 24h with no updates → flag
 
-4. **Update baselines** — store the current period's stats as a new baseline entry via memory_store with key `baseline:{project}:{date}`.
+4. **Update baselines** — store the current period's stats as a new baseline entry via aeqi_remember with key `baseline:{project}:{date}`.
 
 5. **Escalate if needed** — if any anomaly is detected:
-   - Store finding via memory_store with key `anomaly:{project}:{type}`
+   - Store finding via aeqi_remember with key `anomaly:{project}:{type}`
    - Create a quest via `aeqi_create_quest` with severity and recommended action for the responsible agent
 
 ## Constraints

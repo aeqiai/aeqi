@@ -53,12 +53,15 @@ Guide for selecting the right model tier based on quest complexity. Orchestrator
 | Agent Role | Default Tier | Override When |
 |------------|-------------|---------------|
 | CEO | T1 | Never — strategic decisions need capability |
-| CTO | T1 for architecture, T2 for implementation review | T3 for status queries |
+| CTO | T1 | T2 for implementation review, T3 for status queries |
 | CPO | T2 | T1 for complex UX decisions |
-| CFO | T1 for strategy, T2 for analysis | T3 for data lookups |
+| CFO | T1 | T2 for routine analysis, T3 for data lookups |
 | COO | T2 | T3 for health checks |
-| GC | T1 for legal analysis | T2 for contract review |
+| CISO | T1 | T2 for routine scans |
+| GC | T1 | T2 for contract review |
+| Shadow | T2 | T1 for complex orchestration |
 | Subagent (explore) | T2 | T3 if simple search |
 | Subagent (implement) | T2 | T1 if architectural quest |
 | Subagent (review) | T1 | T2 if mechanical check |
 | Subagent (verify) | T2 | T1 if security verification |
+| Subagent (finalize) | T2 | T3 if simple summary |

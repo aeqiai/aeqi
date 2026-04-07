@@ -12,13 +12,13 @@
 
 .auth-container {
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
   text-align: center;
-  animation: auth-fade-in 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+  animation: auth-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes auth-fade-in {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -28,38 +28,38 @@
   font-weight: 700;
   color: rgba(0, 0, 0, 0.5);
   letter-spacing: -0.04em;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   line-height: 1;
   user-select: none;
 }
 
 .auth-heading {
   font-family: var(--font-sans);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.85);
-  letter-spacing: -0.02em;
+  color: rgba(0, 0, 0, 0.9);
+  letter-spacing: -0.03em;
   margin: 0 0 6px;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .auth-subheading {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   color: rgba(0, 0, 0, 0.35);
-  margin: 0 0 24px;
+  margin: 0 0 32px;
   line-height: 1.5;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .auth-name-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 .auth-name-row .auth-input {
   flex: 1;
@@ -68,23 +68,24 @@
 
 .auth-input {
   width: 100%;
-  padding: 9px 12px;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
+  padding: 11px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
   color: rgba(0, 0, 0, 0.85);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 .auth-input:focus {
-  border-color: rgba(0, 0, 0, 0.2);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
 }
 .auth-input::placeholder {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.25);
 }
 
 .auth-error {
@@ -96,28 +97,27 @@
 
 .auth-btn-primary {
   width: 100%;
-  padding: 9px 20px;
+  padding: 11px 20px;
   margin-top: 4px;
   background: #000000;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 .auth-btn-primary:hover {
-  background: rgba(0, 0, 0, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: scale(1.01);
+  background: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 .auth-btn-primary:active {
   transform: scale(0.98);
 }
 .auth-btn-primary:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -129,22 +129,21 @@
   justify-content: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 20px;
+  padding: 11px 20px;
   margin-bottom: 4px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  color: rgba(0, 0, 0, 0.85);
+  border-radius: 10px;
+  color: rgba(0, 0, 0, 0.8);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 .auth-btn-google:hover {
-  border-color: rgba(0, 0, 0, 0.15);
-  background: rgba(0, 0, 0, 0.02);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.015);
 }
 .auth-btn-google:active {
   transform: scale(0.98);
@@ -154,11 +153,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  margin: 16px 0;
+  margin: 20px 0;
   color: rgba(0, 0, 0, 0.2);
   font-family: var(--font-sans);
-  font-size: 12px;
-  letter-spacing: 0.1em;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .auth-divider::before,
@@ -166,28 +165,28 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .auth-switch {
   font-family: var(--font-sans);
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.35);
   text-align: center;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 .auth-switch a {
-  color: rgba(0, 0, 0, 0.85);
+  color: rgba(0, 0, 0, 0.8);
   text-decoration: none;
   font-weight: 500;
 }
 .auth-switch a:hover {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
 }
 
 .auth-footer {
-  margin-top: 32px;
+  margin-top: 40px;
   text-align: center;
 }
 .auth-footer p {

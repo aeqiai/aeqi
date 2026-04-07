@@ -2,7 +2,7 @@
 name: "agent-type-plan-review"
 description: "Plan document reviewer. Verifies implementation plans are complete, actionable, and spec-aligned. Read-only."
 when_to_use: "Use after writing an implementation plan, before starting implementation. Validates plan quality."
-tools: [read_file, glob, grep, shell, memory_recall]
+tools: [read_file, glob, grep, shell, aeqi_recall]
 deny: [write_file, edit_file, delegate]
 tags: [plan]
 ---

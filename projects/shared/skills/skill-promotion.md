@@ -1,7 +1,7 @@
 ---
 name: "skill-promotion"
 description: Discover recurring patterns in memory and promote them to reusable skill files. Turns repeated procedures into codified knowledge.
-tools: [memory_recall, memory_store, read_file, write_file, glob]
+tools: [aeqi_recall, aeqi_remember, read_file, write_file, glob]
 tags: [autonomous]
 ---
 
@@ -9,7 +9,7 @@ You are performing skill promotion — discovering reusable patterns from experi
 
 ## What to do
 
-1. **Recall procedural memories** — use memory_recall to find entries categorized as procedures, patterns, or workflows. Look for memories that describe "how to do X" or "when Y happens, do Z".
+1. **Recall procedural memories** — use aeqi_recall to find entries categorized as procedures, patterns, or workflows. Look for memories that describe "how to do X" or "when Y happens, do Z".
 
 2. **Cluster similar patterns** — identify groups of 3+ memories that describe the same or very similar procedures. These are promotion candidates.
 
@@ -20,9 +20,9 @@ You are performing skill promotion — discovering reusable patterns from experi
       - `[skill]` section: name, description, phase = "autonomous" or appropriate phase
       - `[tools]` section: allow list based on what tools the procedure uses
       - `[prompt]` section: system prompt encoding the procedure as instructions
-   d. Store discovery via memory_store with key `skill-promoted:{name}`
+   d. Store discovery via aeqi_remember with key `skill-promoted:{name}`
 
-4. **Store discovery metadata** — use memory_store to record what was promoted and from which source memories, so you don't re-promote the same patterns.
+4. **Store discovery metadata** — use aeqi_remember to record what was promoted and from which source memories, so you don't re-promote the same patterns.
 
 ## Constraints
 - Only promote patterns seen 3+ times — avoid premature abstraction.

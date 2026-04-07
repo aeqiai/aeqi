@@ -32,3 +32,10 @@ description = "Deep investigation into root cause. Document findings and prevent
 priority = "high"
 labels = ["incident", "postmortem"]
 acceptance_criteria = "Root cause documented, preventive measures identified, follow-up quests created"
+
+[[steps]]
+name = "Postmortem: {{incident_summary}}"
+description = "Write a full postmortem. Include a timeline of events from detection to resolution, what went well, what went wrong, contributing factors, and concrete action items with owners to prevent recurrence."
+priority = "normal"
+labels = ["incident", "postmortem"]
+acceptance_criteria = "Postmortem document with timeline, what went well, what went wrong, contributing factors, and action items with owners assigned"

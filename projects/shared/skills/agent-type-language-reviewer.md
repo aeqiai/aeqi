@@ -2,7 +2,7 @@
 name: "agent-type-language-reviewer"
 description: "Language-specific code reviewer. Dispatched with a language parameter to apply idiomatic review rules. Read-only."
 when_to_use: Use after implementation when reviewing code in a specific language. Set the language in the quest prompt.
-tools: [read_file, glob, grep, shell, memory_recall]
+tools: [read_file, glob, grep, shell, aeqi_recall]
 deny: [write_file, edit_file, delegate]
 tags: [verify]
 ---

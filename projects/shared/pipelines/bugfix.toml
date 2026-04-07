@@ -25,3 +25,10 @@ description = "Implement fix for the root cause. Include regression test."
 priority = "high"
 labels = ["fix"]
 acceptance_criteria = "Bug fixed, regression test added, all existing tests still pass"
+
+[[steps]]
+name = "Verify: {{bug_description}}"
+description = "Verify the fix resolves the original bug. Reproduce the original failure scenario and confirm it no longer occurs. Run the full test suite to check for regressions. Review related code paths for similar issues."
+priority = "high"
+labels = ["verify"]
+acceptance_criteria = "Original bug confirmed fixed, test suite passes with no regressions, no similar issues found in related code paths"

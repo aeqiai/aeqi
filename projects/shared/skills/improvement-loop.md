@@ -1,7 +1,7 @@
 ---
 name: "improvement-loop"
 description: "Evaluate a target agent's recent outcomes and rewrite its prompts to improve performance. Self-optimization via memory-informed prompt evolution."
-tools: [memory_recall, memory_store, agents]
+tools: [aeqi_recall, aeqi_remember, aeqi_prompts, read_file, write_file, edit_file]
 tags: [skill, autonomous]
 ---
 
@@ -13,7 +13,7 @@ The quest description contains the target agent name and evaluation criteria.
 
 ## Process
 
-1. **Load the target agent** — `aeqi_agents(action="get", name="<target>")`. Read its current prompts, model, expertise.
+1. **Load the target agent** — `aeqi_prompts(action="get", name="<target>")`. Read its current prompts, model, expertise.
 
 2. **Recall recent outcomes** — `aeqi_recall` with queries:
    - `"quest outcomes for <target>"` — what quests did it complete/fail?
@@ -39,7 +39,7 @@ The quest description contains the target agent name and evaluation criteria.
    - Write the revised prompt, explaining each change and why
    - Store the revision rationale as `prompt-revision:<target>:v{N+1}:rationale`
 
-7. **Apply** — `aeqi_agents(action="update", name="<target>", ...)` with the new prompt content.
+7. **Apply** — edit the agent's prompt file directly using edit_file. Agent definitions live in `agents/<name>/agent.md` or `projects/<project>/agents/<name>.md`.
 
 ## Constraints
 
@@ -49,6 +49,15 @@ The quest description contains the target agent name and evaluation criteria.
 - **Be conservative** — if you're unsure whether a change helps, don't make it. Record your observation as a `prompt-observation:<target>` memory instead.
 - **One change at a time** — don't rewrite everything. Make the smallest change that addresses the biggest issue. Evaluate on the next cycle.
 - **Require evidence** — every change must cite specific quest outcomes or patterns. No vibes-based optimization.
+
+## Measuring Prompt Changes
+
+- Run the target agent on 2-3 recent quests BEFORE the change (baseline)
+- Apply the change
+- Run on the same quests AFTER the change
+- Compare: Did outcomes improve? Did the agent follow instructions better?
+- If no measurable difference after 3 quest runs, revert the change
+- Wait at least 5 quest completions before making another change to the same agent
 
 ## Output
 

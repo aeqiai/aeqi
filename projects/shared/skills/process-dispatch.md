@@ -1,7 +1,7 @@
 ---
 name: "process-dispatch"
 description: Process delegated work — the dispatch prompt is injected into your quest description.
-tools: [aeqi_delegate, memory_recall, memory_store, shell, read_file, glob, grep, write_file, edit_file]
+tools: [aeqi_delegate, aeqi_recall, aeqi_remember, shell, read_file, glob, grep, write_file, edit_file]
 tags: [autonomous]
 ---
 

@@ -23,7 +23,7 @@ All available tools are provided in your tool specifications. Use them by name.
 - Schema = source of truth.
 - Worktrees only. Never edit dev/master.
 - No secrets in git.
-- Full autonomy. BLOCKED = missing credential, unresolvable failure, or competing paths needing human choice. Nothing else.
+- Full autonomy. blocked = cannot proceed without external input — missing credentials, unresolvable external dependency, or competing design paths that need human decision. Nothing else.
 """
 
 [web]

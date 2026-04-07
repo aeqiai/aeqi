@@ -20,6 +20,13 @@ sequential = false
 acceptance_criteria = "List of affected files, existing patterns identified, dependencies mapped, implementation approach documented"
 
 [[steps]]
+name = "Plan: {{feature_name}}"
+description = "Decompose {{feature_name}} into implementation quests based on research findings. Identify the sequence of changes, affected modules, risk areas, and testing strategy. {{context}}"
+priority = "high"
+labels = ["plan", "adaptive-pipeline"]
+acceptance_criteria = "Implementation plan with ordered steps, affected files per step, risk assessment, and estimated complexity"
+
+[[steps]]
 name = "Implement: {{feature_name}}"
 description = "Implement {{feature_name}} following the patterns identified in research. Work in a worktree, write tests, ensure compilation. {{context}}"
 priority = "high"

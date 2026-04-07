@@ -39,20 +39,21 @@ Mid-quest check-ins are a failure mode, not a safety mechanism. The Architect's 
 When executing a quest, workers must signal their outcome:
 
 - **Preferred format**: End with exactly one JSON object, no markdown fences:
-  `{"status":"done|blocked|handoff|failed","summary":"...","reason":"...","next_action":"..."}`
+  `{"status":"done|done_with_concerns|blocked|handoff|failed","summary":"...","reason":"...","next_action":"..."}`
 - **done**: `summary` is the concise outcome. Mention files, checks, or deploy state when relevant.
-- **blocked**: `summary` is work completed so far. `reason` is the exact question or missing input.
+- **done_with_concerns**: `summary` is the outcome. `reason` lists specific concerns the reviewer should pay extra attention to (edge cases, untested paths, assumptions made).
+- **blocked**: `summary` is work completed so far. `reason` is the exact question or missing input. Cannot proceed without external input — missing credentials, unresolvable external dependency, or competing design paths that need human decision.
 - **handoff**: `summary` is the checkpoint/resume brief for the next worker.
-- **failed**: `summary` and `reason` should explain the technical failure and what was tried.
+- **failed**: `summary` and `reason` should explain the technical failure and what was tried. Attempted but hit an error that retrying won't fix.
 - **Legacy fallback**: If you absolutely cannot return valid JSON, use `BLOCKED:`, `HANDOFF:`, or `FAILED:` prefixes.
 
-### What DOES qualify as BLOCKED
+### What DOES qualify as blocked
 
-- External credential missing from config and not discoverable anywhere in the codebase
-- Build failure that cannot be resolved after genuine attempts
-- Architectural conflict where two valid paths require a human choice between funded alternatives (e.g., competing database schemas both of which require migration)
+- Missing credentials — external credential not in config and not discoverable anywhere in the codebase
+- Unresolvable external dependency — a service, API, or resource that is down or inaccessible and cannot be worked around
+- Competing design paths that need human decision — two or more valid approaches where the choice depends on product direction or constraints the worker doesn't know (e.g., competing database schemas both requiring migration)
 
-### What does NOT qualify as BLOCKED
+### What does NOT qualify as blocked
 
 - "I need design direction" — pick the best option and build it
 - "I'm not sure which approach to take" — research, decide, execute
@@ -155,7 +156,7 @@ For complex orchestration, read `subagents/pipeline-orchestrator.md` for the ful
 
 If you genuinely cannot determine something from the codebase:
 1. First try harder — check docs, configs, related code, git history
-2. If truly stuck, respond with `BLOCKED:` and a specific question
+2. If truly stuck, respond with `blocked` status and a specific question
 3. The WorkerPool will attempt project-level resolution (spawn another worker with your question)
 4. If still stuck, escalates to Lead Agent (cross-project knowledge)
 5. If Lead Agent can't resolve, escalates to human via Telegram

@@ -1,7 +1,7 @@
 ---
 name: "health-check"
 description: "Periodic project health check. Verify services, builds, and infrastructure are operational. Escalate issues."
-tools: [shell, read_file, glob, grep, memory_store, create_quest]
+tools: [shell, read_file, glob, grep, aeqi_remember, aeqi_create_quest]
 tags: [autonomous]
 ---
 
@@ -21,8 +21,8 @@ You are performing a health check for your project.
 
 ## Reporting
 
-- If everything is healthy: store via memory_store with key `health:{project}:ok` and a brief "all clear" message.
-- If issues found: store via memory_store with key `health:{project}:issue` describing the problem, AND create a quest via `aeqi_create_quest` for the responsible agent to investigate.
+- If everything is healthy: store via aeqi_remember with key `health:{project}:ok` and a brief "all clear" message.
+- If issues found: store via aeqi_remember with key `health:{project}:issue` describing the problem, AND create a quest via `aeqi_create_quest` for the responsible agent to investigate.
 
 ## Constraints
 - Don't fix issues, just detect and report them.
