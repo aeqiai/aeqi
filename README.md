@@ -328,11 +328,17 @@ Pre-push hook runs all three automatically.
 
 ## Docs
 
-- [Architecture](docs/architecture.md)
-- [Deployment](docs/deployment.md)
-- [Quick start](docs/quickstart.md)
-- [Vision](docs/vision.md)
-- [Roadmap](docs/roadmap.md)
+- [Architecture](docs/architecture.md) — system map, crates, primitives, agent loop
+- [Design v2](docs/design-v2.md) — clean-sheet design: sessions, tasks, skills, events
+- [Project Setup](docs/project-setup.md) — projects, agents, skills, memory, quests
+- [Context Injection](docs/context-injection.md) — how agent input context is assembled
+- [Deployment](docs/deployment.md) — production topology, Docker, systemd
+- [Quick Start](docs/quickstart.md) — local setup for daemon, API, and UI
+- [Platform Architecture](docs/platform-architecture.md) — multi-tenant SaaS and open-source kernel
+- [Agent Loop Parity](docs/agent-loop-parity.md) — comparison with Claude Code's agent loop
+- [UI Design](docs/ui-design.md) — operator UI principles
+- [Vision](docs/vision.md) — product north star and design principles
+- [Roadmap](docs/roadmap.md) — phases from current state to long-term product
 
 ## License
 

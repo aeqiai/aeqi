@@ -17,15 +17,16 @@ A **project** is an agent in the AEQI tree that represents a codebase or work sc
 In `config/aeqi.toml`:
 
 ```toml
-[[agents]]
+[[companies]]
 name = "myproject"
-workdir = "/home/user/myproject"
+prefix = "mp"
+repo = "/home/user/myproject"
 model = "xiaomi/mimo-v2-pro"
 max_workers = 3
 max_turns = 25
-
-[agents.prompts]
-system = """
+execution_mode = "agent"
+worker_timeout_secs = 1800
+primer = """
 MyProject -- a Next.js web application with PostgreSQL backend.
 
 Stack: Next.js 14 App Router, PostgreSQL 16, Prisma ORM, Redis sessions.
@@ -39,7 +40,7 @@ Key patterns:
 """
 ```
 
-The system prompt on a project agent is inherited by all descendant agents (scope=descendants). Put architecture, stack, conventions, and domain knowledge here.
+The `primer` on a company is inherited by all agents working in that scope. Put architecture, stack, conventions, and domain knowledge here.
 
 ### 2. Assign a team
 
