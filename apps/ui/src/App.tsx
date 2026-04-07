@@ -45,7 +45,6 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/verify" element={<VerifyEmailPage />} />
-      <Route path="/onboarding" element={<Navigate to="/" replace />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route
         path="/*"
