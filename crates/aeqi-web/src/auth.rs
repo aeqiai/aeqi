@@ -73,7 +73,7 @@ pub fn signing_secret(state: &AppState) -> &str {
 pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
     match state.auth_mode {
         AuthMode::None => next.run(req).await,
-        AuthMode::Secret => {
+        AuthMode::Secret | AuthMode::Accounts => {
             let secret = signing_secret(&state);
             let Some(token) = extract_bearer(&req) else {
                 tracing::warn!("auth: missing authorization header");

@@ -472,8 +472,6 @@ pub struct TelegramChatRouteConfig {
     pub name: Option<String>,
     #[serde(default)]
     pub project: Option<String>,
-    #[serde(default)]
-    pub department: Option<String>,
 }
 
 fn default_debounce_window() -> u64 {
@@ -628,6 +626,8 @@ pub enum AuthMode {
     /// Shared secret passphrase (current behavior).
     #[default]
     Secret,
+    /// Email/password accounts with optional Google OAuth.
+    Accounts,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -637,6 +637,25 @@ pub struct AuthConfig {
     /// Base URL for dashboard links.
     #[serde(default)]
     pub base_url: Option<String>,
+    /// Google OAuth configuration (optional).
+    #[serde(default)]
+    pub google: Option<GoogleOAuthConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleOAuthConfig {
+    pub client_id: String,
+    pub client_secret: String,
+    /// Defaults to {base_url}/api/auth/google/callback
+    #[serde(default)]
+    pub redirect_uri: Option<String>,
+}
+
+impl AuthConfig {
+    /// Whether Google OAuth is configured and available.
+    pub fn google_oauth_enabled(&self) -> bool {
+        self.google.is_some()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -754,9 +773,6 @@ pub struct AgentSpawnConfig {
     /// Per-project orchestrator overrides. If None, falls back to global [orchestrator].
     #[serde(default)]
     pub orchestrator: Option<OrchestratorConfig>,
-    /// Departments within this project (org chart hierarchy).
-    #[serde(default)]
-    pub departments: Vec<DepartmentConfig>,
     /// Domain hints: keyword → skill/doc file mappings. Used by the WorkerPool
     /// to inject domain-specific context when tasks match keyword patterns.
     /// Replaces the hardcoded keyword map in worker_pool.rs.
@@ -781,17 +797,6 @@ pub struct DomainHintConfig {
     pub files: Vec<String>,
 }
 
-/// A department within a project — defines a team channel with its own agents.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DepartmentConfig {
-    pub name: String,
-    #[serde(default)]
-    pub lead: Option<String>,
-    #[serde(default)]
-    pub agents: Vec<String>,
-    #[serde(default)]
-    pub description: Option<String>,
-}
 
 fn default_max_workers() -> u32 {
     2
@@ -1699,7 +1704,6 @@ name = "AEQI HQ"
 [[channels.telegram.routes]]
 chat_id = 1002
 project = "aeqi"
-department = "backend"
 "#;
         let config = AEQIConfig::parse(toml).unwrap();
         let telegram = config.channels.telegram.expect("telegram config");
@@ -1708,7 +1712,6 @@ department = "backend"
         assert_eq!(telegram.routes[0].chat_id, 1001);
         assert_eq!(telegram.routes[0].name.as_deref(), Some("AEQI HQ"));
         assert_eq!(telegram.routes[1].project.as_deref(), Some("aeqi"));
-        assert_eq!(telegram.routes[1].department.as_deref(), Some("backend"));
     }
 
     #[test]

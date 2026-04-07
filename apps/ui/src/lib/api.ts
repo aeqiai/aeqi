@@ -85,7 +85,7 @@ export const api = {
     }),
 
   loginWithEmail: (email: string, password: string) =>
-    request<{ ok: boolean; token: string; user?: any }>("/auth/login", {
+    request<{ ok: boolean; token: string; user?: any }>("/auth/login/email", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
@@ -112,9 +112,6 @@ export const api = {
 
   // Dashboard
   getDashboard: () => request<any>("/dashboard"),
-
-  // Departments
-  getDepartments: () => request<any>("/departments"),
 
   // Status
   getStatus: () => request<any>("/status"),

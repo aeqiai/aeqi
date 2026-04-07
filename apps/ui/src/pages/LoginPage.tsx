@@ -134,11 +134,15 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="auth-divider"><span>or</span></div>
-            <button className="auth-btn-google" onClick={handleGoogle} type="button">
-              <GoogleIcon />
-              Continue with Google
-            </button>
+            {googleOAuth && (
+              <>
+                <div className="auth-divider"><span>or</span></div>
+                <button className="auth-btn-google" onClick={handleGoogle} type="button">
+                  <GoogleIcon />
+                  Continue with Google
+                </button>
+              </>
+            )}
           </>
         ) : (
           <>
