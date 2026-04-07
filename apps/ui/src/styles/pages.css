@@ -78,6 +78,14 @@
   border-color: var(--border-hover);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
 }
+.auth-input.has-error {
+  border-color: var(--error);
+  background: rgba(239, 68, 68, 0.02);
+}
+.auth-input.has-error:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.06);
+}
 .auth-input::placeholder {
   color: var(--text-muted);
 }
@@ -111,8 +119,13 @@
 
 .auth-error {
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--error);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  line-height: 1.4;
 }
 
 .auth-btn-primary {
@@ -361,6 +374,13 @@
 .verify-code-digit:focus {
   border-color: var(--border-accent);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+}
+.verify-code-digit.has-error {
+  border-color: var(--error);
+}
+.verify-code-digit.has-error:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.06);
 }
 
 .content-panel {

@@ -54,6 +54,8 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  const clearError = () => useAuthStore.setState({ error: null });
+
   const handleSecretSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(secret);
@@ -144,7 +146,7 @@ export default function LoginPage() {
           <h1 className="auth-heading">Welcome back</h1>
           <p className="auth-subheading">Enter your access key to continue</p>
           <form className="auth-form" onSubmit={handleSecretSubmit}>
-            <PasswordInput placeholder="Access key" value={secret} onChange={(e) => setSecret(e.target.value)} autoFocus />
+            <PasswordInput placeholder="Access key" value={secret} onChange={(e) => { setSecret(e.target.value); clearError(); }} autoFocus hasError={!!error} />
             {error && <div className="auth-error">{error}</div>}
             <button className="auth-btn-primary" type="submit" disabled={loading}>
               {loading ? "Connecting..." : "Continue"}
@@ -210,7 +212,7 @@ export default function LoginPage() {
         {step === "password" && (
           <>
             <form className="auth-form" onSubmit={handlePasswordSubmit}>
-              <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+              <PasswordInput placeholder="Password" value={password} onChange={(e) => { setPassword(e.target.value); clearError(); }} autoFocus hasError={!!error} />
               {error && <div className="auth-error">{error}</div>}
               <button className="auth-btn-primary" type="submit" disabled={loading || !password}>
                 {loading ? "Signing in..." : "Sign in"}
@@ -229,12 +231,12 @@ export default function LoginPage() {
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
-                  className="verify-code-digit"
+                  className={`verify-code-digit${verifyError ? " has-error" : ""}`}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
-                  onChange={(e) => handleCodeChange(i, e.target.value)}
+                  onChange={(e) => { handleCodeChange(i, e.target.value); if (verifyError) setVerifyError(""); }}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   autoFocus={i === 0}
                 />

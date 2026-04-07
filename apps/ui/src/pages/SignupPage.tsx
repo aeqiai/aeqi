@@ -224,7 +224,7 @@ export default function SignupPage() {
           <h1 className="auth-heading">Set a password</h1>
           <p className="auth-subheading">{email}</p>
           <form className="auth-form" onSubmit={handleSubmit}>
-            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} autoFocus hasError={!!error} />
             {error && <div className="auth-error">{error}</div>}
             <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
           </form>
@@ -241,7 +241,7 @@ export default function SignupPage() {
           <p className="auth-subheading">We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></p>
           <div className="verify-code-inputs" onPaste={handlePaste}>
             {code.map((digit, i) => (
-              <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className="verify-code-digit" type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleCodeChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
+              <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className={`verify-code-digit${verifyError ? " has-error" : ""}`} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => { handleCodeChange(i, e.target.value); if (verifyError) setVerifyError(""); }} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
             ))}
           </div>
           {verifyError && <div className="auth-error">{verifyError}</div>}

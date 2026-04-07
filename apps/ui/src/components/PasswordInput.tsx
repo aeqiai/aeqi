@@ -19,18 +19,20 @@ export default function PasswordInput({
   onChange,
   placeholder = "Password",
   autoFocus,
+  hasError,
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  hasError?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div className="auth-password-wrap">
       <input
-        className="auth-input auth-input-password"
+        className={`auth-input auth-input-password${hasError ? " has-error" : ""}`}
         type={visible ? "text" : "password"}
         placeholder={placeholder}
         value={value}
