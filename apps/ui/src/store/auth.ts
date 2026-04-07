@@ -105,8 +105,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return "error";
     } catch (e: any) {
       if (e?.message?.includes("not verified")) {
+        localStorage.removeItem("aeqi_token");
         localStorage.setItem("aeqi_pending_email", email);
-        set({ loading: false, pendingEmail: email });
+        set({ token: null, loading: false, pendingEmail: email });
         return "unverified";
       }
       set({ loading: false, error: e?.message || "Login failed" });
