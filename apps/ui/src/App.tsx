@@ -4,7 +4,6 @@ import { useAuthStore } from "@/store/auth";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
-import WaitlistPage from "@/pages/WaitlistPage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import WelcomePage from "@/pages/WelcomePage";
@@ -45,7 +44,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/waitlist" element={<WaitlistPage />} />
+      <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
       <Route path="/verify" element={<VerifyEmailPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route

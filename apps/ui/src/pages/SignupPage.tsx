@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
+import { api } from "@/lib/api";
 import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
 
@@ -44,12 +45,16 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, waitlist, fetchAuthMode } = useAuthStore();
 
+  // When waitlist=true, default to waitlist mode. "Have an invite code?" switches to signup.
+  const [mode, setMode] = useState<"waitlist" | "signup">("signup");
   const [step, setStep] = useState<"email" | "info" | "password" | "verify">("email");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistMsg, setWaitlistMsg] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [verifyError, setVerifyError] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -57,6 +62,7 @@ export default function SignupPage() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => { fetchAuthMode(); }, [fetchAuthMode]);
+  useEffect(() => { if (waitlist) setMode("waitlist"); }, [waitlist]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -66,6 +72,20 @@ export default function SignupPage() {
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
+  // ── Waitlist submit ──
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    try {
+      const resp = await api.joinWaitlist(email);
+      setWaitlistDone(true);
+      setWaitlistMsg(resp.message || "You're on the list!");
+    } catch {
+      setWaitlistMsg("Something went wrong. Try again.");
+    }
+  };
+
+  // ── Signup steps ──
   const handleEmailContinue = (e: React.FormEvent) => {
     e.preventDefault();
     if (email.trim()) setStep("info");
@@ -130,85 +150,135 @@ export default function SignupPage() {
   const handleGoogle = () => { window.location.href = "/api/auth/google"; };
   const handleGithub = () => { window.location.href = "/api/auth/github"; };
 
+  const switchToSignup = () => { setMode("signup"); setStep("email"); };
+  const switchToWaitlist = () => { setMode("waitlist"); setWaitlistDone(false); };
+
+  // ── Render form ──
+  const renderForm = () => {
+    // ── Waitlist mode ──
+    if (mode === "waitlist") {
+      if (waitlistDone) {
+        return (
+          <>
+            <h1 className="auth-heading">You're on the list</h1>
+            <p className="auth-subheading">{waitlistMsg}</p>
+            <p className="auth-subheading" style={{ marginBottom: 0 }}>We'll reach out when your spot is ready.</p>
+            <p className="auth-switch" style={{ marginTop: 24 }}>
+              Have an invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToSignup(); }}>Sign up</a>
+            </p>
+          </>
+        );
+      }
+      return (
+        <>
+          <h1 className="auth-heading">Get early access</h1>
+          <p className="auth-subheading">Join the waitlist for autonomous company infrastructure</p>
+          <form className="auth-form" onSubmit={handleWaitlistSubmit}>
+            <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            <button className="auth-btn-primary" type="submit" disabled={!email.trim() || loading}>Join waitlist</button>
+          </form>
+          <p className="auth-switch" style={{ marginTop: 20 }}>
+            Have an invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToSignup(); }}>Sign up</a>
+          </p>
+          <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
+        </>
+      );
+    }
+
+    // ── Signup: email ──
+    if (step === "email") {
+      return (
+        <>
+          <h1 className="auth-heading">Create your account</h1>
+          <p className="auth-subheading">Start building with autonomous agents</p>
+          <form className="auth-form" onSubmit={handleEmailContinue}>
+            <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>Continue</button>
+          </form>
+          {(googleOAuth || githubOAuth) && (
+            <>
+              <div className="auth-divider"><span>or</span></div>
+              {googleOAuth && <button className="auth-btn-google" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
+              {githubOAuth && <button className="auth-btn-google" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
+            </>
+          )}
+          {waitlist && (
+            <p className="auth-switch" style={{ marginTop: 20 }}>
+              No invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToWaitlist(); }}>Join the waitlist</a>
+            </p>
+          )}
+          <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
+        </>
+      );
+    }
+
+    // ── Signup: info ──
+    if (step === "info") {
+      return (
+        <>
+          <h1 className="auth-heading">Your details</h1>
+          <p className="auth-subheading">{email}</p>
+          <form className="auth-form" onSubmit={handleInfoContinue}>
+            <div className="auth-name-row">
+              <input className="auth-input" type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+              <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            {waitlist && (
+              <input className="auth-input" type="text" placeholder="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.05em" }} />
+            )}
+            <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>Continue</button>
+          </form>
+          <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); }}>Back</a></p>
+        </>
+      );
+    }
+
+    // ── Signup: password ──
+    if (step === "password") {
+      return (
+        <>
+          <h1 className="auth-heading">Set a password</h1>
+          <p className="auth-subheading">{email}</p>
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
+          </form>
+          <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a></p>
+        </>
+      );
+    }
+
+    // ── Signup: verify ──
+    if (step === "verify") {
+      return (
+        <>
+          <h1 className="auth-heading">Verify your email</h1>
+          <p className="auth-subheading">We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></p>
+          <div className="verify-code-inputs" onPaste={handlePaste}>
+            {code.map((digit, i) => (
+              <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className="verify-code-digit" type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleCodeChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
+            ))}
+          </div>
+          {verifyError && <div className="auth-error">{verifyError}</div>}
+          {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
+          <p className="auth-switch" style={{ marginTop: 16 }}>
+            Didn't get the code?{" "}
+            {resendCooldown > 0 ? <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span> : <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>}
+          </p>
+        </>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="signup-split">
       <div className="signup-form-side">
         <div className="auth-container">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
-
-          {step === "email" && (
-            <>
-              <h1 className="auth-heading">Create your account</h1>
-              <p className="auth-subheading">Start building with autonomous agents</p>
-              <form className="auth-form" onSubmit={handleEmailContinue}>
-                <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-                <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>Continue</button>
-              </form>
-              {(googleOAuth || githubOAuth) && (
-                <>
-                  <div className="auth-divider"><span>or</span></div>
-                  {googleOAuth && <button className="auth-btn-google" onClick={handleGoogle} type="button"><GoogleIcon /> Continue with Google</button>}
-                  {githubOAuth && <button className="auth-btn-google" onClick={handleGithub} type="button" style={{ marginTop: googleOAuth ? 8 : 0 }}><GithubIcon /> Continue with GitHub</button>}
-                </>
-              )}
-              {waitlist && (
-                <p className="auth-switch" style={{ marginTop: 20 }}>
-                  No invite code? <Link to="/waitlist">Join the waitlist</Link>
-                </p>
-              )}
-              <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
-            </>
-          )}
-
-          {step === "info" && (
-            <>
-              <h1 className="auth-heading">Your details</h1>
-              <p className="auth-subheading">{email}</p>
-              <form className="auth-form" onSubmit={handleInfoContinue}>
-                <div className="auth-name-row">
-                  <input className="auth-input" type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
-                  <input className="auth-input" type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </div>
-                {waitlist && (
-                  <input className="auth-input" type="text" placeholder="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} style={{ fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.05em" }} />
-                )}
-                <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>Continue</button>
-              </form>
-              <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); }}>Back</a></p>
-            </>
-          )}
-
-          {step === "password" && (
-            <>
-              <h1 className="auth-heading">Set a password</h1>
-              <p className="auth-subheading">{email}</p>
-              <form className="auth-form" onSubmit={handleSubmit}>
-                <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-                {error && <div className="auth-error">{error}</div>}
-                <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
-              </form>
-              <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a></p>
-            </>
-          )}
-
-          {step === "verify" && (
-            <>
-              <h1 className="auth-heading">Verify your email</h1>
-              <p className="auth-subheading">We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong></p>
-              <div className="verify-code-inputs" onPaste={handlePaste}>
-                {code.map((digit, i) => (
-                  <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className="verify-code-digit" type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleCodeChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
-                ))}
-              </div>
-              {verifyError && <div className="auth-error">{verifyError}</div>}
-              {verifyLoading && <p className="auth-subheading" style={{ margin: "8px 0" }}>Verifying...</p>}
-              <p className="auth-switch" style={{ marginTop: 16 }}>
-                Didn't get the code?{" "}
-                {resendCooldown > 0 ? <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span> : <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>}
-              </p>
-            </>
-          )}
-
+          {renderForm()}
           <div className="auth-footer">
             <p>
               By continuing, you agree to the{" "}
@@ -220,7 +290,6 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right: pitch + book a call */}
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
           <div style={{ marginBottom: 32 }}><BrandMark size={28} color="rgba(0,0,0,0.15)" /></div>
