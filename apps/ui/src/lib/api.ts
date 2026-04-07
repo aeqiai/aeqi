@@ -76,7 +76,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Auth
   getAuthMode: () =>
-    request<{ mode: string; google_oauth: boolean }>("/auth/mode"),
+    request<{ mode: string; google_oauth: boolean; github_oauth: boolean }>("/auth/mode"),
 
   login: (secret: string) =>
     request<{ ok: boolean; token: string }>("/auth/login", {

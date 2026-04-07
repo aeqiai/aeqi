@@ -100,6 +100,12 @@ worker_timeout_secs = 1800
 # client_secret = "GOCSPX-xxx"
 # # redirect_uri = "https://your-domain.com/api/auth/google/callback"  # auto-derived from base_url
 #
+# # GitHub OAuth (only for accounts mode)
+# [web.auth.github]
+# client_id = "Ov23li..."
+# client_secret = "..."
+# # redirect_uri = "https://your-domain.com/api/auth/github/callback"  # auto-derived from base_url
+#
 # # SMTP for verification emails (only for accounts mode)
 # [web.auth.smtp]
 # host = "smtp.gmail.com"
