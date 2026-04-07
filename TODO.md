@@ -13,7 +13,7 @@ primitives, delete legacy types, fix naming.
 Each store becomes a query. Delete the file after migrating all callers.
 
 ### audit.rs (345 lines) → events WHERE type='decision'
-- `audit_log.record(event)` → `event_store.emit("decision", agent_id, None, task_id, content)`
+- `audit_log.record(event)` → `event_store.emit("decision", agent_id, None, quest_id, content)`
 - Callers: agent_worker.rs, scheduler.rs, daemon.rs
 - Delete audit.rs, remove audit.db
 
@@ -73,14 +73,14 @@ Each store becomes a query. Delete the file after migrating all callers.
 
 ## 3. Fix naming
 
-### Task → Quest (45 remaining references)
+### Task → Quest (Rust code — remaining references)
 - executor.rs: TaskOutcome → QuestOutcome (16 refs)
 - agent_worker.rs: TaskOutcome refs (18 refs)
 - expertise.rs: TaskOutcomeKind (9 refs) — file deleted in step 1 anyway
 - agent_registry.rs: task_id in approvals table (1 ref)
 - lib.rs: TaskOutcome re-export (1 ref)
 
-### task_id → quest_id
+### task_id → quest_id (Rust code)
 - approvals table column
 - Parameter names in agent_registry.rs functions
 - Event content JSON fields

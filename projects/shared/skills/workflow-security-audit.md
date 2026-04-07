@@ -93,4 +93,4 @@ For each Critical/High finding:
 
 1. **Store findings** — `aeqi_remember` threat model and key vulnerabilities for future reference
 2. **Track trends** — compare with previous audits if available
-3. **Close quest** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_quest`

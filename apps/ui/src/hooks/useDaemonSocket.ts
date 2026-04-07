@@ -30,7 +30,7 @@ export function useDaemonSocket() {
           if (msg.event === "worker" && msg.data) {
             pushWorkerEvent(msg.data);
           }
-          if (msg.event === "task_update") {
+          if (msg.event === "quest_update" || msg.event === "task_update") {
             fetchQuests();
           }
           if (msg.event === "agent_update") {

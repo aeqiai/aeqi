@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::PipelineAction;
 use crate::helpers::{
-    find_project_dir, load_config, open_tasks_for_project, project_name_for_prefix,
+    find_project_dir, load_config, open_quests_for_project, project_name_for_prefix,
 };
 
 fn pipeline_dirs(project_dir: &Path) -> Vec<PathBuf> {
@@ -81,7 +81,7 @@ pub(crate) async fn cmd_pipeline(
                 .collect();
 
             // Instantiate into task store.
-            let mut store = open_tasks_for_project(&company)?;
+            let mut store = open_quests_for_project(&company)?;
             let parent_id = pipeline.pour(&mut store, &project_cfg.prefix, &var_map)?;
 
             println!("Poured pipeline '{template}' as {parent_id}");
@@ -142,7 +142,7 @@ pub(crate) async fn cmd_pipeline(
             let project_name = project_name_for_prefix(&config, prefix)
                 .context(format!("no project with prefix '{prefix}'"))?;
 
-            let store = open_tasks_for_project(&project_name)?;
+            let store = open_quests_for_project(&project_name)?;
             let parent_id = aeqi_quests::QuestId::from(id.as_str());
 
             if let Some(parent) = store.get(&id) {
@@ -160,7 +160,7 @@ pub(crate) async fn cmd_pipeline(
                     println!("  {} {} {}", status_icon, child.id, child.name);
                 }
             } else {
-                println!("Task not found: {id}");
+                println!("Quest not found: {id}");
             }
         }
     }

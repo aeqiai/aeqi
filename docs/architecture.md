@@ -5,17 +5,17 @@ AEQI is an agent runtime and orchestration engine in Rust. 10 crates, 545+ tests
 ## Two Orthogonal Concepts
 
 ```
-Task = WHAT needs to be done (persistent, trackable, assignable)
+Quest = WHAT needs to be done (persistent, trackable, assignable)
 Session = HOW it's being done (execution transcript, agent loop, tools)
 ```
 
-A Task is a Jira issue. A Session is a terminal window.
+A Quest is a Jira issue. A Session is a terminal window.
 
-- Task can exist without a session (queued, unstarted)
-- Task can have multiple sessions (retries, handoffs)
-- Session can exist without a task (ad-hoc chat, exploration)
-- Session references `task_id` when executing task work
-- Task references `session_id` of its current execution
+- Quest can exist without a session (queued, unstarted)
+- Quest can have multiple sessions (retries, handoffs)
+- Session can exist without a quest (ad-hoc chat, exploration)
+- Session references `quest_id` when executing quest work
+- Quest references `session_id` of its current execution
 
 ## Sessions — The Universal Execution Model
 
@@ -28,7 +28,7 @@ session_manager.spawn_session(
     provider,
     SpawnOptions::new()
         .with_parent(parent_session_id)
-        .with_task(task_id)
+        .with_quest(quest_id)
         .with_skill("architecture-audit")
         .with_project(project_id)
         .with_name("Review PR #42")
@@ -43,7 +43,7 @@ session_manager.spawn_session(
 | Context | Type | Behavior |
 |---------|------|----------|
 | `parent_id` set | delegation | Child of another session |
-| `task_id` set | task | Executing tracked work |
+| `quest_id` set | quest | Executing tracked work |
 | `auto_close: false` | perpetual | Accepts follow-up messages |
 | Default | session | Runs to completion |
 
@@ -92,21 +92,21 @@ All converge to `spawn_session`:
 |-------|-----|
 | Web chat | `spawn_session(agent, message, provider, SpawnOptions::interactive())` |
 | Delegation | `aeqi_delegate` tool → `spawn_session(opts.with_parent(id))` |
-| Task execution | Patrol loop → `spawn_session(opts.with_task(id))` |
-| Trigger/cron | Creates task → patrol spawns session |
-| Telegram/Discord | MessageRouter → task or direct session |
+| Quest execution | Patrol loop → `spawn_session(opts.with_quest(id))` |
+| Trigger/cron | Creates quest → patrol spawns session |
+| Telegram/Discord | MessageRouter → quest or direct session |
 
-## Tasks — Tracked Work Items
+## Quests — Tracked Work Items
 
 Persistent work units with status, priority, dependencies, acceptance criteria, checkpoints, retry logic, and escalation chains.
 
-Tasks live in `.tasks/*.jsonl` (git-native). The patrol loop finds ready tasks and spawns sessions.
+Quests live in `.tasks/*.jsonl` (git-native). The patrol loop finds ready quests and spawns sessions.
 
 | Need | Use |
 |------|-----|
 | "Do this right now" | Spawn session directly |
-| "This needs to get done" | Create task (patrol assigns) |
-| "Track retries and priority" | Task |
+| "This needs to get done" | Create quest (patrol assigns) |
+| "Track retries and priority" | Quest |
 | "Just run a prompt" | Session |
 
 ## Agent Identity
@@ -149,8 +149,8 @@ Sessions page shows: sidebar (permanent, active work, spawned work, closed), ses
 
 ## Daemon Patrol Loop (30s)
 
-1. Assign ready tasks → spawn sessions
-2. Detect timeouts, handle blocked tasks
+1. Assign ready quests → spawn sessions
+2. Detect timeouts, handle blocked quests
 3. Fire due triggers
 4. Persist cost ledger
 5. Reap dead sessions
@@ -161,7 +161,7 @@ Sessions page shows: sidebar (permanent, active work, spawned work, closed), ses
 | Crate | Purpose |
 |-------|---------|
 | aeqi-core | Agent loop, config, identity, traits, streaming executor |
-| aeqi-orchestrator | Daemon, sessions, tasks, delegation, memory routing |
+| aeqi-orchestrator | Daemon, sessions, quests, delegation, memory routing |
 | aeqi-tools | Shell, file, web, skills |
 | aeqi-providers | OpenRouter, Anthropic, Ollama |
 | aeqi-insights | SQLite + FTS5, vector search, hierarchical scoping |

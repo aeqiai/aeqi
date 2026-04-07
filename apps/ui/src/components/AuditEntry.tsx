@@ -90,7 +90,7 @@ export default function AuditEntryComponent({
           <span className="audit-agent">{entry.agent}</span>
         )}
         {entry.task_id && (
-          <code className="audit-task-id">{entry.task_id}</code>
+          <code className="audit-quest-id">{entry.task_id}</code>
         )}
       </div>
     </div>

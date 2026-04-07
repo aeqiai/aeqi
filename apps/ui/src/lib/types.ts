@@ -1,4 +1,4 @@
-import type { TaskRuntime } from "./runtime";
+import type { QuestRuntime } from "./runtime";
 
 export interface Agent {
   id: string;
@@ -71,7 +71,7 @@ export interface Quest {
   locked_at?: string;
   outcome?: QuestOutcome;
   metadata?: Record<string, unknown>;
-  runtime?: TaskRuntime;
+  runtime?: QuestRuntime;
 }
 
 export interface Event {

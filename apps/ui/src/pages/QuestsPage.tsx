@@ -94,7 +94,7 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
     if (!subject.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await api.createTask({
+      await api.createQuest({
         company: agentName || selectedAgent?.name || "default",
         subject: subject.trim(),
         description: description.trim() || undefined,

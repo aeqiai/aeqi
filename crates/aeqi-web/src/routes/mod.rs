@@ -20,8 +20,8 @@ pub fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/status", get(status))
         .route("/companies", get(projects).post(create_company))
-        .route("/tasks", get(tasks).post(create_task))
-        .route("/tasks/{id}/close", post(close_task))
+        .route("/quests", get(quests).post(create_quest))
+        .route("/quests/{id}/close", post(close_quest))
         .route("/agents", get(agents))
         .route("/agents/registry", get(agents_registry))
         .route("/agents/spawn", post(agents_spawn))
@@ -102,15 +102,15 @@ async fn create_company(
     resp
 }
 
-// --- Tasks ---
+// --- Quests ---
 
 #[derive(Deserialize, Default)]
-struct TasksQuery {
+struct QuestsQuery {
     project: Option<String>,
     status: Option<String>,
 }
 
-async fn tasks(State(state): State<AppState>, Query(q): Query<TasksQuery>) -> Response {
+async fn quests(State(state): State<AppState>, Query(q): Query<QuestsQuery>) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());
@@ -118,7 +118,7 @@ async fn tasks(State(state): State<AppState>, Query(q): Query<TasksQuery>) -> Re
     if let Some(status) = &q.status {
         params["status"] = serde_json::Value::String(status.clone());
     }
-    ipc_proxy(state, "tasks", params).await
+    ipc_proxy(state, "quests", params).await
 }
 
 // --- Agents ---
@@ -591,25 +591,25 @@ async fn chat_channels(State(state): State<AppState>) -> Response {
     ipc_proxy(state, "chat_channels", serde_json::Value::Null).await
 }
 
-// --- Write: Create Task ---
+// --- Write: Create Quest ---
 
-async fn create_task(
+async fn create_quest(
     State(state): State<AppState>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    ipc_proxy(state, "create_task", body).await
+    ipc_proxy(state, "create_quest", body).await
 }
 
-// --- Write: Close Task ---
+// --- Write: Close Quest ---
 
-async fn close_task(
+async fn close_quest(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let mut params = body;
-    params["task_id"] = serde_json::Value::String(id);
-    ipc_proxy(state, "close_task", params).await
+    params["quest_id"] = serde_json::Value::String(id);
+    ipc_proxy(state, "close_quest", params).await
 }
 
 // --- Write: Post Note ---

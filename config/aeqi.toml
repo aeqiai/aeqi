@@ -5,7 +5,7 @@ data_dir = "~/.aeqi"
 shared_primer = """
 # AEQI
 
-## For Every Task
+## For Every Quest
 
 1. Recall memory before any edit — search for relevant prior knowledge
 2. Understand context — read code, check the graph

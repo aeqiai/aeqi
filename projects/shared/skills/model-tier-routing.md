@@ -1,12 +1,12 @@
 ---
 name: "model-tier-routing"
-description: "Reference: model selection guidance for orchestrators. Use when deciding which model to dispatch for a task. Triggers: model selection, cost optimization, task routing."
+description: "Reference: model selection guidance for orchestrators. Use when deciding which model to dispatch for a quest. Triggers: model selection, cost optimization, quest routing."
 tags: [discover]
 ---
 
 # Model Tier Routing
 
-Guide for selecting the right model tier based on task complexity. Orchestrators and delegation decisions should reference this.
+Guide for selecting the right model tier based on quest complexity. Orchestrators and delegation decisions should reference this.
 
 ## Tier System
 
@@ -16,7 +16,7 @@ Guide for selecting the right model tier based on task complexity. Orchestrators
 | **T2 (Sonnet)** | Balanced | Standard implementation, testing, multi-file changes, integration work | Feature implementation, bug fixes, documentation |
 | **T3 (Haiku)** | Fast/cheap | Simple queries, formatting, single-file edits, status checks, memory extraction | Code formatting, simple lookups, observation analysis |
 
-## Task Complexity Signals
+## Quest Complexity Signals
 
 **Route to T1 (Opus):**
 - Touches 5+ files across modules
@@ -46,7 +46,7 @@ Guide for selecting the right model tier based on task complexity. Orchestrators
 | Sonnet | $3 | $15 | 2x |
 | Haiku | $0.25 | $1.25 | 1x (baseline) |
 
-**Rule of thumb:** If T3 can do it, use T3. Don't use Opus for tasks Haiku can handle. The budget saved on simple tasks funds the complex ones.
+**Rule of thumb:** If T3 can do it, use T3. Don't use Opus for quests Haiku can handle. The budget saved on simple quests funds the complex ones.
 
 ## Agent-Level Defaults
 
@@ -59,6 +59,6 @@ Guide for selecting the right model tier based on task complexity. Orchestrators
 | COO | T2 | T3 for health checks |
 | GC | T1 for legal analysis | T2 for contract review |
 | Subagent (explore) | T2 | T3 if simple search |
-| Subagent (implement) | T2 | T1 if architectural task |
+| Subagent (implement) | T2 | T1 if architectural quest |
 | Subagent (review) | T1 | T2 if mechanical check |
 | Subagent (verify) | T2 | T1 if security verification |

@@ -64,8 +64,8 @@ pub enum Commands {
         json: bool,
     },
 
-    // --- Phase 2: Tasks ---
-    /// Assign a task to a company.
+    // --- Phase 2: Quests ---
+    /// Assign a quest to a company.
     Assign {
         subject: String,
         #[arg(short = 'r', long = "company", alias = "project")]
@@ -80,14 +80,14 @@ pub enum Commands {
         #[arg(short = 'r', long = "company", alias = "project")]
         company: Option<String>,
     },
-    /// Show all open tasks.
-    Tasks {
+    /// Show all open quests.
+    Quests {
         #[arg(short = 'r', long = "company", alias = "project")]
         company: Option<String>,
         #[arg(long)]
         all: bool,
     },
-    /// Close a task.
+    /// Close a quest.
     Close {
         id: String,
         #[arg(short, long, default_value = "completed")]
@@ -159,10 +159,10 @@ pub enum Commands {
         action: HooksAction,
     },
     /// Pin work to a worker.
-    Hook { worker: String, task_id: String },
-    /// Mark task as done, trigger cleanup.
+    Hook { worker: String, quest_id: String },
+    /// Mark quest as done, trigger cleanup.
     Done {
-        task_id: String,
+        quest_id: String,
         #[arg(short, long, default_value = "completed")]
         reason: String,
     },
@@ -192,9 +192,9 @@ pub enum Commands {
         /// Filter by company name.
         #[arg(short = 'r', long = "company", alias = "project")]
         company: Option<String>,
-        /// Filter by task ID.
+        /// Filter by quest ID.
         #[arg(short, long)]
-        task: Option<String>,
+        quest: Option<String>,
         /// Show last N events.
         #[arg(short, long, default_value = "20")]
         last: u32,
@@ -206,7 +206,7 @@ pub enum Commands {
         action: NotesAction,
     },
 
-    /// Suggest or apply inferred task dependencies.
+    /// Suggest or apply inferred quest dependencies.
     Deps {
         #[arg(short = 'r', long = "company", alias = "project")]
         company: String,
@@ -430,7 +430,7 @@ pub enum TriggerAction {
         /// One-shot timestamp (ISO 8601).
         #[arg(long)]
         at: Option<String>,
-        /// Event pattern: task_completed, task_failed, tool_call_completed.
+        /// Event pattern: quest_completed, quest_failed, tool_call_completed.
         #[arg(short, long)]
         event: Option<String>,
         /// Event company filter (optional).
@@ -490,11 +490,11 @@ pub enum PromptAction {
 
 #[derive(Subcommand)]
 pub enum OperationAction {
-    /// Create an operation tracking tasks across companies.
+    /// Create an operation tracking quests across companies.
     Create {
         name: String,
-        /// Task IDs to track (e.g. as-001 rd-002).
-        task_ids: Vec<String>,
+        /// Quest IDs to track (e.g. as-001 rd-002).
+        quest_ids: Vec<String>,
     },
     /// List active operations.
     List,
@@ -518,7 +518,7 @@ pub enum PipelineAction {
         #[arg(short = 'r', long = "company", alias = "project")]
         company: Option<String>,
     },
-    /// Show status of a pipeline (parent task and its children).
+    /// Show status of a pipeline (parent quest and its children).
     Status { id: String },
 }
 

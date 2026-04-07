@@ -2,12 +2,12 @@ import type { Checkpoint, AuditEntry } from "./types";
 
 export type TimelineEventType =
   | "message"
-  | "task_created"
+  | "quest_created"
   | "quest_started"
-  | "task_checkpoint"
-  | "task_blocked"
+  | "quest_checkpoint"
+  | "quest_blocked"
   | "quest_completed"
-  | "task_cancelled"
+  | "quest_cancelled"
   | "audit";
 
 export interface TimelineItem {
@@ -19,23 +19,23 @@ export interface TimelineItem {
   // Message fields
   role?: string;
   content?: string;
-  // Task fields
-  taskId?: string;
-  taskSubject?: string;
-  taskStatus?: string;
+  // Quest fields
+  questId?: string;
+  questSubject?: string;
+  questStatus?: string;
   checkpoint?: Checkpoint;
   // Audit fields
   auditEntry?: AuditEntry;
 }
 
-export function checkpointsToTimeline(checkpoints: Checkpoint[], taskId: string): TimelineItem[] {
+export function checkpointsToTimeline(checkpoints: Checkpoint[], questId: string): TimelineItem[] {
   return checkpoints.map((cp, i) => ({
-    id: `cp-${taskId}-${i}`,
-    type: "task_checkpoint" as const,
+    id: `cp-${questId}-${i}`,
+    type: "quest_checkpoint" as const,
     timestamp: cp.timestamp,
     summary: cp.progress,
     agent: cp.worker,
-    taskId,
+    questId,
     checkpoint: cp,
   }));
 }
@@ -44,11 +44,11 @@ export function auditToTimeline(entries: AuditEntry[]): TimelineItem[] {
   return entries.map((e) => {
     let type: TimelineEventType = "audit";
     const dt = (e.decision_type || "").toLowerCase();
-    if (dt.includes("task_created") || dt.includes("create_task")) type = "task_created";
-    else if (dt.includes("task_started") || dt.includes("start_task")) type = "quest_started";
-    else if (dt.includes("task_completed") || dt.includes("complete_task") || dt.includes("close_task")) type = "quest_completed";
-    else if (dt.includes("task_blocked") || dt.includes("block_task")) type = "task_blocked";
-    else if (dt.includes("task_cancelled") || dt.includes("cancel_task")) type = "task_cancelled";
+    if (dt.includes("quest_created") || dt.includes("create_quest") || dt.includes("task_created") || dt.includes("create_task")) type = "quest_created";
+    else if (dt.includes("quest_started") || dt.includes("start_quest") || dt.includes("task_started") || dt.includes("start_task")) type = "quest_started";
+    else if (dt.includes("quest_completed") || dt.includes("complete_quest") || dt.includes("close_quest") || dt.includes("task_completed") || dt.includes("complete_task") || dt.includes("close_task")) type = "quest_completed";
+    else if (dt.includes("quest_blocked") || dt.includes("block_quest") || dt.includes("task_blocked") || dt.includes("block_task")) type = "quest_blocked";
+    else if (dt.includes("quest_cancelled") || dt.includes("cancel_quest") || dt.includes("task_cancelled") || dt.includes("cancel_task")) type = "quest_cancelled";
 
     return {
       id: `audit-${e.id}`,
@@ -56,7 +56,7 @@ export function auditToTimeline(entries: AuditEntry[]): TimelineItem[] {
       timestamp: e.timestamp,
       summary: e.summary,
       agent: e.agent,
-      taskId: e.task_id,
+      questId: e.task_id,
       auditEntry: e,
     };
   });

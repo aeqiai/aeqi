@@ -286,7 +286,7 @@ export default function SessionsPage() {
       api.getSessionChildren(sel.sessionId).then((d: any) => {
         const children = (d.sessions || []).map((s: any) => ({
           id: `child-${s.id}`,
-          name: s.name || s.task_id || "subtask",
+          name: s.name || s.task_id || "subquest",
           type: s.status === "active" ? "active" as const : "history" as const,
           status: s.status,
           time: s.created_at,
@@ -368,12 +368,12 @@ export default function SessionsPage() {
     } else if (activeSessionId.startsWith("new-")) {
       setMessages([]);
     } else {
-      api.getSessionMessages({ channel_name: `transcript:task:${activeSessionId}`, limit: 50 })
+      api.getSessionMessages({ channel_name: `transcript:quest:${activeSessionId}`, limit: 50 })
         .then((d: any) => setMessages(processRawMessages(d.messages || [])))
         .catch(() => setMessages([]));
     }
 
-    // Also fetch audit for task events
+    // Also fetch audit for quest events
     if (agentName) {
       api.getAudit({ last: 50 }).then((d: any) => {
         const entries = (d.entries || d.audit || []).filter(
@@ -382,8 +382,8 @@ export default function SessionsPage() {
         if (entries.length > 0) {
           setMessages((prev) => {
             const taskEvents = entries.map((e: any) => ({
-              role: "task_event",
-              content: e.summary || `Task ${e.task_id} — ${e.decision_type}`,
+              role: "quest_event",
+              content: e.summary || `Quest ${e.task_id} — ${e.decision_type}`,
               timestamp: new Date(e.timestamp).getTime(),
               eventType: e.decision_type,
               taskId: e.task_id,
@@ -516,7 +516,7 @@ export default function SessionsPage() {
           }
           case "DelegateStart": {
             const workerName = event.worker_name || "subagent";
-            const subject = event.task_subject || "delegated task";
+            const subject = event.quest_subject || "delegated quest";
             toolEvents.push({ type: "start", name: `delegate: ${workerName}`, timestamp: Date.now() });
             segments.push({ kind: "status", text: `Delegating to ${workerName}: ${subject}` });
             setLiveToolEvents([...toolEvents]);
@@ -753,7 +753,7 @@ export default function SessionsPage() {
         )}
 
         {linkedTasks.length > 0 && (
-          <SessionGroup id="linked" label="Linked Tasks" count={linkedTasks.length}>
+          <SessionGroup id="linked" label="Linked Quests" count={linkedTasks.length}>
             {linkedTasks.slice(0, 10).map((t: any) => (
               <div key={t.id}
                 className={`session-list-item${activeSessionId === t.id ? " active" : ""}`}
@@ -809,15 +809,15 @@ export default function SessionsPage() {
         <SpawnedSessionsBar liveSubagents={liveSubagents} childSessions={childSessions} />
         <div className="session-messages">
           {messages.map((msg, i) => {
-            if (msg.role === "task_event") {
+            if (msg.role === "quest_event") {
               return (
-                <div key={i} className={`session-msg session-msg-task-event session-task-event-${(msg.eventType || "").includes("create") ? "created" : (msg.eventType || "").includes("complete") || (msg.eventType || "").includes("close") ? "completed" : (msg.eventType || "").includes("block") ? "blocked" : "started"}`}>
-                  <div className="session-task-event">
-                    <span className="session-task-event-icon">
+                <div key={i} className={`session-msg session-msg-quest-event session-quest-event-${(msg.eventType || "").includes("create") ? "created" : (msg.eventType || "").includes("complete") || (msg.eventType || "").includes("close") ? "completed" : (msg.eventType || "").includes("block") ? "blocked" : "started"}`}>
+                  <div className="session-quest-event">
+                    <span className="session-quest-event-icon">
                       {(msg.eventType || "").includes("create") ? "+" : (msg.eventType || "").includes("complete") || (msg.eventType || "").includes("close") ? "\u2713" : (msg.eventType || "").includes("block") ? "!" : "\u2192"}
                     </span>
-                    <span className="session-task-event-text">{msg.content}</span>
-                    {msg.timestamp && <span className="session-task-event-time">{formatTime(msg.timestamp)}</span>}
+                    <span className="session-quest-event-text">{msg.content}</span>
+                    {msg.timestamp && <span className="session-quest-event-time">{formatTime(msg.timestamp)}</span>}
                   </div>
                 </div>
               );

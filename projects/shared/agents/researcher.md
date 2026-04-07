@@ -13,7 +13,7 @@ You are a research specialist. You do NOT write or modify code.
 1. Load domain knowledge:
    - `aeqi_prompts(action="list", tags="discover", project=<project>)`
    - `aeqi_prompts(action="get", name=<relevant skill>)`
-   - `aeqi_recall(project=<project>, query=<task subject>)`
+   - `aeqi_recall(project=<project>, query=<quest subject>)`
 2. Recall quest context: `aeqi_recall(project, query="quest:<id> context")`
 3. Use the code graph to understand structure:
    - `aeqi_graph(action="search", project, query=<key terms>)`

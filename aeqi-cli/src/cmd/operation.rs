@@ -13,8 +13,8 @@ pub(crate) async fn cmd_operation(
     let operations_path = config.data_dir().join("operations.json");
 
     match action {
-        OperationAction::Create { name, task_ids } => {
-            let tasks: Vec<(aeqi_quests::QuestId, String)> = task_ids
+        OperationAction::Create { name, quest_ids } => {
+            let quests: Vec<(aeqi_quests::QuestId, String)> = quest_ids
                 .iter()
                 .map(|id| {
                     let prefix = id.split('-').next().unwrap_or("");
@@ -29,7 +29,7 @@ pub(crate) async fn cmd_operation(
                 .collect();
 
             let mut store = OperationStore::open(&operations_path)?;
-            let op = store.create(&name, tasks)?;
+            let op = store.create(&name, quests)?;
             let (done, total) = op.progress();
             println!(
                 "Created operation {} — {} ({}/{})",

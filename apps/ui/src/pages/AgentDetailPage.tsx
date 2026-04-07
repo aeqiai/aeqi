@@ -67,7 +67,7 @@ export default function AgentDetailPage() {
 
       {/* Hero */}
       <HeroStats stats={[
-        { value: tasks.length, label: "Total Tasks" },
+        { value: tasks.length, label: "Total Quests" },
         { value: completedTasks, label: "Completed", color: "success" },
         { value: failedTasks, label: "Failed", color: "error" },
         { value: audit.length, label: "Decisions" },
@@ -91,7 +91,7 @@ export default function AgentDetailPage() {
                 {agent.expertise_scores.map((s: any, i: number) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--font-size-xs)", color: "var(--text-secondary)", marginBottom: "4px" }}>
                     <span>{(s.success_rate * 100).toFixed(0)}% success</span>
-                    <span>{s.total_tasks} tasks</span>
+                    <span>{s.total_tasks} quests</span>
                     <span>{(s.confidence * 100).toFixed(0)}% conf</span>
                   </div>
                 ))}
@@ -179,14 +179,14 @@ export default function AgentDetailPage() {
 
           {/* Active Work */}
           {activeTasks.length > 0 && (
-            <Panel title="Active Work" actions={<span className="text-hint">{activeTasks.length} tasks</span>}>
-              <div className="task-table">
+            <Panel title="Active Work" actions={<span className="text-hint">{activeTasks.length} quests</span>}>
+              <div className="quest-table">
                 {activeTasks.map((task: any) => (
-                  <div key={task.id} className="task-row">
-                    <span className="task-priority-bar" style={{ backgroundColor: PRIORITY_COLORS[task.priority] || "var(--text-primary)" }} />
-                    <code className="task-id">{task.id}</code>
-                    <span className="task-subject">{task.subject}</span>
-                    <div className="task-meta">
+                  <div key={task.id} className="quest-row">
+                    <span className="quest-priority-bar" style={{ backgroundColor: PRIORITY_COLORS[task.priority] || "var(--text-primary)" }} />
+                    <code className="quest-id">{task.id}</code>
+                    <span className="quest-subject">{task.subject}</span>
+                    <div className="quest-meta">
                       <StatusBadge status={task.status} size="sm" />
                       <span>{task.company}</span>
                     </div>

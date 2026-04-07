@@ -21,7 +21,7 @@ Scope → Investigate → Synthesize → Close
 1. **Check existing knowledge** — `aeqi_recall` for prior research on this topic
 2. **Define the question** — one clear question this research answers. Not "understand X" but "how does X handle Y when Z happens?"
 3. **Set boundaries** — what's in scope, what's out. Research without scope becomes rabbit-holing.
-4. **Create quest** — `aeqi_create_task` with the specific question
+4. **Create quest** — `aeqi_create_quest` with the specific question
 
 <HARD-GATE>
 No investigation without a scoped question. "Look into the auth system" is not a research quest. "How does the auth system validate JWT expiry across time zones?" is.
@@ -85,7 +85,7 @@ Research without a clear deliverable is exploration, not research. The synthesis
 ## Phase 4: Close
 
 1. **Store findings** — `aeqi_remember` the key insights as institutional knowledge
-2. **Close quest** — `aeqi_close_task`
+2. **Close quest** — `aeqi_close_quest`
 3. **Consider follow-up** — if research revealed bugs or improvement opportunities, note them for separate quests
 
 ---

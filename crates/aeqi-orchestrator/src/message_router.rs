@@ -1,7 +1,7 @@
 //! Unified Message Router — source-agnostic message processing for Telegram, web, and future channels.
 //!
 //! Both Telegram and web interfaces are thin clients that delegate to this router.
-//! The router handles: conversation history, agent routing, task creation,
+//! The router handles: conversation history, agent routing, quest creation,
 //! and completion tracking.
 
 use std::collections::{HashMap, HashSet};
@@ -135,7 +135,7 @@ impl ChatResponse {
     }
 }
 
-/// Handle returned when a full (async) chat task is created.
+/// Handle returned when a full (async) chat quest is created.
 #[derive(Debug, Clone)]
 pub struct TaskHandle {
     pub task_id: String,
@@ -155,7 +155,7 @@ pub struct PendingTask {
     pub sent_slow_notice: bool,
 }
 
-/// Result of a completed chat task.
+/// Result of a completed chat quest.
 #[derive(Debug, Clone)]
 pub struct ChatCompletion {
     pub task_id: String,
@@ -191,7 +191,7 @@ pub struct MessageRouter {
     pub task_notify: Arc<tokio::sync::Notify>,
     /// Single insight store for all agents (scoped by agent_id within queries).
     pub insight_store: Option<Arc<dyn Insight>>,
-    /// EventStore for emitting task_created events (drives scheduler via broadcast).
+    /// EventStore for emitting quest_created events (drives scheduler via broadcast).
     pub event_store: Arc<crate::event_store::EventStore>,
 }
 
@@ -313,8 +313,8 @@ impl MessageRouter {
 
         let source_tag = msg.conversation_channel_type();
         let event_type = match action {
-            "task_created" => "task_created",
-            "task_closed" => "task_closed",
+            "quest_created" => "quest_created",
+            "quest_closed" => "quest_closed",
             "knowledge_stored" => "knowledge_stored",
             _ => return,
         };
@@ -331,7 +331,7 @@ impl MessageRouter {
         .await;
     }
 
-    async fn create_chat_task(
+    async fn create_chat_quest(
         &self,
         project_name: &str,
         subject: &str,
@@ -370,14 +370,14 @@ impl MessageRouter {
             task = %task.id,
             hold_for_council,
             subject = %subject,
-            "chat task created"
+            "chat quest created"
         );
 
         if !hold_for_council {
             let _ = self
                 .event_store
                 .emit(
-                    "task_created",
+                    "quest_created",
                     Some(&agent.id),
                     None,
                     Some(&task.id.0),
@@ -414,7 +414,7 @@ impl MessageRouter {
                 "Blocked: ",
             ),
             CompletionStatus::Cancelled => Self::prefix_if_missing(
-                reason.unwrap_or_else(|| "Task cancelled.".to_string()),
+                reason.unwrap_or_else(|| "Quest cancelled.".to_string()),
                 "Failed: ",
             ),
             CompletionStatus::TimedOut => {
@@ -437,16 +437,16 @@ impl MessageRouter {
         let text = Self::completion_text(&status, reason);
         let event_type = match status {
             CompletionStatus::Done => "quest_completed",
-            CompletionStatus::Blocked => "task_blocked",
-            CompletionStatus::Cancelled => "task_cancelled",
-            CompletionStatus::TimedOut => "task_timed_out",
+            CompletionStatus::Blocked => "quest_blocked",
+            CompletionStatus::Cancelled => "quest_cancelled",
+            CompletionStatus::TimedOut => "quest_timed_out",
         };
         self.record_thread_event(
             pending.chat_id,
             &pending.channel_type,
             event_type,
             "system",
-            &format!("Task {task_id} {event_type}."),
+            &format!("Quest {task_id} {event_type}."),
             Some(serde_json::json!({
                 "task_id": task_id,
                 "status": format!("{status:?}"),
@@ -480,11 +480,14 @@ impl MessageRouter {
         let msg_lower = msg.message.to_lowercase();
 
         // Keyword shortcuts — explicit prefixes only, no guessing.
-        if msg_lower.starts_with("create task")
+        if msg_lower.starts_with("create quest")
+            || msg_lower.starts_with("new quest")
+            || msg_lower.starts_with("add quest")
+            || msg_lower.starts_with("create task")
             || msg_lower.starts_with("new task")
             || msg_lower.starts_with("add task")
         {
-            let response = self.handle_create_task(msg).await;
+            let response = self.handle_create_quest(msg).await;
             self.record_exchange(msg, &response.context).await;
             self.record_response_action_event(msg, &response).await;
             return Some(response);
@@ -501,7 +504,7 @@ impl MessageRouter {
         None
     }
 
-    /// Handle a chat message (full path): conversation context + task creation.
+    /// Handle a chat message (full path): conversation context + quest creation.
     /// Council enrichment, when enabled, is performed asynchronously after the
     /// handle is returned and before the task is released to the scheduler.
     pub async fn handle_message_full(
@@ -625,15 +628,15 @@ impl MessageRouter {
         // Create the task.
         let subject = format!("[{}] {} ({})", source_tag, msg.sender, msg.chat_id);
         let task = self
-            .create_chat_task(&scoped_project, &subject, &description, hold_for_council)
+            .create_chat_quest(&scoped_project, &subject, &description, hold_for_council)
             .await?;
         let task_id = task.id.0.clone();
         self.record_thread_event(
             msg.chat_id,
             &source_tag,
-            "task_created",
+            "quest_created",
             "system",
-            &format!("Task {task_id} created in {scoped_project}."),
+            &format!("Quest {task_id} created in {scoped_project}."),
             Some(serde_json::json!({
                 "task_id": task_id.clone(),
                 "project": scoped_project.clone(),
@@ -657,7 +660,7 @@ impl MessageRouter {
                 &source_tag,
                 "task_released",
                 "system",
-                "Task released to the project scheduler.",
+                "Quest released to the project scheduler.",
                 Some(serde_json::json!({
                     "task_id": task_id.clone(),
                     "project": scoped_project.clone(),
@@ -770,7 +773,7 @@ impl MessageRouter {
                         map.get(&qid).map(|pq| pq.created_at.elapsed())
                     };
                     if elapsed.is_some_and(|age| age > std::time::Duration::from_secs(1800)) {
-                        warn!(task = %qid, "chat task hard-timed out after 30min");
+                        warn!(task = %qid, "chat quest hard-timed out after 30min");
                         if let Some(completion) = self
                             .consume_pending_completion(&qid, CompletionStatus::TimedOut, None)
                             .await
@@ -1047,7 +1050,7 @@ impl MessageRouter {
 
     // ── Private helpers ──
 
-    async fn handle_create_task(&self, msg: &IncomingMessage) -> ChatResponse {
+    async fn handle_create_quest(&self, msg: &IncomingMessage) -> ChatResponse {
         let msg_lower = msg.message.to_lowercase();
 
         let project = if let Some(p) = &msg.project_hint {
@@ -1073,6 +1076,11 @@ impl MessageRouter {
         };
 
         let subject = msg_lower
+            .replace("create a quest", "")
+            .replace("create quest", "")
+            .replace("new quest", "")
+            .replace("add a quest", "")
+            .replace("add quest", "")
             .replace("create a task", "")
             .replace("create task", "")
             .replace("new task", "")
@@ -1111,10 +1119,10 @@ impl MessageRouter {
             Ok(task) => ChatResponse {
                 ok: true,
                 context: format!(
-                    "Done. Created task {} in {} — \"{}\"",
+                    "Done. Created quest {} in {} — \"{}\"",
                     task.id, project, subject
                 ),
-                action: Some("task_created".to_string()),
+                action: Some("quest_created".to_string()),
                 task: Some(serde_json::json!({
                     "id": task.id.0,
                     "subject": task.name,
@@ -1158,7 +1166,7 @@ impl MessageRouter {
                     Ok(_) => ChatResponse {
                         ok: true,
                         context: format!("Done. Task {} is now closed.", task_id),
-                        action: Some("task_closed".to_string()),
+                        action: Some("quest_closed".to_string()),
                         task: None,
                         projects: None,
                         cost: None,
@@ -1469,7 +1477,7 @@ impl MessageRouter {
                         chat_id,
                         "task_released",
                         "system",
-                        "Task released to the project scheduler.",
+                        "Quest released to the project scheduler.",
                         Some(&source_tag),
                         Some(&serde_json::json!({
                             "task_id": task_id.clone(),
@@ -1479,7 +1487,7 @@ impl MessageRouter {
                     .await;
                 let _ = event_store
                     .emit(
-                        "task_created",
+                        "quest_created",
                         None,
                         None,
                         Some(&task_id),

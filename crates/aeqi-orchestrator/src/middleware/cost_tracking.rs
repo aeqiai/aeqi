@@ -70,7 +70,7 @@ impl Middleware for CostTrackingMiddleware {
             task_id = %ctx.task_id,
             cost_usd = outcome.cost_usd,
             budget_usd = self.budget_usd,
-            "task completed — final cost"
+            "quest completed — final cost"
         );
         MiddlewareAction::Continue
     }

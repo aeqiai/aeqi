@@ -39,11 +39,11 @@ Discovery order for reusable automation:
 
 Project-local names override shared names.
 
-## Task Storage
+## Quest Storage
 
-Task boards live in `.tasks/`.
+Quest boards live in `.tasks/`.
 
-- `<prefix>.jsonl`: append-only task records for that prefix
+- `<prefix>.jsonl`: append-only quest records for that prefix
 - `_missions.jsonl`: append-only mission records
 
 Examples:
@@ -69,6 +69,6 @@ worker_timeout_secs = 1800
 
 - `aeqi assign "subject" --project aeqi`
 - `aeqi ready --project aeqi`
-- `aeqi tasks --project aeqi`
+- `aeqi quests --project aeqi`
 - `aeqi pipeline list --project aeqi`
 - `aeqi skill list --project aeqi`

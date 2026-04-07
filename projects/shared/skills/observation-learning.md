@@ -19,7 +19,7 @@ You will be given recent observations (tool calls, inputs, outputs) from agent s
 2. **User corrections** — places where the agent was corrected or redirected
 3. **Error → resolution patterns** — error followed by a fix (what was the fix?)
 4. **Tool preferences** — consistently choosing one tool over another
-5. **Workflow gaps** — places where the agent struggled or took many iterations for a simple task
+5. **Workflow gaps** — places where the agent struggled or took many iterations for a simple quest
 
 ## Output Format
 

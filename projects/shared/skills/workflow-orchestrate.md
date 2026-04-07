@@ -31,7 +31,7 @@ Discover → Plan → Delegate → Aggregate → Report
 
 ### Worker Independence Rule
 Workers receive context from the orchestrator. They NEVER:
-- Reference other workers' tasks or output
+- Reference other workers' quests or output
 - Wait for another worker to complete
 - Share state with peers during execution
 

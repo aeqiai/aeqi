@@ -23,7 +23,7 @@ model: sonnet
 
 ## Process
 
-1. Review research findings and task requirements
+1. Review research findings and quest requirements
 2. {Domain-specific planning step}
 3. Sequence changes in dependency order
 4. Identify risks specific to this domain

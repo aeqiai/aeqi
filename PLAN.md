@@ -3,8 +3,8 @@
 ## The Primitives
 
 ```
-4 tables:   agents, tasks, events, memories
-1 field:    prompts[] (ordered array on agents, tasks, triggers)
+4 tables:   agents, quests, events, memories
+1 field:    prompts[] (ordered array on agents, quests, triggers)
 1 tree:     parent_id on agents
 1 loop:     wake → reap → query → spawn
 1 database: aeqi.db
@@ -17,8 +17,8 @@ Everything else is a query over these four tables.
 ```
 aeqi.db
   agents    — the tree (name, prompts, model, workdir, budget, concurrency)
-  tasks     — work queue (name, prompts, status, agent_id)
-  events    — immutable log (type, agent_id, session_id, task_id, content)
+  quests    — work queue (name, prompts, status, agent_id)
+  events    — immutable log (type, agent_id, session_id, quest_id, content)
   memories  — mutable knowledge (key, content, scope, entity_id, embedding)
 ```
 
@@ -29,17 +29,17 @@ aeqi.db
 | system_prompt | agent.prompts entry, position='system' |
 | shared_primer | root agent.prompts entry, scope='descendants' |
 | project_primer | project agent.prompts entry, scope='descendants' |
-| skill (TOML) | prompts[] preset loaded into task.prompts or trigger.prompts |
+| skill (TOML) | prompts[] preset loaded into quest.prompts or trigger.prompts |
 | agent template | prompts[] preset loaded into agent.prompts at spawn |
 | Identity struct | gone — prompts[] replaces persona/memory/skill_prompt/knowledge |
-| task.description | task.prompts entry, position='prepend' |
-| task.skill | task.prompts entry, position='append' with tools metadata |
-| task.subject | task.name |
+| quest.description | quest.prompts entry, position='prepend' |
+| quest.skill | quest.prompts entry, position='append' with tools metadata |
+| quest.subject | quest.name |
 | trigger.skill | trigger.prompts |
 | AGENTS.md / KNOWLEDGE.md | project agent.prompts entries, scope='descendants' |
 | audit log | events WHERE type='decision' |
 | cost ledger | events WHERE type='cost' |
-| expertise ledger | events WHERE type='task_completed', derived via query |
+| expertise ledger | events WHERE type='quest_completed', derived via query |
 | session store | events WHERE type='message' |
 | dispatch bus | events WHERE type='dispatch' |
 | notes / blackboard | memories WHERE scope='shared' |
@@ -47,10 +47,10 @@ aeqi.db
 
 ### Prompt assembly
 
-One query builds the full prompt for any agent + task combination:
+One query builds the full prompt for any agent + quest combination:
 
 ```sql
--- Collect all prompts: agent ancestors (deepest first) + agent self + task
+-- Collect all prompts: agent ancestors (deepest first) + agent self + quest
 WITH RECURSIVE ancestors(id, depth) AS (
     SELECT id, 0 FROM agents WHERE id = ?1
     UNION ALL
@@ -62,12 +62,12 @@ SELECT p.value, p.position, p.scope, p.tools, a.depth, 'agent' as source
 FROM ancestors a, json_each(a.prompts) AS p
 WHERE p.scope = 'descendants' OR (p.scope = 'self' AND a.depth = 0)
 UNION ALL
-SELECT p.value, p.position, p.scope, p.tools, -1, 'task'
-FROM json_each(?2) AS p   -- ?2 = task.prompts JSON
+SELECT p.value, p.position, p.scope, p.tools, -1, 'quest'
+FROM json_each(?2) AS p   -- ?2 = quest.prompts JSON
 ORDER BY position, depth DESC;
 ```
 
-Root primer → parent prompts → self prompts → task prompts. Grouped by position
+Root primer → parent prompts → self prompts → quest prompts. Grouped by position
 (system, prepend, append). That's the entire prompt construction.
 
 ### Prompt entry schema
@@ -107,16 +107,16 @@ Add `resolve_model()` to AgentRegistry — walks ancestor chain, falls back to
 config default. Replace hardcoded `"anthropic/claude-sonnet-4-6"` in
 `scheduler.rs spawn_worker()`.
 
-### 2b. Remove TaskBoard shim
-Refactor AgentWorker to accept a task completion callback instead of
-`Arc<Mutex<TaskBoard>>`:
+### 2b. Remove QuestBoard shim
+Refactor AgentWorker to accept a quest completion callback instead of
+`Arc<Mutex<QuestBoard>>`:
 
 ```rust
-type TaskCallback = Box<dyn FnOnce(TaskStatus, Option<TaskOutcomeRecord>) + Send>;
+type QuestCallback = Box<dyn FnOnce(QuestStatus, Option<QuestOutcomeRecord>) + Send>;
 ```
 
-Scheduler passes a closure that calls `agent_registry.update_task_status()`.
-Delete `create_temp_task_board()`.
+Scheduler passes a closure that calls `agent_registry.update_quest_status()`.
+Delete `create_temp_quest_board()`.
 
 ### 2c. Port WorkerPool features
 Only features enabled in current config (check `aeqi.toml` flags):
@@ -124,7 +124,7 @@ Only features enabled in current config (check `aeqi.toml` flags):
 - Verification pipeline (`verification_enabled`)
 - Preflight assessment (`preflight_enabled`)
 - Adaptive retry + failure analysis (`adaptive_retry`)
-- Escalation depth tracking via task labels
+- Escalation depth tracking via quest labels
 
 Extract as standalone functions/modules, call from Scheduler.
 
@@ -138,7 +138,7 @@ Extract as standalone functions/modules, call from Scheduler.
 
 ```sql
 ALTER TABLE agents ADD COLUMN prompts TEXT DEFAULT '[]';
-ALTER TABLE tasks ADD COLUMN prompts TEXT DEFAULT '[]';
+ALTER TABLE quests ADD COLUMN prompts TEXT DEFAULT '[]';
 -- triggers already have a prompts-like field (skill) — replace with prompts
 ```
 
@@ -153,16 +153,16 @@ At daemon startup:
 - `project_primer` → project agent.prompts entry `{scope: "descendants", position: "prepend"}`
 - AGENTS.md / KNOWLEDGE.md → project agent.prompts entries `{scope: "descendants", position: "append"}`
 
-### 3c. Migrate task description + skill to prompts
+### 3c. Migrate quest description + skill to prompts
 
-- `task.description` → task.prompts entry `{position: "prepend"}`
-- `task.skill` → load TOML, inject as task.prompts entry `{position: "append", tools: {...}}`
+- `quest.description` → quest.prompts entry `{position: "prepend"}`
+- `quest.skill` → load TOML, inject as quest.prompts entry `{position: "append", tools: {...}}`
 - Delete `description` and `skill` columns (or stop reading them)
-- Rename `task.subject` → `task.name`
+- Rename `quest.subject` → `quest.name`
 
 ### 3d. Migrate trigger skill to prompts
 
-- `trigger.skill` → load TOML at fire time, inject as prompts into the created task
+- `trigger.skill` → load TOML at fire time, inject as prompts into the created quest
 - Add `prompts` column to triggers table
 - Delete `skill` column
 
@@ -185,11 +185,11 @@ one function:
 fn assemble_prompts(
     agent_registry: &AgentRegistry,
     agent_id: &str,
-    task_prompts: &[PromptEntry],
+    quest_prompts: &[PromptEntry],
 ) -> AssembledPrompt {
     // 1. Walk ancestors, collect prompts with scope='descendants'
     // 2. Collect agent's own prompts with scope='self'
-    // 3. Append task prompts
+    // 3. Append quest prompts
     // 4. Group by position (system, prepend, append)
     // 5. Concatenate within each group (deepest ancestor first)
     // 6. Extract merged tool restrictions
@@ -213,14 +213,14 @@ CREATE TABLE events (
     type TEXT NOT NULL,
     agent_id TEXT,
     session_id TEXT,
-    task_id TEXT,
+    quest_id TEXT,
     content TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 CREATE INDEX idx_events_type ON events(type);
 CREATE INDEX idx_events_agent ON events(agent_id);
 CREATE INDEX idx_events_session ON events(session_id);
-CREATE INDEX idx_events_task ON events(task_id);
+CREATE INDEX idx_events_quest ON events(quest_id);
 CREATE INDEX idx_events_created ON events(created_at);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS events_fts
@@ -231,7 +231,7 @@ Create `EventStore` struct wrapping the shared db connection:
 
 ```rust
 impl EventStore {
-    fn emit(type, agent_id, session_id, task_id, content) -> Result<String>
+    fn emit(type, agent_id, session_id, quest_id, content) -> Result<String>
     fn query(type, filters, limit, offset) -> Result<Vec<Event>>
     fn query_sum(type, json_field, filters) -> Result<f64>
     fn tail(type, since_id) -> Result<Vec<Event>>
@@ -250,9 +250,9 @@ impl EventStore {
 - Delete `cost_ledger.rs`
 - Budget check = `event_store.query_sum("cost", "$.cost_usd", {today})`
 
-**Expertise ledger** → derived from `events WHERE type='task_completed'`
+**Expertise ledger** → derived from `events WHERE type='quest_completed'`
 - Delete `expertise.rs`
-- Best-agent = aggregate task_completed events by agent + domain
+- Best-agent = aggregate quest_completed events by agent + domain
 
 ### 4c. Migrate session store (medium risk)
 
@@ -321,7 +321,7 @@ SELECT agent_id,
        SUM(CASE WHEN json_extract(content,'$.outcome')='done' THEN 1 ELSE 0 END) as wins,
        COUNT(*) as total
 FROM events
-WHERE type='task_completed'
+WHERE type='quest_completed'
   AND agent_id IN (active agents with matching capabilities)
 GROUP BY agent_id
 ORDER BY wins DESC
@@ -362,8 +362,8 @@ The dispatch bus (now events) handles delivery. Sessions handle history.
 
 After all phases:
 
-- **4 tables**: agents, tasks, events, memories
-- **1 field type**: prompts[] on agents, tasks, triggers
+- **4 tables**: agents, quests, events, memories
+- **1 field type**: prompts[] on agents, quests, triggers
 - **1 database**: aeqi.db (+ memories.db for embeddings)
 - **1 scheduler**: event-driven, global, wake → reap → query → spawn
 - **0 separate concept files**: no company.rs, registry.rs, worker_pool.rs,

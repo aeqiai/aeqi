@@ -1181,7 +1181,7 @@ impl AgentRegistry {
 
         let db = self.db.lock().await;
 
-        // Rate limit: reject if agent has exceeded daily task creation limit.
+        // Rate limit: reject if agent has exceeded daily quest creation limit.
         let max_daily_tasks: u32 = 50;
         let today_count: u32 = db.query_row(
             "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
@@ -1190,7 +1190,7 @@ impl AgentRegistry {
         )?;
         if today_count >= max_daily_tasks {
             anyhow::bail!(
-                "Agent has reached daily task creation limit ({max_daily_tasks})"
+                "Agent has reached daily quest creation limit ({max_daily_tasks})"
             );
         }
 
@@ -1243,7 +1243,7 @@ impl AgentRegistry {
             ],
         )?;
 
-        info!(task = %task_id, agent = %agent.name, subject = %subject, "task created");
+        info!(task = %task_id, agent = %agent.name, subject = %subject, "quest created");
         Ok(task)
     }
 
@@ -1274,7 +1274,7 @@ impl AgentRegistry {
 
         let db = self.db.lock().await;
 
-        // Rate limit: reject if agent has exceeded daily task creation limit.
+        // Rate limit: reject if agent has exceeded daily quest creation limit.
         let max_daily_tasks: u32 = 50;
         let today_count: u32 = db.query_row(
             "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
@@ -1283,7 +1283,7 @@ impl AgentRegistry {
         )?;
         if today_count >= max_daily_tasks {
             anyhow::bail!(
-                "Agent has reached daily task creation limit ({max_daily_tasks})"
+                "Agent has reached daily quest creation limit ({max_daily_tasks})"
             );
         }
 
@@ -1341,11 +1341,11 @@ impl AgentRegistry {
             ],
         )?;
 
-        info!(task = %task_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "task created (v2)");
+        info!(task = %task_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "quest created (v2)");
         Ok(task)
     }
 
-    /// Find an open (Pending or InProgress) task by exact subject match.
+    /// Find an open (Pending or InProgress) quest by exact subject match.
     /// Used for atomic claim checking.
     pub async fn find_open_task_by_subject(
         &self,
@@ -1458,7 +1458,7 @@ impl AgentRegistry {
                 |row| Ok(row_to_task(row)),
             )
             .optional()?
-            .ok_or_else(|| anyhow::anyhow!("task not found: {task_id}"))?;
+            .ok_or_else(|| anyhow::anyhow!("quest not found: {task_id}"))?;
 
         f(&mut task);
 

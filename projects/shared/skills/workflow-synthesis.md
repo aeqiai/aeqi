@@ -88,7 +88,7 @@ Order improvements by impact × effort. Not everything worth doing is worth doin
 2. **Classify by path:**
    - **Harness (Path A)** — improves Claude Code + AEQI MCP integration (hooks, primer, skills)
    - **Runtime (Path B)** — improves native agent orchestrator (agent loop, middleware, worker pool)
-   - **Shared** — improves both paths (memory, graph, task tree, tools)
+   - **Shared** — improves both paths (memory, graph, quest tree, tools)
 3. **Prefer shared improvements** — changes that benefit both paths get priority
 4. **Create implementation plan** — ordered list of changes with the appropriate workflow for each
 
@@ -100,7 +100,7 @@ Order improvements by impact × effort. Not everything worth doing is worth doin
 
 Execute the prioritized improvements using the appropriate workflow for each.
 
-1. **Create parent quest** — `aeqi_create_task` for the synthesis effort
+1. **Create parent quest** — `aeqi_create_quest` for the synthesis effort
 2. **For each improvement**, load the right workflow:
    - New capability → `aeqi_prompts` get workflow-feature
    - Restructuring existing code → `aeqi_prompts` get workflow-refactor
@@ -124,7 +124,7 @@ Execute the prioritized improvements using the appropriate workflow for each.
    - What was adopted and why
    - What was rejected and why (equally valuable)
    - Architectural insights that apply beyond this specific source
-2. **Close quest** — `aeqi_close_task`
+2. **Close quest** — `aeqi_close_quest`
 3. **Update skills** — if the synthesis revealed reusable procedures, create or update skills
 
 ---

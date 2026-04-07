@@ -38,7 +38,7 @@ No refactoring until you've mapped every caller of every symbol you plan to chan
 
 Break the refactor into atomic, independently-testable steps.
 
-1. **Create quest** — `aeqi_create_task` with the refactoring description
+1. **Create quest** — `aeqi_create_quest` with the refactoring description
 2. **Order operations** — each step must leave the codebase compilable and tests passing:
    - Renames before signature changes
    - Add new before remove old (expand-contract pattern)
@@ -112,7 +112,7 @@ A refactor that changes behavior is not a refactor — it's a bug. If any test f
 
 1. **Store learnings** — `aeqi_remember` any non-obvious discoveries (e.g., hidden coupling, circular dependencies)
 2. **Commit** with a message that describes the structural change and WHY it was done
-3. **Close quest** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_quest`
 
 ---
 

@@ -2,7 +2,7 @@
 
 This document defines the target shape of the AEQI UI as an operator product.
 
-It is grounded in the current frontend under `apps/ui`, which exposes sessions, dashboard, agents, tasks, triggers, skills, memories, notes, and settings.
+It is grounded in the current frontend under `apps/ui`, which exposes sessions, dashboard, agents, quests, triggers, skills, memories, notes, and settings.
 
 ## Product Goal
 
@@ -12,7 +12,7 @@ It should not feel like:
 
 - a pile of admin dashboards
 - a generic chat app
-- a legacy task manager with AI widgets
+- a legacy quest manager with AI widgets
 
 It should feel like a control plane where a human can move fluidly between thought, structure, execution, and oversight.
 
@@ -21,14 +21,14 @@ It should feel like a control plane where a human can move fluidly between thoug
 The current UI has meaningful coverage:
 
 - sessions are the core interaction surface with persistent agent conversations
-- there are pages for sessions, agents, tasks, triggers, skills, memories, notes, and settings
+- there are pages for sessions, agents, quests, triggers, skills, memories, notes, and settings
 - the dashboard surfaces stats, activity feed, budget, and project/agent overview
 - layout: project rail → agent nav → floating nav bar → content
 
 The main gaps are coherence and operator flow:
 
 - too much page sprawl
-- chat, task state, and operational context still feel separate
+- chat, quest state, and operational context still feel separate
 - vendor residue still shows through in places like dashboard rate-limit language
 - the UI is more "many views" than "one operational cockpit"
 
@@ -54,7 +54,7 @@ without losing the thread.
 Users should understand work through a single connected timeline:
 
 - messages
-- task creation
+- quest creation
 - scheduling
 - worker progress
 - approvals
@@ -69,7 +69,7 @@ The operator should never have to guess:
 
 - what project this belongs to
 - who is working on it
-- what the task state is
+- what the quest state is
 - what constraints apply
 - what evidence exists
 
@@ -83,7 +83,7 @@ The flow should be:
 
 - capture a note
 - turn it into intent
-- attach it to goals, missions, or tasks
+- attach it to goals, missions, or quests
 - keep the note visible as an ongoing driver of decisions
 
 ### 5. Metrics over vanity
@@ -131,7 +131,7 @@ The main work surface.
 A thread should unify:
 
 - conversation
-- task timeline
+- quest timeline
 - runtime events
 - artifacts
 - approvals
@@ -144,7 +144,7 @@ The current chat page is the right foundation for this.
 A project or mission workspace should show:
 
 - goals
-- tasks
+- quests
 - active workers
 - memory and knowledge
 - metrics
@@ -168,7 +168,7 @@ The UI should let advanced users act quickly through:
 - command palette
 - keyboard-first navigation
 - inline approvals
-- quick creation of tasks, notes, missions, and interventions
+- quick creation of quests, notes, missions, and interventions
 
 ## Short-Term UI Priorities
 
@@ -178,7 +178,7 @@ These should come before broad visual redesign work.
 
 Improve the thread model so the operator can see:
 
-- task state
+- quest state
 - worker progress
 - verification evidence
 - blocked questions
@@ -209,7 +209,7 @@ Notes should become a top-level operator object, not just a backend capability.
 
 ### 5. Add org and mission clarity
 
-AEQI's differentiator is not a prettier task list. It is organization-aware execution. The UI must show that.
+AEQI's differentiator is not a prettier quest list. It is organization-aware execution. The UI must show that.
 
 ## Runtime-Aware UI
 

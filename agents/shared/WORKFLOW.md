@@ -24,19 +24,19 @@ These rules apply to ALL projects. Project-specific AGENTS.md may add to but nev
 
 ## Autonomous Execution Mandate
 
-**Task assignment = full authorization to execute, for hours, without check-ins.**
+**Quest assignment = full authorization to execute, for hours, without check-ins.**
 
-When a task is assigned, the worker owns it end-to-end:
+When a quest is assigned, the worker owns it end-to-end:
 - Spawn sub-agents freely
 - Make architectural decisions within the project
 - Commit, deploy to dev, iterate — without pausing for approval
 - Ambiguity in the spec? Make the best call. Document the decision. Keep moving.
 
-Mid-task check-ins are a failure mode, not a safety mechanism. The Architect's silence is not confusion — it's trust.
+Mid-quest check-ins are a failure mode, not a safety mechanism. The Architect's silence is not confusion — it's trust.
 
 ## Worker Protocol
 
-When executing a task, workers must signal their outcome:
+When executing a quest, workers must signal their outcome:
 
 - **Preferred format**: End with exactly one JSON object, no markdown fences:
   `{"status":"done|blocked|handoff|failed","summary":"...","reason":"...","next_action":"..."}`
@@ -62,14 +62,14 @@ When executing a task, workers must signal their outcome:
 
 ## Batch Dispatch
 
-When multiple tasks are ready for a project, dispatch ALL of them — not sequentially with permission gates. The Architect delegates at the project level. A project with 4 ready tasks should have 4 workers running, not 1 worker running and 3 waiting for human approval that was never required.
+When multiple quests are ready for a project, dispatch ALL of them — not sequentially with permission gates. The Architect delegates at the project level. A project with 4 ready quests should have 4 workers running, not 1 worker running and 3 waiting for human approval that was never required.
 
 The agent (or any orchestrator) must never:
-- List ready tasks and ask "which one?"
+- List ready quests and ask "which one?"
 - Dispatch one and wait for feedback before dispatching the next
-- Treat task selection as requiring human input
+- Treat quest selection as requiring human input
 
-Task triage is the orchestrator's job. If tasks have dependencies, sequence them. If they're independent, parallelize them.
+Quest triage is the orchestrator's job. If quests have dependencies, sequence them. If they're independent, parallelize them.
 
 ## Sub-Agent Orchestration
 
@@ -81,13 +81,13 @@ All implementation work uses one adaptive pipeline:
 
 1. **Discover**: inspect the relevant code, constraints, and prior checkpoints
 2. **Plan**: define the intended change and verification path before editing
-3. **Implement**: make the smallest coherent change that solves the task
+3. **Implement**: make the smallest coherent change that solves the quest
 4. **Verify**: run the strongest checks justified by the risk and scope
 5. **Finalize**: summarize what changed, what was verified, and any remaining risks
 
-The shape stays the same for every task. Only the depth changes:
-- tiny tasks move through the phases quickly
-- broad or risky tasks use more subagents, deeper planning, and stronger verification
+The shape stays the same for every quest. Only the depth changes:
+- tiny quests move through the phases quickly
+- broad or risky quests use more subagents, deeper planning, and stronger verification
 - worktrees are preferred whenever repo changes are involved
 
 ### Subagent Prompt Templates
@@ -112,7 +112,7 @@ Agent tool:
   subagent_type: "Plan"
   description: "Design plan for <3-5 word summary>"
   prompt: |
-    TASK: <what to build>
+    QUEST: <what to build>
     RESEARCH: <findings from Explore agents>
     PRODUCE: Ordered file changes, risk assessment, rollback plan
 ```
@@ -125,7 +125,7 @@ Agent tool:
   model: "sonnet"
   description: "Implement <3-5 word summary>"
   prompt: |
-    TASK: <implementation objective>
+    QUEST: <implementation objective>
     PLAN: <plan output>
     DONE CRITERIA: compiles, tests pass, committed
 ```

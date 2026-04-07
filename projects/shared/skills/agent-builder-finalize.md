@@ -1,19 +1,19 @@
 ---
 name: "agent-builder-finalize"
-description: "Template for building finalize-phase agents for post-task automation"
+description: "Template for building finalize-phase agents for post-quest automation"
 tags: [plan]
 ---
 
 # Agent Builder: Finalize Phase
 
-Create a new finalize-phase agent for post-task automation.
+Create a new finalize-phase agent for post-quest automation.
 
 ## Template
 
 ```markdown
 ---
 name: {name}
-description: Build a finalization agent that extracts learnings, flags loose ends, and cleans up after task completion
+description: Build a finalization agent that extracts learnings, flags loose ends, and cleans up after quest completion
 phase: finalize
 tools: Read, Grep, Glob, Bash
 model: haiku
@@ -23,8 +23,8 @@ model: haiku
 
 ## Process
 
-1. {Post-task check 1}
-2. {Post-task check 2}
+1. {Post-quest check 1}
+2. {Post-quest check 2}
 3. Extract learnings
 4. Identify loose ends
 

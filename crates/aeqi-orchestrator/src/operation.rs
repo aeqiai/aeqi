@@ -6,8 +6,8 @@ use std::path::Path;
 use tracing::info;
 
 /// An operation tracks work across multiple projects.
-/// It monitors a set of tasks from different projects and
-/// auto-closes when all tracked tasks are completed.
+/// It monitors a set of quests from different projects and
+/// auto-closes when all tracked quests are completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Operation {
     pub id: String,
@@ -43,7 +43,7 @@ impl Operation {
         }
     }
 
-    /// Mark a task as closed in this operation.
+    /// Mark a quest as closed in this operation.
     pub fn mark_closed(&mut self, task_id: &QuestId) {
         for b in &mut self.tasks {
             if b.task_id == *task_id {
@@ -52,7 +52,7 @@ impl Operation {
         }
     }
 
-    /// Check if all tasks in the operation are closed.
+    /// Check if all quests in the operation are closed.
     pub fn is_complete(&self) -> bool {
         self.tasks.iter().all(|b| b.closed)
     }
@@ -98,21 +98,21 @@ impl OperationStore {
     /// Create a new operation.
     pub fn create(&mut self, name: &str, tasks: Vec<(QuestId, String)>) -> Result<&Operation> {
         let op = Operation::new(name, tasks);
-        info!(id = %op.id, name = %name, tasks = op.tasks.len(), "operation created");
+        info!(id = %op.id, name = %name, quests = op.tasks.len(), "operation created");
         self.operations.push(op);
         self.save()?;
         Ok(self.operations.last().unwrap())
     }
 
-    /// Mark a task as closed across all active operations.
-    pub fn mark_task_closed(&mut self, task_id: &QuestId) -> Result<Vec<String>> {
+    /// Mark a quest as closed across all active operations.
+    pub fn mark_quest_closed(&mut self, quest_id: &QuestId) -> Result<Vec<String>> {
         let mut completed_ops = Vec::new();
 
         for op in &mut self.operations {
             if op.closed_at.is_some() {
                 continue;
             }
-            op.mark_closed(task_id);
+            op.mark_closed(quest_id);
             if op.is_complete() {
                 op.closed_at = Some(Utc::now());
                 info!(id = %op.id, name = %op.name, "operation completed");

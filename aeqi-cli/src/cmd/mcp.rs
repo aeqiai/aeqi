@@ -172,39 +172,39 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_create_task".to_string(),
-            description: "Create a task in a AEQI project for the team to execute. Supports agent assignment, dependency tracking, and parent-child hierarchies. Prefix subject with 'claim:' for atomic resource locking.".to_string(),
+            name: "aeqi_create_quest".to_string(),
+            description: "Create a quest in a AEQI project for the team to execute. Supports agent assignment, dependency tracking, and parent-child hierarchies. Prefix subject with 'claim:' for atomic resource locking.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "project": {"type": "string"},
-                    "subject": {"type": "string", "description": "Short task title. Prefix with 'claim:' for atomic resource locking."},
+                    "subject": {"type": "string", "description": "Short quest subject. Prefix with 'claim:' for atomic resource locking."},
                     "description": {"type": "string", "description": "Detailed description (optional)"},
-                    "agent": {"type": "string", "description": "Agent name to assign the task to (optional, defaults to project default agent)"},
+                    "agent": {"type": "string", "description": "Agent name to assign the quest to (optional, defaults to project default agent)"},
                     "skill": {"type": "string", "description": "Skill/prompt to load for execution"},
                     "labels": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization"},
                     "depends_on": {
                         "oneOf": [
-                            {"type": "string", "description": "Single quest ID this task depends on"},
-                            {"type": "array", "items": {"type": "string"}, "description": "Quest IDs this task depends on"}
+                            {"type": "string", "description": "Single quest ID this quest depends on"},
+                            {"type": "array", "items": {"type": "string"}, "description": "Quest IDs this quest depends on"}
                         ],
-                        "description": "Quest ID(s) that must complete before this task can start"
+                        "description": "Quest ID(s) that must complete before this quest can start"
                     },
-                    "parent": {"type": "string", "description": "Parent quest ID — makes this a child task (e.g. 'sg-001' creates 'sg-001.1')"}
+                    "parent": {"type": "string", "description": "Parent quest ID — makes this a child quest (e.g. 'sg-001' creates 'sg-001.1')"}
                 },
                 "required": ["project", "subject"]
             }),
         },
         ToolDef {
-            name: "aeqi_close_task".to_string(),
-            description: "Close/complete a task by ID.".to_string(),
+            name: "aeqi_close_quest".to_string(),
+            description: "Close/complete a quest by ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "task_id": {"type": "string"},
+                    "quest_id": {"type": "string"},
                     "reason": {"type": "string", "description": "Completion reason or summary of what was accomplished"}
                 },
-                "required": ["task_id"]
+                "required": ["quest_id"]
             }),
         },
         ToolDef {
@@ -227,12 +227,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
         ToolDef {
             name: "aeqi_delegate".to_string(),
-            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers task context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer aeqi_create_task with agent param (v2 approach).".to_string(),
+            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers quest context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer aeqi_create_quest with agent param (v2 approach).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "agent": {"type": "string", "description": "Agent name (e.g. 'researcher', 'reviewer', 'architect')"},
-                    "task_id": {"type": "string", "description": "Task ID for notes context (e.g. 'sg-010')"},
+                    "quest_id": {"type": "string", "description": "Quest ID for notes context (e.g. 'sg-010')"},
                     "project": {"type": "string", "description": "Project name"},
                     "prompt": {"type": "string", "description": "Additional instructions for the agent"}
                 },
@@ -585,7 +585,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "aeqi_delegate" => {
                         let agent_name = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
-                        let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+                        let task_id = args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
                         let extra_prompt =
                             args.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -629,13 +629,13 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             found
                         };
 
-                        // 2. Gather notes context for the task
+                        // 2. Gather notes context for the quest
                         let mut bb_context = String::new();
                         if !task_id.is_empty() {
                             let bb_req = serde_json::json!({
                                 "cmd": "notes",
                                 "project": project,
-                                "prefix": format!("task:{task_id}"),
+                                "prefix": format!("quest:{task_id}"),
                                 "limit": 10
                             });
                             if let Ok(bb_resp) = ipc_request_sync(&data_dir, &bb_req)
@@ -660,7 +660,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         prompt.push_str("\n\n---\n\n");
                         prompt.push_str(&format!("# Delegation Context\n\nProject: {project}\n"));
                         if !task_id.is_empty() {
-                            prompt.push_str(&format!("Task: {task_id}\n"));
+                            prompt.push_str(&format!("Quest: {task_id}\n"));
                         }
                         if !bb_context.is_empty() {
                             prompt.push_str(&format!("\n# Notes Context\n{bb_context}\n"));
@@ -670,22 +670,22 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         prompt.push_str(&format!(
                             "\nWhen done, post your results to notes:\n\
-                             aeqi_notes(action='post', project='{project}', key='task:{task_id}:{agent_name}', content='<your findings>')\n"
+                             aeqi_notes(action='post', project='{project}', key='quest:{task_id}:{agent_name}', content='<your findings>')\n"
                         ));
 
                         Ok(serde_json::json!({
                             "ok": true,
                             "agent": agent_name,
                             "project": project,
-                            "task_id": task_id,
+                            "quest_id": task_id,
                             "prompt": prompt,
                             "usage": "Pass the 'prompt' field to a Claude Code Agent subagent. The agent will read notes context and post results back."
                         }))
                     }
 
-                    "aeqi_create_task" => {
+                    "aeqi_create_quest" | "aeqi_create_task" => {
                         let mut ipc = args.clone();
-                        ipc["cmd"] = serde_json::json!("create_task");
+                        ipc["cmd"] = serde_json::json!("create_quest");
                         // Normalize depends_on: string → array
                         if let Some(dep) = ipc.get("depends_on").cloned() {
                             if dep.is_string() {
@@ -694,26 +694,26 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         ipc_request_sync(&data_dir, &ipc)
                     }
-                    "aeqi_close_task" => {
+                    "aeqi_close_quest" | "aeqi_close_task" => {
                         let project = args
                             .get("project")
                             .and_then(|v| v.as_str())
                             .or_else(|| {
-                                args.get("task_id")
+                                args.get("quest_id")
                                     .and_then(|v| v.as_str())
                                     .and_then(|id| id.split('-').next())
                             })
                             .unwrap_or("");
-                        let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+                        let quest_id = args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
                         let mut ipc = args.clone();
-                        ipc["cmd"] = serde_json::json!("close_task");
+                        ipc["cmd"] = serde_json::json!("close_quest");
                         let mut result = ipc_request_sync(&data_dir, &ipc);
 
-                        // Enrich: check if review was posted for this task
+                        // Enrich: check if review was posted for this quest
                         if let Ok(ref mut val) = result
-                            && !task_id.is_empty()
+                            && !quest_id.is_empty()
                         {
-                            let review_key = format!("task:{task_id}:review");
+                            let review_key = format!("quest:{quest_id}:review");
                             let bb_req = serde_json::json!({
                                 "cmd": "notes",
                                 "project": project,
@@ -727,7 +727,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
 
                             if !has_review {
                                 val["review_warning"] = serde_json::json!(format!(
-                                    "No review posted for {task_id}. For significant changes, delegate: aeqi_delegate(agent='reviewer', project='{project}', task_id='{task_id}')"
+                                    "No review posted for {quest_id}. For significant changes, delegate: aeqi_delegate(agent='reviewer', project='{project}', quest_id='{quest_id}')"
                                 ));
                             }
                         }

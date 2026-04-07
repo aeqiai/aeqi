@@ -2,7 +2,7 @@
 
 Solo developer. Do not ask for confirmation. Read PLAN.md and VISION.md.
 
-Four tables: agents, tasks, events, memories. One field: prompts[].
+Four tables: agents, quests, events, memories. One field: prompts[].
 Everything else is debt. Collapse it.
 
 Phases 1–3 and 4a are done. Continue from Phase 4b through Phase 7.

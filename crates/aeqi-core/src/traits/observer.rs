@@ -148,11 +148,11 @@ pub trait Observer: Send + Sync {
     /// Called when a file is modified externally (detected between turns).
     async fn file_changed(&self, _path: &str) {}
 
-    /// Called when a task is created.
-    async fn task_created(&self, _task_id: &str, _subject: &str) {}
+    /// Called when a quest is created.
+    async fn quest_created(&self, _quest_id: &str, _subject: &str) {}
 
-    /// Called when a task is completed.
-    async fn task_completed(&self, _task_id: &str, _outcome: &str) {}
+    /// Called when a quest is completed.
+    async fn quest_completed(&self, _quest_id: &str, _outcome: &str) {}
 
     /// Called when the user submits a prompt. Can return modified prompt.
     async fn user_prompt_submit(&self, _prompt: &str) -> Option<String> {

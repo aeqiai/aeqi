@@ -31,4 +31,4 @@ name = "Root Cause: {{incident_summary}}"
 description = "Deep investigation into root cause. Document findings and preventive measures."
 priority = "high"
 labels = ["incident", "postmortem"]
-acceptance_criteria = "Root cause documented, preventive measures identified, follow-up tasks created"
+acceptance_criteria = "Root cause documented, preventive measures identified, follow-up quests created"

@@ -36,7 +36,7 @@ No implementation until the approach is approved. Not "probably fine." Not "seem
 
 Break the approved approach into bite-sized quests.
 
-1. **Create parent quest** — `aeqi_create_task` with the feature description
+1. **Create parent quest** — `aeqi_create_quest` with the feature description
 2. **Map file structure** — `aeqi_graph` context/impact to understand what files need changing and their relationships
 3. **Decompose into quests** — each quest is ONE action (2-5 minutes of work). Include:
    - Exact file paths
@@ -114,7 +114,7 @@ If you're thinking "it should work" or "tests probably pass" — you haven't ver
 
 1. **Commit** with a clear message describing what and why
 2. **Store learnings** — `aeqi_remember` anything non-obvious discovered during implementation
-3. **Close quest** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_quest`
 4. **Consider skill creation** — was this workflow complex enough to codify as a reusable skill?
 
 ---

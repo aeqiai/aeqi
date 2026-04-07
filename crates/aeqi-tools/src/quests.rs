@@ -6,15 +6,15 @@ use async_trait::async_trait;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-/// Tool for creating tasks.
+/// Tool for creating quests.
 pub struct QuestCreateTool {
     store: Mutex<QuestBoard>,
     prefix: String,
 }
 
 impl QuestCreateTool {
-    pub fn new(tasks_dir: PathBuf, prefix: String) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf, prefix: String) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
             prefix,
@@ -42,10 +42,10 @@ impl Tool for QuestCreateTool {
             .store
             .lock()
             .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let mut task = store.create_with_agent(&self.prefix, subject, None)?;
+        let mut quest = store.create_with_agent(&self.prefix, subject, None)?;
 
         if !description.is_empty() || priority != "normal" {
-            task = store.update(&task.id.0, |t| {
+            quest = store.update(&quest.id.0, |t| {
                 if !description.is_empty() {
                     t.description = description.to_string();
                 }
@@ -59,20 +59,20 @@ impl Tool for QuestCreateTool {
         }
 
         Ok(ToolResult::success(format!(
-            "Created task {} [{}] {}",
-            task.id, task.priority, task.name
+            "Created quest {} [{}] {}",
+            quest.id, quest.priority, quest.name
         )))
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_create".to_string(),
-            description: "Create a new task with a subject and optional description/priority."
+            name: "quest_create".to_string(),
+            description: "Create a new quest with a subject and optional description/priority."
                 .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "subject": { "type": "string", "description": "Task title" },
+                    "subject": { "type": "string", "description": "Quest subject" },
                     "description": { "type": "string", "description": "Detailed description" },
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "default": "normal" }
                 },
@@ -82,18 +82,18 @@ impl Tool for QuestCreateTool {
     }
 
     fn name(&self) -> &str {
-        "task_create"
+        "quest_create"
     }
 }
 
-/// Tool for listing ready (unblocked) tasks.
+/// Tool for listing ready (unblocked) quests.
 pub struct QuestReadyTool {
     store: Mutex<QuestBoard>,
 }
 
 impl QuestReadyTool {
-    pub fn new(tasks_dir: PathBuf) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
         })
@@ -114,16 +114,16 @@ impl Tool for QuestReadyTool {
         }
 
         let mut output = String::new();
-        for task in ready {
+        for quest in ready {
             output.push_str(&format!(
                 "{} [{}] {} — {}\n",
-                task.id,
-                task.priority,
-                task.name,
-                if task.description.is_empty() {
+                quest.id,
+                quest.priority,
+                quest.name,
+                if quest.description.is_empty() {
                     "(no description)"
                 } else {
-                    &task.description
+                    &quest.description
                 }
             ));
         }
@@ -132,8 +132,8 @@ impl Tool for QuestReadyTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_ready".to_string(),
-            description: "List all unblocked tasks that are ready to work on.".to_string(),
+            name: "quest_ready".to_string(),
+            description: "List all unblocked quests that are ready to work on.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {}
@@ -142,18 +142,18 @@ impl Tool for QuestReadyTool {
     }
 
     fn name(&self) -> &str {
-        "task_ready"
+        "quest_ready"
     }
 }
 
-/// Tool for updating a task's status.
+/// Tool for updating a quest's status.
 pub struct QuestUpdateTool {
     store: Mutex<QuestBoard>,
 }
 
 impl QuestUpdateTool {
-    pub fn new(tasks_dir: PathBuf) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
         })
@@ -174,7 +174,7 @@ impl Tool for QuestUpdateTool {
             .lock()
             .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
-        let task = store.update(id, |t| {
+        let quest = store.update(id, |t| {
             if let Some(s) = status {
                 t.status = match s {
                     "in_progress" => aeqi_quests::QuestStatus::InProgress,
@@ -188,18 +188,18 @@ impl Tool for QuestUpdateTool {
 
         Ok(ToolResult::success(format!(
             "Updated {} [{}] {}",
-            task.id, task.status, task.name
+            quest.id, quest.status, quest.name
         )))
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_update".to_string(),
-            description: "Update a task's status.".to_string(),
+            name: "quest_update".to_string(),
+            description: "Update a quest's status.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Task ID (e.g. as-001)" },
+                    "id": { "type": "string", "description": "Quest ID (e.g. as-001)" },
                     "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"] }
                 },
                 "required": ["id"]
@@ -208,18 +208,18 @@ impl Tool for QuestUpdateTool {
     }
 
     fn name(&self) -> &str {
-        "task_update"
+        "quest_update"
     }
 }
 
-/// Tool for closing a task.
+/// Tool for closing a quest.
 pub struct QuestCloseTool {
     store: Mutex<QuestBoard>,
 }
 
 impl QuestCloseTool {
-    pub fn new(tasks_dir: PathBuf) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
         })
@@ -242,21 +242,21 @@ impl Tool for QuestCloseTool {
             .store
             .lock()
             .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let task = store.close(id, reason)?;
+        let quest = store.close(id, reason)?;
         Ok(ToolResult::success(format!(
             "Closed {} — {}",
-            task.id, task.name
+            quest.id, quest.name
         )))
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_close".to_string(),
-            description: "Close (complete) a task with an optional reason.".to_string(),
+            name: "quest_close".to_string(),
+            description: "Close (complete) a quest with an optional reason.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Task ID to close" },
+                    "id": { "type": "string", "description": "Quest ID to close" },
                     "reason": { "type": "string", "description": "Completion reason", "default": "completed" }
                 },
                 "required": ["id"]
@@ -265,18 +265,18 @@ impl Tool for QuestCloseTool {
     }
 
     fn name(&self) -> &str {
-        "task_close"
+        "quest_close"
     }
 }
 
-/// Tool for showing task details.
+/// Tool for showing quest details.
 pub struct QuestShowTool {
     store: Mutex<QuestBoard>,
 }
 
 impl QuestShowTool {
-    pub fn new(tasks_dir: PathBuf) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
         })
@@ -296,47 +296,47 @@ impl Tool for QuestShowTool {
             .lock()
             .map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
-        if let Some(task) = store.get(id) {
-            let deps = if task.depends_on.is_empty() {
+        if let Some(quest) = store.get(id) {
+            let deps = if quest.depends_on.is_empty() {
                 "none".to_string()
             } else {
-                task.depends_on
+                quest.depends_on
                     .iter()
                     .map(|d| d.0.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            let agent = task.agent_id.as_deref().unwrap_or("unbound");
+            let agent = quest.agent_id.as_deref().unwrap_or("unbound");
 
             let output = format!(
                 "ID: {}\nSubject: {}\nStatus: {}\nPriority: {}\nAgent: {}\nDescription: {}\nDepends on: {}\nCreated: {}",
-                task.id,
-                task.name,
-                task.status,
-                task.priority,
+                quest.id,
+                quest.name,
+                quest.status,
+                quest.priority,
                 agent,
-                if task.description.is_empty() {
+                if quest.description.is_empty() {
                     "(none)"
                 } else {
-                    &task.description
+                    &quest.description
                 },
                 deps,
-                task.created_at
+                quest.created_at
             );
             Ok(ToolResult::success(output))
         } else {
-            Ok(ToolResult::error(format!("Task not found: {id}")))
+            Ok(ToolResult::error(format!("Quest not found: {id}")))
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_show".to_string(),
-            description: "Show detailed information about a specific task.".to_string(),
+            name: "quest_show".to_string(),
+            description: "Show detailed information about a specific quest.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Task ID to show" }
+                    "id": { "type": "string", "description": "Quest ID to show" }
                 },
                 "required": ["id"]
             }),
@@ -344,18 +344,18 @@ impl Tool for QuestShowTool {
     }
 
     fn name(&self) -> &str {
-        "task_show"
+        "quest_show"
     }
 }
 
-/// Tool for adding a dependency between tasks.
+/// Tool for adding a dependency between quests.
 pub struct QuestDepTool {
     store: Mutex<QuestBoard>,
 }
 
 impl QuestDepTool {
-    pub fn new(tasks_dir: PathBuf) -> Result<Self> {
-        let store = QuestBoard::open(&tasks_dir)?;
+    pub fn new(quests_dir: PathBuf) -> Result<Self> {
+        let store = QuestBoard::open(&quests_dir)?;
         Ok(Self {
             store: Mutex::new(store),
         })
@@ -387,13 +387,13 @@ impl Tool for QuestDepTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_dep".to_string(),
-            description: "Add a dependency between two tasks. The first task will be blocked until the second is closed.".to_string(),
+            name: "quest_dep".to_string(),
+            description: "Add a dependency between two quests. The first quest will be blocked until the second is closed.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Task that will be blocked" },
-                    "depends_on": { "type": "string", "description": "Task that must complete first" }
+                    "id": { "type": "string", "description": "Quest that will be blocked" },
+                    "depends_on": { "type": "string", "description": "Quest that must complete first" }
                 },
                 "required": ["id", "depends_on"]
             }),
@@ -401,6 +401,6 @@ impl Tool for QuestDepTool {
     }
 
     fn name(&self) -> &str {
-        "task_dep"
+        "quest_dep"
     }
 }

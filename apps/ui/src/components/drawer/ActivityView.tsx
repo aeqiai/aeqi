@@ -53,7 +53,7 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
   const handleComplete = async () => {
     setClosing(true);
     try {
-      await api.closeTask(quest.id);
+      await api.closeQuest(quest.id);
     } catch {
       // silently fail -- store will refresh
     } finally {
@@ -64,7 +64,7 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
   const handleBlock = async () => {
     setClosing(true);
     try {
-      await api.closeTask(quest.id, { reason: "blocked" });
+      await api.closeQuest(quest.id, { reason: "blocked" });
     } catch {
       // silently fail
     } finally {

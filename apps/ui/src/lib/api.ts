@@ -129,13 +129,13 @@ export const api = {
   createCompany: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<any>("/companies", { method: "POST", body: JSON.stringify(data) }),
 
-  // Tasks
+  // Quests
   getTasks: (params?: { status?: string; company?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
     if (params?.company) query.set("company", params.company);
     const qs = query.toString();
-    return request<any>(`/tasks${qs ? `?${qs}` : ""}`);
+    return request<any>(`/quests${qs ? `?${qs}` : ""}`);
   },
 
   // Missions
@@ -290,8 +290,8 @@ export const api = {
     return request<any>(`/chat/timeline${qs ? `?${qs}` : ""}`);
   },
 
-  // Write: Create Task
-  createTask: (data: {
+  // Write: Create Quest
+  createQuest: (data: {
     company: string;
     subject: string;
     description?: string;
@@ -299,14 +299,14 @@ export const api = {
     acceptance_criteria?: string;
     assignee?: string;
   }) =>
-    request<any>("/tasks", {
+    request<any>("/quests", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  // Write: Close Task
-  closeTask: (id: string, data?: { reason?: string; company?: string }) =>
-    request<any>(`/tasks/${id}/close`, {
+  // Write: Close Quest
+  closeQuest: (id: string, data?: { reason?: string; company?: string }) =>
+    request<any>(`/quests/${id}/close`, {
       method: "POST",
       body: JSON.stringify(data || {}),
     }),
@@ -318,11 +318,11 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Single task
-  getTask: (id: string) => request<any>(`/tasks/${id}`),
+  // Single quest
+  getQuest: (id: string) => request<any>(`/quests/${id}`),
 
-  // Audit filtered by task (client-side filter)
-  getAuditForTask: async (taskId: string, last = 50) => {
+  // Audit filtered by quest (client-side filter)
+  getAuditForQuest: async (taskId: string, last = 50) => {
     const data = await request<any>(`/audit?last=${last}`);
     const entries = (data.entries || data.audit || []).filter(
       (e: any) => e.task_id === taskId

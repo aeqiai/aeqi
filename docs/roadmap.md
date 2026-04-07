@@ -6,10 +6,10 @@ This document connects the AEQI vision to the current codebase.
 
 AEQI already has meaningful foundations:
 
-- a Rust workspace with a daemon, API, memory layer, task storage, and orchestration logic
+- a Rust workspace with a daemon, API, memory layer, quest storage, and orchestration logic
 - a native agent loop
 - a web UI
-- task DAGs, audit, notes, budgets, and triggers
+- quest DAGs, audit, notes, budgets, and triggers
 - provider abstraction and room for multiple model backends
 
 What it does not yet have is full product coherence around the north star.
@@ -22,22 +22,22 @@ Goal: make AEQI's native execution path good enough to be the center of gravity.
 
 Focus areas:
 
-- runtime contract for tasks, steps, tool calls, artifacts, verification, and outcomes
+- runtime contract for quests, steps, tool calls, artifacts, verification, and outcomes
 - repo-aware coding loop with stronger inspect-edit-verify-recover behavior
 - better checkpointing and resumability
-- stronger context packing and task scoping
+- stronger context packing and quest scoping
 - deterministic verification and evidence capture
-- eval harness for real repository tasks
+- eval harness for real repository quests
 
 Exit criteria:
 
-- AEQI-native can complete a meaningful set of coding and repo-operation tasks reliably
+- AEQI-native can complete a meaningful set of coding and repo-operation quests reliably
 - cost and latency are visible and controllable
 - failures are inspectable instead of mysterious
 
 ## Phase 2: Work OS Cohesion
 
-Goal: unify notes, tasks, projects, orgs, and memory into one operator-facing model.
+Goal: unify notes, quests, projects, orgs, and memory into one operator-facing model.
 
 Focus areas:
 
@@ -74,7 +74,7 @@ Examples:
 Exit criteria:
 
 - AEQI can explain whether a mission is succeeding in real terms
-- operator dashboards show outcome health, not just task counts
+- operator dashboards show outcome health, not just quest counts
 
 ## Phase 4: Enterprise and Model Independence
 
@@ -112,7 +112,7 @@ This is the phase where prompts like "build this business" or "run this operatio
 The next practical moves should be:
 
 1. Define the native runtime contract in code and docs.
-2. Build an eval suite for coding and repo tasks.
+2. Build an eval suite for coding and repo quests.
 3. Tighten the native coding loop before expanding more surface area.
 4. Keep shaping the UI around notes, work, org, and operator control.
 5. Make metrics and outcome tracking a first-class part of the control plane.

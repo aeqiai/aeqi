@@ -13,14 +13,14 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { name: "task", description: "Create a new task", template: "/task " },
+  { name: "quest", description: "Create a new quest", template: "/quest " },
   { name: "status", description: "Check system status", template: "What is the current status?" },
   { name: "recall", description: "Search agent memory", template: "/recall " },
   { name: "skill", description: "Load or list skills", template: "/skill " },
   { name: "deploy", description: "Deploy a service", template: "/deploy " },
   { name: "audit", description: "Run a security audit", template: "/audit " },
-  { name: "research", description: "Start a research task", template: "Research: " },
-  { name: "blocked", description: "Show blocked tasks", template: "What tasks are blocked and why?" },
+  { name: "research", description: "Start a research quest", template: "Research: " },
+  { name: "blocked", description: "Show blocked quests", template: "What quests are blocked and why?" },
 ];
 
 interface BubbleMessage {
@@ -93,18 +93,24 @@ function formatRuntimePhase(phase?: string | null): string | null {
 
 function eventTitle(event: ThreadEvent): string {
   switch (event.event_type) {
+    case "quest_created":
     case "task_created":
-      return "Task created";
+      return "Quest created";
+    case "quest_released":
     case "task_released":
       return "Scheduled";
     case "quest_completed":
       return "Completed";
+    case "quest_blocked":
     case "task_blocked":
       return "Blocked";
+    case "quest_cancelled":
     case "task_cancelled":
       return "Cancelled";
+    case "quest_timed_out":
     case "task_timed_out":
       return "Timed out";
+    case "quest_slow":
     case "task_slow":
       return "Still working";
     case "council_pending":
@@ -115,8 +121,9 @@ function eventTitle(event: ThreadEvent): string {
       return "Council attached";
     case "council_advice":
       return `${event.role} advice`;
+    case "quest_closed":
     case "task_closed":
-      return "Task closed";
+      return "Quest closed";
     case "knowledge_stored":
       return "Knowledge stored";
     default:
@@ -130,17 +137,24 @@ function eventTone(event: ThreadEvent): NoticeMessage["tone"] {
     case "council_ready":
     case "knowledge_stored":
       return "success";
+    case "quest_blocked":
     case "task_blocked":
+    case "quest_cancelled":
     case "task_cancelled":
+    case "quest_timed_out":
     case "task_timed_out":
       return "error";
+    case "quest_slow":
     case "task_slow":
       return "warning";
+    case "quest_created":
     case "task_created":
+    case "quest_released":
     case "task_released":
     case "council_pending":
     case "council_started":
     case "council_advice":
+    case "quest_closed":
     case "task_closed":
       return "accent";
     default:
@@ -356,7 +370,7 @@ function EmptyChat({ onSuggestion }: { onSuggestion: (value: string) => void }) 
       <div className="c-empty-suggestions">
         {[
           "What is the status right now?",
-          "Create a task to audit the patrol loop.",
+          "Create a quest to audit the patrol loop.",
           "What happened overnight?",
         ].map((suggestion) => (
           <button
@@ -435,19 +449,19 @@ export default function ChatPage() {
     if (liveStats.blockedCount > 0) {
       items.push({
         label: `${liveStats.blockedCount} blocked — review?`,
-        value: "What tasks are blocked and what's preventing progress?",
+        value: "What quests are blocked and what's preventing progress?",
       });
     }
     if (liveStats.pendingCount > 3) {
       items.push({
-        label: `${liveStats.pendingCount} pending tasks`,
-        value: "Prioritize and start working on pending tasks.",
+        label: `${liveStats.pendingCount} pending quests`,
+        value: "Prioritize and start working on pending quests.",
       });
     }
     if (items.length === 0) {
       items.push(
         { label: "System status", value: "What is the current status?" },
-        { label: "Create a task", value: "/task " },
+        { label: "Create a quest", value: "/quest " },
       );
     }
     items.push({ label: "What happened today?", value: "Give me a summary of today's activity." });
@@ -760,7 +774,7 @@ export default function ChatPage() {
               <div key={`${event.task_id}-${event.event_type}`} className="c-worker-event">
                 <span className="c-worker-dot" />
                 <span className="c-worker-agent">{event.agent}</span>
-                <span className="c-worker-task">{event.task_id}</span>
+                <span className="c-worker-quest">{event.task_id}</span>
                 {phaseLabel && <span className="c-worker-phase">{phaseLabel}</span>}
                 {runtimeSession?.model && (
                   <span className="c-worker-model">{runtimeSession.model}</span>

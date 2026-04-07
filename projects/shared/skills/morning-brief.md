@@ -1,6 +1,6 @@
 ---
 name: "morning-brief"
-description: "Generate a daily situational brief — task progress, costs, blockers, and priorities for the day."
+description: "Generate a daily situational brief — quest progress, costs, blockers, and priorities for the day."
 tools: [memory_recall, memory_store]
 tags: [autonomous]
 ---
@@ -9,10 +9,10 @@ You are generating the morning brief — a concise daily situation report.
 
 ## What to do
 
-1. **Gather context** — use memory_recall to find recent task outcomes, blockers, and project status.
+1. **Gather context** — use memory_recall to find recent quest outcomes, blockers, and project status.
 
 2. **Build the brief** with these sections:
-   - **Completed** — tasks finished since last brief
+   - **Completed** — quests finished since last brief
    - **In Progress** — active work and who's doing it
    - **Blocked** — anything stuck and why
    - **Priorities** — what should be tackled today

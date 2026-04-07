@@ -563,7 +563,7 @@ impl AgentWorker {
                 if !b.description.is_empty() {
                     ctx.push_str(&format!("{}\n\n", b.description));
                 }
-                ctx.push_str(&format!("Task ID: {}\nPriority: {}\n", b.id, b.priority));
+                ctx.push_str(&format!("Quest ID: {}\nPriority: {}\n", b.id, b.priority));
 
                 // Include budgeted checkpoints from previous attempts.
                 if !b.checkpoints.is_empty() {
@@ -955,7 +955,7 @@ impl AgentWorker {
                         worker = %self.name,
                         task = %hook.task_id,
                         retries = current_retry + 1,
-                        "task auto-cancelled after max retries (handoff)"
+                        "quest auto-cancelled after max retries (handoff)"
                     );
                 } else {
                     final_task_status = QuestStatus::Pending;
@@ -1069,7 +1069,7 @@ impl AgentWorker {
                         worker = %self.name,
                         task = %hook.task_id,
                         retries = current_retry + 1,
-                        "task auto-cancelled after max retries"
+                        "quest auto-cancelled after max retries"
                     );
                     let _ = self.event_store.emit(
                         "decision",
@@ -1088,7 +1088,7 @@ impl AgentWorker {
                         worker = %self.name,
                         task = %hook.task_id,
                         mode = ?failure_mode,
-                        "task blocked by failure analysis"
+                        "quest blocked by failure analysis"
                     );
                 } else {
                     final_task_status = QuestStatus::Pending;
@@ -1237,7 +1237,7 @@ impl AgentWorker {
             worker = %self.name,
             task = %task_id,
             kind = ?Self::task_outcome_kind(outcome),
-            "task outcome persist skipped (delivered via on_complete callback)"
+            "quest outcome persist skipped (delivered via on_complete callback)"
         );
     }
 

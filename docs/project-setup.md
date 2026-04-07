@@ -73,7 +73,7 @@ data_dir = "~/.aeqi"
 shared_primer = """
 # AEQI
 
-## For Every Task
+## For Every Quest
 1. `aeqi_recall(project, query)` -- gate-enforced before any edit
 2. Load a workflow skill
 3. Follow the loaded workflow step by step
@@ -122,7 +122,7 @@ quality, and technical strategy. Implementation is delegated.
 1. Assess scope -- quick fix or architectural change?
 2. Check landscape -- what exists, what can be reused?
 3. Design solution -- options with trade-offs, recommend one
-4. Delegate implementation -- break into tasks, dispatch
+4. Delegate implementation -- break into quests, dispatch
 5. Review ruthlessly -- spec compliance first, quality second
 """
 ```
@@ -244,13 +244,13 @@ When a worker executes, its context is built from these layers:
 1. Root agent prompts             (scope=descendants, inherited down the tree)
 2. Parent agent prompts           (scope=descendants, project-level context)
 3. Agent system prompt            (scope=self, from agent.toml)
-4. Task prompts                   (quest description + skill prompts)
+4. Quest prompts                  (quest description + skill prompts)
 5. Dynamic recall                 (hybrid search from memory, entity-scoped)
 6. Quest tree context             (parent, children, done siblings)
 7. Checkpoints / resume brief     (prior attempts, git state, audit trail)
 ```
 
-Prompt assembly walks the agent tree from root to leaf, collecting all prompts with `scope=descendants`, then appends the agent's own prompts and task prompts.
+Prompt assembly walks the agent tree from root to leaf, collecting all prompts with `scope=descendants`, then appends the agent's own prompts and quest prompts.
 
 ## Budget Control
 

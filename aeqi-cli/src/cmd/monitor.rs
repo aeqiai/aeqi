@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use crate::helpers::{
-    daemon_ipc_request, format_project_org_hint, load_config_with_agents, open_tasks_for_project,
+    daemon_ipc_request, format_project_org_hint, load_config_with_agents, open_quests_for_project,
 };
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -44,16 +44,16 @@ struct ProjectMonitor {
     runtime_provider: String,
     model: String,
     org_hint: String,
-    open_tasks: usize,
-    ready_tasks: usize,
-    blocked_tasks: usize,
-    in_progress_tasks: usize,
-    critical_ready_tasks: usize,
-    budget_blocked_tasks: usize,
+    open_quests: usize,
+    ready_quests: usize,
+    blocked_quests: usize,
+    in_progress_quests: usize,
+    critical_ready_quests: usize,
+    budget_blocked_quests: usize,
     stalled: bool,
-    top_ready_tasks: Vec<String>,
-    top_blocked_tasks: Vec<String>,
-    task_store_error: Option<String>,
+    top_ready_quests: Vec<String>,
+    top_blocked_quests: Vec<String>,
+    quest_store_error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -216,7 +216,7 @@ fn build_project_monitor(
         .trim()
         .to_string();
 
-    let store = match open_tasks_for_project(project_name) {
+    let store = match open_quests_for_project(project_name) {
         Ok(store) => store,
         Err(error) => {
             return ProjectMonitor {
@@ -226,48 +226,47 @@ fn build_project_monitor(
                 runtime_provider: runtime_provider.to_string(),
                 model: model.to_string(),
                 org_hint,
-                open_tasks: 0,
-                ready_tasks: 0,
-                blocked_tasks: 0,
-                in_progress_tasks: 0,
-                critical_ready_tasks: 0,
-                budget_blocked_tasks: 0,
+                open_quests: 0,
+                ready_quests: 0,
+                blocked_quests: 0,
+                in_progress_quests: 0,
+                critical_ready_quests: 0,
+                budget_blocked_quests: 0,
                 stalled: false,
-                top_ready_tasks: Vec::new(),
-                top_blocked_tasks: Vec::new(),
-                task_store_error: Some(error.to_string()),
+                top_ready_quests: Vec::new(),
+                top_blocked_quests: Vec::new(),
+                quest_store_error: Some(error.to_string()),
             };
         }
     };
 
-    let all_tasks = store.all();
-    let ready_tasks = store.ready();
-    let open_tasks: Vec<_> = all_tasks
+    let all_quests = store.all();
+    let ready_quests = store.ready();
+    let open_quests: Vec<_> = all_quests
         .iter()
         .copied()
-        .filter(|task| !task.is_closed())
+        .filter(|q| !q.is_closed())
         .collect();
-    let blocked_tasks = sort_quests(
-        open_tasks
+    let blocked_quests = sort_quests(
+        open_quests
             .iter()
             .copied()
-            .filter(|task| task.status == QuestStatus::Blocked)
+            .filter(|q| q.status == QuestStatus::Blocked)
             .collect(),
     );
-    let in_progress_tasks = open_tasks
+    let in_progress_quests = open_quests
         .iter()
-        .filter(|task| task.status == QuestStatus::InProgress)
+        .filter(|q| q.status == QuestStatus::InProgress)
         .count();
-    let critical_ready_tasks = ready_tasks
+    let critical_ready_quests = ready_quests
         .iter()
-        .filter(|task| task.priority == Priority::Critical)
+        .filter(|q| q.priority == Priority::Critical)
         .count();
-    let budget_blocked_tasks = open_tasks
+    let budget_blocked_quests = open_quests
         .iter()
-        .filter(|task| {
-            task.status == QuestStatus::Blocked
-                && task
-                    .labels
+        .filter(|q| {
+            q.status == QuestStatus::Blocked
+                && q.labels
                     .iter()
                     .any(|label| label.eq_ignore_ascii_case("budget-blocked"))
         })
@@ -280,34 +279,34 @@ fn build_project_monitor(
         runtime_provider: runtime_provider.to_string(),
         model: model.to_string(),
         org_hint,
-        open_tasks: open_tasks.len(),
-        ready_tasks: ready_tasks.len(),
-        blocked_tasks: blocked_tasks.len(),
-        in_progress_tasks,
-        critical_ready_tasks,
-        budget_blocked_tasks,
-        stalled: !open_tasks.is_empty() && ready_tasks.is_empty() && in_progress_tasks == 0,
-        top_ready_tasks: ready_tasks
+        open_quests: open_quests.len(),
+        ready_quests: ready_quests.len(),
+        blocked_quests: blocked_quests.len(),
+        in_progress_quests,
+        critical_ready_quests,
+        budget_blocked_quests,
+        stalled: !open_quests.is_empty() && ready_quests.is_empty() && in_progress_quests == 0,
+        top_ready_quests: ready_quests
             .iter()
             .take(3)
-            .map(|task| quest_brief(task))
+            .map(|q| quest_brief(q))
             .collect(),
-        top_blocked_tasks: blocked_tasks
+        top_blocked_quests: blocked_quests
             .iter()
             .take(3)
-            .map(|task| quest_brief(task))
+            .map(|q| quest_brief(q))
             .collect(),
-        task_store_error: None,
+        quest_store_error: None,
     }
 }
 
-fn sort_quests(mut tasks: Vec<&Quest>) -> Vec<&Quest> {
-    tasks.sort_by(|a, b| {
+fn sort_quests(mut quests: Vec<&Quest>) -> Vec<&Quest> {
+    quests.sort_by(|a, b| {
         b.priority
             .cmp(&a.priority)
             .then_with(|| a.created_at.cmp(&b.created_at))
     });
-    tasks
+    quests
 }
 
 fn quest_brief(quest: &Quest) -> String {
@@ -364,21 +363,21 @@ fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> V
                 project.name, project.repo
             ));
         }
-        if let Some(error) = &project.task_store_error {
+        if let Some(error) = &project.quest_store_error {
             project_actions.push(format!(
-                "{} task board could not be opened ({error}). Fix the project directory before expecting patrols or monitor detail.",
+                "{} quest board could not be opened ({error}). Fix the project directory before expecting patrols or monitor detail.",
                 project.name
             ));
         }
-        if project.budget_blocked_tasks > 0 {
+        if project.budget_blocked_quests > 0 {
             project_actions.push(format!(
-                "{} has {} budget-blocked task(s). Lower task burn, switch runtime, or raise project/day budgets.",
-                project.name, project.budget_blocked_tasks
+                "{} has {} budget-blocked quest(s). Lower quest burn, switch runtime, or raise project/day budgets.",
+                project.name, project.budget_blocked_quests
             ));
         }
-        if project.stalled && project.blocked_tasks > 0 {
+        if project.stalled && project.blocked_quests > 0 {
             let focus = project
-                .top_blocked_tasks
+                .top_blocked_quests
                 .first()
                 .cloned()
                 .unwrap_or_else(|| "blocked work".to_string());
@@ -386,15 +385,15 @@ fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> V
                 "{} is stalled with blocked work and no active execution. Start with `{focus}` and inspect `aeqi audit --company {}`.",
                 project.name, project.name
             ));
-        } else if project.critical_ready_tasks > 0 {
+        } else if project.critical_ready_quests > 0 {
             project_actions.push(format!(
-                "{} has {} critical ready task(s). Pull them into execution with `aeqi ready --company {}` or let the daemon patrol pick them up.",
-                project.name, project.critical_ready_tasks, project.name
+                "{} has {} critical ready quest(s). Pull them into execution with `aeqi ready --company {}` or let the daemon patrol pick them up.",
+                project.name, project.critical_ready_quests, project.name
             ));
-        } else if project.ready_tasks > 0 && project.in_progress_tasks == 0 {
+        } else if project.ready_quests > 0 && project.in_progress_quests == 0 {
             project_actions.push(format!(
-                "{} has {} ready task(s) but no active work. That is idle capacity or a stopped daemon.",
-                project.name, project.ready_tasks
+                "{} has {} ready quest(s) but no active work. That is idle capacity or a stopped daemon.",
+                project.name, project.ready_quests
             ));
         }
     }
@@ -424,9 +423,9 @@ fn render_monitor_report(report: &MonitorReport) {
     println!(
         "Mode: {}",
         if report.daemon.online {
-            "live daemon + local task state"
+            "live daemon + local quest state"
         } else {
-            "local task state only"
+            "local quest state only"
         }
     );
 
@@ -514,28 +513,28 @@ fn render_monitor_report(report: &MonitorReport) {
             println!(
                 "  {:<16} open={:<3} ready={:<3} blocked={:<3} active={:<3} critical={:<3} repo={} runtime={} model={}{}",
                 project.name,
-                project.open_tasks,
-                project.ready_tasks,
-                project.blocked_tasks,
-                project.in_progress_tasks,
-                project.critical_ready_tasks,
+                project.open_quests,
+                project.ready_quests,
+                project.blocked_quests,
+                project.in_progress_quests,
+                project.critical_ready_quests,
                 repo_state,
                 project.runtime_provider,
                 project.model,
                 org_suffix,
             );
-            if let Some(error) = &project.task_store_error {
-                println!("    task-store-error: {error}");
+            if let Some(error) = &project.quest_store_error {
+                println!("    quest-store-error: {error}");
                 continue;
             }
             if project.stalled {
                 println!("    state: stalled");
             }
-            if !project.top_ready_tasks.is_empty() {
-                println!("    ready: {}", project.top_ready_tasks.join(" | "));
+            if !project.top_ready_quests.is_empty() {
+                println!("    ready: {}", project.top_ready_quests.join(" | "));
             }
-            if !project.top_blocked_tasks.is_empty() {
-                println!("    blocked: {}", project.top_blocked_tasks.join(" | "));
+            if !project.top_blocked_quests.is_empty() {
+                println!("    blocked: {}", project.top_blocked_quests.join(" | "));
             }
         }
     }
@@ -595,16 +594,16 @@ mod tests {
             runtime_provider: "openrouter".to_string(),
             model: "x".to_string(),
             org_hint: String::new(),
-            open_tasks: 3,
-            ready_tasks: 0,
-            blocked_tasks: 2,
-            in_progress_tasks: 0,
-            critical_ready_tasks: 0,
-            budget_blocked_tasks: 1,
+            open_quests: 3,
+            ready_quests: 0,
+            blocked_quests: 2,
+            in_progress_quests: 0,
+            critical_ready_quests: 0,
+            budget_blocked_quests: 1,
             stalled: true,
-            top_ready_tasks: Vec::new(),
-            top_blocked_tasks: vec!["aa-001 [high] unblock deploy".to_string()],
-            task_store_error: None,
+            top_ready_quests: Vec::new(),
+            top_blocked_quests: vec!["aa-001 [high] unblock deploy".to_string()],
+            quest_store_error: None,
         }];
 
         let interventions = build_interventions(&daemon, &projects);
@@ -644,22 +643,22 @@ mod tests {
             runtime_provider: "anthropic".to_string(),
             model: "claude".to_string(),
             org_hint: String::new(),
-            open_tasks: 4,
-            ready_tasks: 2,
-            blocked_tasks: 0,
-            in_progress_tasks: 0,
-            critical_ready_tasks: 1,
-            budget_blocked_tasks: 0,
+            open_quests: 4,
+            ready_quests: 2,
+            blocked_quests: 0,
+            in_progress_quests: 0,
+            critical_ready_quests: 1,
+            budget_blocked_quests: 0,
             stalled: false,
-            top_ready_tasks: vec!["bb-001 [critical] ship release".to_string()],
-            top_blocked_tasks: Vec::new(),
-            task_store_error: None,
+            top_ready_quests: vec!["bb-001 [critical] ship release".to_string()],
+            top_blocked_quests: Vec::new(),
+            quest_store_error: None,
         }];
 
         let interventions = build_interventions(&daemon, &projects);
 
         assert_eq!(interventions.len(), 1);
-        assert!(interventions[0].contains("critical ready task"));
+        assert!(interventions[0].contains("critical ready quest"));
         assert!(interventions[0].contains("aeqi ready --company beta"));
     }
 

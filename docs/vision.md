@@ -2,7 +2,7 @@
 
 AEQI is an AI-first work operating system.
 
-Its purpose is not only to answer questions or complete isolated coding tasks. Its purpose is to turn human intent into organized context, durable work, and real-world outcomes.
+Its purpose is not only to answer questions or complete isolated coding quests. Its purpose is to turn human intent into organized context, durable work, and real-world outcomes.
 
 ## North Star
 
@@ -10,19 +10,19 @@ The long-term AEQI experience should feel like this:
 
 1. A human states an outcome.
 2. AEQI turns that outcome into structure.
-3. AEQI creates or updates the right notes, goals, tasks, teams, skills, and knowledge.
+3. AEQI creates or updates the right notes, goals, quests, teams, skills, and knowledge.
 4. AEQI executes through software, content, communication, and operations.
 5. AEQI measures whether reality is improving.
 6. AEQI keeps adapting until the outcome is achieved or the operator changes course.
 
-In that world, AEQI is not just a coding tool and not just a task manager. It is the system that connects thought, organization, execution, and feedback.
+In that world, AEQI is not just a coding tool and not just a quest manager. It is the system that connects thought, organization, execution, and feedback.
 
 ## Product Shape
 
 AEQI should converge on five tightly connected surfaces:
 
 - Notes and directives: messy human thought captured without friction, then turned into durable intent
-- Work graph: tasks, missions, dependencies, approvals, blockers, and ownership
+- Work graph: quests, missions, dependencies, approvals, blockers, and ownership
 - Organization graph: humans, agents, teams, mandates, permissions, and reporting lines
 - Knowledge graph: project memory, operating context, learned preferences, skills, and reusable playbooks
 - Execution engine: the native agent runtime that can inspect, change, verify, and operate systems directly
@@ -49,7 +49,7 @@ That means:
 
 ### 1. Native-first runtime
 
-AEQI must own its runtime contract: context assembly, tool protocol, checkpointing, verification, artifacts, and task outcomes.
+AEQI must own its runtime contract: context assembly, tool protocol, checkpointing, verification, artifacts, and quest outcomes.
 
 External systems can be studied, benchmarked, or integrated when useful, but they must not define the architecture.
 
@@ -57,7 +57,7 @@ External systems can be studied, benchmarked, or integrated when useful, but the
 
 AEQI must be a real system of record:
 
-- task state
+- quest state
 - budget state
 - approvals
 - audit logs
@@ -71,7 +71,7 @@ The truth should live in AEQI, not in a vendor transcript.
 
 AEQI should not mimic legacy work software with AI bolted on.
 
-Notes, task management, org structure, knowledge, and execution should all be first-class and connected from the start.
+Notes, quest management, org structure, knowledge, and execution should all be first-class and connected from the start.
 
 ### 4. Model independence
 

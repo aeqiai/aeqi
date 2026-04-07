@@ -3,7 +3,7 @@
 ## Design Principles
 
 1. **Everything is a session.** No workers, no dispatch bus, no patrol for spawning. `spawn_session()` is the only way work runs.
-2. **Tasks are Jira issues.** They exist independently of execution. Sessions execute them.
+2. **Quests are Jira issues.** They exist independently of execution. Sessions execute them.
 3. **Agents are identities.** Persistent, with memory, personality, capabilities. Not ephemeral.
 4. **Skills are composable context.** Injected at spawn time. Stack. Override models and tools.
 5. **Permissions are explicit.** Every tool use is authorized. Users and agents have different trust levels.
@@ -18,7 +18,7 @@ pub struct Session {
     pub id: Uuid,
     pub agent_id: Uuid,
     pub parent_id: Option<Uuid>,
-    pub task_id: Option<Uuid>,
+    pub quest_id: Option<Uuid>,
     pub project_id: Option<Uuid>,
     pub name: String,
     pub auto_close: bool,
@@ -29,7 +29,7 @@ pub struct Session {
 }
 ```
 
-One table. One concept. Every execution creates one. Parent-child via `parent_id`. Task linkage via `task_id`. Skills recorded for reproducibility.
+One table. One concept. Every execution creates one. Parent-child via `parent_id`. Quest linkage via `quest_id`. Skills recorded for reproducibility.
 
 ### Spawning
 
@@ -39,7 +39,7 @@ session_manager.spawn(SpawnRequest {
     prompt: "do this",
     skills: vec!["architecture-audit", "rust-expertise"],
     parent_id: Some(my_session_id),
-    task_id: Some(task_id),
+    quest_id: Some(quest_id),
     auto_close: true,
     worktree: true,           // git worktree isolation
     permission_level: PermissionLevel::Standard,
@@ -67,15 +67,15 @@ pub enum SessionEvent {
 
 This IS the transcript. No separate "conversations" table + "tool_events" table + "segments" reconstruction. One ordered log. The frontend renders it directly.
 
-## The Task
+## The Quest
 
 ```rust
-pub struct Task {
+pub struct Quest {
     pub id: Uuid,
     pub project_id: Uuid,
     pub subject: String,
     pub description: String,
-    pub status: TaskStatus,         // Open, InProgress, Done, Blocked, Cancelled
+    pub status: QuestStatus,        // Open, InProgress, Done, Blocked, Cancelled
     pub priority: Priority,
     pub created_by: Uuid,           // agent or user UUID
     pub assigned_to: Option<Uuid>,  // agent UUID
@@ -93,23 +93,23 @@ pub struct Task {
 
 SQLite, not JSONL. Queryable. Indexed. No prefix-based IDs — pure UUIDs. The `created_by` field is always a UUID (agent or user — both are entities in the system).
 
-### Task Execution
+### Quest Execution
 
-When the patrol finds a ready task:
+When the patrol finds a ready quest:
 
 ```rust
 session_manager.spawn(SpawnRequest {
-    agent_id: task.assigned_to.unwrap(),
-    prompt: &task.description,
-    skills: task.skills.clone(),
-    task_id: Some(task.id),
+    agent_id: quest.assigned_to.unwrap(),
+    prompt: &quest.description,
+    skills: quest.skills.clone(),
+    quest_id: Some(quest.id),
     auto_close: true,
-    worktree: task.needs_isolation(),
+    worktree: quest.needs_isolation(),
     permission_level: PermissionLevel::Worker,
 })
 ```
 
-Same `spawn()`. Task linked via `task_id`. When session completes, patrol reads result and updates task status.
+Same `spawn()`. Quest linked via `quest_id`. When session completes, patrol reads result and updates quest status.
 
 ## The Agent
 
@@ -132,12 +132,12 @@ pub struct Agent {
 Agents are first-class entities. They have:
 - Memory (scoped by agent UUID, project UUID, system-wide)
 - Sessions (current + historical)
-- Tasks (assigned to them)
+- Quests (assigned to them)
 - Capabilities (what they're allowed to do)
 
 ### Users are Agents
 
-A human user IS an agent entry. Same table. Same UUID. `capabilities: [human]` distinguishes them. When a user creates a task, `created_by` is their agent UUID. When they chat, a session is spawned with their agent UUID.
+A human user IS an agent entry. Same table. Same UUID. `capabilities: [human]` distinguishes them. When a user creates a quest, `created_by` is their agent UUID. When they chat, a session is spawned with their agent UUID.
 
 This eliminates the "origin" concept — everything is agent-to-agent.
 
@@ -147,7 +147,7 @@ This eliminates the "origin" concept — everything is agent-to-agent.
 pub enum PermissionLevel {
     Unrestricted,   // Human user in interactive mode
     Standard,       // Web chat agents, delegated work
-    Worker,         // Background task execution
+    Worker,         // Background quest execution
     ReadOnly,       // Review, audit, exploration only
     Custom(PermissionPolicy),
 }
@@ -239,11 +239,11 @@ pub enum Event {
     MemoryStored { agent_id, scope, key },
     MemoryRecalled { agent_id, scope, count },
 
-    // Tasks
-    TaskCreated { task_id, project_id, created_by },
-    TaskAssigned { task_id, agent_id },
-    TaskCompleted { task_id, session_id, outcome },
-    TaskBlocked { task_id, reason },
+    // Quests
+    QuestCreated { quest_id, project_id, created_by },
+    QuestAssigned { quest_id, agent_id },
+    QuestCompleted { quest_id, session_id, outcome },
+    QuestBlocked { quest_id, reason },
 
     // Permissions
     PermissionRequested { session_id, tool, input_preview },
@@ -327,7 +327,7 @@ Each event type has its own React component. No translation layer. The event IS 
 ```
 aeqi-core       Agent loop, config, identity, traits
 aeqi-session    SessionManager, SessionStore, spawn logic
-aeqi-task       Task DAG, status machine
+aeqi-quest      Quest DAG, status machine
 aeqi-insights     SQLite + FTS5 + vector, three-tier scoping
 aeqi-tools      Built-in tools, skill loader, MCP client
 aeqi-providers  OpenRouter, Anthropic, Ollama
@@ -337,14 +337,14 @@ aeqi-graph      Code intelligence
 aeqi-cli        CLI, TUI, MCP server
 ```
 
-Key change: `aeqi-orchestrator` splits into `aeqi-session` (session management) and `aeqi-task` (task management). No more 4000-line daemon.rs. The daemon is just the event loop that wires everything together.
+Key change: `aeqi-orchestrator` splits into `aeqi-session` (session management) and `aeqi-quest` (quest management). No more 4000-line daemon.rs. The daemon is just the event loop that wires everything together.
 
 ## What This Beats Claude Code On
 
 | Axis | Claude Code | AEQI v2 |
 |------|-------------|---------|
 | Multi-agent | Recursive subagents (ephemeral) | Persistent agents with identity, memory, tree hierarchy |
-| Task tracking | Simple task list tool | Full DAG with deps, priority, retries, escalation |
+| Quest tracking | Simple task list tool | Full DAG with deps, priority, retries, escalation |
 | Memory | None | Three-tier hierarchical with vector search |
 | Delegation | Agent tool spawns child | spawn() with skills, worktree, permissions, parent chain |
 | Permissions | Multi-source rules | Same + per-session policies + skill intersection + hooks |

@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use crate::helpers::{
-    format_agent_org_hint, format_project_org_hint, load_config_with_agents, open_tasks_for_project,
+    format_agent_org_hint, format_project_org_hint, load_config_with_agents, open_quests_for_project,
 };
 
 pub(crate) async fn cmd_status(config_path: &Option<PathBuf>) -> Result<()> {
@@ -59,15 +59,15 @@ pub(crate) async fn cmd_status(config_path: &Option<PathBuf>) -> Result<()> {
             project_cfg.max_workers,
         );
 
-        // Show task counts.
-        if let Ok(store) = open_tasks_for_project(&project_cfg.name) {
+        // Show quest counts.
+        if let Ok(store) = open_quests_for_project(&project_cfg.name) {
             let open: Vec<_> = store
                 .by_prefix(&project_cfg.prefix)
                 .into_iter()
                 .filter(|b| !b.is_closed())
                 .collect();
             let ready = store.ready().len();
-            print!(" | tasks: {} open, {} ready", open.len(), ready);
+            print!(" | quests: {} open, {} ready", open.len(), ready);
         }
         let org_hint = format_project_org_hint(&config, &project_cfg.name);
         if !org_hint.is_empty() {

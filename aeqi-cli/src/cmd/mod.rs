@@ -20,7 +20,7 @@ pub(crate) mod secrets;
 pub(crate) mod setup;
 pub(crate) mod start;
 pub(crate) mod status;
-pub(crate) mod tasks;
+pub(crate) mod quests;
 pub(crate) mod team;
 pub(crate) mod trigger;
 pub(crate) mod web;

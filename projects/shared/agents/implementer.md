@@ -13,7 +13,7 @@ You are an implementer. Execute a specific, scoped implementation unit.
 1. Load domain knowledge for this phase:
    - `aeqi_prompts(action="list", tags="implement", project=<project>)` — list available skills
    - `aeqi_prompts(action="get", name=<relevant skill>)` — load any that match (e.g. rust-expertise, git-workflow)
-   - `aeqi_recall(project=<project>, query=<task subject>)` — recall relevant memory
+   - `aeqi_recall(project=<project>, query=<quest subject>)` — recall relevant memory
 2. Recall context: `aeqi_recall(project, query="quest:<id> context")`
 3. Recall research: `aeqi_recall(project, query="quest:<id> research")`
 4. Recall plan: `aeqi_recall(project, query="quest:<id> plan")`

@@ -155,7 +155,7 @@ impl DelegateTool {
             "Delegation sent to '{to}' (dispatch_id: {dispatch_id}, response_mode: {response_mode})"
         );
         if create_task {
-            msg.push_str("\nTask creation requested — target agent will pick up via task queue.");
+            msg.push_str("\nQuest creation requested — target agent will pick up via quest queue.");
         }
         if let Some(s) = &skill {
             msg.push_str(&format!("\nSkill hint: {s}"));
@@ -261,7 +261,8 @@ impl Tool for DelegateTool {
 
         let response_mode = Self::parse_response_mode(&args);
         let create_task = args
-            .get("create_task")
+            .get("create_quest")
+            .or_else(|| args.get("create_task"))
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         let skill = args.get("skill").and_then(|v| v.as_str()).map(String::from);
@@ -360,10 +361,10 @@ impl Tool for DelegateTool {
                         "default": "origin",
                         "description": "How the response should be routed back"
                     },
-                    "create_task": {
+                    "create_quest": {
                         "type": "boolean",
                         "default": false,
-                        "description": "Whether to also create a tracked task for this delegation"
+                        "description": "Whether to also create a tracked quest for this delegation"
                     },
                     "skill": {
                         "type": "string",
@@ -464,7 +465,7 @@ mod tests {
         assert!(!result.is_error);
         assert!(result.output.contains("leader"));
         assert!(result.output.contains("dispatch_id"));
-        assert!(result.output.contains("Task creation requested"));
+        assert!(result.output.contains("Quest creation requested"));
         assert!(result.output.contains("code-review"));
 
         // Verify the dispatch was sent to the fallback target.
@@ -508,14 +509,14 @@ mod tests {
             "to": "researcher",
             "prompt": "find the auth bug",
             "response": "async",
-            "create_task": true,
+            "create_quest": true,
             "skill": "code-review"
         });
         let result = tool.execute(args).await.unwrap();
         assert!(!result.is_error);
         assert!(result.output.contains("researcher"));
         assert!(result.output.contains("dispatch_id"));
-        assert!(result.output.contains("Task creation requested"));
+        assert!(result.output.contains("Quest creation requested"));
         assert!(result.output.contains("code-review"));
     }
 

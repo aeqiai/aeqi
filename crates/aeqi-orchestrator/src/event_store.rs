@@ -75,7 +75,7 @@ impl DispatchKind {
                 ..
             } => {
                 let mut text = format!(
-                    "Delegation request (response_mode: {response_mode}, create_task: {create_task})"
+                    "Delegation request (response_mode: {response_mode}, create_quest: {create_task})"
                 );
                 if let Some(s) = skill {
                     text.push_str(&format!(", skill: {s}"));
@@ -319,7 +319,7 @@ impl EventStore {
 
     /// Subscribe to the event broadcast channel for push-based dispatch.
     /// The scheduler uses this to wake immediately on relevant events
-    /// (task_created, quest_completed) instead of polling.
+    /// (quest_created, quest_completed) instead of polling.
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
         self.broadcast_tx.subscribe()
     }

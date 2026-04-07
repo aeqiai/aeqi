@@ -88,9 +88,9 @@ impl ProgressTracker {
                         "🚀 Workers awakened — {} {} queued across {}. Session: {}.",
                         total_pending + total_working,
                         if total_pending + total_working == 1 {
-                            "task"
+                            "quest"
                         } else {
-                            "tasks"
+                            "quests"
                         },
                         active_projects,
                         fmt_duration(elapsed)

@@ -1,4 +1,4 @@
-export type TaskRuntime = {
+export type QuestRuntime = {
   session?: {
     phase?: string | null;
     model?: string | null;
@@ -41,8 +41,8 @@ export function formatRuntimeStatus(status?: string | null): string | null {
   return RUNTIME_STATUS_LABELS[status] || status;
 }
 
-export function summarizeTaskRuntime(
-  runtime?: TaskRuntime,
+export function summarizeQuestRuntime(
+  runtime?: QuestRuntime,
   closedReason?: string | null,
 ): string | null {
   const reason = runtime?.outcome?.reason?.trim();
@@ -58,20 +58,20 @@ export function summarizeTaskRuntime(
   return fallback || null;
 }
 
-export function runtimeLabel(runtime?: TaskRuntime): string | null {
+export function runtimeLabel(runtime?: QuestRuntime): string | null {
   const phase = formatRuntimePhase(runtime?.session?.phase);
   const status = formatRuntimeStatus(runtime?.outcome?.status);
   const parts = [phase, status].filter(Boolean);
   return parts.length > 0 ? parts.join(" • ") : null;
 }
 
-export function extractRuntime(task: { runtime?: TaskRuntime; metadata?: Record<string, unknown> }): TaskRuntime | null {
-  if (task.runtime) return task.runtime;
-  const rt = task.metadata?.["aeqi/runtime"] as TaskRuntime | undefined;
+export function extractRuntime(quest: { runtime?: QuestRuntime; metadata?: Record<string, unknown> }): QuestRuntime | null {
+  if (quest.runtime) return quest.runtime;
+  const rt = quest.metadata?.["aeqi/runtime"] as QuestRuntime | undefined;
   return rt ?? null;
 }
 
-export function extractOutcome(task: { metadata?: Record<string, unknown> }): { kind: string; summary: string; reason?: string; next_action?: string } | null {
-  const oc = task.metadata?.["aeqi/task_outcome"] as any;
+export function extractOutcome(quest: { metadata?: Record<string, unknown> }): { kind: string; summary: string; reason?: string; next_action?: string } | null {
+  const oc = quest.metadata?.["aeqi/task_outcome"] as any;
   return oc ?? null;
 }

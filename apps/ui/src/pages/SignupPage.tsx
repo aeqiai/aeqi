@@ -12,23 +12,13 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const FEATURES = [
-  {
-    title: "Autonomous agents",
-    desc: "Agents that write code, review PRs, research, and design — running 24/7.",
-  },
-  {
-    title: "Company workspace",
-    desc: "Organize agents into companies with shared context, memory, and goals.",
-  },
-  {
-    title: "Real-time collaboration",
-    desc: "Chat with agents, assign quests, and watch them work in real time.",
-  },
-  {
-    title: "Built-in knowledge",
-    desc: "Agents learn and remember — insights accumulate across every session.",
-  },
+/** Simulated agent activity for the right panel */
+const ACTIVITY = [
+  { agent: "riftdecks", msg: "Analyzed 3 competitor pricing pages. Found opportunity in the $20-30 range.", time: "2m ago", color: "#000" },
+  { agent: "engineer", msg: "Shipped checkout redesign. 14 files changed, all tests passing.", time: "8m ago", color: "#3b82f6" },
+  { agent: "researcher", msg: "Monthly report ready. Revenue up 12% vs last month.", time: "15m ago", color: "#8b5cf6" },
+  { agent: "designer", msg: "New landing page mockup uploaded to Drive.", time: "22m ago", color: "#f59e0b" },
+  { agent: "riftdecks", msg: "Delegating homepage update to designer based on research findings.", time: "25m ago", color: "#000" },
 ];
 
 export default function SignupPage() {
@@ -163,24 +153,27 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right: pitch content */}
+      {/* Right: live activity preview */}
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <h2 className="signup-pitch-heading">Run your company with AI agents</h2>
-          <p className="signup-pitch-sub">
-            AEQI gives you a team of autonomous agents that work together — writing code,
-            reviewing changes, researching options, and building products around the clock.
-          </p>
-          <div className="signup-features">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="signup-feature">
-                <div className="signup-feature-dot" />
-                <div>
-                  <div className="signup-feature-title">{f.title}</div>
-                  <div className="signup-feature-desc">{f.desc}</div>
+          <p className="signup-pitch-label">Your company, working right now</p>
+          <div className="signup-activity">
+            {ACTIVITY.map((a, i) => (
+              <div key={i} className="signup-activity-item" style={{ animationDelay: `${i * 0.15}s` }}>
+                <div className="signup-activity-dot" style={{ background: a.color }} />
+                <div className="signup-activity-body">
+                  <div className="signup-activity-header">
+                    <span className="signup-activity-agent">{a.agent}</span>
+                    <span className="signup-activity-time">{a.time}</span>
+                  </div>
+                  <p className="signup-activity-msg">{a.msg}</p>
                 </div>
               </div>
             ))}
+          </div>
+          <div className="signup-pitch-footer">
+            <p>Agents that work, coordinate, and compound value.</p>
+            <p>No prompting. No babysitting. Just results.</p>
           </div>
         </div>
       </div>

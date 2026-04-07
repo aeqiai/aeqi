@@ -2,7 +2,7 @@
 name = "aeqi-tools"
 version.workspace = true
 edition.workspace = true
-description = "Built-in tools for shell, file, git, task, and agent delegation"
+description = "Built-in tools for shell, file, git, quest, and agent delegation"
 
 [dependencies]
 aeqi-core = { workspace = true }

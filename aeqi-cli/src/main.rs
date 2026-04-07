@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
             description,
             priority,
         }) => {
-            cmd::tasks::cmd_assign(
+            cmd::quests::cmd_assign(
                 &cli.config,
                 &subject,
                 &company,
@@ -91,13 +91,13 @@ async fn main() -> Result<()> {
             .await
         }
         Some(Commands::Ready { company }) => {
-            cmd::tasks::cmd_ready(&cli.config, company.as_deref()).await
+            cmd::quests::cmd_ready(&cli.config, company.as_deref()).await
         }
-        Some(Commands::Tasks { company, all }) => {
-            cmd::tasks::cmd_tasks(&cli.config, company.as_deref(), all).await
+        Some(Commands::Quests { company, all }) => {
+            cmd::quests::cmd_quests(&cli.config, company.as_deref(), all).await
         }
         Some(Commands::Close { id, reason }) => {
-            cmd::tasks::cmd_close(&cli.config, &id, &reason).await
+            cmd::quests::cmd_close(&cli.config, &id, &reason).await
         }
         Some(Commands::Daemon { action }) => cmd::daemon::cmd_daemon(&cli.config, action).await,
         Some(Commands::Recall {
@@ -120,11 +120,11 @@ async fn main() -> Result<()> {
             cmd::operation::cmd_operation(&cli.config, action).await
         }
         Some(Commands::Hooks { action }) => cmd::hooks::cmd_hooks(action).await,
-        Some(Commands::Hook { worker, task_id }) => {
-            cmd::tasks::cmd_hook(&cli.config, &worker, &task_id).await
+        Some(Commands::Hook { worker, quest_id }) => {
+            cmd::quests::cmd_hook(&cli.config, &worker, &quest_id).await
         }
-        Some(Commands::Done { task_id, reason }) => {
-            cmd::tasks::cmd_done(&cli.config, &task_id, &reason).await
+        Some(Commands::Done { quest_id, reason }) => {
+            cmd::quests::cmd_done(&cli.config, &quest_id, &reason).await
         }
         Some(Commands::Team { company }) => {
             cmd::team::cmd_team(&cli.config, company.as_deref()).await
@@ -133,9 +133,9 @@ async fn main() -> Result<()> {
         Some(Commands::Agent { action }) => cmd::agent::cmd_agent(&cli.config, action).await,
         Some(Commands::Audit {
             company,
-            task,
+            quest,
             last,
-        }) => cmd::audit::cmd_audit(&cli.config, company.as_deref(), task.as_deref(), last).await,
+        }) => cmd::audit::cmd_audit(&cli.config, company.as_deref(), quest.as_deref(), last).await,
         Some(Commands::Notes { action }) => cmd::notes::cmd_notes(&cli.config, action).await,
         Some(Commands::Deps { company, apply }) => {
             cmd::deps::cmd_deps(&cli.config, &company, apply).await

@@ -26,7 +26,7 @@ become anything.
 
 ```
 agents     who        — a node in the tree
-tasks      what       — a unit of work
+quests     what       — a unit of work
 events     happened   — immutable log
 memories   known      — searchable knowledge
 ```
@@ -34,7 +34,7 @@ memories   known      — searchable knowledge
 One field type appears everywhere:
 
 ```
-prompts    how        — ordered instructions on agents, tasks, triggers
+prompts    how        — ordered instructions on agents, quests, triggers
 ```
 
 No departments table. No skills table. No projects table. No workflows
@@ -82,7 +82,7 @@ role definitions — none of these are distinct concepts. They're all entries
 in a prompts[] array with a position (system/prepend/append) and a scope
 (self/descendants).
 
-A "skill" is prompts loaded onto a task. A "template" is prompts loaded
+A "skill" is prompts loaded onto a quest. A "template" is prompts loaded
 onto a new agent. A "primer" is prompts on an ancestor with scope=descendants.
 The files on disk are presets. The primitive is the prompt.
 
@@ -94,7 +94,7 @@ human in the loop unless you want one.
 ## Events, not stores
 
 Everything that happens is one row in one table. A message, a decision,
-a cost, a dispatch, a task completion — all events. The audit log is a
+a cost, a dispatch, a quest completion — all events. The audit log is a
 query. The cost report is a query. The session transcript is a query.
 Expertise scores are a query.
 
@@ -107,11 +107,11 @@ observability layer.
 wake → reap → query → spawn
 ```
 
-Event-driven. Zero latency between intent and execution. A task is created,
+Event-driven. Zero latency between intent and execution. A quest is created,
 the scheduler wakes, a worker spawns. The worker completes, the scheduler
 wakes again. No polling. No timers. No 30-second patrol cycles.
 
-Workers are ephemeral. Identity is persistent. Each task gets a fresh
+Workers are ephemeral. Identity is persistent. Each quest gets a fresh
 execution context loaded with the agent's accumulated prompts, memories,
 and tool access. The agent doesn't remember the session. It remembers
 everything important — because it chose what to store in memory.
@@ -122,7 +122,7 @@ Agents can:
 - Spawn child agents with arbitrary prompts
 - Rewrite their own and their children's prompts
 - Create triggers (cron, event, webhook) that fire autonomously
-- Delegate tasks to any agent in the tree
+- Delegate quests to any agent in the tree
 - Store memories visible to themselves, descendants, or siblings
 - Query the event log to reflect on what happened and why
 - Modify the tree structure — reparent, retire, activate agents

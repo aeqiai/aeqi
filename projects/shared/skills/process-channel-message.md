@@ -20,5 +20,5 @@ A message was posted to a context you participate in.
 ## Guidelines
 - Only respond when you have signal to add. Silence is fine.
 - Keep responses focused and actionable.
-- If the discussion reveals needed work, use `aeqi_create_task` to propose it for the right agent.
+- If the discussion reveals needed work, use `aeqi_create_quest` to propose a quest for the right agent.
 - Never repeat what others already said.

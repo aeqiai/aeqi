@@ -312,7 +312,7 @@ impl Daemon {
                 let _ = self
                     .event_store
                     .emit(
-                        "task_created",
+                        "quest_created",
                         Some(&trigger.agent_id),
                         None,
                         Some(&task.id.0),
@@ -427,7 +427,7 @@ impl Daemon {
                     ..
                 } => {
                     if !create_task {
-                        // Fire-and-forget: just log and skip task creation.
+                        // Fire-and-forget: just log and skip quest creation.
                         info!(
                             agent = %agent_name,
                             from = %dispatch.from,
@@ -462,7 +462,7 @@ impl Daemon {
                             let _ = self
                                 .event_store
                                 .emit(
-                                    "task_created",
+                                    "quest_created",
                                     Some(agent_id),
                                     None,
                                     Some(&task.id.0),
@@ -477,7 +477,7 @@ impl Daemon {
                                 agent = %agent_name,
                                 from = %dispatch.from,
                                 response_mode = %response_mode,
-                                "dispatch consumed → task created"
+                                "dispatch consumed → quest created"
                             );
                         }
                         Err(e) => {
@@ -790,7 +790,7 @@ impl Daemon {
                                 Ok(_task) => {
                                     let _ = dispatch_es
                                         .emit(
-                                            "task_created",
+                                            "quest_created",
                                             Some(&trigger_agent_id),
                                             None,
                                             Some(&_task.id.0),
@@ -1089,7 +1089,7 @@ impl Daemon {
 
     /// The main patrol loop: event-driven with a safety-net patrol timer.
     ///
-    /// Primary dispatch is push-based via EventStore broadcast: when task_created
+    /// Primary dispatch is push-based via EventStore broadcast: when quest_created
     /// or quest_completed events arrive, schedule() runs immediately (sub-ms).
     /// The full patrol iteration (triggers, metrics, pruning, etc.) runs on a
     /// 60-second timer as housekeeping.
@@ -1107,7 +1107,7 @@ impl Daemon {
                         Ok(event) => {
                             let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
                             match event_type {
-                                "task_created" | "quest_completed" => {
+                                "quest_created" | "quest_completed" => {
                                     debug!(event_type, "event-driven patrol dispatch");
                                     if let Err(e) = self.scheduler.schedule().await {
                                         warn!(error = %e, "schedule cycle failed (event-driven)");
@@ -2036,11 +2036,11 @@ impl Daemon {
                     }
                 },
 
-                "tasks" => {
+                "quests" | "tasks" => {
                     let project_filter = request.get("project").and_then(|v| v.as_str());
                     let status_filter = request.get("status").and_then(|v| v.as_str());
 
-                    // AgentRegistry path: unified task store.
+                    // AgentRegistry path: unified quest store.
                     let agent_filter = request.get("agent_id").and_then(|v| v.as_str());
                     // If project filter provided, try to resolve to an agent_id.
                     let resolved_agent = if agent_filter.is_some() {
@@ -2059,45 +2059,45 @@ impl Daemon {
                         .list_tasks(status_filter, resolved_agent.as_deref())
                         .await
                     {
-                        Ok(tasks) => {
-                            let all_tasks: Vec<serde_json::Value> = tasks
+                        Ok(quests) => {
+                            let all_quests: Vec<serde_json::Value> = quests
                                 .iter()
-                                .filter(|task| {
-                                    // Tenancy filter: check if task's agent belongs to an allowed company.
+                                .filter(|quest| {
+                                    // Tenancy filter: check if quest's agent belongs to an allowed company.
                                     if allowed_companies.is_none() {
                                         return true;
                                     }
-                                    // Task prefix (e.g. "sg-001") maps to company prefix.
+                                    // Quest prefix (e.g. "sg-001") maps to company prefix.
                                     // Also check agent_id against company agent names.
-                                    task.agent_id.as_deref().map(&is_allowed).unwrap_or(true)
+                                    quest.agent_id.as_deref().map(&is_allowed).unwrap_or(true)
                                 })
-                                .map(|task| {
+                                .map(|quest| {
                                     serde_json::json!({
-                                        "id": task.id.0,
-                                        "subject": task.name,
-                                        "description": task.description,
-                                        "status": task.status.to_string(),
-                                        "priority": task.priority.to_string(),
-                                        "agent_id": task.agent_id,
-                                        "skill": task.skill,
-                                        "labels": task.labels,
-                                        "retry_count": task.retry_count,
-                                        "project": task.agent_id.as_deref().unwrap_or(""),
-                                        "created_at": task.created_at.to_rfc3339(),
-                                        "updated_at": task.updated_at.map(|t| t.to_rfc3339()),
-                                        "closed_at": task.closed_at.map(|t| t.to_rfc3339()),
-                                        "outcome": task.task_outcome(),
-                                        "runtime": task.runtime(),
+                                        "id": quest.id.0,
+                                        "subject": quest.name,
+                                        "description": quest.description,
+                                        "status": quest.status.to_string(),
+                                        "priority": quest.priority.to_string(),
+                                        "agent_id": quest.agent_id,
+                                        "skill": quest.skill,
+                                        "labels": quest.labels,
+                                        "retry_count": quest.retry_count,
+                                        "project": quest.agent_id.as_deref().unwrap_or(""),
+                                        "created_at": quest.created_at.to_rfc3339(),
+                                        "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
+                                        "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
+                                        "outcome": quest.task_outcome(),
+                                        "runtime": quest.runtime(),
                                     })
                                 })
                                 .collect();
-                            serde_json::json!({"ok": true, "tasks": all_tasks, "partial": false})
+                            serde_json::json!({"ok": true, "quests": all_quests, "partial": false})
                         }
                         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                     }
                 }
 
-                "create_task" => {
+                "create_quest" | "create_task" => {
                     let project = request
                         .get("project")
                         .and_then(|v| v.as_str())
@@ -2123,7 +2123,7 @@ impl Daemon {
                                 .collect()
                         })
                         .unwrap_or_default();
-                    // v2: parent quest ID (makes this a child task)
+                    // v2: parent quest ID (makes this a child quest)
                     let parent_id = request.get("parent").and_then(|v| v.as_str());
 
                     if project.is_empty() || subject.is_empty() {
@@ -2135,12 +2135,12 @@ impl Daemon {
                         } else {
                             None
                         };
-                        if let Some(existing_task) = claim_conflict {
-                            let claimer = existing_task.agent_id.as_deref().unwrap_or("unknown");
+                        if let Some(existing_quest) = claim_conflict {
+                            let claimer = existing_quest.agent_id.as_deref().unwrap_or("unknown");
                             serde_json::json!({
                                 "ok": false,
                                 "error": format!("Resource claimed by {claimer}"),
-                                "existing_task_id": existing_task.id.0,
+                                "existing_quest_id": existing_quest.id.0,
                             })
                         } else {
                         // AgentRegistry path: resolve agent, then create task in unified store.
@@ -2180,16 +2180,16 @@ impl Daemon {
                                     )
                                     .await
                                 {
-                                    Ok(task) => {
-                                        // Step 3: Emit task_created event
+                                    Ok(quest) => {
+                                        // Step 3: Emit quest_created event
                                         let _ = dispatch_es
                                             .emit(
-                                                "task_created",
+                                                "quest_created",
                                                 Some(&agent.id),
                                                 agent.session_id.as_deref(),
-                                                Some(&task.id.0),
+                                                Some(&quest.id.0),
                                                 &serde_json::json!({
-                                                    "subject": task.name,
+                                                    "subject": quest.name,
                                                     "project": project,
                                                     "creator_session_id": agent.session_id,
                                                     "parent": parent_id,
@@ -2197,14 +2197,14 @@ impl Daemon {
                                                 }),
                                             )
                                             .await;
-                                        // The task_created event above triggers the scheduler via broadcast.
+                                        // The quest_created event above triggers the scheduler via broadcast.
                                         serde_json::json!({
                                             "ok": true,
-                                            "task": {
-                                                "id": task.id.0,
-                                                "subject": task.name,
-                                                "status": task.status.to_string(),
-                                                "agent_id": task.agent_id,
+                                            "quest": {
+                                                "id": quest.id.0,
+                                                "subject": quest.name,
+                                                "status": quest.status.to_string(),
+                                                "agent_id": quest.agent_id,
                                                 "project": project,
                                             }
                                         })
@@ -2222,9 +2222,10 @@ impl Daemon {
                     }
                 }
 
-                "close_task" => {
-                    let task_id = request
-                        .get("task_id")
+                "close_quest" | "close_task" => {
+                    let quest_id = request
+                        .get("quest_id")
+                        .or_else(|| request.get("task_id"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
                     let reason = request
@@ -2232,28 +2233,28 @@ impl Daemon {
                         .and_then(|v| v.as_str())
                         .unwrap_or("closed via web");
 
-                    if task_id.is_empty() {
-                        serde_json::json!({"ok": false, "error": "task_id is required"})
+                    if quest_id.is_empty() {
+                        serde_json::json!({"ok": false, "error": "quest_id is required"})
                     } else {
                         // AgentRegistry path: update status to Done via unified store.
                         match agent_registry
-                            .update_task(task_id, |task| {
-                                task.status = aeqi_quests::QuestStatus::Done;
-                                task.closed_at = Some(chrono::Utc::now());
-                                task.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                            .update_task(quest_id, |quest| {
+                                quest.status = aeqi_quests::QuestStatus::Done;
+                                quest.closed_at = Some(chrono::Utc::now());
+                                quest.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                                     aeqi_quests::QuestOutcomeKind::Done,
                                     reason,
                                 ));
                             })
                             .await
                         {
-                            Ok(task) => serde_json::json!({
+                            Ok(quest) => serde_json::json!({
                                 "ok": true,
-                                "task": {
-                                    "id": task.id.0,
-                                    "status": task.status.to_string(),
-                                    "outcome": task.task_outcome(),
-                                    "runtime": task.runtime(),
+                                "quest": {
+                                    "id": quest.id.0,
+                                    "status": quest.status.to_string(),
+                                    "outcome": quest.task_outcome(),
+                                    "runtime": quest.runtime(),
                                 }
                             }),
                             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -2382,7 +2383,7 @@ impl Daemon {
                                     match engine.handle_message_full(&msg, None).await {
                                         Ok(handle) => serde_json::json!({
                                             "ok": true,
-                                            "action": "task_created",
+                                            "action": "quest_created",
                                             "task_handle": handle.task_id,
                                             "chat_id": handle.chat_id,
                                             "context": "Processing your message...",
@@ -2759,7 +2760,7 @@ impl Daemon {
                                                         Ok(task) => {
                                                             let _ = dispatch_es
                                                                 .emit(
-                                                                    "task_created",
+                                                                    "quest_created",
                                                                     Some(&trigger.agent_id),
                                                                     None,
                                                                     Some(&task.id.0),
@@ -2774,11 +2775,11 @@ impl Daemon {
                                                                 .await;
                                                             serde_json::json!({
                                                                 "ok": true,
-                                                                "task_id": task.id
+                                                                "quest_id": task.id
                                                             })
                                                         }
                                                         Err(e) => {
-                                                            serde_json::json!({"ok": false, "error": format!("failed to create task: {e}")})
+                                                            serde_json::json!({"ok": false, "error": format!("failed to create quest: {e}")})
                                                         }
                                                     }
                                                 }

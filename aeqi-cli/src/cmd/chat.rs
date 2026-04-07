@@ -112,10 +112,10 @@ pub(crate) async fn cmd_chat(config_path: &Option<PathBuf>) -> Result<()> {
                     );
                 }
 
-                if r.get("action").and_then(|v| v.as_str()) == Some("task_created")
+                if r.get("action").and_then(|v| v.as_str()) == Some("quest_created")
                     && let Some(handle) = r.get("task_handle").and_then(|v| v.as_str())
                 {
-                    eprintln!("  \x1b[33m\u{27f3} Task: {handle}\x1b[0m");
+                    eprintln!("  \x1b[33m\u{27f3} Quest: {handle}\x1b[0m");
                     for _ in 0..24 {
                         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                         if let Ok(poll) = daemon_ipc_request(

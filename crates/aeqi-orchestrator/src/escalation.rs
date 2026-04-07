@@ -177,7 +177,7 @@ impl EscalationTracker {
                 task_id = %task_id,
                 elapsed_secs = elapsed,
                 cooldown_secs = self.policy.cooldown_secs,
-                "task is cooling down"
+                "quest is cooling down"
             );
         }
 

@@ -35,7 +35,7 @@ pub struct Trigger {
     pub last_fired: Option<DateTime<Utc>>,
     pub fire_count: u32,
     pub total_cost_usd: f64,
-    /// Prompt entries injected into tasks created by this trigger.
+    /// Prompt entries injected into quests created by this trigger.
     #[serde(default)]
     pub prompts: Vec<aeqi_core::PromptEntry>,
 }

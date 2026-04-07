@@ -21,7 +21,7 @@ You are performing memory consolidation — housekeeping for your knowledge.
    - Use the most informative key from the cluster
    - Preserve all unique information, discard only true duplicates
 
-4. **Prune stale facts** — if you find memories about things that are clearly no longer true (completed tasks described as in-progress, old deadlines, etc.), note them but don't delete — just store a consolidation note.
+4. **Prune stale facts** — if you find memories about things that are clearly no longer true (completed quests described as in-progress, old deadlines, etc.), note them but don't delete — just store a consolidation note.
 
 ## Constraints
 - Never discard information that might still be relevant.

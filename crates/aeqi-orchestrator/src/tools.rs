@@ -293,34 +293,34 @@ impl Tool for InsightRecallTool {
 }
 
 /// Format an `aeqi_quests::Quest` into a human-readable detail string.
-fn format_task_detail(task: &aeqi_quests::Quest) -> String {
+fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
     let mut out = format!(
-        "Task: {} \nStatus: {:?}\nPriority: {}\nSubject: {}\n",
-        task.id, task.status, task.priority, task.name,
+        "Quest: {} \nStatus: {:?}\nPriority: {}\nSubject: {}\n",
+        quest.id, quest.status, quest.priority, quest.name,
     );
-    if !task.description.is_empty() {
-        out.push_str(&format!("Description: {}\n", task.description));
+    if !quest.description.is_empty() {
+        out.push_str(&format!("Description: {}\n", quest.description));
     }
-    if let Some(ref agent_id) = task.agent_id {
+    if let Some(ref agent_id) = quest.agent_id {
         out.push_str(&format!("Agent: {}\n", agent_id));
     }
-    if let Some(outcome) = task.task_outcome() {
+    if let Some(outcome) = quest.task_outcome() {
         out.push_str(&format!("Outcome: {}\n", outcome.kind));
         out.push_str(&format!("Outcome summary: {}\n", outcome.summary));
         if let Some(reason) = outcome.reason {
             out.push_str(&format!("Outcome reason: {}\n", reason));
         }
     }
-    if task.retry_count > 0 {
-        out.push_str(&format!("Retries: {}\n", task.retry_count));
+    if quest.retry_count > 0 {
+        out.push_str(&format!("Retries: {}\n", quest.retry_count));
     }
-    if !task.checkpoints.is_empty() {
-        out.push_str(&format!("Checkpoints: {}\n", task.checkpoints.len()));
+    if !quest.checkpoints.is_empty() {
+        out.push_str(&format!("Checkpoints: {}\n", quest.checkpoints.len()));
     }
     out
 }
 
-/// Tool for reading full task details by ID.
+/// Tool for reading full quest details by ID.
 pub struct QuestDetailTool {
     agent_registry: Arc<AgentRegistry>,
 }
@@ -334,38 +334,38 @@ impl QuestDetailTool {
 #[async_trait]
 impl Tool for QuestDetailTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let task_id = args
-            .get("task_id")
+        let quest_id = args
+            .get("quest_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing task_id"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
 
-        match self.agent_registry.get_task(task_id).await {
-            Ok(Some(task)) => Ok(ToolResult::success(format_task_detail(&task))),
-            Ok(None) => Ok(ToolResult::error(format!("Task not found: {task_id}"))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to get task: {e}"))),
+        match self.agent_registry.get_task(quest_id).await {
+            Ok(Some(quest)) => Ok(ToolResult::success(format_quest_detail(&quest))),
+            Ok(None) => Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_detail".to_string(),
-            description: "Read full details of a task by its ID.".to_string(),
+            name: "quest_detail".to_string(),
+            description: "Read full details of a quest by its ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "task_id": { "type": "string", "description": "Task ID (e.g. 'as-001')" }
+                    "quest_id": { "type": "string", "description": "Quest ID (e.g. 'as-001')" }
                 },
-                "required": ["task_id"]
+                "required": ["quest_id"]
             }),
         }
     }
 
     fn name(&self) -> &str {
-        "task_detail"
+        "quest_detail"
     }
 }
 
-/// Tool for cancelling a task by ID.
+/// Tool for cancelling a quest by ID.
 pub struct QuestCancelTool {
     agent_registry: Arc<AgentRegistry>,
 }
@@ -379,10 +379,10 @@ impl QuestCancelTool {
 #[async_trait]
 impl Tool for QuestCancelTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let task_id = args
-            .get("task_id")
+        let quest_id = args
+            .get("quest_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing task_id"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
         let reason = args
             .get("reason")
             .and_then(|v| v.as_str())
@@ -391,7 +391,7 @@ impl Tool for QuestCancelTool {
         let reason_owned = reason.to_string();
         match self
             .agent_registry
-            .update_task(task_id, |q| {
+            .update_task(quest_id, |q| {
                 q.status = aeqi_quests::QuestStatus::Cancelled;
                 q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                     aeqi_quests::QuestOutcomeKind::Cancelled,
@@ -400,34 +400,34 @@ impl Tool for QuestCancelTool {
             })
             .await
         {
-            Ok(_) => Ok(ToolResult::success(format!("Task {task_id} cancelled."))),
+            Ok(_) => Ok(ToolResult::success(format!("Quest {quest_id} cancelled."))),
             Err(e) => Ok(ToolResult::error(format!(
-                "Failed to cancel task {task_id}: {e}"
+                "Failed to cancel quest {quest_id}: {e}"
             ))),
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_cancel".to_string(),
-            description: "Cancel a task by its ID.".to_string(),
+            name: "quest_cancel".to_string(),
+            description: "Cancel a quest by its ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "task_id": { "type": "string", "description": "Task ID to cancel" },
+                    "quest_id": { "type": "string", "description": "Quest ID to cancel" },
                     "reason": { "type": "string", "description": "Reason for cancellation" }
                 },
-                "required": ["task_id"]
+                "required": ["quest_id"]
             }),
         }
     }
 
     fn name(&self) -> &str {
-        "task_cancel"
+        "quest_cancel"
     }
 }
 
-/// Tool for reprioritizing a task.
+/// Tool for reprioritizing a quest.
 pub struct QuestReprioritizeTool {
     agent_registry: Arc<AgentRegistry>,
 }
@@ -441,10 +441,10 @@ impl QuestReprioritizeTool {
 #[async_trait]
 impl Tool for QuestReprioritizeTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let task_id = args
-            .get("task_id")
+        let quest_id = args
+            .get("quest_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing task_id"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
         let priority_str = args
             .get("priority")
             .and_then(|v| v.as_str())
@@ -464,37 +464,37 @@ impl Tool for QuestReprioritizeTool {
 
         match self
             .agent_registry
-            .update_task(task_id, |q| {
+            .update_task(quest_id, |q| {
                 q.priority = priority;
             })
             .await
         {
             Ok(_) => Ok(ToolResult::success(format!(
-                "Task {task_id} reprioritized to {priority}."
+                "Quest {quest_id} reprioritized to {priority}."
             ))),
             Err(e) => Ok(ToolResult::error(format!(
-                "Failed to reprioritize task {task_id}: {e}"
+                "Failed to reprioritize quest {quest_id}: {e}"
             ))),
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "task_reprioritize".to_string(),
-            description: "Change the priority of a task.".to_string(),
+            name: "quest_reprioritize".to_string(),
+            description: "Change the priority of a quest.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "task_id": { "type": "string", "description": "Task ID to reprioritize" },
+                    "quest_id": { "type": "string", "description": "Quest ID to reprioritize" },
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "New priority level" }
                 },
-                "required": ["task_id", "priority"]
+                "required": ["quest_id", "priority"]
             }),
         }
     }
 
     fn name(&self) -> &str {
-        "task_reprioritize"
+        "quest_reprioritize"
     }
 }
 
@@ -1153,7 +1153,7 @@ impl Tool for TriggerManageTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "manage_triggers".to_string(),
-            description: "Create, list, enable, disable, or delete triggers for this agent. Triggers automate recurring tasks on a schedule or in response to events.".to_string(),
+            description: "Create, list, enable, disable, or delete triggers for this agent. Triggers automate recurring quests on a schedule or in response to events.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {

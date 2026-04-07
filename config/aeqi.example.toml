@@ -56,9 +56,9 @@ max_background_cost_usd = 0.50
 # [orchestrator]
 # background_automation_enabled = true  # false disables cron, watchdogs, lifecycle, and worker reflection
 # max_resolution_attempts = 1   # project-level retries before escalation
-# max_task_retries = 3          # handoff/failure retries before auto-cancel
+# max_quest_retries = 3         # handoff/failure retries before auto-cancel
 # shell_timeout_secs = 30       # shell tool timeout
-# max_description_chars = 8000  # task description truncation limit
+# max_description_chars = 8000  # quest description truncation limit
 # executor_max_retries = 3      # worker execution transient failure retries
 # dispatch_ttl_secs = 3600      # dispatch message TTL
 # council_max_rounds = 1        # max council debate rounds
@@ -70,7 +70,7 @@ max_background_cost_usd = 0.50
 # infer_deps_threshold = 0.0    # confidence threshold for auto-inferred deps (0=disabled)
 # notes_claim_ttl_hours = 2     # notes claim TTL
 
-# Companies (repos, tasks, knowledge)
+# Companies (repos, quests, knowledge)
 [[companies]]
 name = "my-project"
 prefix = "mp"

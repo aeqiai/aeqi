@@ -249,10 +249,10 @@ pub(crate) fn build_tools(workdir: &Path) -> Vec<Arc<dyn Tool>> {
     tools
 }
 
-/// Build the full tool set for a project: basic tools + tasks + git worktree.
+/// Build the full tool set for a project: basic tools + quests + git worktree.
 pub(crate) fn build_project_tools(
     workdir: &Path,
-    tasks_dir: &Path,
+    quests_dir: &Path,
     prefix: &str,
     worktree_root: Option<&PathBuf>,
 ) -> Vec<Arc<dyn Tool>> {
@@ -267,22 +267,22 @@ pub(crate) fn build_project_tools(
     ];
 
     // Add quest tools (each gets its own store instance).
-    if let Ok(t) = QuestCreateTool::new(tasks_dir.to_path_buf(), prefix.to_string()) {
+    if let Ok(t) = QuestCreateTool::new(quests_dir.to_path_buf(), prefix.to_string()) {
         tools.push(Arc::new(t));
     }
-    if let Ok(t) = QuestReadyTool::new(tasks_dir.to_path_buf()) {
+    if let Ok(t) = QuestReadyTool::new(quests_dir.to_path_buf()) {
         tools.push(Arc::new(t));
     }
-    if let Ok(t) = QuestUpdateTool::new(tasks_dir.to_path_buf()) {
+    if let Ok(t) = QuestUpdateTool::new(quests_dir.to_path_buf()) {
         tools.push(Arc::new(t));
     }
-    if let Ok(t) = QuestCloseTool::new(tasks_dir.to_path_buf()) {
+    if let Ok(t) = QuestCloseTool::new(quests_dir.to_path_buf()) {
         tools.push(Arc::new(t));
     }
-    if let Ok(t) = QuestShowTool::new(tasks_dir.to_path_buf()) {
+    if let Ok(t) = QuestShowTool::new(quests_dir.to_path_buf()) {
         tools.push(Arc::new(t));
     }
-    if let Ok(t) = QuestDepTool::new(tasks_dir.to_path_buf()) {
+    if let Ok(t) = QuestDepTool::new(quests_dir.to_path_buf()) {
         tools.push(Arc::new(t));
     }
 
@@ -303,7 +303,7 @@ pub(crate) fn build_project_tools(
     tools
 }
 
-/// Look up project name from a task prefix (e.g. "as" -> "test-project").
+/// Look up project name from a quest prefix (e.g. "as" -> "test-project").
 pub(crate) fn project_name_for_prefix(config: &AEQIConfig, prefix: &str) -> Option<String> {
     // Check agent prefixes.
     for agent in &config.agents {
@@ -318,10 +318,10 @@ pub(crate) fn project_name_for_prefix(config: &AEQIConfig, prefix: &str) -> Opti
         .map(|r| r.name.clone())
 }
 
-pub(crate) fn open_tasks_for_project(project_name: &str) -> Result<QuestBoard> {
+pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> {
     let owner_dir = find_project_dir(project_name).or_else(|_| find_agent_dir(project_name))?;
-    let tasks_dir = owner_dir.join(".tasks");
-    QuestBoard::open(&tasks_dir)
+    let quests_dir = owner_dir.join(".quests");
+    QuestBoard::open(&quests_dir)
 }
 
 pub(crate) fn open_insights(config: &AEQIConfig) -> Result<SqliteInsights> {

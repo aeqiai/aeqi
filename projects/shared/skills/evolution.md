@@ -29,7 +29,7 @@ Save what reduces future steering — the most valuable memory is one that preve
 - Working patterns: approaches that consistently succeed or fail
 - Behavioral adjustments: concrete changes to how you work
 
-Do NOT save: task progress, session outcomes, completed-work logs, or temporary state. Those belong in transcripts, not memory.
+Do NOT save: quest progress, session outcomes, completed-work logs, or temporary state. Those belong in transcripts, not memory.
 
 ## Constraints
 - Never modify your core identity or name.

@@ -782,7 +782,7 @@
   color: var(--accent);
   font-weight: 500;
 }
-.c-worker-task {
+.c-worker-quest {
   font-family: var(--font-mono);
   color: var(--text-secondary);
 }
@@ -1297,8 +1297,8 @@
   color: var(--text-secondary);
 }
 
-/* Task events */
-.asv-task-event {
+/* Quest events */
+.asv-quest-event {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1308,19 +1308,19 @@
   font-family: var(--font-mono);
 }
 
-.asv-task-event-icon {
+.asv-quest-event-icon {
   flex-shrink: 0;
   width: 16px;
   text-align: center;
   font-weight: 600;
 }
 
-.asv-task-event-text {
+.asv-quest-event-text {
   flex: 1;
   min-width: 0;
 }
 
-.asv-task-event-time {
+.asv-quest-event-time {
   flex-shrink: 0;
 }
 
@@ -1334,7 +1334,7 @@
 }
 
 /* Session prompts bar */
-/* Attach bar — prompts & task picker */
+/* Attach bar — prompts & quest picker */
 .asv-attach-bar {
   padding: 6px 24px;
   border-top: 1px solid var(--border);
@@ -1362,7 +1362,7 @@
 .asv-attach-chip--prompt {
   border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
-.asv-attach-chip--task {
+.asv-attach-chip--quest {
   border-color: color-mix(in srgb, var(--warning, #f59e0b) 30%, var(--border));
 }
 .asv-attach-chip--file {

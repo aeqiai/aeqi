@@ -2,7 +2,7 @@ use aeqi_orchestrator::OperationStore;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
-use crate::helpers::{load_config, open_tasks_for_project, project_name_for_prefix};
+use crate::helpers::{load_config, open_quests_for_project, project_name_for_prefix};
 
 pub(crate) async fn cmd_assign(
     config_path: &Option<PathBuf>,
@@ -20,11 +20,11 @@ pub(crate) async fn cmd_assign(
         anyhow::bail!("project or agent not found: {project_name}");
     };
 
-    let mut store = open_tasks_for_project(project_name)?;
-    let mut task = store.create_with_agent(&prefix, subject, None)?;
+    let mut store = open_quests_for_project(project_name)?;
+    let mut quest = store.create_with_agent(&prefix, subject, None)?;
 
     if !description.is_empty() || priority.is_some() {
-        task = store.update(&task.id.0, |b| {
+        quest = store.update(&quest.id.0, |b| {
             if !description.is_empty() {
                 b.description = description.to_string();
             }
@@ -39,7 +39,7 @@ pub(crate) async fn cmd_assign(
         })?;
     }
 
-    println!("Created {} [{}] {}", task.id, task.priority, task.name);
+    println!("Created {} [{}] {}", quest.id, quest.priority, quest.name);
     Ok(())
 }
 
@@ -61,19 +61,19 @@ pub(crate) async fn cmd_ready(
 
     let mut found = false;
     for name in projects {
-        if let Ok(store) = open_tasks_for_project(name) {
+        if let Ok(store) = open_quests_for_project(name) {
             let ready = store.ready();
-            for task in ready {
+            for quest in ready {
                 found = true;
                 println!(
                     "{} [{}] {} — {}",
-                    task.id,
-                    task.priority,
-                    task.name,
-                    if task.description.is_empty() {
+                    quest.id,
+                    quest.priority,
+                    quest.name,
+                    if quest.description.is_empty() {
                         "(no description)"
                     } else {
-                        &task.description
+                        &quest.description
                     }
                 );
             }
@@ -86,7 +86,7 @@ pub(crate) async fn cmd_ready(
     Ok(())
 }
 
-pub(crate) async fn cmd_tasks(
+pub(crate) async fn cmd_quests(
     config_path: &Option<PathBuf>,
     project_name: Option<&str>,
     show_all: bool,
@@ -104,41 +104,41 @@ pub(crate) async fn cmd_tasks(
     };
 
     for name in projects {
-        if let Ok(store) = open_tasks_for_project(name) {
-            let tasks = store.all();
-            let tasks: Vec<_> = if show_all {
-                tasks
+        if let Ok(store) = open_quests_for_project(name) {
+            let quests = store.all();
+            let quests: Vec<_> = if show_all {
+                quests
             } else {
-                tasks.into_iter().filter(|b| !b.is_closed()).collect()
+                quests.into_iter().filter(|b| !b.is_closed()).collect()
             };
 
-            if tasks.is_empty() {
+            if quests.is_empty() {
                 continue;
             }
 
             println!("=== {} ===", name);
-            for task in tasks {
-                let agent = task.agent_id.as_deref().unwrap_or("-");
-                let deps = if task.depends_on.is_empty() {
+            for quest in quests {
+                let agent = quest.agent_id.as_deref().unwrap_or("-");
+                let deps = if quest.depends_on.is_empty() {
                     String::new()
                 } else {
                     format!(
                         " (needs: {})",
-                        task.depends_on
+                        quest.depends_on
                             .iter()
                             .map(|d| d.0.as_str())
                             .collect::<Vec<_>>()
                             .join(", ")
                     )
                 };
-                let checkpoints = if task.checkpoints.is_empty() {
+                let checkpoints = if quest.checkpoints.is_empty() {
                     String::new()
                 } else {
-                    format!(" checkpoints={}", task.checkpoints.len())
+                    format!(" checkpoints={}", quest.checkpoints.len())
                 };
                 println!(
                     "  {} [{}] {} — {} agent={}{}{}",
-                    task.id, task.status, task.priority, task.name, agent, deps, checkpoints
+                    quest.id, quest.status, quest.priority, quest.name, agent, deps, checkpoints
                 );
             }
         }
@@ -153,52 +153,52 @@ pub(crate) async fn cmd_close(config_path: &Option<PathBuf>, id: &str, reason: &
     let project_name = project_name_for_prefix(&config, prefix)
         .context(format!("no project with prefix '{prefix}'"))?;
 
-    let mut store = open_tasks_for_project(&project_name)?;
-    let task = store.close(id, reason)?;
-    println!("Closed {} — {}", task.id, task.name);
+    let mut store = open_quests_for_project(&project_name)?;
+    let quest = store.close(id, reason)?;
+    println!("Closed {} — {}", quest.id, quest.name);
     Ok(())
 }
 
 pub(crate) async fn cmd_hook(
     config_path: &Option<PathBuf>,
     worker: &str,
-    task_id: &str,
+    quest_id: &str,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
 
-    let prefix = task_id.split('-').next().unwrap_or("");
+    let prefix = quest_id.split('-').next().unwrap_or("");
     let project_name = project_name_for_prefix(&config, prefix)
         .context(format!("no project with prefix '{prefix}'"))?;
 
-    let mut store = open_tasks_for_project(&project_name)?;
-    let task = store.update(task_id, |b| {
+    let mut store = open_quests_for_project(&project_name)?;
+    let quest = store.update(quest_id, |b| {
         b.status = aeqi_quests::QuestStatus::InProgress;
     })?;
 
-    println!("Hooked {} to {} — {}", worker, task.id, task.name);
+    println!("Hooked {} to {} — {}", worker, quest.id, quest.name);
     Ok(())
 }
 
 pub(crate) async fn cmd_done(
     config_path: &Option<PathBuf>,
-    task_id: &str,
+    quest_id: &str,
     reason: &str,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
 
-    let prefix = task_id.split('-').next().unwrap_or("");
+    let prefix = quest_id.split('-').next().unwrap_or("");
     let project_name = project_name_for_prefix(&config, prefix)
         .context(format!("no project with prefix '{prefix}'"))?;
 
-    let mut store = open_tasks_for_project(&project_name)?;
-    let task = store.close(task_id, reason)?;
-    println!("Done {} — {}", task.id, task.name);
+    let mut store = open_quests_for_project(&project_name)?;
+    let quest = store.close(quest_id, reason)?;
+    println!("Done {} — {}", quest.id, quest.name);
 
-    // Also update any operations tracking this task.
+    // Also update any operations tracking this quest.
     let ops_path = config.data_dir().join("operations.json");
     if ops_path.exists() {
         let mut op_store = OperationStore::open(&ops_path)?;
-        let completed = op_store.mark_task_closed(&task.id)?;
+        let completed = op_store.mark_quest_closed(&quest.id)?;
         for c_id in &completed {
             println!("Operation {c_id} completed!");
         }

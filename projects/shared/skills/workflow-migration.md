@@ -45,7 +45,7 @@ Use the **expand-contract pattern** (parallel run):
 
 ### Planning Steps
 
-1. **Create parent quest** — `aeqi_create_task` with the migration description
+1. **Create parent quest** — `aeqi_create_quest` with the migration description
 2. **Map all consumers** — `aeqi_graph` context on each symbol being migrated to find every caller
 3. **Decompose into steps** — each step is ONE atomic change. Include:
    - Exact file paths and symbols affected
@@ -150,7 +150,7 @@ Remove the old code now that the new code is verified.
    - Rollback steps that were or weren't needed
    - How long it actually took vs. estimate
 2. **Commit** with a clear message describing the migration and why
-3. **Close quest** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_quest`
 4. **Consider skill creation** — if this migration type will recur, codify the specific steps as a project skill
 
 ---

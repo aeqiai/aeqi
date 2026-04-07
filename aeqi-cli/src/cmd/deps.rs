@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::helpers::{load_config, open_tasks_for_project};
+use crate::helpers::{load_config, open_quests_for_project};
 
 pub(crate) async fn cmd_deps(
     config_path: &Option<PathBuf>,
@@ -9,7 +9,7 @@ pub(crate) async fn cmd_deps(
     apply: Option<f64>,
 ) -> Result<()> {
     let (_config, _) = load_config(config_path)?;
-    let mut store = open_tasks_for_project(project)?;
+    let mut store = open_quests_for_project(project)?;
 
     let threshold = apply.unwrap_or(0.3);
 

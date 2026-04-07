@@ -6,7 +6,7 @@ use crate::helpers::load_config;
 pub(crate) async fn cmd_audit(
     config_path: &Option<PathBuf>,
     _project: Option<&str>,
-    task: Option<&str>,
+    quest: Option<&str>,
     last: u32,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
@@ -18,7 +18,7 @@ pub(crate) async fn cmd_audit(
 
     let filter = aeqi_orchestrator::event_store::EventFilter {
         event_type: Some("decision".to_string()),
-        quest_id: task.map(String::from),
+        quest_id: quest.map(String::from),
         ..Default::default()
     };
 
@@ -30,7 +30,7 @@ pub(crate) async fn cmd_audit(
     }
 
     for event in &events {
-        let task_str = event.quest_id.as_deref().unwrap_or("-");
+        let quest_str = event.quest_id.as_deref().unwrap_or("-");
         let agent_str = event
             .content
             .get("agent")
@@ -47,10 +47,10 @@ pub(crate) async fn cmd_audit(
             .and_then(|v| v.as_str())
             .unwrap_or("");
         println!(
-            "[{}] {} | task={} agent={} | {}",
+            "[{}] {} | quest={} agent={} | {}",
             event.created_at.format("%Y-%m-%d %H:%M:%S"),
             decision_type,
-            task_str,
+            quest_str,
             agent_str,
             reasoning,
         );

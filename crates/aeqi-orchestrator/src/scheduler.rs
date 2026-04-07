@@ -7,7 +7,7 @@
 //! budget, concurrency) live on the agent tree in AgentRegistry.
 //!
 //! Three dispatch paths (all trigger the same schedule() cycle):
-//! 1. **EventStore broadcast** — `task_created` / `quest_completed` events
+//! 1. **EventStore broadcast** — `quest_created` / `quest_completed` events
 //!    push through a `tokio::broadcast` channel for sub-millisecond dispatch.
 //! 2. **Completion channel** — workers report completion via `mpsc` channel,
 //!    immediately triggering re-scheduling for dependent tasks.
@@ -15,7 +15,7 @@
 //!
 //! ```text
 //! Scheduler
-//! ├── event_rx   ← EventStore broadcast (task_created, quest_completed)
+//! ├── event_rx   ← EventStore broadcast (quest_created, quest_completed)
 //! ├── completion_rx ← worker finished (CompletionEvent)
 //! ├── patrol     ← 60s safety net
 //! ├── reap()     → clean finished workers, handle timeouts
@@ -135,7 +135,7 @@ pub struct Scheduler {
     escalation_tracker: Mutex<EscalationTracker>,
 
     // Event-driven dispatch channels
-    /// Broadcast receiver for EventStore events (task_created, quest_completed, etc.)
+    /// Broadcast receiver for EventStore events (quest_created, quest_completed, etc.)
     event_rx: Mutex<tokio::sync::broadcast::Receiver<serde_json::Value>>,
     /// Worker completion channel — sender cloned into each spawned worker.
     completion_tx: mpsc::UnboundedSender<CompletionEvent>,
@@ -188,7 +188,7 @@ impl Scheduler {
 
     /// Run the scheduler loop. Blocks until shutdown.
     ///
-    /// Event-driven: wakes immediately on EventStore broadcasts (task_created,
+    /// Event-driven: wakes immediately on EventStore broadcasts (quest_created,
     /// quest_completed) and worker completion signals.
     /// A 60-second patrol timer acts as a safety net.
     pub async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
@@ -211,7 +211,7 @@ impl Scheduler {
                         Ok(event) => {
                             let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
                             match event_type {
-                                "task_created" | "quest_completed" => {
+                                "quest_created" | "quest_completed" => {
                                     debug!(event_type, "event-driven dispatch triggered");
                                     if let Err(e) = self.schedule().await {
                                         warn!(error = %e, "schedule cycle failed (event-driven)");
@@ -299,7 +299,7 @@ impl Scheduler {
             let agent_id = match &task.agent_id {
                 Some(id) => id.clone(),
                 None => {
-                    warn!(task = %task.id, "task has no agent_id, skipping");
+                    warn!(task = %task.id, "quest has no agent_id, skipping");
                     continue;
                 }
             };
@@ -468,7 +468,7 @@ impl Scheduler {
             let _ = self
                 .event_store
                 .emit(
-                    "task_created",
+                    "quest_created",
                     None,
                     None,
                     Some(&task_id),
@@ -773,7 +773,7 @@ impl Scheduler {
                 if let Ok(events) = spawn_event_store
                     .query(
                         &EventFilter {
-                            event_type: Some("task_created".to_string()),
+                            event_type: Some("quest_created".to_string()),
                             quest_id: Some(task_id.clone()),
                             ..Default::default()
                         },
@@ -790,7 +790,7 @@ impl Scheduler {
                         {
                             if sm.is_running(creator_session_id).await {
                                 let result_text = format!(
-                                    "Task {} completed ({}): {}",
+                                    "Quest {} completed ({}): {}",
                                     task_id,
                                     outcome_status,
                                     agent_name,

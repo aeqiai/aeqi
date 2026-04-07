@@ -1027,11 +1027,11 @@ mod tests {
         store
             .record_event(
                 7,
-                "task_created",
+                "quest_created",
                 "system",
-                "Task sg-001 created.",
+                "Quest sg-001 created.",
                 Some("web"),
-                Some(&serde_json::json!({"task_id": "sg-001"})),
+                Some(&serde_json::json!({"quest_id": "sg-001"})),
             )
             .await
             .unwrap();
@@ -1039,12 +1039,12 @@ mod tests {
         let events = store.timeline(7, 10).await.unwrap();
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].event_type, "message");
-        assert_eq!(events[1].event_type, "task_created");
+        assert_eq!(events[1].event_type, "quest_created");
         assert_eq!(
             events[1]
                 .metadata
                 .as_ref()
-                .and_then(|m| m.get("task_id"))
+                .and_then(|m| m.get("quest_id"))
                 .and_then(|v| v.as_str()),
             Some("sg-001")
         );

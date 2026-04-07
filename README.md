@@ -56,7 +56,7 @@ Every agent has three memory scopes:
 | **Domain** | Project-level facts and procedures | Permanent |
 | **System** | Cross-project knowledge | Permanent |
 
-Memory is backed by SQLite with FTS5 full-text search and optional vector embeddings for hybrid retrieval. A query planner generates typed queries (fact, procedure, preference, context) from task context. Memories decay over time -- older facts rank lower unless reinforced.
+Memory is backed by SQLite with FTS5 full-text search and optional vector embeddings for hybrid retrieval. A query planner generates typed queries (fact, procedure, preference, context) from quest context. Memories decay over time -- older facts rank lower unless reinforced.
 
 Agents can build semantic knowledge graphs through `memory_edges` -- relationships like "mentions", "requires", "contradicts" between facts.
 
@@ -67,11 +67,11 @@ Triggers define *when* an agent acts:
 | Type | Example | How it works |
 |------|---------|-------------|
 | **Schedule** | `0 9 * * *` or `every 1h` | Cron expression or interval |
-| **Event** | `task_completed`, `dispatch_received` | Pattern match on runtime events with cooldown |
+| **Event** | `quest_completed`, `dispatch_received` | Pattern match on runtime events with cooldown |
 | **Once** | `2026-04-15T09:00:00Z` | Fire once at a specific time, auto-disable |
 | **Webhook** | `POST /api/webhooks/:id` | External HTTP trigger with optional HMAC-SHA256 signing |
 
-When a trigger fires, it creates an agent-bound task that loads the associated skill.
+When a trigger fires, it creates an agent-bound quest that loads the associated skill.
 
 ### Skills
 
@@ -89,19 +89,19 @@ allow = ["shell", "read_file", "grep", "glob", "delegate"]
 system = """Review the code changes. Check for..."""
 ```
 
-Skills are composable -- agents load the right skill per task. Tool restrictions are enforced: a skill that only allows `read_file` cannot execute shell commands, even if the agent tries.
+Skills are composable -- agents load the right skill per quest. Tool restrictions are enforced: a skill that only allows `read_file` cannot execute shell commands, even if the agent tries.
 
 ### Delegation
 
 One tool for all inter-agent interaction:
 
 ```
-delegate(to, prompt, response_mode, create_task, skill)
+delegate(to, prompt, response_mode, create_quest, skill)
 ```
 
 | `to` | What happens |
 |------|-------------|
-| Agent name | Task delegation to a persistent agent |
+| Agent name | Quest delegation to a persistent agent |
 | `"subagent"` | Spawn an ephemeral worker |
 
 | Response mode | Where the result goes |
@@ -112,9 +112,9 @@ delegate(to, prompt, response_mode, create_task, skill)
 
 Delegation spawns a child session directly. The delegate tool creates a session linked to the calling session via `parent_id`, and routes responses back on completion.
 
-### Tasks
+### Quests
 
-Every task is agent-bound. Tasks are created by triggers, delegation, IPC, or direct assignment.
+Every quest is agent-bound. Quests are created by triggers, delegation, IPC, or direct assignment.
 
 ```
 Pending → InProgress → Done
@@ -122,7 +122,7 @@ Pending → InProgress → Done
                     → Failed (adaptive retry with LLM failure analysis)
 ```
 
-Tasks have atomic checkout (`locked_by`/`locked_at`) to prevent concurrent execution. State transitions are validated. Retry logic supports adaptive analysis: the system uses an LLM to classify failures as external blockers, missing context, or budget exhaustion, and routes accordingly.
+Quests have atomic checkout (`locked_by`/`locked_at`) to prevent concurrent execution. State transitions are validated. Retry logic supports adaptive analysis: the system uses an LLM to classify failures as external blockers, missing context, or budget exhaustion, and routes accordingly.
 
 ---
 
@@ -133,12 +133,12 @@ Tasks have atomic checkout (`locked_by`/`locked_at`) to prevent concurrent execu
 `aeqi daemon start` runs the orchestration plane. Every 30 seconds:
 
 1. **Reap** -- collect completed sessions
-2. **Query** -- gather ready tasks and running agent counts
-3. **Spawn** -- enforce per-agent `max_concurrent`, spawn sessions for ready tasks
+2. **Query** -- gather ready quests and running agent counts
+3. **Spawn** -- enforce per-agent `max_concurrent`, spawn sessions for ready quests
 4. **Fire triggers** -- schedule, once, and event-driven
 5. **Housekeeping** -- persist state, prune expired entries, flush memory writes
 
-Per-agent concurrency is enforced globally -- an agent with `max_concurrent=1` cannot get two workers even if tasks exist in different projects.
+Per-agent concurrency is enforced globally -- an agent with `max_concurrent=1` cannot get two workers even if quests exist in different projects.
 
 ### Middleware Chain
 
@@ -151,7 +151,7 @@ Every agent execution runs through 9 composable safety layers:
 | 300 | **Loop Detection** | MD5 hash sliding window -- warn at 3 repeats, kill at 5 |
 | 350 | **Context Compression** | Compact history at 50% context window, preserve first/last |
 | 400 | **Context Budget** | Cap enrichment at ~200 lines per attachment |
-| 600 | **Cost Tracking** | Per-task and per-scope budget enforcement |
+| 600 | **Cost Tracking** | Per-quest and per-scope budget enforcement |
 | 50 | **Memory Refresh** | Re-search memory every N tool calls |
 | 800 | **Clarification** | Structured questions routed via agent tree |
 | 900 | **Safety Net** | Detect and preserve partial work (git diffs, file edits) on failure |
@@ -249,7 +249,7 @@ aeqi chat --agent cto          # interactive TUI chat
 aeqi agent spawn agents/cto/   # create a persistent agent from template
 aeqi agent registry            # list all registered agents
 aeqi trigger create ...        # schedule, event, or webhook trigger
-aeqi assign -r myproject "task description"
+aeqi assign -r myproject "quest description"
 aeqi monitor                   # live terminal dashboard
 ```
 
@@ -261,10 +261,10 @@ aeqi monitor                   # live terminal dashboard
 CHAT SESSION (CLI / Telegram / Slack / Web)
     User message → Agent session (identity + memory + tools + inherited context)
     → Agent loop: LLM → tool calls → LLM → ... → response
-    → Transcript persisted (FTS5 searchable by agent and task)
+    → Transcript persisted (FTS5 searchable by agent and quest)
 
-ASYNC TASK (trigger / delegation / webhook)
-    Task created → Worker loads agent identity + skill + memory
+ASYNC QUEST (trigger / delegation / webhook)
+    Quest created → Worker loads agent identity + skill + memory
     → Middleware chain wraps execution (9 layers)
     → Agent loop: LLM → tool calls → LLM → ... → outcome
     → DONE: response routed back | BLOCKED: escalate | FAILED: adaptive retry
@@ -329,7 +329,7 @@ Pre-push hook runs all three automatically.
 ## Docs
 
 - [Architecture](docs/architecture.md) — system map, crates, primitives, agent loop
-- [Design v2](docs/design-v2.md) — clean-sheet design: sessions, tasks, skills, events
+- [Design v2](docs/design-v2.md) — clean-sheet design: sessions, quests, skills, events
 - [Project Setup](docs/project-setup.md) — projects, agents, skills, memory, quests
 - [Context Injection](docs/context-injection.md) — how agent input context is assembled
 - [Deployment](docs/deployment.md) — production topology, Docker, systemd

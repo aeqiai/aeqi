@@ -38,7 +38,7 @@ No fix until root cause is identified. Fixing symptoms creates new bugs. If you 
 
 Minimal, targeted change.
 
-1. **Create quest** — `aeqi_create_task` with the bug description and root cause
+1. **Create quest** — `aeqi_create_quest` with the bug description and root cause
 2. **Understand the file** — `aeqi_graph` file before editing anything
 3. **Write the fix** — change ONLY what's needed. No "while I'm here" improvements.
 4. **Check impact** — `aeqi_graph` impact on the changed symbol to verify the fix doesn't break callers
@@ -80,7 +80,7 @@ Prove the fix works. Adversarial mindset.
    - How it was fixed
    - What class of bug this represents (so you recognize the pattern next time)
 2. **Commit** with a message that explains the root cause and fix
-3. **Close quest** — `aeqi_close_task`
+3. **Close quest** — `aeqi_close_quest`
 
 ---
 

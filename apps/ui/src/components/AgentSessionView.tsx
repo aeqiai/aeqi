@@ -238,7 +238,7 @@ export default function AgentSessionView({
     name: string;
   } | null>(null);
   const [showAttachPicker, setShowAttachPicker] = useState<
-    "prompt" | "task" | null
+    "prompt" | "quest" | null
   >(null);
   const [attachSearch, setAttachSearch] = useState("");
   const [availablePrompts, setAvailablePrompts] = useState<
@@ -262,7 +262,7 @@ export default function AgentSessionView({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Fetch available prompts and tasks when picker opens
+  // Fetch available prompts and quests when picker opens
   useEffect(() => {
     if (showAttachPicker === "prompt" && availablePrompts.length === 0) {
       api
@@ -279,7 +279,7 @@ export default function AgentSessionView({
         })
         .catch(() => {});
     }
-    if (showAttachPicker === "task" && availableTasks.length === 0) {
+    if (showAttachPicker === "quest" && availableTasks.length === 0) {
       api
         .getTasks({ status: "open" })
         .then((data: any) => {
@@ -355,7 +355,7 @@ export default function AgentSessionView({
         setActiveTagFilters([]);
       } else if (e.key === "q") {
         e.preventDefault();
-        setShowAttachPicker((prev) => (prev === "task" ? null : "task"));
+        setShowAttachPicker((prev) => (prev === "quest" ? null : "quest"));
         setAttachSearch("");
       }
     };
@@ -570,7 +570,7 @@ export default function AgentSessionView({
         agent_id: agentId || undefined,
         session_id: sessionId || undefined,
       };
-      // Include prompts, task, and files on first message (session creation)
+      // Include prompts, quest, and files on first message (session creation)
       if (!activeSessionId) {
         if (sessionPrompts.length > 0) {
           payload.session_prompts = sessionPrompts;
@@ -699,7 +699,7 @@ export default function AgentSessionView({
           }
           case "DelegateStart": {
             const workerName = event.worker_name || "subagent";
-            const subject = event.task_subject || "delegated task";
+            const subject = event.quest_subject || "delegated quest";
             toolEvents.push({
               type: "start",
               name: `delegate: ${workerName}`,
@@ -935,10 +935,10 @@ export default function AgentSessionView({
         )}
 
         {messages.map((msg, i) => {
-          if (msg.role === "task_event") {
+          if (msg.role === "quest_event") {
             return (
-              <div key={i} className="asv-task-event">
-                <span className="asv-task-event-icon">
+              <div key={i} className="asv-quest-event">
+                <span className="asv-quest-event-icon">
                   {(msg.eventType || "").includes("create")
                     ? "+"
                     : (msg.eventType || "").includes("complete") ||
@@ -948,9 +948,9 @@ export default function AgentSessionView({
                         ? "!"
                         : "\u2192"}
                 </span>
-                <span className="asv-task-event-text">{msg.content}</span>
+                <span className="asv-quest-event-text">{msg.content}</span>
                 {msg.timestamp && (
-                  <span className="asv-task-event-time">
+                  <span className="asv-quest-event-time">
                     {formatTime(msg.timestamp)}
                   </span>
                 )}
@@ -1134,7 +1134,7 @@ export default function AgentSessionView({
         <div ref={messagesEnd} />
       </div>
 
-      {/* Session attachments — prompts, task, files (only visible before first message) */}
+      {/* Session attachments — prompts, quest, files (only visible before first message) */}
       {!activeSessionId && (
         <div
           className="asv-attach-bar"
@@ -1173,7 +1173,7 @@ export default function AgentSessionView({
                 </div>
               ))}
               {sessionTask && (
-                <div className="asv-attach-chip asv-attach-chip--task">
+                <div className="asv-attach-chip asv-attach-chip--quest">
                   <span className="asv-attach-chip-icon">◆</span>
                   <span className="asv-attach-chip-text">
                     {sessionTask.name}
@@ -1327,7 +1327,7 @@ export default function AgentSessionView({
                     )}
                   </>
                 )}
-                {showAttachPicker === "task" && (
+                {showAttachPicker === "quest" && (
                   <>
                     {availableTasks
                       .filter(
@@ -1369,7 +1369,7 @@ export default function AgentSessionView({
                 target="_blank"
                 rel="noreferrer"
               >
-                + create new {showAttachPicker === "task" ? "quest" : showAttachPicker}
+                + create new {showAttachPicker === "quest" ? "quest" : showAttachPicker}
               </a>
               {/* Hover preview */}
               {hoveredPrompt && (
@@ -1391,7 +1391,7 @@ export default function AgentSessionView({
               </button>
               <button
                 className="asv-attach-toggle"
-                onClick={() => setShowAttachPicker("task")}
+                onClick={() => setShowAttachPicker("quest")}
               >
                 + quest <span className="asv-attach-shortcut">⌘Q</span>
               </button>

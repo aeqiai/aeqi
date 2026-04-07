@@ -5,7 +5,7 @@ use tracing::debug;
 
 use crate::quest::{Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus};
 
-/// Valid transitions for the task state machine.
+/// Valid transitions for the quest state machine.
 fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
     use QuestStatus::*;
     matches!(
@@ -27,24 +27,24 @@ fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
     )
 }
 
-/// JSONL-based task store. One file per prefix, git-native.
+/// JSONL-based quest store. One file per prefix, git-native.
 pub struct QuestBoard {
     dir: PathBuf,
-    /// In-memory index: all tasks keyed by ID.
-    tasks: HashMap<String, Quest>,
+    /// In-memory index: all quests keyed by ID.
+    quests: HashMap<String, Quest>,
     /// Next sequence number per prefix.
     sequences: HashMap<String, u32>,
 }
 
 impl QuestBoard {
-    /// Open or create a task store in the given directory.
+    /// Open or create a quest store in the given directory.
     pub fn open(dir: &Path) -> Result<Self> {
         std::fs::create_dir_all(dir)
-            .with_context(|| format!("failed to create tasks dir: {}", dir.display()))?;
+            .with_context(|| format!("failed to create quests dir: {}", dir.display()))?;
 
         let mut store = Self {
             dir: dir.to_path_buf(),
-            tasks: HashMap::new(),
+            quests: HashMap::new(),
             sequences: HashMap::new(),
         };
 
@@ -65,7 +65,7 @@ impl QuestBoard {
         Ok(())
     }
 
-    /// Load tasks from a single JSONL file.
+    /// Load quests from a single JSONL file.
     fn load_file(&mut self, path: &Path) -> Result<()> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("failed to read {}", path.display()))?;
@@ -89,10 +89,10 @@ impl QuestBoard {
                             *entry = (*entry).max(seq);
                         }
                     }
-                    self.tasks.insert(quest.id.0.clone(), quest);
+                    self.quests.insert(quest.id.0.clone(), quest);
                 }
                 Err(e) => {
-                    debug!(path = %path.display(), error = %e, "skipping malformed task line");
+                    debug!(path = %path.display(), error = %e, "skipping malformed quest line");
                 }
             }
         }
@@ -100,7 +100,7 @@ impl QuestBoard {
         Ok(())
     }
 
-    /// Persist a task to its prefix JSONL file (append).
+    /// Persist a quest to its prefix JSONL file (append).
     fn persist(&self, quest: &Quest) -> Result<()> {
         let prefix = quest.id.prefix();
         let path = self.dir.join(format!("{prefix}.jsonl"));
@@ -123,7 +123,7 @@ impl QuestBoard {
         let path = self.dir.join(format!("{prefix}.jsonl"));
 
         let mut quests: Vec<&Quest> = self
-            .tasks
+            .quests
             .values()
             .filter(|b| b.id.prefix() == prefix)
             .collect();
@@ -141,7 +141,7 @@ impl QuestBoard {
         Ok(())
     }
 
-    /// Create a new task with auto-generated ID and optional agent binding.
+    /// Create a new quest with auto-generated ID and optional agent binding.
     pub fn create_with_agent(
         &mut self,
         prefix: &str,
@@ -154,21 +154,21 @@ impl QuestBoard {
 
         let quest = Quest::with_agent(id, name, agent_id);
         self.persist(&quest)?;
-        self.tasks.insert(quest.id.0.clone(), quest.clone());
+        self.quests.insert(quest.id.0.clone(), quest.clone());
 
         Ok(quest)
     }
 
-    /// Create a child task under a parent. Inherits the parent's `agent_id`.
+    /// Create a child quest under a parent. Inherits the parent's `agent_id`.
     pub fn create_child(&mut self, parent_id: &QuestId, name: &str) -> Result<Quest> {
         let parent_agent_id = self
-            .tasks
+            .quests
             .get(&parent_id.0)
             .and_then(|p| p.agent_id.clone());
 
         // Count existing children to determine next child seq.
         let child_count = self
-            .tasks
+            .quests
             .values()
             .filter(|b| b.id.parent().as_ref() == Some(parent_id))
             .count() as u32;
@@ -180,24 +180,24 @@ impl QuestBoard {
         quest.depends_on = Vec::new();
 
         self.persist(&quest)?;
-        self.tasks.insert(quest.id.0.clone(), quest.clone());
+        self.quests.insert(quest.id.0.clone(), quest.clone());
 
         Ok(quest)
     }
 
-    /// Get a task by ID.
+    /// Get a quest by ID.
     pub fn get(&self, id: &str) -> Option<&Quest> {
-        self.tasks.get(id)
+        self.quests.get(id)
     }
 
-    /// Update a task. Returns the updated task.
+    /// Update a quest. Returns the updated quest.
     ///
-    /// Uses append-only persistence: the updated task is appended to the JSONL
-    /// file rather than rewriting all tasks for the prefix. On reload, later
+    /// Uses append-only persistence: the updated quest is appended to the JSONL
+    /// file rather than rewriting all quests for the prefix. On reload, later
     /// entries overwrite earlier ones (last-write-wins dedup in load_file).
     pub fn update(&mut self, id: &str, f: impl FnOnce(&mut Quest)) -> Result<Quest> {
         let quest = self
-            .tasks
+            .quests
             .get_mut(id)
             .ok_or_else(|| anyhow::anyhow!("quest not found: {id}"))?;
 
@@ -210,14 +210,14 @@ impl QuestBoard {
         Ok(quest)
     }
 
-    /// Update a task with state transition validation.
+    /// Update a quest with state transition validation.
     ///
     /// Like `update()`, but logs a warning if the status change is not a valid
-    /// transition in the task state machine. Does NOT block the update — callers
+    /// transition in the quest state machine. Does NOT block the update — callers
     /// can migrate from `update()` over time.
     pub fn validated_update(&mut self, id: &str, f: impl FnOnce(&mut Quest)) -> Result<Quest> {
         let old_status = self
-            .tasks
+            .quests
             .get(id)
             .ok_or_else(|| anyhow::anyhow!("quest not found: {id}"))?
             .status;
@@ -236,10 +236,10 @@ impl QuestBoard {
         Ok(quest)
     }
 
-    /// Atomically claim a task for execution.
+    /// Atomically claim a quest for execution.
     pub fn checkout(&mut self, id: &str, _worker_id: &str) -> Result<Quest> {
         let quest = self
-            .tasks
+            .quests
             .get(id)
             .ok_or_else(|| anyhow::anyhow!("quest not found: {id}"))?;
 
@@ -253,14 +253,14 @@ impl QuestBoard {
         })
     }
 
-    /// Release a task (on completion or failure) — now a no-op kept for API compat.
+    /// Release a quest (on completion or failure) — now a no-op kept for API compat.
     pub fn release(&mut self, _id: &str) -> Result<Quest> {
         // Lock fields removed; scheduler handles concurrency via status.
         // Kept as a no-op for callers that haven't been updated yet.
         anyhow::bail!("release() is deprecated — use status transitions directly")
     }
 
-    /// Close a task (mark as done with reason).
+    /// Close a quest (mark as done with reason).
     /// Automatically cascades: if all sibling children of a parent are now closed,
     /// the parent is auto-closed too (pipeline auto-progression).
     pub fn close(&mut self, id: &str, reason: &str) -> Result<Quest> {
@@ -279,7 +279,7 @@ impl QuestBoard {
         let Some(parent_id) = child_id.parent() else {
             return;
         };
-        let Some(parent) = self.tasks.get(&parent_id.0) else {
+        let Some(parent) = self.quests.get(&parent_id.0) else {
             return;
         };
         if parent.is_closed() {
@@ -287,7 +287,7 @@ impl QuestBoard {
         }
 
         let children: Vec<String> = self
-            .tasks
+            .quests
             .values()
             .filter(|b| b.id.parent().as_ref() == Some(&parent_id))
             .map(|b| b.id.0.clone())
@@ -299,12 +299,12 @@ impl QuestBoard {
 
         let all_closed = children
             .iter()
-            .all(|cid| self.tasks.get(cid).is_some_and(|b| b.is_closed()));
+            .all(|cid| self.quests.get(cid).is_some_and(|b| b.is_closed()));
 
         if all_closed {
             // Step 6: Smart cascade close — check if parent was actively worked on.
             let parent_has_checkpoints = self
-                .tasks
+                .quests
                 .get(&parent_id.0)
                 .is_some_and(|p| !p.checkpoints.is_empty());
 
@@ -324,7 +324,7 @@ impl QuestBoard {
             // Parent is a pure container (no checkpoints) — auto-close as before.
             // Check if ALL children were cancelled — parent should be Cancelled, not Done.
             let all_cancelled = children.iter().all(|cid| {
-                self.tasks
+                self.quests
                     .get(cid)
                     .is_some_and(|b| b.status == QuestStatus::Cancelled)
             });
@@ -342,7 +342,7 @@ impl QuestBoard {
             let child_summaries: Vec<String> = children
                 .iter()
                 .filter_map(|cid| {
-                    self.tasks.get(cid).map(|b| {
+                    self.quests.get(cid).map(|b| {
                         let summary = b
                             .outcome_summary()
                             .unwrap_or_else(|| verb.to_string());
@@ -363,7 +363,7 @@ impl QuestBoard {
                 b.closed_at = Some(chrono::Utc::now());
                 b.set_task_outcome(&QuestOutcomeRecord::new(outcome_kind, reason.clone()));
             }) {
-                debug!(parent = %parent_id, error = %e, "failed to auto-close parent task");
+                debug!(parent = %parent_id, error = %e, "failed to auto-close parent quest");
                 return;
             }
 
@@ -373,7 +373,7 @@ impl QuestBoard {
         }
     }
 
-    /// Cancel a task.
+    /// Cancel a quest.
     pub fn cancel(&mut self, id: &str, reason: &str) -> Result<Quest> {
         self.update(id, |b| {
             b.status = QuestStatus::Cancelled;
@@ -396,7 +396,7 @@ impl QuestBoard {
                 return true;
             }
             if visited.insert(node.clone())
-                && let Some(quest_entry) = self.tasks.get(&node)
+                && let Some(quest_entry) = self.quests.get(&node)
             {
                 for dep in &quest_entry.depends_on {
                     stack.push(dep.0.clone());
@@ -426,13 +426,13 @@ impl QuestBoard {
         Ok(())
     }
 
-    /// Get all tasks that are ready (pending + all deps resolved).
+    /// Get all quests that are ready (pending + all deps resolved).
     pub fn ready(&self) -> Vec<&Quest> {
         let resolved =
-            |id: &QuestId| -> bool { self.tasks.get(&id.0).is_some_and(|b| b.is_closed()) };
+            |id: &QuestId| -> bool { self.quests.get(&id.0).is_some_and(|b| b.is_closed()) };
 
         let mut ready: Vec<&Quest> = self
-            .tasks
+            .quests
             .values()
             .filter(|b| b.is_ready(&resolved) && !b.is_scheduler_held())
             .collect();
@@ -447,10 +447,10 @@ impl QuestBoard {
         ready
     }
 
-    /// Get all tasks matching a prefix.
+    /// Get all quests matching a prefix.
     pub fn by_prefix(&self, prefix: &str) -> Vec<&Quest> {
         let mut quests: Vec<&Quest> = self
-            .tasks
+            .quests
             .values()
             .filter(|b| b.id.prefix() == prefix)
             .collect();
@@ -458,33 +458,33 @@ impl QuestBoard {
         quests
     }
 
-    /// Get all tasks.
+    /// Get all quests.
     pub fn all(&self) -> Vec<&Quest> {
-        let mut quests: Vec<&Quest> = self.tasks.values().collect();
+        let mut quests: Vec<&Quest> = self.quests.values().collect();
         quests.sort_by(|a, b| a.created_at.cmp(&b.created_at));
         quests
     }
 
-    /// Get all tasks bound to a specific agent.
+    /// Get all quests bound to a specific agent.
     pub fn by_agent(&self, agent_id: &str) -> Vec<&Quest> {
-        self.tasks
+        self.quests
             .values()
             .filter(|b| b.agent_id.as_deref() == Some(agent_id) && !b.is_closed())
             .collect()
     }
 
-    /// Get children of a task.
+    /// Get children of a quest.
     pub fn children(&self, parent_id: &QuestId) -> Vec<&Quest> {
-        self.tasks
+        self.quests
             .values()
             .filter(|b| b.id.parent().as_ref() == Some(parent_id))
             .collect()
     }
 
-    /// Count open tasks by prefix.
+    /// Count open quests by prefix.
     pub fn open_count_by_prefix(&self) -> HashMap<String, usize> {
         let mut counts = HashMap::new();
-        for quest in self.tasks.values() {
+        for quest in self.quests.values() {
             if !quest.is_closed() {
                 *counts.entry(quest.id.prefix().to_string()).or_insert(0) += 1;
             }
@@ -492,20 +492,20 @@ impl QuestBoard {
         counts
     }
 
-    /// Reload all tasks from disk, picking up externally-created tasks.
+    /// Reload all quests from disk, picking up externally-created quests.
     /// Compacts all prefix files after reload to remove duplicate entries.
     pub fn reload(&mut self) -> Result<()> {
-        self.tasks.clear();
+        self.quests.clear();
         self.sequences.clear();
         self.load_all()?;
         self.compact_all()
     }
 
-    /// Rewrite all prefix files to contain only the latest version of each task.
+    /// Rewrite all prefix files to contain only the latest version of each quest.
     /// This deduplicates append-only entries accumulated during updates.
     fn compact_all(&self) -> Result<()> {
         let mut prefixes: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for quest in self.tasks.values() {
+        for quest in self.quests.values() {
             prefixes.insert(quest.id.prefix().to_string());
         }
         for prefix in prefixes {
@@ -516,12 +516,12 @@ impl QuestBoard {
 
     // ── Dependency Inference ─────────────────────────────────────
 
-    /// Suggest dependencies between open tasks based on entity overlap.
+    /// Suggest dependencies between open quests based on entity overlap.
     pub fn suggest_dependencies(
         &self,
         threshold: f64,
     ) -> Vec<crate::dependency_inference::InferredDependency> {
-        let open_quests: Vec<&Quest> = self.tasks.values().filter(|t| !t.is_closed()).collect();
+        let open_quests: Vec<&Quest> = self.quests.values().filter(|t| !t.is_closed()).collect();
         crate::dependency_inference::infer_dependencies(&open_quests, threshold)
     }
 
@@ -547,13 +547,13 @@ impl QuestBoard {
         &self.dir
     }
 
-    /// Total task count.
+    /// Total quest count.
     pub fn len(&self) -> usize {
-        self.tasks.len()
+        self.quests.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.tasks.is_empty()
+        self.quests.is_empty()
     }
 }
 
@@ -571,16 +571,16 @@ mod tests {
     #[test]
     fn test_create_and_get() {
         let (mut store, _dir) = temp_store();
-        let task = store
+        let quest = store
             .create_with_agent("as", "Fix login bug", None)
             .unwrap();
-        assert_eq!(task.id.0, "as-001");
-        assert_eq!(task.name, "Fix login bug");
+        assert_eq!(quest.id.0, "as-001");
+        assert_eq!(quest.name, "Fix login bug");
 
-        let task2 = store
+        let quest2 = store
             .create_with_agent("as", "Add logout button", None)
             .unwrap();
-        assert_eq!(task2.id.0, "as-002");
+        assert_eq!(quest2.id.0, "as-002");
 
         assert!(store.get("as-001").is_some());
         assert!(store.get("as-002").is_some());
@@ -602,8 +602,8 @@ mod tests {
     #[test]
     fn test_dependencies_and_ready() {
         let (mut store, _dir) = temp_store();
-        let b1 = store.create_with_agent("as", "Task 1", None).unwrap();
-        let b2 = store.create_with_agent("as", "Task 2", None).unwrap();
+        let b1 = store.create_with_agent("as", "Quest 1", None).unwrap();
+        let b2 = store.create_with_agent("as", "Quest 2", None).unwrap();
 
         store.add_dependency(&b2.id.0, &b1.id.0).unwrap();
 
@@ -620,10 +620,10 @@ mod tests {
     }
 
     #[test]
-    fn test_scheduler_hold_excludes_task_from_ready() {
+    fn test_scheduler_hold_excludes_quest_from_ready() {
         let (mut store, _dir) = temp_store();
-        let held = store.create_with_agent("as", "Held task", None).unwrap();
-        let free = store.create_with_agent("as", "Free task", None).unwrap();
+        let held = store.create_with_agent("as", "Held quest", None).unwrap();
+        let free = store.create_with_agent("as", "Free quest", None).unwrap();
 
         store
             .update(&held.id.0, |b| {
@@ -664,16 +664,16 @@ mod tests {
     #[test]
     fn test_self_dependency_rejected() {
         let (mut store, _dir) = temp_store();
-        let b1 = store.create_with_agent("as", "Task 1", None).unwrap();
+        let b1 = store.create_with_agent("as", "Quest 1", None).unwrap();
         assert!(store.add_dependency(&b1.id.0, &b1.id.0).is_err());
     }
 
     #[test]
     fn test_circular_dependency_rejected() {
         let (mut store, _dir) = temp_store();
-        let b1 = store.create_with_agent("as", "Task A", None).unwrap();
-        let b2 = store.create_with_agent("as", "Task B", None).unwrap();
-        let b3 = store.create_with_agent("as", "Task C", None).unwrap();
+        let b1 = store.create_with_agent("as", "Quest A", None).unwrap();
+        let b2 = store.create_with_agent("as", "Quest B", None).unwrap();
+        let b3 = store.create_with_agent("as", "Quest C", None).unwrap();
 
         store.add_dependency(&b2.id.0, &b1.id.0).unwrap();
         store.add_dependency(&b3.id.0, &b2.id.0).unwrap();
@@ -687,7 +687,7 @@ mod tests {
 
         {
             let mut store = QuestBoard::open(dir.path()).unwrap();
-            store.create_with_agent("as", "Task 1", None).unwrap();
+            store.create_with_agent("as", "Quest 1", None).unwrap();
             store
                 .update("as-001", |b| {
                     b.status = QuestStatus::InProgress;
@@ -698,8 +698,8 @@ mod tests {
         // Reopen — load_file deduplicates by last-write-wins.
         let store = QuestBoard::open(dir.path()).unwrap();
         assert_eq!(store.len(), 1);
-        let task = store.get("as-001").unwrap();
-        assert_eq!(task.status, QuestStatus::InProgress);
+        let quest = store.get("as-001").unwrap();
+        assert_eq!(quest.status, QuestStatus::InProgress);
     }
 
     #[test]
@@ -707,12 +707,12 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         let mut store = QuestBoard::open(dir.path()).unwrap();
-        store.create_with_agent("as", "Task 1", None).unwrap();
+        store.create_with_agent("as", "Quest 1", None).unwrap();
         // Multiple updates = multiple append lines.
         for i in 0..5 {
             store
                 .update("as-001", |b| {
-                    b.name = format!("Task 1 v{}", i + 1);
+                    b.name = format!("Quest 1 v{}", i + 1);
                 })
                 .unwrap();
         }
@@ -727,8 +727,8 @@ mod tests {
         let lines_after = std::fs::read_to_string(&path).unwrap().lines().count();
         assert_eq!(lines_after, 1);
 
-        let task = store.get("as-001").unwrap();
-        assert_eq!(task.name, "Task 1 v5");
+        let quest = store.get("as-001").unwrap();
+        assert_eq!(quest.name, "Quest 1 v5");
     }
 
     #[test]

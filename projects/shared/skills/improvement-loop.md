@@ -9,14 +9,14 @@ You are running an improvement loop for a target agent.
 
 ## Inputs
 
-The task description contains the target agent name and evaluation criteria.
+The quest description contains the target agent name and evaluation criteria.
 
 ## Process
 
 1. **Load the target agent** — `aeqi_agents(action="get", name="<target>")`. Read its current prompts, model, expertise.
 
 2. **Recall recent outcomes** — `aeqi_recall` with queries:
-   - `"quest outcomes for <target>"` — what tasks did it complete/fail?
+   - `"quest outcomes for <target>"` — what quests did it complete/fail?
    - `"feedback about <target>"` — any human corrections or complaints?
    - `"<target> performance patterns"` — prior improvement loop findings
 
@@ -24,9 +24,9 @@ The task description contains the target agent name and evaluation criteria.
 
 4. **Evaluate** — assess the target agent's performance:
    - **Success rate**: how many quests completed vs failed/blocked/handed off?
-   - **Cost efficiency**: are tasks getting cheaper over time, or more expensive?
+   - **Cost efficiency**: are quests getting cheaper over time, or more expensive?
    - **Quality signals**: any human corrections, re-assignments, or escalations?
-   - **Pattern detection**: is the agent repeating the same mistakes? Struggling with a specific task type?
+   - **Pattern detection**: is the agent repeating the same mistakes? Struggling with a specific quest type?
    - **Drift check**: if prior versions exist, is the agent drifting from its original purpose?
 
 5. **Decide** — one of three outcomes:
