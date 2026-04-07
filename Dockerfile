@@ -24,7 +24,7 @@ COPY --from=ui /build/apps/ui/dist apps/ui/dist
 RUN cargo build --release -p aeqi
 
 # ── Stage 3: Runtime ──
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /build/target/release/aeqi /usr/local/bin/aeqi
 # No hardcoded USER — aeqi-cloud passes --user uid:gid matching the host
