@@ -224,8 +224,8 @@ export default function SignupPage() {
           <h1 className="auth-heading">Set a password</h1>
           <p className="auth-subheading">{email}</p>
           <form className="auth-form" onSubmit={handleSubmit}>
-            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} autoFocus hasError={!!error} />
-            {error && <div className="auth-error">{error}</div>}
+            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} autoFocus hasError={!!error} errorId="auth-error" />
+            {error && <div className="auth-error" role="alert" id="auth-error">{error}</div>}
             <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
           </form>
           <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a></p>
@@ -244,7 +244,7 @@ export default function SignupPage() {
               <input key={i} ref={(el) => { inputRefs.current[i] = el; }} className={`verify-code-digit${verifyError ? " has-error" : ""}`} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => { handleCodeChange(i, e.target.value); if (verifyError) setVerifyError(""); }} onKeyDown={(e) => handleKeyDown(i, e)} autoFocus={i === 0} />
             ))}
           </div>
-          {verifyError && <div className="auth-error">{verifyError}</div>}
+          {verifyError && <div className="auth-error" role="alert">{verifyError}</div>}
           {verifyLoading && <p className="auth-subheading auth-verifying">Verifying...</p>}
           <p className="auth-switch" >
             Didn't get the code?{" "}
@@ -258,9 +258,9 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="signup-split">
+    <main className="signup-split">
       <div className="signup-form-side">
-        <div className="auth-container">
+        <div className="auth-container" role="region" aria-live="polite">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
           {renderForm()}
           <div className="auth-footer">
@@ -294,6 +294,6 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -20,6 +20,12 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .auth-container,
+  .signup-split .auth-container {
+    animation: none;
+  }
+}
 
 .auth-logo {
   margin-bottom: var(--space-8);
@@ -130,6 +136,9 @@
   border: 1px solid rgba(239, 68, 68, 0.1);
   border-radius: var(--radius-md);
   line-height: 1.4;
+}
+.auth-error[role="alert"] {
+  /* Screen readers announce on appearance */
 }
 
 .auth-btn-primary {
@@ -371,6 +380,28 @@
     border-top: 1px solid var(--border);
     padding: var(--space-8) var(--space-6);
   }
+  .auth-page {
+    padding-top: max(var(--space-8), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+  }
+}
+
+/* Larger touch targets for touch devices */
+@media (pointer: coarse) {
+  .auth-input {
+    padding: 12px var(--space-3);
+    font-size: var(--font-size-base);
+  }
+  .auth-btn-primary,
+  .auth-btn-oauth {
+    padding: 12px var(--space-5);
+    font-size: var(--font-size-base);
+  }
+  .verify-code-digit {
+    width: 48px;
+    height: 52px;
+    font-size: var(--font-size-xl);
+  }
 }
 
 /* Verification code inputs */
@@ -386,6 +417,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-lg);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   outline: none;

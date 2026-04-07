@@ -140,14 +140,14 @@ export default function LoginPage() {
   // Secret mode
   if (authMode === "secret") {
     return (
-      <div className="auth-page">
+      <main className="auth-page">
         <div className="auth-container">
           <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
           <h1 className="auth-heading">Welcome back</h1>
           <p className="auth-subheading">Enter your access key to continue</p>
           <form className="auth-form" onSubmit={handleSecretSubmit}>
-            <PasswordInput placeholder="Access key" value={secret} onChange={(e) => { setSecret(e.target.value); clearError(); }} autoFocus hasError={!!error} />
-            {error && <div className="auth-error">{error}</div>}
+            <PasswordInput placeholder="Access key" value={secret} onChange={(e) => { setSecret(e.target.value); clearError(); }} autoFocus hasError={!!error} errorId="auth-error" />
+            {error && <div className="auth-error" role="alert" id="auth-error">{error}</div>}
             <button className="auth-btn-primary" type="submit" disabled={loading}>
               {loading ? "Connecting..." : "Continue"}
             </button>
@@ -161,14 +161,14 @@ export default function LoginPage() {
             <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
   // Accounts mode
   return (
-    <div className="auth-page">
-      <div className="auth-container">
+    <main className="auth-page">
+      <div className="auth-container" role="region" aria-live="polite">
         <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
         <h1 className="auth-heading">
           {step === "email" ? "Sign in" : step === "password" ? "Password" : "Verify your email"}
@@ -212,8 +212,8 @@ export default function LoginPage() {
         {step === "password" && (
           <>
             <form className="auth-form" onSubmit={handlePasswordSubmit}>
-              <PasswordInput placeholder="Password" value={password} onChange={(e) => { setPassword(e.target.value); clearError(); }} autoFocus hasError={!!error} />
-              {error && <div className="auth-error">{error}</div>}
+              <PasswordInput placeholder="Password" value={password} onChange={(e) => { setPassword(e.target.value); clearError(); }} autoFocus hasError={!!error} errorId="auth-error" />
+              {error && <div className="auth-error" role="alert" id="auth-error">{error}</div>}
               <button className="auth-btn-primary" type="submit" disabled={loading || !password}>
                 {loading ? "Signing in..." : "Sign in"}
               </button>
@@ -242,7 +242,7 @@ export default function LoginPage() {
                 />
               ))}
             </div>
-            {verifyError && <div className="auth-error">{verifyError}</div>}
+            {verifyError && <div className="auth-error" role="alert">{verifyError}</div>}
             {verifyLoading && <p className="auth-subheading auth-verifying">Verifying...</p>}
             <p className="auth-switch" >
               Didn't get the code?{" "}
@@ -270,6 +270,6 @@ export default function LoginPage() {
           <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
         </p>
       </div>
-    </div>
+    </main>
   );
 }

@@ -20,12 +20,14 @@ export default function PasswordInput({
   placeholder = "Password",
   autoFocus,
   hasError,
+  errorId,
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   autoFocus?: boolean;
   hasError?: boolean;
+  errorId?: string;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -36,6 +38,8 @@ export default function PasswordInput({
         type={visible ? "text" : "password"}
         placeholder={placeholder}
         aria-label={placeholder}
+        aria-describedby={hasError && errorId ? errorId : undefined}
+        aria-invalid={hasError || undefined}
         value={value}
         onChange={onChange}
         autoFocus={autoFocus}
