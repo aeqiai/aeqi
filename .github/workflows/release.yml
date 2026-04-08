@@ -7,6 +7,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-ui:
     runs-on: ubuntu-latest
@@ -27,6 +30,7 @@ jobs:
   build:
     needs: build-ui
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
@@ -35,9 +39,7 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: aeqi-linux-arm64
-          - target: x86_64-apple-darwin
-            os: macos-13
-            name: aeqi-darwin-amd64
+            cross: true
           - target: aarch64-apple-darwin
             os: macos-latest
             name: aeqi-darwin-arm64
@@ -55,14 +57,16 @@ jobs:
           name: ui-dist
           path: apps/ui/dist/
 
-      - name: Install cross-compilation deps
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release -p aeqi --target ${{ matrix.target }}
+
+      - name: Build (native)
+        if: ${{ !matrix.cross }}
         run: cargo build --release -p aeqi --target ${{ matrix.target }}
 
       - name: Package
@@ -79,6 +83,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: always() && needs.build.result != 'cancelled'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -88,7 +93,7 @@ jobs:
       - name: Checksums
         run: |
           cd artifacts
-          sha256sum aeqi-*/aeqi-* > SHA256SUMS.txt
+          find . -name "aeqi-*" -type f | while read f; do sha256sum "$f"; done > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
@@ -97,6 +102,5 @@ jobs:
           files: |
             artifacts/aeqi-linux-amd64/aeqi-linux-amd64
             artifacts/aeqi-linux-arm64/aeqi-linux-arm64
-            artifacts/aeqi-darwin-amd64/aeqi-darwin-amd64
             artifacts/aeqi-darwin-arm64/aeqi-darwin-arm64
             artifacts/SHA256SUMS.txt
