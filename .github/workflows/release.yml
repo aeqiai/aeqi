@@ -36,10 +36,11 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: aeqi-linux-amd64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            name: aeqi-linux-arm64
-            cross: true
+          # ARM Linux temporarily disabled — cross-compile openssl/libc issues
+          # - target: aarch64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   name: aeqi-linux-arm64
+          #   cross: true
           - target: aarch64-apple-darwin
             os: macos-latest
             name: aeqi-darwin-arm64
@@ -99,6 +100,5 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/aeqi-linux-amd64/aeqi-linux-amd64
-            artifacts/aeqi-linux-arm64/aeqi-linux-arm64
             artifacts/aeqi-darwin-arm64/aeqi-darwin-arm64
             artifacts/SHA256SUMS.txt
