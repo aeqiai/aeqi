@@ -319,7 +319,7 @@ export default function QuestsPage() {
 
   // Filter
   const filtered = useMemo(() => {
-    let result = quests as Quest[];
+    let result = (quests as unknown as Quest[]);
 
     const effectiveAgent = agentFilter || (selectedAgent ? selectedAgent.name : "");
     if (effectiveAgent) {
@@ -380,13 +380,13 @@ export default function QuestsPage() {
   }, [filtered]);
 
   const totalActive = useMemo(
-    () => (quests as Quest[]).filter((q) => q.status !== "done" && q.status !== "cancelled").length,
+    () => ((quests as unknown as Quest[])).filter((q) => q.status !== "done" && q.status !== "cancelled").length,
     [quests],
   );
 
   // Stats
   const stats = useMemo(() => {
-    const all = quests as Quest[];
+    const all = (quests as unknown as Quest[]);
     const inProgress = all.filter((q) => q.status === "in_progress").length;
     const pending = all.filter((q) => q.status === "pending").length;
     const blocked = all.filter((q) => q.status === "blocked").length;

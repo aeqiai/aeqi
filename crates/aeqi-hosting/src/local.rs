@@ -11,16 +11,63 @@ use crate::{
     AppConfig, AppState, AppStatus, Deployment, DomainInfo, HostingProvider, LocalConfig,
 };
 
-/// Validate a domain name — alphanumeric, dots, hyphens only. No path traversal.
+/// Validate a domain name per RFC 1035 / RFC 1123.
+/// Allows alphanumeric, dots, hyphens. Labels must be 1-63 chars, total 1-253 chars.
+/// Labels cannot start or end with a hyphen. Must have at least 2 labels.
 fn validate_domain(domain: &str) -> Result<()> {
     if domain.is_empty() || domain.len() > 253 {
         bail!("domain must be 1-253 characters");
     }
-    if !domain.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
+    if !domain
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
         bail!("domain contains invalid characters (only alphanumeric, dots, hyphens allowed)");
     }
-    if domain.contains("..") || domain.starts_with('.') || domain.starts_with('-') {
-        bail!("domain has invalid format");
+
+    let labels: Vec<&str> = domain.split('.').collect();
+    if labels.len() < 2 {
+        bail!("domain must have at least two labels (e.g., example.com)");
+    }
+    for label in &labels {
+        if label.is_empty() || label.len() > 63 {
+            bail!("each domain label must be 1-63 characters");
+        }
+        if label.starts_with('-') || label.ends_with('-') {
+            bail!("domain labels cannot start or end with a hyphen");
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate an app name — alphanumeric, hyphens, and underscores only, 1-64 chars.
+fn validate_app_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.len() > 64 {
+        bail!("app name must be 1-64 characters");
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        bail!(
+            "app name '{}' contains invalid characters (only alphanumeric, hyphens, underscores allowed)",
+            name
+        );
+    }
+    Ok(())
+}
+
+/// Validate that a path is absolute and doesn't contain null bytes.
+fn validate_path(path: &str, label: &str) -> Result<()> {
+    if path.is_empty() {
+        bail!("{label} must not be empty");
+    }
+    if !path.starts_with('/') {
+        bail!("{label} must be an absolute path");
+    }
+    if path.contains('\0') {
+        bail!("{label} contains null bytes");
     }
     Ok(())
 }
@@ -64,55 +111,76 @@ struct DomainRecord {
 
 pub struct LocalProvider {
     config: LocalConfig,
-    state_file: String,
     /// Mutex to prevent concurrent state modifications.
     state_lock: Mutex<()>,
 }
 
 impl LocalProvider {
     pub fn new(config: LocalConfig) -> Result<Self> {
-        let state_file = config.state_file.clone();
+        if config.port_range_start >= config.port_range_end {
+            bail!(
+                "port_range_start ({}) must be less than port_range_end ({})",
+                config.port_range_start,
+                config.port_range_end
+            );
+        }
 
         // Ensure state directory exists.
-        if let Some(parent) = Path::new(&state_file).parent() {
+        if let Some(parent) = Path::new(&config.state_file).parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create state dir: {}", parent.display()))?;
         }
 
         Ok(Self {
             config,
-            state_file,
             state_lock: Mutex::new(()),
         })
     }
 
     fn load_state(&self) -> HostingState {
-        match std::fs::read_to_string(&self.state_file) {
+        match std::fs::read_to_string(&self.config.state_file) {
             Ok(data) => serde_json::from_str(&data).unwrap_or_else(|e| {
-                warn!("state file corrupted ({e}), using default");
-                HostingState::default()
+                warn!(
+                    path = %self.config.state_file,
+                    error = %e,
+                    "state file corrupted, using default"
+                );
+                HostingState {
+                    next_port: self.config.port_range_start,
+                    ..Default::default()
+                }
             }),
-            Err(_) => HostingState {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => HostingState {
                 next_port: self.config.port_range_start,
                 ..Default::default()
             },
+            Err(e) => {
+                warn!(
+                    path = %self.config.state_file,
+                    error = %e,
+                    "failed to read state file, using default"
+                );
+                HostingState {
+                    next_port: self.config.port_range_start,
+                    ..Default::default()
+                }
+            }
         }
     }
 
     /// Atomic write: write to temp file, then rename.
     fn save_state(&self, state: &HostingState) -> Result<()> {
         let data = serde_json::to_string_pretty(state)?;
-        let tmp = format!("{}.tmp", self.state_file);
+        let tmp = format!("{}.tmp", self.config.state_file);
         std::fs::write(&tmp, &data)
             .with_context(|| format!("failed to write temp state file: {tmp}"))?;
-        std::fs::rename(&tmp, &self.state_file)
-            .with_context(|| format!("failed to rename state file: {}", self.state_file))?;
+        std::fs::rename(&tmp, &self.config.state_file)
+            .with_context(|| format!("failed to rename state file: {}", self.config.state_file))?;
         Ok(())
     }
 
     fn allocate_port(&self, state: &mut HostingState) -> Result<u16> {
-        let used: std::collections::HashSet<u16> =
-            state.apps.values().map(|a| a.port).collect();
+        let used: std::collections::HashSet<u16> = state.apps.values().map(|a| a.port).collect();
 
         for port in self.config.port_range_start..=self.config.port_range_end {
             if !used.contains(&port) {
@@ -128,7 +196,11 @@ impl LocalProvider {
     }
 
     fn service_name(app_name: &str) -> String {
-        format!("aeqi-app-{}", app_name.replace(' ', "-").to_lowercase())
+        // app_name is already validated to be [a-zA-Z0-9_-] so this is safe.
+        format!(
+            "aeqi-app-{}",
+            app_name.to_ascii_lowercase()
+        )
     }
 
     fn generate_systemd_unit(record: &AppRecord, env: &[(String, String)]) -> String {
@@ -140,6 +212,9 @@ impl LocalProvider {
             "nextjs" | "node" => format!(" --hostname 127.0.0.1 -p {}", record.port),
             _ => String::new(),
         };
+
+        let name = sanitize_systemd_value(&record.name);
+        let workdir = sanitize_systemd_value(&record.workdir);
 
         let env_lines: String = env
             .iter()
@@ -171,8 +246,8 @@ Environment=PORT={port}
 [Install]
 WantedBy=multi-user.target
 "#,
-            name = record.name,
-            workdir = record.workdir,
+            name = name,
+            workdir = workdir,
             exec_start = exec_start,
             hostname_flag = hostname_flag,
             port = record.port,
@@ -181,6 +256,7 @@ WantedBy=multi-user.target
     }
 
     fn generate_nginx_config(domain: &str, port: u16) -> String {
+        // domain is pre-validated by validate_domain() to contain only [a-zA-Z0-9.-]
         format!(
             r#"# Managed by AEQI hosting — do not edit manually
 server {{
@@ -210,7 +286,11 @@ server {{
         )
     }
 
-    async fn write_systemd_service(&self, record: &AppRecord, env: &[(String, String)]) -> Result<()> {
+    async fn write_systemd_service(
+        &self,
+        record: &AppRecord,
+        env: &[(String, String)],
+    ) -> Result<()> {
         let unit = Self::generate_systemd_unit(record, env);
         let path = format!("/etc/systemd/system/{}.service", record.service_name);
 
@@ -219,55 +299,73 @@ server {{
             .with_context(|| format!("failed to write systemd unit: {path}"))?;
 
         // Reload systemd.
-        let status = Command::new("systemctl")
+        let output = Command::new("systemctl")
             .args(["daemon-reload"])
-            .status()
-            .await?;
-        if !status.success() {
-            bail!("systemctl daemon-reload failed");
+            .output()
+            .await
+            .context("failed to run systemctl daemon-reload")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("systemctl daemon-reload failed: {stderr}");
         }
 
         Ok(())
     }
 
     async fn start_service(&self, service_name: &str) -> Result<()> {
-        let status = Command::new("systemctl")
+        let output = Command::new("systemctl")
             .args(["start", service_name])
-            .status()
-            .await?;
-        if !status.success() {
-            bail!("failed to start service: {service_name}");
+            .output()
+            .await
+            .context("failed to run systemctl start")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("failed to start service {service_name}: {stderr}");
         }
 
         // Enable on boot.
-        let _ = Command::new("systemctl")
+        if let Err(e) = Command::new("systemctl")
             .args(["enable", service_name])
-            .status()
-            .await;
+            .output()
+            .await
+        {
+            warn!(service_name, error = %e, "failed to enable service on boot");
+        }
 
         Ok(())
     }
 
     async fn stop_service(&self, service_name: &str) -> Result<()> {
-        let _ = Command::new("systemctl")
+        if let Err(e) = Command::new("systemctl")
             .args(["stop", service_name])
-            .status()
-            .await;
-        let _ = Command::new("systemctl")
+            .output()
+            .await
+        {
+            warn!(service_name, error = %e, "failed to stop service");
+        }
+        if let Err(e) = Command::new("systemctl")
             .args(["disable", service_name])
-            .status()
-            .await;
+            .output()
+            .await
+        {
+            warn!(service_name, error = %e, "failed to disable service");
+        }
         Ok(())
     }
 
     async fn remove_service(&self, service_name: &str) -> Result<()> {
         self.stop_service(service_name).await?;
         let path = format!("/etc/systemd/system/{service_name}.service");
-        let _ = tokio::fs::remove_file(&path).await;
-        let _ = Command::new("systemctl")
+        if let Err(e) = tokio::fs::remove_file(&path).await {
+            warn!(path, error = %e, "failed to remove systemd unit file");
+        }
+        if let Err(e) = Command::new("systemctl")
             .args(["daemon-reload"])
-            .status()
-            .await;
+            .output()
+            .await
+        {
+            warn!(error = %e, "failed to run systemctl daemon-reload after service removal");
+        }
         Ok(())
     }
 
@@ -288,7 +386,11 @@ server {{
             .with_context(|| format!("failed to symlink: {enabled_path}"))?;
 
         // Test and reload nginx.
-        let test = Command::new("nginx").args(["-t"]).output().await?;
+        let test = Command::new("nginx")
+            .args(["-t"])
+            .output()
+            .await
+            .context("failed to run nginx -t")?;
         if !test.status.success() {
             // Rollback on bad config.
             let _ = tokio::fs::remove_file(&enabled_path).await;
@@ -299,10 +401,12 @@ server {{
 
         let reload = Command::new("systemctl")
             .args(["reload", "nginx"])
-            .status()
-            .await?;
-        if !reload.success() {
-            bail!("failed to reload nginx");
+            .output()
+            .await
+            .context("failed to run systemctl reload nginx")?;
+        if !reload.status.success() {
+            let stderr = String::from_utf8_lossy(&reload.stderr);
+            bail!("failed to reload nginx: {stderr}");
         }
 
         Ok(conf_name)
@@ -313,37 +417,63 @@ server {{
         let available_path = format!("{}/{conf_name}", self.config.nginx_available_dir);
         let enabled_path = format!("{}/{conf_name}", self.config.nginx_enabled_dir);
 
-        let _ = tokio::fs::remove_file(&enabled_path).await;
-        let _ = tokio::fs::remove_file(&available_path).await;
+        if let Err(e) = tokio::fs::remove_file(&enabled_path).await
+            && e.kind() != std::io::ErrorKind::NotFound
+        {
+            warn!(path = %enabled_path, error = %e, "failed to remove nginx enabled symlink");
+        }
+        if let Err(e) = tokio::fs::remove_file(&available_path).await
+            && e.kind() != std::io::ErrorKind::NotFound
+        {
+            warn!(path = %available_path, error = %e, "failed to remove nginx config");
+        }
 
-        let _ = Command::new("systemctl")
+        if let Err(e) = Command::new("systemctl")
             .args(["reload", "nginx"])
-            .status()
-            .await;
+            .output()
+            .await
+        {
+            warn!(error = %e, "failed to reload nginx after config removal");
+        }
 
         Ok(())
     }
 
     async fn obtain_ssl(&self, domain: &str) -> Result<bool> {
-        validate_domain(domain)?;
-
         let mut cmd = Command::new(&self.config.certbot_bin);
-        cmd.args(["certonly", "--nginx", "-d", domain, "--non-interactive", "--agree-tos"]);
+        cmd.args([
+            "certonly",
+            "--nginx",
+            "-d",
+            domain,
+            "--non-interactive",
+            "--agree-tos",
+        ]);
 
         // Pass email as a separate arg to prevent injection.
         match &self.config.certbot_email {
-            Some(email) => { cmd.args(["--email", email]); }
-            None => { cmd.arg("--register-unsafely-without-email"); }
+            Some(email) => {
+                cmd.args(["--email", email]);
+            }
+            None => {
+                cmd.arg("--register-unsafely-without-email");
+            }
         }
 
-        let output = cmd.output().await?;
+        let output = cmd
+            .output()
+            .await
+            .context("failed to run certbot")?;
 
         if output.status.success() {
             // Certbot modifies the nginx config to add SSL. Reload.
-            let _ = Command::new("systemctl")
+            if let Err(e) = Command::new("systemctl")
                 .args(["reload", "nginx"])
-                .status()
-                .await;
+                .output()
+                .await
+            {
+                warn!(error = %e, "failed to reload nginx after SSL cert");
+            }
             info!(domain, "SSL certificate obtained");
             Ok(true)
         } else {
@@ -360,9 +490,16 @@ server {{
             .await;
 
         match output {
-            Ok(o) if String::from_utf8_lossy(&o.stdout).trim() == "active" => AppState::Running,
-            Ok(o) if String::from_utf8_lossy(&o.stdout).trim() == "failed" => AppState::Failed,
-            _ => AppState::Stopped,
+            Ok(o) => match String::from_utf8_lossy(&o.stdout).trim() {
+                "active" => AppState::Running,
+                "failed" => AppState::Failed,
+                "activating" => AppState::Building,
+                _ => AppState::Stopped,
+            },
+            Err(e) => {
+                warn!(service_name, error = %e, "failed to check service status");
+                AppState::Stopped
+            }
         }
     }
 }
@@ -370,9 +507,21 @@ server {{
 #[async_trait]
 impl HostingProvider for LocalProvider {
     async fn deploy_app(&self, config: &AppConfig) -> Result<Deployment> {
+        // Validate inputs before touching any state.
+        validate_app_name(&config.name)?;
+        validate_path(&config.workdir, "workdir")?;
+        if let Some(cmd) = &config.start_cmd
+            && cmd.is_empty()
+        {
+            bail!("start_cmd must not be empty if provided");
+        }
+
         // Allocate port and register app under lock (synchronous).
         let (record, service_name) = {
-            let _lock = self.state_lock.lock().map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
             let mut state = self.load_state();
 
             if state.apps.contains_key(&config.name) {
@@ -415,46 +564,70 @@ impl HostingProvider for LocalProvider {
     }
 
     async fn stop_app(&self, app_id: &str) -> Result<()> {
-        let mut state = self.load_state();
-        let record = state
-            .apps
-            .remove(app_id)
-            .with_context(|| format!("app '{app_id}' not found"))?;
+        let record = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let mut state = self.load_state();
+            let record = state
+                .apps
+                .remove(app_id)
+                .with_context(|| format!("app '{app_id}' not found"))?;
 
-        // Remove any domains pointing to this app.
-        let domains_to_remove: Vec<String> = state
-            .domains
-            .iter()
-            .filter(|(_, d)| d.app_id == app_id)
-            .map(|(k, _)| k.clone())
-            .collect();
+            // Remove any domains pointing to this app from state first.
+            let domains_to_remove: Vec<String> = state
+                .domains
+                .iter()
+                .filter(|(_, d)| d.app_id == app_id)
+                .map(|(k, _)| k.clone())
+                .collect();
 
-        for domain in &domains_to_remove {
-            self.remove_nginx_config(domain).await?;
-            state.domains.remove(domain);
+            for domain in &domains_to_remove {
+                state.domains.remove(domain);
+            }
+
+            self.save_state(&state)?;
+            (record, domains_to_remove)
+        };
+
+        // Perform async cleanup outside the lock. These are best-effort.
+        for domain in &record.1 {
+            if let Err(e) = self.remove_nginx_config(domain).await {
+                warn!(domain, error = %e, "failed to remove nginx config during app stop");
+            }
         }
-
-        self.remove_service(&record.service_name).await?;
-        self.save_state(&state)?;
+        if let Err(e) = self.remove_service(&record.0.service_name).await {
+            warn!(app_id, error = %e, "failed to remove systemd service during app stop");
+        }
 
         info!(app = %app_id, "app stopped and removed");
         Ok(())
     }
 
     async fn restart_app(&self, app_id: &str) -> Result<()> {
-        let state = self.load_state();
-        let record = state
-            .apps
-            .get(app_id)
-            .with_context(|| format!("app '{app_id}' not found"))?;
+        let service_name = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let state = self.load_state();
+            let record = state
+                .apps
+                .get(app_id)
+                .with_context(|| format!("app '{app_id}' not found"))?;
+            record.service_name.clone()
+        };
 
-        let status = Command::new("systemctl")
-            .args(["restart", &record.service_name])
-            .status()
-            .await?;
+        let output = Command::new("systemctl")
+            .args(["restart", &service_name])
+            .output()
+            .await
+            .context("failed to run systemctl restart")?;
 
-        if !status.success() {
-            bail!("failed to restart service: {}", record.service_name);
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("failed to restart service {service_name}: {stderr}");
         }
 
         info!(app = %app_id, "app restarted");
@@ -462,7 +635,14 @@ impl HostingProvider for LocalProvider {
     }
 
     async fn list_apps(&self) -> Result<Vec<AppStatus>> {
-        let state = self.load_state();
+        let state = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            self.load_state()
+        };
+
         let mut result = Vec::new();
 
         for record in state.apps.values() {
@@ -490,68 +670,115 @@ impl HostingProvider for LocalProvider {
 
     async fn add_domain(&self, domain: &str, app_id: &str) -> Result<DomainInfo> {
         validate_domain(domain)?;
-        let mut state = self.load_state();
 
-        // Verify app exists.
-        let record = state
-            .apps
-            .get(app_id)
-            .with_context(|| format!("app '{app_id}' not found"))?;
-        let port = record.port;
+        let port = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let state = self.load_state();
 
-        // Check domain not already taken.
-        if state.domains.contains_key(domain) {
-            bail!("domain '{domain}' already configured");
-        }
+            // Verify app exists.
+            let record = state
+                .apps
+                .get(app_id)
+                .with_context(|| format!("app '{app_id}' not found"))?;
+            let port = record.port;
 
-        // Write nginx config and reload.
+            // Check domain not already taken.
+            if state.domains.contains_key(domain) {
+                bail!("domain '{domain}' already configured");
+            }
+            port
+        };
+
+        // Write nginx config and reload (async, outside lock).
         let nginx_conf = self.write_nginx_config(domain, port).await?;
 
         // Attempt SSL.
         let ssl = self.obtain_ssl(domain).await.unwrap_or(false);
 
-        let now = chrono::Utc::now().to_rfc3339();
-        let domain_record = DomainRecord {
-            domain: domain.to_string(),
-            app_id: app_id.to_string(),
-            ssl,
-            nginx_conf,
-            created_at: now.clone(),
+        // Re-acquire lock to save the domain record.
+        let save_result: Result<String> = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let mut state = self.load_state();
+
+            // Re-check domain wasn't added concurrently.
+            if state.domains.contains_key(domain) {
+                Err(anyhow::anyhow!("domain '{domain}' was added concurrently"))
+            } else {
+                let now = chrono::Utc::now().to_rfc3339();
+                let domain_record = DomainRecord {
+                    domain: domain.to_string(),
+                    app_id: app_id.to_string(),
+                    ssl,
+                    nginx_conf,
+                    created_at: now.clone(),
+                };
+
+                state.domains.insert(domain.to_string(), domain_record);
+                self.save_state(&state)?;
+                Ok(now)
+            }
         };
 
-        state
-            .domains
-            .insert(domain.to_string(), domain_record);
-        self.save_state(&state)?;
-
-        info!(domain, app_id, ssl, "domain added");
-
-        Ok(DomainInfo {
-            domain: domain.to_string(),
-            app_id: app_id.to_string(),
-            ssl,
-            created_at: now,
-        })
+        match save_result {
+            Ok(created_at) => {
+                info!(domain, app_id, ssl, "domain added");
+                Ok(DomainInfo {
+                    domain: domain.to_string(),
+                    app_id: app_id.to_string(),
+                    ssl,
+                    created_at,
+                })
+            }
+            Err(e) => {
+                // Roll back nginx config outside the lock.
+                let _ = self.remove_nginx_config(domain).await;
+                Err(e)
+            }
+        }
     }
 
     async fn remove_domain(&self, domain: &str) -> Result<()> {
         validate_domain(domain)?;
-        let mut state = self.load_state();
 
-        state
-            .domains
-            .remove(domain)
-            .with_context(|| format!("domain '{domain}' not found"))?;
+        {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            let mut state = self.load_state();
 
-        self.remove_nginx_config(domain).await?;
-        self.save_state(&state)?;
+            state
+                .domains
+                .remove(domain)
+                .with_context(|| format!("domain '{domain}' not found"))?;
+
+            self.save_state(&state)?;
+        }
+
+        // Async cleanup outside lock (best-effort).
+        if let Err(e) = self.remove_nginx_config(domain).await {
+            warn!(domain, error = %e, "failed to remove nginx config during domain removal");
+        }
 
         info!(domain, "domain removed");
         Ok(())
     }
 
     async fn list_domains(&self) -> Result<Vec<DomainInfo>> {
-        let state = self.load_state();
+        let state = {
+            let _lock = self
+                .state_lock
+                .lock()
+                .map_err(|_| anyhow::anyhow!("state lock poisoned"))?;
+            self.load_state()
+        };
+
         Ok(state
             .domains
             .values()

@@ -27,6 +27,7 @@ pub mod pipeline;
 pub mod progress_tracker;
 pub mod prompt_assembly;
 pub mod runtime;
+pub mod sandbox;
 pub mod scheduler;
 pub mod session_manager;
 pub mod session_store;
@@ -54,6 +55,8 @@ pub use runtime::{
     Artifact, ArtifactKind, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus, RuntimePhase,
     RuntimeSession, RuntimeSessionStatus,
 };
+pub use sandbox::{FinalizeAction, SandboxConfig, SessionDiff, SessionSandbox};
+pub use tools::SandboxedShellTool;
 pub use scheduler::{Scheduler, SchedulerConfig};
 pub use session_manager::SessionManager;
 pub use session_store::SessionStore;

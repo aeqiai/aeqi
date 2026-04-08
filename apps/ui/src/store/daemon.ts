@@ -2,14 +2,21 @@ import { create } from "zustand";
 import { api } from "@/lib/api";
 import type { Agent, AuditEntry } from "@/lib/types";
 
+interface WorkerEvent {
+  id?: string | number;
+  timestamp?: string;
+  event_type?: string;
+  [key: string]: unknown;
+}
+
 interface DaemonState {
-  status: any | null;
-  dashboard: any | null;
-  cost: any | null;
+  status: Record<string, unknown> | null;
+  dashboard: Record<string, unknown> | null;
+  cost: Record<string, unknown> | null;
   agents: Agent[];
-  quests: any[];
+  quests: Array<Record<string, unknown>>;
   events: AuditEntry[];
-  workerEvents: any[];
+  workerEvents: WorkerEvent[];
   wsConnected: boolean;
   loading: boolean;
 
@@ -20,7 +27,7 @@ interface DaemonState {
   fetchQuests: () => Promise<void>;
   fetchEvents: () => Promise<void>;
   fetchAll: () => Promise<void>;
-  pushWorkerEvent: (event: any) => void;
+  pushWorkerEvent: (event: WorkerEvent) => void;
   setWsConnected: (connected: boolean) => void;
 }
 
@@ -65,7 +72,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     try {
       const data = await api.getAgents();
       const raw = data?.agents || data?.registry || [];
-      set({ agents: Array.isArray(raw) ? raw : [] });
+      set({ agents: Array.isArray(raw) ? (raw as Agent[]) : [] });
     } catch {}
   },
 
@@ -73,7 +80,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     try {
       const data = await api.getTasks({});
       const raw = data?.tasks || [];
-      set({ quests: Array.isArray(raw) ? raw : [] });
+      set({ quests: Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [] });
     } catch {}
   },
 
@@ -81,7 +88,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     try {
       const data = await api.getAudit({ last: 30 });
       const raw = data?.entries || data?.audit || [];
-      set({ events: Array.isArray(raw) ? raw : [] });
+      set({ events: Array.isArray(raw) ? (raw as AuditEntry[]) : [] });
     } catch {}
   },
 
@@ -96,7 +103,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     ]);
   },
 
-  pushWorkerEvent: (event: any) => {
+  pushWorkerEvent: (event: WorkerEvent) => {
     set((s) => ({
       workerEvents: [...s.workerEvents.slice(-99), event],
     }));

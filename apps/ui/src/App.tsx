@@ -8,17 +8,17 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import WelcomePage from "@/pages/WelcomePage";
 import NewWorkspacePage from "@/pages/NewWorkspacePage";
-import DashboardHome from "@/components/DashboardHome";
 import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
 import InsightsPage from "@/pages/InsightsPage";
+import EntitiesPage from "@/pages/EntitiesPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
-  const pendingEmail = useAuthStore((s) => s.pendingEmail);
 
   useEffect(() => {
     fetchAuthMode();
@@ -60,7 +60,8 @@ export default function App() {
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="insights" element={<InsightsPage />} />
-        <Route path="company" element={<div className="page-content"><h2 style={{color:'var(--text-primary)',margin:'24px'}}>Company</h2><p style={{color:'var(--text-muted)',margin:'0 24px',fontSize:13}}>Projects, teams, and organization settings.</p></div>} />
+        <Route path="companies" element={<EntitiesPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

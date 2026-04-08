@@ -39,7 +39,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
     api
       .getSkills()
       .then((data) => {
-        const skills: Skill[] = data?.skills || data || [];
+        const skills: Skill[] = (data?.skills || data || []) as Skill[];
         const identity = skills.filter(
           (s) => Array.isArray(s.tags) && s.tags.includes("identity"),
         );

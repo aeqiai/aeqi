@@ -30,12 +30,12 @@ export default function DashboardHome() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const activeQuests = quests.filter((q: any) => q.status === "in_progress");
-  const blockedQuests = quests.filter((q: any) => q.status === "blocked");
-  const spent = cost?.spent_today_usd ?? 0;
-  const budget = cost?.daily_budget_usd ?? 10;
+  const activeQuests = quests.filter((q) => q.status === "in_progress");
+  const blockedQuests = quests.filter((q) => q.status === "blocked");
+  const spent = (cost?.spent_today_usd as number) ?? 0;
+  const budget = (cost?.daily_budget_usd as number) ?? 10;
   const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
-  const activeAgentCount = agents.filter((a: any) => {
+  const activeAgentCount = agents.filter((a) => {
     const s = (a.status || "").toLowerCase();
     return s === "active" || s === "working" || s === "running";
   }).length;

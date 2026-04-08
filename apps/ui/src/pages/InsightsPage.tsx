@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DataState } from "@/components/ui";
-import MemoryGraph from "@/components/MemoryGraph";
+import MemoryGraph, { type GraphNode, type GraphEdge } from "@/components/MemoryGraph";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useChatStore } from "@/store/chat";
@@ -31,8 +31,8 @@ interface MemoryEntry {
 }
 
 interface GraphData {
-  nodes: any[];
-  edges: any[];
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }
 
 export default function InsightsPage() {
@@ -64,7 +64,7 @@ export default function InsightsPage() {
         limit: 200,
       })
       .then((d) => {
-        setInsights(d.memories || []);
+        setInsights((d.memories || []) as MemoryEntry[]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -80,7 +80,7 @@ export default function InsightsPage() {
         limit: 100,
       })
       .then((d) => {
-        setGraphData({ nodes: d.nodes || [], edges: d.edges || [] });
+        setGraphData({ nodes: (d.nodes || []) as GraphNode[], edges: (d.edges || []) as GraphEdge[] });
         setGraphLoading(false);
       })
       .catch(() => setGraphLoading(false));
@@ -128,12 +128,12 @@ export default function InsightsPage() {
   // Find edges for selected node.
   const selectedEdges = selected
     ? graphData.edges.filter(
-        (e: any) => e.source === selected.id || e.target === selected.id,
+        (e) => e.source === selected.id || e.target === selected.id,
       )
     : [];
 
   // Resolve edge targets to keys.
-  const nodeMap = new Map(graphData.nodes.map((n: any) => [n.id, n]));
+  const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
 
   return (
     <div className="page-content insights-page">

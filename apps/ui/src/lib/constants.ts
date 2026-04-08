@@ -32,12 +32,3 @@ export const PRIORITY_COLORS: Record<string, string> = {
   normal: "var(--text-primary)",
   low: "var(--text-muted)",
 };
-
-export const NAV_ITEMS = [
-  { label: "Dashboard", href: "/", icon: "grid" },
-  { label: "Quests", href: "/quests", icon: "list" },
-  { label: "Sessions", href: "/sessions", icon: "message" },
-  { label: "Events", href: "/events", icon: "activity" },
-  { label: "Insights", href: "/insights", icon: "lightbulb" },
-  { label: "Settings", href: "/settings", icon: "settings" },
-] as const;

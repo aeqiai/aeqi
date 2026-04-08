@@ -1,26 +1,28 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 
-const PAGE_CONFIG: Record<string, { title: string; create?: { label: string; path: string } }> = {
+const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
   "/": { title: "Home" },
-  "/agents": { title: "Agents", create: { label: "New agent", path: "/agents?create=1" } },
-  "/events": { title: "Events", create: { label: "New event", path: "/events?create=1" } },
-  "/quests": { title: "Quests", create: { label: "New quest", path: "/quests?create=1" } },
-  "/insights": { title: "Insights", create: { label: "New insight", path: "/insights?create=1" } },
+  "/companies": { title: "Companies", create: { label: "New company" } },
+  "/agents": { title: "Agents", create: { label: "New agent" } },
+  "/events": { title: "Events", create: { label: "New event" } },
+  "/quests": { title: "Quests", create: { label: "New quest" } },
+  "/insights": { title: "Insights", create: { label: "New insight" } },
   "/drive": { title: "Drive" },
   "/company": { title: "Company" },
+  "/treasury": { title: "Treasury" },
   "/apps": { title: "Apps" },
+  "/market": { title: "Market" },
   "/settings": { title: "Settings" },
 };
 
 export default function ContentTopBar() {
-  const navigate = useNavigate();
   const location = useLocation();
   const path = location.pathname;
   const agents = useDaemonStore((s) => s.agents);
   const config = PAGE_CONFIG[path] || { title: path.slice(1) || "Home" };
 
-  const activeAgents = agents.filter((a: any) => a.status === "active" || a.status === "running").length;
+  const activeAgents = agents.filter((a) => a.status === "active" || a.status === "running").length;
 
   return (
     <div className="content-topbar">

@@ -46,7 +46,7 @@ pub fn from_config(config: &HostingConfig) -> Result<Box<dyn HostingProvider>> {
         #[cfg(feature = "managed")]
         "managed" => Ok(Box::new(ManagedProvider::new(
             config.managed.clone().unwrap_or_default(),
-        ))),
+        )?)),
         #[cfg(not(feature = "managed"))]
         "managed" => anyhow::bail!("managed hosting provider is not available in this build"),
         "none" => Ok(Box::new(NoneProvider)),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface GraphNode {
+export interface GraphNode {
   id: string;
   key: string;
   content: string;
@@ -12,7 +12,7 @@ interface GraphNode {
   hotness: number;
 }
 
-interface GraphEdge {
+export interface GraphEdge {
   source: string;
   target: string;
   relation: string;

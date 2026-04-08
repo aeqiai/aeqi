@@ -22,6 +22,7 @@ use aeqi_core::traits::{Insight, Provider};
 use crate::agent_registry::AgentRegistry;
 use crate::event_store::EventStore;
 use crate::execution_events::EventBroadcaster;
+use crate::sandbox::{SandboxConfig, SessionDiff, SessionSandbox};
 use crate::session_store::SessionStore;
 
 /// A running agent session — the in-memory handle to a live agent loop.
@@ -34,6 +35,8 @@ pub struct RunningSession {
     pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
     pub join_handle: tokio::task::JoinHandle<anyhow::Result<AgentResult>>,
     pub chat_id: i64,
+    /// Session sandbox (git worktree + optional bwrap). None if unsandboxed.
+    pub sandbox: Option<Arc<SessionSandbox>>,
 }
 
 impl RunningSession {
@@ -217,6 +220,8 @@ pub struct SessionManager {
     project_primer: Option<String>,
     insight_store: Option<Arc<dyn Insight>>,
     default_project: String,
+    /// Sandbox configuration. When set, sessions are sandboxed in git worktrees.
+    sandbox_config: Option<SandboxConfig>,
 }
 
 impl SessionManager {
@@ -232,6 +237,7 @@ impl SessionManager {
             project_primer: None,
             insight_store: None,
             default_project: String::new(),
+            sandbox_config: None,
         }
     }
 
@@ -265,6 +271,12 @@ impl SessionManager {
     pub fn set_primers(&mut self, shared_primer: Option<String>, project_primer: Option<String>) {
         self.shared_primer = shared_primer;
         self.project_primer = project_primer;
+    }
+
+    /// Enable session sandboxing. When set, each session gets a git worktree
+    /// and shell commands run inside bubblewrap.
+    pub fn set_sandbox_config(&mut self, config: SandboxConfig) {
+        self.sandbox_config = Some(config);
     }
 
     /// Spawn a new agent session — the universal executor.
@@ -357,17 +369,52 @@ impl SessionManager {
             }
         };
 
+        // 3.5. Create session sandbox (git worktree) if configured.
+        //
+        // Uses a UUID for the sandbox ID since the DB session_id isn't assigned yet.
+        // The sandbox creates a git worktree as an ephemeral workspace. Shell
+        // commands run inside bubblewrap with no network. File tools are scoped
+        // to the worktree via their workspace path.
+        let sandbox: Option<Arc<SessionSandbox>> =
+            if let Some(ref sandbox_cfg) = self.sandbox_config {
+                let sandbox_id = uuid::Uuid::new_v4().to_string();
+                match SessionSandbox::create(&sandbox_id, sandbox_cfg).await {
+                    Ok(sb) => Some(Arc::new(sb)),
+                    Err(e) => {
+                        warn!(error = %e, "failed to create session sandbox — falling back to unsandboxed");
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+        // Effective workdir: worktree path if sandboxed, otherwise the resolved workdir.
+        let effective_workdir = sandbox
+            .as_ref()
+            .map(|s| s.worktree_path.clone())
+            .unwrap_or_else(|| workdir.clone());
+
         // 4. Build tools.
-        let mut tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = vec![
-            Arc::new(aeqi_tools::ShellTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::FileReadTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::FileWriteTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::FileEditTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::GrepTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::GlobTool::new(workdir.clone())),
-            Arc::new(aeqi_tools::WebFetchTool),
-            Arc::new(aeqi_tools::WebSearchTool),
-        ];
+        let mut tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+
+        // Shell: sandboxed or unsandboxed.
+        if let Some(ref sb) = sandbox {
+            tools.push(Arc::new(crate::tools::SandboxedShellTool::new(sb.clone())));
+        } else {
+            tools.push(Arc::new(aeqi_tools::ShellTool::new(effective_workdir.clone())));
+        }
+
+        // File tools: scoped to effective_workdir (worktree in sandbox mode).
+        tools.push(Arc::new(aeqi_tools::FileReadTool::new(effective_workdir.clone())));
+        tools.push(Arc::new(aeqi_tools::FileWriteTool::new(effective_workdir.clone())));
+        tools.push(Arc::new(aeqi_tools::FileEditTool::new(effective_workdir.clone())));
+        tools.push(Arc::new(aeqi_tools::GrepTool::new(effective_workdir.clone())));
+        tools.push(Arc::new(aeqi_tools::GlobTool::new(effective_workdir.clone())));
+
+        // Network/runtime tools: unchanged, run in host process.
+        tools.push(Arc::new(aeqi_tools::WebFetchTool));
+        tools.push(Arc::new(aeqi_tools::WebSearchTool));
 
         // 5. Resolve memory — single shared insight store.
         let memory_for_agent: Option<Arc<dyn Insight>> = self.insight_store.clone();
@@ -580,6 +627,7 @@ impl SessionManager {
             cancel_token,
             join_handle,
             chat_id: 0,
+            sandbox,
         };
         self.register(running).await;
 
@@ -676,6 +724,9 @@ impl SessionManager {
 
     /// Remove and shut down a session. Drops input_tx which causes the agent
     /// loop to exit at the next await point.
+    ///
+    /// If the session has a sandbox, extracts the diff before tearing down.
+    /// Returns the diff if there were changes, or None.
     pub async fn close(&self, session_id: &str) -> bool {
         let removed = self.sessions.lock().await.remove(session_id);
         if let Some(session) = removed {
@@ -690,10 +741,63 @@ impl SessionManager {
             session
                 .cancel_token
                 .store(true, std::sync::atomic::Ordering::Relaxed);
+
+            // Tear down sandbox (worktree cleanup).
+            // For now, auto-discard changes. A future API can expose
+            // close_with_finalize() for commit/merge workflows.
+            if let Some(ref sandbox) = session.sandbox
+                && let Err(e) = sandbox.teardown().await
+            {
+                warn!(session_id = %session_id, error = %e, "sandbox teardown failed");
+            }
+
             true
         } else {
             debug!(session_id = %session_id, "close: session not found (already stopped?)");
             false
+        }
+    }
+
+    /// Close a session and extract the sandbox diff before teardown.
+    /// Returns Some(diff) if the session had a sandbox with changes, None otherwise.
+    pub async fn close_with_diff(&self, session_id: &str) -> Option<SessionDiff> {
+        let removed = self.sessions.lock().await.remove(session_id);
+        if let Some(session) = removed {
+            info!(
+                session_id = %session_id,
+                agent = %session.agent_name,
+                "session closed with diff extraction"
+            );
+
+            drop(session.input_tx);
+            session
+                .cancel_token
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+
+            // Wait briefly for agent loop to finish.
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                session.join_handle,
+            )
+            .await;
+
+            // Extract diff from sandbox.
+            if let Some(ref sandbox) = session.sandbox {
+                match sandbox.extract_diff().await {
+                    Ok(d) if !d.files_changed.is_empty() => return Some(d),
+                    Ok(_) => {
+                        // No changes — tear down immediately.
+                        let _ = sandbox.teardown().await;
+                    }
+                    Err(e) => {
+                        warn!(session_id = %session_id, error = %e, "failed to extract diff");
+                        let _ = sandbox.teardown().await;
+                    }
+                }
+            }
+            None
+        } else {
+            None
         }
     }
 

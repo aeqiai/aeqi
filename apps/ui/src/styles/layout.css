@@ -160,7 +160,7 @@
   left: 8px;
   right: 8px;
   z-index: 100;
-  background: #fff;
+  background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
@@ -177,98 +177,7 @@
 .ws-brand { width: 22px; flex-shrink: 0; cursor: pointer; }
 .ws-trigger-text { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; }
 .ws-trigger-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-trigger-plan { font-size: 10px; color: var(--text-muted); }
-.ws-chevron-btn { background: none; border: none; padding: 4px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
-.ws-chevron-btn:hover { background: var(--bg-base); color: var(--text-secondary); }
-.ws-chevron { color: var(--text-muted); flex-shrink: 0; transition: transform 0.15s; }
-.ws-chevron.open { transform: rotate(180deg); }
-.ws-dropdown {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 100%;
-  z-index: 100;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  padding: 4px 0;
-  margin-top: 4px;
-  animation: ws-fade-in 0.15s ease;
-}
-.ws-dropdown-label {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  padding: 6px 12px 4px;
-}
-.ws-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s;
-}
-.ws-option:hover { background: var(--bg-elevated); }
-.ws-option.active { background: var(--bg-elevated); }
-.ws-option-initial {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.ws-option-name {
-  font-size: 12px;
-  color: var(--text-primary);
-  flex: 1;
-}
-.ws-option.active .ws-option-name { font-weight: 500; }
-.ws-option svg { color: var(--accent); flex-shrink: 0; }
-.ws-create-btn {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  margin-top: 4px;
-}
-.ws-create-btn:hover { color: var(--text-secondary); background: var(--bg-elevated); }
-.ws-create-form {
-  padding: 6px 8px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-}
-.ws-create-input {
-  width: 100%;
-  padding: 6px 8px;
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 12px;
-  outline: none;
-}
-.ws-create-input:focus { border-color: var(--border-hover); }
+.ws-chevron-icon { color: var(--text-muted); flex-shrink: 0; }
 
 .left-sidebar-body {
   flex: 1;
@@ -408,7 +317,7 @@
   bottom: 100%;
   margin-bottom: 4px;
   z-index: 100;
-  background: #fff;
+  background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
@@ -454,21 +363,7 @@
   transition: background 0.1s;
 }
 .pm-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
-.pm-header {
-  padding: 8px 12px;
-}
-.pm-header-name {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.pm-header-email {
-  display: block;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
+/* Duplicate pm-header rules removed -- canonical definition is above */
 .pm-credits {
   display: flex;
   justify-content: space-between;
@@ -493,51 +388,6 @@
 .pm-item-muted { color: var(--text-muted); }
 .pm-item-muted:hover { color: var(--text-secondary); }
 
-/* Keep old .sidebar-profile for compat but hide */
-.sidebar-profile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.sidebar-profile-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.sidebar-profile-name {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sidebar-profile-plan {
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-.sidebar-profile-settings {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.1s;
-  flex-shrink: 0;
-}
-.sidebar-profile-settings:hover {
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-}
 
 /* ── Agent Tree ── */
 .agent-tree {
@@ -640,35 +490,6 @@
   white-space: nowrap;
   flex: 1;
   min-width: 0;
-}
-
-/* User profile */
-.user-profile-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.left-sidebar-footer:hover .user-profile-avatar {
-  box-shadow: none;
-}
-
-.user-avatar-svg {
-  display: block;
-}
-
-.user-profile-name {
-  font-size: var(--font-size-xs);
-  color: var(--text-primary);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ── Content Area ── */
@@ -1408,12 +1229,12 @@
   color: var(--text-primary);
 }
 .content-topbar-btn.primary {
-  background: #000;
-  color: #fff;
-  border-color: #000;
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border-color: var(--text-primary);
 }
 .content-topbar-btn.primary:hover {
-  background: rgba(0, 0, 0, 0.85);
+  opacity: 0.85;
 }
 
 .content-scroll {

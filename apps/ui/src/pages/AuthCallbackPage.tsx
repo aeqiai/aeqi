@@ -16,7 +16,8 @@ export default function AuthCallbackPage() {
       handleOAuthCallback(token);
       // Check if user needs onboarding
       api.getMe().then((me) => {
-        if (!me.companies || me.companies.length === 0) {
+        const companies = me.companies as unknown[] | undefined;
+        if (!companies || companies.length === 0) {
           navigate("/onboarding", { replace: true });
         } else {
           navigate("/", { replace: true });

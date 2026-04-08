@@ -34,7 +34,7 @@ export default function EventsPage() {
   let filtered = events;
   if (selectedAgent) {
     filtered = filtered.filter(
-      (e: any) => e.agent === selectedAgent.name || e.agent?.includes(selectedAgent.name)
+      (e) => e.agent === selectedAgent.name || e.agent?.includes(selectedAgent.name)
     );
   }
 

@@ -40,26 +40,29 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           api.getMemories({ limit: 30 }).catch(() => ({ memories: [] })),
         ]);
 
-        const agentItems: PaletteItem[] = (agentsData.agents || []).map((a: any) => ({
+        const rawAgents = (agentsData.agents || []) as Array<Record<string, unknown>>;
+        const agentItems: PaletteItem[] = rawAgents.map((a) => ({
           id: `agent-${a.name}`,
-          label: a.display_name || a.name,
-          hint: a.model || a.status,
+          label: (a.display_name || a.name) as string,
+          hint: ((a.model || a.status) as string) || "",
           section: "Agents",
           action: () => go(`/agents/${a.name}`),
         }));
 
-        const questItems: PaletteItem[] = (questsData.tasks || []).slice(0, 20).map((q: any) => ({
+        const rawQuests = (questsData.tasks || []) as Array<Record<string, unknown>>;
+        const questItems: PaletteItem[] = rawQuests.slice(0, 20).map((q) => ({
           id: `quest-${q.id}`,
           label: `${q.id}: ${q.subject}`,
-          hint: q.status,
+          hint: (q.status as string) || "",
           section: "Quests",
           action: () => go(`/quests`),
         }));
 
-        const insightItems: PaletteItem[] = (insightsData.memories || []).slice(0, 15).map((m: any) => ({
+        const rawInsights = (insightsData.memories || []) as Array<Record<string, unknown>>;
+        const insightItems: PaletteItem[] = rawInsights.slice(0, 15).map((m) => ({
           id: `insight-${m.id || m.key}`,
-          label: m.key || m.title || "Insight",
-          hint: (m.content || "").slice(0, 50),
+          label: (m.key || m.title || "Insight") as string,
+          hint: ((m.content || "") as string).slice(0, 50),
           section: "Insights",
           action: () => go(`/insights`),
         }));

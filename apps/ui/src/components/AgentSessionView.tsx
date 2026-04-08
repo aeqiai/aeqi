@@ -537,13 +537,13 @@ export default function AgentSessionView({
       try {
         const d = await api.createSession(agentId);
         if (d.session_id) {
-          sessionId = d.session_id;
+          sessionId = d.session_id as string;
           // Update URL to include the new session
           setSession(sessionId);
           // Add to session list
           setSessions((prev) => [
             {
-              id: d.session_id,
+              id: d.session_id as string,
               agent_id: agentId,
               agent_name: agentName,
               status: "active",

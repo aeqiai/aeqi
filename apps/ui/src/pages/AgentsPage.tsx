@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CreateAgentModal from "@/components/CreateAgentModal";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
+import type { Agent } from "@/lib/types";
 
 function StatusDot({ status }: { status: string }) {
   const color =
@@ -17,7 +18,7 @@ function StatusDot({ status }: { status: string }) {
 
 export default function AgentsPage() {
   const navigate = useNavigate();
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -31,7 +32,7 @@ export default function AgentsPage() {
   const loadAgents = () => {
     setLoading(true);
     api.getAgents().then((data) => {
-      setAgents(data.agents || []);
+      setAgents((data.agents || []) as Agent[]);
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -46,7 +47,7 @@ export default function AgentsPage() {
   const filtered = agents.filter((a) =>
     !search || a.name?.toLowerCase().includes(search.toLowerCase()) ||
     a.display_name?.toLowerCase().includes(search.toLowerCase()) ||
-    a.role?.toLowerCase().includes(search.toLowerCase())
+    a.template?.toLowerCase().includes(search.toLowerCase())
   );
 
   const active = filtered.filter((a) => a.status === "active" || a.status === "running");
@@ -123,7 +124,7 @@ export default function AgentsPage() {
           ].filter((g) => g.items.length > 0).map((group) => (
             <div key={group.label}>
               <div className="q-group-header-static">{group.label}</div>
-              {group.items.map((agent: any) => (
+              {group.items.map((agent) => (
                 <div
                   key={agent.name}
                   className="q-row"
@@ -132,16 +133,16 @@ export default function AgentsPage() {
                 >
                   <StatusDot status={agent.status || "idle"} />
                   <span className="q-row-title">{agent.display_name || agent.name}</span>
-                  {agent.role && (
-                    <span style={{ fontSize: 11, color: "rgba(0,0,0,0.3)", marginLeft: 4 }}>{agent.role}</span>
+                  {agent.template && (
+                    <span style={{ fontSize: 11, color: "rgba(0,0,0,0.3)", marginLeft: 4 }}>{agent.template}</span>
                   )}
                   <span style={{ flex: 1 }} />
                   {agent.model && (
                     <span style={{ fontSize: 11, color: "rgba(0,0,0,0.2)", fontFamily: "var(--font-mono)" }}>{agent.model.split("/").pop()}</span>
                   )}
-                  {agent.updated_at && (
+                  {agent.created_at && (
                     <span style={{ fontSize: 11, color: "rgba(0,0,0,0.2)", marginLeft: 12, minWidth: 50, textAlign: "right" }}>
-                      {timeAgo(agent.updated_at)}
+                      {timeAgo(agent.created_at)}
                     </span>
                   )}
                 </div>

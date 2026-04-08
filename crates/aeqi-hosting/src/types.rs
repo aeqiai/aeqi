@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Top-level hosting configuration.
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct HostingConfig {
     /// Provider type: "local", "managed", or "none".
     pub provider: String,
@@ -9,6 +9,16 @@ pub struct HostingConfig {
     pub local: Option<LocalConfig>,
     /// Configuration for ManagedProvider.
     pub managed: Option<ManagedConfig>,
+}
+
+impl Default for HostingConfig {
+    fn default() -> Self {
+        Self {
+            provider: "none".into(),
+            local: None,
+            managed: None,
+        }
+    }
 }
 
 /// Configuration for LocalProvider (manages nginx/systemd/certbot directly).
@@ -57,12 +67,21 @@ fn default_port_end() -> u16 { 3999 }
 fn default_state_file() -> String { "/var/lib/aeqi/hosting.json".into() }
 
 /// Configuration for ManagedProvider (calls aeqi-cloud API).
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ManagedConfig {
-    /// URL of the aeqi-cloud API.
+    /// URL of the aeqi-cloud API (must start with http:// or https://).
     pub cloud_url: String,
     /// Auth token for the API.
     pub auth_token: Option<String>,
+}
+
+impl Default for ManagedConfig {
+    fn default() -> Self {
+        Self {
+            cloud_url: "http://localhost:8080".into(),
+            auth_token: None,
+        }
+    }
 }
 
 /// App deployment configuration.

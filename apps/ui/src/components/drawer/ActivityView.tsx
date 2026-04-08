@@ -222,13 +222,13 @@ export default function ActivityView({
   const quests = useDaemonStore((s) => s.quests);
 
   // Find quests assigned to this agent
-  const agentQuests = quests.filter((q: any) => {
-    const assignee = (q.agent_id || q.assignee || q.agent || "").toLowerCase();
+  const agentQuests = (quests as unknown as Quest[]).filter((q) => {
+    const assignee = (q.agent_id || q.assignee || "").toLowerCase();
     return (
       assignee.includes(agentName.toLowerCase()) ||
       assignee === agentId.toLowerCase()
     );
-  }) as Quest[];
+  });
 
   // Active quest: first in_progress
   const activeQuest =

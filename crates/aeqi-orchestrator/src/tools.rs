@@ -1304,3 +1304,164 @@ impl Tool for TranscriptSearchTool {
         true
     }
 }
+
+// ---------------------------------------------------------------------------
+// Sandboxed Shell Tool — wraps shell commands in bubblewrap for session isolation
+// ---------------------------------------------------------------------------
+
+/// Shell tool that executes commands inside a bubblewrap sandbox scoped to a
+/// git worktree. Network is disabled; only the worktree is writable.
+///
+/// Falls back to plain bash execution when bwrap is not enabled.
+pub struct SandboxedShellTool {
+    sandbox: Arc<crate::sandbox::SessionSandbox>,
+    timeout_secs: u64,
+}
+
+impl SandboxedShellTool {
+    pub fn new(sandbox: Arc<crate::sandbox::SessionSandbox>) -> Self {
+        Self {
+            sandbox,
+            timeout_secs: 120,
+        }
+    }
+
+    pub fn with_timeout(mut self, timeout_secs: u64) -> Self {
+        self.timeout_secs = timeout_secs;
+        self
+    }
+}
+
+#[async_trait]
+impl Tool for SandboxedShellTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let command = args
+            .get("command")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing 'command' argument"))?;
+
+        // Parse timeout: arg in ms, default to self.timeout_secs * 1000, cap at 600_000ms.
+        let timeout_ms = args
+            .get("timeout")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(self.timeout_secs * 1000)
+            .min(600_000);
+        let timeout_dur = std::time::Duration::from_millis(timeout_ms);
+
+        let run_in_background = args
+            .get("run_in_background")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        tracing::debug!(
+            command = %command,
+            sandbox = %self.sandbox.session_id,
+            bwrap = self.sandbox.enable_bwrap,
+            timeout_ms,
+            run_in_background,
+            "executing sandboxed shell command"
+        );
+
+        if run_in_background {
+            let mut child = self
+                .sandbox
+                .build_command(command)
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("failed to spawn background command: {e}"))?;
+
+            let pid = child.id().unwrap_or(0);
+
+            // Reap child to prevent zombies.
+            tokio::spawn(async move {
+                let _ = child.wait().await;
+            });
+
+            return Ok(ToolResult::success(format!(
+                "Command started in background. PID: {pid}"
+            )));
+        }
+
+        let result = tokio::time::timeout(
+            timeout_dur,
+            self.sandbox.build_command(command).output(),
+        )
+        .await;
+
+        match result {
+            Ok(Ok(output)) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+
+                let mut result_text = String::new();
+
+                if !stdout.is_empty() {
+                    result_text.push_str(&stdout);
+                }
+                if !stderr.is_empty() {
+                    if !result_text.is_empty() {
+                        result_text.push('\n');
+                    }
+                    result_text.push_str("STDERR:\n");
+                    result_text.push_str(&stderr);
+                }
+
+                if result_text.is_empty() {
+                    result_text = "(no output)".to_string();
+                }
+
+                // Truncate if too long.
+                if result_text.len() > 30000 {
+                    result_text.truncate(30000);
+                    result_text.push_str("\n... (output truncated)");
+                }
+
+                if output.status.success() {
+                    Ok(ToolResult::success(result_text))
+                } else {
+                    Ok(ToolResult::error(format!(
+                        "exit code {}\n{}",
+                        output.status.code().unwrap_or(-1),
+                        result_text
+                    )))
+                }
+            }
+            Ok(Err(e)) => Ok(ToolResult::error(format!("failed to execute command: {e}"))),
+            Err(_) => Ok(ToolResult::error(format!(
+                "command timed out after {timeout_ms}ms"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "shell".to_string(),
+            description: "Execute a shell command in the sandboxed workspace. Commands run in an isolated environment with no network access. Only the workspace directory is writable.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The bash command to execute"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Clear description of what this command does"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in milliseconds (default: 120000, max: 600000)"
+                    },
+                    "run_in_background": {
+                        "type": "boolean",
+                        "description": "Run command in background and return immediately"
+                    }
+                },
+                "required": ["command"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "shell"
+    }
+}

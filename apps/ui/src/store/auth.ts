@@ -96,19 +96,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.loginWithEmail(email, password);
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: resp.user || null, loading: false });
+        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
         return "ok";
       }
       set({ loading: false, error: "Invalid email or password" });
       return "error";
-    } catch (e: any) {
-      if (e?.message?.includes("not verified")) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Login failed";
+      if (msg.includes("not verified")) {
         localStorage.removeItem("aeqi_token");
         localStorage.setItem("aeqi_pending_email", email);
         set({ token: null, loading: false, pendingEmail: email });
         return "unverified";
       }
-      set({ loading: false, error: e?.message || "Login failed" });
+      set({ loading: false, error: msg });
       return "error";
     }
   },
@@ -117,12 +118,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const resp = await api.signup(email, password, name, inviteCode);
-      if (resp.ok && (resp as any).pending_verification) {
+      if (resp.ok && resp.pending_verification) {
         // Save token so user can onboard while unverified.
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
           localStorage.setItem("aeqi_pending_email", email);
-          set({ token: resp.token, user: resp.user || null, loading: false, pendingEmail: email });
+          set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pendingEmail: email });
         } else {
           set({ loading: false, pendingEmail: email });
         }
@@ -130,13 +131,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: resp.user || null, loading: false });
+        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
         return "verified";
       }
       set({ loading: false, error: "Signup failed" });
       return "error";
-    } catch (e: any) {
-      set({ loading: false, error: e?.message || "Signup failed" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Signup failed";
+      set({ loading: false, error: msg });
       return "error";
     }
   },
@@ -147,13 +149,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.verifyEmail(email, code);
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: resp.user || null, loading: false, pendingEmail: null });
+        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pendingEmail: null });
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
       return false;
-    } catch (e: any) {
-      set({ loading: false, error: e?.message || "Verification failed" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Verification failed";
+      set({ loading: false, error: msg });
       return false;
     }
   },
@@ -174,8 +177,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchMe: async () => {
     try {
-      const user = await api.getMe();
-      set({ user });
+      const data = await api.getMe();
+      set({ user: data as unknown as User });
     } catch {
       // Not critical.
     }

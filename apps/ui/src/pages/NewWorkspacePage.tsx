@@ -27,8 +27,8 @@ export default function NewWorkspacePage() {
       });
       setActiveCompany(name.trim());
       navigate("/agents");
-    } catch (e: any) {
-      setError(e?.message || "Failed to create company");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to create company");
       setCreating(false);
     }
   };
