@@ -905,26 +905,22 @@ async fn github_callback_handler(
 
     // Fetch primary email (may be private).
     let mut email = user_json.get("email").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    if email.is_empty() {
-        if let Ok(resp) = client
+    if email.is_empty()
+        && let Ok(resp) = client
             .get("https://api.github.com/user/emails")
             .header("Authorization", format!("Bearer {}", access_token))
             .header("User-Agent", "aeqi")
             .send()
             .await
-        {
-            if let Ok(emails) = resp.json::<Vec<serde_json::Value>>().await {
-                // Find primary verified email.
-                for e in &emails {
-                    if e.get("primary").and_then(|v| v.as_bool()) == Some(true)
-                        && e.get("verified").and_then(|v| v.as_bool()) == Some(true)
-                    {
-                        if let Some(addr) = e.get("email").and_then(|v| v.as_str()) {
-                            email = addr.to_string();
-                            break;
-                        }
-                    }
-                }
+        && let Ok(emails) = resp.json::<Vec<serde_json::Value>>().await
+    {
+        for e in &emails {
+            if e.get("primary").and_then(|v| v.as_bool()) == Some(true)
+                && e.get("verified").and_then(|v| v.as_bool()) == Some(true)
+                && let Some(addr) = e.get("email").and_then(|v| v.as_str())
+            {
+                email = addr.to_string();
+                break;
             }
         }
     }

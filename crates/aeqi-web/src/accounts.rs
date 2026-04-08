@@ -311,7 +311,7 @@ impl AccountStore {
         let conn = self.conn.lock().unwrap();
         let mut codes = Vec::new();
         for _ in 0..count {
-            let code = format!("{}", &Uuid::new_v4().to_string()[..8]);
+            let code = Uuid::new_v4().to_string()[..8].to_string();
             conn.execute(
                 "INSERT INTO invite_codes (code, owner_id) VALUES (?1, ?2)",
                 params![code, user_id],
