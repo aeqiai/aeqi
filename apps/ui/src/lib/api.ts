@@ -40,7 +40,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  if (company && !path.startsWith("/auth/") && !path.startsWith("/billing/")) {
+  if (company && !path.startsWith("/auth/")) {
     headers["X-Company"] = company;
   }
 
@@ -396,18 +396,6 @@ export const api = {
   // Triggers
   getTriggers: () => request<any>("/triggers"),
 
-  // Billing
-  createCheckoutSession: (plan: "starter" | "growth", interval: "monthly" | "annual" = "monthly") =>
-    request<{ url: string }>("/billing/checkout", {
-      method: "POST",
-      body: JSON.stringify({ plan, interval }),
-    }),
-
-  getSubscription: () =>
-    request<{ status: string; plan: string | null; trial_ends_at: string | null }>("/billing/subscription"),
-
-  createPortalSession: () =>
-    request<{ url: string }>("/billing/portal", { method: "POST" }),
 };
 
 export { ApiError };

@@ -13,7 +13,6 @@ import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
 import InsightsPage from "@/pages/InsightsPage";
-import BillingPage from "@/pages/BillingPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const authMode = useAuthStore((s) => s.authMode);
@@ -61,7 +60,6 @@ export default function App() {
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="insights" element={<InsightsPage />} />
-        <Route path="billing" element={<BillingPage />} />
         <Route path="company" element={<div className="page-content"><h2 style={{color:'var(--text-primary)',margin:'24px'}}>Company</h2><p style={{color:'var(--text-muted)',margin:'0 24px',fontSize:13}}>Projects, teams, and organization settings.</p></div>} />
       </Route>
     </Routes>

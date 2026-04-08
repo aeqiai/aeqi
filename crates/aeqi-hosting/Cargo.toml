@@ -1,0 +1,24 @@
+[package]
+name = "aeqi-hosting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Hosting provider trait and implementations for AEQI"
+
+[features]
+default = []
+managed = ["dep:reqwest", "dep:urlencoding"]
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+
+# Only needed for ManagedProvider (SaaS containers calling aeqi-cloud API).
+reqwest = { workspace = true, optional = true }
+urlencoding = { workspace = true, optional = true }

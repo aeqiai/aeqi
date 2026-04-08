@@ -5,8 +5,6 @@ import ContextDrawer from "./ContextDrawer";
 import CommandPalette from "./CommandPalette";
 import AgentSessionView from "./AgentSessionView";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
-import ProfileMenu from "./ProfileMenu";
-import TrialBanner from "./TrialBanner";
 import ContentTopBar from "./ContentTopBar";
 import { useDaemonStore } from "@/store/daemon";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
@@ -59,6 +57,30 @@ export default function AppLayout() {
         <div className="left-sidebar">
           <WorkspaceSwitcher />
           <nav className="sidebar-nav">
+            <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
+              <span className="sidebar-nav-label">Company</span>
+            </a>
+            <a className={`sidebar-nav-item ${isActive("/treasury") ? "active" : ""}`} href="/treasury" onClick={(e) => { e.preventDefault(); navigate("/treasury"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 5l5-2.5L12 5" /><path d="M3 5.5v5M5.5 5.5v5M8.5 5.5v5M11 5.5v5" /><path d="M1.5 10.5h11" /><path d="M1 12h12" /></svg>
+              <span className="sidebar-nav-label">Treasury</span>
+            </a>
+            <a className={`sidebar-nav-item ${isActive("/drive") ? "active" : ""}`} href="/drive" onClick={(e) => { e.preventDefault(); navigate("/drive"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" /></svg>
+              <span className="sidebar-nav-label">Drive</span>
+            </a>
+            <a className={`sidebar-nav-item ${isActive("/apps") ? "active" : ""}`} href="/apps" onClick={(e) => { e.preventDefault(); navigate("/apps"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="4" height="4" rx="0.5" /><rect x="8" y="2" width="4" height="4" rx="0.5" /><rect x="2" y="8" width="4" height="4" rx="0.5" /><rect x="8" y="8" width="4" height="4" rx="0.5" /></svg>
+              <span className="sidebar-nav-label">Apps</span>
+            </a>
+          </nav>
+          <nav className="sidebar-nav">
+            <a className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`} href="/market" onClick={(e) => { e.preventDefault(); navigate("/market"); }}>
+              <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, width: 22, textAlign: "center" as const, flexShrink: 0, display: "inline-flex", justifyContent: "center" }}>æ</span>
+              <span className="sidebar-nav-label">Market</span>
+            </a>
+          </nav>
+          <nav className="sidebar-nav">
             <a className={`sidebar-nav-item ${isActive("/agents") ? "active" : ""}`} href="/agents" onClick={(e) => { e.preventDefault(); navigate("/agents"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="7" cy="5" r="2.5" /><path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" /></svg>
               <span className="sidebar-nav-label">Agents</span>
@@ -91,21 +113,16 @@ export default function AppLayout() {
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
-          <nav className="sidebar-nav sidebar-nav-bottom">
-            <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
-              <span className="sidebar-nav-label">Company</span>
-            </a>
-            <a className={`sidebar-nav-item ${isActive("/drive") ? "active" : ""}`} href="/drive" onClick={(e) => { e.preventDefault(); navigate("/drive"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" /></svg>
-              <span className="sidebar-nav-label">Drive</span>
-            </a>
-            <a className={`sidebar-nav-item ${isActive("/apps") ? "active" : ""}`} href="/apps" onClick={(e) => { e.preventDefault(); navigate("/apps"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="4" height="4" rx="0.5" /><rect x="8" y="2" width="4" height="4" rx="0.5" /><rect x="2" y="8" width="4" height="4" rx="0.5" /><rect x="8" y="8" width="4" height="4" rx="0.5" /></svg>
-              <span className="sidebar-nav-label">Apps</span>
-            </a>
-          </nav>
-          <ProfileMenu />
+          <div className="platform-bar-wrapper">
+            <div className="platform-bar" onClick={() => navigate("/settings")}>
+              <div className="platform-bar-spacer" />
+              <div className="platform-bar-info">
+                <span className="platform-bar-label">Free plan</span>
+                <span className="platform-bar-tokens">10k tokens</span>
+              </div>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><circle cx="8" cy="8" r="2.5" /><path d="M13.5 8a5.5 5.5 0 01-.4 1.6l1.1 1.3-1.1 1.1-1.3-1.1A5.5 5.5 0 018 13.5a5.5 5.5 0 01-3.8-2.6L3 12l-1.1-1.1 1.1-1.3A5.5 5.5 0 012.5 8a5.5 5.5 0 01.5-1.6L1.9 5.1 3 4l1.3 1.1A5.5 5.5 0 018 2.5a5.5 5.5 0 013.8 2.6L13 4l1.1 1.1-1.1 1.3A5.5 5.5 0 0113.5 8z" /></svg>
+            </div>
+          </div>
         </div>
 
         {/* Main content */}
@@ -115,7 +132,6 @@ export default function AppLayout() {
           ) : (
             <>
               <ContentTopBar />
-              <TrialBanner />
               <div className="content-scroll">
                 <Outlet />
               </div>

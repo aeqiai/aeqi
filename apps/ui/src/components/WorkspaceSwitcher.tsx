@@ -88,36 +88,26 @@ export default function WorkspaceSwitcher() {
 
   return (
     <div className="ws-switcher" ref={ref}>
-      <div className="ws-trigger">
-        <span className="ws-brand" onClick={() => navigate("/")}>
+      <div className="ws-trigger" onClick={() => setOpen(!open)} style={{ cursor: "pointer" }}>
+        <span className="ws-brand">
           <BlockAvatar name={displayName} size={22} />
         </span>
-        <div className="ws-trigger-text" onClick={() => navigate("/")}>
+        <div className="ws-trigger-text">
           <span className="ws-trigger-name">{displayName}</span>
-          <span className="ws-trigger-plan">
-            {workspaces.find((w) => w.name === activeCompany)?.tagline
-              || localStorage.getItem("aeqi_company_tagline")
-              || "The agent runtime."}
-          </span>
         </div>
-        <button
-          className="ws-chevron-btn"
-          onClick={() => setOpen(!open)}
-          title="Switch company"
+        <svg
+          className="ws-chevron-icon"
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M4 3l2-1.5L8 3" />
-            <path d="M4 9l2 1.5L8 9" />
-          </svg>
-        </button>
+          <path d="M4 3l2-1.5L8 3" />
+          <path d="M4 9l2 1.5L8 9" />
+        </svg>
       </div>
 
       {open && (

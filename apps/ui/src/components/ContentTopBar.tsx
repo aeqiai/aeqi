@@ -10,7 +10,6 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string; pat
   "/drive": { title: "Drive" },
   "/company": { title: "Company" },
   "/apps": { title: "Apps" },
-  "/billing": { title: "Billing" },
   "/settings": { title: "Settings" },
 };
 

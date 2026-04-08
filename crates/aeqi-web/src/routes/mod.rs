@@ -1,9 +1,9 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
@@ -63,6 +63,12 @@ pub fn api_routes() -> Router<AppState> {
         .route("/vfs", get(vfs_list))
         .route("/vfs/search", get(vfs_search))
         .route("/vfs/{*path}", get(vfs_read))
+        // Hosting
+        .route("/hosting/apps", get(hosting_list_apps).post(hosting_deploy_app))
+        .route("/hosting/apps/{id}", delete(hosting_stop_app))
+        .route("/hosting/apps/{id}/restart", post(hosting_restart_app))
+        .route("/hosting/domains", get(hosting_list_domains).post(hosting_add_domain))
+        .route("/hosting/domains/{domain}", delete(hosting_remove_domain))
 }
 
 // --- Status ---
@@ -781,6 +787,108 @@ async fn ipc_proxy(state: AppState, cmd: &str, params: serde_json::Value) -> Res
         Ok(resp) => Json(resp).into_response(),
         Err(e) => (
             StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+// --- Hosting ---
+
+async fn hosting_list_apps(State(state): State<AppState>) -> Response {
+    match state.hosting.list_apps().await {
+        Ok(apps) => Json(serde_json::json!({"ok": true, "apps": apps})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn hosting_deploy_app(
+    State(state): State<AppState>,
+    Json(config): Json<aeqi_hosting::AppConfig>,
+) -> Response {
+    match state.hosting.deploy_app(&config).await {
+        Ok(deployment) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({"ok": true, "deployment": deployment})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn hosting_stop_app(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    match state.hosting.stop_app(&id).await {
+        Ok(()) => Json(serde_json::json!({"ok": true})).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn hosting_restart_app(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    match state.hosting.restart_app(&id).await {
+        Ok(()) => Json(serde_json::json!({"ok": true})).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn hosting_list_domains(State(state): State<AppState>) -> Response {
+    match state.hosting.list_domains().await {
+        Ok(domains) => Json(serde_json::json!({"ok": true, "domains": domains})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct AddDomainRequest {
+    domain: String,
+    app_id: String,
+}
+
+async fn hosting_add_domain(
+    State(state): State<AppState>,
+    Json(req): Json<AddDomainRequest>,
+) -> Response {
+    match state.hosting.add_domain(&req.domain, &req.app_id).await {
+        Ok(info) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({"ok": true, "domain": info})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn hosting_remove_domain(
+    State(state): State<AppState>,
+    Path(domain): Path<String>,
+) -> Response {
+    match state.hosting.remove_domain(&domain).await {
+        Ok(()) => Json(serde_json::json!({"ok": true})).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
             Json(serde_json::json!({"ok": false, "error": e.to_string()})),
         )
             .into_response(),

@@ -47,6 +47,9 @@ pub struct AEQIConfig {
     /// Web API server settings.
     #[serde(default)]
     pub web: WebConfig,
+    /// Hosting provider settings (local, managed, or none).
+    #[serde(default)]
+    pub hosting: HostingProviderConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -727,6 +730,66 @@ impl Default for WebConfig {
 
 fn default_web_bind() -> String {
     "0.0.0.0:8400".to_string()
+}
+
+/// Hosting provider configuration — determines how apps and domains are managed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostingProviderConfig {
+    /// Provider type: "local", "managed", or "none".
+    #[serde(default = "default_hosting_provider")]
+    pub provider: String,
+    /// LocalProvider config (for "local" mode).
+    #[serde(default)]
+    pub local: Option<LocalHostingConfig>,
+    /// ManagedProvider config (for "managed" mode).
+    #[serde(default)]
+    pub managed: Option<ManagedHostingConfig>,
+}
+
+impl Default for HostingProviderConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_hosting_provider(),
+            local: None,
+            managed: None,
+        }
+    }
+}
+
+fn default_hosting_provider() -> String {
+    "none".to_string()
+}
+
+/// Config for local hosting (nginx + systemd + certbot).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalHostingConfig {
+    #[serde(default = "default_nginx_available")]
+    pub nginx_available_dir: String,
+    #[serde(default = "default_nginx_enabled")]
+    pub nginx_enabled_dir: String,
+    #[serde(default = "default_certbot_bin")]
+    pub certbot_bin: String,
+    pub certbot_email: Option<String>,
+    #[serde(default = "default_hosting_port_start")]
+    pub port_range_start: u16,
+    #[serde(default = "default_hosting_port_end")]
+    pub port_range_end: u16,
+    #[serde(default = "default_hosting_state_file")]
+    pub state_file: String,
+}
+
+fn default_nginx_available() -> String { "/etc/nginx/sites-available".into() }
+fn default_nginx_enabled() -> String { "/etc/nginx/sites-enabled".into() }
+fn default_certbot_bin() -> String { "certbot".into() }
+fn default_hosting_port_start() -> u16 { 3100 }
+fn default_hosting_port_end() -> u16 { 3999 }
+fn default_hosting_state_file() -> String { "/var/lib/aeqi/hosting.json".into() }
+
+/// Config for managed hosting (calls aeqi-cloud API).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagedHostingConfig {
+    pub cloud_url: String,
+    pub auth_token: Option<String>,
 }
 
 fn default_ws_poll_interval() -> u64 {

@@ -1,38 +1,19 @@
 [aeqi]
-name = "emperor-system"
+name = "aeqi"
 data_dir = "~/.aeqi"
-
-shared_primer = """
-# AEQI
-
-## For Every Quest
-
-1. Recall memory before any edit — search for relevant prior knowledge
-2. Understand context — read code, check the graph
-3. Execute — implement, verify, commit
-4. Remember — store learnings after significant work
-
-All available tools are provided in your tool specifications. Use them by name.
-
-## Rules
-
-- No comments except `///` on public APIs.
-- No backward compat hacks. Change everywhere or don't.
-- Same concept = same name everywhere.
-- DRY. Extract at two, refactor at three.
-- Schema = source of truth.
-- Worktrees only. Never edit dev/master.
-- No secrets in git.
-- Full autonomy. blocked = cannot proceed without external input — missing credentials, unresolvable external dependency, or competing design paths that need human decision. Nothing else.
-"""
 
 [web]
 enabled = true
-bind = "0.0.0.0:8400"
+bind = "127.0.0.1:8400"
 ui_dist_dir = "/home/claudedev/aeqi/apps/ui/dist"
 cors_origins = ["https://aeqi.ai", "https://app.aeqi.ai", "http://localhost:5173"]
 auth_secret = "${AEQI_WEB_SECRET}"
 
+[web.auth]
+mode = "accounts"
+base_url = "https://aeqi.ai"
+waitlist = true
+invite_codes_per_user = 3
 
 [providers.openrouter]
 api_key = "${OPENROUTER_API_KEY}"
@@ -47,103 +28,19 @@ max_cost_per_day_usd = 10.0
 [memory]
 backend = "sqlite"
 embedding_dimensions = 1536
-vector_weight = 0.6
-keyword_weight = 0.4
 temporal_decay_halflife_days = 30
-mmr_lambda = 0.7
-chunk_size_tokens = 400
-chunk_overlap_tokens = 80
 
-[repos]
-aeqi = "/home/claudedev/aeqi"
-aeqi-ui = "/home/claudedev/aeqi/apps/ui"
-algostaking = "/home/claudedev/algostaking-backend"
-algostaking-app = "/home/claudedev/algostaking-app"
-algostaking-frontend = "/home/claudedev/algostaking-frontend"
-riftdecks = "/home/claudedev/riftdecks"
-entity-legal = "/home/claudedev/aeqi/projects/entity-legal/web"
-aeqi-core = "/home/claudedev/aeqi-core"
-aeqi-app = "/home/claudedev/aeqi-app"
-aeqi-graph = "/home/claudedev/aeqi-graph"
-unifutures = "/home/claudedev/unifutures"
+[hosting]
+provider = "local"
 
-[team]
-leader = "assistant"
-router_cooldown_secs = 60
-max_background_cost_usd = 0.0
-
-[channels.telegram]
-token_secret = "TELEGRAM_BOT_TOKEN"
-allowed_chats = [-5229229023]
-debounce_window_ms = 3000
+[hosting.local]
+nginx_available_dir = "/etc/nginx/sites-available"
+nginx_enabled_dir = "/etc/nginx/sites-enabled"
+certbot_bin = "certbot"
+certbot_email = "hello@aeqi.ai"
+port_range_start = 3100
+port_range_end = 3999
+state_file = "/var/lib/aeqi/hosting.json"
 
 [orchestrator]
 background_automation_enabled = false
-expertise_routing = true
-adaptive_retry = false
-failure_analysis_model = "qwen/qwen3.6-plus:free"
-infer_deps_threshold = 0.6
-notes_transient_ttl_hours = 48
-notes_durable_ttl_days = 14
-
-# ── Companies ──
-
-[[companies]]
-name = "aeqi"
-prefix = "sg"
-repo = "/home/claudedev/aeqi"
-model = "qwen/qwen3.6-plus:free"
-max_workers = 2
-worktree_root = "/home/claudedev/worktrees"
-execution_mode = "agent"
-max_turns = 25
-worker_timeout_secs = 3600
-primer = """
-AEQI — Agent runtime, orchestration engine, and web control plane in Rust. 10 crates, 634+ tests.
-
-Crates: aeqi-cli (CLI/MCP), aeqi-core (agent loop, config, identity), aeqi-orchestrator (daemon, worker pools, middleware, notes, dispatch), aeqi-web (Axum REST+WS), aeqi-quests (quest DAG, missions), aeqi-insights (SQLite+FTS5, vector search), aeqi-providers (OpenRouter, Anthropic, Ollama), aeqi-tools (shell, file, git, delegate, skills), aeqi-gates (Telegram, Discord, Slack), aeqi-graph (code intelligence).
-
-4 primitives: Agent (persistent identity with UUID, entity memory), Quest (agent-bound, atomic checkout), Delegation (unified delegate tool, 5 response modes), AgentSpawn (project config, worker pool).
-
-Middleware chain: 9 layers (guardrails, graph guardrails, loop detection, context compression, context budget, cost tracking, memory refresh, clarification, safety net).
-
-Runtime: daemon patrol loop every 30s. Centralized per-agent spawning with global max_concurrent. Dispatch bus with ACK/retry. Budget policies per scope. Approval queue. Webhook triggers with HMAC signing.
-"""
-
-[[companies]]
-name = "algostaking"
-prefix = "as"
-repo = "/home/claudedev/algostaking-backend"
-model = "qwen/qwen3.6-plus:free"
-max_workers = 3
-worktree_root = "/home/claudedev/worktrees"
-execution_mode = "agent"
-max_turns = 50
-worker_timeout_secs = 1800
-
-[[companies]]
-name = "riftdecks-shop"
-prefix = "rd"
-repo = "/home/claudedev/riftdecks"
-model = "qwen/qwen3.6-plus:free"
-max_workers = 2
-execution_mode = "agent"
-worker_timeout_secs = 1800
-
-[[companies]]
-name = "entity-legal"
-prefix = "el"
-repo = "/home/claudedev/aeqi/projects/entity-legal/web"
-model = "qwen/qwen3.6-plus:free"
-max_workers = 2
-execution_mode = "agent"
-worker_timeout_secs = 1800
-
-[[companies]]
-name = "unifutures"
-prefix = "uf"
-repo = "/home/claudedev/unifutures"
-model = "qwen/qwen3.6-plus:free"
-max_workers = 1
-execution_mode = "agent"
-worker_timeout_secs = 1800

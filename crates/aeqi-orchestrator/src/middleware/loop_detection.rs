@@ -132,8 +132,9 @@ impl Middleware for LoopDetectionMiddleware {
                 "loop detected — halting execution"
             );
             return MiddlewareAction::Halt(format!(
-                "Loop detected: tool '{}' called {} times in last {} calls. \
-                 Execution halted to prevent infinite loop.",
+                "Loop detected: identical call to '{}' (same arguments) appeared {} times \
+                 in the last {} tool calls. Execution halted — you are repeating the same \
+                 operation. Change your approach.",
                 call.name, count, self.window_size
             ));
         }
