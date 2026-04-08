@@ -92,11 +92,10 @@ impl LocalProvider {
                 warn!("state file corrupted ({e}), using default");
                 HostingState::default()
             }),
-            Err(_) => {
-                let mut state = HostingState::default();
-                state.next_port = self.config.port_range_start;
-                state
-            }
+            Err(_) => HostingState {
+                next_port: self.config.port_range_start,
+                ..Default::default()
+            },
         }
     }
 
@@ -466,7 +465,7 @@ impl HostingProvider for LocalProvider {
         let state = self.load_state();
         let mut result = Vec::new();
 
-        for (_, record) in &state.apps {
+        for record in state.apps.values() {
             let app_state = self.check_service_active(&record.service_name).await;
             let domains: Vec<String> = state
                 .domains
