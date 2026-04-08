@@ -8,7 +8,7 @@ export default function WorkspaceSwitcher() {
   const location = useLocation();
 
   const displayName = activeCompany || "aeqi";
-  const isOnEntities = location.pathname === "/companies";
+  const isOnCompanies = location.pathname === "/companies";
 
   return (
     <div className="ws-switcher">
@@ -16,7 +16,7 @@ export default function WorkspaceSwitcher() {
         className="ws-trigger"
         role="button"
         tabIndex={0}
-        aria-label={`Switch workspace, current: ${displayName}`}
+        aria-label={`Switch company, current: ${displayName}`}
         onClick={() => navigate("/companies")}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -41,7 +41,7 @@ export default function WorkspaceSwitcher() {
           strokeWidth="1.5"
           strokeLinecap="round"
           aria-hidden="true"
-          style={{ opacity: isOnEntities ? 0.5 : 0.2 }}
+          style={{ opacity: isOnCompanies ? 0.5 : 0.2 }}
         >
           <path d="M4 3l2-1.5L8 3" />
           <path d="M4 9l2 1.5L8 9" />

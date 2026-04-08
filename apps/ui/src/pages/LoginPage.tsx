@@ -27,18 +27,30 @@ export default function LoginPage() {
     loginWithEmail,
     verifyEmail,
     resendCode,
+    verify2fa,
+    resend2fa,
+    pending2faEmail,
     isAuthenticated,
   } = useAuthStore();
 
-  const [step, setStep] = useState<"email" | "password" | "verify">("email");
+  const [step, setStep] = useState<"email" | "password" | "verify" | "2fa" | "forgot">("email");
   const [secret, setSecret] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [twoFaCode, setTwoFaCode] = useState(["", "", "", "", "", ""]);
   const [verifyError, setVerifyError] = useState("");
+  const [twoFaError, setTwoFaError] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [twoFaResendCooldown, setTwoFaResendCooldown] = useState(0);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const twoFaRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchAuthMode();
@@ -53,6 +65,12 @@ export default function LoginPage() {
     const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (twoFaResendCooldown <= 0) return;
+    const timer = setTimeout(() => setTwoFaResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [twoFaResendCooldown]);
 
   const clearError = () => useAuthStore.setState({ error: null });
 
@@ -74,11 +92,18 @@ export default function LoginPage() {
       setStep("verify");
       return;
     }
+    if (result === "2fa") {
+      setStep("2fa");
+      setTwoFaCode(["", "", "", "", "", ""]);
+      setTwoFaError("");
+      return;
+    }
     if (result === "ok") {
       navigate("/");
     }
   };
 
+  // Email verification code handlers
   const handleCodeChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     const next = [...code];
@@ -134,6 +159,76 @@ export default function LoginPage() {
     if (ok) setResendCooldown(60);
   };
 
+  // 2FA code handlers
+  const handle2faCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const next = [...twoFaCode];
+    next[index] = value.slice(-1);
+    setTwoFaCode(next);
+    if (value && index < 5) twoFaRefs.current[index + 1]?.focus();
+
+    const full = next.join("");
+    if (full.length === 6) {
+      setTwoFaLoading(true);
+      setTwoFaError("");
+      verify2fa(email, full).then((ok) => {
+        setTwoFaLoading(false);
+        if (ok) {
+          navigate("/", { replace: true });
+        } else {
+          setTwoFaError("Invalid or expired code");
+        }
+      });
+    }
+  };
+
+  const handle2faKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !twoFaCode[index] && index > 0) {
+      twoFaRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handle2faPaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (text.length === 6) {
+      e.preventDefault();
+      setTwoFaCode(text.split(""));
+      twoFaRefs.current[5]?.focus();
+      setTwoFaLoading(true);
+      setTwoFaError("");
+      verify2fa(email, text).then((ok) => {
+        setTwoFaLoading(false);
+        if (ok) {
+          navigate("/", { replace: true });
+        } else {
+          setTwoFaError("Invalid or expired code");
+        }
+      });
+    }
+  };
+
+  const handle2faResend = async () => {
+    if (twoFaResendCooldown > 0) return;
+    const ok = await resend2fa(email);
+    if (ok) setTwoFaResendCooldown(60);
+  };
+
+  // Forgot password handler
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError("");
+    try {
+      await api.forgotPassword(forgotEmail);
+      setForgotSent(true);
+    } catch (err: unknown) {
+      // Always show success to avoid email enumeration
+      setForgotSent(true);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleGoogle = () => { window.location.href = "/api/auth/google"; };
   const handleGithub = () => { window.location.href = "/api/auth/github"; };
 
@@ -171,14 +266,22 @@ export default function LoginPage() {
       <div className="auth-container" role="region" aria-live="polite">
         <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
         <h1 className="auth-heading">
-          {step === "email" ? "Sign in" : step === "password" ? "Password" : "Verify your email"}
+          {step === "email" ? "Sign in"
+            : step === "password" ? "Password"
+            : step === "verify" ? "Verify your email"
+            : step === "2fa" ? "Verification code"
+            : "Reset password"}
         </h1>
         <p className="auth-subheading">
           {step === "email"
             ? "Enter your email to continue"
             : step === "password"
             ? email
-            : <>Code sent to <strong className="auth-email-highlight">{email}</strong></>}
+            : step === "verify"
+            ? <>Code sent to <strong className="auth-email-highlight">{email}</strong></>
+            : step === "2fa"
+            ? <>We sent a code to <strong className="auth-email-highlight">{pending2faEmail || email}</strong></>
+            : "Enter your email to receive a reset link"}
         </p>
 
         {step === "email" && (
@@ -219,6 +322,9 @@ export default function LoginPage() {
               </button>
             </form>
             <p className="auth-switch">
+              <a href="#" onClick={(e) => { e.preventDefault(); setForgotEmail(email); setForgotSent(false); setForgotError(""); setStep("forgot"); }}>Forgot password?</a>
+            </p>
+            <p className="auth-switch">
               <a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); }}>Use a different email</a>
             </p>
           </>
@@ -255,7 +361,72 @@ export default function LoginPage() {
           </>
         )}
 
-        {step !== "verify" && (
+        {step === "2fa" && (
+          <>
+            <div className="verify-code-inputs" onPaste={handle2faPaste}>
+              {twoFaCode.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { twoFaRefs.current[i] = el; }}
+                  className={`verify-code-digit${twoFaError ? " has-error" : ""}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => { handle2faCodeChange(i, e.target.value); if (twoFaError) setTwoFaError(""); }}
+                  onKeyDown={(e) => handle2faKeyDown(i, e)}
+                  autoFocus={i === 0}
+                />
+              ))}
+            </div>
+            {twoFaError && <div className="auth-error" role="alert">{twoFaError}</div>}
+            {twoFaLoading && <p className="auth-subheading auth-verifying">Verifying...</p>}
+            <p className="auth-switch">
+              Didn't get the code?{" "}
+              {twoFaResendCooldown > 0 ? (
+                <span className="auth-cooldown">Resend in {twoFaResendCooldown}s</span>
+              ) : (
+                <a href="#" onClick={(e) => { e.preventDefault(); handle2faResend(); }}>Resend code</a>
+              )}
+            </p>
+            <p className="auth-switch">
+              <a href="#" onClick={(e) => { e.preventDefault(); setStep("password"); setTwoFaCode(["", "", "", "", "", ""]); setTwoFaError(""); }}>Back to login</a>
+            </p>
+          </>
+        )}
+
+        {step === "forgot" && (
+          <>
+            {!forgotSent ? (
+              <form className="auth-form" onSubmit={handleForgotSubmit}>
+                <input
+                  className="auth-input"
+                  type="email"
+                  placeholder="Email address"
+                  aria-label="Email address"
+                  value={forgotEmail}
+                  onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
+                  autoFocus
+                />
+                {forgotError && <div className="auth-error" role="alert">{forgotError}</div>}
+                <button className="auth-btn-primary" type="submit" disabled={forgotLoading || !forgotEmail.trim()}>
+                  {forgotLoading ? "Sending..." : "Send reset link"}
+                </button>
+              </form>
+            ) : (
+              <div className="auth-form">
+                <p className="auth-subheading auth-subheading-last">
+                  If an account exists with that email, we've sent a reset link.
+                </p>
+              </div>
+            )}
+            <p className="auth-switch">
+              <a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); setForgotSent(false); setForgotError(""); }}>Back to login</a>
+            </p>
+          </>
+        )}
+
+        {step !== "verify" && step !== "2fa" && step !== "forgot" && (
           <p className="auth-switch">
             Don't have an account?{" "}
             <Link to="/signup">Sign up</Link>

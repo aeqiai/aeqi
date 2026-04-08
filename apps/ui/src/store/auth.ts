@@ -26,10 +26,13 @@ interface AuthState {
 
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
-  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "error">;
+  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "2fa" | "error">;
   signup: (email: string, password: string, name: string, inviteCode?: string) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
+  verify2fa: (email: string, code: string) => Promise<boolean>;
+  resend2fa: (email: string) => Promise<boolean>;
+  pending2faEmail: string | null;
   handleOAuthCallback: (token: string) => void;
   fetchMe: () => Promise<void>;
   logout: () => void;
@@ -47,6 +50,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   error: null,
   pendingEmail: null,
+  pending2faEmail: null,
   authModeLoaded: false,
 
   fetchAuthMode: async () => {
@@ -94,6 +98,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const resp = await api.loginWithEmail(email, password);
+      if (resp.ok && resp.pending_2fa) {
+        const maskedEmail = resp.email || email;
+        set({ loading: false, pending2faEmail: maskedEmail });
+        return "2fa";
+      }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
@@ -164,6 +173,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resendCode: async (email: string) => {
     try {
       await api.resendCode(email);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  verify2fa: async (email: string, code: string) => {
+    set({ loading: true, error: null });
+    try {
+      const resp = await api.verify2fa(email, code);
+      if (resp.ok && resp.token) {
+        localStorage.setItem("aeqi_token", resp.token);
+        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pending2faEmail: null });
+        return true;
+      }
+      set({ loading: false, error: "Invalid or expired code" });
+      return false;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Verification failed";
+      set({ loading: false, error: msg });
+      return false;
+    }
+  },
+
+  resend2fa: async (email: string) => {
+    try {
+      await api.resend2fa(email);
       return true;
     } catch {
       return false;

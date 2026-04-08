@@ -57,6 +57,16 @@ export default function AppLayout() {
         <div className="left-sidebar">
           <WorkspaceSwitcher />
           <nav className="sidebar-nav">
+            <a className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`} href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 7.5l5-4.5 5 4.5" /><path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" /></svg>
+              <span className="sidebar-nav-label">Home</span>
+            </a>
+            <a className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`} href="/market" onClick={(e) => { e.preventDefault(); navigate("/market"); }}>
+              <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, width: 22, textAlign: "center" as const, flexShrink: 0, display: "inline-flex", justifyContent: "center" }}>æ</span>
+              <span className="sidebar-nav-label">Market</span>
+            </a>
+          </nav>
+          <nav className="sidebar-nav">
             <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
               <span className="sidebar-nav-label">Company</span>
@@ -67,6 +77,9 @@ export default function AppLayout() {
             <a className={`sidebar-nav-item ${isActive("/treasury") ? "active" : ""}`} href="/treasury" onClick={(e) => { e.preventDefault(); navigate("/treasury"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 5l5-2.5L12 5" /><path d="M3 5.5v5M5.5 5.5v5M8.5 5.5v5M11 5.5v5" /><path d="M1.5 10.5h11" /><path d="M1 12h12" /></svg>
               <span className="sidebar-nav-label">Treasury</span>
+              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/treasury"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New transaction">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              </span>
             </a>
             <a className={`sidebar-nav-item ${isActive("/drive") ? "active" : ""}`} href="/drive" onClick={(e) => { e.preventDefault(); navigate("/drive"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" /></svg>
@@ -81,12 +94,6 @@ export default function AppLayout() {
               <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/apps"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New app">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
               </span>
-            </a>
-          </nav>
-          <nav className="sidebar-nav">
-            <a className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`} href="/market" onClick={(e) => { e.preventDefault(); navigate("/market"); }}>
-              <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, width: 22, textAlign: "center", flexShrink: 0, display: "inline-flex", justifyContent: "center" }}>æ</span>
-              <span className="sidebar-nav-label">Market</span>
             </a>
           </nav>
           <nav className="sidebar-nav">
@@ -122,28 +129,12 @@ export default function AppLayout() {
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
-          <div className="platform-bar-wrapper">
-            <div
-              className="platform-bar"
-              role="button"
-              tabIndex={0}
-              aria-label="Open settings"
-              onClick={() => navigate("/settings")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate("/settings");
-                }
-              }}
-            >
-              <div className="platform-bar-spacer" />
-              <div className="platform-bar-info">
-                <span className="platform-bar-label">Free</span>
-                <span className="platform-bar-tokens">500k tokens</span>
-              </div>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.5" /><path d="M13.5 8a5.5 5.5 0 01-.4 1.6l1.1 1.3-1.1 1.1-1.3-1.1A5.5 5.5 0 018 13.5a5.5 5.5 0 01-3.8-2.6L3 12l-1.1-1.1 1.1-1.3A5.5 5.5 0 012.5 8a5.5 5.5 0 01.5-1.6L1.9 5.1 3 4l1.3 1.1A5.5 5.5 0 018 2.5a5.5 5.5 0 013.8 2.6L13 4l1.1 1.1-1.1 1.3A5.5 5.5 0 0113.5 8z" /></svg>
-            </div>
-          </div>
+          <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
+            <a className={`sidebar-nav-item ${isActive("/settings") ? "active" : ""}`} href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><circle cx="8" cy="8" r="2.5" /><path d="M13.5 8a5.5 5.5 0 01-.4 1.6l1.1 1.3-1.1 1.1-1.3-1.1A5.5 5.5 0 018 13.5a5.5 5.5 0 01-3.8-2.6L3 12l-1.1-1.1 1.1-1.3A5.5 5.5 0 012.5 8a5.5 5.5 0 01.5-1.6L1.9 5.1 3 4l1.3 1.1A5.5 5.5 0 018 2.5a5.5 5.5 0 013.8 2.6L13 4l1.1 1.1-1.1 1.3A5.5 5.5 0 0113.5 8z" /></svg>
+              <span className="sidebar-nav-label">Settings</span>
+            </a>
+          </nav>
         </div>
 
         {/* Main content */}

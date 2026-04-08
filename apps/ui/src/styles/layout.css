@@ -178,6 +178,9 @@
 .ws-trigger-text { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; }
 .ws-trigger-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ws-chevron-icon { color: var(--text-muted); flex-shrink: 0; }
+.ws-trigger-action { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-xs); color: var(--text-muted); opacity: 0; cursor: pointer; flex-shrink: 0; transition: opacity 0.1s, color 0.1s, background 0.1s; }
+.ws-trigger:hover .ws-trigger-action { opacity: 1; }
+.ws-trigger-action:hover { color: var(--text-primary); background: var(--bg-base); }
 
 .left-sidebar-body {
   flex: 1;

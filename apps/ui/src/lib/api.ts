@@ -85,7 +85,7 @@ export const api = {
     }),
 
   loginWithEmail: (email: string, password: string) =>
-    request<{ ok: boolean; token: string; user?: Record<string, unknown>; pending_verification?: boolean }>("/auth/login/email", {
+    request<{ ok: boolean; token: string; user?: Record<string, unknown>; pending_verification?: boolean; pending_2fa?: boolean; email?: string }>("/auth/login/email", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
@@ -112,6 +112,18 @@ export const api = {
 
   getMe: () => request<Record<string, unknown>>("/auth/me"),
 
+  updatePhishingCode: (code: string) =>
+    request<{ ok: boolean }>("/auth/phishing-code", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  changePassword: (current_password: string, new_password: string) =>
+    request<{ ok: boolean }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+
   verifyEmail: (email: string, code: string) =>
     request<{ ok: boolean; token: string; user?: Record<string, unknown> }>("/auth/verify", {
       method: "POST",
@@ -122,6 +134,30 @@ export const api = {
     request<{ ok: boolean }>("/auth/resend-code", {
       method: "POST",
       body: JSON.stringify({ email }),
+    }),
+
+  verify2fa: (email: string, code: string) =>
+    request<{ ok: boolean; token: string; user?: Record<string, unknown> }>("/auth/2fa/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
+
+  resend2fa: (email: string) =>
+    request<{ ok: boolean }>("/auth/2fa/resend", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ ok: boolean }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ ok: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
     }),
 
   // Dashboard

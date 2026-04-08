@@ -6,6 +6,7 @@ import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import WelcomePage from "@/pages/WelcomePage";
 import NewWorkspacePage from "@/pages/NewWorkspacePage";
 import AgentsPage from "@/pages/AgentsPage";
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
       <Route path="/verify" element={<VerifyEmailPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/*"
         element={
