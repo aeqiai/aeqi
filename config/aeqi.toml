@@ -17,7 +17,7 @@ invite_codes_per_user = 3
 
 [providers.openrouter]
 api_key = "${OPENROUTER_API_KEY}"
-default_model = "qwen/qwen3.6-plus:free"
+default_model = "anthropic/claude-haiku-4.5"
 embedding_model = "openai/text-embedding-3-small"
 
 [security]

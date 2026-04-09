@@ -588,8 +588,28 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             let metrics = Arc::new(AEQIMetrics::new());
 
-            // Create SessionManager early so both scheduler and daemon can share it.
-            let session_manager = Arc::new(SessionManager::new());
+            // Create and configure SessionManager BEFORE sharing it with scheduler.
+            let mut session_manager = SessionManager::new();
+            if let Some(ref ss) = session_store {
+                let sm_default_project = config
+                    .agent_spawns
+                    .first()
+                    .map(|c| c.name.clone())
+                    .unwrap_or_default();
+                session_manager.configure(
+                    agent_reg.clone(),
+                    ss.clone(),
+                    default_model.clone(),
+                    Some(event_broadcaster.clone()),
+                    event_store.clone(),
+                    shared_insight_store.clone(),
+                    sm_default_project,
+                    config.shared_primer.clone(),
+                    config.agent_spawns.first().and_then(|c| c.primer.clone()),
+                );
+                info!("session manager configured for spawn_session");
+            }
+            let session_manager = Arc::new(session_manager);
 
             let scheduler = Scheduler::new(
                 scheduler_config,
@@ -653,23 +673,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             info!(total_max_workers, "global scheduler initialized");
 
-            // Configure SessionManager with all dependencies for spawn_session().
-            if let Some(ref ss) = daemon.session_store
-                && let Some(sm) = Arc::get_mut(&mut daemon.session_manager)
-            {
-                sm.configure(
-                    agent_reg,
-                    ss.clone(),
-                    daemon.default_model.clone(),
-                    Some(daemon.event_broadcaster.clone()),
-                    daemon.event_store.clone(),
-                    shared_insight_store,
-                    sm_default_project,
-                    config.shared_primer.clone(),
-                    config.agent_spawns.first().and_then(|c| c.primer.clone()),
-                );
-                info!("session manager configured for spawn_session");
-            }
+            // SessionManager was already configured before Arc::new() above.
             daemon.run().await?;
         }
 
