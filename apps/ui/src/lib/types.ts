@@ -125,7 +125,9 @@ export interface DashboardStats {
 
 export interface ThreadEvent {
   id: number;
-  chat_id: number;
+  /** @deprecated Use session_id instead. Kept for backward compat with old data. */
+  chat_id?: number | string;
+  session_id?: string;
   event_type: string;
   role: string;
   content: string;
@@ -135,7 +137,9 @@ export interface ThreadEvent {
 }
 
 export interface ChatThreadState {
+  /** @deprecated Use sessionId instead. */
   chatId?: number;
+  sessionId?: string;
 }
 
 export type TriggerType =

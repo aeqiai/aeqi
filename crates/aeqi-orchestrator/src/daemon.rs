@@ -1619,61 +1619,21 @@ impl Daemon {
                     } else if !send_allowed {
                         serde_json::json!({"ok": false, "error": "access denied"})
                     } else {
-                        // Resolve chat_id: prefer explicit, then session's legacy_chat_id,
-                        // then hash from agent name.
-                        let chat_id = if let Some(cid) = request.get("chat_id").and_then(|v| v.as_i64()) {
-                            cid
-                        } else if let (Some(sid), Some(ss)) = (&session_id_hint, &ipc_ctx.session_store) {
-                            // Use the session's chat_id so messages are linked correctly.
-                            match ss.get_session(sid).await {
-                                Ok(Some(s)) => s.legacy_chat_id.unwrap_or_else(|| {
-                                    named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint))
-                                }),
-                                _ => named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint)),
-                            }
-                        } else {
-                            named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint))
-                        };
-
                         let session_store = ipc_ctx.session_store.clone();
 
-                        // Ensure session and record user message.
-                        let store_session_id = if let Some(ref cs) = session_store {
-                            let _ = cs
-                                .ensure_channel_with_agent(
-                                    chat_id,
-                                    "web",
-                                    &agent_hint,
-                                    agent_id_direct.as_deref(),
-                                )
-                                .await;
-                            let usid = cs
-                                .ensure_session(
-                                    chat_id,
-                                    "web",
-                                    &agent_hint,
-                                    agent_id_direct.as_deref(),
-                                )
-                                .await
-                                .ok();
-                            if let Some(ref sid) = usid {
+                        // Resolve store_session_id: use explicit session_id_hint, or find/create one.
+                        let store_session_id: Option<String> = if let Some(ref sid) =
+                            session_id_hint
+                        {
+                            // Verify session exists; record user message.
+                            if let Some(ref cs) = session_store {
                                 let _ = cs
                                     .record_by_session(sid, "user", message, Some("web"))
                                     .await;
-                            } else {
-                                let _ = cs
-                                    .record_with_source(chat_id, "user", message, Some("web"))
-                                    .await;
                             }
-                            usid
-                        } else {
-                            None
-                        };
-
-                        // Resolve session_id: explicit > agent's permanent session > create new.
-                        let resolved_session_id = if let Some(ref sid) = session_id_hint {
-                            sid.clone()
-                        } else {
+                            Some(sid.clone())
+                        } else if let Some(ref cs) = session_store {
+                            // Find or create a session for this agent.
                             let agent_uuid = if let Some(ref aid) = agent_id_direct {
                                 Some(aid.clone())
                             } else {
@@ -1682,23 +1642,46 @@ impl Daemon {
                                     _ => None,
                                 }
                             };
-                            if let Some(ref uuid) = agent_uuid {
-                                if let Some(ref ss) = session_store {
-                                    match ss.list_sessions(Some(uuid), 1).await {
-                                        Ok(sessions) => sessions
-                                            .first()
-                                            .filter(|s| s.status == "active")
-                                            .map(|s| s.id.clone())
-                                            .unwrap_or_default(),
-                                        Err(_) => String::new(),
+                            let usid = if let Some(ref uuid) = agent_uuid {
+                                // Try to find existing active session.
+                                match cs.list_sessions(Some(uuid), 1).await {
+                                    Ok(sessions) => {
+                                        if let Some(s) =
+                                            sessions.first().filter(|s| s.status == "active")
+                                        {
+                                            Some(s.id.clone())
+                                        } else {
+                                            // Create a new session.
+                                            cs.create_session(uuid, "web", &agent_hint, None, None)
+                                                .await
+                                                .ok()
+                                        }
                                     }
-                                } else {
-                                    String::new()
+                                    Err(_) => cs
+                                        .create_session(uuid, "web", &agent_hint, None, None)
+                                        .await
+                                        .ok(),
                                 }
                             } else {
-                                String::new()
+                                None
+                            };
+                            if let Some(ref sid) = usid {
+                                let _ = cs
+                                    .record_by_session(sid, "user", message, Some("web"))
+                                    .await;
                             }
+                            usid
+                        } else {
+                            None
                         };
+
+                        // Legacy chat_id for backward-compatible JSON responses.
+                        let chat_id = named_channel_chat_id(
+                            agent_id_direct.as_deref().unwrap_or(&agent_hint),
+                        );
+
+                        // resolved_session_id reuses store_session_id (already resolved above).
+                        let resolved_session_id = store_session_id.clone().unwrap_or_default();
 
                         // Check if session is already running in memory.
                         if !resolved_session_id.is_empty()

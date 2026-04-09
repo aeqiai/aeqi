@@ -277,7 +277,7 @@ pub async fn handle_chat_timeline(
 
                         items.push(serde_json::json!({
                             "id": event.id,
-                            "chat_id": event.chat_id,
+                            "chat_id": event.session_id,
                             "event_type": event.event_type,
                             "role": event.role,
                             "content": event.content,
