@@ -1076,7 +1076,7 @@ export default function AgentSessionView({
         {streaming && (
           <div className="asv-msg asv-msg-assistant asv-msg-streaming">
             <div className="asv-msg-header">
-              <span className="asv-msg-role">assistant</span>
+              <span className="asv-msg-role">{displayName}</span>
               {thinkingStart && <ThinkingTimer start={thinkingStart} />}
             </div>
             {streamText && (
