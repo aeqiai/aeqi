@@ -19,6 +19,7 @@ pub mod execution_events;
 pub mod executor;
 pub mod failure_analysis;
 pub mod hook;
+pub mod ipc;
 pub mod message_router;
 pub mod metrics;
 pub mod middleware;
