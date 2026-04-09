@@ -1,0 +1,223 @@
+/* Agents page — team roster grid */
+
+.ap { max-width: 720px; }
+
+/* Header */
+.ap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.ap-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.ap-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.ap-count {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* New agent button */
+.ap-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.ap-new-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-surface);
+}
+
+/* Stats strip */
+.ap-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.ap-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ap-stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.ap-stat-dot--active {
+  background: var(--success);
+}
+.ap-stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.ap-stat-label--muted {
+  color: var(--text-muted);
+}
+
+/* Search */
+.ap-search {
+  position: relative;
+  margin-bottom: var(--space-4);
+}
+.ap-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.ap-search-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-2) 32px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: var(--transition-fast);
+}
+.ap-search-input::placeholder {
+  color: var(--text-muted);
+}
+.ap-search-input:focus {
+  border-color: var(--border-hover);
+  background: var(--bg-base);
+}
+
+/* Grid */
+.ap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+/* Card */
+.ap-card {
+  padding: var(--space-4);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ap-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.ap-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.ap-card-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.ap-card-status--active {
+  background: var(--success);
+}
+
+.ap-card-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.ap-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.ap-card-template {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+.ap-card-model {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.ap-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+.ap-card-tag {
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+}
+.ap-card-time {
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+}
+
+/* Empty state */
+.ap-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 24px 48px;
+  text-align: center;
+}
+.ap-empty-sigil {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text-muted);
+  opacity: 0.3;
+  margin-bottom: var(--space-4);
+}
+.ap-empty-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+.ap-empty-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+  max-width: 280px;
+}
