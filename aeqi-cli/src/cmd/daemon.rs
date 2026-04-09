@@ -28,12 +28,23 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let (config, _) = load_config_with_agents(config_path)?;
 
             // Check if already running.
+            // In sandboxed environments (bwrap --unshare-pid), PID namespace
+            // isolation means /proc/{pid} always exists for PID 1. Detect
+            // this by checking if we ARE PID 1 (containerized) — if so,
+            // always remove stale PID files since systemd-run manages exclusivity.
             let pid_path = pid_file_path(&config);
-            if Daemon::is_running_from_pid(&pid_path) {
-                anyhow::bail!(
-                    "daemon is already running (PID file: {})",
-                    pid_path.display()
-                );
+            let in_sandbox = std::process::id() <= 2; // PID 1 or 2 = inside namespace
+            if pid_path.exists() {
+                if in_sandbox {
+                    let _ = std::fs::remove_file(&pid_path);
+                } else if Daemon::is_running_from_pid(&pid_path) {
+                    anyhow::bail!(
+                        "daemon is already running (PID file: {})",
+                        pid_path.display()
+                    );
+                } else {
+                    let _ = std::fs::remove_file(&pid_path);
+                }
             }
 
             let _data_dir = config.data_dir();
