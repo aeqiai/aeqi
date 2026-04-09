@@ -10,7 +10,7 @@ cors_origins = ["https://aeqi.ai", "https://app.aeqi.ai", "http://localhost:5173
 auth_secret = "${AEQI_WEB_SECRET}"
 
 [web.auth]
-mode = "accounts"
+mode = "none"
 base_url = "https://aeqi.ai"
 waitlist = true
 invite_codes_per_user = 3
