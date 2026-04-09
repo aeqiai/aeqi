@@ -1901,6 +1901,358 @@
   max-width: 300px;
 }
 
+.settings-page {
+  padding: var(--space-6);
+  max-width: 520px;
+}
+
+.settings-profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.settings-avatar-label {
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.settings-avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-base);
+}
+
+.settings-profile-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-profile-email {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.settings-name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.settings-field-sm {
+  margin-bottom: var(--space-3);
+}
+
+.settings-field-md {
+  margin-bottom: var(--space-4);
+}
+
+.settings-field-lg {
+  margin-bottom: var(--space-6);
+}
+
+.settings-kyc-card {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.settings-kyc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-badge-coming-soon {
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.settings-sign-out-btn {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.settings-totp-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.settings-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.settings-totp-status-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.settings-totp-disable-btn {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.settings-qr-container {
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  display: inline-block;
+  margin-bottom: var(--space-3);
+}
+
+.settings-manual-entry {
+  font-size: var(--font-size-micro);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+  word-break: break-all;
+}
+
+.settings-totp-input {
+  max-width: 160px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.15em;
+  text-align: center;
+}
+
+.settings-backup-codes {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.settings-backup-codes-label {
+  color: rgb(161, 98, 7);
+}
+
+.settings-backup-codes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.settings-backup-code {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+}
+
+.settings-danger-zone {
+  margin-top: var(--space-8);
+  padding: var(--space-4);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(220, 38, 38, 0.03);
+}
+
+.settings-danger-label {
+  color: rgb(220, 38, 38);
+}
+
+.settings-danger-btn {
+  color: rgb(220, 38, 38);
+  border-color: rgba(220, 38, 38, 0.3);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.settings-activity-section {
+  margin-top: var(--space-8);
+}
+
+.settings-activity-desc {
+  margin-bottom: var(--space-2);
+}
+
+.settings-activity-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-4) 0;
+}
+
+.settings-activity-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.settings-activity-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 9px var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.settings-activity-item:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.settings-activity-dot--success {
+  background: var(--success);
+}
+
+.settings-activity-dot--error {
+  background: var(--error);
+}
+
+.settings-activity-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-activity-action {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-activity-detail {
+  color: var(--text-muted);
+  margin-left: var(--space-1);
+}
+
+.settings-activity-meta {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  flex-shrink: 0;
+}
+
+.settings-activity-time {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  flex-shrink: 0;
+  min-width: 50px;
+  text-align: right;
+}
+
+.settings-invites-desc {
+  margin-bottom: var(--space-4);
+}
+
+.settings-invites-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-5) 0;
+}
+
+.settings-invites-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-invite-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.settings-invite-item--available {
+  background: var(--bg-elevated);
+}
+
+.settings-invite-item--used {
+  background: var(--bg-base);
+}
+
+.settings-invite-code {
+  flex: 1;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.settings-invite-code--used {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.settings-invite-code--available {
+  color: var(--text-primary);
+}
+
+.settings-invite-used-label {
+  font-size: var(--font-size-micro);
+  color: var(--text-muted);
+}
+
+.settings-invite-copy-btn {
+  font-size: var(--font-size-xs);
+  padding: 3px var(--space-2);
+}
+
+.settings-prefs-desc {
+  margin-bottom: var(--space-4);
+}
+
+.settings-pref-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: var(--space-2) 0;
+}
+
+.settings-pref-checkbox {
+  accent-color: var(--text-primary);
+  width: 16px;
+  height: 16px;
+}
+
+.settings-disabled-input {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Notes */
 .note-entry {
   background: var(--bg-base);

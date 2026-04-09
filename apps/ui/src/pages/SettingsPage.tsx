@@ -139,18 +139,18 @@ export default function SettingsPage() {
   return (
     <>
       <PageTabs tabs={TABS} defaultTab="profile" />
-      <div style={{ padding: 24, maxWidth: 520 }}>
+      <div className="settings-page">
 
         {activeTab === "profile" && (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-              <label style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
+            <div className="settings-profile-header">
+              <label className="settings-avatar-label">
                 {user?.avatar_url ? (
-                  <img src={user.avatar_url as string} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
+                  <img src={user.avatar_url as string} alt="" className="settings-avatar-img" />
                 ) : (
                   <RoundAvatar name={displayName} size={48} />
                 )}
-                <div style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: "var(--text-primary)", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg-base)" }}>
+                <div className="settings-avatar-badge">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
                 </div>
                 <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
@@ -172,12 +172,12 @@ export default function SettingsPage() {
                 }} />
               </label>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{displayName}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{email}</div>
+                <div className="settings-profile-name">{displayName}</div>
+                <div className="settings-profile-email">{email}</div>
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <div className="settings-name-grid">
               <div>
                 <label className="settings-field-label">First name</label>
                 <input className="auth-input" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" autoComplete="given-name" />
@@ -188,25 +188,25 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
+            <div className="settings-field-sm">
               <label className="settings-field-label">Email</label>
-              <input className="auth-input" type="email" value={email} disabled style={{ opacity: 0.5, cursor: "not-allowed" }} />
+              <input className="auth-input settings-disabled-input" type="email" value={email} disabled />
             </div>
 
-            <div style={{ marginBottom: 16 }}>
+            <div className="settings-field-md">
               <label className="settings-field-label">Phone</label>
               <input className="auth-input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" autoComplete="tel" />
               <p className="settings-field-desc">Optional. For SMS verification in the future.</p>
             </div>
 
             {/* KYC */}
-            <div style={{ marginBottom: 16, padding: 14, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-elevated)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="settings-kyc-card">
+              <div className="settings-kyc-row">
                 <div>
                   <label className="settings-field-label" style={{ marginBottom: 2 }}>Identity verification</label>
                   <p className="settings-field-desc" style={{ margin: 0 }}>Required for incorporation, equity issuance, and marketplace access.</p>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", background: "var(--bg-base)", padding: "3px 10px", borderRadius: 10, whiteSpace: "nowrap" }}>Coming soon</span>
+                <span className="settings-badge-coming-soon">Coming soon</span>
               </div>
             </div>
 
@@ -218,7 +218,7 @@ export default function SettingsPage() {
             {authMode !== "none" && (
               <>
                 <div className="settings-divider" />
-                <button className="btn" onClick={() => { logout(); navigate("/login"); }} style={{ color: "var(--text-muted)", fontSize: 13 }}>Sign out</button>
+                <button className="btn settings-sign-out-btn" onClick={() => { logout(); navigate("/login"); }}>Sign out</button>
               </>
             )}
           </>
@@ -227,13 +227,13 @@ export default function SettingsPage() {
         {activeTab === "security" && (
           <>
             {/* Two-Factor Authentication */}
-            <div style={{ marginBottom: 24 }}>
+            <div className="settings-field-lg">
               <label className="settings-field-label">Two-factor authentication</label>
               {totpEnabled ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-                  <span style={{ fontSize: 13, color: "var(--text-primary)" }}>Authenticator app enabled</span>
-                  <button className="btn" style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" }} onClick={async () => {
+                <div className="settings-totp-status">
+                  <div className="settings-status-dot" />
+                  <span className="settings-totp-status-text">Authenticator app enabled</span>
+                  <button className="btn settings-totp-disable-btn" onClick={async () => {
                     const pw = window.prompt("Enter your password to disable TOTP");
                     const code = window.prompt("Enter your authenticator code");
                     if (!pw || !code) return;
@@ -248,12 +248,12 @@ export default function SettingsPage() {
               ) : totpSetup ? (
                 <div>
                   <p className="settings-field-desc">Scan this QR code with your authenticator app, then enter the 6-digit code to verify.</p>
-                  <div style={{ padding: 16, background: "#fff", borderRadius: 8, border: "1px solid var(--border)", display: "inline-block", marginBottom: 12 }}>
+                  <div className="settings-qr-container">
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totpSetup.uri)}`} alt="TOTP QR" width={200} height={200} />
                   </div>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12, wordBreak: "break-all" }}>Manual entry: <code>{totpSetup.secret}</code></p>
+                  <p className="settings-manual-entry">Manual entry: <code>{totpSetup.secret}</code></p>
                   <div className="settings-field-row">
-                    <input className="auth-input" type="text" inputMode="numeric" maxLength={6} value={totpCode} onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, "")); setTotpFeedback(null); }} placeholder="6-digit code" style={{ maxWidth: 160, fontFamily: "var(--font-mono)", letterSpacing: "0.15em", textAlign: "center" }} />
+                    <input className="auth-input settings-totp-input" type="text" inputMode="numeric" maxLength={6} value={totpCode} onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, "")); setTotpFeedback(null); }} placeholder="6-digit code" />
                     <button className="btn btn-primary" disabled={totpLoading || totpCode.length !== 6} onClick={async () => {
                       setTotpLoading(true);
                       try {
