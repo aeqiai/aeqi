@@ -36,8 +36,6 @@ export default function WelcomePage() {
   const activeCompany = useUIStore((s) => s.activeCompany);
   const setActiveCompany = useUIStore((s) => s.setActiveCompany);
   const agents = useDaemonStore((s) => s.agents);
-  const initialLoaded = useDaemonStore((s) => s.initialLoaded);
-
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(activeCompany);
   const [tagline, setTagline] = useState(
@@ -71,8 +69,6 @@ export default function WelcomePage() {
 
   // AppLayout handles the full-screen loading state.
   // By the time WelcomePage renders, initialLoaded is true.
-    );
-  }
 
   // Company has agents — show the dashboard
   if (agents.length > 0) {
