@@ -205,7 +205,7 @@ export default function AgentSessionView({
 
   // Resolve agent info from the store
   const agentInfo = agents.find(
-    (a: any) => a.id === agentId || a.name === agentId,
+    (a) => a.id === agentId || a.name === agentId,
   );
   const agentName = agentInfo?.name || agentId;
   const displayName = agentInfo?.display_name || agentName;
@@ -267,13 +267,13 @@ export default function AgentSessionView({
     if (showAttachPicker === "prompt" && availablePrompts.length === 0) {
       api
         .getSkills()
-        .then((data: any) => {
-          const items = data?.skills || data?.prompts || [];
+        .then((data: Record<string, unknown>) => {
+          const items = (data?.skills || data?.prompts || []) as Array<Record<string, unknown>>;
           setAvailablePrompts(
-            items.map((s: any) => ({
-              name: s.name || "",
-              description: s.description || "",
-              tags: s.tags || [],
+            items.map((s) => ({
+              name: (s.name as string) || "",
+              description: (s.description as string) || "",
+              tags: (s.tags as string[]) || [],
             })),
           );
         })
@@ -282,13 +282,13 @@ export default function AgentSessionView({
     if (showAttachPicker === "quest" && availableTasks.length === 0) {
       api
         .getTasks({ status: "open" })
-        .then((data: any) => {
-          const items = data?.tasks || data?.quests || [];
+        .then((data: Record<string, unknown>) => {
+          const items = (data?.tasks || data?.quests || []) as Array<Record<string, unknown>>;
           setAvailableTasks(
-            items.map((t: any) => ({
-              id: t.id || "",
-              name: t.name || t.subject || "",
-              status: t.status || "open",
+            items.map((t) => ({
+              id: (t.id as string) || "",
+              name: (t.name as string) || (t.subject as string) || "",
+              status: (t.status as string) || "open",
             })),
           );
         })
@@ -390,8 +390,8 @@ export default function AgentSessionView({
     if (!agentId) return;
     api
       .getSessions(agentId)
-      .then((d: any) => {
-        const list: SessionInfo[] = d.sessions || [];
+      .then((d: Record<string, unknown>) => {
+        const list: SessionInfo[] = (d.sessions as SessionInfo[]) || [];
         setSessions(list);
       })
       .catch(() => setSessions([]));
@@ -419,49 +419,51 @@ export default function AgentSessionView({
   );
 
   // Process raw messages from API into our format
-  const processRawMessages = useCallback((rawMessages: any[]): Message[] => {
+  const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
     let pendingToolSegments: MessageSegment[] = [];
 
     for (const m of rawMessages) {
       const eventType = m.event_type || "message";
       if (eventType === "tool_complete") {
-        const meta = m.metadata || {};
+        const meta = (m.metadata || {}) as Record<string, unknown>;
         pendingToolSegments.push({
           kind: "tool",
           event: {
             type: "complete",
-            name: meta.tool_name || m.content || "tool",
+            name: String(meta.tool_name || m.content || "tool"),
             success: meta.success !== false,
-            input_preview: meta.input_preview,
-            output_preview: meta.output_preview,
-            duration_ms: meta.duration_ms,
+            input_preview: meta.input_preview as string | undefined,
+            output_preview: meta.output_preview as string | undefined,
+            duration_ms: meta.duration_ms as number | undefined,
             timestamp: m.created_at
-              ? new Date(m.created_at).getTime()
+              ? new Date(String(m.created_at)).getTime()
               : Date.now(),
           },
         });
       } else if (m.role === "assistant") {
         const segments: MessageSegment[] = [
           ...pendingToolSegments,
-          { kind: "text", text: m.content },
+          { kind: "text", text: String(m.content || "") },
         ];
         pendingToolSegments = [];
         processed.push({
-          ...m,
+          role: String(m.role),
+          content: String(m.content || ""),
           segments,
           timestamp: m.created_at
-            ? new Date(m.created_at).getTime()
+            ? new Date(String(m.created_at)).getTime()
             : undefined,
         });
       } else {
         pendingToolSegments = [];
         processed.push({
-          ...m,
+          role: String(m.role || "user"),
+          content: String(m.content || ""),
           timestamp: m.created_at
-            ? new Date(m.created_at).getTime()
+            ? new Date(String(m.created_at)).getTime()
             : m.timestamp
-              ? new Date(m.timestamp).getTime()
+              ? new Date(String(m.timestamp)).getTime()
               : undefined,
         });
       }
@@ -491,8 +493,8 @@ export default function AgentSessionView({
 
     api
       .getSessionMessages({ session_id: activeSessionId, limit: 50 })
-      .then((d: any) => {
-        const loaded = processRawMessages(d.messages || []);
+      .then((d: Record<string, unknown>) => {
+        const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
         // Only replace if we got messages — preserve local state if API returns empty
         // (race condition: messages might not be persisted yet)
         if (loaded.length > 0) {
@@ -565,7 +567,7 @@ export default function AgentSessionView({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         message: messageText,
         agent_id: agentId || undefined,
         session_id: sessionId || undefined,

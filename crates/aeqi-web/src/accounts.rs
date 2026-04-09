@@ -116,8 +116,8 @@ impl AccountStore {
             .ok_or_else(|| anyhow::anyhow!("failed to read back created user"))
     }
 
-    /// Find or create a user from Google OAuth profile.
-    pub fn upsert_google_user(
+    /// Find or create a user from an OAuth provider (Google, GitHub, etc.).
+    pub fn upsert_oauth_user(
         &self,
         google_id: &str,
         email: &str,
