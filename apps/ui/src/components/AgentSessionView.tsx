@@ -561,8 +561,9 @@ export default function AgentSessionView({
     }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const company = localStorage.getItem("aeqi_company") || "";
     const ws = new WebSocket(
-      `${protocol}//${window.location.host}/api/chat/stream?token=${token}`,
+      `${protocol}//${window.location.host}/api/chat/stream?token=${token}&company=${encodeURIComponent(company)}`,
     );
     wsRef.current = ws;
 

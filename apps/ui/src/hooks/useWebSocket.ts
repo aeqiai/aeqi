@@ -76,7 +76,8 @@ export function useWebSocket() {
     if (!token) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?token=${token}`);
+    const company = localStorage.getItem("aeqi_company") || "";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?token=${token}&company=${encodeURIComponent(company)}`);
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);
