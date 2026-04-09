@@ -231,9 +231,7 @@ impl Middleware for GuardrailsMiddleware {
 mod tests {
     use super::*;
 
-    fn test_ctx() -> WorkerContext {
-        WorkerContext::new("task-1", "test", "engineer", "aeqi")
-    }
+    use crate::middleware::test_helpers::test_ctx;
 
     #[tokio::test]
     async fn safe_command_passes() {

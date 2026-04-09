@@ -76,6 +76,109 @@ pub fn signing_secret(state: &AppState) -> &str {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::config::AuthConfig;
+
+    #[test]
+    fn create_and_validate_token_round_trip() {
+        let secret = "test-secret-key";
+        let token = create_token(secret, 1, Some("user-42"), Some("test@example.com")).unwrap();
+
+        let claims = validate_token(&token, secret).unwrap();
+        assert_eq!(claims.sub, "user-42");
+        assert_eq!(claims.user_id.as_deref(), Some("user-42"));
+        assert_eq!(claims.email.as_deref(), Some("test@example.com"));
+    }
+
+    #[test]
+    fn create_token_without_user_defaults_sub_to_operator() {
+        let secret = "test-secret";
+        let token = create_token(secret, 1, None, None).unwrap();
+
+        let claims = validate_token(&token, secret).unwrap();
+        assert_eq!(claims.sub, "operator");
+        assert!(claims.user_id.is_none());
+        assert!(claims.email.is_none());
+    }
+
+    #[test]
+    fn validate_token_wrong_secret_fails() {
+        let token = create_token("secret-a", 1, Some("user"), None).unwrap();
+        assert!(validate_token(&token, "secret-b").is_err());
+    }
+
+    #[test]
+    fn validate_token_expired_fails() {
+        // Create a token that expired 1 hour ago by using 0 hours expiry
+        // (the exp would be in the past since we set it to now + 0).
+        let secret = "test-secret";
+        let now = chrono::Utc::now().timestamp() as usize;
+        let claims = Claims {
+            sub: "user".to_string(),
+            iat: now - 7200,
+            exp: now - 3600, // expired 1 hour ago
+            user_id: None,
+            email: None,
+        };
+        let token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+        )
+        .unwrap();
+
+        assert!(validate_token(&token, secret).is_err());
+    }
+
+    #[test]
+    fn validate_token_garbage_fails() {
+        assert!(validate_token("not.a.jwt", "secret").is_err());
+    }
+
+    fn test_hosting() -> std::sync::Arc<dyn aeqi_hosting::HostingProvider> {
+        let config = aeqi_hosting::HostingConfig {
+            provider: "none".to_string(),
+            local: None,
+            managed: None,
+        };
+        std::sync::Arc::from(aeqi_hosting::from_config(&config).unwrap())
+    }
+
+    fn test_state(auth_secret: Option<String>) -> AppState {
+        AppState {
+            ipc: std::sync::Arc::new(crate::ipc::IpcClient::new("/tmp/test.sock".into())),
+            auth_secret,
+            auth_mode: AuthMode::None,
+            auth_config: AuthConfig::default(),
+            agents_config: vec![],
+            ui_dist_dir: None,
+            accounts: None,
+            smtp: None,
+            hosting: test_hosting(),
+        }
+    }
+
+    #[test]
+    fn signing_secret_returns_configured_value() {
+        let state = test_state(Some("my-secret".to_string()));
+        assert_eq!(signing_secret(&state), "my-secret");
+    }
+
+    #[test]
+    fn signing_secret_falls_back_to_default() {
+        let state = test_state(None);
+        assert_eq!(signing_secret(&state), "aeqi-dev");
+    }
+
+    #[test]
+    fn signing_secret_empty_string_falls_back() {
+        let state = test_state(Some("".to_string()));
+        assert_eq!(signing_secret(&state), "aeqi-dev");
+    }
+}
+
 /// Axum middleware — dispatches by auth mode.
 pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
     match state.auth_mode {

@@ -2133,4 +2133,284 @@ You are a worker agent."#;
         let budget = reg.check_budget(&child.id).await.unwrap();
         assert_eq!(budget, Some(5.0));
     }
+
+    #[tokio::test]
+    async fn get_by_name_found_and_missing() {
+        let reg = test_registry().await;
+        reg.spawn("shadow", None, "shadow", "You are Shadow.", None, None, &[])
+            .await
+            .unwrap();
+
+        let found = reg.get_by_name("shadow").await.unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "shadow");
+
+        let missing = reg.get_by_name("nonexistent").await.unwrap();
+        assert!(missing.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_active_by_name_returns_none_for_retired() {
+        let reg = test_registry().await;
+        let agent = reg
+            .spawn("worker", None, "t", "W.", None, None, &[])
+            .await
+            .unwrap();
+
+        // Active agent should be found.
+        let found = reg.get_active_by_name("worker").await.unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, agent.id);
+
+        // Retire it.
+        reg.set_status(&agent.id, AgentStatus::Retired)
+            .await
+            .unwrap();
+
+        let gone = reg.get_active_by_name("worker").await.unwrap();
+        assert!(gone.is_none());
+    }
+
+    #[tokio::test]
+    async fn resolve_by_hint_name_uuid_partial() {
+        let reg = test_registry().await;
+        let agent = reg
+            .spawn("analyst", None, "t", "Analyst.", None, None, &[])
+            .await
+            .unwrap();
+
+        // Full name match.
+        let by_name = reg.resolve_by_hint("analyst").await.unwrap();
+        assert!(by_name.is_some());
+        assert_eq!(by_name.unwrap().id, agent.id);
+
+        // UUID match.
+        let by_uuid = reg.resolve_by_hint(&agent.id).await.unwrap();
+        assert!(by_uuid.is_some());
+        assert_eq!(by_uuid.unwrap().name, "analyst");
+
+        // No match.
+        let none = reg.resolve_by_hint("zzz-no-such-agent").await.unwrap();
+        assert!(none.is_none());
+    }
+
+    #[tokio::test]
+    async fn list_with_parent_and_status_filters() {
+        let reg = test_registry().await;
+        let root = reg
+            .spawn("root", None, "t", "R.", None, None, &[])
+            .await
+            .unwrap();
+        let child_a = reg
+            .spawn("a", None, "t", "A.", Some(&root.id), None, &[])
+            .await
+            .unwrap();
+        let _child_b = reg
+            .spawn("b", None, "t", "B.", Some(&root.id), None, &[])
+            .await
+            .unwrap();
+
+        // Pause child_a.
+        reg.set_status(&child_a.id, AgentStatus::Paused)
+            .await
+            .unwrap();
+
+        // All agents, no filter.
+        let all = reg.list(None, None).await.unwrap();
+        assert_eq!(all.len(), 3);
+
+        // Filter by parent = root.
+        let children = reg.list(Some(Some(&root.id)), None).await.unwrap();
+        assert_eq!(children.len(), 2);
+
+        // Filter by parent IS NULL (root agents).
+        let roots = reg.list(Some(None), None).await.unwrap();
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].name, "root");
+
+        // Filter by status = active under root.
+        let active_children = reg
+            .list(Some(Some(&root.id)), Some(AgentStatus::Active))
+            .await
+            .unwrap();
+        assert_eq!(active_children.len(), 1);
+        assert_eq!(active_children[0].name, "b");
+
+        // Filter by status = paused, any parent.
+        let paused = reg.list(None, Some(AgentStatus::Paused)).await.unwrap();
+        assert_eq!(paused.len(), 1);
+        assert_eq!(paused[0].name, "a");
+    }
+
+    #[tokio::test]
+    async fn list_active_excludes_paused_and_retired() {
+        let reg = test_registry().await;
+        let a = reg
+            .spawn("active1", None, "t", "A1.", None, None, &[])
+            .await
+            .unwrap();
+        let b = reg
+            .spawn("paused1", None, "t", "P1.", None, None, &[])
+            .await
+            .unwrap();
+        let c = reg
+            .spawn("retired1", None, "t", "R1.", None, None, &[])
+            .await
+            .unwrap();
+        let _d = reg
+            .spawn("active2", None, "t", "A2.", None, None, &[])
+            .await
+            .unwrap();
+
+        reg.set_status(&b.id, AgentStatus::Paused).await.unwrap();
+        reg.set_status(&c.id, AgentStatus::Retired).await.unwrap();
+
+        let active = reg.list_active().await.unwrap();
+        assert_eq!(active.len(), 2);
+        // All returned agents are active.
+        for agent in &active {
+            assert_eq!(agent.status, AgentStatus::Active);
+        }
+        let names: Vec<&str> = active.iter().map(|a| a.name.as_str()).collect();
+        assert!(names.contains(&"active1"));
+        assert!(names.contains(&"active2"));
+        assert!(!names.contains(&"paused1"));
+
+        // Verify that the paused agent still exists in the full list.
+        let found = reg.get(&a.id).await.unwrap();
+        assert!(found.is_some());
+    }
+
+    #[tokio::test]
+    async fn set_status_transitions() {
+        let reg = test_registry().await;
+        let agent = reg
+            .spawn("lifecycle", None, "t", "L.", None, None, &[])
+            .await
+            .unwrap();
+
+        assert_eq!(
+            reg.get(&agent.id).await.unwrap().unwrap().status,
+            AgentStatus::Active
+        );
+
+        reg.set_status(&agent.id, AgentStatus::Paused)
+            .await
+            .unwrap();
+        assert_eq!(
+            reg.get(&agent.id).await.unwrap().unwrap().status,
+            AgentStatus::Paused
+        );
+
+        reg.set_status(&agent.id, AgentStatus::Retired)
+            .await
+            .unwrap();
+        assert_eq!(
+            reg.get(&agent.id).await.unwrap().unwrap().status,
+            AgentStatus::Retired
+        );
+    }
+
+    #[tokio::test]
+    async fn update_company_fields() {
+        let reg = test_registry().await;
+        let company = CompanyRecord {
+            name: "acme".to_string(),
+            display_name: Some("Acme Corp".to_string()),
+            prefix: "ac".to_string(),
+            tagline: Some("We do things".to_string()),
+            logo_url: None,
+            primer: None,
+            repo: None,
+            model: None,
+            max_workers: 2,
+            execution_mode: "agent".to_string(),
+            worker_timeout_secs: 1800,
+            worktree_root: None,
+            max_turns: None,
+            max_budget_usd: None,
+            max_cost_per_day_usd: None,
+            source: "api".to_string(),
+            agent_id: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
+        reg.create_company(&company).await.unwrap();
+
+        // Full update.
+        reg.update_company("acme", Some("Acme Inc"), Some("Better things"), Some("https://logo.png"))
+            .await
+            .unwrap();
+        let updated = reg.get_company("acme").await.unwrap().unwrap();
+        assert_eq!(updated.display_name.as_deref(), Some("Acme Inc"));
+        assert_eq!(updated.tagline.as_deref(), Some("Better things"));
+        assert_eq!(updated.logo_url.as_deref(), Some("https://logo.png"));
+
+        // Partial update — only tagline, display_name and logo_url stay.
+        reg.update_company("acme", None, Some("Even better"), None)
+            .await
+            .unwrap();
+        let partial = reg.get_company("acme").await.unwrap().unwrap();
+        assert_eq!(partial.display_name.as_deref(), Some("Acme Inc"));
+        assert_eq!(partial.tagline.as_deref(), Some("Even better"));
+        assert_eq!(partial.logo_url.as_deref(), Some("https://logo.png"));
+    }
+
+    #[tokio::test]
+    async fn create_get_list_tasks() {
+        let reg = test_registry().await;
+        let agent = reg
+            .spawn("tasker", None, "t", "T.", None, None, &[])
+            .await
+            .unwrap();
+
+        // Create two tasks.
+        let t1 = reg
+            .create_task(&agent.id, "Build API", "Build the REST API", None, &[])
+            .await
+            .unwrap();
+        let t2 = reg
+            .create_task(
+                &agent.id,
+                "Write tests",
+                "Add unit tests",
+                Some("test"),
+                &["testing".into()],
+            )
+            .await
+            .unwrap();
+
+        // Get by ID.
+        let fetched = reg.get_task(&t1.id.0).await.unwrap().unwrap();
+        assert_eq!(fetched.name, "Build API");
+        assert_eq!(fetched.description, "Build the REST API");
+
+        let fetched2 = reg.get_task(&t2.id.0).await.unwrap().unwrap();
+        assert_eq!(fetched2.skill.as_deref(), Some("test"));
+        assert_eq!(fetched2.labels, vec!["testing".to_string()]);
+
+        // Get nonexistent.
+        let missing = reg.get_task("no-such-task").await.unwrap();
+        assert!(missing.is_none());
+
+        // List all (no filter).
+        let all = reg.list_tasks(None, None).await.unwrap();
+        assert_eq!(all.len(), 2);
+
+        // Mark one done and filter by status.
+        reg.update_task_status(&t1.id.0, aeqi_quests::QuestStatus::Done)
+            .await
+            .unwrap();
+        let pending = reg.list_tasks(Some("pending"), None).await.unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].name, "Write tests");
+
+        let done = reg.list_tasks(Some("done"), None).await.unwrap();
+        assert_eq!(done.len(), 1);
+        assert_eq!(done[0].name, "Build API");
+
+        // Filter by agent_id.
+        let by_agent = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
+        assert_eq!(by_agent.len(), 2);
+    }
 }

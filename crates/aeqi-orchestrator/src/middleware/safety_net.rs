@@ -148,11 +148,8 @@ impl Middleware for SafetyNetMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::middleware::{ToolCall, WorkerContext};
-
-    fn test_ctx() -> WorkerContext {
-        WorkerContext::new("task-1", "do something", "engineer", "aeqi")
-    }
+    use crate::middleware::ToolCall;
+    use crate::middleware::test_helpers::test_ctx;
 
     fn failed_outcome() -> Outcome {
         Outcome {

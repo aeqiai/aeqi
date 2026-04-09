@@ -17,6 +17,8 @@ pub mod guardrails;
 pub mod insight_refresh;
 pub mod loop_detection;
 pub mod safety_net;
+#[cfg(test)]
+pub mod test_helpers;
 
 pub use clarification::ClarificationMiddleware;
 pub use context_budget::ContextBudgetMiddleware;
@@ -477,9 +479,7 @@ mod tests {
         }
     }
 
-    fn test_ctx() -> WorkerContext {
-        WorkerContext::new("task-1", "do something", "engineer", "aeqi")
-    }
+    use crate::middleware::test_helpers::test_ctx;
 
     #[tokio::test]
     async fn chain_sorts_by_order() {

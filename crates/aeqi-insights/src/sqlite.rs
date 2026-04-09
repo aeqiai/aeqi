@@ -1267,11 +1267,16 @@ impl Insight for SqliteInsights {
 mod tests {
     use super::*;
 
+    fn test_insights() -> (SqliteInsights, tempfile::TempDir) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("test.db");
+        let insights = SqliteInsights::open(&db_path, 30.0).unwrap();
+        (insights, dir)
+    }
+
     #[tokio::test]
     async fn test_store_and_search() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_memory.db");
-        let mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let (mem, _dir) = test_insights();
 
         mem.store(
             "login-flow",
@@ -1313,9 +1318,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_scoped_memory() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_agent.db");
-        let mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let (mem, _dir) = test_insights();
 
         mem.store(
             "shared-fact",
@@ -1360,9 +1363,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_filtered_memory() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_agent_filter.db");
-        let mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let (mem, _dir) = test_insights();
 
         mem.store(
             "strategic-pref",
@@ -1444,9 +1445,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_removes_embedding() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_delete.db");
-        let mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let (mem, _dir) = test_insights();
 
         let id = mem
             .store("key", "content", InsightCategory::Fact, None)

@@ -1227,4 +1227,77 @@ mod tests {
         assert_eq!(agent_sessions.len(), 1);
         assert_eq!(agent_sessions[0].legacy_chat_id, Some(500));
     }
+
+    #[tokio::test]
+    async fn record_empty_content() {
+        let store = test_store();
+
+        // Recording empty content should succeed (the DB allows it).
+        store.record(1, "User", "").await.unwrap();
+
+        let msgs = store.recent(1, 10).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].content, "");
+    }
+
+    #[tokio::test]
+    async fn list_sessions_empty() {
+        let store = test_store();
+
+        let sessions = store.list_sessions(None, 100).await.unwrap();
+        assert!(sessions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn close_nonexistent_session() {
+        let store = test_store();
+
+        // close_session runs an UPDATE that matches zero rows — no error, just a no-op.
+        let result = store.close_session("nonexistent-uuid").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn session_messages_with_limit() {
+        let store = test_store();
+
+        let session_id = store
+            .ensure_session(700, "web", "limit-test", None)
+            .await
+            .unwrap();
+
+        for i in 0..10 {
+            store
+                .record_by_session(&session_id, "user", &format!("msg {i}"), Some("web"))
+                .await
+                .unwrap();
+        }
+
+        let msgs = store.history_by_session(&session_id, 3).await.unwrap();
+        assert_eq!(msgs.len(), 3);
+        // Should return the 3 most recent messages.
+        assert_eq!(msgs[0].content, "msg 7");
+        assert_eq!(msgs[1].content, "msg 8");
+        assert_eq!(msgs[2].content, "msg 9");
+    }
+
+    #[tokio::test]
+    async fn ensure_session_idempotent() {
+        let store = test_store();
+
+        let id1 = store
+            .ensure_session(800, "web", "idem-test", Some("agent-1"))
+            .await
+            .unwrap();
+        let id2 = store
+            .ensure_session(800, "web", "idem-test", Some("agent-1"))
+            .await
+            .unwrap();
+
+        assert_eq!(id1, id2);
+
+        // Only one session should exist.
+        let sessions = store.list_sessions(None, 100).await.unwrap();
+        assert_eq!(sessions.len(), 1);
+    }
 }

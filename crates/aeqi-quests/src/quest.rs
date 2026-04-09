@@ -331,7 +331,160 @@ impl Quest {
 
 #[cfg(test)]
 mod tests {
-    use super::{Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord};
+    use super::*;
+
+    // ── QuestId tests ──────────────────────────────────────
+
+    #[test]
+    fn quest_id_root_formatting() {
+        let id = QuestId::root("as", 1);
+        assert_eq!(id.to_string(), "as-001");
+
+        let id = QuestId::root("rd", 42);
+        assert_eq!(id.to_string(), "rd-042");
+    }
+
+    #[test]
+    fn quest_id_child_formatting() {
+        let root = QuestId::root("as", 1);
+        let child = root.child(2);
+        assert_eq!(child.to_string(), "as-001.2");
+
+        let grandchild = child.child(3);
+        assert_eq!(grandchild.to_string(), "as-001.2.3");
+    }
+
+    #[test]
+    fn quest_id_prefix() {
+        assert_eq!(QuestId::from("as-001").prefix(), "as");
+        assert_eq!(QuestId::from("rd-042.1.3").prefix(), "rd");
+    }
+
+    #[test]
+    fn quest_id_parent() {
+        assert_eq!(QuestId::from("as-001").parent(), None);
+        assert_eq!(
+            QuestId::from("as-001.2").parent(),
+            Some(QuestId::from("as-001"))
+        );
+        assert_eq!(
+            QuestId::from("as-001.2.3").parent(),
+            Some(QuestId::from("as-001.2"))
+        );
+    }
+
+    #[test]
+    fn quest_id_depth() {
+        assert_eq!(QuestId::from("as-001").depth(), 0);
+        assert_eq!(QuestId::from("as-001.1").depth(), 1);
+        assert_eq!(QuestId::from("as-001.1.3").depth(), 2);
+    }
+
+    #[test]
+    fn quest_id_is_ancestor_of() {
+        let root = QuestId::from("as-001");
+        let child = QuestId::from("as-001.1");
+        let grandchild = QuestId::from("as-001.1.3");
+
+        assert!(root.is_ancestor_of(&child));
+        assert!(root.is_ancestor_of(&grandchild));
+        assert!(child.is_ancestor_of(&grandchild));
+        assert!(!child.is_ancestor_of(&root));
+        assert!(!root.is_ancestor_of(&root)); // not an ancestor of itself
+    }
+
+    #[test]
+    fn quest_id_from_str_and_string() {
+        let from_str: QuestId = "test-001".into();
+        let from_string: QuestId = String::from("test-001").into();
+        assert_eq!(from_str, from_string);
+    }
+
+    // ── Quest construction tests ───────────────────────────
+
+    #[test]
+    fn quest_new_defaults() {
+        let quest = Quest::new(QuestId::from("t-001"), "Test quest");
+        assert_eq!(quest.name, "Test quest");
+        assert_eq!(quest.status, QuestStatus::Pending);
+        assert_eq!(quest.priority, Priority::Normal);
+        assert!(quest.agent_id.is_none());
+        assert!(quest.depends_on.is_empty());
+        assert!(quest.description.is_empty());
+    }
+
+    #[test]
+    fn quest_with_agent_binds_agent() {
+        let quest = Quest::with_agent(QuestId::from("t-001"), "Bound", Some("agent-42"));
+        assert_eq!(quest.agent_id.as_deref(), Some("agent-42"));
+        assert!(quest.is_agent_bound());
+
+        let unbound = Quest::with_agent(QuestId::from("t-002"), "Unbound", None);
+        assert!(unbound.agent_id.is_none());
+        assert!(!unbound.is_agent_bound());
+    }
+
+    // ── Status / lifecycle tests ───────────────────────────
+
+    #[test]
+    fn quest_is_closed() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        assert!(!quest.is_closed());
+
+        quest.status = QuestStatus::InProgress;
+        assert!(!quest.is_closed());
+
+        quest.status = QuestStatus::Done;
+        assert!(quest.is_closed());
+
+        quest.status = QuestStatus::Cancelled;
+        assert!(quest.is_closed());
+
+        quest.status = QuestStatus::Blocked;
+        assert!(!quest.is_closed());
+    }
+
+    #[test]
+    fn quest_is_ready_no_deps() {
+        let quest = Quest::new(QuestId::from("t-001"), "Ready");
+        let always_resolved = |_: &QuestId| true;
+        assert!(quest.is_ready(&always_resolved));
+    }
+
+    #[test]
+    fn quest_is_ready_with_unresolved_deps() {
+        let mut quest = Quest::new(QuestId::from("t-002"), "Blocked by dep");
+        quest.depends_on = vec![QuestId::from("t-001")];
+
+        let nothing_resolved = |_: &QuestId| false;
+        assert!(!quest.is_ready(&nothing_resolved));
+
+        let all_resolved = |_: &QuestId| true;
+        assert!(quest.is_ready(&all_resolved));
+    }
+
+    #[test]
+    fn quest_not_ready_if_not_pending() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "In progress");
+        quest.status = QuestStatus::InProgress;
+
+        let always_resolved = |_: &QuestId| true;
+        assert!(!quest.is_ready(&always_resolved));
+    }
+
+    #[test]
+    fn quest_is_scheduler_held() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Held");
+        assert!(!quest.is_scheduler_held());
+
+        quest.metadata = serde_json::json!({"aeqi": {"hold": true}});
+        assert!(quest.is_scheduler_held());
+
+        quest.metadata = serde_json::json!({"aeqi": {"hold": false}});
+        assert!(!quest.is_scheduler_held());
+    }
+
+    // ── Outcome tests ──────────────────────────────────────
 
     #[test]
     fn quest_outcome_round_trips_through_outcome_field() {
@@ -350,6 +503,66 @@ mod tests {
         // task_outcome() accessor also works.
         assert_eq!(quest.task_outcome(), Some(outcome));
     }
+
+    #[test]
+    fn quest_outcome_record_new_minimal() {
+        let record = QuestOutcomeRecord::new(QuestOutcomeKind::Done, "All good");
+        assert_eq!(record.kind, QuestOutcomeKind::Done);
+        assert_eq!(record.summary, "All good");
+        assert!(record.reason.is_none());
+        assert!(record.next_action.is_none());
+    }
+
+    #[test]
+    fn quest_outcome_summary() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        assert!(quest.outcome_summary().is_none());
+
+        quest.set_task_outcome(&QuestOutcomeRecord::new(
+            QuestOutcomeKind::Done,
+            "Implemented feature X",
+        ));
+        assert_eq!(
+            quest.outcome_summary(),
+            Some("Implemented feature X".to_string())
+        );
+    }
+
+    #[test]
+    fn quest_outcome_summary_ignores_blank() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        quest.set_task_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, "  "));
+        assert!(quest.outcome_summary().is_none());
+    }
+
+    #[test]
+    fn quest_blocker_context_uses_reason_first() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        let mut outcome = QuestOutcomeRecord::new(QuestOutcomeKind::Blocked, "Summary text");
+        outcome.reason = Some("Specific reason".to_string());
+        quest.set_task_outcome(&outcome);
+
+        assert_eq!(
+            quest.blocker_context(),
+            Some("Specific reason".to_string())
+        );
+    }
+
+    #[test]
+    fn quest_blocker_context_falls_back_to_summary() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        quest.set_task_outcome(&QuestOutcomeRecord::new(
+            QuestOutcomeKind::Blocked,
+            "Summary fallback",
+        ));
+
+        assert_eq!(
+            quest.blocker_context(),
+            Some("Summary fallback".to_string())
+        );
+    }
+
+    // ── Metadata tests ─────────────────────────────────────
 
     #[test]
     fn set_aeqi_metadata_preserves_legacy_metadata() {
@@ -372,5 +585,54 @@ mod tests {
                 .and_then(|value| value.as_str()),
             Some("act")
         );
+    }
+
+    #[test]
+    fn aeqi_metadata_get_and_set() {
+        let mut quest = Quest::new(QuestId::from("t-001"), "Test");
+        assert!(quest.aeqi_metadata("foo").is_none());
+
+        quest.set_aeqi_metadata("foo", serde_json::json!("bar"));
+        assert_eq!(
+            quest.aeqi_metadata("foo").and_then(|v| v.as_str()),
+            Some("bar")
+        );
+    }
+
+    // ── Display tests ──────────────────────────────────────
+
+    #[test]
+    fn quest_status_display() {
+        assert_eq!(QuestStatus::Pending.to_string(), "pending");
+        assert_eq!(QuestStatus::InProgress.to_string(), "in_progress");
+        assert_eq!(QuestStatus::Done.to_string(), "done");
+        assert_eq!(QuestStatus::Blocked.to_string(), "blocked");
+        assert_eq!(QuestStatus::Cancelled.to_string(), "cancelled");
+    }
+
+    #[test]
+    fn quest_outcome_kind_display() {
+        assert_eq!(QuestOutcomeKind::Done.to_string(), "done");
+        assert_eq!(QuestOutcomeKind::Blocked.to_string(), "blocked");
+        assert_eq!(QuestOutcomeKind::Handoff.to_string(), "handoff");
+        assert_eq!(QuestOutcomeKind::Failed.to_string(), "failed");
+        assert_eq!(QuestOutcomeKind::Cancelled.to_string(), "cancelled");
+    }
+
+    #[test]
+    fn priority_display_and_ordering() {
+        assert_eq!(Priority::Low.to_string(), "low");
+        assert_eq!(Priority::Normal.to_string(), "normal");
+        assert_eq!(Priority::High.to_string(), "high");
+        assert_eq!(Priority::Critical.to_string(), "critical");
+
+        assert!(Priority::Low < Priority::Normal);
+        assert!(Priority::Normal < Priority::High);
+        assert!(Priority::High < Priority::Critical);
+    }
+
+    #[test]
+    fn priority_default_is_normal() {
+        assert_eq!(Priority::default(), Priority::Normal);
     }
 }

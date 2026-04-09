@@ -150,9 +150,7 @@ impl Middleware for ClarificationMiddleware {
 mod tests {
     use super::*;
 
-    fn test_ctx() -> WorkerContext {
-        WorkerContext::new("task-1", "test task", "engineer", "aeqi")
-    }
+    use crate::middleware::test_helpers::test_ctx;
 
     fn make_call(name: &str, input: &str) -> ToolCall {
         ToolCall {

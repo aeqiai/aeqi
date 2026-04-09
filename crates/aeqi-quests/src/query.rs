@@ -103,3 +103,168 @@ impl<'a> QuestQuery<'a> {
         results
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::QuestBoard;
+    use tempfile::TempDir;
+
+    fn setup() -> (QuestBoard, TempDir) {
+        let dir = TempDir::new().unwrap();
+        let store = QuestBoard::open(dir.path()).unwrap();
+        (store, dir)
+    }
+
+    #[test]
+    fn query_returns_all_open_by_default() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Quest A", None).unwrap();
+        store.create_with_agent("tq", "Quest B", None).unwrap();
+        store.close("tq-001", "done").unwrap();
+
+        let results = QuestQuery::new(&store).execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Quest B");
+    }
+
+    #[test]
+    fn query_include_closed_returns_all() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Quest A", None).unwrap();
+        store.create_with_agent("tq", "Quest B", None).unwrap();
+        store.close("tq-001", "done").unwrap();
+
+        let results = QuestQuery::new(&store).include_closed().execute();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn query_filter_by_prefix() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("aa", "Alpha quest", None).unwrap();
+        store.create_with_agent("bb", "Beta quest", None).unwrap();
+
+        let results = QuestQuery::new(&store).prefix("aa").execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Alpha quest");
+    }
+
+    #[test]
+    fn query_filter_by_status() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Quest A", None).unwrap();
+        store.create_with_agent("tq", "Quest B", None).unwrap();
+        store.checkout("tq-001", "worker-1").unwrap();
+
+        let results = QuestQuery::new(&store)
+            .status(QuestStatus::InProgress)
+            .execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Quest A");
+    }
+
+    #[test]
+    fn query_filter_by_agent() {
+        let (mut store, _dir) = setup();
+        store
+            .create_with_agent("tq", "Agent A quest", Some("agent-a"))
+            .unwrap();
+        store
+            .create_with_agent("tq", "Agent B quest", Some("agent-b"))
+            .unwrap();
+        store
+            .create_with_agent("tq", "Unbound quest", None)
+            .unwrap();
+
+        let results = QuestQuery::new(&store).agent_id("agent-a").execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Agent A quest");
+    }
+
+    #[test]
+    fn query_filter_by_label() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Labeled", None).unwrap();
+        store.create_with_agent("tq", "Unlabeled", None).unwrap();
+        store
+            .update("tq-001", |q| {
+                q.labels = vec!["infra".to_string()];
+            })
+            .unwrap();
+
+        let results = QuestQuery::new(&store).label("infra").execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Labeled");
+    }
+
+    #[test]
+    fn query_filter_by_min_priority() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Low pri", None).unwrap();
+        store.create_with_agent("tq", "High pri", None).unwrap();
+        store
+            .update("tq-001", |q| {
+                q.priority = Priority::Low;
+            })
+            .unwrap();
+        store
+            .update("tq-002", |q| {
+                q.priority = Priority::High;
+            })
+            .unwrap();
+
+        let results = QuestQuery::new(&store)
+            .min_priority(Priority::High)
+            .execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "High pri");
+    }
+
+    #[test]
+    fn query_combined_filters() {
+        let (mut store, _dir) = setup();
+        store
+            .create_with_agent("tq", "Match", Some("agent-x"))
+            .unwrap();
+        store
+            .create_with_agent("tq", "Wrong agent", Some("agent-y"))
+            .unwrap();
+        store
+            .create_with_agent("zz", "Wrong prefix", Some("agent-x"))
+            .unwrap();
+
+        let results = QuestQuery::new(&store)
+            .prefix("tq")
+            .agent_id("agent-x")
+            .execute();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Match");
+    }
+
+    #[test]
+    fn query_results_sorted_by_priority_then_creation() {
+        let (mut store, _dir) = setup();
+        store.create_with_agent("tq", "Normal 1", None).unwrap();
+        store.create_with_agent("tq", "Normal 2", None).unwrap();
+        store.create_with_agent("tq", "Critical", None).unwrap();
+        store
+            .update("tq-003", |q| {
+                q.priority = Priority::Critical;
+            })
+            .unwrap();
+
+        let results = QuestQuery::new(&store).execute();
+        assert_eq!(results[0].name, "Critical");
+        // The two Normal-priority quests follow in creation order.
+        assert_eq!(results[1].name, "Normal 1");
+        assert_eq!(results[2].name, "Normal 2");
+    }
+
+    #[test]
+    fn query_empty_store_returns_empty() {
+        let (store, _dir) = setup();
+        let results = QuestQuery::new(&store).execute();
+        assert!(results.is_empty());
+    }
+}

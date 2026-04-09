@@ -285,9 +285,7 @@ impl Middleware for ContextCompressionMiddleware {
 mod tests {
     use super::*;
 
-    fn test_ctx() -> WorkerContext {
-        WorkerContext::new("task-1", "test task", "engineer", "aeqi")
-    }
+    use crate::middleware::test_helpers::test_ctx;
 
     fn make_messages(count: usize) -> Vec<String> {
         (0..count)
@@ -443,35 +441,27 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn is_context_length_error_detects_indicators() {
-        assert!(ContextCompressionMiddleware::is_context_length_error(
-            "Request exceeds maximum context length"
-        ));
-        assert!(ContextCompressionMiddleware::is_context_length_error(
-            "token limit reached for model"
-        ));
-        assert!(ContextCompressionMiddleware::is_context_length_error(
-            "Input too long for this model"
-        ));
-        assert!(ContextCompressionMiddleware::is_context_length_error(
-            "Exceeds the maximum allowed tokens"
-        ));
-        assert!(ContextCompressionMiddleware::is_context_length_error(
-            "Maximum context window exceeded"
-        ));
-    }
+    fn is_context_length_error_table_driven() {
+        let cases: &[(&str, bool)] = &[
+            // Positive cases — should be detected as context-length errors.
+            ("Request exceeds maximum context length", true),
+            ("token limit reached for model", true),
+            ("Input too long for this model", true),
+            ("Exceeds the maximum allowed tokens", true),
+            ("Maximum context window exceeded", true),
+            // Negative cases — unrelated errors should not match.
+            ("network timeout", false),
+            ("authentication failed", false),
+            ("rate limited", false),
+        ];
 
-    #[test]
-    fn is_context_length_error_ignores_unrelated() {
-        assert!(!ContextCompressionMiddleware::is_context_length_error(
-            "network timeout"
-        ));
-        assert!(!ContextCompressionMiddleware::is_context_length_error(
-            "authentication failed"
-        ));
-        assert!(!ContextCompressionMiddleware::is_context_length_error(
-            "rate limited"
-        ));
+        for (input, expected) in cases {
+            assert_eq!(
+                ContextCompressionMiddleware::is_context_length_error(input),
+                *expected,
+                "is_context_length_error({input:?}) should be {expected}"
+            );
+        }
     }
 
     #[tokio::test]
