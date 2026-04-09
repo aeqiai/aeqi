@@ -4,7 +4,7 @@ import Markdown from "react-markdown";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import BlockAvatar from "./BlockAvatar";
+import RoundAvatar from "./RoundAvatar";
 
 // ── Types ──
 
@@ -841,7 +841,7 @@ export default function AgentSessionView({
       {/* Session header */}
       <div className="asv-header">
         <div className="asv-header-info">
-          <BlockAvatar name={agentName} size={24} />
+          <RoundAvatar name={agentName} size={24} />
           <div className="asv-header-text">
             <span className="asv-header-name">{displayName}</span>
             {activeSessionId && (
@@ -923,7 +923,7 @@ export default function AgentSessionView({
         {messages.length === 0 && !streaming && (
           <div className="asv-empty">
             <div className="asv-empty-icon">
-              <BlockAvatar name={agentName} size={48} />
+              <RoundAvatar name={agentName} size={48} />
             </div>
             <div className="asv-empty-title">Message {displayName}</div>
             <div className="asv-empty-hint">
@@ -974,7 +974,7 @@ export default function AgentSessionView({
           return (
             <div key={i} className={`asv-msg asv-msg-${msg.role}`}>
               <div className="asv-msg-avatar">
-                <BlockAvatar
+                <RoundAvatar
                   name={msg.role === "assistant" ? agentName : userName}
                   size={24}
                 />

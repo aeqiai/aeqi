@@ -26,7 +26,7 @@ interface AuthState {
 
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
-  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "2fa" | "error">;
+  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "2fa" | "totp" | "error">;
   signup: (email: string, password: string, name: string, inviteCode?: string) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
@@ -98,6 +98,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const resp = await api.loginWithEmail(email, password);
+      if (resp.ok && (resp as Record<string, unknown>).pending_totp) {
+        const maskedEmail = resp.email || email;
+        set({ loading: false, pending2faEmail: maskedEmail });
+        return "totp";
+      }
       if (resp.ok && resp.pending_2fa) {
         const maskedEmail = resp.email || email;
         set({ loading: false, pending2faEmail: maskedEmail });

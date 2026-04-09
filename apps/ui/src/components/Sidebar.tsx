@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
-import BlockAvatar from "./BlockAvatar";
+import RoundAvatar from "./RoundAvatar";
 import type { Agent, AgentRef } from "@/lib/types";
 
 function Chevron({ expanded }: { expanded: boolean }) {
@@ -112,7 +112,7 @@ function AgentNodeView({
           })
         }
       >
-        <BlockAvatar name={node.name} size={22} />
+        <RoundAvatar name={node.name} size={22} />
         <span className="agent-row-label">{label}</span>
         {hasChildren && (
           <span

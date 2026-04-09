@@ -1322,3 +1322,26 @@
   border-radius: var(--radius-sm);
   white-space: nowrap;
 }
+
+/* Sidebar footer links */
+.sidebar-footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.sidebar-footer-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.sidebar-footer-links a:hover {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.sidebar-footer-links span {
+  font-size: 8px;
+}

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import type { Agent } from "@/lib/types";
-import BlockAvatar from "../BlockAvatar";
+import RoundAvatar from "../RoundAvatar";
 
 interface PromptEntry {
   content: string;
@@ -113,7 +113,7 @@ function PromptsSection({ agentName }: { agentName: string }) {
             chain.map((node) => (
               <div key={node.agent_id} className="ctx-prompt-node">
                 <div className="ctx-prompt-agent">
-                  <BlockAvatar name={node.agent_name} size={18} />
+                  <RoundAvatar name={node.agent_name} size={18} />
                   <span className="ctx-prompt-agent-name">
                     {node.agent_name}
                   </span>

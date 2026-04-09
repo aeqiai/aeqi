@@ -19,6 +19,7 @@ export default function PasswordInput({
   onChange,
   placeholder = "Password",
   autoFocus,
+  autoComplete,
   hasError,
   errorId,
 }: {
@@ -26,6 +27,7 @@ export default function PasswordInput({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  autoComplete?: string;
   hasError?: boolean;
   errorId?: string;
 }) {
@@ -43,6 +45,8 @@ export default function PasswordInput({
         value={value}
         onChange={onChange}
         autoFocus={autoFocus}
+        autoComplete={autoComplete || "current-password"}
+        name="password"
       />
       <button
         type="button"

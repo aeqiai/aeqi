@@ -13,7 +13,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   "/treasury": { title: "Treasury" },
   "/apps": { title: "Apps" },
   "/market": { title: "Market" },
-  "/settings": { title: "Settings" },
+  "/account": { title: "Account" },
 };
 
 export default function ContentTopBar() {

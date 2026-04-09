@@ -7,7 +7,9 @@ import AgentSessionView from "./AgentSessionView";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import ContentTopBar from "./ContentTopBar";
 import { useDaemonStore } from "@/store/daemon";
+import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
+import RoundAvatar from "./RoundAvatar";
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -18,6 +20,9 @@ export default function AppLayout() {
   const agentId = params.get("agent");
   const sessionId = params.get("session");
   const path = location.pathname;
+  const user = useAuthStore((s) => s.user);
+  const authMode = useAuthStore((s) => s.authMode);
+  const userName = user?.name || (authMode === "none" ? "Local" : "Account");
 
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   useEffect(() => {
@@ -130,11 +135,22 @@ export default function AppLayout() {
             <AgentTree />
           </div>
           <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
-            <a className={`sidebar-nav-item ${isActive("/settings") ? "active" : ""}`} href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><circle cx="8" cy="8" r="2.5" /><path d="M13.5 8a5.5 5.5 0 01-.4 1.6l1.1 1.3-1.1 1.1-1.3-1.1A5.5 5.5 0 018 13.5a5.5 5.5 0 01-3.8-2.6L3 12l-1.1-1.1 1.1-1.3A5.5 5.5 0 012.5 8a5.5 5.5 0 01.5-1.6L1.9 5.1 3 4l1.3 1.1A5.5 5.5 0 018 2.5a5.5 5.5 0 013.8 2.6L13 4l1.1 1.1-1.1 1.3A5.5 5.5 0 0113.5 8z" /></svg>
-              <span className="sidebar-nav-label">Settings</span>
+            <a className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`} href="/account" onClick={(e) => { e.preventDefault(); navigate("/account"); }}>
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt="" style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0 }} />
+              ) : (
+                <RoundAvatar name={userName} size={22} />
+              )}
+              <span className="sidebar-nav-label">Account</span>
             </a>
           </nav>
+          <div className="sidebar-footer-links">
+            <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">Docs</a>
+            <span>·</span>
+            <a href="https://aeqi.ai/terms" target="_blank" rel="noopener">Terms</a>
+            <span>·</span>
+            <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener">Privacy</a>
+          </div>
         </div>
 
         {/* Main content */}

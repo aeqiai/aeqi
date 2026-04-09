@@ -63,7 +63,8 @@ export default function App() {
         <Route path="quests" element={<QuestsPage />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="companies" element={<EntitiesPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="account" element={<SettingsPage />} />
+        <Route path="settings" element={<Navigate to="/account" replace />} />
       </Route>
     </Routes>
   );

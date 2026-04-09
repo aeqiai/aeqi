@@ -2,7 +2,7 @@ import { useEffect, useCallback, useState, useRef } from "react";
 import { useUIStore } from "@/store/ui";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
-import BlockAvatar from "./BlockAvatar";
+import RoundAvatar from "./RoundAvatar";
 import ContextView from "./drawer/ContextView";
 import ActivityView from "./drawer/ActivityView";
 import QuickActions from "./drawer/QuickActions";
@@ -95,7 +95,7 @@ export default function ContextDrawer({ agentId, sessionId }: Props) {
       {/* Header */}
       <div className="drawer-header">
         <div className="drawer-header-agent">
-          <BlockAvatar name={displayName} size={22} />
+          <RoundAvatar name={displayName} size={22} />
           <div className="drawer-header-text">
             <span className="drawer-header-name">{displayName}</span>
             {agentInfo?.model && (

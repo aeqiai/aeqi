@@ -108,9 +108,48 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
-  getInviteCodes: () => request<{ ok: boolean; codes: Array<Record<string, unknown>> }>("/auth/invite/codes"),
+  getInviteCodes: () => request<{ ok: boolean; codes: Array<{ code: string; used: boolean }> }>("/auth/invite-codes"),
 
   getMe: () => request<Record<string, unknown>>("/auth/me"),
+
+  deleteAccount: () =>
+    request<{ ok: boolean }>("/auth/delete-account", { method: "DELETE" }),
+
+  setupTotp: () =>
+    request<Record<string, unknown>>("/auth/totp/setup", { method: "POST" }),
+
+  verifyTotp: (code: string) =>
+    request<Record<string, unknown>>("/auth/totp/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  loginTotp: (email: string, code: string) =>
+    request<Record<string, unknown>>("/auth/totp/login", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
+
+  disableTotp: (password: string, code: string) =>
+    request<{ ok: boolean }>("/auth/totp/disable", {
+      method: "POST",
+      body: JSON.stringify({ password, code }),
+    }),
+
+  getActivity: () =>
+    request<Record<string, unknown>>("/auth/activity"),
+
+  updateAvatar: (dataUrl: string) =>
+    request<{ ok: boolean }>("/auth/update-avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatar: dataUrl }),
+    }),
+
+  updateProfile: (first_name: string, last_name: string, phone: string) =>
+    request<{ ok: boolean }>("/auth/update-profile", {
+      method: "POST",
+      body: JSON.stringify({ first_name, last_name, phone }),
+    }),
 
   updatePhishingCode: (code: string) =>
     request<{ ok: boolean }>("/auth/phishing-code", {
