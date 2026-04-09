@@ -70,18 +70,14 @@ export default function SignupPage() {
   };
 
   // ── Signup steps ──
-  const handleEmailContinue = (e: React.FormEvent) => {
+  const handleCredentialsContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) setStep("info");
-  };
-
-  const handleInfoContinue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (firstName.trim() && lastName.trim() && (!waitlist || inviteCode.trim())) setStep("password");
+    if (email.trim() && password.length >= 8) setStep("info");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())) return;
     const result = await signup(email, password, fullName, inviteCode || undefined);
     if (result === "pending") setStep("verify");
     else if (result === "verified") navigate("/", { replace: true });
@@ -170,15 +166,16 @@ export default function SignupPage() {
       );
     }
 
-    // ── Signup: email ──
+    // ── Signup: email + password (step 1) ──
     if (step === "email") {
       return (
         <>
           <h1 className="auth-heading">Create your account</h1>
           <p className="auth-subheading">Start building with autonomous agents</p>
-          <form className="auth-form" onSubmit={handleEmailContinue}>
-            <input className="auth-input" type="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-            <button className="auth-btn-primary" type="submit" disabled={!email.trim()}>Continue</button>
+          <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
+            <input className="auth-input" type="email" name="email" autoComplete="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            <PasswordInput placeholder="Password (8+ characters)" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} />
+            <button className="auth-btn-primary" type="submit" disabled={!email.trim() || password.length < 8}>Continue</button>
           </form>
           {(googleOAuth || githubOAuth) && (
             <>
@@ -197,13 +194,13 @@ export default function SignupPage() {
       );
     }
 
-    // ── Signup: info ──
+    // ── Signup: name + invite code (step 2, submits) ──
     if (step === "info") {
       return (
         <>
           <h1 className="auth-heading">Your details</h1>
           <p className="auth-subheading">{email}</p>
-          <form className="auth-form" onSubmit={handleInfoContinue}>
+          <form className="auth-form" onSubmit={handleSubmit}>
             <div className="auth-name-row">
               <input className="auth-input" type="text" placeholder="First name" aria-label="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
               <input className="auth-input" type="text" placeholder="Last name" aria-label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
@@ -211,25 +208,10 @@ export default function SignupPage() {
             {waitlist && (
               <input className="auth-input auth-input-code" type="text" placeholder="Invite code" aria-label="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
             )}
-            <button className="auth-btn-primary" type="submit" disabled={!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>Continue</button>
+            {error && <div className="auth-error" role="alert" id="auth-error">{error}</div>}
+            <button className="auth-btn-primary" type="submit" disabled={loading || !firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())}>{loading ? "Creating account..." : "Create account"}</button>
           </form>
           <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("email"); }}>Back</a></p>
-        </>
-      );
-    }
-
-    // ── Signup: password ──
-    if (step === "password") {
-      return (
-        <>
-          <h1 className="auth-heading">Set a password</h1>
-          <p className="auth-subheading">{email}</p>
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <PasswordInput placeholder="Password (8+ characters)" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} autoFocus hasError={!!error} errorId="auth-error" />
-            {error && <div className="auth-error" role="alert" id="auth-error">{error}</div>}
-            <button className="auth-btn-primary" type="submit" disabled={loading || password.length < 8}>{loading ? "Creating account..." : "Create account"}</button>
-          </form>
-          <p className="auth-switch"><a href="#" onClick={(e) => { e.preventDefault(); setStep("info"); }}>Back</a></p>
         </>
       );
     }
