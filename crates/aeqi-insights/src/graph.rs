@@ -85,8 +85,9 @@ impl MemoryEdge {
 pub struct MemoryProvenance {
     /// Agent that produced this memory (e.g. "engineer", "trader").
     pub agent: Option<String>,
-    /// Task ID that triggered the extraction.
-    pub task_id: Option<String>,
+    /// Quest ID that triggered the extraction.
+    #[serde(alias = "task_id")]
+    pub quest_id: Option<String>,
     /// Whether the originating task outcome was verified.
     pub verified: bool,
 }
@@ -267,7 +268,7 @@ mod tests {
     fn provenance_defaults() {
         let p = MemoryProvenance::default();
         assert!(p.agent.is_none());
-        assert!(p.task_id.is_none());
+        assert!(p.quest_id.is_none());
         assert!(!p.verified);
     }
 }

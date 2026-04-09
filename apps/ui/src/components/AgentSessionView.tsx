@@ -578,7 +578,7 @@ export default function AgentSessionView({
           payload.session_prompts = sessionPrompts;
         }
         if (sessionTask) {
-          payload.task_id = sessionTask.id;
+          payload.quest_id = sessionTask.id;
         }
         if (attachedFiles.length > 0) {
           payload.files = attachedFiles.map((f) => ({

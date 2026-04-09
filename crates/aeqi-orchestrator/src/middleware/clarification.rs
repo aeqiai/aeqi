@@ -121,7 +121,7 @@ impl Middleware for ClarificationMiddleware {
             }
             Err(e) => {
                 warn!(
-                    task_id = %ctx.task_id,
+                    task_id = %ctx.quest_id,
                     error = %e,
                     "failed to serialize clarification request — storing question only"
                 );
@@ -131,7 +131,7 @@ impl Middleware for ClarificationMiddleware {
         }
 
         info!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             clarification_type = ?request.clarification_type,
             question = %question,
             options = ?request.options,

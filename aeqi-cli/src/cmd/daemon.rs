@@ -861,7 +861,7 @@ async fn telegram_message_loop(
             loop {
                 match event_rx.recv().await {
                     Ok(aeqi_orchestrator::ExecutionEvent::QuestCompleted {
-                        task_id,
+                        quest_id,
                         outcome,
                         cost_usd,
                         ..
@@ -869,7 +869,7 @@ async fn telegram_message_loop(
                         // Only notify for tasks NOT originated from a user chat message.
                         let is_user_task = {
                             let pending = engine_pending.pending_tasks.lock().await;
-                            pending.contains_key(&task_id)
+                            pending.contains_key(&quest_id)
                         };
                         if !is_user_task {
                             let summary = if outcome.len() > 80 {
@@ -879,7 +879,7 @@ async fn telegram_message_loop(
                             };
                             let text = format!(
                                 "\u{2713} Task {} completed: {} [${:.2}]",
-                                task_id, summary, cost_usd
+                                quest_id, summary, cost_usd
                             );
                             let out = aeqi_core::traits::OutgoingMessage {
                                 channel: "telegram".to_string(),
@@ -1062,7 +1062,7 @@ async fn telegram_message_loop(
 
                         match engine2.handle_message_full(&chat_msg, None).await {
                             Ok(handle) => {
-                                info!(task = %handle.task_id, "telegram message -> task created");
+                                info!(task = %handle.quest_id, "telegram message -> task created");
                             }
                             Err(e) => {
                                 warn!(error = %e, "failed to process telegram message");

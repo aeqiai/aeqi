@@ -34,7 +34,8 @@ pub struct Session {
     pub created_at: String,
     pub closed_at: Option<String>,
     pub parent_id: Option<String>,
-    pub task_id: Option<String>,
+    #[serde(alias = "task_id")]
+    pub quest_id: Option<String>,
 }
 
 /// A single typed thread event in a chat timeline.
@@ -181,6 +182,14 @@ impl SessionStore {
             "CREATE INDEX IF NOT EXISTS idx_sess_parent ON sessions(parent_id);
              CREATE INDEX IF NOT EXISTS idx_sess_task ON sessions(task_id);",
         );
+
+        // ── Phase 4: Rename task_id → quest_id ──
+        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN quest_id TEXT;");
+        let _ = conn.execute_batch(
+            "UPDATE sessions SET quest_id = task_id WHERE quest_id IS NULL AND task_id IS NOT NULL;",
+        );
+        let _ =
+            conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);");
 
         // ── 4B: Backfill from channels ──
         let _ = conn.execute_batch(
@@ -478,10 +487,10 @@ impl SessionStore {
     /// Get transcript for a specific task.
     pub async fn task_transcript(
         &self,
-        task_id: &str,
+        quest_id: &str,
         limit: usize,
     ) -> Result<Vec<SessionMessage>> {
-        let channel_name = format!("transcript:task:{}", task_id);
+        let channel_name = format!("transcript:task:{}", quest_id);
         let chat_id = named_channel_chat_id(&channel_name);
         self.recent(chat_id, limit).await
     }
@@ -733,7 +742,7 @@ impl SessionStore {
 
         let (sql, boxed_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match agent_id {
             Some(aid) => (
-                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, task_id \
+                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id \
                  FROM sessions WHERE agent_id = ?1 ORDER BY created_at DESC LIMIT ?2"
                     .to_string(),
                 vec![
@@ -742,7 +751,7 @@ impl SessionStore {
                 ],
             ),
             None => (
-                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, task_id \
+                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id \
                  FROM sessions ORDER BY created_at DESC LIMIT ?1"
                     .to_string(),
                 vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
@@ -764,7 +773,7 @@ impl SessionStore {
                     created_at: row.get(6)?,
                     closed_at: row.get(7)?,
                     parent_id: row.get(8)?,
-                    task_id: row.get(9)?,
+                    quest_id: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -779,7 +788,7 @@ impl SessionStore {
         session_type: &str,
         name: &str,
         parent_id: Option<&str>,
-        task_id: Option<&str>,
+        quest_id: Option<&str>,
     ) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let legacy_chat_id = {
@@ -793,9 +802,9 @@ impl SessionStore {
         };
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO sessions (id, legacy_chat_id, agent_id, session_type, name, status, parent_id, task_id)
+            "INSERT INTO sessions (id, legacy_chat_id, agent_id, session_type, name, status, parent_id, quest_id)
              VALUES (?1, ?2, ?3, ?4, ?5, 'active', ?6, ?7)",
-            params![id, legacy_chat_id, agent_id, session_type, name, parent_id, task_id],
+            params![id, legacy_chat_id, agent_id, session_type, name, parent_id, quest_id],
         )?;
         Ok(id)
     }
@@ -816,7 +825,7 @@ impl SessionStore {
         let db = self.db.lock().await;
         let session = db
             .query_row(
-                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, task_id
+                "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id
                  FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
@@ -830,7 +839,7 @@ impl SessionStore {
                         created_at: row.get(6)?,
                         closed_at: row.get(7)?,
                         parent_id: row.get(8)?,
-                        task_id: row.get(9)?,
+                        quest_id: row.get(9)?,
                     })
                 },
             )
@@ -842,7 +851,7 @@ impl SessionStore {
     pub async fn list_children(&self, parent_id: &str) -> Result<Vec<Session>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, task_id
+            "SELECT id, legacy_chat_id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id
              FROM sessions WHERE parent_id = ?1 ORDER BY created_at DESC",
         )?;
         let rows = stmt
@@ -857,7 +866,7 @@ impl SessionStore {
                     created_at: row.get(6)?,
                     closed_at: row.get(7)?,
                     parent_id: row.get(8)?,
-                    task_id: row.get(9)?,
+                    quest_id: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;

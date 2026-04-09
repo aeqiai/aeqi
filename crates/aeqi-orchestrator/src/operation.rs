@@ -19,7 +19,8 @@ pub struct Operation {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationTask {
-    pub task_id: QuestId,
+    #[serde(alias = "task_id")]
+    pub quest_id: QuestId,
     pub project: String,
     pub closed: bool,
 }
@@ -32,8 +33,8 @@ impl Operation {
             name: name.to_string(),
             tasks: tasks
                 .into_iter()
-                .map(|(task_id, project)| OperationTask {
-                    task_id,
+                .map(|(quest_id, project)| OperationTask {
+                    quest_id,
                     project,
                     closed: false,
                 })
@@ -44,9 +45,9 @@ impl Operation {
     }
 
     /// Mark a quest as closed in this operation.
-    pub fn mark_closed(&mut self, task_id: &QuestId) {
+    pub fn mark_closed(&mut self, quest_id: &QuestId) {
         for b in &mut self.tasks {
-            if b.task_id == *task_id {
+            if b.quest_id == *quest_id {
                 b.closed = true;
             }
         }

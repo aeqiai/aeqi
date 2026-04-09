@@ -106,7 +106,7 @@ pub async fn handle_chat_full(
                         Ok(handle) => Some(serde_json::json!({
                             "ok": true,
                             "action": "quest_created",
-                            "task_handle": handle.task_id,
+                            "task_handle": handle.quest_id,
                             "chat_id": handle.chat_id,
                             "context": "Processing your message...",
                         })),
@@ -127,16 +127,17 @@ pub async fn handle_chat_poll(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let task_id = request
-        .get("task_id")
+    let quest_id = request
+        .get("quest_id")
+        .or_else(|| request.get("task_id"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
     match &ctx.message_router {
         Some(engine) => {
-            if task_id.is_empty() {
-                serde_json::json!({"ok": false, "error": "task_id is required"})
+            if quest_id.is_empty() {
+                serde_json::json!({"ok": false, "error": "quest_id is required"})
             } else {
-                match engine.poll_completion(task_id).await {
+                match engine.poll_completion(quest_id).await {
                     Some(completion) => serde_json::json!({
                         "ok": true,
                         "completed": true,
@@ -261,10 +262,12 @@ pub async fn handle_chat_timeline(
                     let mut items = Vec::with_capacity(events.len());
                     for event in &events {
                         let task_snapshot = if let Some(metadata) = event.metadata.as_ref() {
-                            if let Some(task_id) =
-                                metadata.get("task_id").and_then(|value| value.as_str())
+                            if let Some(quest_id) = metadata
+                                .get("quest_id")
+                                .or_else(|| metadata.get("task_id"))
+                                .and_then(|value| value.as_str())
                             {
-                                find_task_snapshot(&ctx.agent_registry, task_id).await
+                                find_task_snapshot(&ctx.agent_registry, quest_id).await
                             } else {
                                 None
                             }

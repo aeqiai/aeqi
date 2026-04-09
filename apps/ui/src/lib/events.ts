@@ -56,7 +56,7 @@ export function auditToTimeline(entries: AuditEntry[]): TimelineItem[] {
       timestamp: e.timestamp,
       summary: e.summary,
       agent: e.agent,
-      questId: e.task_id,
+      questId: e.quest_id || e.task_id,
       auditEntry: e,
     };
   });

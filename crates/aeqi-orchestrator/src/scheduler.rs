@@ -51,7 +51,7 @@ use aeqi_core::traits::{Channel, Insight, Provider, Tool};
 /// A running worker with age tracking for timeout detection.
 struct TrackedWorker {
     handle: tokio::task::JoinHandle<()>,
-    task_id: String,
+    quest_id: String,
     agent_id: String,
     agent_name: String,
     started_at: Instant,
@@ -102,7 +102,7 @@ impl Default for SchedulerConfig {
 /// Worker completion event — sent via channel when a worker finishes.
 #[derive(Debug)]
 pub struct CompletionEvent {
-    pub task_id: String,
+    pub quest_id: String,
     pub agent_id: String,
     pub agent_name: String,
     pub outcome: String,
@@ -240,7 +240,7 @@ impl Scheduler {
                 // Worker completion: immediately check for newly ready tasks.
                 Some(completion) = completion_rx.recv() => {
                     debug!(
-                        task_id = %completion.task_id,
+                        quest_id = %completion.quest_id,
                         agent = %completion.agent_name,
                         outcome = %completion.outcome,
                         "worker completion received"
@@ -433,7 +433,7 @@ impl Scheduler {
             }
             if w.started_at.elapsed() > std::time::Duration::from_secs(w.timeout_secs) {
                 w.handle.abort();
-                timed_out.push((w.task_id.clone(), w.agent_name.clone(), w.timeout_secs));
+                timed_out.push((w.quest_id.clone(), w.agent_name.clone(), w.timeout_secs));
                 return false;
             }
             true
@@ -441,8 +441,8 @@ impl Scheduler {
         drop(running);
 
         // Handle timed-out workers.
-        for (task_id, agent_name, timeout) in timed_out {
-            warn!(task = %task_id, agent = %agent_name, timeout, "worker timed out");
+        for (quest_id, agent_name, timeout) in timed_out {
+            warn!(task = %quest_id, agent = %agent_name, timeout, "worker timed out");
 
             let _ = self
                 .event_store
@@ -450,7 +450,7 @@ impl Scheduler {
                     "decision",
                     None,
                     None,
-                    Some(&task_id),
+                    Some(&quest_id),
                     &serde_json::json!({
                         "decision_type": "WorkerTimedOut",
                         "reasoning": format!("Timed out after {timeout}s"),
@@ -461,10 +461,10 @@ impl Scheduler {
             // Reset task to pending.
             if let Err(e) = self
                 .agent_registry
-                .update_task_status(&task_id, aeqi_quests::QuestStatus::Pending)
+                .update_task_status(&quest_id, aeqi_quests::QuestStatus::Pending)
                 .await
             {
-                warn!(task = %task_id, error = %e, "failed to reset timed-out task");
+                warn!(task = %quest_id, error = %e, "failed to reset timed-out task");
             }
 
             // Emit event so the broadcast channel triggers re-scheduling.
@@ -474,7 +474,7 @@ impl Scheduler {
                     "quest_created",
                     None,
                     None,
-                    Some(&task_id),
+                    Some(&quest_id),
                     &serde_json::json!({
                         "reason": "worker_timed_out_reset",
                     }),
@@ -673,32 +673,32 @@ impl Scheduler {
 
         // Build completion callback — updates AgentRegistry task status.
         let cb_registry = self.agent_registry.clone();
-        let cb_task_id = task.id.0.clone();
+        let cb_quest_id = task.id.0.clone();
         worker.on_complete = Some(Box::new(move |status, outcome| {
             let registry = cb_registry;
-            let task_id = cb_task_id;
+            let quest_id = cb_quest_id;
             tokio::spawn(async move {
                 match status {
                     aeqi_quests::QuestStatus::Done
                     | aeqi_quests::QuestStatus::Blocked
                     | aeqi_quests::QuestStatus::Cancelled => {
-                        let _ = registry.update_task_status(&task_id, status).await;
+                        let _ = registry.update_task_status(&quest_id, status).await;
                     }
                     aeqi_quests::QuestStatus::Pending => {
                         let _ = registry
-                            .update_task(&task_id, |t| {
+                            .update_task(&quest_id, |t| {
                                 t.status = aeqi_quests::QuestStatus::Pending;
                                 t.retry_count += 1;
                             })
                             .await;
                     }
                     _ => {
-                        let _ = registry.update_task_status(&task_id, status).await;
+                        let _ = registry.update_task_status(&quest_id, status).await;
                     }
                 }
                 if let Some(record) = outcome {
                     let _ = registry
-                        .update_task(&task_id, |t| {
+                        .update_task(&quest_id, |t| {
                             t.set_task_outcome(&record);
                         })
                         .await;
@@ -710,7 +710,7 @@ impl Scheduler {
         worker.assign(task);
 
         // Spawn the worker as a background task.
-        let task_id = task.id.0.clone();
+        let quest_id = task.id.0.clone();
         let agent_name = agent.name.clone();
         let agent_id_clone = agent_id.clone();
         let registry = self.agent_registry.clone();
@@ -732,7 +732,7 @@ impl Scheduler {
                             "cost",
                             Some(&agent_id_clone),
                             None,
-                            Some(&task_id),
+                            Some(&quest_id),
                             &serde_json::json!({
                                 "project": "global",
                                 "agent_name": agent_name,
@@ -750,7 +750,7 @@ impl Scheduler {
                     (status, cost, turns)
                 }
                 Err(e) => {
-                    warn!(task = %task_id, error = %e, "worker execution failed");
+                    warn!(task = %quest_id, error = %e, "worker execution failed");
                     ("error", 0.0, 0)
                 }
             };
@@ -761,7 +761,7 @@ impl Scheduler {
                     "quest_completed",
                     Some(&agent_id_clone),
                     None,
-                    Some(&task_id),
+                    Some(&quest_id),
                     &serde_json::json!({
                         "agent_name": agent_name,
                         "outcome": outcome_status,
@@ -777,7 +777,7 @@ impl Scheduler {
                     .query(
                         &EventFilter {
                             event_type: Some("quest_created".to_string()),
-                            quest_id: Some(task_id.clone()),
+                            quest_id: Some(quest_id.clone()),
                             ..Default::default()
                         },
                         1,
@@ -793,18 +793,18 @@ impl Scheduler {
                 if sm.is_running(creator_session_id).await {
                     let result_text = format!(
                         "Quest {} completed ({}): {}",
-                        task_id, outcome_status, agent_name,
+                        quest_id, outcome_status, agent_name,
                     );
                     // Fire-and-forget: inject result into creator session.
                     let _ = sm.send_streaming(creator_session_id, &result_text).await;
                     debug!(
-                        task = %task_id,
+                        task = %quest_id,
                         creator_session = %creator_session_id,
                         "session resolution: notified creator session"
                     );
                 } else {
                     debug!(
-                        task = %task_id,
+                        task = %quest_id,
                         creator_session = %creator_session_id,
                         "session resolution: creator session gone, cascade handles it"
                     );
@@ -814,7 +814,7 @@ impl Scheduler {
             let _ = registry.record_session(&agent_id_clone, 0).await;
 
             event_broadcaster.publish(ExecutionEvent::QuestCompleted {
-                task_id: task_id.clone(),
+                quest_id: quest_id.clone(),
                 outcome: outcome_status.to_string(),
                 confidence: 0.0,
                 cost_usd,
@@ -824,7 +824,7 @@ impl Scheduler {
             });
 
             info!(
-                task = %task_id,
+                task = %quest_id,
                 agent = %agent_name,
                 outcome = %outcome_status,
                 cost_usd,
@@ -835,7 +835,7 @@ impl Scheduler {
             // The quest_completed event broadcast from emit() above also triggers
             // the scheduler, but the completion channel is a direct, guaranteed path.
             let _ = completion_tx.send(CompletionEvent {
-                task_id: task_id.clone(),
+                quest_id: quest_id.clone(),
                 agent_id: agent_id_clone.clone(),
                 agent_name: agent_name.to_string(),
                 outcome: outcome_status.to_string(),
@@ -846,7 +846,7 @@ impl Scheduler {
         // Track the running worker.
         self.running.lock().await.push(TrackedWorker {
             handle,
-            task_id: task.id.0.clone(),
+            quest_id: task.id.0.clone(),
             agent_id,
             agent_name: agent.name.clone(),
             started_at: Instant::now(),
@@ -887,7 +887,7 @@ impl Scheduler {
             .iter()
             .map(|w| {
                 serde_json::json!({
-                    "task_id": w.task_id,
+                    "quest_id": w.quest_id,
                     "agent_id": w.agent_id,
                     "agent_name": w.agent_name,
                     "running_secs": w.started_at.elapsed().as_secs(),

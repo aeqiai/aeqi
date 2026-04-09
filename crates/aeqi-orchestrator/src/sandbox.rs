@@ -1,10 +1,10 @@
-//! Session sandbox — git worktree isolation with optional bubblewrap enforcement.
+//! Quest sandbox — git worktree isolation with optional bubblewrap enforcement.
 //!
-//! Every agent session can run inside a sandbox:
+//! Every quest execution can run inside a sandbox:
 //! 1. A git worktree is created as the ephemeral workspace
 //! 2. Shell commands execute inside bubblewrap (bwrap) with no network and limited fs
 //! 3. File tools operate on the worktree via existing workspace validation
-//! 4. On session end: extract git diff, optionally commit/merge, then destroy worktree
+//! 4. On quest end: extract git diff, optionally commit/merge, then destroy worktree
 //!
 //! The agent can be fully destructive inside the sandbox — nothing persists unless
 //! explicitly committed out.
@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::process::Command;
 use tracing::{info, warn};
 
-/// Configuration for session sandboxing.
+/// Configuration for quest sandboxing.
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {
     /// Root of the git repository to create worktrees from.
@@ -47,10 +47,10 @@ impl Default for SandboxConfig {
     }
 }
 
-/// A live session sandbox — owns the worktree and provides bwrap command building.
-pub struct SessionSandbox {
-    /// Unique sandbox ID (matches session_id).
-    pub session_id: String,
+/// A live quest sandbox — owns the worktree and provides bwrap command building.
+pub struct QuestSandbox {
+    /// Unique sandbox ID (matches quest_id).
+    pub quest_id: String,
     /// Path to the worktree directory.
     pub worktree_path: PathBuf,
     /// Branch name for this worktree.
@@ -65,9 +65,9 @@ pub struct SessionSandbox {
     torn_down: AtomicBool,
 }
 
-/// The diff extracted from a session sandbox.
+/// The diff extracted from a quest sandbox.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionDiff {
+pub struct QuestDiff {
     /// The raw unified diff text.
     pub diff_text: String,
     /// List of changed file paths.
@@ -94,11 +94,11 @@ pub enum FinalizeAction {
     Discard,
 }
 
-impl SessionSandbox {
+impl QuestSandbox {
     /// Create a new sandbox: creates a git worktree on a detached branch.
-    pub async fn create(session_id: &str, config: &SandboxConfig) -> Result<Self> {
-        let branch_name = format!("session/{session_id}");
-        let worktree_path = config.worktree_base.join(session_id);
+    pub async fn create(quest_id: &str, config: &SandboxConfig) -> Result<Self> {
+        let branch_name = format!("quest/{quest_id}");
+        let worktree_path = config.worktree_base.join(quest_id);
 
         // Ensure worktree base exists.
         tokio::fs::create_dir_all(&config.worktree_base)
@@ -134,14 +134,14 @@ impl SessionSandbox {
         }
 
         info!(
-            session_id,
+            quest_id,
             worktree = %worktree_path.display(),
             branch = %branch_name,
-            "session sandbox created"
+            "quest sandbox created"
         );
 
         Ok(Self {
-            session_id: session_id.to_string(),
+            quest_id: quest_id.to_string(),
             worktree_path,
             branch_name,
             repo_root: config.repo_root.clone(),
@@ -230,7 +230,7 @@ impl SessionSandbox {
 
     /// Extract the git diff of all changes made inside the worktree.
     /// Runs on the host side (not inside bwrap).
-    pub async fn extract_diff(&self) -> Result<SessionDiff> {
+    pub async fn extract_diff(&self) -> Result<QuestDiff> {
         if self.torn_down.load(Ordering::Relaxed) {
             bail!("sandbox already torn down");
         }
@@ -286,7 +286,7 @@ impl SessionSandbox {
             .output()
             .await;
 
-        Ok(SessionDiff {
+        Ok(QuestDiff {
             diff_text,
             files_changed,
             insertions,
@@ -357,7 +357,7 @@ impl SessionSandbox {
         let commit_hash = String::from_utf8_lossy(&hash.stdout).trim().to_string();
 
         info!(
-            session_id = %self.session_id,
+            quest_id = %self.quest_id,
             commit = %commit_hash,
             "sandbox changes committed"
         );
@@ -374,23 +374,23 @@ impl SessionSandbox {
             } => {
                 let hash = self.commit_changes(&message, "aeqi-agent").await?;
 
-                // Merge the session branch into the target branch (from repo root).
+                // Merge the quest branch into the target branch (from repo root).
                 let merge = Command::new("git")
                     .args([
                         "merge",
                         &self.branch_name,
                         "--no-ff",
                         "-m",
-                        &format!("Merge session {}: {message}", self.session_id),
+                        &format!("Merge quest {}: {message}", self.quest_id),
                     ])
                     .current_dir(&self.repo_root)
                     .output()
                     .await
-                    .context("failed to merge session branch")?;
+                    .context("failed to merge quest branch")?;
 
                 if !merge.status.success() {
                     warn!(
-                        session_id = %self.session_id,
+                        quest_id = %self.quest_id,
                         stderr = %String::from_utf8_lossy(&merge.stderr),
                         "merge failed — branch preserved for manual resolution"
                     );
@@ -415,7 +415,7 @@ impl SessionSandbox {
         Ok(commit_hash)
     }
 
-    /// Tear down: remove worktree and delete the session branch.
+    /// Tear down: remove worktree and delete the quest branch.
     pub async fn teardown(&self) -> Result<()> {
         if self.torn_down.swap(true, Ordering::Relaxed) {
             // Already torn down.
@@ -438,7 +438,7 @@ impl SessionSandbox {
             Ok(output) if !output.status.success() => {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 warn!(
-                    session_id = %self.session_id,
+                    quest_id = %self.quest_id,
                     stderr = %stderr,
                     "git worktree remove failed — attempting manual cleanup"
                 );
@@ -453,7 +453,7 @@ impl SessionSandbox {
             }
             Err(e) => {
                 warn!(
-                    session_id = %self.session_id,
+                    quest_id = %self.quest_id,
                     error = %e,
                     "git worktree remove command failed"
                 );
@@ -462,7 +462,7 @@ impl SessionSandbox {
             Ok(_) => {}
         }
 
-        // Delete the session branch.
+        // Delete the quest branch.
         let _ = Command::new("git")
             .args(["branch", "-D", &self.branch_name])
             .current_dir(&self.repo_root)
@@ -470,8 +470,8 @@ impl SessionSandbox {
             .await;
 
         info!(
-            session_id = %self.session_id,
-            "session sandbox torn down"
+            quest_id = %self.quest_id,
+            "quest sandbox torn down"
         );
 
         Ok(())
@@ -597,12 +597,12 @@ mod tests {
         };
 
         // Create sandbox.
-        let sandbox = SessionSandbox::create("test-session-001", &config)
+        let sandbox = QuestSandbox::create("test-session-001", &config)
             .await
             .unwrap();
 
         assert!(sandbox.worktree_path.exists());
-        assert_eq!(sandbox.branch_name, "session/test-session-001");
+        assert_eq!(sandbox.branch_name, "quest/test-session-001");
 
         // Make changes in the worktree.
         tokio::fs::write(sandbox.worktree_path.join("hello.txt"), "hello world")
@@ -669,9 +669,7 @@ mod tests {
             extra_ro_binds: Vec::new(),
         };
 
-        let sandbox = SessionSandbox::create("test-commit", &config)
-            .await
-            .unwrap();
+        let sandbox = QuestSandbox::create("test-commit", &config).await.unwrap();
 
         // Make changes.
         tokio::fs::write(sandbox.worktree_path.join("file.txt"), "modified")
@@ -691,10 +689,10 @@ mod tests {
 
     #[test]
     fn test_build_command_no_bwrap() {
-        let sandbox = SessionSandbox {
-            session_id: "test".to_string(),
+        let sandbox = QuestSandbox {
+            quest_id: "test".to_string(),
             worktree_path: PathBuf::from("/tmp/test-worktree"),
-            branch_name: "session/test".to_string(),
+            branch_name: "quest/test".to_string(),
             repo_root: PathBuf::from("/tmp/repo"),
             enable_bwrap: false,
             extra_ro_binds: Vec::new(),
@@ -709,10 +707,10 @@ mod tests {
 
     #[test]
     fn test_build_command_with_bwrap() {
-        let sandbox = SessionSandbox {
-            session_id: "test".to_string(),
+        let sandbox = QuestSandbox {
+            quest_id: "test".to_string(),
             worktree_path: PathBuf::from("/tmp/test-worktree"),
-            branch_name: "session/test".to_string(),
+            branch_name: "quest/test".to_string(),
             repo_root: PathBuf::from("/tmp/repo"),
             enable_bwrap: true,
             extra_ro_binds: Vec::new(),

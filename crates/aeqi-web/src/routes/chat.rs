@@ -14,7 +14,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/chat", post(chat))
         .route("/chat/full", post(chat_full))
-        .route("/chat/poll/{task_id}", get(chat_poll))
+        .route("/chat/poll/{quest_id}", get(chat_poll))
         .route("/chat/history", get(chat_history))
         .route("/chat/timeline", get(chat_timeline))
         .route("/chat/channels", get(chat_channels))
@@ -39,13 +39,13 @@ async fn chat_full(
 async fn chat_poll(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(task_id): axum::extract::Path<String>,
+    axum::extract::Path(quest_id): axum::extract::Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "chat_poll",
-        serde_json::json!({"task_id": task_id}),
+        serde_json::json!({"quest_id": quest_id}),
     )
     .await
 }

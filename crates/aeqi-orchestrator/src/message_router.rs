@@ -138,7 +138,7 @@ impl ChatResponse {
 /// Handle returned when a full (async) chat quest is created.
 #[derive(Debug, Clone)]
 pub struct TaskHandle {
-    pub task_id: String,
+    pub quest_id: String,
     pub chat_id: i64,
     pub project: String,
 }
@@ -158,7 +158,7 @@ pub struct PendingTask {
 /// Result of a completed chat quest.
 #[derive(Debug, Clone)]
 pub struct ChatCompletion {
-    pub task_id: String,
+    pub quest_id: String,
     pub chat_id: i64,
     pub message_id: i64,
     pub source: MessageSource,
@@ -425,13 +425,13 @@ impl MessageRouter {
 
     async fn consume_pending_completion(
         &self,
-        task_id: &str,
+        quest_id: &str,
         status: CompletionStatus,
         reason: Option<String>,
     ) -> Option<ChatCompletion> {
         let pending = {
             let mut map = self.pending_tasks.lock().await;
-            map.remove(task_id)?
+            map.remove(quest_id)?
         };
 
         let text = Self::completion_text(&status, reason);
@@ -446,9 +446,9 @@ impl MessageRouter {
             &pending.channel_type,
             event_type,
             "system",
-            &format!("Quest {task_id} {event_type}."),
+            &format!("Quest {quest_id} {event_type}."),
             Some(serde_json::json!({
-                "task_id": task_id,
+                "quest_id": quest_id,
                 "status": format!("{status:?}"),
                 "reply_text": text.clone(),
                 "project": pending.project.clone(),
@@ -459,7 +459,7 @@ impl MessageRouter {
             .await;
 
         Some(ChatCompletion {
-            task_id: task_id.to_string(),
+            quest_id: quest_id.to_string(),
             chat_id: pending.chat_id,
             message_id: pending.message_id,
             source: pending.source,
@@ -630,15 +630,15 @@ impl MessageRouter {
         let task = self
             .create_chat_quest(&scoped_project, &subject, &description, hold_for_council)
             .await?;
-        let task_id = task.id.0.clone();
+        let quest_id = task.id.0.clone();
         self.record_thread_event(
             msg.chat_id,
             &source_tag,
             "quest_created",
             "system",
-            &format!("Quest {task_id} created in {scoped_project}."),
+            &format!("Quest {quest_id} created in {scoped_project}."),
             Some(serde_json::json!({
-                "task_id": task_id.clone(),
+                "quest_id": quest_id.clone(),
                 "project": scoped_project.clone(),
                 "held_for_council": hold_for_council,
             })),
@@ -662,7 +662,7 @@ impl MessageRouter {
                 "system",
                 "Quest released to the project scheduler.",
                 Some(serde_json::json!({
-                    "task_id": task_id.clone(),
+                    "quest_id": quest_id.clone(),
                     "project": scoped_project.clone(),
                 })),
             )
@@ -671,7 +671,7 @@ impl MessageRouter {
 
         // Register pending task for completion tracking.
         self.pending_tasks.lock().await.insert(
-            task_id.clone(),
+            quest_id.clone(),
             PendingTask {
                 project: scoped_project.clone(),
                 chat_id: msg.chat_id,
@@ -689,7 +689,7 @@ impl MessageRouter {
             let conversations = self.conversations.clone();
             let agent_router = self.agent_router.clone();
             let council_advisors = self.council_advisors.clone();
-            let task_id_for_spawn = task_id.clone();
+            let task_id_for_spawn = quest_id.clone();
             let project_name = scoped_project.clone();
             let clean_text_for_spawn = clean_text.clone();
             let conv_context_for_spawn = conv_context_for_advisors.clone();
@@ -719,7 +719,7 @@ impl MessageRouter {
         }
 
         Ok(TaskHandle {
-            task_id,
+            quest_id,
             chat_id: msg.chat_id,
             project: scoped_project,
         })
@@ -733,7 +733,7 @@ impl MessageRouter {
             .lock()
             .await
             .iter()
-            .map(|(task_id, pending)| (task_id.clone(), pending.project.clone()))
+            .map(|(quest_id, pending)| (quest_id.clone(), pending.project.clone()))
             .collect();
 
         for (qid, _project) in pending {
@@ -803,7 +803,7 @@ impl MessageRouter {
                     "system",
                     "Still working.",
                     Some(serde_json::json!({
-                        "task_id": qid,
+                        "quest_id": qid,
                         "project": pq.project,
                         "elapsed_secs": elapsed.as_secs(),
                     })),
@@ -816,28 +816,28 @@ impl MessageRouter {
     }
 
     /// Poll a specific task for completion.
-    pub async fn poll_completion(&self, task_id: &str) -> Option<ChatCompletion> {
+    pub async fn poll_completion(&self, quest_id: &str) -> Option<ChatCompletion> {
         let _project = {
             let pending = self.pending_tasks.lock().await;
-            pending.get(task_id).map(|task| task.project.clone())?
+            pending.get(quest_id).map(|task| task.project.clone())?
         };
 
-        let status = match self.agent_registry.get_task(task_id).await {
+        let status = match self.agent_registry.get_task(quest_id).await {
             Ok(Some(task)) => Some((task.status, Self::task_completion_reason(&task))),
             _ => None,
         };
 
         match status {
             Some((aeqi_quests::QuestStatus::Done, reason)) => {
-                self.consume_pending_completion(task_id, CompletionStatus::Done, reason)
+                self.consume_pending_completion(quest_id, CompletionStatus::Done, reason)
                     .await
             }
             Some((aeqi_quests::QuestStatus::Blocked, reason)) => {
-                self.consume_pending_completion(task_id, CompletionStatus::Blocked, reason)
+                self.consume_pending_completion(quest_id, CompletionStatus::Blocked, reason)
                     .await
             }
             Some((aeqi_quests::QuestStatus::Cancelled, reason)) => {
-                self.consume_pending_completion(task_id, CompletionStatus::Cancelled, reason)
+                self.consume_pending_completion(quest_id, CompletionStatus::Cancelled, reason)
                     .await
             }
             _ => None,
@@ -1137,23 +1137,23 @@ impl MessageRouter {
     }
 
     async fn handle_close_task(&self, msg: &IncomingMessage) -> ChatResponse {
-        let task_id: String = msg
+        let quest_id: String = msg
             .message
             .split_whitespace()
             .find(|w| w.contains('-') && w.chars().any(|c| c.is_ascii_digit()))
             .unwrap_or("")
             .to_string();
 
-        if task_id.is_empty() {
-            return ChatResponse::error("I need a task ID to close (e.g., 'close task as-001').");
+        if quest_id.is_empty() {
+            return ChatResponse::error("I need a quest ID to close (e.g., 'close task as-001').");
         }
 
         // Close via AgentRegistry: update the task status to Done.
-        match self.agent_registry.get_task(&task_id).await {
+        match self.agent_registry.get_task(&quest_id).await {
             Ok(Some(_)) => {
                 match self
                     .agent_registry
-                    .update_task(&task_id, |task| {
+                    .update_task(&quest_id, |task| {
                         task.status = aeqi_quests::QuestStatus::Done;
                         task.closed_at = Some(chrono::Utc::now());
                         task.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
@@ -1165,7 +1165,7 @@ impl MessageRouter {
                 {
                     Ok(_) => ChatResponse {
                         ok: true,
-                        context: format!("Done. Task {} is now closed.", task_id),
+                        context: format!("Done. Quest {} is now closed.", quest_id),
                         action: Some("quest_closed".to_string()),
                         task: None,
                         projects: None,
@@ -1173,12 +1173,12 @@ impl MessageRouter {
                         workers: None,
                     },
                     Err(e) => {
-                        ChatResponse::error(&format!("Failed to close task {}: {}", task_id, e))
+                        ChatResponse::error(&format!("Failed to close quest {}: {}", quest_id, e))
                     }
                 }
             }
-            Ok(None) => ChatResponse::error(&format!("Couldn't find task {}.", task_id)),
-            Err(e) => ChatResponse::error(&format!("Error looking up task {}: {}", task_id, e)),
+            Ok(None) => ChatResponse::error(&format!("Couldn't find quest {}.", quest_id)),
+            Err(e) => ChatResponse::error(&format!("Error looking up quest {}: {}", quest_id, e)),
         }
     }
 
@@ -1311,7 +1311,7 @@ impl MessageRouter {
                     }
                 };
 
-                let task_id = match ar
+                let quest_id = match ar
                     .create_task(
                         &agent.id,
                         &task_subject,
@@ -1340,7 +1340,7 @@ impl MessageRouter {
                             return None;
                         }
                     }
-                    let done = match ar.get_task(&task_id).await {
+                    let done = match ar.get_task(&quest_id).await {
                         Ok(Some(task)) => {
                             if task.status == aeqi_quests::QuestStatus::Done {
                                 Some(task.outcome_summary())
@@ -1396,7 +1396,7 @@ impl MessageRouter {
         conversations: Arc<SessionStore>,
         agent_router: Arc<Mutex<AgentRouter>>,
         council_advisors: Arc<Vec<aeqi_core::config::PeerAgentConfig>>,
-        task_id: String,
+        quest_id: String,
         project_name: String,
         clean_text: String,
         is_council: bool,
@@ -1428,7 +1428,7 @@ impl MessageRouter {
                     "Consulting advisors.",
                     Some(&source_tag),
                     Some(&serde_json::json!({
-                        "task_id": task_id.clone(),
+                        "quest_id": quest_id.clone(),
                         "advisors": advisors_to_invoke.clone(),
                     })),
                 )
@@ -1447,7 +1447,7 @@ impl MessageRouter {
 
         // Update task with council input.
         let update_result: Result<()> = agent_registry
-            .update_task(&task_id, |task| {
+            .update_task(&quest_id, |task| {
                 Self::append_council_input(&mut task.description, &council_input);
                 Self::set_scheduler_hold(task, false, None);
             })
@@ -1465,7 +1465,7 @@ impl MessageRouter {
                             "Council input attached to the task.",
                             Some(&source_tag),
                             Some(&serde_json::json!({
-                                "task_id": task_id.clone(),
+                                "quest_id": quest_id.clone(),
                                 "advisor_count": council_input.len(),
                             })),
                         )
@@ -1479,7 +1479,7 @@ impl MessageRouter {
                         "Quest released to the project scheduler.",
                         Some(&source_tag),
                         Some(&serde_json::json!({
-                            "task_id": task_id.clone(),
+                            "quest_id": quest_id.clone(),
                             "project": project_name.clone(),
                         })),
                     )
@@ -1489,7 +1489,7 @@ impl MessageRouter {
                         "quest_created",
                         None,
                         None,
-                        Some(&task_id),
+                        Some(&quest_id),
                         &serde_json::json!({
                             "subject": "council_enrichment_complete",
                             "project": project_name,
@@ -1499,7 +1499,7 @@ impl MessageRouter {
             }
             Err(e) => warn!(
                 project = %project_name,
-                task = %task_id,
+                task = %quest_id,
                 error = %e,
                 "failed to finalize chat council enrichment"
             ),

@@ -21,7 +21,8 @@ use crate::runtime::{RuntimeExecution, RuntimeSession};
 pub enum ExecutionEvent {
     /// Worker has begun executing a quest.
     QuestStarted {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         agent: String,
         project: String,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,30 +30,38 @@ pub enum ExecutionEvent {
     },
     /// Periodic progress update during execution.
     Progress {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         turns: u32,
         cost_usd: f64,
         last_tool: Option<String>,
     },
     /// A tool call has started.
-    ToolCallStarted { task_id: String, tool_name: String },
+    ToolCallStarted {
+        #[serde(alias = "task_id")]
+        quest_id: String,
+        tool_name: String,
+    },
     /// A tool call has completed.
     ToolCallCompleted {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         tool_name: String,
         success: bool,
         duration_ms: u64,
     },
     /// A checkpoint was captured during execution.
     CheckpointCreated {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         message: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         runtime: Option<RuntimeExecution>,
     },
     /// Quest completed successfully.
     QuestCompleted {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         outcome: String,
         confidence: f32,
         cost_usd: f64,
@@ -63,7 +72,8 @@ pub enum ExecutionEvent {
     },
     /// Quest failed.
     QuestFailed {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         reason: String,
         artifacts_preserved: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -71,13 +81,15 @@ pub enum ExecutionEvent {
     },
     /// An approval is required before the worker can continue.
     ApprovalRequired {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         pattern: String,
         description: String,
     },
     /// The worker needs clarification before continuing.
     ClarificationNeeded {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         question: String,
         options: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,7 +98,8 @@ pub enum ExecutionEvent {
     /// Real-time chat stream event from the agent loop.
     /// Used by CLI TUI and WebSocket chat clients for token-by-token rendering.
     ChatStream {
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         chat_id: i64,
         event: ChatStreamEvent,
     },
@@ -131,54 +144,57 @@ impl ExecutionEvent {
     fn to_event_fields(&self) -> (String, Option<String>, Option<String>, serde_json::Value) {
         let content = serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
         match self {
-            Self::QuestStarted { task_id, agent, .. } => (
+            Self::QuestStarted {
+                quest_id, agent, ..
+            } => (
                 "execution.quest_started".into(),
                 Some(agent.clone()),
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::QuestCompleted { task_id, .. } => (
+            Self::QuestCompleted { quest_id, .. } => (
                 "execution.quest_completed".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::QuestFailed { task_id, .. } => (
+            Self::QuestFailed { quest_id, .. } => (
                 "execution.quest_failed".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::Progress { task_id, .. } => (
+            Self::Progress { quest_id, .. } => (
                 "execution.progress".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::ToolCallStarted { task_id, .. } | Self::ToolCallCompleted { task_id, .. } => (
+            Self::ToolCallStarted { quest_id, .. } | Self::ToolCallCompleted { quest_id, .. } => (
                 "execution.tool_call".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::CheckpointCreated { task_id, .. } => (
+            Self::CheckpointCreated { quest_id, .. } => (
                 "execution.checkpoint".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::ApprovalRequired { task_id, .. } | Self::ClarificationNeeded { task_id, .. } => (
+            Self::ApprovalRequired { quest_id, .. }
+            | Self::ClarificationNeeded { quest_id, .. } => (
                 "execution.blocked".into(),
                 None,
-                Some(task_id.clone()),
+                Some(quest_id.clone()),
                 content,
             ),
-            Self::ChatStream { task_id, .. } => {
+            Self::ChatStream { quest_id, .. } => {
                 // High-volume — skip persistence for chat stream events.
                 (
                     "execution.chat_stream".into(),
                     None,
-                    Some(task_id.clone()),
+                    Some(quest_id.clone()),
                     serde_json::Value::Null,
                 )
             }
@@ -292,7 +308,7 @@ mod tests {
         let mut rx = broadcaster.subscribe();
 
         broadcaster.publish(ExecutionEvent::QuestStarted {
-            task_id: "t-1".into(),
+            quest_id: "t-1".into(),
             agent: "engineer".into(),
             project: "aeqi".into(),
             runtime_session: None,
@@ -301,12 +317,12 @@ mod tests {
         let event = rx.recv().await.unwrap();
         match event {
             ExecutionEvent::QuestStarted {
-                task_id,
+                quest_id,
                 agent,
                 project,
                 ..
             } => {
-                assert_eq!(task_id, "t-1");
+                assert_eq!(quest_id, "t-1");
                 assert_eq!(agent, "engineer");
                 assert_eq!(project, "aeqi");
             }
@@ -323,7 +339,7 @@ mod tests {
         assert_eq!(broadcaster.subscriber_count(), 2);
 
         broadcaster.publish(ExecutionEvent::Progress {
-            task_id: "t-2".into(),
+            quest_id: "t-2".into(),
             turns: 3,
             cost_usd: 0.05,
             last_tool: Some("Bash".into()),
@@ -336,12 +352,12 @@ mod tests {
         match (&e1, &e2) {
             (
                 ExecutionEvent::Progress {
-                    task_id: id1,
+                    quest_id: id1,
                     turns: t1,
                     ..
                 },
                 ExecutionEvent::Progress {
-                    task_id: id2,
+                    quest_id: id2,
                     turns: t2,
                     ..
                 },
@@ -362,7 +378,7 @@ mod tests {
 
         // This must not panic even with zero subscribers.
         broadcaster.publish(ExecutionEvent::QuestFailed {
-            task_id: "t-3".into(),
+            quest_id: "t-3".into(),
             reason: "build error".into(),
             artifacts_preserved: false,
             runtime: None,
@@ -371,7 +387,7 @@ mod tests {
         // Still functional after publishing to zero subscribers.
         let mut rx = broadcaster.subscribe();
         broadcaster.publish(ExecutionEvent::QuestCompleted {
-            task_id: "t-4".into(),
+            quest_id: "t-4".into(),
             outcome: "done".into(),
             confidence: 0.95,
             cost_usd: 0.1,
@@ -405,7 +421,7 @@ mod tests {
     #[tokio::test]
     async fn serialization_round_trip() {
         let event = ExecutionEvent::ToolCallCompleted {
-            task_id: "t-5".into(),
+            quest_id: "t-5".into(),
             tool_name: "Read".into(),
             success: true,
             duration_ms: 42,
@@ -424,7 +440,7 @@ mod tests {
 
         let mut rx = broadcaster.subscribe();
         broadcaster.publish(ExecutionEvent::CheckpointCreated {
-            task_id: "t-6".into(),
+            quest_id: "t-6".into(),
             message: "captured git state".into(),
             runtime: None,
         });

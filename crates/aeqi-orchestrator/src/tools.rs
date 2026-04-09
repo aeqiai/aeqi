@@ -1314,12 +1314,12 @@ impl Tool for TranscriptSearchTool {
 ///
 /// Falls back to plain bash execution when bwrap is not enabled.
 pub struct SandboxedShellTool {
-    sandbox: Arc<crate::sandbox::SessionSandbox>,
+    sandbox: Arc<crate::sandbox::QuestSandbox>,
     timeout_secs: u64,
 }
 
 impl SandboxedShellTool {
-    pub fn new(sandbox: Arc<crate::sandbox::SessionSandbox>) -> Self {
+    pub fn new(sandbox: Arc<crate::sandbox::QuestSandbox>) -> Self {
         Self {
             sandbox,
             timeout_secs: 120,
@@ -1355,7 +1355,7 @@ impl Tool for SandboxedShellTool {
 
         tracing::debug!(
             command = %command,
-            sandbox = %self.sandbox.session_id,
+            sandbox = %self.sandbox.quest_id,
             bwrap = self.sandbox.enable_bwrap,
             timeout_ms,
             run_in_background,

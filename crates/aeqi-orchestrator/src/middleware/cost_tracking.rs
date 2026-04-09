@@ -30,7 +30,7 @@ impl CostTrackingMiddleware {
             warn!(
                 cost_usd = ctx.cost_usd,
                 budget_usd = self.budget_usd,
-                task_id = %ctx.task_id,
+                task_id = %ctx.quest_id,
                 "budget exceeded — halting execution"
             );
             return MiddlewareAction::Halt(format!(
@@ -67,7 +67,7 @@ impl Middleware for CostTrackingMiddleware {
 
     async fn on_complete(&self, ctx: &mut WorkerContext, outcome: &Outcome) -> MiddlewareAction {
         info!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             cost_usd = outcome.cost_usd,
             budget_usd = self.budget_usd,
             "quest completed — final cost"

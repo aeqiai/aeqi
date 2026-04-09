@@ -101,12 +101,12 @@ impl Middleware for SafetyNetMiddleware {
 
         let annotated = Self::annotate_reason(outcome.reason.as_deref(), &artifacts);
         warn!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             artifacts_found = artifacts.len(),
             "partial work detected on failure — preserving"
         );
         for artifact in &artifacts {
-            info!(task_id = %ctx.task_id, artifact = %artifact, "preserved artifact");
+            info!(task_id = %ctx.quest_id, artifact = %artifact, "preserved artifact");
         }
 
         // Store the annotated reason in metadata so the worker_pool can pick it up.
@@ -125,12 +125,12 @@ impl Middleware for SafetyNetMiddleware {
 
         let annotated = Self::annotate_reason(Some(error), &artifacts);
         warn!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             artifacts_found = artifacts.len(),
             "partial work detected on error — preserving"
         );
         for artifact in &artifacts {
-            info!(task_id = %ctx.task_id, artifact = %artifact, "preserved artifact");
+            info!(task_id = %ctx.quest_id, artifact = %artifact, "preserved artifact");
         }
 
         ctx.metadata.insert("safety_net_reason".into(), annotated);

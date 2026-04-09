@@ -52,31 +52,44 @@ pub async fn handle_agents_registry(
             } else {
                 agents
             };
-            let items: Vec<serde_json::Value> = filtered_agents
-                .iter()
-                .map(|a| {
-                    serde_json::json!({
-                        "id": a.id,
-                        "name": a.name,
-                        "display_name": a.display_name,
-                        "template": a.template,
-                        "parent_id": a.parent_id,
-                        "model": a.model,
-                        "capabilities": a.capabilities,
-                        "status": a.status,
-                        "created_at": a.created_at.to_rfc3339(),
-                        "last_active": a.last_active.map(|dt| dt.to_rfc3339()),
-                        "session_count": a.session_count,
-                        "total_tokens": a.total_tokens,
-                        "color": a.color,
-                        "avatar": a.avatar,
-                        "faces": a.faces,
-                        "session_id": a.session_id,
-                        "prompts": a.prompts,
-                        "prompt_ids": a.prompt_ids,
+            let mut items: Vec<serde_json::Value> = Vec::with_capacity(filtered_agents.len());
+            for a in &filtered_agents {
+                let resolved = ctx
+                    .agent_registry
+                    .resolve_prompts(&a.prompt_ids)
+                    .await
+                    .unwrap_or_default();
+                let resolved_contents: Vec<serde_json::Value> = resolved
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "id": r.id,
+                            "name": r.name,
+                            "content": r.content,
+                        })
                     })
-                })
-                .collect();
+                    .collect();
+                items.push(serde_json::json!({
+                    "id": a.id,
+                    "name": a.name,
+                    "display_name": a.display_name,
+                    "template": a.template,
+                    "parent_id": a.parent_id,
+                    "model": a.model,
+                    "capabilities": a.capabilities,
+                    "status": a.status,
+                    "created_at": a.created_at.to_rfc3339(),
+                    "last_active": a.last_active.map(|dt| dt.to_rfc3339()),
+                    "session_count": a.session_count,
+                    "total_tokens": a.total_tokens,
+                    "color": a.color,
+                    "avatar": a.avatar,
+                    "faces": a.faces,
+                    "session_id": a.session_id,
+                    "prompts": resolved_contents,
+                    "prompt_ids": a.prompt_ids,
+                }));
+            }
             serde_json::json!({"ok": true, "agents": items})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -97,21 +110,36 @@ pub async fn handle_agent_children(
     }
     match ctx.agent_registry.get_children(agent_id).await {
         Ok(children) => {
-            let items: Vec<serde_json::Value> = children
-                .iter()
-                .map(|a| {
-                    serde_json::json!({
-                        "id": a.id,
-                        "name": a.name,
-                        "display_name": a.display_name,
-                        "template": a.template,
-                        "parent_id": a.parent_id,
-                        "model": a.model,
-                        "status": a.status,
-                        "created_at": a.created_at.to_rfc3339(),
+            let mut items: Vec<serde_json::Value> = Vec::with_capacity(children.len());
+            for a in &children {
+                let resolved = ctx
+                    .agent_registry
+                    .resolve_prompts(&a.prompt_ids)
+                    .await
+                    .unwrap_or_default();
+                let resolved_contents: Vec<serde_json::Value> = resolved
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "id": r.id,
+                            "name": r.name,
+                            "content": r.content,
+                        })
                     })
-                })
-                .collect();
+                    .collect();
+                items.push(serde_json::json!({
+                    "id": a.id,
+                    "name": a.name,
+                    "display_name": a.display_name,
+                    "template": a.template,
+                    "parent_id": a.parent_id,
+                    "model": a.model,
+                    "status": a.status,
+                    "created_at": a.created_at.to_rfc3339(),
+                    "prompts": resolved_contents,
+                    "prompt_ids": a.prompt_ids,
+                }));
+            }
             serde_json::json!({"ok": true, "children": items})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -205,14 +233,44 @@ pub async fn handle_agent_info(
                 .get_ancestors(&agent.id)
                 .await
                 .unwrap_or_default();
-            let prompt_chain: Vec<serde_json::Value> = ancestors
+            let mut prompt_chain: Vec<serde_json::Value> = Vec::new();
+            for a in ancestors.iter().rev() {
+                let resolved = ctx
+                    .agent_registry
+                    .resolve_prompts(&a.prompt_ids)
+                    .await
+                    .unwrap_or_default();
+                let resolved_contents: Vec<serde_json::Value> = resolved
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "id": r.id,
+                            "name": r.name,
+                            "content": r.content,
+                        })
+                    })
+                    .collect();
+                prompt_chain.push(serde_json::json!({
+                    "agent_name": a.name,
+                    "agent_id": a.id,
+                    "prompts": resolved_contents,
+                    "prompt_ids": a.prompt_ids,
+                }));
+            }
+
+            // Resolve the agent's own prompts for the response.
+            let resolved = ctx
+                .agent_registry
+                .resolve_prompts(&agent.prompt_ids)
+                .await
+                .unwrap_or_default();
+            let resolved_contents: Vec<serde_json::Value> = resolved
                 .iter()
-                .rev()
-                .map(|a| {
+                .map(|r| {
                     serde_json::json!({
-                        "agent_name": a.name,
-                        "agent_id": a.id,
-                        "prompts": a.prompts,
+                        "id": r.id,
+                        "name": r.name,
+                        "content": r.content,
                     })
                 })
                 .collect();
@@ -228,7 +286,7 @@ pub async fn handle_agent_info(
                 "model": agent.model,
                 "capabilities": agent.capabilities,
                 "status": agent.status,
-                "prompts": agent.prompts,
+                "prompts": resolved_contents,
                 "prompt_ids": agent.prompt_ids,
                 "prompt_chain": prompt_chain,
             })

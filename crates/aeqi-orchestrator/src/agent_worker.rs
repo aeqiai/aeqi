@@ -239,7 +239,7 @@ impl AgentWorker {
 
     /// Capture an external checkpoint by inspecting git state in the worker's workdir.
     /// Saves the checkpoint to the project's `.aeqi/checkpoints/` directory.
-    fn capture_and_save_checkpoint(&self, task_id: &str, progress_notes: Option<&str>) {
+    fn capture_and_save_checkpoint(&self, quest_id: &str, progress_notes: Option<&str>) {
         let Some(workdir) = self.workdir() else {
             debug!(worker = %self.name, "no workdir — skipping checkpoint capture");
             return;
@@ -250,7 +250,7 @@ impl AgentWorker {
         match AgentCheckpoint::capture(workdir) {
             Ok(checkpoint) => {
                 let checkpoint: AgentCheckpoint = checkpoint
-                    .with_task_id(task_id)
+                    .with_quest_id(quest_id)
                     .with_worker_name(&self.agent_name);
 
                 let checkpoint = if let Some(notes) = progress_notes {
@@ -259,18 +259,18 @@ impl AgentWorker {
                     checkpoint
                 };
 
-                let cp_path = AgentCheckpoint::path_for_task(project_dir, task_id);
+                let cp_path = AgentCheckpoint::path_for_quest(project_dir, quest_id);
                 if let Err(e) = checkpoint.write(&cp_path) {
                     warn!(
                         worker = %self.name,
-                        task = %task_id,
+                        task = %quest_id,
                         error = %e,
                         "failed to write checkpoint"
                     );
                 } else {
                     info!(
                         worker = %self.name,
-                        task = %task_id,
+                        task = %quest_id,
                         files = checkpoint.modified_files.len(),
                         "external checkpoint captured"
                     );
@@ -279,7 +279,7 @@ impl AgentWorker {
             Err(e) => {
                 warn!(
                     worker = %self.name,
-                    task = %task_id,
+                    task = %quest_id,
                     error = %e,
                     "failed to capture git checkpoint"
                 );
@@ -297,10 +297,10 @@ impl AgentWorker {
     /// Save a checkpoint recording this worker's progress on a task.
     /// Now a no-op — the scheduler handles task state through AgentRegistry;
     /// checkpoints written to a throwaway board were lost anyway.
-    async fn save_checkpoint(&self, task_id: &str, progress: &str, _cost: f64, _turns: u32) {
+    async fn save_checkpoint(&self, quest_id: &str, progress: &str, _cost: f64, _turns: u32) {
         debug!(
             worker = %self.name,
-            task = %task_id,
+            task = %quest_id,
             progress = %progress,
             "checkpoint save skipped (scheduler manages task state)"
         );
@@ -439,7 +439,7 @@ impl AgentWorker {
 
         let execution_start = std::time::Instant::now();
         let mut runtime_session = RuntimeSession::new(
-            hook.task_id.0.clone(),
+            hook.quest_id.0.clone(),
             self.name.clone(),
             self.project_name.clone(),
             self.execution_model(),
@@ -456,13 +456,13 @@ impl AgentWorker {
 
         // Create a DB session for this worker execution.
         let worker_session_id = if let Some(ref ss) = self.session_store {
-            let task_id_str = hook.task_id.0.clone();
+            let quest_id_str = hook.quest_id.0.clone();
             ss.create_session(
                 &self.agent_name,
                 "task",
-                &task_id_str,
+                &quest_id_str,
                 parent_session_id.as_deref(),
-                Some(&task_id_str),
+                Some(&quest_id_str),
             )
             .await
             .ok()
@@ -477,7 +477,7 @@ impl AgentWorker {
             .map(|t| t.description.clone())
             .unwrap_or_else(|| hook.subject.clone());
         let mut worker_ctx = WorkerContext::new(
-            &hook.task_id.0,
+            &hook.quest_id.0,
             &task_description_for_ctx,
             &self.agent_name,
             &self.project_name,
@@ -490,7 +490,7 @@ impl AgentWorker {
                 MiddlewareAction::Halt(reason) => {
                     warn!(
                         worker = %self.name,
-                        task = %hook.task_id,
+                        task = %hook.quest_id,
                         reason = %reason,
                         "middleware halted execution on start"
                     );
@@ -507,11 +507,11 @@ impl AgentWorker {
                         session: runtime_session,
                         outcome: runtime_outcome,
                     };
-                    self.persist_runtime_execution(&hook.task_id.0, &runtime_execution)
+                    self.persist_runtime_execution(&hook.quest_id.0, &runtime_execution)
                         .await;
                     if let Some(ref broadcaster) = self.event_broadcaster {
                         broadcaster.publish(ExecutionEvent::QuestFailed {
-                            task_id: hook.task_id.0.clone(),
+                            quest_id: hook.quest_id.0.clone(),
                             reason: reason.clone(),
                             artifacts_preserved: false,
                             runtime: Some(runtime_execution.clone()),
@@ -534,7 +534,7 @@ impl AgentWorker {
         // Publish QuestStarted event.
         if let Some(ref broadcaster) = self.event_broadcaster {
             broadcaster.publish(ExecutionEvent::QuestStarted {
-                task_id: hook.task_id.0.clone(),
+                quest_id: hook.quest_id.0.clone(),
                 agent: self.agent_name.clone(),
                 project: self.project_name.clone(),
                 runtime_session: Some(runtime_session.clone()),
@@ -543,7 +543,7 @@ impl AgentWorker {
 
         info!(
             worker = %self.name,
-            task = %hook.task_id,
+            task = %hook.quest_id,
             subject = %hook.subject,
             mode = "agent",
             "starting work"
@@ -708,7 +708,7 @@ impl AgentWorker {
                     .unwrap_or_default()
             ),
         );
-        self.persist_runtime_session(&hook.task_id.0, &runtime_session)
+        self.persist_runtime_session(&hook.quest_id.0, &runtime_session)
             .await;
 
         // Dispatch based on execution mode. Returns (text, cost_usd, turns_used).
@@ -879,14 +879,14 @@ impl AgentWorker {
         let final_task_status;
         match &outcome {
             QuestOutcome::Done(result_text) => {
-                info!(worker = %self.name, task = %hook.task_id, "work completed");
+                info!(worker = %self.name, task = %hook.quest_id, "work completed");
                 // Capture external checkpoint from git state before recording completion.
                 self.capture_and_save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     Some(&format!("DONE: {}", result_text)),
                 );
                 self.save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     &format!("DONE: {}", result_text),
                     cost,
                     turns,
@@ -902,20 +902,20 @@ impl AgentWorker {
             } => {
                 info!(
                     worker = %self.name,
-                    task = %hook.task_id,
+                    task = %hook.quest_id,
                     question = %question,
                     "worker blocked — needs input"
                 );
                 // Capture external checkpoint from git state before recording block.
                 self.capture_and_save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     Some(&format!(
                         "BLOCKED: {}\n\nWork so far:\n{}",
                         question, full_text
                     )),
                 );
                 self.save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     &format!(
                         "BLOCKED on: {}\n\nWork done so far:\n{}",
                         question, full_text
@@ -929,14 +929,14 @@ impl AgentWorker {
             }
 
             QuestOutcome::Handoff { checkpoint } => {
-                info!(worker = %self.name, task = %hook.task_id, "worker handing off — context exhaustion");
+                info!(worker = %self.name, task = %hook.quest_id, "worker handing off — context exhaustion");
                 // Capture external checkpoint from git state before recording handoff.
                 self.capture_and_save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     Some(&format!("HANDOFF: {}", checkpoint)),
                 );
                 self.save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     &format!("HANDOFF: {}", checkpoint),
                     cost,
                     turns,
@@ -952,7 +952,7 @@ impl AgentWorker {
                     final_task_status = QuestStatus::Cancelled;
                     warn!(
                         worker = %self.name,
-                        task = %hook.task_id,
+                        task = %hook.quest_id,
                         retries = current_retry + 1,
                         "quest auto-cancelled after max retries (handoff)"
                     );
@@ -963,14 +963,14 @@ impl AgentWorker {
             }
 
             QuestOutcome::Failed(error_text) => {
-                warn!(worker = %self.name, task = %hook.task_id, "work failed");
+                warn!(worker = %self.name, task = %hook.quest_id, "work failed");
                 // Capture external checkpoint from git state before recording failure.
                 self.capture_and_save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     Some(&format!("FAILED: {}", error_text)),
                 );
                 self.save_checkpoint(
-                    &hook.task_id.0,
+                    &hook.quest_id.0,
                     &format!("FAILED: {}", error_text),
                     cost,
                     turns,
@@ -1010,7 +1010,7 @@ impl AgentWorker {
                                     FailureAnalysis::parse(response.content.as_deref().unwrap());
                                 info!(
                                     worker = %self.name,
-                                    task = %hook.task_id,
+                                    task = %hook.quest_id,
                                     mode = ?analysis.mode,
                                     "failure analysis completed"
                                 );
@@ -1022,7 +1022,7 @@ impl AgentWorker {
                                         "decision",
                                         None,
                                         None,
-                                        Some(&hook.task_id.0),
+                                        Some(&hook.quest_id.0),
                                         &serde_json::json!({
                                             "decision_type": "FailureAnalyzed",
                                             "agent": self.agent_name,
@@ -1066,7 +1066,7 @@ impl AgentWorker {
                     final_task_status = QuestStatus::Cancelled;
                     warn!(
                         worker = %self.name,
-                        task = %hook.task_id,
+                        task = %hook.quest_id,
                         retries = current_retry + 1,
                         "quest auto-cancelled after max retries"
                     );
@@ -1074,7 +1074,7 @@ impl AgentWorker {
                         "decision",
                         None,
                         None,
-                        Some(&hook.task_id.0),
+                        Some(&hook.quest_id.0),
                         &serde_json::json!({
                             "decision_type": "TaskCancelled",
                             "agent": self.agent_name,
@@ -1085,7 +1085,7 @@ impl AgentWorker {
                     final_task_status = QuestStatus::Blocked;
                     warn!(
                         worker = %self.name,
-                        task = %hook.task_id,
+                        task = %hook.quest_id,
                         mode = ?failure_mode,
                         "quest blocked by failure analysis"
                     );
@@ -1101,7 +1101,7 @@ impl AgentWorker {
             let _ = ss.close_session(sid).await;
         }
 
-        if let Some(checkpoint_path) = self.checkpoint_path_for_task(&hook.task_id.0)
+        if let Some(checkpoint_path) = self.checkpoint_path_for_quest(&hook.quest_id.0)
             && checkpoint_path.exists()
         {
             let checkpoint_ref = checkpoint_path.display().to_string();
@@ -1117,7 +1117,7 @@ impl AgentWorker {
             session: runtime_session.clone(),
             outcome: runtime_outcome.clone(),
         };
-        self.persist_runtime_execution(&hook.task_id.0, &runtime_execution)
+        self.persist_runtime_execution(&hook.quest_id.0, &runtime_execution)
             .await;
 
         // Publish outcome-specific execution events with the finalized runtime state.
@@ -1125,7 +1125,7 @@ impl AgentWorker {
             match &outcome {
                 QuestOutcome::Done(summary) => {
                     broadcaster.publish(ExecutionEvent::QuestCompleted {
-                        task_id: hook.task_id.0.clone(),
+                        quest_id: hook.quest_id.0.clone(),
                         outcome: summary.chars().take(500).collect(),
                         confidence: 1.0,
                         cost_usd: cost,
@@ -1136,7 +1136,7 @@ impl AgentWorker {
                 }
                 QuestOutcome::Blocked { question, .. } => {
                     broadcaster.publish(ExecutionEvent::ClarificationNeeded {
-                        task_id: hook.task_id.0.clone(),
+                        quest_id: hook.quest_id.0.clone(),
                         question: question.clone(),
                         options: Vec::new(),
                         runtime: Some(runtime_execution.clone()),
@@ -1144,7 +1144,7 @@ impl AgentWorker {
                 }
                 QuestOutcome::Handoff { checkpoint } => {
                     broadcaster.publish(ExecutionEvent::CheckpointCreated {
-                        task_id: hook.task_id.0.clone(),
+                        quest_id: hook.quest_id.0.clone(),
                         message: format!(
                             "HANDOFF: {}",
                             checkpoint.chars().take(500).collect::<String>()
@@ -1154,7 +1154,7 @@ impl AgentWorker {
                 }
                 QuestOutcome::Failed(reason) => {
                     broadcaster.publish(ExecutionEvent::QuestFailed {
-                        task_id: hook.task_id.0.clone(),
+                        quest_id: hook.quest_id.0.clone(),
                         reason: reason.chars().take(500).collect(),
                         artifacts_preserved: !runtime_execution.outcome.artifacts.is_empty(),
                         runtime: Some(runtime_execution.clone()),
@@ -1184,9 +1184,9 @@ impl AgentWorker {
         }
     }
 
-    async fn persist_runtime_session(&self, task_id: &str, session: &RuntimeSession) {
+    async fn persist_runtime_session(&self, quest_id: &str, session: &RuntimeSession) {
         self.persist_runtime_value(
-            task_id,
+            quest_id,
             serde_json::json!({
                 "session": session,
                 "outcome": serde_json::Value::Null,
@@ -1195,27 +1195,27 @@ impl AgentWorker {
         .await;
     }
 
-    async fn persist_runtime_execution(&self, task_id: &str, runtime: &RuntimeExecution) {
+    async fn persist_runtime_execution(&self, quest_id: &str, runtime: &RuntimeExecution) {
         match serde_json::to_value(runtime) {
             Ok(value) => {
-                self.persist_runtime_value(task_id, value).await;
-                self.persist_task_outcome(task_id, &runtime.outcome).await;
+                self.persist_runtime_value(quest_id, value).await;
+                self.persist_task_outcome(quest_id, &runtime.outcome).await;
             }
             Err(error) => warn!(
                 worker = %self.name,
-                task = %task_id,
+                task = %quest_id,
                 error = %error,
                 "failed to serialize runtime execution for task metadata"
             ),
         }
     }
 
-    async fn persist_runtime_value(&self, task_id: &str, _runtime: serde_json::Value) {
+    async fn persist_runtime_value(&self, quest_id: &str, _runtime: serde_json::Value) {
         // No-op — was writing to a throwaway board. Runtime metadata now flows
         // through the on_complete callback and the scheduler.
         debug!(
             worker = %self.name,
-            task = %task_id,
+            task = %quest_id,
             "runtime value persist skipped (scheduler manages task state)"
         );
     }
@@ -1230,11 +1230,11 @@ impl AgentWorker {
         }
     }
 
-    async fn persist_task_outcome(&self, task_id: &str, outcome: &RuntimeOutcome) {
+    async fn persist_task_outcome(&self, quest_id: &str, outcome: &RuntimeOutcome) {
         // The outcome record now flows through the on_complete callback.
         debug!(
             worker = %self.name,
-            task = %task_id,
+            task = %quest_id,
             kind = ?Self::task_outcome_kind(outcome),
             "quest outcome persist skipped (delivered via on_complete callback)"
         );
@@ -1249,11 +1249,11 @@ impl AgentWorker {
         }
     }
 
-    fn checkpoint_path_for_task(&self, task_id: &str) -> Option<PathBuf> {
+    fn checkpoint_path_for_quest(&self, quest_id: &str) -> Option<PathBuf> {
         self.project_dir
             .as_deref()
             .or(self.workdir())
-            .map(|project_dir| AgentCheckpoint::path_for_task(project_dir, task_id))
+            .map(|project_dir| AgentCheckpoint::path_for_quest(project_dir, quest_id))
     }
 
     fn collect_runtime_artifacts(&self) -> Vec<Artifact> {
@@ -1303,7 +1303,7 @@ impl AgentWorker {
             let mut worker_ctx = crate::middleware::WorkerContext::new(
                 self.hook
                     .as_ref()
-                    .map(|h| h.task_id.0.as_str())
+                    .map(|h| h.quest_id.0.as_str())
                     .unwrap_or("unknown"),
                 task_context.chars().take(500).collect::<String>(),
                 &self.agent_name,
@@ -1337,14 +1337,14 @@ impl AgentWorker {
 
         // Resolve session file for checkpoint/resume.
         let session_file = self.project_dir.as_ref().map(|dir| {
-            let task_id = self
+            let quest_id = self
                 .hook
                 .as_ref()
-                .map(|h| h.task_id.0.as_str())
+                .map(|h| h.quest_id.0.as_str())
                 .unwrap_or("unknown");
             dir.join(".aeqi")
                 .join("sessions")
-                .join(format!("{}.json", task_id))
+                .join(format!("{}.json", quest_id))
         });
 
         let agent_config = AgentConfig {
@@ -1372,18 +1372,18 @@ impl AgentWorker {
         // Wire chat stream: create sender, subscribe in background task to
         // forward ChatStreamEvents to the EventBroadcaster as ChatStream events.
         if let Some(ref broadcaster) = self.event_broadcaster {
-            let task_id = self
+            let quest_id = self
                 .hook
                 .as_ref()
-                .map(|h| h.task_id.0.clone())
+                .map(|h| h.quest_id.0.clone())
                 .unwrap_or_default();
             let (sender, mut rx) = aeqi_core::ChatStreamSender::new(512);
             let bc = Arc::clone(broadcaster);
-            let tid = task_id.clone();
+            let tid = quest_id.clone();
             tokio::spawn(async move {
                 while let Ok(event) = rx.recv().await {
                     bc.publish(crate::execution_events::ExecutionEvent::ChatStream {
-                        task_id: tid.clone(),
+                        quest_id: tid.clone(),
                         chat_id: 0, // Filled by MessageRouter when routing
                         event,
                     });
@@ -1647,15 +1647,15 @@ fn truncate_for_prompt(text: &str, max_chars: usize) -> String {
     out
 }
 
-fn is_relevant_dispatch(dispatch: &Dispatch, project: &str, task_id: &str) -> bool {
+fn is_relevant_dispatch(dispatch: &Dispatch, project: &str, quest_id: &str) -> bool {
     match &dispatch.kind {
-        DispatchKind::DelegateRequest { reply_to, .. } => reply_to.as_deref() == Some(task_id),
-        DispatchKind::DelegateResponse { reply_to, .. } => reply_to == task_id,
+        DispatchKind::DelegateRequest { reply_to, .. } => reply_to.as_deref() == Some(quest_id),
+        DispatchKind::DelegateResponse { reply_to, .. } => reply_to == quest_id,
         DispatchKind::HumanEscalation {
             project: dispatch_project,
-            task_id: id,
+            quest_id: id,
             ..
-        } => dispatch_project == project && id == task_id,
+        } => dispatch_project == project && id == quest_id,
     }
 }
 

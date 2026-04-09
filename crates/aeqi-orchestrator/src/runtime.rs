@@ -320,7 +320,8 @@ impl RuntimeOutcomeContract {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeSession {
     pub session_id: String,
-    pub task_id: String,
+    #[serde(alias = "task_id")]
+    pub quest_id: String,
     pub worker_id: String,
     pub project: String,
     pub model: Option<String>,
@@ -334,7 +335,7 @@ pub struct RuntimeSession {
 
 impl RuntimeSession {
     pub fn new(
-        task_id: impl Into<String>,
+        quest_id: impl Into<String>,
         worker_id: impl Into<String>,
         project: impl Into<String>,
         model: Option<String>,
@@ -342,7 +343,7 @@ impl RuntimeSession {
         let now = Utc::now();
         Self {
             session_id: format!("rt-{}", Uuid::new_v4().simple()),
-            task_id: task_id.into(),
+            quest_id: quest_id.into(),
             worker_id: worker_id.into(),
             project: project.into(),
             model,
@@ -399,6 +400,33 @@ impl RuntimeSession {
 pub struct RuntimeExecution {
     pub session: RuntimeSession,
     pub outcome: RuntimeOutcome,
+}
+
+/// A single execution run — one quest picked up by one worker.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Run {
+    pub id: String,
+    pub session_id: Option<String>,
+    pub quest_id: String,
+    pub agent_id: String,
+    pub model: Option<String>,
+    pub status: RunStatus,
+    pub phase: RuntimePhase,
+    pub started_at: DateTime<Utc>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub outcome: Option<RuntimeOutcome>,
+    pub cost_usd: f64,
+    pub tokens_used: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    Created,
+    Running,
+    Completed,
+    Blocked,
+    Failed,
 }
 
 #[cfg(test)]

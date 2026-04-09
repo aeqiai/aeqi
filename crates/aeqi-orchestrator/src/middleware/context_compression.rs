@@ -217,7 +217,7 @@ impl Middleware for ContextCompressionMiddleware {
         let compressed_count = original_count - ctx.messages.len();
         let max_lines = self.max_context_lines.load(Ordering::Relaxed);
         info!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             original_messages = original_count,
             compressed_messages = compressed_count,
             remaining_messages = ctx.messages.len(),
@@ -251,7 +251,7 @@ impl Middleware for ContextCompressionMiddleware {
             Some(new_max) => {
                 let stepdowns = self.stepdown_count();
                 warn!(
-                    task_id = %ctx.task_id,
+                    task_id = %ctx.quest_id,
                     old_max_context_lines = old_max,
                     new_max_context_lines = new_max,
                     stepdown = stepdowns,
@@ -263,7 +263,7 @@ impl Middleware for ContextCompressionMiddleware {
             None => {
                 let stepdowns = self.stepdown_count();
                 warn!(
-                    task_id = %ctx.task_id,
+                    task_id = %ctx.quest_id,
                     max_context_lines = old_max,
                     stepdowns,
                     "context tier step-down limit reached — halting execution"

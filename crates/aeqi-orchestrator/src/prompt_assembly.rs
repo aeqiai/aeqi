@@ -33,7 +33,26 @@ pub async fn assemble_prompts(
     for (depth, agent) in ancestors.iter().rev().enumerate() {
         let is_self = depth == ancestors.len() - 1;
 
-        for entry in &agent.prompts {
+        // Resolve prompt entries: prefer prompt_ids (new system) with fallback
+        // to inline prompts (old system) for un-migrated agents.
+        let resolved_entries: Vec<PromptEntry> = if !agent.prompt_ids.is_empty() {
+            // New path: resolve prompt_ids via the prompt store.
+            // All resolved prompts are treated as System + SelfOnly (matching
+            // the behavior of spawn() which creates PromptEntry::system(text)).
+            registry
+                .resolve_prompts(&agent.prompt_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|r| !r.content.is_empty())
+                .map(|r| PromptEntry::system(r.content))
+                .collect()
+        } else {
+            // Fallback: read inline prompts for backward compatibility.
+            agent.prompts.clone()
+        };
+
+        for entry in &resolved_entries {
             // Scope check: descendants-scoped entries from ancestors, self-scoped only from self.
             let include = match entry.scope {
                 PromptScope::Descendants => !is_self, // ancestors propagate to descendants

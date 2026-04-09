@@ -97,10 +97,10 @@ impl EscalationTracker {
     }
 
     /// Decide what to do for a failed task based on its escalation history.
-    pub fn decide(&self, task_id: &str) -> EscalationAction {
-        let Some(state) = self.states.get(task_id) else {
+    pub fn decide(&self, quest_id: &str) -> EscalationAction {
+        let Some(state) = self.states.get(quest_id) else {
             // No prior failures — this would be the first, so retry.
-            debug!(task_id = %task_id, "no escalation state — recommending Retry");
+            debug!(quest_id = %quest_id, "no escalation state — recommending Retry");
             return EscalationAction::Retry;
         };
 
@@ -119,7 +119,7 @@ impl EscalationTracker {
         };
 
         debug!(
-            task_id = %task_id,
+            quest_id = %quest_id,
             failures = state.failures,
             action = ?action,
             "escalation decision"
@@ -128,11 +128,11 @@ impl EscalationTracker {
         action
     }
 
-    /// Record a failure for a task, updating the escalation state.
-    pub fn record_failure(&mut self, task_id: &str, agent: &str) {
+    /// Record a failure for a quest, updating the escalation state.
+    pub fn record_failure(&mut self, quest_id: &str, agent: &str) {
         let state = self
             .states
-            .entry(task_id.to_string())
+            .entry(quest_id.to_string())
             .or_insert_with(|| EscalationState {
                 failures: 0,
                 last_failure: Utc::now(),
@@ -147,23 +147,23 @@ impl EscalationTracker {
         }
 
         info!(
-            task_id = %task_id,
+            quest_id = %quest_id,
             agent = %agent,
             failures = state.failures,
-            "recorded task failure"
+            "recorded quest failure"
         );
     }
 
-    /// Record a success for a task, clearing its escalation state.
-    pub fn record_success(&mut self, task_id: &str) {
-        if self.states.remove(task_id).is_some() {
-            info!(task_id = %task_id, "cleared escalation state on success");
+    /// Record a success for a quest, clearing its escalation state.
+    pub fn record_success(&mut self, quest_id: &str) {
+        if self.states.remove(quest_id).is_some() {
+            info!(quest_id = %quest_id, "cleared escalation state on success");
         }
     }
 
-    /// Check if a task is in its cooldown period.
-    pub fn is_cooling_down(&self, task_id: &str) -> bool {
-        let Some(state) = self.states.get(task_id) else {
+    /// Check if a quest is in its cooldown period.
+    pub fn is_cooling_down(&self, quest_id: &str) -> bool {
+        let Some(state) = self.states.get(quest_id) else {
             return false;
         };
 
@@ -174,7 +174,7 @@ impl EscalationTracker {
 
         if cooling {
             debug!(
-                task_id = %task_id,
+                quest_id = %quest_id,
                 elapsed_secs = elapsed,
                 cooldown_secs = self.policy.cooldown_secs,
                 "quest is cooling down"
@@ -184,9 +184,9 @@ impl EscalationTracker {
         cooling
     }
 
-    /// Get the current escalation state for a task, if any.
-    pub fn get_state(&self, task_id: &str) -> Option<&EscalationState> {
-        self.states.get(task_id)
+    /// Get the current escalation state for a quest, if any.
+    pub fn get_state(&self, quest_id: &str) -> Option<&EscalationState> {
+        self.states.get(quest_id)
     }
 
     /// Get the configured policy.

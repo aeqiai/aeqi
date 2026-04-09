@@ -419,7 +419,7 @@ export const api = {
   getAuditForQuest: async (taskId: string, last = 50) => {
     const data = await request<Record<string, unknown>>(`/audit?last=${last}`);
     const raw = (data.entries || data.audit || []) as Array<Record<string, unknown>>;
-    const entries = raw.filter((e) => e.task_id === taskId);
+    const entries = raw.filter((e) => (e.quest_id || e.task_id) === taskId);
     return { entries };
   },
 
@@ -469,7 +469,7 @@ export const api = {
     request<{ ok: boolean }>("/notes", { method: "POST", body: JSON.stringify(data) }),
   deleteNote: (id: string) =>
     request<{ ok: boolean }>(`/notes/${id}/delete`, { method: "DELETE" }),
-  updateDirectiveStatus: (id: string, data: { status: string; task_id?: string }) =>
+  updateDirectiveStatus: (id: string, data: { status: string; quest_id?: string }) =>
     request<{ ok: boolean }>(`/directives/${id}/status`, { method: "POST", body: JSON.stringify(data) }),
 
   // Triggers

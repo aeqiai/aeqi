@@ -452,6 +452,64 @@ impl AgentRegistry {
         // Create session/conversation tables (unified session store).
         crate::session_store::SessionStore::create_tables(&conn)?;
 
+        // Create runs table (execution tracking).
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS runs (
+                 id TEXT PRIMARY KEY,
+                 session_id TEXT,
+                 quest_id TEXT,
+                 agent_id TEXT,
+                 model TEXT,
+                 phase TEXT NOT NULL DEFAULT 'implement',
+                 status TEXT NOT NULL DEFAULT 'created',
+                 started_at TEXT,
+                 finished_at TEXT,
+                 cost_usd REAL NOT NULL DEFAULT 0,
+                 tokens_used INTEGER NOT NULL DEFAULT 0,
+                 outcome TEXT
+             );
+             CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id);
+             CREATE INDEX IF NOT EXISTS idx_runs_quest ON runs(quest_id);
+             CREATE INDEX IF NOT EXISTS idx_runs_agent ON runs(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);",
+        )?;
+
+        // Create sandboxes table (worktree isolation tracking).
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS sandboxes (
+                 id TEXT PRIMARY KEY,
+                 quest_id TEXT NOT NULL,
+                 agent_id TEXT NOT NULL,
+                 repo_root TEXT NOT NULL,
+                 worktree_path TEXT NOT NULL,
+                 branch_name TEXT NOT NULL,
+                 enable_bwrap INTEGER NOT NULL DEFAULT 1,
+                 status TEXT NOT NULL DEFAULT 'active',
+                 created_at TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_sandboxes_quest ON sandboxes(quest_id);
+             CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status);",
+        )?;
+
+        // Idempotent migration: add worktree columns to quests table.
+        let has_worktree_branch: bool = conn
+            .prepare("PRAGMA table_info(quests)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == "worktree_branch");
+        if !has_worktree_branch {
+            conn.execute_batch("ALTER TABLE quests ADD COLUMN worktree_branch TEXT;")?;
+        }
+
+        let has_worktree_path: bool = conn
+            .prepare("PRAGMA table_info(quests)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == "worktree_path");
+        if !has_worktree_path {
+            conn.execute_batch("ALTER TABLE quests ADD COLUMN worktree_path TEXT;")?;
+        }
+
         // Backfill: populate prompts from system_prompt for existing agents.
         conn.execute_batch(
             "UPDATE agents SET prompts = json_array(json_object(
@@ -461,6 +519,70 @@ impl AgentRegistry {
              ))
              WHERE (prompts IS NULL OR prompts = '[]') AND system_prompt != '';",
         )?;
+
+        // Migration: for agents with prompts != '[]' and prompt_ids = '[]',
+        // create PromptRecord entries in the prompt store and populate prompt_ids.
+        // This runs synchronously (raw SQL) since open() is not async.
+        {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, prompts FROM agents \
+                 WHERE (prompt_ids IS NULL OR prompt_ids = '[]') \
+                   AND prompts IS NOT NULL AND prompts != '[]' AND prompts != ''",
+            )?;
+            let agents_to_migrate: Vec<(String, String, String)> = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            for (agent_id, agent_name, prompts_json) in &agents_to_migrate {
+                let entries: Vec<aeqi_core::PromptEntry> = match serde_json::from_str(prompts_json)
+                {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let mut new_ids: Vec<String> = Vec::new();
+                for (i, entry) in entries.iter().enumerate() {
+                    if entry.content.is_empty() {
+                        continue;
+                    }
+                    let prompt_id = uuid::Uuid::new_v4().to_string();
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let prompt_name = if entries.len() == 1 {
+                        format!("{agent_name}-identity")
+                    } else {
+                        format!("{agent_name}-identity-{i}")
+                    };
+                    let hash = Self::content_hash(&entry.content);
+                    let tags_json = "[]";
+                    conn.execute(
+                        "INSERT OR IGNORE INTO prompts (id, content_hash, name, content, tags, created_at, updated_at) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        params![prompt_id, hash, prompt_name, entry.content, tags_json, now, now],
+                    )?;
+                    new_ids.push(prompt_id);
+                }
+                if !new_ids.is_empty() {
+                    let ids_json =
+                        serde_json::to_string(&new_ids).unwrap_or_else(|_| "[]".to_string());
+                    conn.execute(
+                        "UPDATE agents SET prompt_ids = ?1 WHERE id = ?2",
+                        params![ids_json, agent_id],
+                    )?;
+                    info!(
+                        agent_id = %agent_id,
+                        agent_name = %agent_name,
+                        count = new_ids.len(),
+                        "migrated inline prompts to prompt store"
+                    );
+                }
+            }
+        }
 
         info!(path = %db_path.display(), "agent registry opened");
         Ok(Self {
@@ -1425,6 +1547,8 @@ impl AgentRegistry {
             closed_at: None,
             outcome: None,
             acceptance_criteria: None,
+            worktree_branch: None,
+            worktree_path: None,
         };
 
         db.execute(
@@ -1983,6 +2107,8 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
             .map(|d| d.with_timezone(&chrono::Utc)),
         outcome,
         acceptance_criteria: row.get("acceptance_criteria").ok(),
+        worktree_branch: row.get("worktree_branch").ok(),
+        worktree_path: row.get("worktree_path").ok(),
     }
 }
 

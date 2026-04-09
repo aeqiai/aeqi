@@ -576,8 +576,8 @@ pub struct SessionInput {
     pub session_prompts: Vec<String>,
     /// Turn prompts to add (re-read from disk each turn).
     pub turn_prompts: Vec<TurnPromptSpec>,
-    /// Task/quest ID to attach to this session.
-    pub task_id: Option<String>,
+    /// Quest ID to attach to this session.
+    pub quest_id: Option<String>,
 }
 
 impl SessionInput {

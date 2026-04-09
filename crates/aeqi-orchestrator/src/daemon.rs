@@ -155,10 +155,10 @@ pub fn merge_timeline_metadata(
 
 pub async fn find_task_snapshot(
     agent_registry: &Arc<AgentRegistry>,
-    task_id: &str,
+    quest_id: &str,
 ) -> Option<serde_json::Value> {
     agent_registry
-        .get_task(task_id)
+        .get_task(quest_id)
         .await
         .ok()
         .flatten()
@@ -2356,13 +2356,13 @@ mod tests {
     fn event_buffer_supports_independent_cursors() {
         let mut buffer = EventBuffer::default();
         buffer.push(ExecutionEvent::QuestStarted {
-            task_id: "t-1".into(),
+            quest_id: "t-1".into(),
             agent: "engineer".into(),
             project: "aeqi".into(),
             runtime_session: None,
         });
         buffer.push(ExecutionEvent::QuestCompleted {
-            task_id: "t-1".into(),
+            quest_id: "t-1".into(),
             outcome: "done".into(),
             confidence: 1.0,
             cost_usd: 0.1,
@@ -2379,7 +2379,7 @@ mod tests {
         assert_eq!(client_b.next_cursor, 2);
 
         buffer.push(ExecutionEvent::Progress {
-            task_id: "t-2".into(),
+            quest_id: "t-2".into(),
             turns: 1,
             cost_usd: 0.05,
             last_tool: Some("shell".into()),
@@ -2396,7 +2396,7 @@ mod tests {
         let mut buffer = EventBuffer::default();
         for i in 0..(super::MAX_EVENT_BUFFER_LEN + 5) {
             buffer.push(ExecutionEvent::Progress {
-                task_id: format!("t-{i}"),
+                quest_id: format!("t-{i}"),
                 turns: i as u32,
                 cost_usd: i as f64,
                 last_tool: None,

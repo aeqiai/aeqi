@@ -102,6 +102,8 @@ export interface AuditEntry {
   decision_type: string;
   summary: string;
   agent?: string;
+  quest_id?: string;
+  /** @deprecated Use quest_id instead. Kept for backward compat with old data. */
   task_id?: string;
   metadata?: Record<string, unknown>;
 }

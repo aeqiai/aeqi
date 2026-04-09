@@ -14,8 +14,9 @@ use tracing::{debug, warn};
 /// a successor worker can use to understand what was done and resume work.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentCheckpoint {
-    /// Task ID this checkpoint is associated with.
-    pub task_id: Option<String>,
+    /// Quest ID this checkpoint is associated with.
+    #[serde(alias = "task_id")]
+    pub quest_id: Option<String>,
     /// Name of the worker that was working.
     pub worker_name: Option<String>,
     /// Files modified according to `git status --porcelain`.
@@ -50,7 +51,7 @@ impl AgentCheckpoint {
         let branch = Self::git_branch(workdir).ok();
 
         Ok(Self {
-            task_id: None,
+            quest_id: None,
             worker_name: None,
             modified_files,
             last_commit,
@@ -62,9 +63,9 @@ impl AgentCheckpoint {
         })
     }
 
-    /// Set the task ID on this checkpoint.
-    pub fn with_task_id(mut self, task_id: impl Into<String>) -> Self {
-        self.task_id = Some(task_id.into());
+    /// Set the quest ID on this checkpoint.
+    pub fn with_quest_id(mut self, quest_id: impl Into<String>) -> Self {
+        self.quest_id = Some(quest_id.into());
         self
     }
 
@@ -121,7 +122,7 @@ impl AgentCheckpoint {
         let checkpoint: Self = serde_json::from_str(&json)
             .with_context(|| format!("failed to parse checkpoint: {}", path.display()))?;
 
-        debug!(path = %path.display(), task_id = ?checkpoint.task_id, "checkpoint loaded");
+        debug!(path = %path.display(), quest_id = ?checkpoint.quest_id, "checkpoint loaded");
         Ok(Some(checkpoint))
     }
 
@@ -140,14 +141,14 @@ impl AgentCheckpoint {
         Ok(())
     }
 
-    /// Standard checkpoint file path for a given task in a project's .aeqi directory.
+    /// Standard checkpoint file path for a given quest in a project's .aeqi directory.
     ///
-    /// Layout: `<project_dir>/.aeqi/checkpoints/<task_id>.json`
-    pub fn path_for_task(project_dir: &Path, task_id: &str) -> PathBuf {
+    /// Layout: `<project_dir>/.aeqi/checkpoints/<quest_id>.json`
+    pub fn path_for_quest(project_dir: &Path, quest_id: &str) -> PathBuf {
         project_dir
             .join(".aeqi")
             .join("checkpoints")
-            .join(format!("{task_id}.json"))
+            .join(format!("{quest_id}.json"))
     }
 
     /// Format this checkpoint as context for injection into a successor worker's prompt.
@@ -266,7 +267,7 @@ mod tests {
         let cp_path = dir.path().join("test-checkpoint.json");
 
         let checkpoint = AgentCheckpoint {
-            task_id: Some("sg-042".to_string()),
+            quest_id: Some("sg-042".to_string()),
             worker_name: Some("aeqi-worker-1".to_string()),
             modified_files: vec!["src/main.rs".to_string(), "Cargo.toml".to_string()],
             last_commit: Some("abc123def456".to_string()),
@@ -281,7 +282,7 @@ mod tests {
         assert!(cp_path.exists());
 
         let loaded = AgentCheckpoint::read(&cp_path).unwrap().unwrap();
-        assert_eq!(loaded.task_id, Some("sg-042".to_string()));
+        assert_eq!(loaded.quest_id, Some("sg-042".to_string()));
         assert_eq!(loaded.worker_name, Some("aeqi-worker-1".to_string()));
         assert_eq!(loaded.modified_files.len(), 2);
         assert_eq!(loaded.last_commit, Some("abc123def456".to_string()));
@@ -307,7 +308,7 @@ mod tests {
         let cp_path = dir.path().join("to-remove.json");
 
         let checkpoint = AgentCheckpoint {
-            task_id: None,
+            quest_id: None,
             worker_name: None,
             modified_files: vec![],
             last_commit: None,
@@ -330,7 +331,7 @@ mod tests {
     #[test]
     fn test_checkpoint_is_stale() {
         let recent = AgentCheckpoint {
-            task_id: None,
+            quest_id: None,
             worker_name: None,
             modified_files: vec![],
             last_commit: None,
@@ -354,7 +355,7 @@ mod tests {
     #[test]
     fn test_checkpoint_path_for_task() {
         let path =
-            AgentCheckpoint::path_for_task(Path::new("/home/dev/projects/project-d"), "sg-001");
+            AgentCheckpoint::path_for_quest(Path::new("/home/dev/projects/project-d"), "sg-001");
         assert_eq!(
             path,
             PathBuf::from("/home/dev/projects/project-d/.aeqi/checkpoints/sg-001.json")
@@ -364,7 +365,7 @@ mod tests {
     #[test]
     fn test_checkpoint_as_context() {
         let checkpoint = AgentCheckpoint {
-            task_id: Some("sg-042".to_string()),
+            quest_id: Some("sg-042".to_string()),
             worker_name: Some("aeqi-worker-1".to_string()),
             modified_files: vec!["src/main.rs".to_string(), "Cargo.toml".to_string()],
             last_commit: Some("abc123def456".to_string()),
@@ -388,7 +389,7 @@ mod tests {
     #[test]
     fn test_checkpoint_as_context_empty() {
         let checkpoint = AgentCheckpoint {
-            task_id: None,
+            quest_id: None,
             worker_name: None,
             modified_files: vec![],
             last_commit: None,
@@ -406,7 +407,7 @@ mod tests {
     #[test]
     fn test_checkpoint_builder_methods() {
         let checkpoint = AgentCheckpoint {
-            task_id: None,
+            quest_id: None,
             worker_name: None,
             modified_files: vec![],
             last_commit: None,
@@ -418,11 +419,11 @@ mod tests {
         };
 
         let cp = checkpoint
-            .with_task_id("sg-001")
+            .with_quest_id("sg-001")
             .with_worker_name("aeqi-worker-1")
             .with_progress_notes("Did some work");
 
-        assert_eq!(cp.task_id, Some("sg-001".to_string()));
+        assert_eq!(cp.quest_id, Some("sg-001".to_string()));
         assert_eq!(cp.worker_name, Some("aeqi-worker-1".to_string()));
         assert_eq!(cp.progress_notes, Some("Did some work".to_string()));
     }

@@ -108,7 +108,7 @@ impl Middleware for InsightRefreshMiddleware {
         let inject_msg = Self::build_inject_message(&ctx.tool_call_history, 3);
 
         info!(
-            task_id = %ctx.task_id,
+            task_id = %ctx.quest_id,
             call_count,
             interval = self.refresh_interval,
             max_lines = self.max_refresh_lines,

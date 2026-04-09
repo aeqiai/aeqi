@@ -198,6 +198,12 @@ pub struct Quest {
     /// What "done" looks like — worker validates output against this.
     #[serde(default)]
     pub acceptance_criteria: Option<String>,
+    /// Git worktree branch for isolated execution.
+    #[serde(default)]
+    pub worktree_branch: Option<String>,
+    /// Filesystem path to the git worktree.
+    #[serde(default)]
+    pub worktree_path: Option<String>,
 }
 
 impl Quest {
@@ -226,6 +232,8 @@ impl Quest {
             closed_at: None,
             outcome: None,
             acceptance_criteria: None,
+            worktree_branch: None,
+            worktree_path: None,
         }
     }
 

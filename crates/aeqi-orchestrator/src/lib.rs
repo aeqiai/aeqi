@@ -53,10 +53,10 @@ pub use operation::{Operation, OperationStore};
 pub use pipeline::{Pipeline, PipelineStep};
 pub use progress_tracker::ProgressTracker;
 pub use runtime::{
-    Artifact, ArtifactKind, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus, RuntimePhase,
-    RuntimeSession, RuntimeSessionStatus,
+    Artifact, ArtifactKind, Run, RunStatus, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus,
+    RuntimePhase, RuntimeSession, RuntimeSessionStatus,
 };
-pub use sandbox::{FinalizeAction, SandboxConfig, SessionDiff, SessionSandbox};
+pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig};
 pub use scheduler::{Scheduler, SchedulerConfig};
 pub use session_manager::SessionManager;
 pub use session_store::SessionStore;

@@ -252,7 +252,8 @@ pub async fn handle_audit(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let task_filter = request
-        .get("task_id")
+        .get("quest_id")
+        .or_else(|| request.get("task_id"))
         .and_then(|v| v.as_str())
         .map(String::from);
     let last = request.get("last").and_then(|v| v.as_u64()).unwrap_or(20) as u32;

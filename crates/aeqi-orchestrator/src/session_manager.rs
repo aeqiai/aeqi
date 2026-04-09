@@ -22,7 +22,7 @@ use aeqi_core::traits::{Insight, Provider};
 use crate::agent_registry::AgentRegistry;
 use crate::event_store::EventStore;
 use crate::execution_events::EventBroadcaster;
-use crate::sandbox::{SandboxConfig, SessionDiff, SessionSandbox};
+use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
 
 /// A running agent session — the in-memory handle to a live agent loop.
@@ -36,7 +36,7 @@ pub struct RunningSession {
     pub join_handle: tokio::task::JoinHandle<anyhow::Result<AgentResult>>,
     pub chat_id: i64,
     /// Session sandbox (git worktree + optional bwrap). None if unsandboxed.
-    pub sandbox: Option<Arc<SessionSandbox>>,
+    pub sandbox: Option<Arc<QuestSandbox>>,
 }
 
 impl RunningSession {
@@ -125,8 +125,8 @@ pub struct SpawnOptions {
     pub project_id: Option<String>,
     /// Parent session (for delegation chains).
     pub parent_id: Option<String>,
-    /// Task being executed (links session to task).
-    pub task_id: Option<String>,
+    /// Quest being executed (links session to quest).
+    pub quest_id: Option<String>,
     /// Session prompts to inject (prompt + tool filter). Multiple allowed.
     pub skills: Vec<String>,
     /// Extra prompt entries injected at session creation time (from UI, delegation, etc).
@@ -163,8 +163,8 @@ impl SpawnOptions {
         self
     }
 
-    pub fn with_task(mut self, id: impl Into<String>) -> Self {
-        self.task_id = Some(id.into());
+    pub fn with_quest(mut self, id: impl Into<String>) -> Self {
+        self.quest_id = Some(id.into());
         self
     }
 
@@ -191,7 +191,7 @@ impl SpawnOptions {
     fn session_type_str(&self) -> &str {
         if self.parent_id.is_some() {
             "delegation"
-        } else if self.task_id.is_some() {
+        } else if self.quest_id.is_some() {
             "task"
         } else if !self.auto_close {
             "perpetual"
@@ -311,21 +311,9 @@ impl SessionManager {
                 .flatten()
         };
 
-        let (agent_name, agent_system_prompt, agent_uuid) = match agent_opt {
-            Some(ref agent) => (
-                agent.name.clone(),
-                if agent.system_prompt.is_empty() {
-                    "You are a helpful AI agent.".to_string()
-                } else {
-                    agent.system_prompt.clone()
-                },
-                Some(agent.id.clone()),
-            ),
-            None => (
-                agent_id_or_hint.to_string(),
-                "You are a helpful AI agent.".to_string(),
-                None,
-            ),
+        let (agent_name, agent_uuid) = match agent_opt {
+            Some(ref agent) => (agent.name.clone(), Some(agent.id.clone())),
+            None => (agent_id_or_hint.to_string(), None),
         };
 
         // Resolve ancestor IDs for hierarchical memory search.
@@ -339,14 +327,21 @@ impl SessionManager {
         };
 
         // 2. Assemble prompts from ancestor chain + extra session prompts.
+        //    prompt_ids are resolved inside assemble_prompts; no system_prompt fallback needed.
         let mut system_prompt = if let Some(ref id) = agent_uuid {
             let assembled =
                 crate::prompt_assembly::assemble_prompts(agent_registry, id, &opts.extra_prompts)
                     .await;
-            assembled.full_system_prompt()
+            let full = assembled.full_system_prompt();
+            // Safety net: if assembly returned empty, use a sensible default.
+            if full.trim().is_empty() {
+                "You are a helpful AI agent.".to_string()
+            } else {
+                full
+            }
         } else {
-            // Fallback for unknown agents — use raw system_prompt + primers.
-            let mut parts = vec![agent_system_prompt];
+            // Unknown agent (no UUID) — use default + primers.
+            let mut parts = vec!["You are a helpful AI agent.".to_string()];
             if let Some(ref sp) = self.shared_primer {
                 parts.push(sp.clone());
             }
@@ -375,11 +370,10 @@ impl SessionManager {
         // The sandbox creates a git worktree as an ephemeral workspace. Shell
         // commands run inside bubblewrap with no network. File tools are scoped
         // to the worktree via their workspace path.
-        let sandbox: Option<Arc<SessionSandbox>> = if let Some(ref sandbox_cfg) =
-            self.sandbox_config
+        let sandbox: Option<Arc<QuestSandbox>> = if let Some(ref sandbox_cfg) = self.sandbox_config
         {
             let sandbox_id = uuid::Uuid::new_v4().to_string();
-            match SessionSandbox::create(&sandbox_id, sandbox_cfg).await {
+            match QuestSandbox::create(&sandbox_id, sandbox_cfg).await {
                 Ok(sb) => Some(Arc::new(sb)),
                 Err(e) => {
                     warn!(error = %e, "failed to create session sandbox — falling back to unsandboxed");
@@ -591,13 +585,13 @@ impl SessionManager {
 
         // 9. Create session in DB.
         let parent_id = opts.parent_id.as_deref();
-        let task_id = opts.task_id.as_deref();
+        let quest_id = opts.quest_id.as_deref();
         let session_type_str = opts.session_type_str();
 
         let session_id = if let Some(ref ss) = self.session_store {
             let aid = agent_uuid.as_deref().unwrap_or("");
             let display_name = opts.name.as_deref().unwrap_or(&agent_name);
-            ss.create_session(aid, session_type_str, display_name, parent_id, task_id)
+            ss.create_session(aid, session_type_str, display_name, parent_id, quest_id)
                 .await
                 .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string())
         } else {
@@ -773,7 +767,7 @@ impl SessionManager {
 
     /// Close a session and extract the sandbox diff before teardown.
     /// Returns Some(diff) if the session had a sandbox with changes, None otherwise.
-    pub async fn close_with_diff(&self, session_id: &str) -> Option<SessionDiff> {
+    pub async fn close_with_diff(&self, session_id: &str) -> Option<QuestDiff> {
         let removed = self.sessions.lock().await.remove(session_id);
         if let Some(session) = removed {
             info!(

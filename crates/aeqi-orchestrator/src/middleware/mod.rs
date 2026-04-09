@@ -154,8 +154,8 @@ pub use aeqi_core::traits::ContextAttachment;
 /// Middleware can read and mutate this to influence execution behavior.
 #[derive(Debug, Clone)]
 pub struct WorkerContext {
-    /// Task identifier.
-    pub task_id: String,
+    /// Quest identifier.
+    pub quest_id: String,
     /// Task description / prompt.
     pub task_description: String,
     /// Agent name executing this task.
@@ -179,13 +179,13 @@ pub struct WorkerContext {
 
 impl WorkerContext {
     pub fn new(
-        task_id: impl Into<String>,
+        quest_id: impl Into<String>,
         task_description: impl Into<String>,
         agent_name: impl Into<String>,
         project_name: impl Into<String>,
     ) -> Self {
         Self {
-            task_id: task_id.into(),
+            quest_id: quest_id.into(),
             task_description: task_description.into(),
             agent_name: agent_name.into(),
             project_name: project_name.into(),

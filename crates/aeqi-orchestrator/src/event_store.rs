@@ -45,7 +45,8 @@ pub enum DispatchKind {
     /// Escalation to human operator when all automated resolution is exhausted.
     HumanEscalation {
         project: String,
-        task_id: String,
+        #[serde(alias = "task_id")]
+        quest_id: String,
         subject: String,
         summary: String,
     },
@@ -95,11 +96,11 @@ impl DispatchKind {
             ),
             Self::HumanEscalation {
                 project,
-                task_id,
+                quest_id,
                 subject,
                 summary,
             } => format!(
-                "BLOCKED: {project}/{task_id} — {subject}\n\n{summary}\n\n\
+                "BLOCKED: {project}/{quest_id} — {subject}\n\n{summary}\n\n\
                      This task has exhausted all automated resolution attempts and requires human input.",
             ),
         }
@@ -1235,7 +1236,7 @@ mod tests {
     fn test_human_escalation() -> DispatchKind {
         DispatchKind::HumanEscalation {
             project: "demo".into(),
-            task_id: "t1".into(),
+            quest_id: "t1".into(),
             subject: "blocked".into(),
             summary: "help".into(),
         }

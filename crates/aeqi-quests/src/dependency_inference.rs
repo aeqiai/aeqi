@@ -188,6 +188,8 @@ mod tests {
             closed_at: None,
             outcome: None,
             acceptance_criteria: None,
+            worktree_branch: None,
+            worktree_path: None,
         }
     }
 

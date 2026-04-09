@@ -33,7 +33,7 @@ export interface RuntimeOutcome {
 
 export interface RuntimeSession {
   session_id: string;
-  task_id: string;
+  quest_id: string;
   worker_id: string;
   company: string;
   model?: string | null;
@@ -52,7 +52,7 @@ export interface RuntimeExecution {
 
 export interface WorkerEvent {
   event_type: string;
-  task_id?: string;
+  quest_id?: string;
   agent?: string;
   company?: string;
   turns?: number;

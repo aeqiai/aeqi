@@ -385,16 +385,16 @@ impl EventPattern {
         match (self, event) {
             (
                 EventPattern::QuestCompleted { project },
-                ExecutionEvent::QuestCompleted { task_id, .. },
+                ExecutionEvent::QuestCompleted { quest_id, .. },
             ) => match project {
-                Some(p) => task_id.starts_with(&format!("{p}:")),
+                Some(p) => quest_id.starts_with(&format!("{p}:")),
                 None => true,
             },
             (
                 EventPattern::QuestFailed { project },
-                ExecutionEvent::QuestFailed { task_id, .. },
+                ExecutionEvent::QuestFailed { quest_id, .. },
             ) => match project {
-                Some(p) => task_id.starts_with(&format!("{p}:")),
+                Some(p) => quest_id.starts_with(&format!("{p}:")),
                 None => true,
             },
             (
