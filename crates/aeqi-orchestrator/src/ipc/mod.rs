@@ -8,6 +8,7 @@ pub mod chat;
 pub mod companies;
 pub mod memory;
 pub mod notes;
+pub mod prompts;
 pub mod quests;
 pub mod sessions;
 pub mod status;

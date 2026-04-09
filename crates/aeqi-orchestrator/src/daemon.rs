@@ -1488,6 +1488,26 @@ impl Daemon {
                         .await
                 }
 
+                "list_prompts" => {
+                    crate::ipc::prompts::handle_list_prompts(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "get_prompt" => {
+                    crate::ipc::prompts::handle_get_prompt(&ctx, &request, &allowed_companies).await
+                }
+                "create_prompt" => {
+                    crate::ipc::prompts::handle_create_prompt(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "update_prompt" => {
+                    crate::ipc::prompts::handle_update_prompt(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "delete_prompt" => {
+                    crate::ipc::prompts::handle_delete_prompt(&ctx, &request, &allowed_companies)
+                        .await
+                }
+
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)
                         .await

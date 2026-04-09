@@ -73,6 +73,7 @@ pub async fn handle_agents_registry(
                         "faces": a.faces,
                         "session_id": a.session_id,
                         "prompts": a.prompts,
+                        "prompt_ids": a.prompt_ids,
                     })
                 })
                 .collect();
@@ -228,6 +229,7 @@ pub async fn handle_agent_info(
                 "capabilities": agent.capabilities,
                 "status": agent.status,
                 "prompts": agent.prompts,
+                "prompt_ids": agent.prompt_ids,
                 "prompt_chain": prompt_chain,
             })
         }

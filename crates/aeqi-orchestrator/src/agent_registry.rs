@@ -95,6 +95,9 @@ pub struct Agent {
     /// Ordered prompt entries — replaces system_prompt, primers, skills.
     #[serde(default)]
     pub prompts: Vec<aeqi_core::PromptEntry>,
+    /// References to prompts in the prompt store (by UUID).
+    #[serde(default)]
+    pub prompt_ids: Vec<String>,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -144,6 +147,18 @@ pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String)
         Ok((fm, body)) => (fm, body),
         Err(_) => (AgentTemplateFrontmatter::default(), content.to_string()),
     }
+}
+
+/// A reusable prompt stored in the prompt store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptRecord {
+    pub id: String,
+    pub content_hash: String,
+    pub name: String,
+    pub content: String,
+    pub tags: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 /// Lifecycle status of an agent.
@@ -258,6 +273,18 @@ impl AgentRegistry {
                  created_at TEXT NOT NULL
              );
 
+             CREATE TABLE IF NOT EXISTS prompts (
+                 id TEXT PRIMARY KEY,
+                 content_hash TEXT NOT NULL,
+                 name TEXT NOT NULL,
+                 content TEXT NOT NULL,
+                 tags TEXT NOT NULL DEFAULT '[]',
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_prompts_name ON prompts(name);
+             CREATE INDEX IF NOT EXISTS idx_prompts_hash ON prompts(content_hash);
+
              CREATE TABLE IF NOT EXISTS approvals (
                  id TEXT PRIMARY KEY,
                  agent_id TEXT NOT NULL,
@@ -280,6 +307,7 @@ impl AgentRegistry {
             ("task_prefix", "TEXT"),
             ("worker_timeout_secs", "INTEGER"),
             ("prompts", "TEXT DEFAULT '[]'"),
+            ("prompt_ids", "TEXT DEFAULT '[]'"),
         ];
         for (col, typ) in &agent_columns {
             let has_col: bool = conn
@@ -569,6 +597,7 @@ impl AgentRegistry {
             } else {
                 vec![aeqi_core::PromptEntry::system(system_prompt)]
             },
+            prompt_ids: Vec::new(),
         };
 
         let db = self.db.lock().await;
@@ -1149,6 +1178,177 @@ impl AgentRegistry {
         if updated == 0 {
             anyhow::bail!("approval '{approval_id}' not found");
         }
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Prompt store
+    // -----------------------------------------------------------------------
+
+    /// Compute SHA-256 hash of content for the prompt store.
+    fn content_hash(content: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// Create a prompt in the store. Returns the UUID.
+    pub async fn create_prompt(
+        &self,
+        name: &str,
+        content: &str,
+        tags: &[String],
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let hash = Self::content_hash(content);
+        let tags_json = serde_json::to_string(tags)?;
+        let db = self.db.lock().await;
+        db.execute(
+            "INSERT INTO prompts (id, content_hash, name, content, tags, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, hash, name, content, tags_json, now, now],
+        )?;
+        info!(id = %id, name = %name, "prompt created");
+        Ok(id)
+    }
+
+    /// Get a prompt by UUID.
+    pub async fn get_prompt(&self, id: &str) -> Result<Option<PromptRecord>> {
+        let db = self.db.lock().await;
+        let record = db
+            .query_row(
+                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
+                 FROM prompts WHERE id = ?1",
+                params![id],
+                |row| Ok(row_to_prompt(row)),
+            )
+            .optional()?;
+        Ok(record)
+    }
+
+    /// List all prompts, optionally filtered by tag.
+    pub async fn list_prompts(&self, tag_filter: Option<&str>) -> Result<Vec<PromptRecord>> {
+        let db = self.db.lock().await;
+        let records = if let Some(tag) = tag_filter {
+            // Use JSON function to check if tag array contains the value.
+            let pattern = format!("%\"{}\"%", tag.replace('"', ""));
+            let mut stmt = db.prepare(
+                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
+                 FROM prompts WHERE tags LIKE ?1 ORDER BY name ASC",
+            )?;
+            stmt.query_map(params![pattern], |row| Ok(row_to_prompt(row)))?
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            let mut stmt = db.prepare(
+                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
+                 FROM prompts ORDER BY name ASC",
+            )?;
+            stmt.query_map([], |row| Ok(row_to_prompt(row)))?
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        Ok(records)
+    }
+
+    /// Update a prompt's content (recomputes content_hash).
+    pub async fn update_prompt(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        content: Option<&str>,
+        tags: Option<&[String]>,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+
+        // Fetch current values to merge.
+        let current = db
+            .query_row(
+                "SELECT name, content, tags FROM prompts WHERE id = ?1",
+                params![id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .optional()?
+            .ok_or_else(|| anyhow::anyhow!("prompt '{id}' not found"))?;
+
+        let new_name = name.unwrap_or(&current.0);
+        let new_content = content.unwrap_or(&current.1);
+        let new_hash = Self::content_hash(new_content);
+        let new_tags = match tags {
+            Some(t) => serde_json::to_string(t)?,
+            None => current.2,
+        };
+
+        let updated = db.execute(
+            "UPDATE prompts SET name = ?1, content = ?2, content_hash = ?3, tags = ?4, updated_at = ?5 \
+             WHERE id = ?6",
+            params![new_name, new_content, new_hash, new_tags, now, id],
+        )?;
+        if updated == 0 {
+            anyhow::bail!("prompt '{id}' not found");
+        }
+        info!(id = %id, "prompt updated");
+        Ok(())
+    }
+
+    /// Delete a prompt.
+    pub async fn delete_prompt(&self, id: &str) -> Result<()> {
+        let db = self.db.lock().await;
+        let deleted = db.execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
+        if deleted == 0 {
+            anyhow::bail!("prompt '{id}' not found");
+        }
+        info!(id = %id, "prompt deleted");
+        Ok(())
+    }
+
+    /// Resolve prompt_ids to prompt content (for session assembly).
+    pub async fn resolve_prompts(&self, ids: &[String]) -> Result<Vec<PromptRecord>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let db = self.db.lock().await;
+        let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "SELECT id, content_hash, name, content, tags, created_at, updated_at \
+             FROM prompts WHERE id IN ({})",
+            placeholders.join(", ")
+        );
+        let mut stmt = db.prepare(&sql)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> = ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = stmt
+            .query_map(params.as_slice(), |row| Ok(row_to_prompt(row)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Return in the same order as the input ids.
+        let mut map: std::collections::HashMap<String, PromptRecord> =
+            rows.into_iter().map(|r| (r.id.clone(), r)).collect();
+        let ordered: Vec<PromptRecord> = ids.iter().filter_map(|id| map.remove(id)).collect();
+        Ok(ordered)
+    }
+
+    /// Set the prompt_ids for an agent.
+    pub async fn set_agent_prompt_ids(&self, agent_id: &str, prompt_ids: &[String]) -> Result<()> {
+        let json = serde_json::to_string(prompt_ids)?;
+        let db = self.db.lock().await;
+        let updated = db.execute(
+            "UPDATE agents SET prompt_ids = ?1 WHERE id = ?2",
+            params![json, agent_id],
+        )?;
+        if updated == 0 {
+            anyhow::bail!("agent '{agent_id}' not found");
+        }
+        info!(agent_id = %agent_id, count = prompt_ids.len(), "agent prompt_ids updated");
         Ok(())
     }
 
@@ -1835,6 +2035,20 @@ fn template_trigger_to_type(t: &TemplateTrigger) -> Result<crate::trigger::Trigg
     )
 }
 
+fn row_to_prompt(row: &rusqlite::Row) -> PromptRecord {
+    let tags_str: String = row.get("tags").unwrap_or_else(|_| "[]".to_string());
+    let tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
+    PromptRecord {
+        id: row.get("id").unwrap_or_default(),
+        content_hash: row.get("content_hash").unwrap_or_default(),
+        name: row.get("name").unwrap_or_default(),
+        content: row.get("content").unwrap_or_default(),
+        tags,
+        created_at: row.get("created_at").unwrap_or_default(),
+        updated_at: row.get("updated_at").unwrap_or_default(),
+    }
+}
+
 fn row_to_agent(row: &rusqlite::Row) -> Agent {
     let status_str: String = row.get("status").unwrap_or_default();
     let status = match status_str.as_str() {
@@ -1899,6 +2113,11 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .ok()
             .map(|v| v as u64),
         prompts,
+        prompt_ids: row
+            .get::<_, String>("prompt_ids")
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
     }
 }
 

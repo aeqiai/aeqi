@@ -37,7 +37,7 @@ pub mod tools;
 pub mod trigger;
 pub mod vfs;
 
-pub use agent_registry::{Agent, CompanyRecord};
+pub use agent_registry::{Agent, CompanyRecord, PromptRecord};
 pub use agent_router::{AgentRouter, RouteDecision};
 pub use agent_worker::{AgentWorker, WorkerState};
 pub use checkpoint::AgentCheckpoint;
