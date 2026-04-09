@@ -14,7 +14,7 @@ import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
 import InsightsPage from "@/pages/InsightsPage";
 import EntitiesPage from "@/pages/EntitiesPage";
-import SettingsPage from "@/pages/SettingsPage";
+import AccountPage from "@/pages/AccountPage";
 import CompanyPage from "@/pages/CompanyPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import DrivePage from "@/pages/DrivePage";
@@ -75,7 +75,7 @@ export default function App() {
         <Route path="apps" element={<AppsPage />} />
         <Route path="market" element={<MarketPage />} />
         <Route path="sessions" element={<SessionsPage />} />
-        <Route path="account" element={<SettingsPage />} />
+        <Route path="account" element={<AccountPage />} />
         <Route path="settings" element={<Navigate to="/account" replace />} />
       </Route>
     </Routes>

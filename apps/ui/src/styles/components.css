@@ -1022,6 +1022,11 @@
   background: var(--bg-elevated);
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
