@@ -1984,6 +1984,14 @@
   justify-content: space-between;
 }
 
+.settings-kyc-row .settings-field-label {
+  margin-bottom: 2px;
+}
+
+.settings-kyc-row .settings-field-desc {
+  margin: 0;
+}
+
 .settings-badge-coming-soon {
   font-size: var(--font-size-micro);
   font-weight: 600;
@@ -2251,6 +2259,10 @@
 .settings-disabled-input {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.settings-hidden-input {
+  display: none;
 }
 
 /* Notes */

@@ -153,7 +153,7 @@ export default function SettingsPage() {
                 <div className="settings-avatar-badge">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
                 </div>
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                <input type="file" accept="image/*" className="settings-hidden-input" onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   if (file.size > 2 * 1024 * 1024) { setProfileFeedback({ type: "error", msg: "Image must be under 2MB" }); return; }
@@ -203,8 +203,8 @@ export default function SettingsPage() {
             <div className="settings-kyc-card">
               <div className="settings-kyc-row">
                 <div>
-                  <label className="settings-field-label" style={{ marginBottom: 2 }}>Identity verification</label>
-                  <p className="settings-field-desc" style={{ margin: 0 }}>Required for incorporation, equity issuance, and marketplace access.</p>
+                  <label className="settings-field-label">Identity verification</label>
+                  <p className="settings-field-desc">Required for incorporation, equity issuance, and marketplace access.</p>
                 </div>
                 <span className="settings-badge-coming-soon">Coming soon</span>
               </div>
@@ -281,11 +281,11 @@ export default function SettingsPage() {
                 </div>
               )}
               {totpBackupCodes.length > 0 && (
-                <div style={{ marginTop: 12, padding: 12, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: 8 }}>
-                  <label className="settings-field-label" style={{ color: "rgb(161,98,7)" }}>Backup codes — save these now</label>
+                <div className="settings-backup-codes">
+                  <label className="settings-field-label settings-backup-codes-label">Backup codes — save these now</label>
                   <p className="settings-field-desc">Each code can only be used once. Store them somewhere safe.</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginTop: 8 }}>
-                    {totpBackupCodes.map((c) => <code key={c} style={{ fontSize: 13, padding: "4px 8px", background: "var(--bg-elevated)", borderRadius: 4, fontFamily: "var(--font-mono)" }}>{c}</code>)}
+                  <div className="settings-backup-codes-grid">
+                    {totpBackupCodes.map((c) => <code key={c} className="settings-backup-code">{c}</code>)}
                   </div>
                 </div>
               )}
@@ -293,7 +293,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Phishing Code */}
-            <div style={{ marginBottom: 24 }}>
+            <div className="settings-field-lg">
               <label className="settings-field-label">Email security phrase</label>
               <p className="settings-field-desc">A personal phrase in every email from AEQI. No phrase = not from us.</p>
               <div className="settings-field-row">
@@ -304,7 +304,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Change Password */}
-            <div style={{ marginBottom: 24 }}>
+            <div className="settings-field-lg">
               <label className="settings-field-label">Change password</label>
               <form className="settings-password-form" onSubmit={handlePasswordChange} autoComplete="off">
                 <div className="auth-password-wrap">
@@ -344,12 +344,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Danger Zone */}
-            <div style={{ marginTop: 40, padding: 16, border: "1px solid rgba(220,38,38,0.2)", borderRadius: 8, background: "rgba(220,38,38,0.03)" }}>
-              <label className="settings-field-label" style={{ color: "rgb(220,38,38)" }}>Danger zone</label>
+            <div className="settings-danger-zone">
+              <label className="settings-field-label settings-danger-label">Danger zone</label>
               <p className="settings-field-desc">Permanently delete your account and all associated data. This cannot be undone.</p>
               <button
-                className="btn"
-                style={{ color: "rgb(220,38,38)", borderColor: "rgba(220,38,38,0.3)", marginTop: 8, fontSize: 13 }}
+                className="btn settings-danger-btn"
                 onClick={() => {
                   if (window.confirm("Are you sure? This will permanently delete your account, all companies you own, and all data. This cannot be undone.")) {
                     if (window.prompt("Type DELETE to confirm") === "DELETE") {
@@ -363,13 +362,13 @@ export default function SettingsPage() {
             </div>
 
             {/* Activity Log */}
-            <div style={{ marginTop: 40 }}>
+            <div className="settings-activity-section">
               <label className="settings-field-label">Activity log</label>
-              <p className="settings-field-desc" style={{ marginBottom: 10 }}>Recent security events on your account.</p>
+              <p className="settings-field-desc settings-activity-desc">Recent security events on your account.</p>
               {activity.length === 0 ? (
-                <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "16px 0" }}>No activity recorded yet.</div>
+                <div className="settings-activity-empty">No activity recorded yet.</div>
               ) : (
-                <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                <div className="settings-activity-list">
                   {activity.slice(0, 20).map((event, i) => {
                     const isError = event.action.includes("failed") || event.action.includes("error");
                     const timeAgo = (() => {
@@ -382,14 +381,14 @@ export default function SettingsPage() {
                       } catch { return ""; }
                     })();
                     return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: i < activity.length - 1 ? "1px solid var(--border)" : "none", fontSize: 12 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: isError ? "#ef4444" : "#22c55e", flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{event.action.replace(/_/g, " ")}</span>
-                          {event.detail && <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>{event.detail}</span>}
+                      <div key={i} className="settings-activity-item">
+                        <div className={`settings-activity-dot ${isError ? "settings-activity-dot--error" : "settings-activity-dot--success"}`} />
+                        <div className="settings-activity-body">
+                          <span className="settings-activity-action">{event.action.replace(/_/g, " ")}</span>
+                          {event.detail && <span className="settings-activity-detail">{event.detail}</span>}
                         </div>
-                        {event.ip && <span style={{ color: "var(--text-muted)", fontSize: 10, flexShrink: 0 }}>{event.ip}</span>}
-                        <span style={{ color: "var(--text-muted)", fontSize: 10, flexShrink: 0, minWidth: 50, textAlign: "right" }}>{timeAgo}</span>
+                        {event.ip && <span className="settings-activity-meta">{event.ip}</span>}
+                        <span className="settings-activity-time">{timeAgo}</span>
                       </div>
                     );
                   })}
@@ -401,21 +400,20 @@ export default function SettingsPage() {
 
         {activeTab === "invites" && (
           <>
-            <p className="settings-field-desc" style={{ marginBottom: 16 }}>Share invite codes with friends. Each code is single-use. New users get 3 codes of their own.</p>
+            <p className="settings-field-desc settings-invites-desc">Share invite codes with friends. Each code is single-use. New users get 3 codes of their own.</p>
             {inviteCodes.length === 0 ? (
-              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "20px 0" }}>No invite codes available.</div>
+              <div className="settings-invites-empty">No invite codes available.</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div className="settings-invites-list">
                 {inviteCodes.map((inv) => (
-                  <div key={inv.code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: inv.used ? "var(--bg-base)" : "var(--bg-elevated)", borderRadius: 6, border: "1px solid var(--border)" }}>
-                    <code style={{ flex: 1, fontSize: 14, fontWeight: 600, color: inv.used ? "var(--text-muted)" : "var(--text-primary)", textDecoration: inv.used ? "line-through" : "none", fontFamily: "var(--font-mono)" }}>{inv.code}</code>
+                  <div key={inv.code} className={`settings-invite-item ${inv.used ? "settings-invite-item--used" : "settings-invite-item--available"}`}>
+                    <code className={`settings-invite-code ${inv.used ? "settings-invite-code--used" : "settings-invite-code--available"}`}>{inv.code}</code>
                     {inv.used ? (
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Used</span>
+                      <span className="settings-invite-used-label">Used</span>
                     ) : (
                       <button
-                        className="btn"
+                        className="btn settings-invite-copy-btn"
                         onClick={() => copyCode(inv.code)}
-                        style={{ fontSize: 12, padding: "3px 10px" }}
                       >
                         {copiedCode === inv.code ? "Copied!" : "Copy"}
                       </button>
@@ -429,13 +427,13 @@ export default function SettingsPage() {
 
         {activeTab === "preferences" && (
           <>
-            <p className="settings-field-desc" style={{ marginBottom: 16 }}>Transactional emails (login codes, password resets) are always sent.</p>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-primary)", cursor: "pointer", padding: "8px 0" }}>
-              <input type="checkbox" defaultChecked style={{ accentColor: "var(--text-primary)", width: 16, height: 16 }} />
+            <p className="settings-field-desc settings-prefs-desc">Transactional emails (login codes, password resets) are always sent.</p>
+            <label className="settings-pref-label">
+              <input type="checkbox" defaultChecked className="settings-pref-checkbox" />
               Product updates — new features and releases
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-primary)", cursor: "pointer", padding: "8px 0" }}>
-              <input type="checkbox" defaultChecked style={{ accentColor: "var(--text-primary)", width: 16, height: 16 }} />
+            <label className="settings-pref-label">
+              <input type="checkbox" defaultChecked className="settings-pref-checkbox" />
               Marketing — tips, case studies, promotions
             </label>
           </>
