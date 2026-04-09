@@ -72,9 +72,24 @@ export default function WelcomePage() {
   // Wait for initial data before deciding which view to show
   if (!initialLoaded) {
     return (
-      <div className="welcome" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100%" }}>
-        <div style={{ width: 24, height: 24, border: "2px solid rgba(0,0,0,0.08)", borderTopColor: "rgba(0,0,0,0.4)", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="welcome" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", gap: 24 }}>
+        <div className="aeqi-grid-loader">
+          {"AEQI".split("").map((letter, i) => (
+            <span key={i} className="aeqi-grid-letter" style={{ animationDelay: `${i * 0.15}s` }}>{letter}</span>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: "rgba(0,0,0,0.35)", margin: 0 }}>Setting up your workspace...</p>
+        <style>{`
+          .aeqi-grid-loader { display: flex; gap: 6px; }
+          .aeqi-grid-letter {
+            font-family: var(--font-mono); font-size: 24px; font-weight: 700;
+            color: rgba(0,0,0,0.12); animation: aeqi-pulse 1.2s ease-in-out infinite;
+          }
+          @keyframes aeqi-pulse {
+            0%, 100% { color: rgba(0,0,0,0.08); transform: scale(1); }
+            50% { color: rgba(0,0,0,0.5); transform: scale(1.1); }
+          }
+        `}</style>
       </div>
     );
   }
