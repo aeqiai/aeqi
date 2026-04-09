@@ -100,6 +100,46 @@ impl SessionStore {
             }
         }
 
+        // ── Fix: make chat_id nullable (was NOT NULL from legacy conversations table) ──
+        // SQLite doesn't support ALTER COLUMN, so we recreate the table.
+        {
+            let chat_id_notnull: bool = conn
+                .prepare("PRAGMA table_info(session_messages)")
+                .ok()
+                .map(|mut stmt| {
+                    stmt.query_map([], |row| {
+                        Ok((row.get::<_, String>(1)?, row.get::<_, bool>(3)?))
+                    })
+                    .ok()
+                    .map(|rows| {
+                        rows.filter_map(|r| r.ok())
+                            .any(|(name, notnull)| name == "chat_id" && notnull)
+                    })
+                    .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+            if chat_id_notnull {
+                let _ = conn.execute_batch(
+                    "CREATE TABLE session_messages_new (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         chat_id INTEGER,
+                         session_id TEXT,
+                         role TEXT NOT NULL,
+                         content TEXT NOT NULL,
+                         timestamp TEXT NOT NULL,
+                         summarized INTEGER DEFAULT 0,
+                         source TEXT DEFAULT NULL,
+                         event_type TEXT NOT NULL DEFAULT 'message',
+                         metadata TEXT DEFAULT NULL
+                     );
+                     INSERT INTO session_messages_new SELECT * FROM session_messages;
+                     DROP TABLE session_messages;
+                     ALTER TABLE session_messages_new RENAME TO session_messages;",
+                );
+            }
+        }
+
         // ── Create session_messages table (new schema) ──
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS session_messages (
