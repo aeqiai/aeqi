@@ -1508,6 +1508,11 @@ impl Daemon {
                         .await
                 }
 
+                "import_prompts" => {
+                    crate::ipc::prompts::handle_import_prompts(&ctx, &request, &allowed_companies)
+                        .await
+                }
+
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)
                         .await

@@ -120,13 +120,37 @@ pub async fn handle_create_company(
     };
     match ctx.agent_registry.create_company(&record).await {
         Ok(()) => {
+            // Create identity prompt in the prompt store.
+            let identity_content = format!(
+                "You are the lead agent for **{name}**.\n\n\
+                 ## Role\n\n\
+                 You coordinate all work for this company. You receive tasks, \
+                 decompose them, delegate to specialist child agents when appropriate, \
+                 and ensure quality output.\n\n\
+                 ## Behavior\n\n\
+                 - Assess task complexity. Simple tasks: do it yourself. Complex tasks: spawn focused child agents.\n\
+                 - Maintain situational awareness through memory. Store decisions and project context.\n\
+                 - When blocked, escalate clearly. When done, close the quest with a summary.\n\
+                 - Be direct, specific, and action-oriented."
+            );
+            let identity_tags = vec!["identity".to_string(), "company".to_string()];
+            let prompt_id = ctx
+                .agent_registry
+                .create_prompt(
+                    &format!("{name}-identity"),
+                    &identity_content,
+                    &identity_tags,
+                )
+                .await
+                .ok();
+
             let agent = ctx
                 .agent_registry
                 .spawn(
                     name,
                     Some(name),
                     "company",
-                    &format!("You are the primary agent for {name}. Help the team research, plan, and execute work."),
+                    &identity_content,
                     None,
                     None,
                     &[],
@@ -134,6 +158,7 @@ pub async fn handle_create_company(
                 .await;
             match &agent {
                 Ok(a) => {
+                    // Link agent to company.
                     if let Err(e) = ctx
                         .agent_registry
                         .update_company_agent_id(name, &a.id)
@@ -143,6 +168,13 @@ pub async fn handle_create_company(
                             "create_company: failed to link agent to company '{}': {e}",
                             name
                         );
+                    }
+                    // Attach identity prompt to agent.
+                    if let Some(ref pid) = prompt_id {
+                        let _ = ctx
+                            .agent_registry
+                            .set_agent_prompt_ids(&a.id, std::slice::from_ref(pid))
+                            .await;
                     }
                 }
                 Err(e) => {
