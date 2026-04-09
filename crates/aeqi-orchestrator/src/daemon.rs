@@ -1619,14 +1619,21 @@ impl Daemon {
                     } else if !send_allowed {
                         serde_json::json!({"ok": false, "error": "access denied"})
                     } else {
-                        let chat_id = request
-                            .get("chat_id")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or_else(|| {
-                                named_channel_chat_id(
-                                    agent_id_direct.as_deref().unwrap_or(&agent_hint),
-                                )
-                            });
+                        // Resolve chat_id: prefer explicit, then session's legacy_chat_id,
+                        // then hash from agent name.
+                        let chat_id = if let Some(cid) = request.get("chat_id").and_then(|v| v.as_i64()) {
+                            cid
+                        } else if let (Some(sid), Some(ss)) = (&session_id_hint, &ipc_ctx.session_store) {
+                            // Use the session's chat_id so messages are linked correctly.
+                            match ss.get_session(sid).await {
+                                Ok(Some(s)) => s.legacy_chat_id.unwrap_or_else(|| {
+                                    named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint))
+                                }),
+                                _ => named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint)),
+                            }
+                        } else {
+                            named_channel_chat_id(agent_id_direct.as_deref().unwrap_or(&agent_hint))
+                        };
 
                         let session_store = ipc_ctx.session_store.clone();
 
