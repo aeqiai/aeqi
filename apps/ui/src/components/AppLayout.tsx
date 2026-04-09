@@ -143,14 +143,12 @@ export default function AppLayout() {
               )}
               <span className="sidebar-nav-label">Account</span>
             </a>
+            <a className="sidebar-nav-item" href="https://aeqi.ai/docs" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 2.5h3.5a1 1 0 011 1V12L3.5 10.5H2.5A.5.5 0 012 10V2.5z" /><path d="M12 2.5H8.5a1 1 0 00-1 1V12l3-1.5h1.5a.5.5 0 00.5-.5V2.5z" /></svg>
+              <span className="sidebar-nav-label">Documentation</span>
+            </a>
           </nav>
-          <div className="sidebar-footer-links">
-            <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">Docs</a>
-            <span>·</span>
-            <a href="https://aeqi.ai/terms" target="_blank" rel="noopener">Terms</a>
-            <span>·</span>
-            <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener">Privacy</a>
-          </div>
+          <div className="sidebar-version">v0.1.0</div>
         </div>
 
         {/* Main content */}
