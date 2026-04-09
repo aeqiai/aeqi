@@ -120,6 +120,17 @@ impl SessionStore {
                 .unwrap_or(false);
 
             if chat_id_notnull {
+                // Drop FTS triggers first (they reference session_messages).
+                let _ = conn.execute_batch(
+                    "DROP TRIGGER IF EXISTS session_messages_ai;
+                     DROP TRIGGER IF EXISTS session_messages_ad;
+                     DROP TRIGGER IF EXISTS session_messages_au;
+                     DROP TRIGGER IF EXISTS conversations_ai;
+                     DROP TRIGGER IF EXISTS conversations_ad;
+                     DROP TRIGGER IF EXISTS conversations_au;
+                     DROP TABLE IF EXISTS messages_fts;
+                     DROP TABLE IF EXISTS session_messages_new;",
+                );
                 let _ = conn.execute_batch(
                     "CREATE TABLE session_messages_new (
                          id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +144,8 @@ impl SessionStore {
                          event_type TEXT NOT NULL DEFAULT 'message',
                          metadata TEXT DEFAULT NULL
                      );
-                     INSERT INTO session_messages_new SELECT * FROM session_messages;
+                     INSERT INTO session_messages_new (id, chat_id, session_id, role, content, timestamp, summarized, source, event_type, metadata)
+                         SELECT id, chat_id, session_id, role, content, timestamp, summarized, source, event_type, metadata FROM session_messages;
                      DROP TABLE session_messages;
                      ALTER TABLE session_messages_new RENAME TO session_messages;",
                 );
