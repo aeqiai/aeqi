@@ -145,18 +145,17 @@ impl SessionStore {
             "CREATE TABLE IF NOT EXISTS session_summaries (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  chat_id INTEGER,
-                 session_id TEXT,
                  summary TEXT NOT NULL,
                  covers_until TEXT NOT NULL
-             );
-
-             CREATE INDEX IF NOT EXISTS idx_summ_session ON session_summaries(session_id);",
+             );",
         )
         .context("failed to create session_summaries table")?;
-
-        // Add session_id column to summaries for migrated tables.
+        // Add session_id column (idempotent — may already exist).
         let _ = conn.execute_batch(
             "ALTER TABLE session_summaries ADD COLUMN session_id TEXT DEFAULT NULL;",
+        );
+        let _ = conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_summ_session ON session_summaries(session_id);",
         );
 
         // ── Legacy channels table — keep for migration reads, but do NOT create new rows ──
