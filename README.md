@@ -1,28 +1,34 @@
-# AEQI
+# aeqi
 
 [![CI](https://github.com/aeqiai/aeqi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aeqiai/aeqi/actions/workflows/ci.yml)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-2024-black)](Cargo.toml)
 [![Tests](https://img.shields.io/badge/tests-545%2B-brightgreen)](Cargo.toml)
 
-**Persistent agent orchestration in Rust.** A tree of agents that grows from conversation, remembers everything, acts autonomously, and reshapes itself from within.
+**Autonomous business infrastructure.** Launch companies staffed entirely by AI agents that build products, generate revenue, and compound in capability over time.
 
-AEQI is not another chatbot wrapper. It's a runtime where agents are persistent identities in a tree -- they accumulate knowledge across sessions, trigger their own behaviors on schedules and events, coordinate through delegation and shared memory, and operate under safety middleware that enforces budgets, detects loops, and preserves work on failure.
-
-The orchestrator and runtime are one system. When the orchestrator owns the runtime, it can inject context mid-execution, route by empirical expertise, enforce middleware layers on every tool call, and give every agent entity-scoped memory that persists forever.
+aeqi is not a developer tool or agent framework. It's the platform for a new kind of company — one founded by a single person, staffed by AI agents across engineering, growth, operations, and finance, and investable from day one through tokenized equity. Agents coordinate autonomously, build institutional memory, and get smarter every cycle.
 
 ```
 aeqi start              # daemon + dashboard on :8400
 aeqi chat --agent cto   # talk to an agent
 ```
 
+### What is an autonomous company?
+
+A business where AI agents handle the work and humans set the direction. Software companies, media companies, research firms, operations businesses — any company where the execution can be handled by agents while the founder focuses on vision, strategy, and taste.
+
+aeqi provides the full operational stack: agent orchestration, persistent memory, quest-based task management, inter-agent coordination, safety middleware, and a marketplace where autonomous companies are discoverable, investable, and acquirable.
+
+**[Website](https://aeqi.ai)** · **[Documentation](https://aeqi.ai/docs)** · **[What is an autonomous company?](https://aeqi.ai/blog/what-is-an-autonomous-company)** · **[Changelog](https://aeqi.ai/changelog)**
+
 ---
 
 ## Core Concepts
 
-### Agents
+### Agents — Your Workforce
 
-An agent is a persistent identity with a UUID, a system prompt, and entity-scoped memory. Agents are nodes in a tree -- they can spawn children, inherit configuration from parents, and delegate work up and down the hierarchy. Agents are not running processes -- they're loaded into fresh sessions on demand. Knowledge accumulates across sessions via the memory system.
+An agent is a persistent identity with a role, expertise, and memory that compounds over time. Agents form teams — they can spawn specialists, inherit context from leadership, and delegate work up and down the hierarchy. They're not running processes — they're loaded into sessions on demand, accumulating knowledge across every interaction.
 
 ```toml
 # agents/cto/agent.toml
@@ -46,7 +52,7 @@ balanced = "anthropic/claude-sonnet-4-6"
 fast = "anthropic/claude-haiku-4-5"
 ```
 
-### Memory
+### Memory — Institutional Knowledge
 
 Every agent has three memory scopes:
 
@@ -60,9 +66,9 @@ Memory is backed by SQLite with FTS5 full-text search and optional vector embedd
 
 Agents can build semantic knowledge graphs through `memory_edges` -- relationships like "mentions", "requires", "contradicts" between facts.
 
-### Triggers
+### Triggers — Autonomous Operations
 
-Triggers define *when* an agent acts:
+Triggers define *when* an agent acts — making the company self-operating:
 
 | Type | Example | How it works |
 |------|---------|-------------|
@@ -73,9 +79,9 @@ Triggers define *when* an agent acts:
 
 When a trigger fires, it creates an agent-bound quest that loads the associated skill.
 
-### Skills
+### Skills — Agent Capabilities
 
-Skills define *what* an agent does when triggered. A skill is a TOML file with a system prompt and tool restrictions:
+Skills define *what* an agent does — its playbook for a given task. A skill is a TOML file with a system prompt and tool restrictions:
 
 ```toml
 [skill]
@@ -91,7 +97,7 @@ system = """Review the code changes. Check for..."""
 
 Skills are composable -- agents load the right skill per quest. Tool restrictions are enforced: a skill that only allows `read_file` cannot execute shell commands, even if the agent tries.
 
-### Delegation
+### Delegation — Agent Coordination
 
 One tool for all inter-agent interaction:
 
@@ -112,9 +118,9 @@ delegate(to, prompt, response_mode, create_quest, skill)
 
 Delegation spawns a child session directly. The delegate tool creates a session linked to the calling session via `parent_id`, and routes responses back on completion.
 
-### Quests
+### Quests — The Work
 
-Every quest is agent-bound. Quests are created by triggers, delegation, IPC, or direct assignment.
+Quests are structured objectives that agents pick up, decompose, and ship. Created by triggers, delegation, or direct assignment.
 
 ```
 Pending → InProgress → Done
@@ -126,7 +132,7 @@ Quests have atomic checkout (`locked_by`/`locked_at`) to prevent concurrent exec
 
 ---
 
-## Runtime
+## Runtime — Under the Hood
 
 ### The Daemon
 
@@ -342,4 +348,4 @@ Pre-push hook runs all three automatically.
 
 ## License
 
-[Business Source License 1.1](LICENSE) -- free for individuals, converts to Apache 2.0 on April 5, 2030.
+[Business Source License 1.1](LICENSE) — source-available, self-hostable, converts to Apache 2.0 on April 5, 2030. Free for individuals and small teams. See [aeqi.ai/pricing](https://aeqi.ai/pricing) for hosted plans.
