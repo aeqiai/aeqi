@@ -55,6 +55,22 @@ export default function AppLayout() {
     return path.startsWith(p) && !agentId;
   };
 
+  const initialLoaded = useDaemonStore((s) => s.initialLoaded);
+
+  if (!initialLoaded) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg-primary, #fafafa)", gap: 24 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {"AEQI".split("").map((letter, i) => (
+            <span key={i} style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 700, color: "rgba(0,0,0,0.12)", animation: `aeqi-pulse 1.2s ease-in-out infinite`, animationDelay: `${i * 0.15}s` }}>{letter}</span>
+          ))}
+        </div>
+        <p style={{ fontSize: 13, color: "rgba(0,0,0,0.3)", margin: 0 }}>Setting up your workspace...</p>
+        <style>{`@keyframes aeqi-pulse { 0%, 100% { color: rgba(0,0,0,0.08); transform: scale(1); } 50% { color: rgba(0,0,0,0.5); transform: scale(1.1); } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="shell">

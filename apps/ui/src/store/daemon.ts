@@ -43,6 +43,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   wsConnected: false,
   loading: false,
   initialLoaded: false,
+  _loadStart: Date.now(),
 
   fetchStatus: async () => {
     try {
@@ -103,18 +104,20 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       s.fetchEvents(),
       s.fetchCost(),
     ]);
-    // Only mark as loaded if we got a successful response (agents array exists).
-    // If sandbox is still spinning up (503), keep retrying.
     if (!get().initialLoaded) {
       const agents = get().agents;
       if (agents.length > 0) {
         set({ initialLoaded: true });
       } else {
-        // Retry in 2 seconds — sandbox may still be starting.
-        setTimeout(() => get().fetchAll(), 2000);
+        // Sandbox may still be starting — retry up to 30 seconds.
+        const elapsed = Date.now() - (get() as any)._loadStart;
+        if (elapsed < 30000) {
+          setTimeout(() => get().fetchAll(), 2000);
+        } else {
+          // Give up waiting — show whatever we have.
+          set({ initialLoaded: true });
+        }
       }
-    } else {
-      set({ initialLoaded: true });
     }
   },
 

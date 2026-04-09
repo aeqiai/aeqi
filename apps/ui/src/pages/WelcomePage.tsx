@@ -69,28 +69,8 @@ export default function WelcomePage() {
 
   const displayName = activeCompany || "aeqi";
 
-  // Wait for initial data before deciding which view to show
-  if (!initialLoaded) {
-    return (
-      <div className="welcome" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", gap: 24 }}>
-        <div className="aeqi-grid-loader">
-          {"AEQI".split("").map((letter, i) => (
-            <span key={i} className="aeqi-grid-letter" style={{ animationDelay: `${i * 0.15}s` }}>{letter}</span>
-          ))}
-        </div>
-        <p style={{ fontSize: 13, color: "rgba(0,0,0,0.35)", margin: 0 }}>Setting up your workspace...</p>
-        <style>{`
-          .aeqi-grid-loader { display: flex; gap: 6px; }
-          .aeqi-grid-letter {
-            font-family: var(--font-mono); font-size: 24px; font-weight: 700;
-            color: rgba(0,0,0,0.12); animation: aeqi-pulse 1.2s ease-in-out infinite;
-          }
-          @keyframes aeqi-pulse {
-            0%, 100% { color: rgba(0,0,0,0.08); transform: scale(1); }
-            50% { color: rgba(0,0,0,0.5); transform: scale(1.1); }
-          }
-        `}</style>
-      </div>
+  // AppLayout handles the full-screen loading state.
+  // By the time WelcomePage renders, initialLoaded is true.
     );
   }
 
