@@ -42,6 +42,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
+  const company = localStorage.getItem("aeqi_company");
+  if (company && !path.startsWith("/auth/")) {
+    headers["X-Company"] = company;
+  }
 
   const res = await fetch(url, { ...options, headers });
   const body = await parseResponseBody(res) as Record<string, unknown> | null;
