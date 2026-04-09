@@ -113,6 +113,8 @@ pub struct OpenRouterConfig {
     #[serde(default = "default_openrouter_model")]
     pub default_model: String,
     #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
     pub fallback_model: Option<String>,
     #[serde(default)]
     pub embedding_model: Option<String>,

@@ -8,13 +8,14 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-const OPENROUTER_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
+const DEFAULT_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 
-/// OpenRouter LLM provider.
+/// OpenRouter LLM provider (also used as generic OpenAI-compatible proxy).
 pub struct OpenRouterProvider {
     client: Client,
     api_key: String,
     default_model: String,
+    base_url: Option<String>,
 }
 
 impl OpenRouterProvider {
@@ -28,6 +29,21 @@ impl OpenRouterProvider {
             client,
             api_key,
             default_model,
+            base_url: None,
+        }
+    }
+
+    pub fn with_base_url(mut self, url: String) -> Self {
+        if !url.is_empty() {
+            self.base_url = Some(url.trim_end_matches('/').to_string());
+        }
+        self
+    }
+
+    fn api_url(&self) -> String {
+        match &self.base_url {
+            Some(base) => format!("{base}/chat/completions"),
+            None => DEFAULT_API_URL.to_string(),
         }
     }
 
@@ -63,7 +79,7 @@ impl OpenRouterProvider {
 
         let response = self
             .client
-            .post(OPENROUTER_API_URL)
+            .post(self.api_url())
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("HTTP-Referer", "https://github.com/USER/aeqi")
             .header("X-Title", "AEQI")
@@ -399,7 +415,7 @@ impl Provider for OpenRouterProvider {
 
         let response = self
             .client
-            .post(OPENROUTER_API_URL)
+            .post(self.api_url())
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("HTTP-Referer", "https://aeqi.dev")
             .header("X-Title", "System Agent")
