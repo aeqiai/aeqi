@@ -542,10 +542,7 @@ mod tests {
         outcome.reason = Some("Specific reason".to_string());
         quest.set_task_outcome(&outcome);
 
-        assert_eq!(
-            quest.blocker_context(),
-            Some("Specific reason".to_string())
-        );
+        assert_eq!(quest.blocker_context(), Some("Specific reason".to_string()));
     }
 
     #[test]

@@ -124,10 +124,7 @@ mod tests {
             ApiError::Unauthorized("x".into()).to_string(),
             "unauthorized: x"
         );
-        assert_eq!(
-            ApiError::Forbidden("x".into()).to_string(),
-            "forbidden: x"
-        );
+        assert_eq!(ApiError::Forbidden("x".into()).to_string(), "forbidden: x");
         assert_eq!(ApiError::NotFound("x".into()).to_string(), "not found: x");
         assert_eq!(ApiError::Conflict("x".into()).to_string(), "conflict: x");
         assert_eq!(

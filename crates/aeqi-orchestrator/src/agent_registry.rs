@@ -2338,9 +2338,14 @@ You are a worker agent."#;
         reg.create_company(&company).await.unwrap();
 
         // Full update.
-        reg.update_company("acme", Some("Acme Inc"), Some("Better things"), Some("https://logo.png"))
-            .await
-            .unwrap();
+        reg.update_company(
+            "acme",
+            Some("Acme Inc"),
+            Some("Better things"),
+            Some("https://logo.png"),
+        )
+        .await
+        .unwrap();
         let updated = reg.get_company("acme").await.unwrap().unwrap();
         assert_eq!(updated.display_name.as_deref(), Some("Acme Inc"));
         assert_eq!(updated.tagline.as_deref(), Some("Better things"));
