@@ -10,6 +10,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::server::AppState;
 
+/// User's allowed companies, resolved from the account store during auth.
+/// Inserted into request extensions for downstream handlers to scope IPC calls.
+#[derive(Debug, Clone)]
+pub struct UserScope {
+    pub companies: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,
@@ -87,6 +94,14 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             };
             match validate_token(token, secret) {
                 Ok(claims) => {
+                    // Resolve user's companies for tenant scoping.
+                    if let Some(accounts) = &state.accounts {
+                        let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+                        if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
+                            let companies = user.companies.unwrap_or_default();
+                            req.extensions_mut().insert(UserScope { companies });
+                        }
+                    }
                     req.extensions_mut().insert(claims);
                     next.run(req).await
                 }

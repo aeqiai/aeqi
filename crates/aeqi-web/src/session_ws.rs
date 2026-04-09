@@ -33,24 +33,44 @@ pub async fn handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     // Validate token from query param, dispatching by auth mode.
+    // Also resolve user's companies for tenant scoping when in Accounts mode.
+    let mut user_companies: Option<Vec<String>> = None;
+
     match state.auth_mode {
         AuthMode::None => { /* allow without validation */ }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");
-            if auth::validate_token(token, secret).is_err() {
-                return axum::response::IntoResponse::into_response((
-                    axum::http::StatusCode::UNAUTHORIZED,
-                    "invalid or missing token",
-                ));
+            match auth::validate_token(token, secret) {
+                Ok(claims) => {
+                    // Resolve user's companies for tenant scoping.
+                    if let Some(accounts) = &state.accounts {
+                        let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+                        user_companies = accounts
+                            .get_user_by_id(user_id)
+                            .ok()
+                            .flatten()
+                            .and_then(|u| u.companies);
+                    }
+                }
+                Err(_) => {
+                    return axum::response::IntoResponse::into_response((
+                        axum::http::StatusCode::UNAUTHORIZED,
+                        "invalid or missing token",
+                    ));
+                }
             }
         }
     }
 
-    ws.on_upgrade(move |socket| handle_session_socket(socket, state))
+    ws.on_upgrade(move |socket| handle_session_socket(socket, state, user_companies))
 }
 
-async fn handle_session_socket(mut socket: axum::extract::ws::WebSocket, state: AppState) {
+async fn handle_session_socket(
+    mut socket: axum::extract::ws::WebSocket,
+    state: AppState,
+    user_companies: Option<Vec<String>>,
+) {
     use axum::extract::ws::Message;
 
     info!("Session WebSocket client connected");
@@ -113,6 +133,9 @@ async fn handle_session_socket(mut socket: axum::extract::ws::WebSocket, state: 
         }
         if let Some(ref sid) = req_session_id {
             session_req["session_id"] = serde_json::json!(sid);
+        }
+        if let Some(ref companies) = user_companies {
+            session_req["allowed_companies"] = serde_json::json!(companies);
         }
 
         // Open a raw IPC connection and stream events directly to WebSocket.

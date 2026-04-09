@@ -28,6 +28,7 @@ export default function LoginPage() {
     verifyEmail,
     resendCode,
     verify2fa,
+    verifyTotp,
     resend2fa,
     pending2faEmail,
     isAuthenticated,
@@ -214,6 +215,29 @@ export default function LoginPage() {
     if (ok) setTwoFaResendCooldown(60);
   };
 
+  // TOTP (authenticator app) code handlers
+  const handleTotpCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const next = [...twoFaCode];
+    next[index] = value.slice(-1);
+    setTwoFaCode(next);
+    if (value && index < 5) twoFaRefs.current[index + 1]?.focus();
+
+    const full = next.join("");
+    if (full.length === 6) {
+      setTwoFaLoading(true);
+      setTwoFaError("");
+      verifyTotp(email, full).then((ok) => {
+        setTwoFaLoading(false);
+        if (ok) {
+          navigate("/", { replace: true });
+        } else {
+          setTwoFaError("Invalid or expired code");
+        }
+      });
+    }
+  };
+
   // Forgot password handler
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,19 +415,16 @@ export default function LoginPage() {
               if (pasted.length === 6) {
                 const digits = pasted.split("");
                 setTwoFaCode(digits);
-                // Auto-submit
-                (async () => {
-                  setTwoFaLoading(true);
-                  try {
-                    const resp = await api.loginTotp(email, pasted);
-                    if ((resp as Record<string, unknown>).token) {
-                      localStorage.setItem("aeqi_token", (resp as Record<string, unknown>).token as string);
-                      useAuthStore.setState({ token: (resp as Record<string, unknown>).token as string });
-                      navigate("/");
-                    }
-                  } catch { setTwoFaError("Invalid code"); }
-                  finally { setTwoFaLoading(false); }
-                })();
+                setTwoFaLoading(true);
+                setTwoFaError("");
+                verifyTotp(email, pasted).then((ok) => {
+                  setTwoFaLoading(false);
+                  if (ok) {
+                    navigate("/", { replace: true });
+                  } else {
+                    setTwoFaError("Invalid code");
+                  }
+                });
               }
             }}>
               {twoFaCode.map((digit, i) => (
@@ -415,7 +436,7 @@ export default function LoginPage() {
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
-                  onChange={(e) => handle2faCodeChange(i, e.target.value)}
+                  onChange={(e) => handleTotpCodeChange(i, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !twoFaCode[i] && i > 0) twoFaRefs.current[i - 1]?.focus();
                   }}

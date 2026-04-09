@@ -1,8 +1,10 @@
 //! User account storage backed by SQLite.
 
+use mini_moka::sync::Cache;
 use rusqlite::{Connection, params};
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -25,9 +27,11 @@ pub struct User {
     pub created_at: String,
 }
 
-/// Thread-safe account store.
+/// Thread-safe account store with an in-memory TTL cache for user lookups.
 pub struct AccountStore {
     conn: Mutex<Connection>,
+    /// Cache: user_id -> Option<User>. TTL 60s, max 1000 entries.
+    user_cache: Cache<String, Option<User>>,
 }
 
 impl AccountStore {
@@ -71,8 +75,14 @@ impl AccountStore {
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
+        let user_cache = Cache::builder()
+            .max_capacity(1000)
+            .time_to_live(Duration::from_secs(60))
+            .build();
+
         Ok(Self {
             conn: Mutex::new(conn),
+            user_cache,
         })
     }
 
@@ -239,8 +249,15 @@ impl AccountStore {
         Ok(true)
     }
 
-    /// Get a user by ID with their companies.
+    /// Get a user by ID with their companies. Results are served from an
+    /// in-memory cache (TTL 60 s) to avoid hitting SQLite on every request.
     pub fn get_user_by_id(&self, id: &str) -> anyhow::Result<Option<User>> {
+        // Fast path: cache hit.
+        if let Some(cached) = self.user_cache.get(&id.to_owned()) {
+            return Ok(cached);
+        }
+
+        // Cache miss — query the database.
         let conn = self.conn.lock().unwrap();
         let user = conn.query_row(
             "SELECT id, email, name, avatar_url, google_id, email_verified, subscription_status, subscription_plan, trial_ends_at, created_at FROM users WHERE id = ?1",
@@ -262,7 +279,7 @@ impl AccountStore {
             },
         ).ok();
 
-        match user {
+        let result = match user {
             Some(mut u) => {
                 let mut stmt =
                     conn.prepare("SELECT company FROM user_companies WHERE user_id = ?1")?;
@@ -271,10 +288,16 @@ impl AccountStore {
                     .filter_map(|r| r.ok())
                     .collect();
                 u.companies = Some(companies);
-                Ok(Some(u))
+                Some(u)
             }
-            None => Ok(None),
-        }
+            None => None,
+        };
+        // Release the lock before touching the cache.
+        drop(conn);
+
+        // Populate cache (including None results to avoid repeated misses).
+        self.user_cache.insert(id.to_owned(), result.clone());
+        Ok(result)
     }
 
     /// Get a user by email.
@@ -294,13 +317,16 @@ impl AccountStore {
         }
     }
 
-    /// Add a company to a user.
+    /// Add a company to a user. Invalidates the user cache so the updated
+    /// companies list is picked up immediately on the next lookup.
     pub fn add_company(&self, user_id: &str, company: &str) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT OR IGNORE INTO user_companies (user_id, company) VALUES (?1, ?2)",
             params![user_id, company],
         )?;
+        drop(conn);
+        self.user_cache.invalidate(&user_id.to_owned());
         Ok(())
     }
 

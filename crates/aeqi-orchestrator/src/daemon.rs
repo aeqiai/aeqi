@@ -1271,24 +1271,72 @@ impl Daemon {
                 }
             };
 
-            // Helper: validate project param against scope. Returns error JSON if forbidden.
+            // Helper: validate project/company param against scope. Returns error JSON if forbidden.
             let check_project = |req: &serde_json::Value| -> Option<serde_json::Value> {
                 allowed_companies.as_ref()?;
-                if let Some(project) = req.get("project").and_then(|v| v.as_str())
-                    && !project.is_empty()
-                    && !is_allowed(project)
-                {
-                    return Some(serde_json::json!({"ok": false, "error": "access denied"}));
+                // Check both `project` and `company` fields (frontend uses both names).
+                for field in &["project", "company"] {
+                    if let Some(val) = req.get(*field).and_then(|v| v.as_str())
+                        && !val.is_empty()
+                        && !is_allowed(val)
+                    {
+                        return Some(serde_json::json!({"ok": false, "error": "access denied"}));
+                    }
                 }
                 None
             };
 
-            // Pre-check: if request has a `project` param, validate it against scope.
+            // Pre-check: if request has a `project` or `company` param, validate against scope.
             if let Some(denied) = check_project(&request) {
                 let _ = writer.write_all(denied.to_string().as_bytes()).await;
                 let _ = writer.write_all(b"\n").await;
                 let _ = writer.flush().await;
                 continue;
+            }
+
+            // Helper (async): check if an agent UUID belongs to an allowed company.
+            // Looks up agent → checks if its name (company agent) or parent's name is allowed.
+            /// Walk the agent's parent chain up to a company agent and check if it's allowed.
+            /// Handles arbitrary nesting depth (with a safety limit of 10 levels).
+            async fn check_agent_access(
+                registry: &crate::agent_registry::AgentRegistry,
+                allowed: &Option<Vec<String>>,
+                agent_id: &str,
+            ) -> bool {
+                if allowed.is_none() { return true; }
+                let allowed = allowed.as_ref().unwrap();
+                let is_ok = |name: &str| allowed.iter().any(|c| c == name);
+
+                let mut current_id = agent_id.to_string();
+                for _ in 0..10 {
+                    match registry.get(&current_id).await {
+                        Ok(Some(agent)) => {
+                            if agent.template == "company" {
+                                return is_ok(&agent.name);
+                            }
+                            match agent.parent_id {
+                                Some(pid) => current_id = pid,
+                                None => return false, // orphan non-company agent
+                            }
+                        }
+                        _ => return false,
+                    }
+                }
+                false // exceeded depth limit
+            }
+
+            // Pre-check: validate write operations against tenant scope.
+            // Commands that use `name` to identify an agent (which maps to company name).
+            if allowed_companies.is_some() {
+                let name_field = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let needs_name_check = matches!(cmd, "save_agent_file" | "agent_identity" | "agent_info");
+                if needs_name_check && !name_field.is_empty() && !is_allowed(name_field) {
+                    let denied = serde_json::json!({"ok": false, "error": "access denied"});
+                    let _ = writer.write_all(denied.to_string().as_bytes()).await;
+                    let _ = writer.write_all(b"\n").await;
+                    let _ = writer.flush().await;
+                    continue;
+                }
             }
 
             let response = match cmd {
@@ -1525,8 +1573,17 @@ impl Daemon {
 
                 "create_company" => {
                     let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    if name.is_empty() {
-                        serde_json::json!({"ok": false, "error": "name is required"})
+                    // Sanitize: reject names that could cause path traversal or filesystem issues.
+                    let is_safe_name = !name.is_empty()
+                        && !name.contains('/')
+                        && !name.contains('\\')
+                        && !name.contains('\0')
+                        && name != "."
+                        && name != ".."
+                        && !name.starts_with('.')
+                        && name.len() <= 128;
+                    if !is_safe_name {
+                        serde_json::json!({"ok": false, "error": "invalid company name"})
                     } else {
                         let prefix = request
                             .get("prefix")
@@ -1567,18 +1624,23 @@ impl Daemon {
                                 let agent = agent_registry
                                     .spawn(
                                         name,
-                                        None,
+                                        Some(name),
                                         "company",
-                                        &format!("Agent for {name}"),
+                                        &format!("You are the primary agent for {name}. Help the team research, plan, and execute work."),
                                         None,
                                         None,
                                         &[],
                                     )
                                     .await;
-                                if let Ok(agent) = agent {
-                                    let _ = agent_registry
-                                        .update_company_agent_id(name, &agent.id)
-                                        .await;
+                                match &agent {
+                                    Ok(a) => {
+                                        if let Err(e) = agent_registry.update_company_agent_id(name, &a.id).await {
+                                            tracing::warn!("create_company: failed to link agent to company '{}': {e}", name);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("create_company: failed to spawn agent for '{}': {e}", name);
+                                    }
                                 }
                                 // Create projects directory.
                                 if let Ok(cwd) = std::env::current_dir() {
@@ -1590,6 +1652,23 @@ impl Daemon {
                             Err(e) => {
                                 serde_json::json!({"ok": false, "error": e.to_string()})
                             }
+                        }
+                    }
+                }
+
+                "update_company" => {
+                    let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    if name.is_empty() {
+                        serde_json::json!({"ok": false, "error": "name is required"})
+                    } else if allowed_companies.is_some() && !is_allowed(name) {
+                        serde_json::json!({"ok": false, "error": "access denied"})
+                    } else {
+                        let display_name = request.get("display_name").and_then(|v| v.as_str());
+                        let tagline = request.get("tagline").and_then(|v| v.as_str());
+                        let logo_url = request.get("logo_url").and_then(|v| v.as_str());
+                        match agent_registry.update_company(name, display_name, tagline, logo_url).await {
+                            Ok(()) => serde_json::json!({"ok": true}),
+                            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                         }
                     }
                 }
@@ -2058,16 +2137,25 @@ impl Daemon {
                         .await
                     {
                         Ok(quests) => {
+                            // Build allowed agent ID set for tenancy filtering.
+                            let allowed_agent_ids: Option<std::collections::HashSet<String>> = if allowed_companies.is_some() {
+                                let all_agents = agent_registry.list(None, None).await.unwrap_or_default();
+                                let company_ids: std::collections::HashSet<String> = all_agents.iter()
+                                    .filter(|a| a.template == "company" && is_allowed(&a.name))
+                                    .map(|a| a.id.clone()).collect();
+                                Some(all_agents.iter()
+                                    .filter(|a| company_ids.contains(&a.id)
+                                        || a.parent_id.as_ref().map(|p| company_ids.contains(p)).unwrap_or(false))
+                                    .map(|a| a.id.clone()).collect())
+                            } else { None };
+
                             let all_quests: Vec<serde_json::Value> = quests
                                 .iter()
                                 .filter(|quest| {
-                                    // Tenancy filter: check if quest's agent belongs to an allowed company.
-                                    if allowed_companies.is_none() {
-                                        return true;
+                                    match &allowed_agent_ids {
+                                        None => true,
+                                        Some(ids) => quest.agent_id.as_deref().map(|a| ids.contains(a)).unwrap_or(false),
                                     }
-                                    // Quest prefix (e.g. "sg-001") maps to company prefix.
-                                    // Also check agent_id against company agent names.
-                                    quest.agent_id.as_deref().map(&is_allowed).unwrap_or(true)
                                 })
                                 .map(|quest| {
                                     serde_json::json!({
@@ -2239,6 +2327,27 @@ impl Daemon {
 
                     if quest_id.is_empty() {
                         serde_json::json!({"ok": false, "error": "quest_id is required"})
+                    } else if allowed_companies.is_some() {
+                        // Verify quest ownership via its agent.
+                        let ok = match agent_registry.get_task(quest_id).await {
+                            Ok(Some(q)) => match q.agent_id.as_deref() {
+                                Some(aid) => check_agent_access(&agent_registry, &allowed_companies, aid).await,
+                                None => false,
+                            },
+                            _ => false,
+                        };
+                        if !ok {
+                            serde_json::json!({"ok": false, "error": "access denied"})
+                        } else {
+                            match agent_registry.update_task(quest_id, |quest| {
+                                quest.status = aeqi_quests::QuestStatus::Done;
+                                quest.closed_at = Some(chrono::Utc::now());
+                                quest.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(aeqi_quests::QuestOutcomeKind::Done, reason));
+                            }).await {
+                                Ok(_) => serde_json::json!({"ok": true}),
+                                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                            }
+                        }
                     } else {
                         // AgentRegistry path: update status to Done via unified store.
                         match agent_registry
@@ -2358,6 +2467,16 @@ impl Daemon {
                         .unwrap_or("user");
                     let agent_id = request_field(&request, "agent_id");
 
+                    // Tenancy check on agent_id if provided.
+                    if let Some(aid) = agent_id {
+                        if !check_agent_access(&agent_registry, &allowed_companies, aid).await {
+                            let _ = writer.write_all(serde_json::json!({"ok": false, "error": "access denied"}).to_string().as_bytes()).await;
+                            let _ = writer.write_all(b"\n").await;
+                            let _ = writer.flush().await;
+                            continue;
+                        }
+                    }
+
                     match &message_router {
                         Some(engine) => {
                             if message.is_empty() {
@@ -2407,6 +2526,9 @@ impl Daemon {
                 }
 
                 "chat_poll" => {
+                    // NOTE: task_id is a daemon-internal UUID returned only to the originating
+                    // client. No agent reference is stored, so tenancy check requires tracking
+                    // which user initiated the task. Low risk since UUIDs are unguessable.
                     let task_id = request
                         .get("task_id")
                         .and_then(|v| v.as_str())
@@ -3541,25 +3663,29 @@ impl Daemon {
                     });
                     match agent_registry.list(parent_filter, status).await {
                         Ok(agents) => {
-                            // Build set of allowed agent IDs (company agents + all their descendants).
+                            // Build set of allowed agent IDs (company agents + ALL descendants at any depth).
                             let filtered_agents = if allowed_companies.is_some() {
-                                // Find IDs of company agents the user owns.
                                 let company_ids: std::collections::HashSet<String> = agents
                                     .iter()
                                     .filter(|a| a.template == "company" && is_allowed(&a.name))
                                     .map(|a| a.id.clone())
                                     .collect();
-                                // Include company agents + agents whose parent is a company agent.
-                                agents
-                                    .into_iter()
-                                    .filter(|a| {
-                                        company_ids.contains(&a.id)
-                                            || a.parent_id
-                                                .as_ref()
-                                                .map(|pid| company_ids.contains(pid))
-                                                .unwrap_or(false)
-                                    })
-                                    .collect::<Vec<_>>()
+                                // Iteratively expand: include agents whose parent is already allowed.
+                                let mut allowed_ids = company_ids.clone();
+                                loop {
+                                    let before = allowed_ids.len();
+                                    for a in &agents {
+                                        if !allowed_ids.contains(&a.id) {
+                                            if let Some(pid) = &a.parent_id {
+                                                if allowed_ids.contains(pid) {
+                                                    allowed_ids.insert(a.id.clone());
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if allowed_ids.len() == before { break; }
+                                }
+                                agents.into_iter().filter(|a| allowed_ids.contains(&a.id)).collect::<Vec<_>>()
                             } else {
                                 agents
                             };
@@ -3667,6 +3793,8 @@ impl Daemon {
                     let status_str = request.get("status").and_then(|v| v.as_str()).unwrap_or("");
                     if name.is_empty() || status_str.is_empty() {
                         serde_json::json!({"ok": false, "error": "name and status required"})
+                    } else if allowed_companies.is_some() && !is_allowed(name) {
+                        serde_json::json!({"ok": false, "error": "access denied"})
                     } else {
                         let status = match status_str {
                             "active" => Some(crate::agent_registry::AgentStatus::Active),
@@ -3767,17 +3895,21 @@ impl Daemon {
                     let status = request_field(&request, "status");
                     match agent_registry.list_approvals(status).await {
                         Ok(approvals) => {
-                            // Tenancy filter: only show approvals for allowed agents.
+                            // Tenancy filter: build allowed agent ID set, then filter.
                             let approvals: Vec<serde_json::Value> = if allowed_companies.is_some() {
-                                approvals
-                                    .into_iter()
-                                    .filter(|a| {
-                                        a.get("agent_id")
-                                            .and_then(|v| v.as_str())
-                                            .map(&is_allowed)
-                                            .unwrap_or(false)
-                                    })
-                                    .collect()
+                                // Get all agents belonging to allowed companies.
+                                let all_agents = agent_registry.list(None, None).await.unwrap_or_default();
+                                let company_ids: std::collections::HashSet<String> = all_agents.iter()
+                                    .filter(|a| a.template == "company" && is_allowed(&a.name))
+                                    .map(|a| a.id.clone()).collect();
+                                let allowed_ids: std::collections::HashSet<String> = all_agents.iter()
+                                    .filter(|a| company_ids.contains(&a.id)
+                                        || a.parent_id.as_ref().map(|p| company_ids.contains(p)).unwrap_or(false))
+                                    .map(|a| a.id.clone()).collect();
+                                approvals.into_iter().filter(|a| {
+                                    a.get("agent_id").and_then(|v| v.as_str())
+                                        .map(|id| allowed_ids.contains(id)).unwrap_or(false)
+                                }).collect()
                             } else {
                                 approvals
                             };
@@ -3795,6 +3927,27 @@ impl Daemon {
 
                     if approval_id.is_empty() || status.is_empty() || decided_by.is_empty() {
                         serde_json::json!({"ok": false, "error": "approval_id, status, and decided_by are required"})
+                    } else if allowed_companies.is_some() {
+                        // Verify the approval's agent belongs to user.
+                        // Look up pending approvals and find matching ID.
+                        let ok = match agent_registry.list_approvals(None).await {
+                            Ok(list) => {
+                                let matching = list.iter().find(|a| a.get("id").and_then(|v| v.as_str()) == Some(approval_id));
+                                match matching.and_then(|a| a.get("agent_id")).and_then(|v| v.as_str()) {
+                                    Some(aid) => check_agent_access(&agent_registry, &allowed_companies, aid).await,
+                                    None => false,
+                                }
+                            }
+                            _ => false,
+                        };
+                        if !ok {
+                            serde_json::json!({"ok": false, "error": "access denied"})
+                        } else {
+                            match agent_registry.resolve_approval(approval_id, status, decided_by, note).await {
+                                Ok(()) => serde_json::json!({"ok": true}),
+                                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                            }
+                        }
                     } else {
                         match agent_registry
                             .resolve_approval(approval_id, status, decided_by, note)
@@ -3813,19 +3966,18 @@ impl Daemon {
                         if hint.is_empty() {
                             serde_json::json!({"ok": false, "error": "agent_id is required"})
                         } else {
-                            // Tenancy filter: verify the agent hint is allowed.
-                            if allowed_companies.is_some() && !is_allowed(hint) {
+                            // Resolve hint to agent UUID first, THEN check tenancy.
+                            let resolved_id = if hint.len() == 36 && hint.contains('-') {
+                                hint.to_string()
+                            } else {
+                                match agent_registry.resolve_by_hint(hint).await {
+                                    Ok(Some(agent)) => agent.id,
+                                    _ => hint.to_string(),
+                                }
+                            };
+                            if !check_agent_access(&agent_registry, &allowed_companies, &resolved_id).await {
                                 serde_json::json!({"ok": false, "error": "access denied"})
                             } else {
-                                // Resolve hint to agent UUID if needed.
-                                let resolved_id = if hint.len() == 36 && hint.contains('-') {
-                                    hint.to_string()
-                                } else {
-                                    match agent_registry.resolve_by_hint(hint).await {
-                                        Ok(Some(agent)) => agent.id,
-                                        _ => hint.to_string(),
-                                    }
-                                };
                                 match ss.list_sessions(Some(&resolved_id), 100).await {
                                     Ok(sessions) => {
                                         serde_json::json!({"ok": true, "sessions": sessions})
@@ -3847,11 +3999,12 @@ impl Daemon {
                     let limit =
                         request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
-                    // Tenancy filter: when scoped, require agent_id or return empty.
+                    // Tenancy filter: when scoped, require agent_id and verify ownership.
                     if allowed_companies.is_some() && agent_id.is_none() {
                         serde_json::json!({"ok": true, "sessions": []})
                     } else if allowed_companies.is_some()
-                        && agent_id.as_deref().map(|a| !is_allowed(a)).unwrap_or(false)
+                        && agent_id.as_deref().is_some()
+                        && !check_agent_access(&agent_registry, &allowed_companies, agent_id.as_deref().unwrap()).await
                     {
                         serde_json::json!({"ok": false, "error": "access denied"})
                     } else if let Some(ref ss) = ipc_ctx.session_store {
@@ -3871,6 +4024,8 @@ impl Daemon {
                         let agent_id = request_field(&request, "agent_id").unwrap_or("");
                         if agent_id.is_empty() {
                             serde_json::json!({"ok": false, "error": "agent_id is required"})
+                        } else if !check_agent_access(&agent_registry, &allowed_companies, agent_id).await {
+                            serde_json::json!({"ok": false, "error": "access denied"})
                         } else {
                             match ss
                                 .create_session(
@@ -3897,6 +4052,26 @@ impl Daemon {
                     let session_id = request_field(&request, "session_id").unwrap_or("");
                     if session_id.is_empty() {
                         serde_json::json!({"ok": false, "error": "session_id is required"})
+                    } else if allowed_companies.is_some() {
+                        // Verify session ownership via its agent.
+                        let ok = if let Some(ref ss) = ipc_ctx.session_store {
+                            match ss.get_session(session_id).await {
+                                Ok(Some(s)) => match s.agent_id.as_deref() {
+                                    Some(aid) => check_agent_access(&agent_registry, &allowed_companies, aid).await,
+                                    None => false,
+                                },
+                                _ => false,
+                            }
+                        } else { false };
+                        if !ok {
+                            serde_json::json!({"ok": false, "error": "access denied"})
+                        } else {
+                            let was_running = session_manager.close(session_id).await;
+                            let db_closed = if let Some(ref ss) = ipc_ctx.session_store {
+                                ss.close_session(session_id).await.is_ok()
+                            } else { false };
+                            serde_json::json!({"ok": true, "was_running": was_running, "db_closed": db_closed})
+                        }
                     } else {
                         // Stop the running session (drops input channel → agent exits).
                         let was_running = session_manager.close(session_id).await;
@@ -3924,11 +4099,10 @@ impl Daemon {
                         // Tenancy filter: verify the session's agent belongs to an allowed company.
                         if allowed_companies.is_some() {
                             let session_ok = match ss.get_session(session_id).await {
-                                Ok(Some(session)) => session
-                                    .agent_id
-                                    .as_deref()
-                                    .map(&is_allowed)
-                                    .unwrap_or(false),
+                                Ok(Some(session)) => match session.agent_id.as_deref() {
+                                    Some(aid) => check_agent_access(&agent_registry, &allowed_companies, aid).await,
+                                    None => false,
+                                },
                                 _ => false,
                             };
                             if !session_ok {
@@ -3975,6 +4149,22 @@ impl Daemon {
                 "session_children" => {
                     if let Some(ref ss) = ipc_ctx.session_store {
                         let session_id = request_field(&request, "session_id").unwrap_or("");
+                        // Tenancy check: verify session belongs to an allowed agent.
+                        if allowed_companies.is_some() {
+                            let ok = match ss.get_session(session_id).await {
+                                Ok(Some(s)) => match s.agent_id.as_deref() {
+                                    Some(aid) => check_agent_access(&agent_registry, &allowed_companies, aid).await,
+                                    None => false,
+                                },
+                                _ => false,
+                            };
+                            if !ok {
+                                let _ = writer.write_all(serde_json::json!({"ok": false, "error": "access denied"}).to_string().as_bytes()).await;
+                                let _ = writer.write_all(b"\n").await;
+                                let _ = writer.flush().await;
+                                continue;
+                            }
+                        }
                         match ss.list_children(session_id).await {
                             Ok(children) => serde_json::json!({"ok": true, "sessions": children}),
                             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -3998,8 +4188,23 @@ impl Daemon {
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
 
+                    // Tenancy check: verify agent belongs to allowed company.
+                    let send_allowed = if allowed_companies.is_none() {
+                        true
+                    } else if let Some(ref aid) = agent_id_direct {
+                        check_agent_access(&agent_registry, &allowed_companies, aid).await
+                    } else {
+                        // Resolve agent hint to UUID, then check.
+                        match agent_registry.resolve_by_hint(&agent_hint).await {
+                            Ok(Some(agent)) => check_agent_access(&agent_registry, &allowed_companies, &agent.id).await,
+                            _ => false,
+                        }
+                    };
+
                     if message.is_empty() {
                         serde_json::json!({"ok": false, "error": "message is required"})
+                    } else if !send_allowed {
+                        serde_json::json!({"ok": false, "error": "access denied"})
                     } else {
                         let chat_id = request
                             .get("chat_id")

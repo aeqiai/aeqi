@@ -21,27 +21,53 @@ pub async fn handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     // Validate token from query param, dispatching by auth mode.
+    // Also resolve user's companies for tenant scoping when in Accounts mode.
+    let mut user_companies: Option<Vec<String>> = None;
+
     match state.auth_mode {
         AuthMode::None => { /* allow without validation */ }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");
-            if auth::validate_token(token, secret).is_err() {
-                return axum::response::IntoResponse::into_response((
-                    axum::http::StatusCode::UNAUTHORIZED,
-                    "invalid or missing token",
-                ));
+            match auth::validate_token(token, secret) {
+                Ok(claims) => {
+                    // Resolve user's companies for tenant scoping.
+                    if let Some(accounts) = &state.accounts {
+                        let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+                        user_companies = accounts
+                            .get_user_by_id(user_id)
+                            .ok()
+                            .flatten()
+                            .and_then(|u| u.companies);
+                    }
+                }
+                Err(_) => {
+                    return axum::response::IntoResponse::into_response((
+                        axum::http::StatusCode::UNAUTHORIZED,
+                        "invalid or missing token",
+                    ));
+                }
             }
         }
     }
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    ws.on_upgrade(move |socket| handle_socket(socket, state, user_companies))
 }
 
-async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState) {
+async fn handle_socket(
+    mut socket: axum::extract::ws::WebSocket,
+    state: AppState,
+    user_companies: Option<Vec<String>>,
+) {
     use axum::extract::ws::Message;
 
     info!("WebSocket client connected");
+
+    // Build a reusable scope params object for IPC calls.
+    let scope_params: serde_json::Value = match &user_companies {
+        Some(companies) => serde_json::json!({"allowed_companies": companies}),
+        None => serde_json::json!({}),
+    };
 
     let poll_interval = std::time::Duration::from_secs(5);
     let mut interval = tokio::time::interval(poll_interval);
@@ -51,8 +77,8 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
         tokio::select! {
             _ = interval.tick() => {
                 // Poll daemon for status + worker progress.
-                let status = state.ipc.cmd("status").await;
-                let workers = state.ipc.cmd("worker_progress").await;
+                let status = state.ipc.cmd_with("status", scope_params.clone()).await;
+                let workers = state.ipc.cmd_with("worker_progress", scope_params.clone()).await;
                 let msg = match (status, workers) {
                     (Ok(data), Ok(wp)) => serde_json::json!({
                         "event": "status",
@@ -70,10 +96,13 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
                 }
 
                 // Poll and forward real-time worker execution events.
-                let worker_req = match worker_cursor {
+                let mut worker_req = match worker_cursor {
                     Some(cursor) => serde_json::json!({"cursor": cursor}),
                     None => serde_json::json!({}),
                 };
+                if let Some(ref companies) = user_companies {
+                    worker_req["allowed_companies"] = serde_json::json!(companies);
+                }
                 if let Ok(events_resp) = state.ipc.cmd_with("worker_events", worker_req).await {
                     if let Some(next_cursor) = events_resp.get("next_cursor").and_then(|v| v.as_u64()) {
                         worker_cursor = Some(next_cursor);
@@ -107,9 +136,12 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
             msg = socket.recv() => {
                 match msg {
                     Some(Ok(Message::Text(text))) => {
-                        // Handle client requests.
-                        if let Ok(req) = serde_json::from_str::<serde_json::Value>(&text) {
-                            let cmd = req.get("cmd").and_then(|v| v.as_str()).unwrap_or("");
+                        // Handle client requests — inject tenant scope before forwarding.
+                        if let Ok(mut req) = serde_json::from_str::<serde_json::Value>(&text) {
+                            let cmd = req.get("cmd").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            if let Some(ref companies) = user_companies {
+                                req["allowed_companies"] = serde_json::json!(companies);
+                            }
                             let result = state.ipc.request(&req).await;
                             let resp = match result {
                                 Ok(data) => serde_json::json!({"event": cmd, "data": data}),

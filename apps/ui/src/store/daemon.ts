@@ -19,6 +19,7 @@ interface DaemonState {
   workerEvents: WorkerEvent[];
   wsConnected: boolean;
   loading: boolean;
+  initialLoaded: boolean;
 
   fetchStatus: () => Promise<void>;
   fetchDashboard: () => Promise<void>;
@@ -41,6 +42,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   workerEvents: [],
   wsConnected: false,
   loading: false,
+  initialLoaded: false,
 
   fetchStatus: async () => {
     try {
@@ -101,6 +103,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       s.fetchEvents(),
       s.fetchCost(),
     ]);
+    set({ initialLoaded: true });
   },
 
   pushWorkerEvent: (event: WorkerEvent) => {

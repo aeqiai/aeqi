@@ -1654,6 +1654,17 @@ impl AgentRegistry {
     }
 
     /// Update the agent_id link for a company.
+    /// Update mutable fields on a company (display_name, tagline, logo_url).
+    pub async fn update_company(&self, name: &str, display_name: Option<&str>, tagline: Option<&str>, logo_url: Option<&str>) -> Result<()> {
+        let db = self.db.lock().await;
+        let now = chrono::Utc::now().to_rfc3339();
+        db.execute(
+            "UPDATE companies SET display_name = COALESCE(?1, display_name), tagline = COALESCE(?2, tagline), logo_url = COALESCE(?3, logo_url), updated_at = ?4 WHERE name = ?5",
+            rusqlite::params![display_name, tagline, logo_url, now, name],
+        )?;
+        Ok(())
+    }
+
     pub async fn update_company_agent_id(&self, name: &str, agent_id: &str) -> Result<()> {
         let db = self.db.lock().await;
         db.execute(

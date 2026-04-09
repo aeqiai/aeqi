@@ -1,7 +1,17 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
+import { useUIStore } from "@/store/ui";
+import { clearSessionData } from "@/lib/session";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
+
+/** Set the active company from a server response into both localStorage and Zustand. */
+function applyCompany(companies?: string[], explicit?: string) {
+  const name = explicit || (companies && companies.length > 0 ? companies[0] : null);
+  if (name) {
+    useUIStore.getState().setActiveCompany(name);
+  }
+}
 
 interface User {
   id: string;
@@ -31,6 +41,7 @@ interface AuthState {
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
   verify2fa: (email: string, code: string) => Promise<boolean>;
+  verifyTotp: (email: string, code: string) => Promise<boolean>;
   resend2fa: (email: string) => Promise<boolean>;
   pending2faEmail: string | null;
   handleOAuthCallback: (token: string) => void;
@@ -65,6 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           const loginResp = await api.login("");
           if (loginResp.ok && loginResp.token) {
+            clearSessionData();
             localStorage.setItem("aeqi_token", loginResp.token);
             set({ token: loginResp.token });
           }
@@ -82,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const resp = await api.login(secret);
       if (resp.ok && resp.token) {
+        clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, loading: false });
         return true;
@@ -109,8 +122,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return "2fa";
       }
       if (resp.ok && resp.token) {
+        clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
+        const user = (resp.user as User | undefined) || null;
+        set({ token: resp.token, user, loading: false });
+        applyCompany(user?.companies);
         return "ok";
       }
       set({ loading: false, error: "Invalid email or password" });
@@ -118,7 +134,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Login failed";
       if (msg.includes("not verified")) {
-        localStorage.removeItem("aeqi_token");
+        clearSessionData();
         localStorage.setItem("aeqi_pending_email", email);
         set({ token: null, loading: false, pendingEmail: email });
         return "unverified";
@@ -131,9 +147,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async (email: string, password: string, name: string, inviteCode?: string) => {
     set({ loading: true, error: null });
     try {
+      clearSessionData();
       const resp = await api.signup(email, password, name, inviteCode);
+      // Backend auto-creates a company (named after user's first name) + agent on signup.
+      const company = (resp as Record<string, unknown>).company as string | undefined;
       if (resp.ok && resp.pending_verification) {
-        // Save token so user can onboard while unverified.
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
           localStorage.setItem("aeqi_pending_email", email);
@@ -141,11 +159,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } else {
           set({ loading: false, pendingEmail: email });
         }
+        applyCompany(undefined, company);
         return "pending";
       }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
+        applyCompany(undefined, company);
         return "verified";
       }
       set({ loading: false, error: "Signup failed" });
@@ -163,7 +183,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.verifyEmail(email, code);
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pendingEmail: null });
+        const user = (resp.user as User | undefined) || null;
+        set({ token: resp.token, user, loading: false, pendingEmail: null });
+        // Company was already set during signup — don't wipe it.
+        // If user object has companies, ensure one is selected.
+        if (user?.companies) applyCompany(user.companies);
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
@@ -189,8 +213,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const resp = await api.verify2fa(email, code);
       if (resp.ok && resp.token) {
+        clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
-        set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pending2faEmail: null });
+        const user = (resp.user as User | undefined) || null;
+        set({ token: resp.token, user, loading: false, pending2faEmail: null });
+        applyCompany(user?.companies);
+        return true;
+      }
+      set({ loading: false, error: "Invalid or expired code" });
+      return false;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Verification failed";
+      set({ loading: false, error: msg });
+      return false;
+    }
+  },
+
+  verifyTotp: async (email: string, code: string) => {
+    set({ loading: true, error: null });
+    try {
+      const resp = await api.loginTotp(email, code);
+      if ((resp as Record<string, unknown>).ok && (resp as Record<string, unknown>).token) {
+        clearSessionData();
+        localStorage.setItem("aeqi_token", (resp as Record<string, unknown>).token as string);
+        const user = ((resp as Record<string, unknown>).user as User | undefined) || null;
+        set({ token: (resp as Record<string, unknown>).token as string, user, loading: false, pending2faEmail: null });
+        applyCompany(user?.companies);
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
@@ -212,8 +260,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   handleOAuthCallback: (token: string) => {
+    clearSessionData();
     localStorage.setItem("aeqi_token", token);
     set({ token });
+    // Fetch user profile to get companies — OAuth doesn't return user inline.
+    get().fetchMe().then(() => {
+      const user = get().user;
+      if (user?.companies) applyCompany(user.companies);
+    });
   },
 
   fetchMe: async () => {
@@ -226,13 +280,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    localStorage.removeItem("aeqi_token");
+    clearSessionData();
     localStorage.removeItem("aeqi_auth_mode");
-    localStorage.removeItem("aeqi_pending_email");
-    localStorage.removeItem("aeqi_company");
-    localStorage.removeItem("aeqi_company_tagline");
-    localStorage.removeItem("aeqi_company_avatar");
-    set({ token: null, user: null, pendingEmail: null, authMode: null, authModeLoaded: false });
+    useUIStore.getState().setActiveCompany("");
+    set({ token: null, user: null, pendingEmail: null, pending2faEmail: null, authMode: null, authModeLoaded: false });
   },
 
   isAuthenticated: () => {

@@ -1,7 +1,10 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
+import { useDaemonStore } from "@/store/daemon";
+import { api } from "@/lib/api";
 import BlockAvatar from "@/components/BlockAvatar";
+import DashboardHome from "@/components/DashboardHome";
 import "@/styles/welcome.css";
 
 // Same SVGs as sidebar
@@ -32,6 +35,8 @@ export default function WelcomePage() {
   const navigate = useNavigate();
   const activeCompany = useUIStore((s) => s.activeCompany);
   const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const agents = useDaemonStore((s) => s.agents);
+  const initialLoaded = useDaemonStore((s) => s.initialLoaded);
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(activeCompany);
@@ -46,17 +51,38 @@ export default function WelcomePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveName = () => {
-    if (nameDraft.trim()) setActiveCompany(nameDraft.trim());
+    const val = nameDraft.trim();
+    if (val && activeCompany) {
+      api.updateCompany(activeCompany, { display_name: val }).catch(() => {});
+    }
     setEditingName(false);
   };
   const saveTagline = () => {
     const val = taglineDraft.trim() || "The agent runtime.";
     setTagline(val);
     localStorage.setItem("aeqi_company_tagline", val);
+    if (activeCompany) {
+      api.updateCompany(activeCompany, { tagline: val }).catch(() => {});
+    }
     setEditingTagline(false);
   };
 
   const displayName = activeCompany || "aeqi";
+
+  // Wait for initial data before deciding which view to show
+  if (!initialLoaded) {
+    return (
+      <div className="welcome" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100%" }}>
+        <div style={{ width: 24, height: 24, border: "2px solid rgba(0,0,0,0.08)", borderTopColor: "rgba(0,0,0,0.4)", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Company has agents — show the dashboard
+  if (agents.length > 0) {
+    return <DashboardHome />;
+  }
 
   return (
     <div className="welcome">
@@ -137,7 +163,7 @@ export default function WelcomePage() {
           </div>
         </div>
 
-        {/* Getting started banner — show when no agents and no quests */}
+        {/* Getting started banner */}
         <div style={{
           padding: "16px 20px",
           background: "rgba(0,0,0,0.02)",

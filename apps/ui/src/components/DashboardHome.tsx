@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { runtimeLabel } from "@/lib/runtime";
@@ -25,10 +24,7 @@ export default function DashboardHome() {
   const agents = useDaemonStore((s) => s.agents);
   const cost = useDaemonStore((s) => s.cost);
   const events = useDaemonStore((s) => s.events);
-  const fetchAll = useDaemonStore((s) => s.fetchAll);
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const activeQuests = quests.filter((q) => q.status === "in_progress");
   const blockedQuests = quests.filter((q) => q.status === "blocked");

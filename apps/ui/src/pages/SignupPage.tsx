@@ -161,6 +161,7 @@ export default function SignupPage() {
             <input className="auth-input" type="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
             <button className="auth-btn-primary" type="submit" disabled={!email.trim() || loading}>Join waitlist</button>
           </form>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginTop: 8 }}>Early supporters get 10% off their first month.</p>
           <p className="auth-switch" >
             Have an invite code? <a href="#" onClick={(e) => { e.preventDefault(); switchToSignup(); }}>Sign up</a>
           </p>

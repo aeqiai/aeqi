@@ -1,3 +1,6 @@
+import { clearSessionData } from "@/lib/session";
+import { useUIStore } from "@/store/ui";
+
 // NOTE: HTTPS enforcement should be done at the reverse proxy layer (nginx/caddy),
 // not in this client-side code. Ensure your deployment terminates TLS upstream.
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
@@ -32,16 +35,12 @@ async function parseResponseBody(res: Response): Promise<unknown> {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const token = getToken();
-  const company = localStorage.getItem("aeqi_company");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-  }
-  if (company && !path.startsWith("/auth/")) {
-    headers["X-Company"] = company;
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -51,15 +50,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     // Don't redirect for auth mode check or if mode is "none".
     const authMode = localStorage.getItem("aeqi_auth_mode");
     if (authMode !== "none" && !path.startsWith("/auth/")) {
-      localStorage.removeItem("aeqi_token");
+      clearSessionData();
       localStorage.removeItem("aeqi_auth_mode");
-      localStorage.removeItem("aeqi_pending_email");
-      localStorage.removeItem("aeqi_company");
-      localStorage.removeItem("aeqi_company_tagline");
-      localStorage.removeItem("aeqi_company_avatar");
       window.location.href = "/login";
     }
     throw new ApiError(401, "Unauthorized");
+  }
+
+  // If company access denied, clear stale company selection in both localStorage and Zustand.
+  if (res.status === 403 && !path.startsWith("/auth/")) {
+    localStorage.removeItem("aeqi_company");
+    localStorage.removeItem("aeqi_company_tagline");
+    localStorage.removeItem("aeqi_company_avatar");
+    useUIStore.getState().setActiveCompany("");
   }
 
   if (!res.ok) {
@@ -217,6 +220,8 @@ export const api = {
   getCompanies: () => request<Record<string, unknown>>("/companies"),
   createCompany: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
+  updateCompany: (name: string, data: { display_name?: string; tagline?: string; logo_url?: string }) =>
+    request<{ ok: boolean }>(`/companies/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(data) }),
 
   // Quests
   getTasks: (params?: { status?: string; company?: string }) => {

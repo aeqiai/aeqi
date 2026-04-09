@@ -15,6 +15,12 @@ import QuestsPage from "@/pages/QuestsPage";
 import InsightsPage from "@/pages/InsightsPage";
 import EntitiesPage from "@/pages/EntitiesPage";
 import SettingsPage from "@/pages/SettingsPage";
+import CompanyPage from "@/pages/CompanyPage";
+import TreasuryPage from "@/pages/TreasuryPage";
+import DrivePage from "@/pages/DrivePage";
+import AppsPage from "@/pages/AppsPage";
+import MarketPage from "@/pages/MarketPage";
+import SessionsPage from "@/pages/SessionsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const authMode = useAuthStore((s) => s.authMode);
@@ -62,7 +68,13 @@ export default function App() {
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="insights" element={<InsightsPage />} />
+        <Route path="company" element={<CompanyPage />} />
         <Route path="companies" element={<EntitiesPage />} />
+        <Route path="treasury" element={<TreasuryPage />} />
+        <Route path="drive" element={<DrivePage />} />
+        <Route path="apps" element={<AppsPage />} />
+        <Route path="market" element={<MarketPage />} />
+        <Route path="sessions" element={<SessionsPage />} />
         <Route path="account" element={<SettingsPage />} />
         <Route path="settings" element={<Navigate to="/account" replace />} />
       </Route>

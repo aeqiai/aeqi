@@ -2,12 +2,14 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
+import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
 import "@/styles/welcome.css";
 
 export default function NewWorkspacePage() {
   const navigate = useNavigate();
   const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
 
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -26,7 +28,9 @@ export default function NewWorkspacePage() {
         tagline: tagline.trim() || undefined,
       });
       setActiveCompany(name.trim());
-      navigate("/agents");
+      // Backend auto-creates an agent for the company — fetch it immediately
+      await fetchAgents();
+      navigate("/");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create company");
       setCreating(false);
