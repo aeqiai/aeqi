@@ -311,10 +311,7 @@ impl SessionSandbox {
             .context("failed to git add")?;
 
         if !add.status.success() {
-            bail!(
-                "git add failed: {}",
-                String::from_utf8_lossy(&add.stderr)
-            );
+            bail!("git add failed: {}", String::from_utf8_lossy(&add.stderr));
         }
 
         // Check if there's anything to commit.
@@ -420,10 +417,7 @@ impl SessionSandbox {
 
     /// Tear down: remove worktree and delete the session branch.
     pub async fn teardown(&self) -> Result<()> {
-        if self
-            .torn_down
-            .swap(true, Ordering::Relaxed)
-        {
+        if self.torn_down.swap(true, Ordering::Relaxed) {
             // Already torn down.
             return Ok(());
         }
@@ -544,14 +538,8 @@ mod tests {
             parse_diff_stat(" 3 files changed, 42 insertions(+), 10 deletions(-)"),
             (42, 10)
         );
-        assert_eq!(
-            parse_diff_stat(" 1 file changed, 5 insertions(+)"),
-            (5, 0)
-        );
-        assert_eq!(
-            parse_diff_stat(" 1 file changed, 3 deletions(-)"),
-            (0, 3)
-        );
+        assert_eq!(parse_diff_stat(" 1 file changed, 5 insertions(+)"), (5, 0));
+        assert_eq!(parse_diff_stat(" 1 file changed, 3 deletions(-)"), (0, 3));
         assert_eq!(parse_diff_stat(""), (0, 0));
     }
 

@@ -76,12 +76,8 @@ pub async fn allowed_agent_ids(
     loop {
         let before = ids.len();
         for a in &all_agents {
-            if !ids.contains(&a.id) {
-                if let Some(pid) = &a.parent_id {
-                    if ids.contains(pid) {
-                        ids.insert(a.id.clone());
-                    }
-                }
+            if !ids.contains(&a.id) && a.parent_id.as_ref().is_some_and(|pid| ids.contains(pid)) {
+                ids.insert(a.id.clone());
             }
         }
         if ids.len() == before {

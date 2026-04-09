@@ -48,7 +48,10 @@ impl ManagedProvider {
         if let Some((key, value)) = self.auth_header() {
             req = req.header(key, value);
         }
-        let resp = req.send().await.context("managed provider request failed")?;
+        let resp = req
+            .send()
+            .await
+            .context("managed provider request failed")?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -62,7 +65,10 @@ impl ManagedProvider {
         if let Some((key, value)) = self.auth_header() {
             req = req.header(key, value);
         }
-        let resp = req.send().await.context("managed provider request failed")?;
+        let resp = req
+            .send()
+            .await
+            .context("managed provider request failed")?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -76,7 +82,10 @@ impl ManagedProvider {
         if let Some((key, value)) = self.auth_header() {
             req = req.header(key, value);
         }
-        let resp = req.send().await.context("managed provider request failed")?;
+        let resp = req
+            .send()
+            .await
+            .context("managed provider request failed")?;
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -107,10 +116,7 @@ impl HostingProvider for ManagedProvider {
     async fn restart_app(&self, app_id: &str) -> Result<()> {
         let _: serde_json::Value = self
             .post(
-                &format!(
-                    "/api/hosting/apps/{}/restart",
-                    urlencoding::encode(app_id)
-                ),
+                &format!("/api/hosting/apps/{}/restart", urlencoding::encode(app_id)),
                 &(),
             )
             .await?;

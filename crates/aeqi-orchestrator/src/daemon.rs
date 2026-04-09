@@ -1275,8 +1275,12 @@ impl Daemon {
             // Commands that use `name` to identify an agent (which maps to company name).
             if allowed_companies.is_some() {
                 let name_field = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let needs_name_check = matches!(cmd, "save_agent_file" | "agent_identity" | "agent_info");
-                if needs_name_check && !name_field.is_empty() && !crate::ipc::tenancy::is_allowed(&allowed_companies, name_field) {
+                let needs_name_check =
+                    matches!(cmd, "save_agent_file" | "agent_identity" | "agent_info");
+                if needs_name_check
+                    && !name_field.is_empty()
+                    && !crate::ipc::tenancy::is_allowed(&allowed_companies, name_field)
+                {
                     let denied = serde_json::json!({"ok": false, "error": "access denied"});
                     let _ = writer.write_all(denied.to_string().as_bytes()).await;
                     let _ = writer.write_all(b"\n").await;
@@ -1305,78 +1309,217 @@ impl Daemon {
 
             let response = match cmd {
                 "ping" => crate::ipc::status::handle_ping(&ctx, &request, &allowed_companies).await,
-                "status" => crate::ipc::status::handle_status(&ctx, &request, &allowed_companies).await,
-                "readiness" => crate::ipc::status::handle_readiness(&ctx, &request, &allowed_companies, &readiness).await,
+                "status" => {
+                    crate::ipc::status::handle_status(&ctx, &request, &allowed_companies).await
+                }
+                "readiness" => {
+                    crate::ipc::status::handle_readiness(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                        &readiness,
+                    )
+                    .await
+                }
 
-                "worker_progress" => crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_companies).await,
-                "worker_events" => crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_companies).await,
-                "companies" => crate::ipc::companies::handle_companies(&ctx, &request, &allowed_companies).await,
+                "worker_progress" => {
+                    crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "worker_events" => {
+                    crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "companies" => {
+                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
-                "create_company" => crate::ipc::companies::handle_create_company(&ctx, &request, &allowed_companies).await,
-                "update_company" => crate::ipc::companies::handle_update_company(&ctx, &request, &allowed_companies).await,
+                "create_company" => {
+                    crate::ipc::companies::handle_create_company(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "update_company" => {
+                    crate::ipc::companies::handle_update_company(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
                 "mail" => crate::ipc::status::handle_mail(&ctx, &request, &allowed_companies).await,
-                "dispatches" => crate::ipc::status::handle_dispatches(&ctx, &request, &allowed_companies).await,
-                "metrics" => crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await,
+                "dispatches" => {
+                    crate::ipc::status::handle_dispatches(&ctx, &request, &allowed_companies).await
+                }
+                "metrics" => {
+                    crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await
+                }
                 "cost" => crate::ipc::status::handle_cost(&ctx, &request, &allowed_companies).await,
-                "audit" => crate::ipc::status::handle_audit(&ctx, &request, &allowed_companies).await,
-                "expertise" => crate::ipc::status::handle_expertise(&ctx, &request, &allowed_companies).await,
-                "rate_limit" => crate::ipc::status::handle_rate_limit(&ctx, &request, &allowed_companies).await,
-                "skills" => crate::ipc::status::handle_skills(&ctx, &request, &allowed_companies).await,
-                "pipelines" => crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_companies).await,
-                "triggers" => crate::ipc::status::handle_triggers(&ctx, &request, &allowed_companies).await,
-                "webhook_fire" => crate::ipc::status::handle_webhook_fire(&ctx, &request, &allowed_companies).await,
+                "audit" => {
+                    crate::ipc::status::handle_audit(&ctx, &request, &allowed_companies).await
+                }
+                "expertise" => {
+                    crate::ipc::status::handle_expertise(&ctx, &request, &allowed_companies).await
+                }
+                "rate_limit" => {
+                    crate::ipc::status::handle_rate_limit(&ctx, &request, &allowed_companies).await
+                }
+                "skills" => {
+                    crate::ipc::status::handle_skills(&ctx, &request, &allowed_companies).await
+                }
+                "pipelines" => {
+                    crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_companies).await
+                }
+                "triggers" => {
+                    crate::ipc::status::handle_triggers(&ctx, &request, &allowed_companies).await
+                }
+                "webhook_fire" => {
+                    crate::ipc::status::handle_webhook_fire(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
-                "notes" => crate::ipc::notes::handle_notes(&ctx, &request, &allowed_companies).await,
-                "get_notes" => crate::ipc::notes::handle_get_notes(&ctx, &request, &allowed_companies).await,
-                "claim_notes" => crate::ipc::notes::handle_claim_notes(&ctx, &request, &allowed_companies).await,
-                "release_notes" => crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_companies).await,
-                "delete_notes" => crate::ipc::notes::handle_delete_notes(&ctx, &request, &allowed_companies).await,
-                "check_claim" => crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_companies).await,
+                "notes" => {
+                    crate::ipc::notes::handle_notes(&ctx, &request, &allowed_companies).await
+                }
+                "get_notes" => {
+                    crate::ipc::notes::handle_get_notes(&ctx, &request, &allowed_companies).await
+                }
+                "claim_notes" => {
+                    crate::ipc::notes::handle_claim_notes(&ctx, &request, &allowed_companies).await
+                }
+                "release_notes" => {
+                    crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "delete_notes" => {
+                    crate::ipc::notes::handle_delete_notes(&ctx, &request, &allowed_companies).await
+                }
+                "check_claim" => {
+                    crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_companies).await
+                }
 
-                "quests" | "tasks" => crate::ipc::quests::handle_quests(&ctx, &request, &allowed_companies).await,
-                "create_quest" | "create_task" => crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_companies).await,
-                "close_quest" | "close_task" => crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_companies).await,
+                "quests" | "tasks" => {
+                    crate::ipc::quests::handle_quests(&ctx, &request, &allowed_companies).await
+                }
+                "create_quest" | "create_task" => {
+                    crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "close_quest" | "close_task" => {
+                    crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_companies).await
+                }
 
-                "post_notes" => crate::ipc::chat::handle_post_notes(&ctx, &request, &allowed_companies).await,
+                "post_notes" => {
+                    crate::ipc::chat::handle_post_notes(&ctx, &request, &allowed_companies).await
+                }
                 "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_companies).await,
                 "chat_full" => {
-                    match crate::ipc::chat::handle_chat_full(&ctx, &request, &allowed_companies).await {
+                    match crate::ipc::chat::handle_chat_full(&ctx, &request, &allowed_companies)
+                        .await
+                    {
                         Some(resp) => resp,
                         None => {
-                            let _ = writer.write_all(serde_json::json!({"ok": false, "error": "access denied"}).to_string().as_bytes()).await;
+                            let _ = writer
+                                .write_all(
+                                    serde_json::json!({"ok": false, "error": "access denied"})
+                                        .to_string()
+                                        .as_bytes(),
+                                )
+                                .await;
                             let _ = writer.write_all(b"\n").await;
                             let _ = writer.flush().await;
                             continue;
                         }
                     }
                 }
-                "chat_poll" => crate::ipc::chat::handle_chat_poll(&ctx, &request, &allowed_companies).await,
-                "chat_history" => crate::ipc::chat::handle_chat_history(&ctx, &request, &allowed_companies).await,
-                "chat_timeline" => crate::ipc::chat::handle_chat_timeline(&ctx, &request, &allowed_companies).await,
-                "chat_channels" => crate::ipc::chat::handle_chat_channels(&ctx, &request, &allowed_companies).await,
+                "chat_poll" => {
+                    crate::ipc::chat::handle_chat_poll(&ctx, &request, &allowed_companies).await
+                }
+                "chat_history" => {
+                    crate::ipc::chat::handle_chat_history(&ctx, &request, &allowed_companies).await
+                }
+                "chat_timeline" => {
+                    crate::ipc::chat::handle_chat_timeline(&ctx, &request, &allowed_companies).await
+                }
+                "chat_channels" => {
+                    crate::ipc::chat::handle_chat_channels(&ctx, &request, &allowed_companies).await
+                }
 
-                "agents_registry" => crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_companies).await,
-                "agent_children" => crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_companies).await,
-                "agent_spawn" => crate::ipc::agents::handle_agent_spawn(&ctx, &request, &allowed_companies).await,
-                "agent_set_status" => crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_companies).await,
-                "agent_info" => crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_companies).await,
-                "agent_identity" => crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_companies).await,
-                "save_agent_file" => crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_companies).await,
-                "budget_policies" => crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_companies).await,
-                "create_budget_policy" => crate::ipc::agents::handle_create_budget_policy(&ctx, &request, &allowed_companies).await,
-                "approvals" => crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_companies).await,
-                "resolve_approval" => crate::ipc::agents::handle_resolve_approval(&ctx, &request, &allowed_companies).await,
+                "agents_registry" => {
+                    crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "agent_children" => {
+                    crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "agent_spawn" => {
+                    crate::ipc::agents::handle_agent_spawn(&ctx, &request, &allowed_companies).await
+                }
+                "agent_set_status" => {
+                    crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "agent_info" => {
+                    crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_companies).await
+                }
+                "agent_identity" => {
+                    crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "save_agent_file" => {
+                    crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "budget_policies" => {
+                    crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "create_budget_policy" => {
+                    crate::ipc::agents::handle_create_budget_policy(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                    )
+                    .await
+                }
+                "approvals" => {
+                    crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_companies).await
+                }
+                "resolve_approval" => {
+                    crate::ipc::agents::handle_resolve_approval(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
-                "list_sessions" => crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies).await,
-                "sessions" => crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_companies).await,
-                "create_session" => crate::ipc::sessions::handle_create_session(&ctx, &request, &allowed_companies).await,
-                "close_session" => crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_companies).await,
+                "list_sessions" => {
+                    crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "sessions" => {
+                    crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_companies).await
+                }
+                "create_session" => {
+                    crate::ipc::sessions::handle_create_session(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "close_session" => {
+                    crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_companies)
+                        .await
+                }
                 "session_messages" => {
-                    match crate::ipc::sessions::handle_session_messages(&ctx, &request, &allowed_companies).await {
+                    match crate::ipc::sessions::handle_session_messages(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                    )
+                    .await
+                    {
                         Some(resp) => resp,
                         None => {
-                            let _ = writer.write_all(serde_json::json!({"ok": false, "error": "access denied"}).to_string().as_bytes()).await;
+                            let _ = writer
+                                .write_all(
+                                    serde_json::json!({"ok": false, "error": "access denied"})
+                                        .to_string()
+                                        .as_bytes(),
+                                )
+                                .await;
                             let _ = writer.write_all(b"\n").await;
                             let _ = writer.flush().await;
                             continue;
@@ -1384,10 +1527,22 @@ impl Daemon {
                     }
                 }
                 "session_children" => {
-                    match crate::ipc::sessions::handle_session_children(&ctx, &request, &allowed_companies).await {
+                    match crate::ipc::sessions::handle_session_children(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                    )
+                    .await
+                    {
                         Some(resp) => resp,
                         None => {
-                            let _ = writer.write_all(serde_json::json!({"ok": false, "error": "access denied"}).to_string().as_bytes()).await;
+                            let _ = writer
+                                .write_all(
+                                    serde_json::json!({"ok": false, "error": "access denied"})
+                                        .to_string()
+                                        .as_bytes(),
+                                )
+                                .await;
                             let _ = writer.write_all(b"\n").await;
                             let _ = writer.flush().await;
                             continue;
@@ -1414,10 +1569,22 @@ impl Daemon {
                     let send_allowed = if allowed_companies.is_none() {
                         true
                     } else if let Some(ref aid) = agent_id_direct {
-                        crate::ipc::tenancy::check_agent_access(&agent_registry, &allowed_companies, aid).await
+                        crate::ipc::tenancy::check_agent_access(
+                            &agent_registry,
+                            &allowed_companies,
+                            aid,
+                        )
+                        .await
                     } else {
                         match agent_registry.resolve_by_hint(&agent_hint).await {
-                            Ok(Some(agent)) => crate::ipc::tenancy::check_agent_access(&agent_registry, &allowed_companies, &agent.id).await,
+                            Ok(Some(agent)) => {
+                                crate::ipc::tenancy::check_agent_access(
+                                    &agent_registry,
+                                    &allowed_companies,
+                                    &agent.id,
+                                )
+                                .await
+                            }
                             _ => false,
                         }
                     };
@@ -1584,17 +1751,29 @@ impl Daemon {
                                         if let Some(ref cs) = session_store {
                                             if let Some(ref usid) = store_session_id {
                                                 let _ = cs
-                                                    .record_by_session(usid, "assistant", &text, Some("web"))
+                                                    .record_by_session(
+                                                        usid,
+                                                        "assistant",
+                                                        &text,
+                                                        Some("web"),
+                                                    )
                                                     .await;
                                             } else {
                                                 let _ = cs
-                                                    .record_with_source(chat_id, "assistant", &text, Some("web"))
+                                                    .record_with_source(
+                                                        chat_id,
+                                                        "assistant",
+                                                        &text,
+                                                        Some("web"),
+                                                    )
                                                     .await;
                                             }
                                         }
 
                                         let cost_usd = aeqi_providers::estimate_cost(
-                                            &default_model, prompt_tokens, completion_tokens,
+                                            &default_model,
+                                            prompt_tokens,
+                                            completion_tokens,
                                         );
                                         let done = serde_json::json!({
                                             "done": true,
@@ -1606,7 +1785,8 @@ impl Daemon {
                                             "completion_tokens": completion_tokens,
                                             "cost_usd": cost_usd,
                                         });
-                                        let mut bytes = serde_json::to_vec(&done).unwrap_or_default();
+                                        let mut bytes =
+                                            serde_json::to_vec(&done).unwrap_or_default();
                                         bytes.push(b'\n');
                                         let _ = writer.write_all(&bytes).await;
                                         serde_json::Value::Null
@@ -1621,21 +1801,39 @@ impl Daemon {
                                         if let Some(ref cs) = session_store {
                                             if let Some(ref usid) = store_session_id {
                                                 let _ = cs
-                                                    .record_by_session(usid, "assistant", &resp.text, Some("web"))
+                                                    .record_by_session(
+                                                        usid,
+                                                        "assistant",
+                                                        &resp.text,
+                                                        Some("web"),
+                                                    )
                                                     .await;
                                             } else {
                                                 let _ = cs
-                                                    .record_with_source(chat_id, "assistant", &resp.text, Some("web"))
+                                                    .record_with_source(
+                                                        chat_id,
+                                                        "assistant",
+                                                        &resp.text,
+                                                        Some("web"),
+                                                    )
                                                     .await;
                                             }
                                         }
                                         let cost_usd = aeqi_providers::estimate_cost(
-                                            &default_model, resp.prompt_tokens, resp.completion_tokens,
+                                            &default_model,
+                                            resp.prompt_tokens,
+                                            resp.completion_tokens,
                                         );
-                                        let _ = ipc_ctx.event_store.record_cost(
-                                            &agent_hint, &resolved_session_id, &agent_hint,
-                                            cost_usd, resp.iterations,
-                                        ).await;
+                                        let _ = ipc_ctx
+                                            .event_store
+                                            .record_cost(
+                                                &agent_hint,
+                                                &resolved_session_id,
+                                                &agent_hint,
+                                                cost_usd,
+                                                resp.iterations,
+                                            )
+                                            .await;
                                         serde_json::json!({
                                             "ok": true,
                                             "text": resp.text,
@@ -1667,7 +1865,12 @@ impl Daemon {
                             spawn_opts.extra_prompts = extra_prompts;
 
                             match session_manager
-                                .spawn_session(agent_id_or_hint, message, provider.clone(), spawn_opts)
+                                .spawn_session(
+                                    agent_id_or_hint,
+                                    message,
+                                    provider.clone(),
+                                    spawn_opts,
+                                )
                                 .await
                             {
                                 Ok(spawned) => {
@@ -1721,8 +1924,12 @@ impl Daemon {
                                                             });
                                                             let _ = cs
                                                                 .record_event_by_session(
-                                                                    usid, "tool_complete", "system",
-                                                                    tool_name, Some("session"), Some(&meta),
+                                                                    usid,
+                                                                    "tool_complete",
+                                                                    "system",
+                                                                    tool_name,
+                                                                    Some("session"),
+                                                                    Some(&meta),
                                                                 )
                                                                 .await;
                                                         }
@@ -1752,22 +1959,40 @@ impl Daemon {
                                     if let Some(ref cs) = session_store {
                                         if let Some(ref usid) = store_session_id {
                                             let _ = cs
-                                                .record_by_session(usid, "assistant", &text, Some("web"))
+                                                .record_by_session(
+                                                    usid,
+                                                    "assistant",
+                                                    &text,
+                                                    Some("web"),
+                                                )
                                                 .await;
                                         } else {
                                             let _ = cs
-                                                .record_with_source(chat_id, "assistant", &text, Some("web"))
+                                                .record_with_source(
+                                                    chat_id,
+                                                    "assistant",
+                                                    &text,
+                                                    Some("web"),
+                                                )
                                                 .await;
                                         }
                                     }
 
                                     let cost_usd = aeqi_providers::estimate_cost(
-                                        &default_model, prompt_tokens, completion_tokens,
+                                        &default_model,
+                                        prompt_tokens,
+                                        completion_tokens,
                                     );
-                                    let _ = ipc_ctx.event_store.record_cost(
-                                        &agent_hint, &session_id, &agent_hint,
-                                        cost_usd, iterations,
-                                    ).await;
+                                    let _ = ipc_ctx
+                                        .event_store
+                                        .record_cost(
+                                            &agent_hint,
+                                            &session_id,
+                                            &agent_hint,
+                                            cost_usd,
+                                            iterations,
+                                        )
+                                        .await;
 
                                     if stream_mode {
                                         let done = serde_json::json!({
@@ -1810,18 +2035,47 @@ impl Daemon {
                     }
                 }
 
-                "memories" => crate::ipc::memory::handle_memories(&ctx, &request, &allowed_companies).await,
-                "memory_profile" => crate::ipc::memory::handle_memory_profile(&ctx, &request, &allowed_companies).await,
-                "memory_graph" => crate::ipc::memory::handle_memory_graph(&ctx, &request, &allowed_companies).await,
-                "memory_prefix" => crate::ipc::memory::handle_memory_prefix(&ctx, &request, &allowed_companies).await,
-                "company_knowledge" => crate::ipc::memory::handle_company_knowledge(&ctx, &request, &allowed_companies).await,
-                "channel_knowledge" => crate::ipc::memory::handle_channel_knowledge(&ctx, &request, &allowed_companies).await,
-                "knowledge_store" => crate::ipc::memory::handle_knowledge_store(&ctx, &request, &allowed_companies).await,
-                "knowledge_delete" => crate::ipc::memory::handle_knowledge_delete(&ctx, &request, &allowed_companies).await,
+                "memories" => {
+                    crate::ipc::memory::handle_memories(&ctx, &request, &allowed_companies).await
+                }
+                "memory_profile" => {
+                    crate::ipc::memory::handle_memory_profile(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "memory_graph" => {
+                    crate::ipc::memory::handle_memory_graph(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "memory_prefix" => {
+                    crate::ipc::memory::handle_memory_prefix(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "company_knowledge" => {
+                    crate::ipc::memory::handle_company_knowledge(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "channel_knowledge" => {
+                    crate::ipc::memory::handle_channel_knowledge(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "knowledge_store" => {
+                    crate::ipc::memory::handle_knowledge_store(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "knowledge_delete" => {
+                    crate::ipc::memory::handle_knowledge_delete(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
-                "vfs_list" => crate::ipc::vfs::handle_vfs_list(&ctx, &request, &allowed_companies).await,
-                "vfs_read" => crate::ipc::vfs::handle_vfs_read(&ctx, &request, &allowed_companies).await,
-                "vfs_search" => crate::ipc::vfs::handle_vfs_search(&ctx, &request, &allowed_companies).await,
+                "vfs_list" => {
+                    crate::ipc::vfs::handle_vfs_list(&ctx, &request, &allowed_companies).await
+                }
+                "vfs_read" => {
+                    crate::ipc::vfs::handle_vfs_read(&ctx, &request, &allowed_companies).await
+                }
+                "vfs_search" => {
+                    crate::ipc::vfs::handle_vfs_search(&ctx, &request, &allowed_companies).await
+                }
 
                 _ => serde_json::json!({"ok": false, "error": format!("unknown command: {cmd}")}),
             };

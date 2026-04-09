@@ -27,34 +27,34 @@ pub async fn handle_quests(
         .await
     {
         Ok(quests) => {
-            let allowed_agent_ids: Option<std::collections::HashSet<String>> =
-                if allowed.is_some() {
-                    let all_agents = ctx
-                        .agent_registry
-                        .list(None, None)
-                        .await
-                        .unwrap_or_default();
-                    let company_ids: std::collections::HashSet<String> = all_agents
+            let allowed_agent_ids: Option<std::collections::HashSet<String>> = if allowed.is_some()
+            {
+                let all_agents = ctx
+                    .agent_registry
+                    .list(None, None)
+                    .await
+                    .unwrap_or_default();
+                let company_ids: std::collections::HashSet<String> = all_agents
+                    .iter()
+                    .filter(|a| a.template == "company" && is_allowed(allowed, &a.name))
+                    .map(|a| a.id.clone())
+                    .collect();
+                Some(
+                    all_agents
                         .iter()
-                        .filter(|a| a.template == "company" && is_allowed(allowed, &a.name))
+                        .filter(|a| {
+                            company_ids.contains(&a.id)
+                                || a.parent_id
+                                    .as_ref()
+                                    .map(|p| company_ids.contains(p))
+                                    .unwrap_or(false)
+                        })
                         .map(|a| a.id.clone())
-                        .collect();
-                    Some(
-                        all_agents
-                            .iter()
-                            .filter(|a| {
-                                company_ids.contains(&a.id)
-                                    || a.parent_id
-                                        .as_ref()
-                                        .map(|p| company_ids.contains(p))
-                                        .unwrap_or(false)
-                            })
-                            .map(|a| a.id.clone())
-                            .collect(),
-                    )
-                } else {
-                    None
-                };
+                        .collect(),
+                )
+            } else {
+                None
+            };
 
             let all_quests: Vec<serde_json::Value> = quests
                 .iter()
@@ -146,11 +146,7 @@ pub async fn handle_create_quest(
     }
 
     let agent = if let Some(aid) = explicit_agent_id {
-        ctx.agent_registry
-            .resolve_by_hint(aid)
-            .await
-            .ok()
-            .flatten()
+        ctx.agent_registry.resolve_by_hint(aid).await.ok().flatten()
     } else if let Some(name) = agent_name_hint {
         ctx.agent_registry
             .resolve_by_hint(name)
@@ -247,9 +243,7 @@ pub async fn handle_close_quest(
     if allowed.is_some() {
         let ok = match ctx.agent_registry.get_task(quest_id).await {
             Ok(Some(q)) => match q.agent_id.as_deref() {
-                Some(aid) => {
-                    check_agent_access(&ctx.agent_registry, allowed, aid).await
-                }
+                Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
                 None => false,
             },
             _ => false,

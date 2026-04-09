@@ -7,9 +7,7 @@ use std::sync::Mutex;
 use tokio::process::Command;
 use tracing::{info, warn};
 
-use crate::{
-    AppConfig, AppState, AppStatus, Deployment, DomainInfo, HostingProvider, LocalConfig,
-};
+use crate::{AppConfig, AppState, AppStatus, Deployment, DomainInfo, HostingProvider, LocalConfig};
 
 /// Validate a domain name per RFC 1035 / RFC 1123.
 /// Allows alphanumeric, dots, hyphens. Labels must be 1-63 chars, total 1-253 chars.
@@ -197,16 +195,12 @@ impl LocalProvider {
 
     fn service_name(app_name: &str) -> String {
         // app_name is already validated to be [a-zA-Z0-9_-] so this is safe.
-        format!(
-            "aeqi-app-{}",
-            app_name.to_ascii_lowercase()
-        )
+        format!("aeqi-app-{}", app_name.to_ascii_lowercase())
     }
 
     fn generate_systemd_unit(record: &AppRecord, env: &[(String, String)]) -> String {
-        let exec_start = sanitize_systemd_value(
-            record.start_cmd.as_deref().unwrap_or("npx next start"),
-        );
+        let exec_start =
+            sanitize_systemd_value(record.start_cmd.as_deref().unwrap_or("npx next start"));
 
         let hostname_flag = match record.app_type.as_str() {
             "nextjs" | "node" => format!(" --hostname 127.0.0.1 -p {}", record.port),
@@ -460,10 +454,7 @@ server {{
             }
         }
 
-        let output = cmd
-            .output()
-            .await
-            .context("failed to run certbot")?;
+        let output = cmd.output().await.context("failed to run certbot")?;
 
         if output.status.success() {
             // Certbot modifies the nginx config to add SSL. Reload.

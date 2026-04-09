@@ -1,7 +1,7 @@
 //! Agent registry IPC handlers.
 
-use super::tenancy::{check_agent_access, is_allowed};
 use super::request_field;
+use super::tenancy::{check_agent_access, is_allowed};
 
 pub async fn handle_agents_registry(
     ctx: &super::CommandContext,
@@ -33,12 +33,12 @@ pub async fn handle_agents_registry(
                 loop {
                     let before = allowed_ids.len();
                     for a in &agents {
-                        if !allowed_ids.contains(&a.id) {
-                            if let Some(pid) = &a.parent_id {
-                                if allowed_ids.contains(pid) {
-                                    allowed_ids.insert(a.id.clone());
-                                }
-                            }
+                        if !allowed_ids.contains(&a.id)
+                            && a.parent_id
+                                .as_ref()
+                                .is_some_and(|pid| allowed_ids.contains(pid))
+                        {
+                            allowed_ids.insert(a.id.clone());
                         }
                     }
                     if allowed_ids.len() == before {
@@ -439,9 +439,7 @@ pub async fn handle_resolve_approval(
                     .and_then(|a| a.get("agent_id"))
                     .and_then(|v| v.as_str())
                 {
-                    Some(aid) => {
-                        check_agent_access(&ctx.agent_registry, allowed, aid).await
-                    }
+                    Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
                     None => false,
                 }
             }

@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -24,7 +24,11 @@ struct MemoriesQuery {
     limit: Option<u64>,
 }
 
-async fn memories(State(state): State<AppState>, scope: Scope, Query(q): Query<MemoriesQuery>) -> Response {
+async fn memories(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<MemoriesQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::json!(project);

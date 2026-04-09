@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -20,11 +20,19 @@ pub fn routes() -> Router<AppState> {
         .route("/chat/channels", get(chat_channels))
 }
 
-async fn chat(State(state): State<AppState>, scope: Scope, Json(body): Json<serde_json::Value>) -> Response {
+async fn chat(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
     ipc_proxy(state, scope.as_ref(), "chat", body).await
 }
 
-async fn chat_full(State(state): State<AppState>, scope: Scope, Json(body): Json<serde_json::Value>) -> Response {
+async fn chat_full(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
     ipc_proxy(state, scope.as_ref(), "chat_full", body).await
 }
 
@@ -33,7 +41,13 @@ async fn chat_poll(
     scope: Scope,
     axum::extract::Path(task_id): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "chat_poll", serde_json::json!({"task_id": task_id})).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "chat_poll",
+        serde_json::json!({"task_id": task_id}),
+    )
+    .await
 }
 
 #[derive(Deserialize, Default)]
@@ -98,5 +112,11 @@ async fn chat_timeline(
 }
 
 async fn chat_channels(State(state): State<AppState>, scope: Scope) -> Response {
-    ipc_proxy(state, scope.as_ref(), "chat_channels", serde_json::Value::Null).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "chat_channels",
+        serde_json::Value::Null,
+    )
+    .await
 }

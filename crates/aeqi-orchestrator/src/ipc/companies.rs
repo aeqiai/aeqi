@@ -7,7 +7,11 @@ pub async fn handle_companies(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let companies = ctx.agent_registry.list_companies().await.unwrap_or_default();
+    let companies = ctx
+        .agent_registry
+        .list_companies()
+        .await
+        .unwrap_or_default();
     let companies: Vec<_> = if allowed.is_some() {
         companies
             .into_iter()
@@ -142,10 +146,7 @@ pub async fn handle_create_company(
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "create_company: failed to spawn agent for '{}': {e}",
-                        name
-                    );
+                    tracing::warn!("create_company: failed to spawn agent for '{}': {e}", name);
                 }
             }
             if let Ok(cwd) = std::env::current_dir() {

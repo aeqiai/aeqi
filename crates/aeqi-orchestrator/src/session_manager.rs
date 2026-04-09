@@ -375,19 +375,20 @@ impl SessionManager {
         // The sandbox creates a git worktree as an ephemeral workspace. Shell
         // commands run inside bubblewrap with no network. File tools are scoped
         // to the worktree via their workspace path.
-        let sandbox: Option<Arc<SessionSandbox>> =
-            if let Some(ref sandbox_cfg) = self.sandbox_config {
-                let sandbox_id = uuid::Uuid::new_v4().to_string();
-                match SessionSandbox::create(&sandbox_id, sandbox_cfg).await {
-                    Ok(sb) => Some(Arc::new(sb)),
-                    Err(e) => {
-                        warn!(error = %e, "failed to create session sandbox — falling back to unsandboxed");
-                        None
-                    }
+        let sandbox: Option<Arc<SessionSandbox>> = if let Some(ref sandbox_cfg) =
+            self.sandbox_config
+        {
+            let sandbox_id = uuid::Uuid::new_v4().to_string();
+            match SessionSandbox::create(&sandbox_id, sandbox_cfg).await {
+                Ok(sb) => Some(Arc::new(sb)),
+                Err(e) => {
+                    warn!(error = %e, "failed to create session sandbox — falling back to unsandboxed");
+                    None
                 }
-            } else {
-                None
-            };
+            }
+        } else {
+            None
+        };
 
         // Effective workdir: worktree path if sandboxed, otherwise the resolved workdir.
         let effective_workdir = sandbox
@@ -402,15 +403,27 @@ impl SessionManager {
         if let Some(ref sb) = sandbox {
             tools.push(Arc::new(crate::tools::SandboxedShellTool::new(sb.clone())));
         } else {
-            tools.push(Arc::new(aeqi_tools::ShellTool::new(effective_workdir.clone())));
+            tools.push(Arc::new(aeqi_tools::ShellTool::new(
+                effective_workdir.clone(),
+            )));
         }
 
         // File tools: scoped to effective_workdir (worktree in sandbox mode).
-        tools.push(Arc::new(aeqi_tools::FileReadTool::new(effective_workdir.clone())));
-        tools.push(Arc::new(aeqi_tools::FileWriteTool::new(effective_workdir.clone())));
-        tools.push(Arc::new(aeqi_tools::FileEditTool::new(effective_workdir.clone())));
-        tools.push(Arc::new(aeqi_tools::GrepTool::new(effective_workdir.clone())));
-        tools.push(Arc::new(aeqi_tools::GlobTool::new(effective_workdir.clone())));
+        tools.push(Arc::new(aeqi_tools::FileReadTool::new(
+            effective_workdir.clone(),
+        )));
+        tools.push(Arc::new(aeqi_tools::FileWriteTool::new(
+            effective_workdir.clone(),
+        )));
+        tools.push(Arc::new(aeqi_tools::FileEditTool::new(
+            effective_workdir.clone(),
+        )));
+        tools.push(Arc::new(aeqi_tools::GrepTool::new(
+            effective_workdir.clone(),
+        )));
+        tools.push(Arc::new(aeqi_tools::GlobTool::new(
+            effective_workdir.clone(),
+        )));
 
         // Network/runtime tools: unchanged, run in host process.
         tools.push(Arc::new(aeqi_tools::WebFetchTool));
@@ -775,11 +788,8 @@ impl SessionManager {
                 .store(true, std::sync::atomic::Ordering::Relaxed);
 
             // Wait briefly for agent loop to finish.
-            let _ = tokio::time::timeout(
-                std::time::Duration::from_secs(5),
-                session.join_handle,
-            )
-            .await;
+            let _ =
+                tokio::time::timeout(std::time::Duration::from_secs(5), session.join_handle).await;
 
             // Extract diff from sandbox.
             if let Some(ref sandbox) = session.sandbox {

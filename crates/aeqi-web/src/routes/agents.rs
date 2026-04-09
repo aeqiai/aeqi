@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -133,7 +133,13 @@ async fn agent_identity(
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "agent_identity", serde_json::json!({"name": name})).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "agent_identity",
+        serde_json::json!({"name": name}),
+    )
+    .await
 }
 
 async fn agent_prompts(
@@ -141,7 +147,13 @@ async fn agent_prompts(
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "agent_info", serde_json::json!({"name": name})).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "agent_info",
+        serde_json::json!({"name": name}),
+    )
+    .await
 }
 
 async fn save_agent_file(

@@ -1,9 +1,9 @@
-mod helpers;
 mod agents;
 pub mod auth;
 mod chat;
 mod companies;
 mod dashboard;
+mod helpers;
 mod hosting;
 mod memory;
 mod quests;
@@ -11,8 +11,8 @@ mod sessions;
 mod vfs;
 mod webhooks;
 
-use axum::Router;
 use crate::server::AppState;
+use axum::Router;
 
 /// Build the public webhook route (no auth required).
 pub fn webhook_routes() -> Router<AppState> {

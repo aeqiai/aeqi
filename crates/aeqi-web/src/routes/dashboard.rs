@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -39,9 +39,15 @@ async fn dashboard(State(state): State<AppState>, scope: Scope) -> Response {
     };
     let mut audit_params = serde_json::json!({"last": 10});
     if let Some(obj) = scope_params.as_object() {
-        for (k, v) in obj { audit_params[k] = v.clone(); }
+        for (k, v) in obj {
+            audit_params[k] = v.clone();
+        }
     }
-    let status = state.ipc.cmd_with("status", scope_params.clone()).await.ok();
+    let status = state
+        .ipc
+        .cmd_with("status", scope_params.clone())
+        .await
+        .ok();
     let audit = state.ipc.cmd_with("audit", audit_params).await.ok();
     let cost = state.ipc.cmd_with("cost", scope_params).await.ok();
 
@@ -64,7 +70,11 @@ struct AuditQuery {
     last: Option<u32>,
 }
 
-async fn audit(State(state): State<AppState>, scope: Scope, Query(q): Query<AuditQuery>) -> Response {
+async fn audit(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<AuditQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());
@@ -98,7 +108,11 @@ struct NotesQuery {
     limit: Option<u32>,
 }
 
-async fn notes(State(state): State<AppState>, scope: Scope, Query(q): Query<NotesQuery>) -> Response {
+async fn notes(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<NotesQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());
@@ -122,7 +136,11 @@ struct ExpertiseQuery {
     domain: Option<String>,
 }
 
-async fn expertise(State(state): State<AppState>, scope: Scope, Query(q): Query<ExpertiseQuery>) -> Response {
+async fn expertise(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<ExpertiseQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(domain) = &q.domain {
         params["domain"] = serde_json::Value::String(domain.clone());
@@ -151,7 +169,11 @@ struct ApprovalsQuery {
     status: Option<String>,
 }
 
-async fn approvals(State(state): State<AppState>, scope: Scope, Query(q): Query<ApprovalsQuery>) -> Response {
+async fn approvals(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<ApprovalsQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(status) = &q.status {
         params["status"] = serde_json::Value::String(status.clone());

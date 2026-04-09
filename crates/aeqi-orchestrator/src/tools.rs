@@ -1381,11 +1381,8 @@ impl Tool for SandboxedShellTool {
             )));
         }
 
-        let result = tokio::time::timeout(
-            timeout_dur,
-            self.sandbox.build_command(command).output(),
-        )
-        .await;
+        let result =
+            tokio::time::timeout(timeout_dur, self.sandbox.build_command(command).output()).await;
 
         match result {
             Ok(Ok(output)) => {

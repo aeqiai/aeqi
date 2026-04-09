@@ -778,12 +778,24 @@ pub struct LocalHostingConfig {
     pub state_file: String,
 }
 
-fn default_nginx_available() -> String { "/etc/nginx/sites-available".into() }
-fn default_nginx_enabled() -> String { "/etc/nginx/sites-enabled".into() }
-fn default_certbot_bin() -> String { "certbot".into() }
-fn default_hosting_port_start() -> u16 { 3100 }
-fn default_hosting_port_end() -> u16 { 3999 }
-fn default_hosting_state_file() -> String { "/var/lib/aeqi/hosting.json".into() }
+fn default_nginx_available() -> String {
+    "/etc/nginx/sites-available".into()
+}
+fn default_nginx_enabled() -> String {
+    "/etc/nginx/sites-enabled".into()
+}
+fn default_certbot_bin() -> String {
+    "certbot".into()
+}
+fn default_hosting_port_start() -> u16 {
+    3100
+}
+fn default_hosting_port_end() -> u16 {
+    3999
+}
+fn default_hosting_state_file() -> String {
+    "/var/lib/aeqi/hosting.json".into()
+}
 
 /// Config for managed hosting (calls aeqi-cloud API).
 #[derive(Debug, Clone, Serialize, Deserialize)]

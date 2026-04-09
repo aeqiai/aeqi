@@ -48,7 +48,13 @@ pub(super) async fn ipc_proxy(
 /// to scoped users. Only unscoped operators can manage hosting.
 pub(super) fn hosting_deny_if_scoped(scope: &Scope) -> Option<Response> {
     if scope.as_ref().is_some() {
-        Some((StatusCode::FORBIDDEN, Json(serde_json::json!({"ok": false, "error": "hosting requires operator access"}))).into_response())
+        Some(
+            (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"ok": false, "error": "hosting requires operator access"})),
+            )
+                .into_response(),
+        )
     } else {
         None
     }

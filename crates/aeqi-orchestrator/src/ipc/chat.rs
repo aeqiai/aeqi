@@ -1,8 +1,10 @@
 //! Chat IPC handlers.
 
-use super::tenancy::{check_agent_access, is_allowed};
 use super::request_field;
-use crate::daemon::{find_task_snapshot, merge_timeline_metadata, resolve_web_chat_id, attach_chat_id};
+use super::tenancy::{check_agent_access, is_allowed};
+use crate::daemon::{
+    attach_chat_id, find_task_snapshot, merge_timeline_metadata, resolve_web_chat_id,
+};
 use crate::message_router::{IncomingMessage, MessageSource};
 
 pub async fn handle_chat(
@@ -70,10 +72,10 @@ pub async fn handle_chat_full(
         .unwrap_or("user");
     let agent_id = request_field(request, "agent_id");
 
-    if let Some(aid) = agent_id {
-        if !check_agent_access(&ctx.agent_registry, allowed, aid).await {
-            return None;
-        }
+    if let Some(aid) = agent_id
+        && !check_agent_access(&ctx.agent_registry, allowed, aid).await
+    {
+        return None;
     }
 
     match &ctx.message_router {
@@ -243,11 +245,7 @@ pub async fn handle_chat_timeline(
     let project_hint = request_field(request, "project");
     let channel_name = request_field(request, "channel_name");
 
-    if allowed.is_some()
-        && project_hint.is_none()
-        && channel_name.is_none()
-        && chat_id == 0
-    {
+    if allowed.is_some() && project_hint.is_none() && channel_name.is_none() && chat_id == 0 {
         return serde_json::json!({"ok": true, "events": []});
     }
 
@@ -351,12 +349,7 @@ pub async fn handle_post_notes(
     } else if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.insight_store.as_ref() {
             match mem
-                .store(
-                    key,
-                    content,
-                    aeqi_core::traits::InsightCategory::Fact,
-                    None,
-                )
+                .store(key, content, aeqi_core::traits::InsightCategory::Fact, None)
                 .await
             {
                 Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "key": key}}),

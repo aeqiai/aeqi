@@ -29,18 +29,14 @@ pub async fn handle_vfs_list(
         Ok(mut resp) => {
             if allowed.is_some() {
                 resp.nodes.retain(|n| {
-                    let p_segs: Vec<&str> =
-                        n.path.split('/').filter(|s| !s.is_empty()).collect();
+                    let p_segs: Vec<&str> = n.path.split('/').filter(|s| !s.is_empty()).collect();
                     match p_segs.as_slice() {
-                        ["agents", name, ..] | ["companies", name, ..] => {
-                            is_allowed(allowed, name)
-                        }
+                        ["agents", name, ..] | ["companies", name, ..] => is_allowed(allowed, name),
                         _ => true,
                     }
                 });
             }
-            serde_json::to_value(resp)
-                .unwrap_or_else(|_| serde_json::json!({"ok": false}))
+            serde_json::to_value(resp).unwrap_or_else(|_| serde_json::json!({"ok": false}))
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -73,9 +69,7 @@ pub async fn handle_vfs_read(
         ctx.session_store.clone(),
     );
     match vfs.read(path).await {
-        Ok(resp) => {
-            serde_json::to_value(resp).unwrap_or_else(|_| serde_json::json!({"ok": false}))
-        }
+        Ok(resp) => serde_json::to_value(resp).unwrap_or_else(|_| serde_json::json!({"ok": false})),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
@@ -98,18 +92,14 @@ pub async fn handle_vfs_search(
         Ok(mut resp) => {
             if allowed.is_some() {
                 resp.results.retain(|r| {
-                    let p_segs: Vec<&str> =
-                        r.path.split('/').filter(|s| !s.is_empty()).collect();
+                    let p_segs: Vec<&str> = r.path.split('/').filter(|s| !s.is_empty()).collect();
                     match p_segs.as_slice() {
-                        ["agents", name, ..] | ["companies", name, ..] => {
-                            is_allowed(allowed, name)
-                        }
+                        ["agents", name, ..] | ["companies", name, ..] => is_allowed(allowed, name),
                         _ => true,
                     }
                 });
             }
-            serde_json::to_value(resp)
-                .unwrap_or_else(|_| serde_json::json!({"ok": false}))
+            serde_json::to_value(resp).unwrap_or_else(|_| serde_json::json!({"ok": false}))
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }

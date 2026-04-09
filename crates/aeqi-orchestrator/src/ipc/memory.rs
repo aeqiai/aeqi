@@ -167,63 +167,59 @@ pub async fn handle_memory_graph(
              ORDER BY created_at DESC \
              LIMIT {limit}"
         );
-        let nodes: Vec<serde_json::Value> = conn
-            .prepare(&sql)
-            .ok()
-            .map(|mut stmt| {
-                stmt.query_map([], |row| {
-                    let id: String = row.get(0)?;
-                    let key: String = row.get(1)?;
-                    let content: String = row.get(2)?;
-                    let category: String = row.get(3)?;
-                    let created_at: String = row.get(4)?;
-
-                    use std::hash::{Hash, Hasher};
-                    let mut h = std::collections::hash_map::DefaultHasher::new();
-                    key.hash(&mut h);
-                    let x = (h.finish() % 1000) as u32;
-
-                    let mut h2 = std::collections::hash_map::DefaultHasher::new();
-                    content.hash(&mut h2);
-                    let y = (h2.finish() % 1000) as u32;
-
-                    let hotness = chrono::NaiveDateTime::parse_from_str(
-                        &created_at,
-                        "%Y-%m-%dT%H:%M:%S%.f",
-                    )
-                    .or_else(|_| {
-                        chrono::NaiveDateTime::parse_from_str(
-                            &created_at,
-                            "%Y-%m-%d %H:%M:%S",
-                        )
-                    })
-                    .map(|dt| {
-                        let age_secs = (chrono::Utc::now()
-                            .naive_utc()
-                            .signed_duration_since(dt))
-                        .num_seconds()
-                        .max(0) as f64;
-                        let days = age_secs / 86400.0;
-                        let lambda = (2.0_f64).ln() / 7.0;
-                        (-lambda * days).exp() as f32
-                    })
-                    .unwrap_or(0.5);
-
-                    Ok(serde_json::json!({
-                        "id": id,
-                        "key": key,
-                        "content": content,
-                        "category": category,
-                        "x": x,
-                        "y": y,
-                        "hotness": hotness,
-                    }))
-                })
+        let nodes: Vec<serde_json::Value> =
+            conn.prepare(&sql)
                 .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
-            })
-            .unwrap_or_default();
+                .map(|mut stmt| {
+                    stmt.query_map([], |row| {
+                        let id: String = row.get(0)?;
+                        let key: String = row.get(1)?;
+                        let content: String = row.get(2)?;
+                        let category: String = row.get(3)?;
+                        let created_at: String = row.get(4)?;
+
+                        use std::hash::{Hash, Hasher};
+                        let mut h = std::collections::hash_map::DefaultHasher::new();
+                        key.hash(&mut h);
+                        let x = (h.finish() % 1000) as u32;
+
+                        let mut h2 = std::collections::hash_map::DefaultHasher::new();
+                        content.hash(&mut h2);
+                        let y = (h2.finish() % 1000) as u32;
+
+                        let hotness = chrono::NaiveDateTime::parse_from_str(
+                            &created_at,
+                            "%Y-%m-%dT%H:%M:%S%.f",
+                        )
+                        .or_else(|_| {
+                            chrono::NaiveDateTime::parse_from_str(&created_at, "%Y-%m-%d %H:%M:%S")
+                        })
+                        .map(|dt| {
+                            let age_secs =
+                                (chrono::Utc::now().naive_utc().signed_duration_since(dt))
+                                    .num_seconds()
+                                    .max(0) as f64;
+                            let days = age_secs / 86400.0;
+                            let lambda = (2.0_f64).ln() / 7.0;
+                            (-lambda * days).exp() as f32
+                        })
+                        .unwrap_or(0.5);
+
+                        Ok(serde_json::json!({
+                            "id": id,
+                            "key": key,
+                            "content": content,
+                            "category": category,
+                            "x": x,
+                            "y": y,
+                            "hotness": hotness,
+                        }))
+                    })
+                    .ok()
+                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                    .unwrap_or_default()
+                })
+                .unwrap_or_default();
 
         let node_ids: Vec<String> = nodes
             .iter()
@@ -249,11 +245,7 @@ pub async fn handle_memory_graph(
                     let params: Vec<&dyn rusqlite::types::ToSql> = node_ids
                         .iter()
                         .map(|id| id as &dyn rusqlite::types::ToSql)
-                        .chain(
-                            node_ids
-                                .iter()
-                                .map(|id| id as &dyn rusqlite::types::ToSql),
-                        )
+                        .chain(node_ids.iter().map(|id| id as &dyn rusqlite::types::ToSql))
                         .collect();
                     stmt.query_map(params.as_slice(), |row| {
                         let source: String = row.get(0)?;
@@ -271,14 +263,8 @@ pub async fn handle_memory_graph(
                     .map(|iter| {
                         iter.filter_map(|r| r.ok())
                             .filter(|e| {
-                                let s = e
-                                    .get("source")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let t = e
-                                    .get("target")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let s = e.get("source").and_then(|v| v.as_str()).unwrap_or("");
+                                let t = e.get("target").and_then(|v| v.as_str()).unwrap_or("");
                                 id_set.contains(s) && id_set.contains(t)
                             })
                             .collect()
@@ -452,7 +438,10 @@ pub async fn handle_knowledge_store(
                 _ => raw_agent_id,
             };
             let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
-            match mem.store_with_ttl(key, content, cat, agent_id, ttl_secs).await {
+            match mem
+                .store_with_ttl(key, content, cat, agent_id, ttl_secs)
+                .await
+            {
                 Ok(id) => serde_json::json!({"ok": true, "id": id}),
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }

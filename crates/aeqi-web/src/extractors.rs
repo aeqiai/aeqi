@@ -32,9 +32,8 @@ pub fn resolve_ws_companies(
 ) -> Result<Option<Vec<String>>, &'static str> {
     use crate::auth;
 
-    match state.auth_mode {
-        aeqi_core::config::AuthMode::None => return Ok(None),
-        _ => {}
+    if state.auth_mode == aeqi_core::config::AuthMode::None {
+        return Ok(None);
     }
 
     let Some(token) = token else {

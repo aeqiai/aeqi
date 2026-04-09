@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -24,7 +24,11 @@ struct SessionsQuery {
     agent_id: Option<String>,
 }
 
-async fn sessions(State(state): State<AppState>, scope: Scope, Query(q): Query<SessionsQuery>) -> Response {
+async fn sessions(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<SessionsQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(agent_id) = &q.agent_id {
         params["agent_id"] = serde_json::Value::String(agent_id.clone());

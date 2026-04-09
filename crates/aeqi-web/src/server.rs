@@ -55,19 +55,27 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     // Initialize hosting provider.
     let hosting_config = aeqi_hosting::HostingConfig {
         provider: config.hosting.provider.clone(),
-        local: config.hosting.local.as_ref().map(|l| aeqi_hosting::LocalConfig {
-            nginx_available_dir: l.nginx_available_dir.clone(),
-            nginx_enabled_dir: l.nginx_enabled_dir.clone(),
-            certbot_bin: l.certbot_bin.clone(),
-            certbot_email: l.certbot_email.clone(),
-            port_range_start: l.port_range_start,
-            port_range_end: l.port_range_end,
-            state_file: l.state_file.clone(),
-        }),
-        managed: config.hosting.managed.as_ref().map(|m| aeqi_hosting::ManagedConfig {
-            cloud_url: m.cloud_url.clone(),
-            auth_token: m.auth_token.clone(),
-        }),
+        local: config
+            .hosting
+            .local
+            .as_ref()
+            .map(|l| aeqi_hosting::LocalConfig {
+                nginx_available_dir: l.nginx_available_dir.clone(),
+                nginx_enabled_dir: l.nginx_enabled_dir.clone(),
+                certbot_bin: l.certbot_bin.clone(),
+                certbot_email: l.certbot_email.clone(),
+                port_range_start: l.port_range_start,
+                port_range_end: l.port_range_end,
+                state_file: l.state_file.clone(),
+            }),
+        managed: config
+            .hosting
+            .managed
+            .as_ref()
+            .map(|m| aeqi_hosting::ManagedConfig {
+                cloud_url: m.cloud_url.clone(),
+                auth_token: m.auth_token.clone(),
+            }),
     };
     let hosting: Arc<dyn aeqi_hosting::HostingProvider> =
         Arc::from(aeqi_hosting::from_config(&hosting_config)?);

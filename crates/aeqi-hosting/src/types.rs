@@ -59,12 +59,24 @@ impl Default for LocalConfig {
     }
 }
 
-fn default_nginx_available() -> String { "/etc/nginx/sites-available".into() }
-fn default_nginx_enabled() -> String { "/etc/nginx/sites-enabled".into() }
-fn default_certbot() -> String { "certbot".into() }
-fn default_port_start() -> u16 { 3100 }
-fn default_port_end() -> u16 { 3999 }
-fn default_state_file() -> String { "/var/lib/aeqi/hosting.json".into() }
+fn default_nginx_available() -> String {
+    "/etc/nginx/sites-available".into()
+}
+fn default_nginx_enabled() -> String {
+    "/etc/nginx/sites-enabled".into()
+}
+fn default_certbot() -> String {
+    "certbot".into()
+}
+fn default_port_start() -> u16 {
+    3100
+}
+fn default_port_end() -> u16 {
+    3999
+}
+fn default_state_file() -> String {
+    "/var/lib/aeqi/hosting.json".into()
+}
 
 /// Configuration for ManagedProvider (calls aeqi-cloud API).
 #[derive(Debug, Clone, Deserialize)]

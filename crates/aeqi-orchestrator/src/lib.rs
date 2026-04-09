@@ -57,9 +57,9 @@ pub use runtime::{
     RuntimeSession, RuntimeSessionStatus,
 };
 pub use sandbox::{FinalizeAction, SandboxConfig, SessionDiff, SessionSandbox};
-pub use tools::SandboxedShellTool;
 pub use scheduler::{Scheduler, SchedulerConfig};
 pub use session_manager::SessionManager;
 pub use session_store::SessionStore;
 pub use template::Template;
+pub use tools::SandboxedShellTool;
 pub use trigger::{EventPattern, Trigger, TriggerStore, TriggerType};

@@ -188,16 +188,24 @@ async fn signup_handler(
     let is_admin = email.eq_ignore_ascii_case("0x@aeqi.ai");
     if state.auth_config.waitlist && !is_admin {
         if invite_code.is_empty() {
-            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "ok": false, "error": "invite code required"
-            }))).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "ok": false, "error": "invite code required"
+                })),
+            )
+                .into_response();
         }
         match accounts.is_invite_code_valid(invite_code) {
             Ok(true) => {}
             _ => {
-                return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                    "ok": false, "error": "invalid or already used invite code"
-                }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "ok": false, "error": "invalid or already used invite code"
+                    })),
+                )
+                    .into_response();
             }
         }
     }
@@ -240,19 +248,40 @@ async fn signup_handler(
     let company_name = format!("{first_name}-{suffix}");
     // Await company creation so the user_companies link exists before the first API call.
     // This ensures allowed_companies is populated when the auth middleware resolves scope.
-    match state.ipc.cmd_with("create_company", serde_json::json!({ "name": company_name })).await {
+    match state
+        .ipc
+        .cmd_with(
+            "create_company",
+            serde_json::json!({ "name": company_name }),
+        )
+        .await
+    {
         Ok(resp) => {
             if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
                 if let Err(e) = accounts.add_company(&user.id, &company_name) {
-                    tracing::warn!("signup: failed to link company '{}' to user {}: {e}", company_name, user.id);
+                    tracing::warn!(
+                        "signup: failed to link company '{}' to user {}: {e}",
+                        company_name,
+                        user.id
+                    );
                 }
             } else {
-                let err = resp.get("error").and_then(|v| v.as_str()).unwrap_or("unknown");
-                tracing::warn!("signup: create_company '{}' for user {} failed: {err}", company_name, user.id);
+                let err = resp
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                tracing::warn!(
+                    "signup: create_company '{}' for user {} failed: {err}",
+                    company_name,
+                    user.id
+                );
             }
         }
         Err(e) => {
-            tracing::warn!("signup: create_company IPC failed for user {}: {e}", user.id);
+            tracing::warn!(
+                "signup: create_company IPC failed for user {}: {e}",
+                user.id
+            );
         }
     }
 
@@ -345,7 +374,8 @@ async fn verify_email_handler(
             // Re-issue token with verified status.
             if let Ok(Some(user)) = accounts.get_user_by_email(&body.email) {
                 let signing_key = auth::signing_secret(&state);
-                if let Ok(token) = auth::create_token(signing_key, 24, Some(&user.id), Some(&body.email))
+                if let Ok(token) =
+                    auth::create_token(signing_key, 24, Some(&user.id), Some(&body.email))
                 {
                     return Json(serde_json::json!({
                         "ok": true, "token": token, "user": user,
@@ -630,7 +660,11 @@ async fn github_auth_handler(State(state): State<AppState>) -> Response {
     };
 
     let redirect_uri = github.redirect_uri.clone().unwrap_or_else(|| {
-        let base = state.auth_config.base_url.as_deref().unwrap_or("http://localhost:8400");
+        let base = state
+            .auth_config
+            .base_url
+            .as_deref()
+            .unwrap_or("http://localhost:8400");
         format!("{}/api/auth/github/callback", base)
     });
 
@@ -676,17 +710,28 @@ async fn github_callback_handler(
             Ok(j) => j,
             Err(e) => {
                 tracing::error!("github oauth token parse error: {e}");
-                return (StatusCode::BAD_GATEWAY, "failed to parse GitHub token response").into_response();
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    "failed to parse GitHub token response",
+                )
+                    .into_response();
             }
         },
         Err(e) => {
             tracing::error!("github oauth token request error: {e}");
-            return (StatusCode::BAD_GATEWAY, "failed to exchange code with GitHub").into_response();
+            return (
+                StatusCode::BAD_GATEWAY,
+                "failed to exchange code with GitHub",
+            )
+                .into_response();
         }
     };
 
     let Some(access_token) = token_json.get("access_token").and_then(|v| v.as_str()) else {
-        tracing::error!("github oauth: no access_token in response: {:?}", token_json);
+        tracing::error!(
+            "github oauth: no access_token in response: {:?}",
+            token_json
+        );
         return (StatusCode::BAD_GATEWAY, "no access_token from GitHub").into_response();
     };
 
@@ -712,12 +757,24 @@ async fn github_callback_handler(
         }
     };
 
-    let github_id = user_json.get("id").and_then(|v| v.as_u64()).map(|v| v.to_string()).unwrap_or_default();
-    let name = user_json.get("name").or(user_json.get("login")).and_then(|v| v.as_str()).unwrap_or("");
+    let github_id = user_json
+        .get("id")
+        .and_then(|v| v.as_u64())
+        .map(|v| v.to_string())
+        .unwrap_or_default();
+    let name = user_json
+        .get("name")
+        .or(user_json.get("login"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let avatar = user_json.get("avatar_url").and_then(|v| v.as_str());
 
     // Fetch primary email (may be private).
-    let mut email = user_json.get("email").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let mut email = user_json
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if email.is_empty()
         && let Ok(resp) = client
             .get("https://api.github.com/user/emails")
@@ -748,7 +805,11 @@ async fn github_callback_handler(
         Ok(u) => u,
         Err(e) => {
             tracing::error!("github oauth user upsert error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to create/update user").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create/update user",
+            )
+                .into_response();
         }
     };
 
@@ -757,7 +818,11 @@ async fn github_callback_handler(
         Ok(t) => t,
         Err(e) => {
             tracing::error!("github oauth token creation error: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to create session").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create session",
+            )
+                .into_response();
         }
     };
 
@@ -776,18 +841,31 @@ async fn waitlist_handler(
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
     if body.email.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "ok": false, "error": "email required"
-        }))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "ok": false, "error": "email required"
+            })),
+        )
+            .into_response();
     }
     match accounts.join_waitlist(&body.email) {
-        Ok(true) => Json(serde_json::json!({"ok": true, "message": "You're on the list!"})).into_response(),
-        Ok(false) => Json(serde_json::json!({"ok": true, "message": "You're already on the list."})).into_response(),
+        Ok(true) => {
+            Json(serde_json::json!({"ok": true, "message": "You're on the list!"})).into_response()
+        }
+        Ok(false) => {
+            Json(serde_json::json!({"ok": true, "message": "You're already on the list."}))
+                .into_response()
+        }
         Err(e) => {
             tracing::error!("waitlist error: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "ok": false, "error": "failed to join waitlist"
-            }))).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false, "error": "failed to join waitlist"
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -805,15 +883,13 @@ async fn check_invite_handler(
     }
 }
 
-async fn my_invite_codes_handler(
-    State(state): State<AppState>,
-    req: Request,
-) -> Response {
+async fn my_invite_codes_handler(State(state): State<AppState>, req: Request) -> Response {
     let Some(accounts) = &state.accounts else {
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
     let secret = auth::signing_secret(&state);
-    let token = req.headers()
+    let token = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));

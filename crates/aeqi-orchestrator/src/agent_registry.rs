@@ -1655,7 +1655,13 @@ impl AgentRegistry {
 
     /// Update the agent_id link for a company.
     /// Update mutable fields on a company (display_name, tagline, logo_url).
-    pub async fn update_company(&self, name: &str, display_name: Option<&str>, tagline: Option<&str>, logo_url: Option<&str>) -> Result<()> {
+    pub async fn update_company(
+        &self,
+        name: &str,
+        display_name: Option<&str>,
+        tagline: Option<&str>,
+        logo_url: Option<&str>,
+    ) -> Result<()> {
         let db = self.db.lock().await;
         let now = chrono::Utc::now().to_rfc3339();
         db.execute(

@@ -56,11 +56,7 @@ pub async fn handle_status(
             .filter(|name| is_allowed(allowed, name))
             .map(|name| {
                 let p_spent = project_costs.get(&name).copied().unwrap_or(0.0);
-                let p_budget = ctx
-                    .project_budgets
-                    .get(&name)
-                    .copied()
-                    .unwrap_or(budget);
+                let p_budget = ctx.project_budgets.get(&name).copied().unwrap_or(budget);
                 let p_remaining = (p_budget - p_spent).max(0.0);
                 (
                     name,
@@ -171,7 +167,7 @@ pub async fn handle_worker_events(
             .into_iter()
             .filter(|ev| match ev {
                 crate::execution_events::ExecutionEvent::QuestStarted { project, .. } => {
-                    is_allowed(allowed, &project)
+                    is_allowed(allowed, project)
                 }
                 _ => false,
             })
@@ -227,11 +223,7 @@ pub async fn handle_cost(
             .filter(|name| is_allowed(allowed, name))
             .map(|name| {
                 let p_spent = report.get(&name).copied().unwrap_or(0.0);
-                let p_budget = ctx
-                    .project_budgets
-                    .get(&name)
-                    .copied()
-                    .unwrap_or(budget);
+                let p_budget = ctx.project_budgets.get(&name).copied().unwrap_or(budget);
                 let p_remaining = (p_budget - p_spent).max(0.0);
                 (
                     name,
@@ -355,34 +347,33 @@ pub async fn handle_skills(
     let cwd = std::env::current_dir().unwrap_or_default();
     let mut skills = Vec::new();
 
-    let scan_skills =
-        |dir: &std::path::Path, source: &str, out: &mut Vec<serde_json::Value>| {
-            if !dir.exists() {
-                return;
+    let scan_skills = |dir: &std::path::Path, source: &str, out: &mut Vec<serde_json::Value>| {
+        if !dir.exists() {
+            return;
+        }
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                continue;
             }
-            for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    continue;
-                }
-                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                if ext == "md" {
-                    let name = path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    let content = std::fs::read_to_string(&path).unwrap_or_default();
-                    out.push(serde_json::json!({
-                        "name": name,
-                        "source": source,
-                        "kind": "prompt",
-                        "path": path.display().to_string(),
-                        "content": content,
-                    }));
-                }
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if ext == "md" {
+                let name = path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                let content = std::fs::read_to_string(&path).unwrap_or_default();
+                out.push(serde_json::json!({
+                    "name": name,
+                    "source": source,
+                    "kind": "prompt",
+                    "path": path.display().to_string(),
+                    "content": content,
+                }));
             }
-        };
+        }
+    };
 
     scan_skills(
         &cwd.join("projects").join("shared").join("skills"),
@@ -416,16 +407,13 @@ pub async fn handle_skills(
             .into_iter()
             .filter(|s| {
                 let source = s.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                source == "shared"
-                    || source == "shared/agents"
-                    || is_allowed(allowed, source)
-                    || {
-                        source
-                            .split('/')
-                            .next()
-                            .map(|n| is_allowed(allowed, n))
-                            .unwrap_or(false)
-                    }
+                source == "shared" || source == "shared/agents" || is_allowed(allowed, source) || {
+                    source
+                        .split('/')
+                        .next()
+                        .map(|n| is_allowed(allowed, n))
+                        .unwrap_or(false)
+                }
             })
             .collect()
     } else {
@@ -579,8 +567,7 @@ pub async fn handle_webhook_fire(
                     Some(_project) => {
                         let _ = store.advance_before_execute(&trigger.id).await;
 
-                        let subject =
-                            format!("[webhook:{}] {}", trigger.name, trigger.skill);
+                        let subject = format!("[webhook:{}] {}", trigger.name, trigger.skill);
                         let description = format!(
                             "Webhook '{}' fired. Run skill '{}' for agent {}.",
                             trigger.name, trigger.skill, trigger.agent_id
@@ -662,8 +649,7 @@ pub async fn handle_dispatches(
     let recipient = request.get("recipient").and_then(|v| v.as_str());
     let state = request.get("state").and_then(|v| v.as_str());
     let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-    let overdue_cutoff =
-        chrono::Utc::now() - chrono::Duration::seconds(ACK_RETRY_AGE_SECS as i64);
+    let overdue_cutoff = chrono::Utc::now() - chrono::Duration::seconds(ACK_RETRY_AGE_SECS as i64);
     let mut dispatches = ctx.dispatch_es.all().await;
     if allowed.is_some() {
         dispatches.retain(|d| is_allowed(allowed, &d.to) || is_allowed(allowed, &d.from));

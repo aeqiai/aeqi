@@ -6,9 +6,9 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -22,7 +22,11 @@ struct QuestsQuery {
     status: Option<String>,
 }
 
-async fn quests(State(state): State<AppState>, scope: Scope, Query(q): Query<QuestsQuery>) -> Response {
+async fn quests(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<QuestsQuery>,
+) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::Value::String(project.clone());

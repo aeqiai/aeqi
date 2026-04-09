@@ -372,16 +372,19 @@ impl AccountStore {
     pub fn get_invite_codes(&self, user_id: &str) -> anyhow::Result<Vec<InviteCode>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT code, used_by, used_at, created_at FROM invite_codes WHERE owner_id = ?1"
+            "SELECT code, used_by, used_at, created_at FROM invite_codes WHERE owner_id = ?1",
         )?;
-        let codes = stmt.query_map(params![user_id], |row| {
-            Ok(InviteCode {
-                code: row.get(0)?,
-                used_by: row.get(1)?,
-                used_at: row.get(2)?,
-                created_at: row.get(3)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let codes = stmt
+            .query_map(params![user_id], |row| {
+                Ok(InviteCode {
+                    code: row.get(0)?,
+                    used_by: row.get(1)?,
+                    used_at: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(codes)
     }
 

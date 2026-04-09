@@ -42,7 +42,9 @@ pub trait HostingProvider: Send + Sync {
 /// Create a hosting provider from config.
 pub fn from_config(config: &HostingConfig) -> Result<Box<dyn HostingProvider>> {
     match config.provider.as_str() {
-        "local" => Ok(Box::new(LocalProvider::new(config.local.clone().unwrap_or_default())?)),
+        "local" => Ok(Box::new(LocalProvider::new(
+            config.local.clone().unwrap_or_default(),
+        )?)),
         #[cfg(feature = "managed")]
         "managed" => Ok(Box::new(ManagedProvider::new(
             config.managed.clone().unwrap_or_default(),

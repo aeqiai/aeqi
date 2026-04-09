@@ -6,15 +6,18 @@ use axum::{
 };
 use serde::Deserialize;
 
+use super::helpers::ipc_proxy;
 use crate::auth::Claims;
 use crate::extractors::Scope;
 use crate::server::AppState;
-use super::helpers::ipc_proxy;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/companies", get(projects).post(create_company))
-        .route("/companies/{name}", axum::routing::put(update_company_handler))
+        .route(
+            "/companies/{name}",
+            axum::routing::put(update_company_handler),
+        )
         .route("/companies/{name}/knowledge", get(project_knowledge))
         .route("/knowledge/channel", get(channel_knowledge))
         .route("/knowledge/store", post(knowledge_store))
@@ -25,7 +28,11 @@ async fn projects(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "companies", serde_json::Value::Null).await
 }
 
-async fn create_company(State(state): State<AppState>, scope: Scope, req: axum::extract::Request) -> Response {
+async fn create_company(
+    State(state): State<AppState>,
+    scope: Scope,
+    req: axum::extract::Request,
+) -> Response {
     // Extract claims and body.
     let claims = req.extensions().get::<Claims>().cloned();
     let body: serde_json::Value = match axum::body::to_bytes(req.into_body(), 1_048_576).await {
@@ -33,7 +40,13 @@ async fn create_company(State(state): State<AppState>, scope: Scope, req: axum::
         Err(_) => serde_json::Value::Null,
     };
 
-    let resp = ipc_proxy(state.clone(), scope.as_ref(), "create_company", body.clone()).await;
+    let resp = ipc_proxy(
+        state.clone(),
+        scope.as_ref(),
+        "create_company",
+        body.clone(),
+    )
+    .await;
 
     // Link company to user in accounts store.
     if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)

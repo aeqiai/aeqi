@@ -3,8 +3,8 @@
 //! Note: `session_send` stays in daemon.rs because it writes directly to the socket
 //! for streaming mode.
 
-use super::tenancy::check_agent_access;
 use super::request_field;
+use super::tenancy::check_agent_access;
 
 pub async fn handle_list_sessions(
     ctx: &super::CommandContext,
@@ -49,12 +49,7 @@ pub async fn handle_sessions(
     }
     if allowed.is_some()
         && agent_id.as_deref().is_some()
-        && !check_agent_access(
-            &ctx.agent_registry,
-            allowed,
-            agent_id.as_deref().unwrap(),
-        )
-        .await
+        && !check_agent_access(&ctx.agent_registry, allowed, agent_id.as_deref().unwrap()).await
     {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
@@ -108,9 +103,7 @@ pub async fn handle_close_session(
         let ok = if let Some(ref ss) = ctx.session_store {
             match ss.get_session(session_id).await {
                 Ok(Some(s)) => match s.agent_id.as_deref() {
-                    Some(aid) => {
-                        check_agent_access(&ctx.agent_registry, allowed, aid).await
-                    }
+                    Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
                     None => false,
                 },
                 _ => false,
@@ -150,9 +143,7 @@ pub async fn handle_session_messages(
         if allowed.is_some() {
             let session_ok = match ss.get_session(session_id).await {
                 Ok(Some(session)) => match session.agent_id.as_deref() {
-                    Some(aid) => {
-                        check_agent_access(&ctx.agent_registry, allowed, aid).await
-                    }
+                    Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
                     None => false,
                 },
                 _ => false,
@@ -200,9 +191,7 @@ pub async fn handle_session_children(
         if allowed.is_some() {
             let ok = match ss.get_session(session_id).await {
                 Ok(Some(s)) => match s.agent_id.as_deref() {
-                    Some(aid) => {
-                        check_agent_access(&ctx.agent_registry, allowed, aid).await
-                    }
+                    Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
                     None => false,
                 },
                 _ => false,
