@@ -113,10 +113,7 @@ impl SessionStore {
                  source TEXT DEFAULT NULL,
                  event_type TEXT NOT NULL DEFAULT 'message',
                  metadata TEXT DEFAULT NULL
-             );
-
-             CREATE INDEX IF NOT EXISTS idx_session_msgs_session ON session_messages(session_id);
-             CREATE INDEX IF NOT EXISTS idx_session_msgs_ts ON session_messages(timestamp);",
+             );",
         )
         .context("failed to initialize session_messages schema")?;
 
@@ -136,6 +133,11 @@ impl SessionStore {
         // Legacy index (may already exist under old name).
         let _ = conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_conv_chat ON session_messages(chat_id);",
+        );
+        // Indexes that depend on columns added above.
+        let _ = conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_session_msgs_session ON session_messages(session_id);
+             CREATE INDEX IF NOT EXISTS idx_session_msgs_ts ON session_messages(timestamp);",
         );
 
         // ── session_summaries table ──
@@ -160,6 +162,17 @@ impl SessionStore {
         // ── Legacy channels table — keep for migration reads, but do NOT create new rows ──
         // (table may exist from old schema; we don't create it fresh)
 
+        // Drop old FTS triggers that reference 'conversations' BEFORE creating new ones.
+        let _ = conn.execute_batch(
+            "DROP TRIGGER IF EXISTS conversations_ai;
+             DROP TRIGGER IF EXISTS conversations_ad;
+             DROP TRIGGER IF EXISTS conversations_au;",
+        );
+
+        // Drop old FTS table if it points to wrong content table, then recreate.
+        // (FTS5 content table can't be changed after creation)
+        let _ = conn.execute_batch("DROP TABLE IF EXISTS messages_fts;");
+
         // FTS5 virtual table for full-text search across transcripts.
         let _ = conn.execute_batch(
             "CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
@@ -167,7 +180,6 @@ impl SessionStore {
                  content=session_messages,
                  content_rowid=id
              );
-             -- Triggers to keep FTS5 in sync with base table.
              CREATE TRIGGER IF NOT EXISTS session_messages_ai AFTER INSERT ON session_messages BEGIN
                  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
              END;
@@ -178,13 +190,6 @@ impl SessionStore {
                  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
                  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
              END;",
-        );
-
-        // Drop old FTS triggers that reference 'conversations'.
-        let _ = conn.execute_batch(
-            "DROP TRIGGER IF EXISTS conversations_ai;
-             DROP TRIGGER IF EXISTS conversations_ad;
-             DROP TRIGGER IF EXISTS conversations_au;",
         );
 
         // ── 4A-migrate: Rename old `unified_sessions` → `sessions` if needed ──
