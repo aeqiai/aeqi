@@ -1075,94 +1075,104 @@
 }
 
 /* Message layout: avatar + body */
+/* ── Messages ── */
+
 .asv-msg {
   display: flex;
   gap: 10px;
-  animation: c-fade-in 0.2s ease-out;
+  opacity: 0;
+  animation: asv-enter 0.15s ease-out forwards;
 }
+@keyframes asv-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .asv-msg-avatar {
   flex-shrink: 0;
-  padding-top: 2px;
+  padding-top: 3px;
 }
+
 .asv-msg-body {
   flex: 1;
   min-width: 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-lg);
   position: relative;
 }
 
+/* User: right-aligned, no container — just text */
 .asv-msg-user {
   flex-direction: row-reverse;
 }
 .asv-msg-user .asv-msg-body {
   background: var(--bg-elevated);
-  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
   max-width: 72%;
-  border-bottom-right-radius: 4px;
 }
 
+/* Agent: full width, no border — content speaks */
 .asv-msg-assistant .asv-msg-body {
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  max-width: 85%;
+  padding: 2px 0;
+  max-width: 100%;
 }
 
+/* Error */
 .asv-msg-error .asv-msg-body {
-  background: var(--bg-surface);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  max-width: 85%;
+  padding: 8px 12px;
+  border-left: 2px solid var(--error);
+  background: rgba(239, 68, 68, 0.03);
 }
 
-.asv-msg-streaming {
-  border-color: var(--border-hover);
+/* Streaming border pulse */
+.asv-msg-streaming .asv-msg-body {
+  padding: 2px 0;
 }
 
+/* Header: role + metadata on one line */
 .asv-msg-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .asv-msg-role {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
 }
 
 .asv-msg-user .asv-msg-role {
   color: var(--text-muted);
+  font-weight: 500;
 }
 
 .asv-msg-time {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   color: var(--text-muted);
-}
-.asv-msg-duration {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.asv-msg-cost {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--success);
-}
-.asv-msg-tokens {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--text-muted);
-  opacity: 0.6;
 }
 
-.asv-msg-user .asv-msg-time {
+.asv-msg-duration {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  color: var(--text-secondary);
+}
+
+/* Cost + tokens: subtle, after duration */
+.asv-msg-cost {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
   color: var(--text-muted);
+}
+
+.asv-msg-tokens {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  color: var(--text-muted);
+  opacity: 0.5;
 }
 
 .asv-msg-content {
@@ -1248,70 +1258,73 @@
   font-family: var(--font-sans);
 }
 
-/* Tool events inline */
+/* ── Tool events (inline, in completed messages) ── */
+
 .asv-tool-inline {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  margin: 4px 0;
+  padding: 3px 0;
+  margin: 2px 0;
   font-size: var(--font-size-2xs);
-  color: var(--text-muted);
   font-family: var(--font-mono);
-  background: var(--bg-surface);
-  border-radius: var(--radius-sm);
+  color: var(--text-muted);
 }
 
 .asv-tool-icon {
   flex-shrink: 0;
-  width: 14px;
+  width: 12px;
   text-align: center;
-  font-size: 10px;
+  font-size: 9px;
+  opacity: 0.6;
 }
 
-.asv-tool-inline.start .asv-tool-icon { color: var(--text-muted); }
-.asv-tool-inline.complete .asv-tool-icon { color: var(--success); }
+/* Success: subtle checkmark */
+.asv-tool-inline.complete .asv-tool-icon { color: var(--success); opacity: 0.8; }
+/* Failed: red x */
+.asv-tool-inline.complete .asv-tool-icon:has(+ .asv-tool-name) { color: var(--text-muted); }
 
 .asv-tool-name {
   color: var(--text-secondary);
-  font-weight: 500;
 }
 
 .asv-tool-input {
   color: var(--text-muted);
-  max-width: 200px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.6;
 }
 
 .asv-tool-ms {
   color: var(--text-muted);
   flex-shrink: 0;
   margin-left: auto;
+  opacity: 0.5;
 }
 
 .asv-status-item {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  font-style: italic;
   padding: 2px 0;
+  font-family: var(--font-mono);
 }
 
-/* Live tool panel during streaming */
+/* ── Live tool panel (during streaming) ── */
+
 .asv-tool-live {
-  margin: 8px 0;
-  padding: 8px 10px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
+  margin: 10px 0 4px;
+  padding: 0;
 }
 
 .asv-tool-live-header {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-3xs);
   color: var(--text-muted);
-  margin-bottom: 6px;
-  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1319,8 +1332,9 @@
 
 .asv-tool-live-header::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  display: inline-block;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
   animation: ae-pulse 1.6s ease-in-out infinite;
@@ -1328,41 +1342,49 @@
 
 .asv-tool-live-item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   padding: 2px 0;
   font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.asv-tool-live-item.start .asv-tool-icon {
+  animation: asv-spin 1s linear infinite;
+}
+@keyframes asv-spin {
+  to { transform: rotate(360deg); }
 }
 
 .asv-tool-live-item.turn {
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
+  margin-top: 6px;
   padding-top: 6px;
-  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
 }
 .asv-tool-live-item.turn .asv-tool-live-name {
-  font-weight: 600;
-  opacity: 0.5;
-  font-size: 0.85em;
-  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: var(--font-size-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .asv-tool-live-item.status .asv-tool-live-name {
-  font-style: italic;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .asv-tool-live-name {
   color: var(--text-secondary);
 }
 
-/* Quest events */
+/* ── Quest events (system messages) ── */
+
 .asv-quest-event {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 6px 0;
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -1370,9 +1392,9 @@
 
 .asv-quest-event-icon {
   flex-shrink: 0;
-  width: 16px;
+  width: 14px;
   text-align: center;
-  font-weight: 600;
+  opacity: 0.5;
 }
 
 .asv-quest-event-text {
@@ -1382,15 +1404,24 @@
 
 .asv-quest-event-time {
   flex-shrink: 0;
+  opacity: 0.5;
 }
 
-/* Thinking indicator */
+/* ── Thinking indicator ── */
+
 .session-msg-thinking {
   font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   color: var(--text-muted);
-  font-style: italic;
-  padding: 2px 0;
-  animation: c-fade-in 0.3s ease-out;
+  padding: 4px 0;
+  opacity: 0;
+  animation: asv-enter 0.2s ease-out forwards;
+}
+
+.session-msg-thinking::before {
+  content: "›";
+  margin-right: 6px;
+  opacity: 0.4;
 }
 
 /* Session prompts bar */
