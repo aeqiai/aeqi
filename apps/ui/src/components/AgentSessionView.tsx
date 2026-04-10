@@ -257,6 +257,7 @@ export default function AgentSessionView({
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [liveToolEvents, setLiveToolEvents] = useState<ToolEvent[]>([]);
+  const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -403,6 +404,7 @@ export default function AgentSessionView({
     setMessages([]);
     setStreamText("");
     setLiveToolEvents([]);
+    setLiveSegments([]);
     setSession(null);
     setShowSessionList(false);
   }, [setSession]);
@@ -479,6 +481,7 @@ export default function AgentSessionView({
       setMessages([]);
       setStreamText("");
       setLiveToolEvents([]);
+    setLiveSegments([]);
       prevSessionRef.current = null;
       return;
     }
@@ -490,6 +493,7 @@ export default function AgentSessionView({
     // Clear and reload from API
     setStreamText("");
     setLiveToolEvents([]);
+    setLiveSegments([]);
 
     api
       .getSessionMessages({ session_id: activeSessionId, limit: 50 })
@@ -531,6 +535,7 @@ export default function AgentSessionView({
     setStreaming(true);
     setStreamText("");
     setLiveToolEvents([]);
+    setLiveSegments([]);
     setThinkingStart(startTime);
 
     // If no active session, create one with the first message.
@@ -613,6 +618,7 @@ export default function AgentSessionView({
           case "TextDelta": {
             appendText(event.text || event.delta || "");
             setStreamText(fullText);
+            setLiveSegments([...segments]);
             break;
           }
           case "ToolCall":
@@ -627,6 +633,7 @@ export default function AgentSessionView({
             toolEvents.push(ev);
             segments.push({ kind: "tool", event: ev });
             setLiveToolEvents([...toolEvents]);
+            setLiveSegments([...segments]);
             break;
           }
           case "ToolResult":
@@ -657,6 +664,7 @@ export default function AgentSessionView({
               segments[segIdx] = { kind: "tool", event: completed };
             else segments.push({ kind: "tool", event: completed });
             setLiveToolEvents([...toolEvents]);
+            setLiveSegments([...segments]);
             break;
           }
           case "TurnStart": {
@@ -668,6 +676,7 @@ export default function AgentSessionView({
             });
             segments.push({ kind: "status", text: `Turn ${turnNum}` });
             setLiveToolEvents([...toolEvents]);
+            setLiveSegments([...segments]);
             break;
           }
           case "Status": {
@@ -679,6 +688,7 @@ export default function AgentSessionView({
             });
             segments.push({ kind: "status", text: statusMsg });
             setLiveToolEvents([...toolEvents]);
+            setLiveSegments([...segments]);
             break;
           }
           case "Compacted": {
@@ -768,6 +778,7 @@ export default function AgentSessionView({
             setStreamText("");
             setStreaming(false);
             setLiveToolEvents([]);
+    setLiveSegments([]);
             setThinkingStart(null);
             ws.close();
             break;
@@ -1072,65 +1083,50 @@ export default function AgentSessionView({
           );
         })}
 
-        {/* Live streaming */}
+        {/* Live streaming — segments in order */}
         {streaming && (
           <div className="asv-msg asv-msg-assistant asv-msg-streaming">
-            <div className="asv-msg-header">
-              <span className="asv-msg-role">{displayName}</span>
-              {thinkingStart && <ThinkingTimer start={thinkingStart} />}
+            <div className="asv-msg-avatar">
+              <RoundAvatar name={agentName} size={24} />
             </div>
-            {streamText && (
-              <div className="asv-msg-content">
-                <Markdown>{streamText}</Markdown>
+            <div className="asv-msg-body">
+              <div className="asv-msg-header">
+                <span className="asv-msg-role">{displayName}</span>
+                {thinkingStart && <ThinkingTimer start={thinkingStart} />}
               </div>
-            )}
-            {liveToolEvents.length > 0 && (
-              <div className="asv-tool-live">
-                <div className="asv-tool-live-header">
-                  {liveToolEvents.some((e) => e.type === "start")
-                    ? "working..."
-                    : `${liveToolEvents.filter((e) => e.type === "complete").length} tool calls`}
-                </div>
-                {liveToolEvents.map((ev, i) =>
-                  ev.type === "turn" ? (
-                    <div key={i} className="asv-tool-live-item turn">
-                      <span className="asv-tool-live-name">{ev.name}</span>
-                    </div>
-                  ) : ev.type === "status" ? (
-                    <div key={i} className="asv-tool-live-item status">
-                      <span className="asv-tool-live-name">{ev.name}</span>
-                    </div>
-                  ) : (
-                    <div key={i} className={`asv-tool-live-item ${ev.type}`}>
-                      <span className="asv-tool-icon">
-                        {ev.type === "start"
-                          ? "\u27F3"
-                          : ev.success
-                            ? "\u2713"
-                            : "\u2717"}
-                      </span>
-                      <span className="asv-tool-live-name">{ev.name}</span>
-                      {ev.duration_ms != null && (
-                        <span className="asv-tool-ms">
-                          {formatMs(ev.duration_ms)}
-                        </span>
-                      )}
-                      {ev.type === "complete" && ev.output_preview && (
-                        <ExpandableOutput text={ev.output_preview} />
-                      )}
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-            {!streamText && !liveToolEvents.length && <ThinkingStatus />}
-            {liveToolEvents.some((e) => e.type === "start") && (
-              <ThinkingStatus
-                toolName={
-                  liveToolEvents.filter((e) => e.type === "start").pop()?.name
-                }
-              />
-            )}
+              {liveSegments.map((seg, si) =>
+                seg.kind === "text" ? (
+                  <div key={si} className="asv-msg-content">
+                    <Markdown>{seg.text}</Markdown>
+                  </div>
+                ) : seg.kind === "tool" ? (
+                  <div key={si} className={`asv-tool-inline ${seg.event.type}`}>
+                    <span className="asv-tool-icon">
+                      {seg.event.type === "start"
+                        ? "\u27F3"
+                        : seg.event.success
+                          ? "\u2713"
+                          : "\u2717"}
+                    </span>
+                    <span className="asv-tool-name">{seg.event.name}</span>
+                    {seg.event.duration_ms != null && (
+                      <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
+                    )}
+                    {seg.event.type === "complete" && seg.event.output_preview && (
+                      <ExpandableOutput text={seg.event.output_preview} />
+                    )}
+                  </div>
+                ) : seg.kind === "status" ? (
+                  <div key={si} className="asv-status-item">{seg.text}</div>
+                ) : null,
+              )}
+              {!liveSegments.length && <ThinkingStatus />}
+              {liveToolEvents.some((e) => e.type === "start") && (
+                <ThinkingStatus
+                  toolName={liveToolEvents.filter((e) => e.type === "start").pop()?.name}
+                />
+              )}
+            </div>
           </div>
         )}
 
