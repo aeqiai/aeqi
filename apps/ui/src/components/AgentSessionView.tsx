@@ -552,17 +552,17 @@ export default function AgentSessionView({
   // Process raw messages from API into our format
   const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
+    let pendingTools: MessageSegment[] = [];
+    let turnCount = 0;
 
     for (const m of rawMessages) {
       const eventType = m.event_type || "message";
       const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
 
       if (eventType === "tool_complete") {
-        // Attach tool events to the PREVIOUS assistant message's segments.
-        // If no assistant message yet, they'll be picked up as standalone.
-        const lastAssistant = [...processed].reverse().find((p) => p.role === "assistant");
+        // Collect tools — they'll attach to the NEXT assistant message
         const meta = (m.metadata || {}) as Record<string, unknown>;
-        const toolSeg: MessageSegment = {
+        pendingTools.push({
           kind: "tool",
           event: {
             type: "complete",
@@ -573,22 +573,17 @@ export default function AgentSessionView({
             duration_ms: meta.duration_ms as number | undefined,
             timestamp: ts,
           },
-        };
-        if (lastAssistant && lastAssistant.segments) {
-          // Insert tool BEFORE the last text segment (tools happened before response)
-          const lastTextIdx = lastAssistant.segments.length - 1;
-          if (lastTextIdx >= 0 && lastAssistant.segments[lastTextIdx].kind === "text") {
-            lastAssistant.segments.splice(lastTextIdx, 0, toolSeg);
-          } else {
-            lastAssistant.segments.push(toolSeg);
-          }
-        }
-        // If no assistant message yet, these are orphaned tools — skip for now
+        });
       } else if (m.role === "assistant") {
-        const turnNum = processed.filter((p) => p.role === "assistant").length + 1;
+        turnCount++;
+        // Build segments: turn separator → tools → text
         const segments: MessageSegment[] = [];
-        if (turnNum > 1) {
-          segments.push({ kind: "status", text: `Turn ${turnNum}` });
+        if (turnCount > 1) {
+          segments.push({ kind: "status", text: `Turn ${turnCount}` });
+        }
+        if (pendingTools.length > 0) {
+          segments.push(...pendingTools);
+          pendingTools = [];
         }
         segments.push({ kind: "text", text: String(m.content || "") });
         processed.push({
@@ -598,13 +593,34 @@ export default function AgentSessionView({
           timestamp: ts,
         });
       } else if (m.role === "user" || m.role === "User") {
+        // Flush any orphaned pending tools as a standalone agent message
+        if (pendingTools.length > 0) {
+          turnCount++;
+          const segments: MessageSegment[] = [];
+          if (turnCount > 1) {
+            segments.push({ kind: "status", text: `Turn ${turnCount}` });
+          }
+          segments.push(...pendingTools);
+          pendingTools = [];
+          processed.push({
+            role: "assistant",
+            content: "",
+            segments,
+            timestamp: ts,
+          });
+        }
+        turnCount = 0; // Reset turns for new user→agent exchange
         processed.push({
           role: "user",
           content: String(m.content || ""),
           timestamp: ts,
         });
       }
-      // Skip system events (quest_created, task_released, etc.)
+    }
+    // Flush remaining tools
+    if (pendingTools.length > 0) {
+      const segments: MessageSegment[] = [...pendingTools];
+      processed.push({ role: "assistant", content: "", segments });
     }
     return processed;
   }, []);

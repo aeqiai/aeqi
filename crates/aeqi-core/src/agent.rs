@@ -1546,7 +1546,7 @@ impl Agent {
                 && let Some(ref mem) = self.memory
             {
                 self.emit(crate::chat_stream::ChatStreamEvent::Status {
-                    message: "Recalling memory...".into(),
+                    message: "Recalling insights...".into(),
                 });
                 let tool_output: String = processed
                     .iter()
