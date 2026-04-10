@@ -57,6 +57,31 @@ function formatTime(ts: number): string {
   });
 }
 
+// ── Tool category icons (matches sidebar nav) ──
+
+function toolCategoryIcon(toolName: string): string {
+  if (toolName.startsWith("agents_")) return "◉"; // person
+  if (toolName.startsWith("quests_")) return "☰"; // list
+  if (toolName.startsWith("events_")) return "⊞"; // grid/inbox
+  if (toolName.startsWith("insights_")) return "✦"; // sparkle
+  if (toolName.startsWith("prompts_")) return "⚡"; // bolt
+  if (toolName.startsWith("notes")) return "✎"; // edit
+  // Utility tools
+  if (["shell", "read_file", "write_file", "edit_file", "glob", "grep", "list_dir", "execute_plan"].includes(toolName)) return "›"; // terminal
+  if (toolName.startsWith("web_")) return "↗"; // external
+  if (toolName === "git_worktree") return "⑂"; // branch
+  return "·";
+}
+
+function toolCategoryClass(toolName: string): string {
+  if (toolName.startsWith("agents_")) return "cat-agents";
+  if (toolName.startsWith("quests_")) return "cat-quests";
+  if (toolName.startsWith("events_")) return "cat-events";
+  if (toolName.startsWith("insights_")) return "cat-insights";
+  if (toolName.startsWith("prompts_")) return "cat-prompts";
+  return "cat-util";
+}
+
 // ── Sub-components ──
 
 function ExpandableOutput({
@@ -132,16 +157,20 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
               onClick={() => setToolsExpanded(!toolsExpanded)}
             >
               <span className="asv-tools-toggle-icon">{toolsExpanded ? "▾" : "▸"}</span>
-              {toolCount} tool call{toolCount !== 1 ? "s" : ""}
+              {(() => {
+                const tools = group.items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
+                const cats = [...new Set(tools.map((t) => toolCategoryIcon(t.event.name)))];
+                return <>{cats.join(" ")} {toolCount} tool{toolCount !== 1 ? "s" : ""}</>;
+              })()}
             </button>
             {toolsExpanded && (
               <div className="asv-tools-expanded">
                 {group.items.map((seg, si) =>
                   seg.kind === "tool" ? (
-                    <div key={si} className={`asv-tool-inline ${seg.event.type}`}>
-                      <span className="asv-tool-icon">
+                    <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
+                      <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
                         {seg.event.type === "start"
-                          ? "\u27F3"
+                          ? toolCategoryIcon(seg.event.name)
                           : seg.event.success
                             ? "\u2713"
                             : "\u2717"}
@@ -1173,9 +1202,9 @@ export default function AgentSessionView({
                     <div key={gi} className="asv-tools-group asv-tools-group--live">
                       {group.items.map((seg, si) =>
                         seg.kind === "tool" ? (
-                          <div key={si} className={`asv-tool-inline ${seg.event.type}`}>
-                            <span className="asv-tool-icon">
-                              {seg.event.type === "start" ? "\u27F3" : seg.event.success ? "\u2713" : "\u2717"}
+                          <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
+                            <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
+                              {seg.event.type === "start" ? toolCategoryIcon(seg.event.name) : seg.event.success ? "\u2713" : "\u2717"}
                             </span>
                             <span className="asv-tool-name">{seg.event.name}</span>
                             {seg.event.duration_ms != null && (

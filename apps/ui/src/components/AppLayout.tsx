@@ -129,7 +129,7 @@ export default function AppLayout() {
               </span>
             </a>
             <a className={`sidebar-nav-item ${isActive("/quests") ? "active" : ""}`} href="/quests" onClick={(e) => { e.preventDefault(); navigate("/quests"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M4 3h8M4 7h8M4 11h6M2 3v0.3.1v0M2 11v0" strokeLinecap="round" /></svg>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M4 3h8M4 7h8M4 11h6M2 3v0.3.2v0M2 11v0" strokeLinecap="round" /></svg>
               <span className="sidebar-nav-label">Quests</span>
               <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/quests"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New quest">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
@@ -159,7 +159,7 @@ export default function AppLayout() {
           <div className="sidebar-footer">
             <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">Docs</a>
             <span className="sidebar-footer-dot">·</span>
-            <span className="sidebar-footer-version">v0.3.1</span>
+            <span className="sidebar-footer-version">v0.3.2</span>
           </div>
         </div>
 

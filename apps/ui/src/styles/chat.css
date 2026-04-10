@@ -1302,6 +1302,15 @@
   padding: 6px 10px;
 }
 
+/* ── Tool category colors (subtle tint on the icon) ── */
+
+.asv-tool-icon.cat-agents { color: rgba(0, 0, 0, 0.5); }
+.asv-tool-icon.cat-quests { color: rgba(0, 0, 0, 0.4); }
+.asv-tool-icon.cat-events { color: rgba(0, 0, 0, 0.4); }
+.asv-tool-icon.cat-insights { color: rgba(0, 0, 0, 0.5); }
+.asv-tool-icon.cat-prompts { color: rgba(0, 0, 0, 0.4); }
+.asv-tool-icon.cat-util { color: rgba(0, 0, 0, 0.25); }
+
 /* ── Tool events (inline, in completed messages) ── */
 
 .asv-tool-inline {
