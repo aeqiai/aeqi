@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
+import RoundAvatar from "./RoundAvatar";
 import "@/styles/session-rail.css";
 
 interface SessionItem {
@@ -22,6 +24,9 @@ export default function SessionRail({
   activeSessionId: string | null;
 }) {
   const navigate = useNavigate();
+  const agents = useDaemonStore((s) => s.agents);
+  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agentName = agent?.display_name || agent?.name || agentId;
   const [sessions, setSessions] = useState<SessionItem[]>([]);
 
   useEffect(() => {
@@ -49,7 +54,14 @@ export default function SessionRail({
 
   return (
     <div className="sr">
-      <div className="sr-header">Sessions</div>
+      <div className="sr-agent">
+        <RoundAvatar name={agent?.name || agentId} size={28} />
+        <div className="sr-agent-info">
+          <span className="sr-agent-name">{agentName}</span>
+          <span className="sr-agent-status">{agent?.status || "active"}</span>
+        </div>
+      </div>
+      <div className="sr-section-label">Sessions</div>
       <div className="sr-list">
         {sessions.map((s) => (
           <button
