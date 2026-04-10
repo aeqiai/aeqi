@@ -2,7 +2,7 @@
 name: "transcript-search"
 description: "Search past session transcripts for context. Use when memory doesn't have the details you need — transcripts have the raw conversation."
 when_to_use: "When you need to recall HOW you solved something (reasoning, steps, tool calls), not just WHAT the answer was. Memory stores facts; transcripts store process."
-tools: [aeqi_recall, aeqi_remember]
+tools: [insights_recall, insights_store]
 tags: [autonomous]
 ---
 
@@ -14,9 +14,9 @@ You need to recall details from a past session.
 
 ## How to Search
 
-> **Note:** `transcript_search` is a native runtime tool (available in AEQI's orchestrator workers). In the MCP/harness context, use `aeqi_recall` with a detailed query to search for past session context.
+> **Note:** `insights_search` is a native runtime tool (available in AEQI's orchestrator workers). In the MCP/harness context, use `insights_recall` with a detailed query to search for past session context.
 
-Use aeqi_recall with a keyword query. When running in the native runtime, transcript_search supports FTS5 syntax:
+Use insights_recall with a keyword query. When running in the native runtime, insights_search supports FTS5 syntax:
 - Simple words: `trigger system design`
 - Exact phrase: `"parent_id field"`
 - Boolean: `clippy AND warning`

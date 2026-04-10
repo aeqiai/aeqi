@@ -2,7 +2,7 @@
 name: "agent-type-build-resolver"
 description: "Build error resolver. Diagnoses and fixes compilation errors, dependency conflicts, and build system issues. Specialized per language ecosystem."
 when_to_use: "Use when build fails: compilation errors, linker errors, dependency resolution failures, missing modules."
-tools: [read_file, write_file, edit_file, glob, grep, shell, aeqi_recall]
+tools: [read_file, write_file, edit_file, glob, grep, shell, insights_recall]
 tags: [implement]
 ---
 

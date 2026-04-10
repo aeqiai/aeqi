@@ -173,10 +173,10 @@ pub(crate) fn build_provider_for_runtime(
         ProviderKind::OpenRouter => {
             let api_key = get_api_key(config)?;
             let mut provider = OpenRouterProvider::new(api_key, model);
-            if let Some(ref or_cfg) = config.providers.openrouter {
-                if let Some(ref url) = or_cfg.base_url {
-                    provider = provider.with_base_url(url.clone());
-                }
+            if let Some(ref or_cfg) = config.providers.openrouter
+                && let Some(ref url) = or_cfg.base_url
+            {
+                provider = provider.with_base_url(url.clone());
             }
             Ok(Arc::new(provider))
         }

@@ -5,7 +5,7 @@ model_tier: capable
 max_workers: 2
 max_turns: 30
 expertise: [architecture, systems, rust, infrastructure, smart-contracts, performance]
-capabilities: [spawn_agents, manage_triggers]
+capabilities: [spawn_agents, events_manage]
 color: "#00BFFF"
 avatar: ⚙
 faces:

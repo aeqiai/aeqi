@@ -64,8 +64,8 @@ Claiming "deployed" without verifying is the same as not deploying. Verify.
 
 1. **Changelog** — post to team channel
 2. **Tag** — `git tag vX.Y.Z` and push
-3. **Close quest** — `aeqi_close_quest`
-4. **Store** — `aeqi_remember` any deployment learnings
+3. **Close quest** — `quests_close`
+4. **Store** — `insights_store` any deployment learnings
 
 ---
 

@@ -18,10 +18,10 @@ Scope → Investigate → Synthesize → Close
 
 **Before ANY investigation.** Define what you're looking for and where to stop.
 
-1. **Check existing knowledge** — `aeqi_recall` for prior research on this topic
+1. **Check existing knowledge** — `insights_recall` for prior research on this topic
 2. **Define the question** — one clear question this research answers. Not "understand X" but "how does X handle Y when Z happens?"
 3. **Set boundaries** — what's in scope, what's out. Research without scope becomes rabbit-holing.
-4. **Create quest** — `aeqi_create_quest` with the specific question
+4. **Create quest** — `quests_create` with the specific question
 
 <HARD-GATE>
 No investigation without a scoped question. "Look into the auth system" is not a research quest. "How does the auth system validate JWT expiry across time zones?" is.
@@ -35,11 +35,11 @@ No investigation without a scoped question. "Look into the auth system" is not a
 
 Systematic evidence gathering. Parallel where possible.
 
-1. **Codebase search** — `aeqi_graph` search to find relevant symbols, then context to understand relationships
-2. **Delegate deep research** — `aeqi_delegate` with the researcher agent for parallel investigation paths. Each researcher gets ONE sub-question.
+1. **Codebase search** — `insights_graph` search to find relevant symbols, then context to understand relationships
+2. **Delegate deep research** — `agents_delegate` with the researcher agent for parallel investigation paths. Each researcher gets ONE sub-question.
 3. **External sources** — if the question involves external systems, APIs, or dependencies, check docs and source
 4. **Collect evidence** — every claim needs a file:line reference or external source citation
-5. **Recall delegate findings** — `aeqi_recall` for researcher agents' stored findings
+5. **Recall delegate findings** — `insights_recall` for researcher agents' stored findings
 
 ### Investigation Discipline
 - Start with the code graph, not grep. Structure reveals intent; text matches reveal tokens.
@@ -61,11 +61,11 @@ Systematic evidence gathering. Parallel where possible.
 
 Turn raw findings into actionable knowledge.
 
-1. **Gather all findings** — `aeqi_recall` for all `quest:{id}:*` entries
+1. **Gather all findings** — `insights_recall` for all `quest:{id}:*` entries
 2. **Organize by theme** — group findings into coherent sections, not chronological order
 3. **Distinguish fact from inference** — clearly mark what's confirmed vs. what's extrapolated
 4. **Answer the original question** — directly. If the answer is "we don't know X because Y", that's a valid finding.
-5. **Store synthesis** — `aeqi_remember` with key `quest:{id}:findings`
+5. **Store synthesis** — `insights_store` with key `quest:{id}:findings`
 
 ### Synthesis Quality Checklist
 - [ ] The original scoped question is answered directly
@@ -84,8 +84,8 @@ Research without a clear deliverable is exploration, not research. The synthesis
 
 ## Phase 4: Close
 
-1. **Store findings** — `aeqi_remember` the key insights as institutional knowledge
-2. **Close quest** — `aeqi_close_quest`
+1. **Store findings** — `insights_store` the key insights as institutional knowledge
+2. **Close quest** — `quests_close`
 3. **Consider follow-up** — if research revealed bugs or improvement opportunities, note them for separate quests
 
 ---

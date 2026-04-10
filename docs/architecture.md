@@ -91,7 +91,7 @@ All converge to `spawn_session`:
 | Entry | How |
 |-------|-----|
 | Web chat | `spawn_session(agent, message, provider, SpawnOptions::interactive())` |
-| Delegation | `aeqi_delegate` tool → `spawn_session(opts.with_parent(id))` |
+| Delegation | `agents_delegate` tool → `spawn_session(opts.with_parent(id))` |
 | Quest execution | Patrol loop → `spawn_session(opts.with_quest(id))` |
 | Trigger/cron | Creates quest → patrol spawns session |
 | Telegram/Discord | MessageRouter → quest or direct session |

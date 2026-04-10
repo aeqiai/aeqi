@@ -66,7 +66,7 @@ impl Tool for QuestCreateTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_create".to_string(),
+            name: "quests_create".to_string(),
             description: "Create a new quest with a subject and optional description/priority."
                 .to_string(),
             input_schema: serde_json::json!({
@@ -82,7 +82,7 @@ impl Tool for QuestCreateTool {
     }
 
     fn name(&self) -> &str {
-        "quest_create"
+        "quests_create"
     }
 }
 
@@ -132,7 +132,7 @@ impl Tool for QuestReadyTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_ready".to_string(),
+            name: "quests_ready".to_string(),
             description: "List all unblocked quests that are ready to work on.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -142,7 +142,7 @@ impl Tool for QuestReadyTool {
     }
 
     fn name(&self) -> &str {
-        "quest_ready"
+        "quests_ready"
     }
 }
 
@@ -194,7 +194,7 @@ impl Tool for QuestUpdateTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_update".to_string(),
+            name: "quests_update".to_string(),
             description: "Update a quest's status.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -208,7 +208,7 @@ impl Tool for QuestUpdateTool {
     }
 
     fn name(&self) -> &str {
-        "quest_update"
+        "quests_update"
     }
 }
 
@@ -251,7 +251,7 @@ impl Tool for QuestCloseTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_close".to_string(),
+            name: "quests_close".to_string(),
             description: "Close (complete) a quest with an optional reason.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -265,7 +265,7 @@ impl Tool for QuestCloseTool {
     }
 
     fn name(&self) -> &str {
-        "quest_close"
+        "quests_close"
     }
 }
 
@@ -332,7 +332,7 @@ impl Tool for QuestShowTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_show".to_string(),
+            name: "quests_show".to_string(),
             description: "Show detailed information about a specific quest.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -345,7 +345,7 @@ impl Tool for QuestShowTool {
     }
 
     fn name(&self) -> &str {
-        "quest_show"
+        "quests_show"
     }
 }
 
@@ -388,7 +388,7 @@ impl Tool for QuestDepTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_dep".to_string(),
+            name: "quests_depend".to_string(),
             description: "Add a dependency between two quests. The first quest will be blocked until the second is closed.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -402,6 +402,6 @@ impl Tool for QuestDepTool {
     }
 
     fn name(&self) -> &str {
-        "quest_dep"
+        "quests_depend"
     }
 }

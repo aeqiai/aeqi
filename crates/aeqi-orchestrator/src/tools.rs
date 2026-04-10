@@ -196,7 +196,7 @@ impl Tool for InsightStoreTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "aeqi_remember".to_string(),
+            name: "insights_store".to_string(),
             description: "Store a memory with semantic embeddings for later recall. Use for facts, preferences, patterns, and context worth remembering.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -212,7 +212,7 @@ impl Tool for InsightStoreTool {
     }
 
     fn name(&self) -> &str {
-        "aeqi_remember"
+        "insights_store"
     }
 }
 
@@ -273,7 +273,7 @@ impl Tool for InsightRecallTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "aeqi_recall".to_string(),
+            name: "insights_recall".to_string(),
             description: "Search memories using semantic similarity + keyword matching. Returns the most relevant memories ranked by hybrid score.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -288,7 +288,7 @@ impl Tool for InsightRecallTool {
     }
 
     fn name(&self) -> &str {
-        "aeqi_recall"
+        "insights_recall"
     }
 }
 
@@ -348,7 +348,7 @@ impl Tool for QuestDetailTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_detail".to_string(),
+            name: "quests_show".to_string(),
             description: "Read full details of a quest by its ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -361,7 +361,7 @@ impl Tool for QuestDetailTool {
     }
 
     fn name(&self) -> &str {
-        "quest_detail"
+        "quests_show"
     }
 }
 
@@ -409,7 +409,7 @@ impl Tool for QuestCancelTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_cancel".to_string(),
+            name: "quests_cancel".to_string(),
             description: "Cancel a quest by its ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -423,7 +423,7 @@ impl Tool for QuestCancelTool {
     }
 
     fn name(&self) -> &str {
-        "quest_cancel"
+        "quests_cancel"
     }
 }
 
@@ -480,7 +480,7 @@ impl Tool for QuestReprioritizeTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quest_reprioritize".to_string(),
+            name: "quests_prioritize".to_string(),
             description: "Change the priority of a quest.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -494,7 +494,7 @@ impl Tool for QuestReprioritizeTool {
     }
 
     fn name(&self) -> &str {
-        "quest_reprioritize"
+        "quests_prioritize"
     }
 }
 
@@ -740,7 +740,7 @@ impl Tool for NotesTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "aeqi_notes".to_string(),
+            name: "notes".to_string(),
             description: "Shared coordination surface. Post discoveries, claim resources, signal state, query entries. Actions: post (store insight), query (search), get (lookup by key), claim (exclusive resource lock via quest), release (drop claim), delete (remove entry).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -758,7 +758,675 @@ impl Tool for NotesTool {
     }
 
     fn name(&self) -> &str {
-        "aeqi_notes"
+        "notes"
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AgentsHireTool — spawn a child agent from a template
+// ---------------------------------------------------------------------------
+
+/// Tool for spawning a child agent from a template file.
+pub struct AgentsHireTool {
+    agent_registry: Arc<AgentRegistry>,
+    caller_agent_id: String,
+    templates_dir: PathBuf,
+}
+
+impl AgentsHireTool {
+    pub fn new(
+        agent_registry: Arc<AgentRegistry>,
+        caller_agent_id: String,
+        templates_dir: PathBuf,
+    ) -> Self {
+        Self {
+            agent_registry,
+            caller_agent_id,
+            templates_dir,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for AgentsHireTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let template = args
+            .get("template")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'template'"))?;
+        let parent_id = args
+            .get("parent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&self.caller_agent_id);
+
+        let template_path = self.templates_dir.join(template).join("agent.md");
+        let content = tokio::fs::read_to_string(&template_path)
+            .await
+            .with_context(|| format!("failed to read template: {}", template_path.display()))?;
+
+        let agent = self
+            .agent_registry
+            .spawn_from_template(&content, Some(parent_id))
+            .await?;
+
+        Ok(ToolResult::success(format!(
+            "Agent hired: {} (id: {}, template: {})",
+            agent.name, agent.id, template
+        )))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "agents_hire".to_string(),
+            description: "Spawn a child agent from a template. Reads the template file and registers a new agent in the hierarchy.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "template": {
+                        "type": "string",
+                        "description": "Template directory name (e.g. 'shadow', 'analyst')"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "Optional display name for the new agent"
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "description": "Parent agent ID (defaults to the calling agent)"
+                    }
+                },
+                "required": ["template"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "agents_hire"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AgentsRetireTool — retire an agent
+// ---------------------------------------------------------------------------
+
+/// Tool for retiring an agent by name or ID.
+pub struct AgentsRetireTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl AgentsRetireTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for AgentsRetireTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let agent_hint = args
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'agent'"))?;
+
+        let agent = self
+            .agent_registry
+            .resolve_by_hint(agent_hint)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("agent not found: {agent_hint}"))?;
+
+        self.agent_registry
+            .set_status(&agent.id, crate::agent_registry::AgentStatus::Retired)
+            .await?;
+
+        Ok(ToolResult::success(format!(
+            "Agent '{}' (id: {}) retired.",
+            agent.name, agent.id
+        )))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "agents_retire".to_string(),
+            description:
+                "Retire an agent by name or ID. The agent will no longer be scheduled for work."
+                    .to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent name or ID to retire"
+                    }
+                },
+                "required": ["agent"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "agents_retire"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AgentsListTool — list agents
+// ---------------------------------------------------------------------------
+
+/// Tool for listing agents, optionally filtered by status.
+pub struct AgentsListTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl AgentsListTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for AgentsListTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let status_str = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("active");
+
+        let status_filter = match status_str {
+            "active" => Some(crate::agent_registry::AgentStatus::Active),
+            "paused" => Some(crate::agent_registry::AgentStatus::Paused),
+            "retired" => Some(crate::agent_registry::AgentStatus::Retired),
+            "all" => None,
+            _ => Some(crate::agent_registry::AgentStatus::Active),
+        };
+
+        let agents = self.agent_registry.list(None, status_filter).await?;
+
+        if agents.is_empty() {
+            return Ok(ToolResult::success(format!(
+                "No agents with status '{status_str}'."
+            )));
+        }
+
+        let mut output = String::new();
+        for agent in &agents {
+            output.push_str(&format!(
+                "- {} (id: {}, display: {}, status: {}, template: {})\n",
+                agent.name,
+                agent.id,
+                agent.display_name.as_deref().unwrap_or("-"),
+                agent.status,
+                agent.template,
+            ));
+        }
+        Ok(ToolResult::success(output))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "agents_list".to_string(),
+            description:
+                "List agents, optionally filtered by status (active, paused, retired, all)."
+                    .to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["active", "paused", "retired", "all"],
+                        "default": "active",
+                        "description": "Filter by agent status (default: active)"
+                    }
+                }
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "agents_list"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EventsCreateTool — create a trigger
+// ---------------------------------------------------------------------------
+
+/// Tool for creating a trigger (scheduled or event-driven).
+pub struct EventsCreateTool {
+    trigger_store: Arc<crate::trigger::TriggerStore>,
+    agent_id: String,
+}
+
+impl EventsCreateTool {
+    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>, agent_id: String) -> Self {
+        Self {
+            trigger_store,
+            agent_id,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for EventsCreateTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'name'"))?;
+        let skill = args
+            .get("skill")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'skill'"))?;
+
+        let trigger_type = if let Some(schedule) = args.get("schedule").and_then(|v| v.as_str()) {
+            crate::trigger::TriggerType::Schedule {
+                expr: schedule.to_string(),
+            }
+        } else if let Some(event) = args.get("event").and_then(|v| v.as_str()) {
+            let pattern = match event {
+                "quest_completed" => crate::trigger::EventPattern::QuestCompleted { project: None },
+                "quest_failed" => crate::trigger::EventPattern::QuestFailed { project: None },
+                "tool_call_completed" => {
+                    crate::trigger::EventPattern::ToolCallCompleted { tool: None }
+                }
+                other => {
+                    return Ok(ToolResult::error(format!(
+                        "Unknown event pattern: {other}. Use: quest_completed, quest_failed, tool_call_completed"
+                    )));
+                }
+            };
+            crate::trigger::TriggerType::Event {
+                pattern,
+                cooldown_secs: 300,
+            }
+        } else {
+            return Ok(ToolResult::error(
+                "Provide either 'schedule' (cron expr) or 'event' pattern.",
+            ));
+        };
+
+        match self
+            .trigger_store
+            .create(&crate::trigger::NewTrigger {
+                agent_id: self.agent_id.clone(),
+                name: name.to_string(),
+                trigger_type,
+                skill: skill.to_string(),
+                max_budget_usd: None,
+            })
+            .await
+        {
+            Ok(trigger) => Ok(ToolResult::success(format!(
+                "Trigger '{}' created (id: {}, skill: {}, type: {})",
+                trigger.name,
+                trigger.id,
+                trigger.skill,
+                trigger.trigger_type.type_str()
+            ))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to create trigger: {e}"))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "events_create".to_string(),
+            description:
+                "Create a new trigger (scheduled or event-driven) that runs a skill automatically."
+                    .to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Trigger name"
+                    },
+                    "schedule": {
+                        "type": "string",
+                        "description": "Cron expression or interval (e.g. '0 9 * * *')"
+                    },
+                    "event": {
+                        "type": "string",
+                        "enum": ["quest_completed", "quest_failed", "tool_call_completed"],
+                        "description": "Event pattern to react to"
+                    },
+                    "skill": {
+                        "type": "string",
+                        "description": "Skill to run when triggered"
+                    }
+                },
+                "required": ["name", "skill"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "events_create"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EventsListTool — list triggers for the current agent
+// ---------------------------------------------------------------------------
+
+/// Tool for listing triggers owned by the current agent.
+pub struct EventsListTool {
+    trigger_store: Arc<crate::trigger::TriggerStore>,
+    agent_id: String,
+}
+
+impl EventsListTool {
+    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>, agent_id: String) -> Self {
+        Self {
+            trigger_store,
+            agent_id,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for EventsListTool {
+    async fn execute(&self, _args: serde_json::Value) -> Result<ToolResult> {
+        let triggers = self
+            .trigger_store
+            .list_for_agent(&self.agent_id)
+            .await
+            .unwrap_or_default();
+
+        if triggers.is_empty() {
+            return Ok(ToolResult::success("No triggers."));
+        }
+
+        let items: Vec<String> = triggers
+            .iter()
+            .map(|t| {
+                format!(
+                    "- {} (id: {}, type: {}, skill: {}, enabled: {}, fires: {})",
+                    t.name,
+                    t.id,
+                    t.trigger_type.type_str(),
+                    t.skill,
+                    t.enabled,
+                    t.fire_count
+                )
+            })
+            .collect();
+        Ok(ToolResult::success(items.join("\n")))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "events_list".to_string(),
+            description: "List all triggers owned by this agent.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {}
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "events_list"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EventsRemoveTool — remove a trigger
+// ---------------------------------------------------------------------------
+
+/// Tool for removing (deleting) a trigger by ID.
+pub struct EventsRemoveTool {
+    trigger_store: Arc<crate::trigger::TriggerStore>,
+}
+
+impl EventsRemoveTool {
+    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>) -> Self {
+        Self { trigger_store }
+    }
+}
+
+#[async_trait]
+impl Tool for EventsRemoveTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let trigger_id = args
+            .get("trigger_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'trigger_id'"))?;
+
+        match self.trigger_store.delete(trigger_id).await {
+            Ok(()) => Ok(ToolResult::success(format!(
+                "Trigger {trigger_id} removed."
+            ))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to remove trigger: {e}"))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "events_remove".to_string(),
+            description: "Remove (delete) a trigger by its ID.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "trigger_id": {
+                        "type": "string",
+                        "description": "ID of the trigger to remove"
+                    }
+                },
+                "required": ["trigger_id"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "events_remove"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+}
+
+// ── Prompt tools ──
+
+pub struct PromptsListTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl PromptsListTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for PromptsListTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let tag = args.get("tag").and_then(|v| v.as_str());
+        match self.agent_registry.list_prompts(tag).await {
+            Ok(prompts) => {
+                let items: Vec<String> = prompts
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "- {} [{}] — {}",
+                            p.name,
+                            p.tags.join(", "),
+                            p.content.chars().take(80).collect::<String>()
+                        )
+                    })
+                    .collect();
+                Ok(ToolResult::success(format!(
+                    "{} prompts found:\n{}",
+                    prompts.len(),
+                    items.join("\n")
+                )))
+            }
+            Err(e) => Ok(ToolResult::error(format!("Failed to list prompts: {e}"))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "prompts_list".to_string(),
+            description: "List available prompts, optionally filtered by tag.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "tag": {
+                        "type": "string",
+                        "description": "Filter prompts by tag (e.g., 'workflow', 'identity', 'skill')"
+                    }
+                }
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "prompts_list"
+    }
+}
+
+pub struct PromptsLoadTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl PromptsLoadTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for PromptsLoadTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'name'"))?;
+        match self.agent_registry.list_prompts(None).await {
+            Ok(prompts) => {
+                if let Some(p) = prompts.iter().find(|p| p.name == name) {
+                    Ok(ToolResult::success(format!(
+                        "# {}\ntags: {}\n\n{}",
+                        p.name,
+                        p.tags.join(", "),
+                        p.content
+                    )))
+                } else {
+                    Ok(ToolResult::error(format!("Prompt '{name}' not found.")))
+                }
+            }
+            Err(e) => Ok(ToolResult::error(format!("Failed to load prompt: {e}"))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "prompts_load".to_string(),
+            description: "Load a prompt by name. Returns the full content.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the prompt to load"
+                    }
+                },
+                "required": ["name"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "prompts_load"
+    }
+}
+
+pub struct PromptsSearchTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl PromptsSearchTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for PromptsSearchTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let query = args
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'query'"))?
+            .to_lowercase();
+        match self.agent_registry.list_prompts(None).await {
+            Ok(prompts) => {
+                let matches: Vec<String> = prompts
+                    .iter()
+                    .filter(|p| {
+                        p.name.to_lowercase().contains(&query)
+                            || p.content.to_lowercase().contains(&query)
+                            || p.tags.iter().any(|t| t.to_lowercase().contains(&query))
+                    })
+                    .map(|p| {
+                        format!(
+                            "- {} [{}] — {}",
+                            p.name,
+                            p.tags.join(", "),
+                            p.content.chars().take(80).collect::<String>()
+                        )
+                    })
+                    .collect();
+                Ok(ToolResult::success(format!(
+                    "{} matches for '{}':\n{}",
+                    matches.len(),
+                    query,
+                    matches.join("\n")
+                )))
+            }
+            Err(e) => Ok(ToolResult::error(format!("Failed to search prompts: {e}"))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "prompts_search".to_string(),
+            description: "Search prompts by name, content, or tag.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to match against prompt names, content, and tags"
+                    }
+                },
+                "required": ["query"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "prompts_search"
     }
 }
 
@@ -805,12 +1473,33 @@ pub fn build_orchestration_tools(
     let cancel_tool = QuestCancelTool::new(agent_registry.clone());
     let reprioritize_tool = QuestReprioritizeTool::new(agent_registry.clone());
 
+    // Agent management tools.
+    let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
+    let hire_tool = AgentsHireTool::new(agent_registry.clone(), leader_name.clone(), templates_dir);
+    let retire_tool = AgentsRetireTool::new(agent_registry.clone());
+    let list_tool = AgentsListTool::new(agent_registry.clone());
+
+    // Events tools via TriggerStore.
+    let trigger_store = Arc::new(agent_registry.trigger_store());
+    let events_create_tool = EventsCreateTool::new(trigger_store.clone(), leader_name.clone());
+    let events_list_tool = EventsListTool::new(trigger_store.clone(), leader_name.clone());
+    let events_remove_tool = EventsRemoveTool::new(trigger_store);
+
     let mut tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(detail_tool),
         Arc::new(cancel_tool),
         Arc::new(reprioritize_tool),
         Arc::new(delegate_tool),
         Arc::new(UsageStatsTool::new(api_key)),
+        Arc::new(hire_tool),
+        Arc::new(retire_tool),
+        Arc::new(list_tool),
+        Arc::new(events_create_tool),
+        Arc::new(events_list_tool),
+        Arc::new(events_remove_tool),
+        Arc::new(PromptsListTool::new(agent_registry.clone())),
+        Arc::new(PromptsLoadTool::new(agent_registry.clone())),
+        Arc::new(PromptsSearchTool::new(agent_registry.clone())),
     ];
 
     if let Some(mem) = memory {
@@ -913,7 +1602,7 @@ impl Tool for GraphTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "aeqi_graph".to_string(),
+            name: "insights_graph".to_string(),
             description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius, list symbols in a file.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -935,7 +1624,7 @@ impl Tool for GraphTool {
     }
 
     fn name(&self) -> &str {
-        "aeqi_graph"
+        "insights_graph"
     }
 }
 
@@ -1152,7 +1841,7 @@ impl Tool for TriggerManageTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "manage_triggers".to_string(),
+            name: "events_manage".to_string(),
             description: "Create, list, enable, disable, or delete triggers for this agent. Triggers automate recurring quests on a schedule or in response to events.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -1206,7 +1895,7 @@ impl Tool for TriggerManageTool {
     }
 
     fn name(&self) -> &str {
-        "manage_triggers"
+        "events_manage"
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
@@ -1277,7 +1966,7 @@ impl Tool for TranscriptSearchTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "transcript_search".to_string(),
+            name: "insights_search".to_string(),
             description: "Search past session transcripts. Returns matching messages from previous agent sessions. Use when you need to recall HOW you solved something.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -1297,7 +1986,7 @@ impl Tool for TranscriptSearchTool {
     }
 
     fn name(&self) -> &str {
-        "transcript_search"
+        "insights_search"
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {

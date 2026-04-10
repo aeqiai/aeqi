@@ -5,7 +5,7 @@ model_tier: capable
 max_workers: 3
 max_turns: 30
 expertise: [strategy, coordination, prioritization, decision-making]
-capabilities: [spawn_agents, manage_triggers, orchestration]
+capabilities: [spawn_agents, events_manage, orchestration]
 color: "#DC143C"
 avatar: ♛
 faces:

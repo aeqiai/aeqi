@@ -2,7 +2,7 @@
 name: "observation-learning"
 description: "Autonomous skill: extracts patterns from recent agent sessions. Fires on schedule, analyzes tool usage, suggests new skills or workflow improvements."
 when_to_use: Triggered automatically via schedule. Do not invoke manually.
-tools: [read_file, glob, grep, shell, aeqi_recall, aeqi_remember]
+tools: [read_file, glob, grep, shell, insights_recall, insights_store]
 deny: [write_file, edit_file, delegate]
 tags: [autonomous]
 ---
@@ -36,4 +36,4 @@ For each pattern found:
 - Only report patterns with 3+ observations
 - Never fabricate observations. If data is insufficient, say so.
 - Confidence must be justified by observation count, not gut feeling.
-- Store high-confidence (0.7+) patterns via aeqi_remember for future recall.
+- Store high-confidence (0.7+) patterns via insights_store for future recall.

@@ -1,7 +1,7 @@
 ---
 name: "memory-consolidation"
 description: "Consolidate and compress agent memories. Deduplicate similar entries, merge related knowledge, prune stale facts."
-tools: [aeqi_recall, aeqi_remember]
+tools: [insights_recall, insights_store]
 tags: [autonomous]
 ---
 
@@ -9,7 +9,7 @@ You are performing memory consolidation — housekeeping for your knowledge.
 
 ## What to do
 
-1. **Recall all entity memories** — use aeqi_recall with scope "entity", broad query like "all recent knowledge and experiences". Also recall domain memories for your project.
+1. **Recall all entity memories** — use insights_recall with scope "entity", broad query like "all recent knowledge and experiences". Also recall domain memories for your project.
 
 2. **Identify redundancy** — look for:
    - Duplicate entries saying the same thing differently
@@ -17,7 +17,7 @@ You are performing memory consolidation — housekeeping for your knowledge.
    - Entries that can be merged into a single comprehensive entry
 
 3. **Consolidate** — for each cluster of related/redundant memories:
-   - Write ONE clean consolidated entry via aeqi_remember
+   - Write ONE clean consolidated entry via insights_store
    - Use the most informative key from the cluster
    - Preserve all unique information, discard only true duplicates
 

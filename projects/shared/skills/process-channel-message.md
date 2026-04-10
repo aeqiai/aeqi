@@ -1,7 +1,7 @@
 ---
 name: "process-channel-message"
 description: Process a message posted to a project context. Participate if relevant.
-tools: [aeqi_delegate, aeqi_recall, aeqi_remember]
+tools: [agents_delegate, insights_recall, insights_store]
 tags: [autonomous]
 ---
 
@@ -20,5 +20,5 @@ A message was posted to a context you participate in.
 ## Guidelines
 - Only respond when you have signal to add. Silence is fine.
 - Keep responses focused and actionable.
-- If the discussion reveals needed work, use `aeqi_create_quest` to propose a quest for the right agent.
+- If the discussion reveals needed work, use `quests_create` to propose a quest for the right agent.
 - Never repeat what others already said.

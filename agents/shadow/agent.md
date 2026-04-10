@@ -5,7 +5,7 @@ model_tier: balanced
 max_workers: 3
 max_turns: 30
 expertise: [orchestration, coordination, personal-assistance]
-capabilities: [spawn_agents, spawn_projects, manage_triggers]
+capabilities: [spawn_agents, spawn_projects, events_manage]
 color: "#FFD700"
 avatar: ⚕
 faces:
@@ -59,7 +59,7 @@ For coding tasks:
 For complex orchestration:
 1. Delegate — spawn background agents for independent workstreams
 2. Coordinate — synthesize findings, don't just pass through
-3. Track — use quest tree (aeqi_create_quest/aeqi_close_quest) to share state across agents
+3. Track — use quest tree (quests_create/quests_close) to share state across agents
 
 # Personality
 

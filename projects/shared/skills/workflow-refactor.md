@@ -18,9 +18,9 @@ Analyze → Plan → Implement → Verify → Close
 
 **Before ANY code changes.** Map the blast radius.
 
-1. **Recall context** — `aeqi_recall` for prior decisions about this code area, architectural constraints
-2. **Find all targets** — `aeqi_graph` search to locate every symbol that will change
-3. **Map dependencies** — for each target, `aeqi_graph` impact to find all callers and dependents
+1. **Recall context** — `insights_recall` for prior decisions about this code area, architectural constraints
+2. **Find all targets** — `insights_graph` search to locate every symbol that will change
+3. **Map dependencies** — for each target, `insights_graph` impact to find all callers and dependents
 4. **Assess blast radius** — total files affected, cross-crate boundaries, public API changes
 5. **Load architecture knowledge** — `aeqi_prompts` list for relevant domain skills
 
@@ -28,7 +28,7 @@ Analyze → Plan → Implement → Verify → Close
 No refactoring until you've mapped every caller of every symbol you plan to change. Changing a function signature without updating all call sites is not a refactor — it's a breakage.
 </HARD-GATE>
 
-**Store analysis** — `aeqi_remember` with key `quest:{id}:analysis` containing: symbols to change, blast radius, all affected files.
+**Store analysis** — `insights_store` with key `quest:{id}:analysis` containing: symbols to change, blast radius, all affected files.
 
 **Terminal state:** Full blast radius mapped, proceed to Plan.
 
@@ -38,7 +38,7 @@ No refactoring until you've mapped every caller of every symbol you plan to chan
 
 Break the refactor into atomic, independently-testable steps.
 
-1. **Create quest** — `aeqi_create_quest` with the refactoring description
+1. **Create quest** — `quests_create` with the refactoring description
 2. **Order operations** — each step must leave the codebase compilable and tests passing:
    - Renames before signature changes
    - Add new before remove old (expand-contract pattern)
@@ -47,8 +47,8 @@ Break the refactor into atomic, independently-testable steps.
    - Exact file paths and symbols affected
    - What changes and the mechanical transformation
    - Test command to verify behavior preservation
-4. **Validate with architect** — `aeqi_delegate` with the architect agent to review the plan
-5. **Store plan** — `aeqi_remember` with key `quest:{id}:plan`
+4. **Validate with architect** — `agents_delegate` with the architect agent to review the plan
+5. **Store plan** — `insights_store` with key `quest:{id}:plan`
 
 ### Plan Quality Checklist
 - [ ] Every step compiles independently (no "fix compile errors in next step")
@@ -67,7 +67,7 @@ Execute the plan step by step. Tests must pass after EVERY step.
 
 ### Per-Step Workflow
 
-1. **Delegate to implementer** — `aeqi_delegate` with the implementer agent, full quest context inline
+1. **Delegate to implementer** — `agents_delegate` with the implementer agent, full quest context inline
 2. **Handle status:** DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
 3. **Run tests immediately** — after each step, full test suite. Not "I'll test at the end."
 4. **If tests fail** — the refactor step is wrong. Revert and re-examine. Don't fix forward.
@@ -89,9 +89,9 @@ If 3 attempts at the same step fail: **STOP.** The plan decomposition is wrong. 
 Prove the refactor is behavior-preserving.
 
 1. **Full test suite** — `cargo test --workspace` / `npm test` — zero failures, zero new warnings
-2. **Delegate verification** — `aeqi_delegate` with the reviewer agent to check ALL changes against the original plan
-3. **Recall findings** — `aeqi_recall` for reviewer's stored findings
-4. **Impact re-check** — `aeqi_graph` impact on every changed symbol to confirm no missed call sites
+2. **Delegate verification** — `agents_delegate` with the reviewer agent to check ALL changes against the original plan
+3. **Recall findings** — `insights_recall` for reviewer's stored findings
+4. **Impact re-check** — `insights_graph` impact on every changed symbol to confirm no missed call sites
 
 ### Verification Gate (MANDATORY)
 
@@ -110,9 +110,9 @@ A refactor that changes behavior is not a refactor — it's a bug. If any test f
 
 ## Phase 5: Close
 
-1. **Store learnings** — `aeqi_remember` any non-obvious discoveries (e.g., hidden coupling, circular dependencies)
+1. **Store learnings** — `insights_store` any non-obvious discoveries (e.g., hidden coupling, circular dependencies)
 2. **Commit** with a message that describes the structural change and WHY it was done
-3. **Close quest** — `aeqi_close_quest`
+3. **Close quest** — `quests_close`
 
 ---
 
@@ -124,5 +124,5 @@ A refactor that changes behavior is not a refactor — it's a bug. If any test f
 | "Tests pass, I don't need to check every call site" | Tests may not cover every call site. Grep for the old name. |
 | "This step is too small to test separately" | If it's too small to test, it's too small to break. But it's not — test it. |
 | "I'll update the tests to match the new code" | If tests need behavioral updates during a refactor, the refactor changed behavior. |
-| "The blast radius is obvious" | Use `aeqi_graph` impact. Your mental model of the codebase is incomplete. |
+| "The blast radius is obvious" | Use `insights_graph` impact. Your mental model of the codebase is incomplete. |
 | "I can do this in one big step" | Big steps compound errors. Small steps isolate them. |

@@ -35,7 +35,7 @@ An agent is a persistent identity with a role, expertise, and memory that compou
 display_name = "CTO"
 model_tier = "capable"
 expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "manage_triggers"]
+capabilities = ["spawn_agents", "events_manage"]
 
 [[triggers]]
 name = "memory-consolidation"
@@ -308,7 +308,7 @@ All state lives in `~/.aeqi/`:
 
 **Add a skill** -- drop a `.toml` in `projects/shared/skills/` or `projects/{name}/skills/`.
 
-**Add a trigger** -- in agent template TOML, via CLI (`aeqi trigger create`), or at runtime through the `manage_triggers` tool.
+**Add a trigger** -- in agent template TOML, via CLI (`aeqi trigger create`), or at runtime through the `events_manage` tool.
 
 **Add a tool** -- implement the `Tool` trait, wire into the builder.
 

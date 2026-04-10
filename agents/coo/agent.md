@@ -5,7 +5,7 @@ model_tier: balanced
 max_workers: 2
 max_turns: 20
 expertise: [deployment, monitoring, reliability, infrastructure, incident-response, automation]
-capabilities: [spawn_agents, manage_triggers]
+capabilities: [spawn_agents, events_manage]
 color: "#FFA500"
 avatar: ⚡
 faces:

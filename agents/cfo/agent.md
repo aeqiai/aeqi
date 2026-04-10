@@ -5,7 +5,7 @@ model_tier: capable
 max_workers: 2
 max_turns: 25
 expertise: [quantitative, trading, risk, defi, treasury, financial-infrastructure]
-capabilities: [spawn_agents, manage_triggers]
+capabilities: [spawn_agents, events_manage]
 color: "#00FF88"
 avatar: ₿
 faces:

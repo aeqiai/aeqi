@@ -74,7 +74,7 @@ shared_primer = """
 # AEQI
 
 ## For Every Quest
-1. `aeqi_recall(project, query)` -- gate-enforced before any edit
+1. `insights_recall(project, query)` -- gate-enforced before any edit
 2. Load a workflow skill
 3. Follow the loaded workflow step by step
 
@@ -99,7 +99,7 @@ model_tier = "capable"           # resolved via [models] in aeqi.toml
 max_workers = 2
 max_turns = 30
 expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "manage_triggers"]
+capabilities = ["spawn_agents", "events_manage"]
 color = "#00BFFF"
 avatar = "gear"
 

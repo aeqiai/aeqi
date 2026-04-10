@@ -2,7 +2,7 @@
 name: "orchestration-guide"
 description: "Guide for team leaders — how to delegate, monitor, coordinate, and synthesize across direct reports."
 when_to_use: "Loaded for agents with direct reports. Guides delegation, monitoring, and synthesis."
-tools: [aeqi_create_quest, aeqi_close_quest, aeqi_delegate, aeqi_recall, aeqi_remember]
+tools: [quests_create, quests_close, agents_delegate, insights_recall, insights_store]
 tags: [autonomous]
 ---
 
@@ -15,7 +15,7 @@ If you don't understand a finding well enough to explain it yourself, you haven'
 
 ## Delegation Protocol
 1. Break complex requests into quests appropriate for individual reports.
-2. Use `aeqi_create_quest` to assign work. Every delegation must include:
+2. Use `quests_create` to assign work. Every delegation must include:
    - What to do (specific, not vague)
    - What files/areas are involved (paths, not descriptions)
    - What success looks like (acceptance criteria)
@@ -39,6 +39,6 @@ If you don't understand a finding well enough to explain it yourself, you haven'
 - Report upward with your synthesis, not raw worker output.
 
 ## Communication
-- `aeqi_create_quest`: assign work to specific agents via the quest tree
-- `aeqi_delegate`: delegate work to agents (legacy, still functional)
-- `aeqi_remember`: store decisions and findings for team visibility via memory
+- `quests_create`: assign work to specific agents via the quest tree
+- `agents_delegate`: delegate work to agents (legacy, still functional)
+- `insights_store`: store decisions and findings for team visibility via memory

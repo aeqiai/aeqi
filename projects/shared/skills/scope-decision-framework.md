@@ -19,7 +19,7 @@ Structured interrogation before committing to build. Prevents scope creep, prema
 
 - What already exists in the codebase that addresses this?
 - Can we extend, configure, or compose existing pieces instead of building new?
-- `aeqi_graph` search + `aeqi_recall` for prior work in this area
+- `insights_graph` search + `insights_recall` for prior work in this area
 
 ## Step 0C: Dream State Mapping
 

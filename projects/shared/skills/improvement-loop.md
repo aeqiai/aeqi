@@ -1,7 +1,7 @@
 ---
 name: "improvement-loop"
 description: "Evaluate a target agent's recent outcomes and rewrite its prompts to improve performance. Self-optimization via memory-informed prompt evolution."
-tools: [aeqi_recall, aeqi_remember, aeqi_prompts, read_file, write_file, edit_file]
+tools: [insights_recall, insights_store, aeqi_prompts, read_file, write_file, edit_file]
 tags: [skill, autonomous]
 ---
 
@@ -15,12 +15,12 @@ The quest description contains the target agent name and evaluation criteria.
 
 1. **Load the target agent** — `aeqi_prompts(action="get", name="<target>")`. Read its current prompts, model, expertise.
 
-2. **Recall recent outcomes** — `aeqi_recall` with queries:
+2. **Recall recent outcomes** — `insights_recall` with queries:
    - `"quest outcomes for <target>"` — what quests did it complete/fail?
    - `"feedback about <target>"` — any human corrections or complaints?
    - `"<target> performance patterns"` — prior improvement loop findings
 
-3. **Recall the prompt history** — `aeqi_recall` with query `"prompt-version:<target>"` to find prior versions. If this is the first run, the current prompt IS version 0.
+3. **Recall the prompt history** — `insights_recall` with query `"prompt-version:<target>"` to find prior versions. If this is the first run, the current prompt IS version 0.
 
 4. **Evaluate** — assess the target agent's performance:
    - **Success rate**: how many quests completed vs failed/blocked/handed off?
@@ -35,7 +35,7 @@ The quest description contains the target agent name and evaluation criteria.
    - **Rewrite**: significant issues. Restructure the prompt to address systemic problems.
 
 6. **Write the improvement** — if refine or rewrite:
-   - Store the CURRENT prompt as `prompt-version:<target>:v{N}` via `aeqi_remember` (this is your rollback point)
+   - Store the CURRENT prompt as `prompt-version:<target>:v{N}` via `insights_store` (this is your rollback point)
    - Write the revised prompt, explaining each change and why
    - Store the revision rationale as `prompt-revision:<target>:v{N+1}:rationale`
 

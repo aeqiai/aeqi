@@ -5,7 +5,7 @@ model_tier: capable
 max_workers: 2
 max_turns: 25
 expertise: [security, compliance, threat-modeling, vulnerability, audit, incident-response]
-capabilities: [spawn_agents, manage_triggers]
+capabilities: [spawn_agents, events_manage]
 color: "#FF4444"
 avatar: 🛡
 faces:

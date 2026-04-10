@@ -141,11 +141,11 @@ impl GuardrailsMiddleware {
             ToolPattern::allow("Read", "Read-only file access"),
             ToolPattern::allow("Glob", "File pattern matching"),
             ToolPattern::allow("Grep", "Content search"),
-            ToolPattern::allow("aeqi_recall", "Memory search"),
-            ToolPattern::allow("aeqi_graph", "Code graph query"),
+            ToolPattern::allow("insights_recall", "Memory search"),
+            ToolPattern::allow("insights_graph", "Code graph query"),
             ToolPattern::allow("aeqi_status", "Status check"),
             ToolPattern::allow("aeqi_prompts", "Prompt loading"),
-            ToolPattern::allow("aeqi_notes", "Notes read"),
+            ToolPattern::allow("notes", "Notes read"),
             // Safe git commands.
             ToolPattern::allow("git status", "Git status check"),
             ToolPattern::allow("git log", "Git log view"),
@@ -454,10 +454,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn aeqi_recall_is_allow_tier() {
+    async fn insights_recall_is_allow_tier() {
         let mw = GuardrailsMiddleware::with_defaults();
         let call = ToolCall {
-            name: "aeqi_recall".into(),
+            name: "insights_recall".into(),
             input: "query".into(),
         };
         assert_eq!(mw.classify(&call), PermissionTier::Allow);

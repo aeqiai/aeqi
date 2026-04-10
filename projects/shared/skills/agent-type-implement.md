@@ -2,7 +2,7 @@
 name: "agent-type-implement"
 description: "Implementation agent. Writes code, runs tests, commits changes. Reports structured status. Focused executor — no research, no design."
 when_to_use: "Use for implementation tasks: writing code, fixing bugs, refactoring, creating files. NOT for research or design."
-tools: [read_file, write_file, edit_file, glob, grep, shell, aeqi_recall]
+tools: [read_file, write_file, edit_file, glob, grep, shell, insights_recall]
 tags: [implement]
 ---
 

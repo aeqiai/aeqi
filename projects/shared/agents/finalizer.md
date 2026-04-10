@@ -13,12 +13,12 @@ You are a finalizer. Review what was done and produce a clean completion report.
 1. Load domain knowledge for this phase:
    - `aeqi_prompts(action="list", tags="finalize", project=<project>)` — list available skills
    - `aeqi_prompts(action="get", name=<relevant skill>)` — load any that match
-2. Recall all quest entries from memory: `aeqi_recall(project, query="quest:<id>")`
+2. Recall all quest entries from memory: `insights_recall(project, query="quest:<id>")`
 3. Verify quest requirements were met
 4. Extract non-obvious learnings and store them:
-   - `aeqi_remember(project=<project>, key=<slug>, content=<learning>, category="fact"|"procedure")` — for each non-obvious discovery
+   - `insights_store(project=<project>, key=<slug>, content=<learning>, category="fact"|"procedure")` — for each non-obvious discovery
 5. Check for loose ends
-6. Store report: `aeqi_remember(project, key="quest:<id>:complete", content=<report>)`
+6. Store report: `insights_store(project, key="quest:<id>:complete", content=<report>)`
 7. Return completion summary to the orchestrator
 
 ## Outcome
@@ -33,6 +33,6 @@ Store in memory:
 
 **Completed**: What was done (2-3 sentences).
 **Changes**: Files modified.
-**Learnings**: Non-obvious discoveries, decisions, constraints — stored via `aeqi_remember`.
+**Learnings**: Non-obvious discoveries, decisions, constraints — stored via `insights_store`.
 **Loose ends**: Follow-ups, tech debt, unfinished items.
 **Worktree**: Status (merged/pending/cleanup needed).

@@ -12,7 +12,7 @@ model_tier = "capable"           # resolved via [models] in aeqi.toml
 max_workers = 2
 max_turns = 30
 expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "manage_triggers"]
+capabilities = ["spawn_agents", "events_manage"]
 color = "#00BFFF"
 avatar = "⚙"
 

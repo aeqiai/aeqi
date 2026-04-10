@@ -105,7 +105,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_recall".to_string(),
+            name: "insights_recall".to_string(),
             description: "Search memory for relevant knowledge. Searches within a project's memory by default, or across all projects with scope 'system'.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -120,7 +120,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_remember".to_string(),
+            name: "insights_store".to_string(),
             description: "Store knowledge in memory for future recall.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -146,8 +146,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_notes".to_string(),
-            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use aeqi_remember instead.".to_string(),
+            name: "notes".to_string(),
+            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use insights_store instead.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -172,7 +172,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_create_quest".to_string(),
+            name: "quests_create".to_string(),
             description: "Create a quest in a AEQI project for the team to execute. Supports agent assignment, dependency tracking, and parent-child hierarchies. Prefix subject with 'claim:' for atomic resource locking.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -196,7 +196,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_close_quest".to_string(),
+            name: "quests_close".to_string(),
             description: "Close/complete a quest by ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -208,7 +208,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_graph".to_string(),
+            name: "insights_graph".to_string(),
             description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes, list communities or processes.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -226,8 +226,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "aeqi_delegate".to_string(),
-            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers quest context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer aeqi_create_quest with agent param (v2 approach).".to_string(),
+            name: "agents_delegate".to_string(),
+            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers quest context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer quests_create with agent param (v2 approach).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -425,7 +425,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     }
 
                     // ── Memory ──
-                    "aeqi_recall" => {
+                    "insights_recall" | "aeqi_recall" => {
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
                         let scope = args
@@ -468,7 +468,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             r
                         }
                     }
-                    "aeqi_remember" => {
+                    "insights_store" | "aeqi_remember" => {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("knowledge_store");
                         if ipc
@@ -494,7 +494,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         ipc_request_sync(&data_dir, &ipc)
                     }
-                    "aeqi_notes" => {
+                    "notes" | "aeqi_notes" => {
                         let action = args
                             .get("action")
                             .and_then(|v| v.as_str())
@@ -583,7 +583,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             }
                         }
                     }
-                    "aeqi_delegate" => {
+                    "agents_delegate" | "aeqi_delegate" => {
                         let agent_name = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let task_id = args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -671,7 +671,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         prompt.push_str(&format!(
                             "\nWhen done, post your results to notes:\n\
-                             aeqi_notes(action='post', project='{project}', key='quest:{task_id}:{agent_name}', content='<your findings>')\n"
+                             notes(action='post', project='{project}', key='quest:{task_id}:{agent_name}', content='<your findings>')\n"
                         ));
 
                         Ok(serde_json::json!({
@@ -684,7 +684,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }))
                     }
 
-                    "aeqi_create_quest" | "aeqi_create_task" => {
+                    "quests_create" | "aeqi_create_quest" | "aeqi_create_task" => {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("create_quest");
                         // Normalize depends_on: string → array
@@ -695,7 +695,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         ipc_request_sync(&data_dir, &ipc)
                     }
-                    "aeqi_close_quest" | "aeqi_close_task" => {
+                    "quests_close" | "aeqi_close_quest" | "aeqi_close_task" => {
                         let project = args
                             .get("project")
                             .and_then(|v| v.as_str())
@@ -728,7 +728,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
 
                             if !has_review {
                                 val["review_warning"] = serde_json::json!(format!(
-                                    "No review posted for {quest_id}. For significant changes, delegate: aeqi_delegate(agent='reviewer', project='{project}', quest_id='{quest_id}')"
+                                    "No review posted for {quest_id}. For significant changes, delegate: agents_delegate(agent='reviewer', project='{project}', quest_id='{quest_id}')"
                                 ));
                             }
                         }
@@ -736,7 +736,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         result
                     }
 
-                    "aeqi_graph" => {
+                    "insights_graph" | "aeqi_graph" => {
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let action = args
                             .get("action")

@@ -41,9 +41,9 @@ If workers need shared state, the orchestrator mediates via memory between phase
 
 ## Phase 3: Delegate
 
-1. **Fan out** — `aeqi_delegate` with each worker in parallel (async mode)
-2. **Track** — `aeqi_remember` key `quest:{id}:workers` with worker IDs and status
-3. **Monitor** — as workers complete, `aeqi_recall` their findings from memory
+1. **Fan out** — `agents_delegate` with each worker in parallel (async mode)
+2. **Track** — `insights_store` key `quest:{id}:workers` with worker IDs and status
+3. **Monitor** — as workers complete, `insights_recall` their findings from memory
 
 ### Scaling Rules
 - **1-3 workers** — orchestrate directly
@@ -58,7 +58,7 @@ Never overload a single orchestrator with 8+ parallel workers. Add hierarchy ins
 
 ## Phase 4: Aggregate
 
-1. **Collect results** — `aeqi_recall` for all `quest:{id}:worker:*` entries
+1. **Collect results** — `insights_recall` for all `quest:{id}:worker:*` entries
 2. **Merge** — combine findings, deduplicate, resolve conflicts
 3. **Synthesize** — the orchestrator must UNDERSTAND and RESTATE findings, not pass through. Lazy delegation (forwarding without synthesis) is a failure.
 
@@ -69,7 +69,7 @@ Never overload a single orchestrator with 8+ parallel workers. Add hierarchy ins
 1. **Summary** — what was accomplished across all workers
 2. **Conflicts** — where workers disagreed, orchestrator's resolution and reasoning
 3. **Gaps** — what wasn't covered, what needs follow-up
-4. **Store** — `aeqi_remember` key findings
+4. **Store** — `insights_store` key findings
 
 ---
 

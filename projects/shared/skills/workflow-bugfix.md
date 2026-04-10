@@ -18,9 +18,9 @@ Diagnose → Fix → Verify → Close
 
 **Before ANY code changes.** Understand the bug.
 
-1. **Check memory** — `aeqi_recall` for prior occurrences of this bug or related issues
+1. **Check memory** — `insights_recall` for prior occurrences of this bug or related issues
 2. **Reproduce** — run the failing case. If you can't reproduce it, you can't fix it.
-3. **Locate** — `aeqi_graph` search to find the relevant symbol, then context to understand callers/callees and the execution flow
+3. **Locate** — `insights_graph` search to find the relevant symbol, then context to understand callers/callees and the execution flow
 4. **Root cause** — identify the ACTUAL cause, not just where it manifests. Follow the data flow upstream.
 5. **Load domain knowledge** — `aeqi_prompts` list to check for relevant domain skills
 
@@ -28,7 +28,7 @@ Diagnose → Fix → Verify → Close
 No fix until root cause is identified. Fixing symptoms creates new bugs. If you can't explain WHY it's broken, you don't understand it yet.
 </HARD-GATE>
 
-**Store diagnosis** — `aeqi_remember` with key `quest:{id}:diagnosis` containing: symptom, root cause, affected code paths, proposed fix.
+**Store diagnosis** — `insights_store` with key `quest:{id}:diagnosis` containing: symptom, root cause, affected code paths, proposed fix.
 
 **Terminal state:** Root cause identified and posted, proceed to Fix.
 
@@ -38,10 +38,10 @@ No fix until root cause is identified. Fixing symptoms creates new bugs. If you 
 
 Minimal, targeted change.
 
-1. **Create quest** — `aeqi_create_quest` with the bug description and root cause
-2. **Understand the file** — `aeqi_graph` file before editing anything
+1. **Create quest** — `quests_create` with the bug description and root cause
+2. **Understand the file** — `insights_graph` file before editing anything
 3. **Write the fix** — change ONLY what's needed. No "while I'm here" improvements.
-4. **Check impact** — `aeqi_graph` impact on the changed symbol to verify the fix doesn't break callers
+4. **Check impact** — `insights_graph` impact on the changed symbol to verify the fix doesn't break callers
 5. **Run targeted tests** — tests for the specific module changed
 
 ### Fix Scope Rule
@@ -63,7 +63,7 @@ Prove the fix works. Adversarial mindset.
 1. **Reproduce original bug** — confirm the exact reproduction case now passes
 2. **Run full test suite** — `cargo test --workspace` / `npm test`. Not just the changed module.
 3. **Check edge cases** — what happens with empty input? nil? concurrent access? The same class of bug elsewhere?
-4. **Impact verification** — `aeqi_graph` impact to re-check blast radius post-change
+4. **Impact verification** — `insights_graph` impact to re-check blast radius post-change
 
 <HARD-GATE>
 "Tests pass" is necessary but not sufficient. You must also verify the original reproduction case is fixed. A test suite that didn't catch the bug in the first place won't catch a broken fix.
@@ -75,12 +75,12 @@ Prove the fix works. Adversarial mindset.
 
 ## Phase 4: Close
 
-1. **Store the lesson** — `aeqi_remember` with:
+1. **Store the lesson** — `insights_store` with:
    - What caused the bug (root cause, not symptom)
    - How it was fixed
    - What class of bug this represents (so you recognize the pattern next time)
 2. **Commit** with a message that explains the root cause and fix
-3. **Close quest** — `aeqi_close_quest`
+3. **Close quest** — `quests_close`
 
 ---
 

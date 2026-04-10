@@ -68,7 +68,7 @@ Stop the bleeding before you understand the cause. Rollback, redirect, scale, or
 3. **What went well** — detection, response, communication
 4. **What went wrong** — gaps in monitoring, slow detection, missing runbooks
 5. **Action items** — concrete preventive measures with owners and deadlines
-6. **Store** — `aeqi_remember` the incident pattern for future recognition
+6. **Store** — `insights_store` the incident pattern for future recognition
 
 ---
 

@@ -1344,7 +1344,7 @@ impl Agent {
 
                         // Emit DelegateComplete for aeqi_delegate so the frontend
                         // can show the subagent outcome and duration.
-                        if name == "aeqi_delegate" {
+                        if name == "agents_delegate" {
                             let worker = input_args
                                 .get("to")
                                 .and_then(|v| v.as_str())
@@ -1956,7 +1956,7 @@ impl Agent {
                             LoopAction::Inject(_) | LoopAction::Continue => {
                                 // Emit DelegateStart for aeqi_delegate calls so the
                                 // frontend can track subagent activity.
-                                if name == "aeqi_delegate" {
+                                if name == "agents_delegate" {
                                     let worker = arguments
                                         .get("to")
                                         .and_then(|v| v.as_str())

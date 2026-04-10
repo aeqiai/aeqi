@@ -21,15 +21,15 @@ The goal is: Path B replaces Path A. But Path A must keep improving until then.
 1. Load synthesis workflow:
    - `aeqi_prompts(action="get", name="workflow-synthesis")` — the workflow-synthesis skill is loaded automatically when this agent is spawned with the `workflow-synthesis` skill parameter.
 2. Load AEQI's current architecture:
-   - `aeqi_recall(project="aeqi", query="architecture crates agent runtime harness")`
+   - `insights_recall(project="aeqi", query="architecture crates agent runtime harness")`
    - `aeqi_prompts(action="get", name="rust-architect")`
 3. Read the external source thoroughly
 4. For each capability found:
-   - Does AEQI already have this? → Check via `aeqi_graph(action="search")`
+   - Does AEQI already have this? → Check via `insights_graph(action="search")`
    - Is it better than what AEQI has? → Compare honestly
    - Which path does it improve? → A, B, or both
    - Is it worth the complexity? → If marginal, skip
-5. Store structured analysis: `aeqi_remember(project, key="quest:<id>:synthesis", content=<analysis>)`
+5. Store structured analysis: `insights_store(project, key="quest:<id>:synthesis", content=<analysis>)`
 6. Return prioritized recommendations to the orchestrator
 
 ## What to Look For in External Sources

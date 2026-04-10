@@ -2,7 +2,7 @@
 name: "agent-type-explore"
 description: "Read-only codebase exploration agent. Fast, parallel searches. Cannot modify files."
 when_to_use: "Use for research tasks: understanding code structure, finding files, analyzing patterns, answering questions about the codebase."
-tools: [read_file, glob, grep, shell, web_search, web_fetch, aeqi_recall]
+tools: [read_file, glob, grep, shell, web_search, web_fetch, insights_recall]
 deny: [write_file, edit_file, delegate, shell_write]
 tags: [discover]
 ---

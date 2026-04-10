@@ -18,8 +18,8 @@ Brainstorm → Plan → Implement → Review → Finish
 
 **Before ANY implementation.** Understand what you're building.
 
-1. **Recall context** — `aeqi_recall` for prior decisions about this area
-2. **Explore codebase** — read relevant files, `aeqi_graph` search/context for related symbols and impact
+1. **Recall context** — `insights_recall` for prior decisions about this area
+2. **Explore codebase** — read relevant files, `insights_graph` search/context for related symbols and impact
 3. **Ask clarifying questions** — ONE at a time, prefer concrete options over open-ended questions
 4. **Propose approach** — 2-3 options with trade-offs and your recommendation
 5. **Get approval** — do NOT proceed without explicit user agreement
@@ -28,7 +28,7 @@ Brainstorm → Plan → Implement → Review → Finish
 No implementation until the approach is approved. Not "probably fine." Not "seems reasonable." Explicitly approved.
 </HARD-GATE>
 
-**Terminal state:** Store approved approach via `aeqi_remember` (key: `quest:{id}:approach`), proceed to Plan.
+**Terminal state:** Store approved approach via `insights_store` (key: `quest:{id}:approach`), proceed to Plan.
 
 ---
 
@@ -36,13 +36,13 @@ No implementation until the approach is approved. Not "probably fine." Not "seem
 
 Break the approved approach into bite-sized quests.
 
-1. **Create parent quest** — `aeqi_create_quest` with the feature description
-2. **Map file structure** — `aeqi_graph` context/impact to understand what files need changing and their relationships
+1. **Create parent quest** — `quests_create` with the feature description
+2. **Map file structure** — `insights_graph` context/impact to understand what files need changing and their relationships
 3. **Decompose into quests** — each quest is ONE action (2-5 minutes of work). Include:
    - Exact file paths
    - What to change and why
    - Expected test command and output
-4. **Store plan in memory** — `aeqi_remember` with key `quest:{id}:plan`
+4. **Store plan in memory** — `insights_store` with key `quest:{id}:plan`
 
 ### Plan Quality Checklist
 - [ ] Every quest has exact file paths (no "the relevant files")
@@ -60,7 +60,7 @@ Execute the plan quest by quest.
 
 ### Per-Quest Workflow
 
-1. **Delegate to implementer** — `aeqi_delegate` with the implementer agent, spawn subagent with FULL quest context pasted inline (never file references)
+1. **Delegate to implementer** — `agents_delegate` with the implementer agent, spawn subagent with FULL quest context pasted inline (never file references)
 
 2. **Handle implementer status:**
    - **DONE** → proceed to review
@@ -87,8 +87,8 @@ If 3 fix attempts for the same issue fail: **STOP.** Don't attempt fix #4. Quest
 
 Full-scope review of the entire implementation.
 
-1. **Delegate final review** — `aeqi_delegate` with the reviewer agent, checks ALL changes against the original plan
-2. **Recall findings** — `aeqi_recall` for the reviewer's stored findings
+1. **Delegate final review** — `agents_delegate` with the reviewer agent, checks ALL changes against the original plan
+2. **Recall findings** — `insights_recall` for the reviewer's stored findings
 3. **Handle review result:**
    - **Approved** → proceed to Finish
    - **Issues found** → fix issues, re-review (but respect the 3-fix rule)
@@ -113,8 +113,8 @@ If you're thinking "it should work" or "tests probably pass" — you haven't ver
 ## Phase 5: Finish
 
 1. **Commit** with a clear message describing what and why
-2. **Store learnings** — `aeqi_remember` anything non-obvious discovered during implementation
-3. **Close quest** — `aeqi_close_quest`
+2. **Store learnings** — `insights_store` anything non-obvious discovered during implementation
+3. **Close quest** — `quests_close`
 4. **Consider skill creation** — was this workflow complex enough to codify as a reusable skill?
 
 ---

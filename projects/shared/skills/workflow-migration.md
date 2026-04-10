@@ -18,9 +18,9 @@ Analyze → Plan → Migrate Incrementally → Verify → Clean Up → Close
 
 **Before ANY changes.** Map the full blast radius and understand every breaking change.
 
-1. **Recall context** — `aeqi_recall` for prior migrations in this area, known constraints, past failures
+1. **Recall context** — `insights_recall` for prior migrations in this area, known constraints, past failures
 2. **What's changing** — exact version/API/schema differences between old and new
-3. **Map blast radius** — `aeqi_graph` impact analysis on every symbol/module being migrated
+3. **Map blast radius** — `insights_graph` impact analysis on every symbol/module being migrated
 4. **Enumerate breaking changes** — every incompatibility in the upgrade path, no exceptions
 5. **Data migration** — does data need transforming? Is it reversible? What's the volume?
 6. **Load domain knowledge** — `aeqi_prompts` list for relevant domain skills (e.g., rust-expertise, db skills)
@@ -30,7 +30,7 @@ Analyze → Plan → Migrate Incrementally → Verify → Clean Up → Close
 No migration without a documented rollback plan. If you can't describe how to undo a step, you don't understand it well enough to execute it.
 </HARD-GATE>
 
-**Store analysis** — `aeqi_remember` with key `quest:{id}:migration-analysis` containing: what's changing, blast radius, all breaking changes, rollback plan.
+**Store analysis** — `insights_store` with key `quest:{id}:migration-analysis` containing: what's changing, blast radius, all breaking changes, rollback plan.
 
 **Terminal state:** Full analysis posted, proceed to Plan.
 
@@ -45,8 +45,8 @@ Use the **expand-contract pattern** (parallel run):
 
 ### Planning Steps
 
-1. **Create parent quest** — `aeqi_create_quest` with the migration description
-2. **Map all consumers** — `aeqi_graph` context on each symbol being migrated to find every caller
+1. **Create parent quest** — `quests_create` with the migration description
+2. **Map all consumers** — `insights_graph` context on each symbol being migrated to find every caller
 3. **Decompose into steps** — each step is ONE atomic change. Include:
    - Exact file paths and symbols affected
    - What changes and the mechanical transformation
@@ -54,8 +54,8 @@ Use the **expand-contract pattern** (parallel run):
    - Rollback command if it fails
    - Must compile and pass tests independently
 4. **Order for safety** — expand steps before migrate steps before contract steps. Internal before public API.
-5. **Validate with architect** — `aeqi_delegate` with the architect agent to review the migration plan
-6. **Store plan** — `aeqi_remember` with key `quest:{id}:plan`
+5. **Validate with architect** — `agents_delegate` with the architect agent to review the migration plan
+6. **Store plan** — `insights_store` with key `quest:{id}:plan`
 
 ### Plan Quality Checklist
 - [ ] Every step compiles and passes tests independently
@@ -79,7 +79,7 @@ Execute the plan step by step. The system must work after EVERY step.
 
 ### Per-Step Workflow
 
-1. **Delegate to implementer** — `aeqi_delegate` with the implementer agent, full step context inline (file paths, exact transformation, rollback command)
+1. **Delegate to implementer** — `agents_delegate` with the implementer agent, full step context inline (file paths, exact transformation, rollback command)
 2. **Handle implementer status:**
    - **DONE** → proceed to step verification
    - **DONE_WITH_CONCERNS** → read concerns, assess risk before continuing
@@ -118,8 +118,8 @@ Prove the migration is complete and correct. Adversarial mindset.
 "Tests pass" is necessary but not sufficient. You must also verify no old references remain and that performance hasn't regressed. A migration that compiles but leaves dead imports or stale references is incomplete.
 </HARD-GATE>
 
-1. **Delegate final review** — `aeqi_delegate` with the reviewer agent to check ALL changes against the original plan
-2. **Recall findings** — `aeqi_recall` for the reviewer's stored findings
+1. **Delegate final review** — `agents_delegate` with the reviewer agent to check ALL changes against the original plan
+2. **Recall findings** — `insights_recall` for the reviewer's stored findings
 3. **Handle review result:**
    - **Approved** → proceed to Clean Up
    - **Issues found** → fix issues, re-verify (respect the 3-fix rule)
@@ -136,7 +136,7 @@ Remove the old code now that the new code is verified.
 2. **Remove compatibility shims** — any adapters between old and new
 3. **Remove old dependencies** — unused packages, old SDK versions
 4. **Run full test suite again** — after cleanup. Removing code can break things too.
-5. **Search for orphans** — `aeqi_graph` search for any symbols that lost all callers during cleanup
+5. **Search for orphans** — `insights_graph` search for any symbols that lost all callers during cleanup
 
 **Terminal state:** Old code removed, tests pass, proceed to Close.
 
@@ -144,13 +144,13 @@ Remove the old code now that the new code is verified.
 
 ## Phase 6: Close
 
-1. **Store learnings** — `aeqi_remember` with:
+1. **Store learnings** — `insights_store` with:
    - What was migrated and from/to versions
    - What broke unexpectedly (the non-obvious gotchas)
    - Rollback steps that were or weren't needed
    - How long it actually took vs. estimate
 2. **Commit** with a clear message describing the migration and why
-3. **Close quest** — `aeqi_close_quest`
+3. **Close quest** — `quests_close`
 4. **Consider skill creation** — if this migration type will recur, codify the specific steps as a project skill
 
 ---

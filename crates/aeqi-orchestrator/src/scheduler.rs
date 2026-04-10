@@ -624,7 +624,10 @@ impl Scheduler {
         if let crate::agent_worker::WorkerExecution::Agent { ref mut tools, .. } = worker.execution
         {
             // Trigger management tool.
-            if agent.capabilities.iter().any(|c| c == "manage_triggers")
+            if agent
+                .capabilities
+                .iter()
+                .any(|c| c == "events_manage" || c == "manage_triggers")
                 && let Some(ref ts) = self.trigger_store
             {
                 tools.push(Arc::new(crate::tools::TriggerManageTool::new(
