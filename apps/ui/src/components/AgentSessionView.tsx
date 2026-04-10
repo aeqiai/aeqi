@@ -90,11 +90,18 @@ function ExpandableOutput({
 function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
   const [toolsExpanded, setToolsExpanded] = useState(false);
 
-  // Group: collect consecutive tool/status segments into blocks
-  const groups: Array<{ kind: "text"; text: string } | { kind: "tools"; items: MessageSegment[] }> = [];
+  // Group: text rendered directly, turns as separators, tools in collapsible panels
+  type SegGroup =
+    | { kind: "text"; text: string }
+    | { kind: "turn"; text: string }
+    | { kind: "tools"; items: MessageSegment[] };
+  const groups: SegGroup[] = [];
   for (const seg of segments) {
     if (seg.kind === "text") {
       groups.push({ kind: "text", text: seg.text });
+    } else if (seg.kind === "status" && seg.text.startsWith("Turn ")) {
+      // Turn separators stay at the top level
+      groups.push({ kind: "turn", text: seg.text });
     } else {
       const last = groups[groups.length - 1];
       if (last && last.kind === "tools") {
@@ -113,6 +120,10 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
         group.kind === "text" ? (
           <div key={gi} className="asv-msg-content">
             <Markdown>{group.text}</Markdown>
+          </div>
+        ) : group.kind === "turn" ? (
+          <div key={gi} className="asv-turn-sep">
+            <span className="asv-turn-label">{group.text}</span>
           </div>
         ) : (
           <div key={gi} className="asv-tools-group">
@@ -1129,11 +1140,17 @@ export default function AgentSessionView({
                 {thinkingStart && <ThinkingTimer start={thinkingStart} />}
               </div>
               {(() => {
-                // Group live segments: text rendered directly, tools/status in panels
-                const groups: Array<{ kind: "text"; text: string } | { kind: "tools"; items: MessageSegment[] }> = [];
+                // Group live segments: text directly, turns as separators, tools in panels
+                type LiveGroup =
+                  | { kind: "text"; text: string }
+                  | { kind: "turn"; text: string }
+                  | { kind: "tools"; items: MessageSegment[] };
+                const groups: LiveGroup[] = [];
                 for (const seg of liveSegments) {
                   if (seg.kind === "text") {
                     groups.push({ kind: "text", text: seg.text });
+                  } else if (seg.kind === "status" && seg.text.startsWith("Turn ")) {
+                    groups.push({ kind: "turn", text: seg.text });
                   } else {
                     const last = groups[groups.length - 1];
                     if (last && last.kind === "tools") {
@@ -1147,6 +1164,10 @@ export default function AgentSessionView({
                   group.kind === "text" ? (
                     <div key={gi} className="asv-msg-content">
                       <Markdown>{group.text}</Markdown>
+                    </div>
+                  ) : group.kind === "turn" ? (
+                    <div key={gi} className="asv-turn-sep">
+                      <span className="asv-turn-label">{group.text}</span>
                     </div>
                   ) : (
                     <div key={gi} className="asv-tools-group asv-tools-group--live">
