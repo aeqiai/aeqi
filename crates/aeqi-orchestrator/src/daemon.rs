@@ -1763,17 +1763,9 @@ impl Daemon {
                                             }
                                         }
 
+                                        // Text already flushed per-turn in TurnComplete/Complete handlers above.
                                         if let Some(ref cs) = session_store {
-                                            if let Some(ref usid) = store_session_id {
-                                                let _ = cs
-                                                    .record_by_session(
-                                                        usid,
-                                                        "assistant",
-                                                        &text,
-                                                        Some("web"),
-                                                    )
-                                                    .await;
-                                            } else {
+                                            if store_session_id.is_none() {
                                                 let _ = cs
                                                     .record_with_source(
                                                         chat_id,
@@ -1949,12 +1941,31 @@ impl Daemon {
                                                                 .await;
                                                         }
                                                     }
+                                                    aeqi_core::ChatStreamEvent::TurnComplete { .. } => {
+                                                        // Flush accumulated text as an assistant message per-turn.
+                                                        if !text.is_empty() {
+                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                let _ = cs.record_by_session(
+                                                                    usid, "assistant", &text, Some("web"),
+                                                                ).await;
+                                                            }
+                                                            text.clear();
+                                                        }
+                                                    }
                                                     aeqi_core::ChatStreamEvent::Complete {
                                                         total_prompt_tokens: pt,
                                                         total_completion_tokens: ct,
                                                         iterations: it,
                                                         ..
                                                     } => {
+                                                        // Flush any remaining text from the final turn.
+                                                        if !text.is_empty() {
+                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                let _ = cs.record_by_session(
+                                                                    usid, "assistant", &text, Some("web"),
+                                                                ).await;
+                                                            }
+                                                        }
                                                         prompt_tokens = *pt;
                                                         completion_tokens = *ct;
                                                         iterations = *it;
@@ -1971,17 +1982,9 @@ impl Daemon {
                                         }
                                     }
 
+                                    // Text already flushed per-turn above.
                                     if let Some(ref cs) = session_store {
-                                        if let Some(ref usid) = store_session_id {
-                                            let _ = cs
-                                                .record_by_session(
-                                                    usid,
-                                                    "assistant",
-                                                    &text,
-                                                    Some("web"),
-                                                )
-                                                .await;
-                                        } else {
+                                        if store_session_id.is_none() {
                                             let _ = cs
                                                 .record_with_source(
                                                     chat_id,
