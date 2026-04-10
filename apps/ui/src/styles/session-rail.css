@@ -6,6 +6,11 @@
   overflow: hidden;
 }
 
+.content-agent-layout > .c-page {
+  flex: 1;
+  min-width: 0;
+}
+
 .sr {
   width: 160px;
   flex-shrink: 0;
