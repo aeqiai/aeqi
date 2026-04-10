@@ -230,9 +230,7 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
             <Markdown>{group.text}</Markdown>
           </div>
         ) : group.kind === "turn" ? (
-          <div key={gi} className="asv-turn-sep">
-            <span className="asv-turn-label">{group.text}</span>
-          </div>
+          <div key={gi} className="asv-turn-sep" />
         ) : (
           <ToolBlock key={gi} items={group.items} />
         ),

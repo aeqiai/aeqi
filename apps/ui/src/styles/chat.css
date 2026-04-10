@@ -1471,26 +1471,9 @@
 /* ── Turn separator ── */
 
 .asv-turn-sep {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0 6px;
-}
-
-.asv-turn-sep::after {
-  content: "";
-  flex: 1;
+  margin: 10px 0 6px;
   height: 1px;
   background: var(--border);
-}
-
-.asv-turn-label {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex-shrink: 0;
 }
 
 /* ── Thinking indicator ── */
