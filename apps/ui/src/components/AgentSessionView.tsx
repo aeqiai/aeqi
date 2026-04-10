@@ -1111,7 +1111,6 @@ export default function AgentSessionView({
             return (
               <div key={i} className="asv-msg asv-msg-error">
                 <div className="asv-msg-header">
-                  <span className="asv-msg-role">error</span>
                   {msg.duration && (
                     <span className="asv-msg-duration">{msg.duration}</span>
                   )}
@@ -1131,9 +1130,6 @@ export default function AgentSessionView({
               </div>
               <div className="asv-msg-body">
                 <div className="asv-msg-header">
-                  <span className="asv-msg-role">
-                    {msg.role === "assistant" ? displayName : "you"}
-                  </span>
                   {msg.timestamp && (
                     <span className="asv-msg-time">
                       {formatTime(msg.timestamp)}
@@ -1191,7 +1187,6 @@ export default function AgentSessionView({
             </div>
             <div className="asv-msg-body">
               <div className="asv-msg-header">
-                <span className="asv-msg-role">{displayName}</span>
                 {thinkingStart && <ThinkingTimer start={thinkingStart} />}
               </div>
               {(() => {
