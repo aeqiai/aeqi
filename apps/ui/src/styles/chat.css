@@ -1314,10 +1314,10 @@
 /* ── Tool events (inline, in completed messages) ── */
 
 .asv-tool-inline {
-  display: grid;
-  grid-template-columns: 14px auto 1fr;
-  gap: 6px;
-  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
   padding: 3px 0;
   margin: 2px 0;
   font-size: var(--font-size-2xs);
@@ -1353,8 +1353,28 @@
 
 .asv-tool-ms {
   color: var(--text-muted);
-  justify-self: end;
+  margin-left: auto;
   opacity: 0.5;
+}
+
+.session-tool-output {
+  width: 100%;
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.session-tool-expand {
+  cursor: pointer;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+.session-tool-expand:hover {
+  color: var(--text-primary);
 }
 
 .asv-status-item {
