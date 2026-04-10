@@ -552,13 +552,17 @@ export default function AgentSessionView({
   // Process raw messages from API into our format
   const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
-    let pendingToolSegments: MessageSegment[] = [];
 
     for (const m of rawMessages) {
       const eventType = m.event_type || "message";
+      const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
+
       if (eventType === "tool_complete") {
+        // Attach tool events to the PREVIOUS assistant message's segments.
+        // If no assistant message yet, they'll be picked up as standalone.
+        const lastAssistant = [...processed].reverse().find((p) => p.role === "assistant");
         const meta = (m.metadata || {}) as Record<string, unknown>;
-        pendingToolSegments.push({
+        const toolSeg: MessageSegment = {
           kind: "tool",
           event: {
             type: "complete",
@@ -567,44 +571,40 @@ export default function AgentSessionView({
             input_preview: meta.input_preview as string | undefined,
             output_preview: meta.output_preview as string | undefined,
             duration_ms: meta.duration_ms as number | undefined,
-            timestamp: m.created_at
-              ? new Date(String(m.created_at)).getTime()
-              : Date.now(),
+            timestamp: ts,
           },
-        });
-      } else if (m.role === "assistant") {
-        const segments: MessageSegment[] = [];
-        // If there are pending tool calls, infer a turn boundary
-        if (pendingToolSegments.length > 0) {
-          // Check if this is not the first assistant message (i.e., there was a prior turn)
-          const priorAssistant = processed.filter((p) => p.role === "assistant").length;
-          if (priorAssistant > 0) {
-            segments.push({ kind: "status", text: `Turn ${priorAssistant + 1}` });
+        };
+        if (lastAssistant && lastAssistant.segments) {
+          // Insert tool BEFORE the last text segment (tools happened before response)
+          const lastTextIdx = lastAssistant.segments.length - 1;
+          if (lastTextIdx >= 0 && lastAssistant.segments[lastTextIdx].kind === "text") {
+            lastAssistant.segments.splice(lastTextIdx, 0, toolSeg);
+          } else {
+            lastAssistant.segments.push(toolSeg);
           }
-          segments.push(...pendingToolSegments);
+        }
+        // If no assistant message yet, these are orphaned tools — skip for now
+      } else if (m.role === "assistant") {
+        const turnNum = processed.filter((p) => p.role === "assistant").length + 1;
+        const segments: MessageSegment[] = [];
+        if (turnNum > 1) {
+          segments.push({ kind: "status", text: `Turn ${turnNum}` });
         }
         segments.push({ kind: "text", text: String(m.content || "") });
-        pendingToolSegments = [];
         processed.push({
-          role: String(m.role),
+          role: "assistant",
           content: String(m.content || ""),
           segments,
-          timestamp: m.created_at
-            ? new Date(String(m.created_at)).getTime()
-            : undefined,
+          timestamp: ts,
         });
-      } else {
-        pendingToolSegments = [];
+      } else if (m.role === "user" || m.role === "User") {
         processed.push({
-          role: String(m.role || "user"),
+          role: "user",
           content: String(m.content || ""),
-          timestamp: m.created_at
-            ? new Date(String(m.created_at)).getTime()
-            : m.timestamp
-              ? new Date(String(m.timestamp)).getTime()
-              : undefined,
+          timestamp: ts,
         });
       }
+      // Skip system events (quest_created, task_released, etc.)
     }
     return processed;
   }, []);
