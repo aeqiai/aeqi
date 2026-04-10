@@ -57,19 +57,69 @@ function formatTime(ts: number): string {
   });
 }
 
-// ── Tool category icons (matches sidebar nav) ──
+// ── Tool display helpers ──
+
+const TOOL_LABELS: Record<string, string> = {
+  // Agents
+  agents_hire: "Hire agent",
+  agents_retire: "Retire agent",
+  agents_list: "List agents",
+  agents_delegate: "Delegate",
+  // Quests
+  quests_create: "Create quest",
+  quests_update: "Update quest",
+  quests_close: "Close quest",
+  quests_cancel: "Cancel quest",
+  quests_show: "View quest",
+  quests_ready: "Ready quest",
+  quests_prioritize: "Prioritize",
+  quests_depend: "Set dependency",
+  // Events
+  events_create: "Create trigger",
+  events_list: "List triggers",
+  events_remove: "Remove trigger",
+  events_manage: "Manage triggers",
+  // Insights
+  insights_store: "Store insight",
+  insights_recall: "Recall insight",
+  insights_graph: "Query graph",
+  insights_search: "Search transcripts",
+  // Prompts
+  prompts_list: "List prompts",
+  prompts_load: "Load prompt",
+  prompts_search: "Search prompts",
+  // Notes
+  notes: "Note",
+  // Files
+  read_file: "Read file",
+  write_file: "Write file",
+  edit_file: "Edit file",
+  list_dir: "List directory",
+  glob: "Find files",
+  grep: "Search code",
+  // System
+  shell: "Run command",
+  execute_plan: "Execute plan",
+  web_search: "Web search",
+  web_fetch: "Fetch URL",
+  git_worktree: "Git worktree",
+  usage_stats: "Usage stats",
+};
+
+function toolLabel(name: string): string {
+  return TOOL_LABELS[name] || name.replace(/_/g, " ");
+}
 
 function toolCategoryIcon(toolName: string): string {
-  if (toolName.startsWith("agents_")) return "◉"; // person
-  if (toolName.startsWith("quests_")) return "☰"; // list
-  if (toolName.startsWith("events_")) return "⊞"; // grid/inbox
-  if (toolName.startsWith("insights_")) return "✦"; // sparkle
-  if (toolName.startsWith("prompts_")) return "⚡"; // bolt
-  if (toolName.startsWith("notes")) return "✎"; // edit
-  // Utility tools
-  if (["shell", "read_file", "write_file", "edit_file", "glob", "grep", "list_dir", "execute_plan"].includes(toolName)) return "›"; // terminal
-  if (toolName.startsWith("web_")) return "↗"; // external
-  if (toolName === "git_worktree") return "⑂"; // branch
+  if (toolName.startsWith("agents_")) return "◉";
+  if (toolName.startsWith("quests_")) return "☰";
+  if (toolName.startsWith("events_")) return "⊞";
+  if (toolName.startsWith("insights_")) return "✦";
+  if (toolName.startsWith("prompts_")) return "⚡";
+  if (toolName.startsWith("notes")) return "✎";
+  if (["shell", "read_file", "write_file", "edit_file", "glob", "grep", "list_dir", "execute_plan"].includes(toolName)) return "›";
+  if (toolName.startsWith("web_")) return "↗";
+  if (toolName === "git_worktree") return "⑂";
   return "·";
 }
 
@@ -111,11 +161,47 @@ function ExpandableOutput({
   );
 }
 
-/** Renders segments, grouping consecutive tool/status items into a collapsible block. */
-function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
-  const [toolsExpanded, setToolsExpanded] = useState(false);
+/** A single collapsible tool block with its own expand state. */
+function ToolBlock({ items }: { items: MessageSegment[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const tools = items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
+  const count = tools.length;
+  const cats = [...new Set(tools.map((t) => toolCategoryIcon(t.event.name)))];
 
-  // Group: text rendered directly, turns as separators, tools in collapsible panels
+  return (
+    <div className="asv-tools-group">
+      <button className="asv-tools-toggle" onClick={() => setExpanded(!expanded)}>
+        <span className="asv-tools-toggle-icon">{expanded ? "▾" : "▸"}</span>
+        {cats.join(" ")} {count} tool{count !== 1 ? "s" : ""}
+      </button>
+      {expanded && (
+        <div className="asv-tools-expanded">
+          {items.map((seg, si) =>
+            seg.kind === "tool" ? (
+              <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
+                <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
+                  {toolCategoryIcon(seg.event.name)}
+                </span>
+                <span className="asv-tool-name">{toolLabel(seg.event.name)}</span>
+                {seg.event.duration_ms != null && (
+                  <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
+                )}
+                {seg.event.output_preview && (
+                  <ExpandableOutput text={seg.event.output_preview} />
+                )}
+              </div>
+            ) : seg.kind === "status" ? (
+              <div key={si} className="asv-status-item">{seg.text}</div>
+            ) : null,
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Renders segments, grouping consecutive tool/status items into collapsible blocks. */
+function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
   type SegGroup =
     | { kind: "text"; text: string }
     | { kind: "turn"; text: string }
@@ -125,7 +211,6 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
     if (seg.kind === "text") {
       groups.push({ kind: "text", text: seg.text });
     } else if (seg.kind === "status" && seg.text.startsWith("Turn ")) {
-      // Turn separators stay at the top level
       groups.push({ kind: "turn", text: seg.text });
     } else {
       const last = groups[groups.length - 1];
@@ -136,8 +221,6 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
       }
     }
   }
-
-  const toolCount = segments.filter((s) => s.kind === "tool").length;
 
   return (
     <>
@@ -151,45 +234,7 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
             <span className="asv-turn-label">{group.text}</span>
           </div>
         ) : (
-          <div key={gi} className="asv-tools-group">
-            <button
-              className="asv-tools-toggle"
-              onClick={() => setToolsExpanded(!toolsExpanded)}
-            >
-              <span className="asv-tools-toggle-icon">{toolsExpanded ? "▾" : "▸"}</span>
-              {(() => {
-                const tools = group.items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
-                const cats = [...new Set(tools.map((t) => toolCategoryIcon(t.event.name)))];
-                return <>{cats.join(" ")} {toolCount} tool{toolCount !== 1 ? "s" : ""}</>;
-              })()}
-            </button>
-            {toolsExpanded && (
-              <div className="asv-tools-expanded">
-                {group.items.map((seg, si) =>
-                  seg.kind === "tool" ? (
-                    <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
-                      <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
-                        {seg.event.type === "start"
-                          ? toolCategoryIcon(seg.event.name)
-                          : seg.event.success
-                            ? "\u2713"
-                            : "\u2717"}
-                      </span>
-                      <span className="asv-tool-name">{seg.event.name}</span>
-                      {seg.event.duration_ms != null && (
-                        <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
-                      )}
-                      {seg.event.output_preview && (
-                        <ExpandableOutput text={seg.event.output_preview} />
-                      )}
-                    </div>
-                  ) : seg.kind === "status" ? (
-                    <div key={si} className="asv-status-item">{seg.text}</div>
-                  ) : null,
-                )}
-              </div>
-            )}
-          </div>
+          <ToolBlock key={gi} items={group.items} />
         ),
       )}
     </>
@@ -241,36 +286,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const THINKING_WORDS = [
-  "thinking",
-  "reasoning",
-  "analyzing",
-  "considering",
-  "processing",
-  "pondering",
-  "evaluating",
-  "working",
-  "exploring",
-  "planning",
-];
-
 function ThinkingStatus({ toolName }: { toolName?: string }) {
-  const [wordIdx, setWordIdx] = useState(() =>
-    Math.floor(Math.random() * THINKING_WORDS.length),
-  );
-  useEffect(() => {
-    if (toolName) return;
-    const interval = setInterval(
-      () => setWordIdx((prev) => (prev + 1) % THINKING_WORDS.length),
-      2000,
-    );
-    return () => clearInterval(interval);
-  }, [toolName]);
   if (toolName)
-    return <div className="session-msg-thinking">using {toolName}...</div>;
-  return (
-    <div className="session-msg-thinking">{THINKING_WORDS[wordIdx]}...</div>
-  );
+    return <div className="session-msg-thinking">{toolName}...</div>;
+  return <div className="session-msg-thinking">thinking...</div>;
 }
 
 function ThinkingTimer({ start }: { start: number }) {
@@ -1204,9 +1223,9 @@ export default function AgentSessionView({
                         seg.kind === "tool" ? (
                           <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
                             <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
-                              {seg.event.type === "start" ? toolCategoryIcon(seg.event.name) : seg.event.success ? "\u2713" : "\u2717"}
+                              {toolCategoryIcon(seg.event.name)}
                             </span>
-                            <span className="asv-tool-name">{seg.event.name}</span>
+                            <span className="asv-tool-name">{toolLabel(seg.event.name)}</span>
                             {seg.event.duration_ms != null && (
                               <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
                             )}
@@ -1222,7 +1241,7 @@ export default function AgentSessionView({
               {!liveSegments.length && <ThinkingStatus />}
               {liveToolEvents.some((e) => e.type === "start") && (
                 <ThinkingStatus
-                  toolName={liveToolEvents.filter((e) => e.type === "start").pop()?.name}
+                  toolName={toolLabel(liveToolEvents.filter((e) => e.type === "start").pop()?.name || "")}
                 />
               )}
             </div>
