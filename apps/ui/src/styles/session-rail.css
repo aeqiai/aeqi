@@ -1,23 +1,28 @@
-/* Session rail — thin column for session switching */
+/* Session rail — thin column inside content area */
+
+.content-agent-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
 
 .sr {
-  width: 180px;
+  width: 160px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-base);
+  overflow: hidden;
 }
 
 .sr-header {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 12px 12px 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 14px 12px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .sr-list {
