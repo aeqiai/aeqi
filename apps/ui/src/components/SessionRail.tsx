@@ -60,7 +60,7 @@ export default function SessionRail({
             <span className="sr-item-name">
               {s.first_message
                 ? s.first_message.slice(0, 30) + (s.first_message.length > 30 ? "..." : "")
-                : s.name || s.id.slice(0, 8)}
+                : timeAgo(s.created_at || "") || s.id.slice(0, 8)}
             </span>
             <span className="sr-item-time">
               {timeAgo(s.last_active || s.created_at || "")}
