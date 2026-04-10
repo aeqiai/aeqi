@@ -1314,9 +1314,10 @@
 /* ── Tool events (inline, in completed messages) ── */
 
 .asv-tool-inline {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
   gap: 6px;
+  align-items: center;
   padding: 3px 0;
   margin: 2px 0;
   font-size: var(--font-size-2xs);
@@ -1352,8 +1353,7 @@
 
 .asv-tool-ms {
   color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: auto;
+  justify-self: end;
   opacity: 0.5;
 }
 

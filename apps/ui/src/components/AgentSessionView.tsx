@@ -573,10 +573,17 @@ export default function AgentSessionView({
           },
         });
       } else if (m.role === "assistant") {
-        const segments: MessageSegment[] = [
-          ...pendingToolSegments,
-          { kind: "text", text: String(m.content || "") },
-        ];
+        const segments: MessageSegment[] = [];
+        // If there are pending tool calls, infer a turn boundary
+        if (pendingToolSegments.length > 0) {
+          // Check if this is not the first assistant message (i.e., there was a prior turn)
+          const priorAssistant = processed.filter((p) => p.role === "assistant").length;
+          if (priorAssistant > 0) {
+            segments.push({ kind: "status", text: `Turn ${priorAssistant + 1}` });
+          }
+          segments.push(...pendingToolSegments);
+        }
+        segments.push({ kind: "text", text: String(m.content || "") });
         pendingToolSegments = [];
         processed.push({
           role: String(m.role),
