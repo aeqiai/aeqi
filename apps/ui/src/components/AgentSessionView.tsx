@@ -553,14 +553,21 @@ export default function AgentSessionView({
   const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
     let pendingTools: MessageSegment[] = [];
+    let currentAgent: Message | null = null; // Accumulator for multi-turn agent response
     let turnCount = 0;
+
+    const flushAgent = () => {
+      if (currentAgent) {
+        processed.push(currentAgent);
+        currentAgent = null;
+      }
+    };
 
     for (const m of rawMessages) {
       const eventType = m.event_type || "message";
       const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
 
       if (eventType === "tool_complete") {
-        // Collect tools — they'll attach to the NEXT assistant message
         const meta = (m.metadata || {}) as Record<string, unknown>;
         pendingTools.push({
           kind: "tool",
@@ -576,40 +583,38 @@ export default function AgentSessionView({
         });
       } else if (m.role === "assistant") {
         turnCount++;
-        // Build segments: turn separator → tools → text
-        const segments: MessageSegment[] = [];
-        if (turnCount > 1) {
-          segments.push({ kind: "status", text: `Turn ${turnCount}` });
-        }
-        if (pendingTools.length > 0) {
-          segments.push(...pendingTools);
-          pendingTools = [];
-        }
-        segments.push({ kind: "text", text: String(m.content || "") });
-        processed.push({
-          role: "assistant",
-          content: String(m.content || ""),
-          segments,
-          timestamp: ts,
-        });
-      } else if (m.role === "user" || m.role === "User") {
-        // Flush any orphaned pending tools as a standalone agent message
-        if (pendingTools.length > 0) {
-          turnCount++;
-          const segments: MessageSegment[] = [];
-          if (turnCount > 1) {
-            segments.push({ kind: "status", text: `Turn ${turnCount}` });
-          }
-          segments.push(...pendingTools);
-          pendingTools = [];
-          processed.push({
+        // Ensure we have an agent message to accumulate into
+        if (!currentAgent) {
+          currentAgent = {
             role: "assistant",
             content: "",
-            segments,
+            segments: [],
             timestamp: ts,
-          });
+          };
         }
-        turnCount = 0; // Reset turns for new user→agent exchange
+        // Add turn separator (after first turn)
+        if (turnCount > 1) {
+          currentAgent.segments!.push({ kind: "status", text: `Turn ${turnCount}` });
+        }
+        // Flush pending tools before this turn's text
+        if (pendingTools.length > 0) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        // Add this turn's text
+        const text = String(m.content || "");
+        if (text) {
+          currentAgent.segments!.push({ kind: "text", text });
+          currentAgent.content += (currentAgent.content ? "\n\n" : "") + text;
+        }
+      } else if (m.role === "user" || m.role === "User") {
+        // Flush any pending state
+        if (pendingTools.length > 0 && currentAgent) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        flushAgent();
+        turnCount = 0;
         processed.push({
           role: "user",
           content: String(m.content || ""),
@@ -617,11 +622,11 @@ export default function AgentSessionView({
         });
       }
     }
-    // Flush remaining tools
-    if (pendingTools.length > 0) {
-      const segments: MessageSegment[] = [...pendingTools];
-      processed.push({ role: "assistant", content: "", segments });
+    // Flush remaining
+    if (pendingTools.length > 0 && currentAgent) {
+      currentAgent.segments!.push(...pendingTools);
     }
+    flushAgent();
     return processed;
   }, []);
 
@@ -1163,8 +1168,7 @@ export default function AgentSessionView({
                     (msg.tokenUsage.prompt > 0 ||
                       msg.tokenUsage.completion > 0) && (
                       <span className="asv-msg-tokens">
-                        {msg.tokenUsage.prompt}\u2192{msg.tokenUsage.completion}{" "}
-                        tok
+                        {msg.tokenUsage.prompt}→{msg.tokenUsage.completion} tok
                       </span>
                     )}
                 </div>
