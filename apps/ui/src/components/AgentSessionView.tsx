@@ -1128,32 +1128,47 @@ export default function AgentSessionView({
                 <span className="asv-msg-role">{displayName}</span>
                 {thinkingStart && <ThinkingTimer start={thinkingStart} />}
               </div>
-              {liveSegments.map((seg, si) =>
-                seg.kind === "text" ? (
-                  <div key={si} className="asv-msg-content">
-                    <Markdown>{seg.text}</Markdown>
-                  </div>
-                ) : seg.kind === "tool" ? (
-                  <div key={si} className={`asv-tool-inline ${seg.event.type}`}>
-                    <span className="asv-tool-icon">
-                      {seg.event.type === "start"
-                        ? "\u27F3"
-                        : seg.event.success
-                          ? "\u2713"
-                          : "\u2717"}
-                    </span>
-                    <span className="asv-tool-name">{seg.event.name}</span>
-                    {seg.event.duration_ms != null && (
-                      <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
-                    )}
-                    {seg.event.type === "complete" && seg.event.output_preview && (
-                      <ExpandableOutput text={seg.event.output_preview} />
-                    )}
-                  </div>
-                ) : seg.kind === "status" ? (
-                  <div key={si} className="asv-status-item">{seg.text}</div>
-                ) : null,
-              )}
+              {(() => {
+                // Group live segments: text rendered directly, tools/status in panels
+                const groups: Array<{ kind: "text"; text: string } | { kind: "tools"; items: MessageSegment[] }> = [];
+                for (const seg of liveSegments) {
+                  if (seg.kind === "text") {
+                    groups.push({ kind: "text", text: seg.text });
+                  } else {
+                    const last = groups[groups.length - 1];
+                    if (last && last.kind === "tools") {
+                      last.items.push(seg);
+                    } else {
+                      groups.push({ kind: "tools", items: [seg] });
+                    }
+                  }
+                }
+                return groups.map((group, gi) =>
+                  group.kind === "text" ? (
+                    <div key={gi} className="asv-msg-content">
+                      <Markdown>{group.text}</Markdown>
+                    </div>
+                  ) : (
+                    <div key={gi} className="asv-tools-group asv-tools-group--live">
+                      {group.items.map((seg, si) =>
+                        seg.kind === "tool" ? (
+                          <div key={si} className={`asv-tool-inline ${seg.event.type}`}>
+                            <span className="asv-tool-icon">
+                              {seg.event.type === "start" ? "\u27F3" : seg.event.success ? "\u2713" : "\u2717"}
+                            </span>
+                            <span className="asv-tool-name">{seg.event.name}</span>
+                            {seg.event.duration_ms != null && (
+                              <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
+                            )}
+                          </div>
+                        ) : seg.kind === "status" ? (
+                          <div key={si} className="asv-status-item">{seg.text}</div>
+                        ) : null,
+                      )}
+                    </div>
+                  ),
+                );
+              })()}
               {!liveSegments.length && <ThinkingStatus />}
               {liveToolEvents.some((e) => e.type === "start") && (
                 <ThinkingStatus
