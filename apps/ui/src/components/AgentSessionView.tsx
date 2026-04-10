@@ -90,19 +90,6 @@ const TOOL_LABELS: Record<string, string> = {
   prompts_search: "Search prompts",
   // Notes
   notes: "Note",
-  // Legacy names (pre-rename, still in historical data)
-  aeqi_remember: "Store insight",
-  aeqi_recall: "Recall insight",
-  aeqi_graph: "Query graph",
-  aeqi_notes: "Note",
-  aeqi_delegate: "Delegate",
-  manage_triggers: "Manage triggers",
-  transcript_search: "Search transcripts",
-  quest_create: "Create quest",
-  quest_close: "Close quest",
-  quest_show: "View quest",
-  quest_update: "Update quest",
-  quest_dep: "Set dependency",
   // Files
   read_file: "Read file",
   write_file: "Write file",
