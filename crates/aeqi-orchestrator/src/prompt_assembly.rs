@@ -1,21 +1,33 @@
 //! Prompt assembly — one function replaces all prompt string concatenation.
 //!
-//! Walks the agent ancestor chain, collects `prompts[]` entries from each,
+//! Walks the agent ancestor chain, collects prompt entries from each,
 //! appends task prompts, groups by position, and returns an `AssembledPrompt`.
+//!
+//! Primary source: ideas.db (entries with injection_mode IS NOT NULL).
+//! Fallback: prompts table in agents.db (via prompt_ids) when the idea store
+//! has no prompt entries for a given agent.
+
+use std::sync::Arc;
 
 use aeqi_core::prompt::{
     AssembledPrompt, PromptEntry, PromptPosition, PromptScope, ToolRestrictions,
 };
+use aeqi_core::traits::IdeaStore;
 
 use crate::agent_registry::AgentRegistry;
 
 /// Assemble the full prompt for an agent + task combination.
 ///
 /// Order: root ancestor → ... → parent → self → task prompts.
-/// Within each level, entries are ordered as stored in the `prompts[]` array.
+/// Within each level, entries are ordered as stored.
 /// Entries grouped by position (system, prepend, append) and concatenated.
+///
+/// When `idea_store` is provided, prompt entries are read from ideas.db first.
+/// If no prompt-type ideas exist for an agent, falls back to the old
+/// `prompt_ids` → prompts table path for backward compatibility.
 pub async fn assemble_prompts(
     registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
     agent_id: &str,
     task_prompts: &[PromptEntry],
 ) -> AssembledPrompt {
@@ -33,17 +45,38 @@ pub async fn assemble_prompts(
     for (depth, agent) in ancestors.iter().rev().enumerate() {
         let is_self = depth == ancestors.len() - 1;
 
-        // Resolve prompt entries via prompt_ids (the prompt store).
-        // Position, scope, and tool restrictions are stored in the DB —
-        // no hardcoded defaults needed.
-        let resolved_entries: Vec<PromptEntry> = registry
-            .resolve_prompts(&agent.prompt_ids)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|r| !r.content.is_empty())
-            .map(|r| r.to_prompt_entry())
-            .collect();
+        // --- Try ideas.db first (unified prompt store) ---
+        let idea_entries: Option<Vec<PromptEntry>> = if let Some(store) = idea_store {
+            match store.get_prompts(&agent.id).await {
+                Ok(ideas) if !ideas.is_empty() => {
+                    Some(
+                        ideas
+                            .into_iter()
+                            .filter(|idea| !idea.content.is_empty())
+                            .map(|idea| idea.to_prompt_entry())
+                            .collect(),
+                    )
+                }
+                _ => None, // No ideas or error → fall back to old path.
+            }
+        } else {
+            None
+        };
+
+        // --- Resolve entries: ideas.db or fallback to prompts table ---
+        let resolved_entries: Vec<PromptEntry> = if let Some(entries) = idea_entries {
+            entries
+        } else {
+            // Fallback: resolve via prompt_ids from the prompts table in agents.db.
+            registry
+                .resolve_prompts(&agent.prompt_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|r| !r.content.is_empty())
+                .map(|r| r.to_prompt_entry())
+                .collect()
+        };
 
         for entry in &resolved_entries {
             // Scope check: descendants-scoped entries from ancestors, self-scoped only from self.

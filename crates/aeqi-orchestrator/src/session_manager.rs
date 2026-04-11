@@ -369,7 +369,7 @@ impl SessionManager {
         //    prompt_ids are resolved inside assemble_prompts; no system_prompt fallback needed.
         let mut system_prompt = if let Some(ref id) = agent_uuid {
             let assembled =
-                crate::prompt_assembly::assemble_prompts(agent_registry, id, &opts.extra_prompts)
+                crate::prompt_assembly::assemble_prompts(agent_registry, self.idea_store.as_ref(), id, &opts.extra_prompts)
                     .await;
             let full = assembled.full_system_prompt();
             // Safety net: if assembly returned empty, use a sensible default.
