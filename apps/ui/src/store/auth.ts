@@ -37,7 +37,7 @@ interface AuthState {
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
   loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "2fa" | "totp" | "error">;
-  signup: (email: string, password: string, name: string, inviteCode?: string) => Promise<"verified" | "pending" | "error">;
+  signup: (email: string, password: string, name: string, inviteCode?: string, template?: string) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
   verify2fa: (email: string, code: string) => Promise<boolean>;
@@ -144,11 +144,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signup: async (email: string, password: string, name: string, inviteCode?: string) => {
+  signup: async (email: string, password: string, name: string, inviteCode?: string, template?: string) => {
     set({ loading: true, error: null });
     try {
       clearSessionData();
-      const resp = await api.signup(email, password, name, inviteCode);
+      const resp = await api.signup(email, password, name, inviteCode, template);
       // Backend auto-creates a company (named after user's first name) + agent on signup.
       const company = (resp as Record<string, unknown>).company as string | undefined;
       if (resp.ok && resp.pending_verification) {

@@ -97,10 +97,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  signup: (email: string, password: string, name: string, inviteCode?: string) =>
+  signup: (email: string, password: string, name: string, inviteCode?: string, template?: string) =>
     request<{ ok: boolean; token: string; user?: Record<string, unknown>; pending_verification?: boolean }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
+      body: JSON.stringify({ email, password, name, invite_code: inviteCode, template }),
     }),
 
   joinWaitlist: (email: string) =>

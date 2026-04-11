@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import BrandMark from "@/components/BrandMark";
@@ -25,8 +25,18 @@ const POINTS = [
   "Knowledge that compounds across every task",
 ];
 
+const TEMPLATE_LABELS: Record<string, string> = {
+  software: "Software Company",
+  research: "Research Firm",
+  content: "Content Studio",
+  services: "Services Business",
+};
+
 export default function SignupPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const template = params.get("template");
+  const templateLabel = template ? TEMPLATE_LABELS[template] : null;
   const { loading, error, signup, verifyEmail, resendCode, googleOAuth, githubOAuth, waitlist, fetchAuthMode } = useAuthStore();
 
   // When waitlist=true, default to waitlist mode. "Have an invite code?" switches to signup.
@@ -78,7 +88,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())) return;
-    const result = await signup(email, password, fullName, inviteCode || undefined);
+    const result = await signup(email, password, fullName, inviteCode || undefined, template || undefined);
     if (result === "pending") setStep("verify");
     else if (result === "verified") navigate("/", { replace: true });
   };
@@ -171,7 +181,11 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Create your account</h1>
-          <p className="auth-subheading">Start building with autonomous agents</p>
+          <p className="auth-subheading">
+            {templateLabel
+              ? <>Launch a <strong>{templateLabel}</strong> powered by AI agents</>
+              : "Start building with autonomous agents"}
+          </p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
             <input className="auth-input" type="email" name="email" autoComplete="email" placeholder="Email address" aria-label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
             <PasswordInput placeholder="Password (8+ characters)" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); useAuthStore.setState({ error: null }); }} />
