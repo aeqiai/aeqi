@@ -7,8 +7,8 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
-use crate::activity_log::ActivityLog;
-use crate::activity_log::{Dispatch, DispatchHealth, DispatchKind};
+use crate::activity_log::{ActivityLog, Dispatch, DispatchHealth};
+use crate::trigger::TriggerStore;
 use crate::activity::{ActivityStream, Activity};
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
@@ -16,7 +16,7 @@ use crate::progress_tracker::ProgressTracker;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::{SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id};
-use crate::trigger::TriggerStore;
+
 
 const ACK_RETRY_AGE_SECS: u64 = 60;
 const MAX_EVENT_BUFFER_LEN: usize = 512;
@@ -227,7 +227,7 @@ pub struct Daemon {
     pub project_primer: Option<String>,
     pub patrol_interval_secs: u64,
     pub background_automation_enabled: bool,
-    pub trigger_store: Option<Arc<TriggerStore>>,
+    pub trigger_store: Option<Arc<crate::trigger::TriggerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub write_queue: Arc<std::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
@@ -301,261 +301,8 @@ impl Daemon {
         self.background_automation_enabled = enabled;
     }
 
-    /// Fire a trigger: look up the owning agent, create a task with the trigger's skill.
-    async fn fire_trigger(&self, trigger: &crate::trigger::Trigger) {
-        // Look up agent to determine parent (project context).
-        let _project = match self.agent_registry.get(&trigger.agent_id).await {
-            Ok(Some(agent)) => match agent.parent_id {
-                Some(p) => p,
-                None => {
-                    // Root agent — use agent name as project key.
-                    agent.name.clone()
-                }
-            },
-            Ok(None) => {
-                warn!(agent_id = %trigger.agent_id, "trigger agent not found");
-                return;
-            }
-            Err(e) => {
-                warn!(agent_id = %trigger.agent_id, error = %e, "failed to look up trigger agent");
-                return;
-            }
-        };
-
-        // Advance-before-execute: update last_fired BEFORE creating the task.
-        // If the agent crashes mid-execution, the trigger won't re-fire on restart.
-        if let Some(ref ts) = self.trigger_store
-            && let Err(e) = ts.advance_before_execute(&trigger.id).await
-        {
-            warn!(trigger = %trigger.name, error = %e, "failed to advance trigger");
-        }
-
-        let subject = format!("[trigger:{}] {}", trigger.name, trigger.skill);
-        let description = format!(
-            "Trigger '{}' fired. Run skill '{}' for agent {}.",
-            trigger.name, trigger.skill, trigger.agent_id
-        );
-
-        match self
-            .agent_registry
-            .create_task(
-                &trigger.agent_id,
-                &subject,
-                &description,
-                Some(&trigger.skill),
-                &[],
-            )
-            .await
-        {
-            Ok(task) => {
-                let _ = self
-                    .activity_log
-                    .emit(
-                        "quest_created",
-                        Some(&trigger.agent_id),
-                        None,
-                        Some(&task.id.0),
-                        &serde_json::json!({
-                            "subject": task.name,
-                            "trigger": trigger.name,
-                        }),
-                    )
-                    .await;
-                info!(
-                    task = %task.id,
-                    trigger = %trigger.name,
-                    agent_id = %trigger.agent_id,
-                    "trigger created task"
-                );
-            }
-            Err(e) => {
-                warn!(
-                    trigger = %trigger.name,
-                    agent_id = %trigger.agent_id,
-                    error = %e,
-                    "trigger failed to create task"
-                );
-            }
-        }
-
-        // Record the fire.
-        if let Some(ref trigger_store) = self.trigger_store {
-            let _ = trigger_store.record_fire(&trigger.id, 0.0).await;
-
-            // Auto-disable one-shot triggers.
-            if matches!(
-                trigger.trigger_type,
-                crate::trigger::TriggerType::Once { .. }
-            ) {
-                let _ = trigger_store.update_enabled(&trigger.id, false).await;
-                info!(trigger = %trigger.name, "one-shot trigger auto-disabled");
-            }
-        }
-    }
-
-    /// Consume pending DelegateRequest dispatches for all active agents.
-    /// For each dispatch, creates an agent-bound task with the delegation prompt.
-    /// This is the primary consumption path — agents don't need DispatchReceived
-    /// event triggers to receive delegated work.
-    async fn consume_agent_dispatches(&self) {
-        let agents = match self.agent_registry.list_active().await {
-            Ok(a) => a,
-            Err(_) => return,
-        };
-
-        for agent in &agents {
-            // Leader dispatches are already consumed elsewhere. Skip to avoid double-processing.
-            if agent.name == self.leader_agent_name {
-                continue;
-            }
-
-            let dispatches = self.activity_log.read(&agent.name).await;
-            if dispatches.is_empty() {
-                // Also check by agent UUID (dispatches may be addressed by ID).
-                let id_dispatches = self.activity_log.read(&agent.id).await;
-                if id_dispatches.is_empty() {
-                    continue;
-                }
-                self.process_agent_dispatches(
-                    &agent.id,
-                    &agent.name,
-                    &agent.parent_id,
-                    &id_dispatches,
-                )
-                .await;
-            } else {
-                self.process_agent_dispatches(
-                    &agent.id,
-                    &agent.name,
-                    &agent.parent_id,
-                    &dispatches,
-                )
-                .await;
-            }
-        }
-    }
-
-    /// Process a batch of dispatches for a specific agent.
-    async fn process_agent_dispatches(
-        &self,
-        agent_id: &str,
-        agent_name: &str,
-        project: &Option<String>,
-        dispatches: &[crate::activity_log::Dispatch],
-    ) {
-        let _project = match project {
-            Some(p) => p.clone(),
-            None => {
-                warn!(agent = %agent_name, "agent has no project scope, cannot create task for dispatch");
-                return;
-            }
-        };
-
-        for dispatch in dispatches {
-            if dispatch.requires_ack {
-                self.activity_log.acknowledge(&dispatch.id).await;
-            }
-
-            match &dispatch.kind {
-                DispatchKind::DelegateRequest {
-                    prompt,
-                    response_mode,
-                    create_task,
-                    skill,
-                    parent_session_id,
-                    ..
-                } => {
-                    if !create_task {
-                        // Fire-and-forget: just log and skip quest creation.
-                        info!(
-                            agent = %agent_name,
-                            from = %dispatch.from,
-                            "dispatch consumed (no task requested)"
-                        );
-                        continue;
-                    }
-
-                    let subject = format!("Delegation from {}", dispatch.from);
-                    let description = format!(
-                        "## Delegated Work\n\n{}\n\n---\n*From: {} | Response mode: {}*",
-                        prompt, dispatch.from, response_mode
-                    );
-
-                    let mut labels = vec![
-                        format!("delegate_from:{}", dispatch.from),
-                        format!("delegate_dispatch:{}", dispatch.id),
-                        format!("delegate_response_mode:{}", response_mode),
-                    ];
-                    if let Some(psid) = &parent_session_id {
-                        labels.push(format!("parent_session_id:{psid}"));
-                    }
-
-                    let skill_name = skill.as_deref().unwrap_or("process-dispatch");
-
-                    match self
-                        .agent_registry
-                        .create_task(agent_id, &subject, &description, Some(skill_name), &labels)
-                        .await
-                    {
-                        Ok(task) => {
-                            let _ = self
-                                .activity_log
-                                .emit(
-                                    "quest_created",
-                                    Some(agent_id),
-                                    None,
-                                    Some(&task.id.0),
-                                    &serde_json::json!({
-                                        "subject": task.name,
-                                        "delegate_from": dispatch.from,
-                                    }),
-                                )
-                                .await;
-                            info!(
-                                task = %task.id,
-                                agent = %agent_name,
-                                from = %dispatch.from,
-                                response_mode = %response_mode,
-                                "dispatch consumed → quest created"
-                            );
-                        }
-                        Err(e) => {
-                            warn!(
-                                agent = %agent_name,
-                                from = %dispatch.from,
-                                error = %e,
-                                "failed to create task from dispatch"
-                            );
-                        }
-                    }
-                }
-                DispatchKind::DelegateResponse {
-                    content, reply_to, ..
-                } => {
-                    // DelegateResponses for non-leader agents: log for now.
-                    // Future: inject into agent's perpetual session.
-                    info!(
-                        agent = %agent_name,
-                        reply_to = %reply_to,
-                        content_len = content.len(),
-                        "delegate response received (logged, not yet injected into session)"
-                    );
-                }
-                DispatchKind::HumanEscalation { subject, .. } => {
-                    info!(
-                        agent = %agent_name,
-                        subject = %subject,
-                        "human escalation received by non-leader agent, re-routing to leader"
-                    );
-                    // Re-route to leader.
-                    let mut rerouted = dispatch.clone();
-                    rerouted.to = self.leader_agent_name.clone();
-                    rerouted.read = false;
-                    self.activity_log.send(rerouted).await;
-                }
-            }
-        }
-    }
+    // fire_trigger, consume_agent_dispatches, process_agent_dispatches — DELETED.
+    // Trigger firing replaced by EventMatcher. Dispatch consumption replaced by direct delegation.
 
     /// Start the session tracker in a dedicated tokio::spawn.
     /// Returns the shutdown Notify so it can be stopped later.
@@ -578,7 +325,7 @@ impl Daemon {
     }
 
     /// Set the trigger store for agent-owned triggers.
-    pub fn set_trigger_store(&mut self, store: Arc<TriggerStore>) {
+    pub fn set_trigger_store(&mut self, store: Arc<crate::trigger::TriggerStore>) {
         self.trigger_store = Some(store);
     }
 
@@ -645,7 +392,7 @@ impl Daemon {
         self.write_pid_file()?;
 
         self.spawn_signal_handlers();
-        self.spawn_event_listeners();
+        self.spawn_activity_buffer();
         self.spawn_event_matcher();
         self.spawn_schedule_timer();
         self.spawn_ipc_listener();
@@ -717,152 +464,8 @@ impl Daemon {
     }
 
     /// Spawn background listeners for event triggers and execution event buffering.
-    fn spawn_event_listeners(&self) {
-        // Event trigger listener — matches events against trigger patterns, fires tasks.
-        if let Some(ref trigger_store) = self.trigger_store {
-            let ts = trigger_store.clone();
-            let agent_reg = self.agent_registry.clone();
-            let dispatch_es = self.activity_log.clone();
-            let mut rx = self.activity_stream.subscribe();
-            tokio::spawn(async move {
-                let mut cooldowns: std::collections::HashMap<String, chrono::DateTime<Utc>> =
-                    std::collections::HashMap::new();
-                loop {
-                    let event = match rx.recv().await {
-                        Ok(event) => event,
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                            warn!(
-                                skipped = n,
-                                "event trigger listener lagged — events dropped"
-                            );
-                            continue;
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                    };
-                    let event_triggers = match ts.list_event_triggers().await {
-                        Ok(t) => t,
-                        Err(_) => continue,
-                    };
-                    for trigger in event_triggers {
-                        let (pattern, cooldown_secs) = match &trigger.trigger_type {
-                            crate::trigger::TriggerType::Event {
-                                pattern,
-                                cooldown_secs,
-                            } => (pattern, *cooldown_secs),
-                            _ => continue,
-                        };
-                        if !pattern.matches_event(&event) {
-                            continue;
-                        }
-                        if let Some(last) = cooldowns.get(&trigger.id)
-                            && (Utc::now() - *last).num_seconds() < cooldown_secs as i64
-                        {
-                            continue;
-                        }
-                        cooldowns.insert(trigger.id.clone(), Utc::now());
-
-                        let project = match agent_reg.get(&trigger.agent_id).await {
-                            Ok(Some(a)) => a.parent_id.or_else(|| Some(a.name.clone())),
-                            _ => None,
-                        };
-                        if let Some(project) = project {
-                            let subject = format!("[trigger:{}] {}", trigger.name, trigger.skill);
-                            let mut delegation_labels: Vec<String> = Vec::new();
-                            let dispatch_context =
-                                if let crate::activity::Activity::DispatchReceived {
-                                    ref to_agent,
-                                    ..
-                                } = event
-                                {
-                                    let dispatches = dispatch_es.read(to_agent).await;
-                                    let prompts: Vec<String> = dispatches
-                                        .iter()
-                                        .filter_map(|d| {
-                                            if let DispatchKind::DelegateRequest {
-                                                ref prompt,
-                                                ref response_mode,
-                                                ref parent_session_id,
-                                                ..
-                                            } = d.kind
-                                            {
-                                                delegation_labels
-                                                    .push(format!("delegate_from:{}", d.from));
-                                                delegation_labels
-                                                    .push(format!("delegate_dispatch:{}", d.id));
-                                                delegation_labels.push(format!(
-                                                    "delegate_response_mode:{response_mode}"
-                                                ));
-                                                if let Some(psid) = &parent_session_id {
-                                                    delegation_labels
-                                                        .push(format!("parent_session_id:{psid}"));
-                                                }
-                                                Some(format!("From {}: {}", d.from, prompt))
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                        .collect();
-                                    if prompts.is_empty() {
-                                        String::new()
-                                    } else {
-                                        format!(
-                                            "\n\n## Pending Delegations\n{}",
-                                            prompts.join("\n\n")
-                                        )
-                                    }
-                                } else {
-                                    String::new()
-                                };
-                            let desc = format!(
-                                "Event trigger '{}' fired. Run skill '{}'.{}",
-                                trigger.name, trigger.skill, dispatch_context
-                            );
-                            let trigger_agent_id = trigger.agent_id.clone();
-                            match agent_reg
-                                .create_task(
-                                    &trigger_agent_id,
-                                    &subject,
-                                    &desc,
-                                    Some(&trigger.skill),
-                                    &delegation_labels,
-                                )
-                                .await
-                            {
-                                Ok(_task) => {
-                                    let _ = dispatch_es
-                                        .emit(
-                                            "quest_created",
-                                            Some(&trigger_agent_id),
-                                            None,
-                                            Some(&_task.id.0),
-                                            &serde_json::json!({
-                                                "subject": _task.name,
-                                                "trigger": trigger.name,
-                                            }),
-                                        )
-                                        .await;
-                                    info!(
-                                        trigger = %trigger.name,
-                                        project = %project,
-                                        "event trigger fired"
-                                    );
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        trigger = %trigger.name,
-                                        error = %e,
-                                        "event trigger failed to create task"
-                                    );
-                                }
-                            }
-                            let _ = ts.record_fire(&trigger.id, 0.0).await;
-                        }
-                    }
-                }
-            });
-        }
-
-        // Execution event buffer — collects events for the event buffer API.
+    fn spawn_activity_buffer(&self) {
+        // Activity buffer — collects activities for the dashboard API.
         {
             let activity_buffer = self.activity_buffer.clone();
             let mut rx = self.activity_stream.subscribe();

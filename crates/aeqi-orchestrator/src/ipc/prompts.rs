@@ -2,7 +2,6 @@
 
 use super::request_field;
 use std::path::Path;
-use aeqi_core::traits::IdeaStore;
 
 pub async fn handle_list_prompts(
     ctx: &super::CommandContext,
