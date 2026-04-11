@@ -25,7 +25,7 @@ use aeqi_tools::{
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tracing::warn;
+
 
 pub(crate) fn load_config(config_path: &Option<PathBuf>) -> Result<(AEQIConfig, PathBuf)> {
     if let Some(path) = config_path {
@@ -35,17 +35,12 @@ pub(crate) fn load_config(config_path: &Option<PathBuf>) -> Result<(AEQIConfig, 
     }
 }
 
-/// Load config and discover agents from disk, merging with any `[[agents]]` in TOML.
+/// Load config (no disk-based agent discovery — agents come from the DB).
 pub(crate) fn load_config_with_agents(
     config_path: &Option<PathBuf>,
 ) -> Result<(AEQIConfig, PathBuf)> {
     let (mut config, path) = load_config(config_path)?;
     resolve_web_paths(&mut config, &path);
-    let agents_dir = resolve_agents_dir(&path);
-    let warnings = config.discover_and_merge_agents(&agents_dir);
-    for w in &warnings {
-        warn!("{w}");
-    }
     Ok((config, path))
 }
 
