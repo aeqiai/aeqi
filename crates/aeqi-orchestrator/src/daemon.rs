@@ -1022,31 +1022,10 @@ impl Daemon {
             warn!(error = %e, "scheduler cycle failed");
         }
 
-        // 1b. Consume dispatches for all active agents.
-        self.consume_agent_dispatches().await;
+        // Dispatch consumption and trigger firing are now handled by
+        // EventMatcher and ScheduleTimer (spawned as background tasks).
 
-        // 2. Run due triggers (schedule + once types).
-        if let Some(ref trigger_store) = self.trigger_store {
-            match trigger_store.due_schedule_triggers().await {
-                Ok(due) => {
-                    for trigger in due {
-                        info!(
-                            trigger_id = %trigger.id,
-                            agent_id = %trigger.agent_id,
-                            name = %trigger.name,
-                            skill = %trigger.skill,
-                            "trigger fired"
-                        );
-                        self.fire_trigger(&trigger).await;
-                    }
-                }
-                Err(e) => {
-                    warn!(error = %e, "failed to check due triggers");
-                }
-            }
-        }
-
-        // 3. Check for config reload signal (SIGHUP).
+        // 2. Check for config reload signal (SIGHUP).
         if self
             .config_reloaded
             .swap(false, std::sync::atomic::Ordering::SeqCst)
