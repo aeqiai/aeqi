@@ -29,7 +29,7 @@ export interface Checkpoint {
   worker: string;
   progress: string;
   cost_usd: number;
-  turns_used: number;
+  steps_used: number;
 }
 
 export type QuestStatus = "pending" | "in_progress" | "done" | "blocked" | "cancelled";

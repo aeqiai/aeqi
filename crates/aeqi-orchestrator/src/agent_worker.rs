@@ -404,7 +404,7 @@ impl AgentWorker {
     }
 
     /// Execute the hooked work through the native AEQI agent runtime.
-    /// Returns (outcome, cost_usd, turns_used) for the Scheduler to record.
+    /// Returns (outcome, cost_usd, steps_used) for the Scheduler to record.
     pub async fn execute(&mut self) -> Result<(QuestOutcome, RuntimeExecution, f64, u32)> {
         let hook = match &self.hook {
             Some(h) => h.clone(),
@@ -711,7 +711,7 @@ impl AgentWorker {
         self.persist_runtime_session(&hook.quest_id.0, &runtime_session)
             .await;
 
-        // Dispatch based on execution mode. Returns (text, cost_usd, turns_used).
+        // Dispatch based on execution mode. Returns (text, cost_usd, steps_used).
         let raw_result = match &self.execution {
             WorkerExecution::Agent {
                 provider,
@@ -765,11 +765,11 @@ impl AgentWorker {
                             worker = %self.name,
                             model = %cc_result.model,
                             cost_usd = cc_result.cost_usd,
-                            turns = cc_result.num_turns,
+                            steps = cc_result.num_steps,
                             session = %cc_result.session_id,
                             "claude code execution complete"
                         );
-                        (cc_result.text, cc_result.cost_usd, cc_result.num_turns)
+                        (cc_result.text, cc_result.cost_usd, cc_result.num_steps)
                     })
             }
         };
@@ -801,12 +801,12 @@ impl AgentWorker {
 
         // Parse into structured outcome.
         let runtime_artifacts = self.collect_runtime_artifacts();
-        let (outcome, mut runtime_outcome, cost, turns) = match raw_result {
-            Ok((result_text, cost, turns)) => {
+        let (outcome, mut runtime_outcome, cost, steps) = match raw_result {
+            Ok((result_text, cost, steps)) => {
                 let runtime_outcome =
                     RuntimeOutcome::from_agent_response(&result_text, runtime_artifacts);
                 let outcome = QuestOutcome::from_runtime_outcome(&runtime_outcome);
-                (outcome, runtime_outcome, cost, turns)
+                (outcome, runtime_outcome, cost, steps)
             }
             Err(e) => {
                 // Run middleware on_error.
@@ -834,7 +834,7 @@ impl AgentWorker {
                     confidence: 1.0,
                     artifacts: runtime_artifact_refs.clone(),
                     cost_usd: cost,
-                    turns,
+                    steps,
                     duration_ms,
                     reason: None,
                     runtime: Some(runtime_outcome.clone()),
@@ -844,7 +844,7 @@ impl AgentWorker {
                     confidence: 0.5,
                     artifacts: runtime_artifact_refs.clone(),
                     cost_usd: cost,
-                    turns,
+                    steps,
                     duration_ms,
                     reason: Some(question.clone()),
                     runtime: Some(runtime_outcome.clone()),
@@ -854,7 +854,7 @@ impl AgentWorker {
                     confidence: 0.3,
                     artifacts: runtime_artifact_refs.clone(),
                     cost_usd: cost,
-                    turns,
+                    steps,
                     duration_ms,
                     reason: Some(checkpoint.clone()),
                     runtime: Some(runtime_outcome.clone()),
@@ -864,7 +864,7 @@ impl AgentWorker {
                     confidence: 0.0,
                     artifacts: runtime_artifact_refs.clone(),
                     cost_usd: cost,
-                    turns,
+                    steps,
                     duration_ms,
                     reason: Some(error.clone()),
                     runtime: Some(runtime_outcome.clone()),
@@ -889,7 +889,7 @@ impl AgentWorker {
                     &hook.quest_id.0,
                     &format!("DONE: {}", result_text),
                     cost,
-                    turns,
+                    steps,
                 )
                 .await;
                 final_task_status = QuestStatus::Done;
@@ -921,7 +921,7 @@ impl AgentWorker {
                         question, full_text
                     ),
                     cost,
-                    turns,
+                    steps,
                 )
                 .await;
                 final_task_status = QuestStatus::Blocked;
@@ -939,7 +939,7 @@ impl AgentWorker {
                     &hook.quest_id.0,
                     &format!("HANDOFF: {}", checkpoint),
                     cost,
-                    turns,
+                    steps,
                 )
                 .await;
                 // Check if this handoff would exceed max retries.
@@ -973,7 +973,7 @@ impl AgentWorker {
                     &hook.quest_id.0,
                     &format!("FAILED: {}", error_text),
                     cost,
-                    turns,
+                    steps,
                 )
                 .await;
 
@@ -1129,7 +1129,7 @@ impl AgentWorker {
                         outcome: summary.chars().take(500).collect(),
                         confidence: 1.0,
                         cost_usd: cost,
-                        turns,
+                        steps,
                         duration_ms,
                         runtime: Some(runtime_execution.clone()),
                     });
@@ -1174,7 +1174,7 @@ impl AgentWorker {
         }
 
         self.hook = None;
-        Ok((outcome, runtime_execution, cost, turns))
+        Ok((outcome, runtime_execution, cost, steps))
     }
 
     fn execution_model(&self) -> Option<String> {
@@ -1753,7 +1753,7 @@ impl Observer for MiddlewareObserver {
         Self::map_action(self.chain.run_on_error(&mut ctx, error).await)
     }
 
-    async fn after_turn(
+    async fn after_step(
         &self,
         _iteration: u32,
         response_text: &str,
@@ -1762,7 +1762,7 @@ impl Observer for MiddlewareObserver {
         let mut ctx = self.ctx.lock().await;
         Self::map_action(
             self.chain
-                .run_after_turn(&mut ctx, response_text, stop_reason)
+                .run_after_step(&mut ctx, response_text, stop_reason)
                 .await,
         )
     }

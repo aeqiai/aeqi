@@ -798,7 +798,7 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
-.c-worker-turns {
+.c-worker-steps {
   color: var(--text-muted);
 }
 .c-worker-cost {
@@ -827,7 +827,7 @@
 }
 
 /* ============================================
-   AGENT SESSION VIEW (asv) — 3-column chat
+   AGENT SESSION VIEW (asv)
    ============================================ */
 
 .asv {
@@ -835,21 +835,19 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  transition: outline 0.15s;
 }
 .asv--dragover {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text-primary);
   outline-offset: -2px;
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-base));
 }
 
-/* Session header */
+/* ── Header ── */
 .asv-header {
-  height: 48px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -871,20 +869,21 @@
   line-height: 1.2;
 }
 .asv-header-session-name {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 280px;
+  max-width: 320px;
   line-height: 1.2;
 }
 .asv-header-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
-  opacity: 0.4;
+  opacity: 0.3;
   flex-shrink: 0;
 }
 .asv-header-dot.live {
@@ -895,52 +894,18 @@
 .asv-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 .asv-header-model {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  background: var(--bg-elevated);
   padding: 2px 6px;
+  background: var(--bg-surface);
   border-radius: var(--radius-sm);
 }
-.asv-session-toggle {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.asv-session-toggle:hover,
-.asv-session-toggle--open {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--bg-elevated);
-}
-.asv-session-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  font-size: 9px;
-  font-weight: 600;
-  min-width: 14px;
-  height: 14px;
-  line-height: 14px;
-  text-align: center;
-  background: var(--accent);
-  color: var(--bg-base);
-  border-radius: 7px;
-  padding: 0 3px;
-}
+.asv-session-toggle,
 .asv-new-session {
   width: 28px;
   height: 28px;
@@ -948,46 +913,64 @@
   align-items: center;
   justify-content: center;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.12s;
+  position: relative;
 }
+.asv-session-toggle:hover,
+.asv-session-toggle--open,
 .asv-new-session:hover {
   color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--bg-elevated);
+  border-color: var(--border);
+  background: var(--bg-surface);
+}
+.asv-session-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border-radius: 7px;
+  padding: 0 3px;
 }
 
-/* Session list dropdown */
+/* ── Session list ── */
 .asv-session-list {
   border-bottom: 1px solid var(--border);
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
-  background: var(--bg-surface);
+  background: var(--bg-base);
   flex-shrink: 0;
 }
 .asv-session-empty {
-  padding: 20px 16px;
+  padding: 24px 20px;
   text-align: center;
   color: var(--text-muted);
   font-size: 12px;
 }
 .asv-session-item {
-  padding: 10px 16px;
+  padding: 10px 20px;
   cursor: pointer;
   transition: background 0.1s;
   border-bottom: 1px solid var(--border);
 }
 .asv-session-item:last-child { border-bottom: none; }
 .asv-session-item:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-surface);
 }
 .asv-session-item.active {
   background: var(--bg-elevated);
-  border-left: 2px solid var(--accent);
-  padding-left: 14px;
+  box-shadow: inset 2px 0 0 var(--text-primary);
 }
 .asv-session-item-top {
   display: flex;
@@ -995,11 +978,11 @@
   gap: 8px;
 }
 .asv-session-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
-  opacity: 0.3;
+  opacity: 0.25;
   flex-shrink: 0;
 }
 .asv-session-dot.live {
@@ -1008,16 +991,17 @@
 }
 .asv-session-item-preview {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  font-weight: 450;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .asv-session-item-bottom {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 3px;
-  padding-left: 14px;
+  padding-left: 13px;
 }
 .asv-session-item-date {
   font-size: 10px;
@@ -1027,70 +1011,79 @@
 .asv-session-item-count {
   font-size: 10px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
-/* Messages area */
+/* ── Messages area ── */
 .asv-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: 100%;
+  gap: 4px;
 }
 
-/* Empty state */
+/* ── Empty state ── */
 .asv-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 40px;
+  gap: 10px;
+  padding: 48px;
 }
 
 .asv-empty-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
+  margin-bottom: 4px;
 }
 
 .asv-empty-title {
-  font-size: var(--font-size-lg);
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .asv-empty-hint {
-  font-size: var(--font-size-sm);
+  font-size: 12px;
   color: var(--text-muted);
 }
 
-/* Message layout: avatar + body */
-/* ── Messages ── */
-
+/* ── Message layout ── */
 .asv-msg {
   display: flex;
   gap: 10px;
   opacity: 0;
   animation: asv-enter 0.15s ease-out forwards;
 }
+
+.asv-msg + .asv-msg {
+  margin-top: 8px;
+}
+
+.asv-msg-user + .asv-msg-assistant,
+.asv-msg-user + .asv-msg-streaming {
+  margin-top: 14px;
+}
+
+.asv-msg-assistant + .asv-msg-user {
+  margin-top: 18px;
+}
+
+.asv-msg-streaming + .asv-msg-user {
+  margin-top: 18px;
+}
+
 @keyframes asv-enter {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .asv-msg-avatar {
   flex-shrink: 0;
-  padding-top: 3px;
+  padding-top: 2px;
 }
 
 .asv-msg-body {
@@ -1099,7 +1092,7 @@
   position: relative;
 }
 
-/* User: right-aligned, no container — just text */
+/* User messages — right-aligned bubble */
 .asv-msg-user {
   flex-direction: row-reverse;
 }
@@ -1110,103 +1103,100 @@
   max-width: 72%;
 }
 
-/* Agent: full width, no border — content speaks */
+/* Agent messages — full width, no container */
 .asv-msg-assistant .asv-msg-body {
-  padding: 2px 0;
-  max-width: 100%;
+  padding: 4px 0;
 }
 
-/* Error */
-.asv-msg-error .asv-msg-body {
-  padding: 8px 12px;
-  border-left: 2px solid var(--error);
-  background: rgba(239, 68, 68, 0.03);
-}
-
-/* Streaming border pulse */
+/* Streaming */
 .asv-msg-streaming .asv-msg-body {
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
-/* Header: role + metadata on one line */
+/* Error message */
+.asv-msg-error {
+  gap: 0;
+}
+.asv-msg-error .asv-msg-body {
+  padding: 10px 14px;
+  border-left: 2px solid var(--error);
+  background: rgba(239, 68, 68, 0.02);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.asv-msg-error .asv-msg-content {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--error);
+}
+
+/* ── Message header (streaming timer only) ── */
 .asv-msg-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-
-.asv-msg-time {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
-  color: var(--text-muted);
-}
-
+.session-msg-duration,
 .asv-msg-duration {
   font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
-  color: var(--text-secondary);
-}
-
-/* Cost + tokens: subtle, after duration */
-.asv-msg-cost {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
+  font-size: 10px;
   color: var(--text-muted);
 }
 
-.asv-msg-tokens {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-
+/* ── Message content — markdown ── */
 .asv-msg-content {
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
 }
 
 .asv-msg-assistant .asv-msg-content {
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  line-height: 1.65;
 }
 
 .asv-msg-assistant .asv-msg-content p {
   margin: 0 0 10px 0;
 }
-
 .asv-msg-assistant .asv-msg-content p:last-child {
   margin-bottom: 0;
 }
 
+/* Lists — proper bullet rendering */
 .asv-msg-assistant .asv-msg-content ul,
 .asv-msg-assistant .asv-msg-content ol {
   margin: 6px 0 10px 0;
-  padding-left: 20px;
+  padding-left: 24px;
+  list-style-position: outside;
 }
-
+.asv-msg-assistant .asv-msg-content ul {
+  list-style-type: disc;
+}
+.asv-msg-assistant .asv-msg-content ol {
+  list-style-type: decimal;
+}
 .asv-msg-assistant .asv-msg-content li {
-  margin: 3px 0;
+  margin: 4px 0;
   line-height: 1.55;
+  padding-left: 4px;
 }
-
 .asv-msg-assistant .asv-msg-content li::marker {
   color: var(--text-muted);
 }
+.asv-msg-assistant .asv-msg-content li ul,
+.asv-msg-assistant .asv-msg-content li ol {
+  margin: 4px 0;
+}
 
+/* Headings */
 .asv-msg-assistant .asv-msg-content h1,
 .asv-msg-assistant .asv-msg-content h2,
 .asv-msg-assistant .asv-msg-content h3 {
-  font-size: var(--font-size-sm);
+  font-size: 13px;
   font-weight: 600;
-  margin: 14px 0 6px 0;
+  margin: 16px 0 6px 0;
   color: var(--text-primary);
 }
-
 .asv-msg-assistant .asv-msg-content h1:first-child,
 .asv-msg-assistant .asv-msg-content h2:first-child,
 .asv-msg-assistant .asv-msg-content h3:first-child {
@@ -1215,173 +1205,295 @@
 
 .asv-msg-assistant .asv-msg-content strong {
   font-weight: 600;
-  color: var(--text-primary);
 }
 
+/* Inline code */
 .asv-msg-assistant .asv-msg-content code {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: 11.5px;
   background: var(--bg-elevated);
-  padding: 2px 5px;
-  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+  border-radius: 3px;
   color: var(--text-secondary);
 }
 
+/* Code blocks */
 .asv-msg-assistant .asv-msg-content pre {
-  background: var(--bg-elevated);
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
   overflow-x: auto;
   margin: 8px 0;
-  font-size: var(--font-size-xs);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
-
 .asv-msg-assistant .asv-msg-content pre code {
   background: none;
   padding: 0;
   font-size: inherit;
+  border-radius: 0;
+  color: var(--text-primary);
 }
 
+/* Blockquotes */
+.asv-msg-assistant .asv-msg-content blockquote {
+  border-left: 2px solid var(--border);
+  margin: 8px 0;
+  padding: 0 0 0 12px;
+  color: var(--text-secondary);
+}
+
+/* Tables */
+.asv-msg-assistant .asv-msg-content table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+  width: 100%;
+}
+.asv-msg-assistant .asv-msg-content th,
+.asv-msg-assistant .asv-msg-content td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.asv-msg-assistant .asv-msg-content th {
+  background: var(--bg-surface);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* Links */
+.asv-msg-assistant .asv-msg-content a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-hover);
+  text-underline-offset: 2px;
+}
+.asv-msg-assistant .asv-msg-content a:hover {
+  text-decoration-color: var(--text-primary);
+}
+
+/* User content */
 .asv-msg-user .asv-msg-content {
   font-family: var(--font-sans);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* ── Message footer (metadata) ── */
+.asv-msg-footer {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.asv-msg-footer span + span::before {
+  content: "\00b7";
+  margin: 0 5px;
+  opacity: 0.3;
+}
+
+/* ── Copy button ── */
+.asv-copy {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+  display: flex;
+  align-items: center;
+}
+.asv-msg:hover .asv-copy {
+  opacity: 1;
+}
+.asv-copy:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 /* ── Collapsible tool group ── */
 
 .asv-tools-group {
-  margin: 6px 0;
+  margin: 8px 0;
+  border-left: 2px solid var(--border);
   background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  padding: 6px 10px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.asv-tools-group--fail {
+  border-left-color: rgba(239, 68, 68, 0.4);
 }
 
 .asv-tools-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  width: 100%;
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: 11px;
   color: var(--text-muted);
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px 10px;
+  text-align: left;
   transition: color 0.1s;
 }
-
 .asv-tools-toggle:hover {
   color: var(--text-secondary);
 }
 
-.asv-tools-toggle-icon {
+.asv-tools-chevron {
   font-size: 8px;
-  width: 10px;
+  width: 8px;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+.asv-tools-count {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.asv-tools-cats {
+  color: var(--text-muted);
   opacity: 0.5;
 }
+.asv-tools-cats::before {
+  content: "\2014";
+  margin: 0 6px;
+  opacity: 0.3;
+}
 
-.asv-tools-expanded {
-  margin-top: 6px;
-  padding-top: 6px;
+/* Expanded tool detail */
+.asv-tools-detail {
+  padding: 2px 10px 6px;
   border-top: 1px solid var(--border);
 }
 
-/* Live tool panels — always expanded, no toggle */
-.asv-tools-group--live {
-  padding: 6px 10px;
-}
-
-/* ── Tool category colors (subtle tint on the icon) ── */
-
-.asv-tool-icon.cat-agents { color: rgba(0, 0, 0, 0.5); }
-.asv-tool-icon.cat-quests { color: rgba(0, 0, 0, 0.4); }
-.asv-tool-icon.cat-events { color: rgba(0, 0, 0, 0.4); }
-.asv-tool-icon.cat-insights { color: rgba(0, 0, 0, 0.5); }
-.asv-tool-icon.cat-prompts { color: rgba(0, 0, 0, 0.4); }
-.asv-tool-icon.cat-util { color: rgba(0, 0, 0, 0.25); }
-
-/* ── Tool events (inline, in completed messages) ── */
-
-.asv-tool-inline {
+.asv-tool-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 6px;
+  align-items: center;
+  gap: 8px;
   padding: 3px 0;
-  margin: 2px 0;
-  font-size: var(--font-size-2xs);
+  font-size: 11px;
   font-family: var(--font-mono);
-  color: var(--text-muted);
 }
-
-.asv-tool-icon {
+.asv-tool-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   flex-shrink: 0;
-  width: 12px;
-  text-align: center;
-  font-size: 9px;
-  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.15);
 }
-
-/* Success: subtle checkmark */
-.asv-tool-inline.complete .asv-tool-icon { color: var(--success); opacity: 0.8; }
-/* Failed: red x */
-.asv-tool-inline.complete .asv-tool-icon:has(+ .asv-tool-name) { color: var(--text-muted); }
-
+.asv-tool-dot.complete {
+  background: rgba(0, 0, 0, 0.2);
+}
+.asv-tool-dot.start {
+  background: var(--text-muted);
+  animation: c-pulse 1.6s ease-in-out infinite;
+}
+.asv-tool-row.fail .asv-tool-dot {
+  background: var(--error);
+}
 .asv-tool-name {
   color: var(--text-secondary);
 }
-
-.asv-tool-input {
+.asv-tool-dur {
   color: var(--text-muted);
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.5;
+}
+.asv-tool-status-msg {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 0;
+  font-family: var(--font-mono);
+  opacity: 0.5;
+}
+.asv-status-line {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  font-family: var(--font-mono);
   opacity: 0.6;
 }
 
-.asv-tool-ms {
+.asv-step-sep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--text-muted);
-  margin-left: auto;
-  opacity: 0.5;
+  line-height: 1;
+  opacity: 0.72;
+}
+.asv-step-sep:first-child {
+  margin-top: 0;
+}
+.asv-step-sep::before,
+.asv-step-sep::after {
+  content: "";
+  height: 1px;
+  background: var(--border);
+  flex: 1;
+  min-width: 16px;
+}
+.asv-step-sep span {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
+/* Expandable output */
 .session-tool-output {
   width: 100%;
-  font-size: var(--font-size-2xs);
+  font-size: 10px;
   color: var(--text-muted);
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
   overflow-y: auto;
+  margin-top: 2px;
 }
-
 .session-tool-expand {
   cursor: pointer;
   color: var(--text-secondary);
   margin-left: 4px;
+  font-weight: 500;
 }
 .session-tool-expand:hover {
   color: var(--text-primary);
 }
 
-.asv-status-item {
-  font-size: var(--font-size-2xs);
-  color: var(--text-muted);
-  padding: 2px 0;
-  font-family: var(--font-mono);
+/* ── Live tool panel (during streaming) ── */
+.asv-tools-group--live {
+  border-left-color: var(--text-muted);
+  padding: 6px 10px;
+}
+.asv-tools-group--live .asv-tools-detail {
+  border-top: none;
+  padding: 0;
 }
 
-/* ── Live tool panel (during streaming) ── */
-
+/* Legacy live tool classes (kept for compat) */
 .asv-tool-live {
   margin: 10px 0 4px;
   padding: 0;
 }
-
 .asv-tool-live-header {
   font-family: var(--font-mono);
-  font-size: var(--font-size-3xs);
+  font-size: 9px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1390,7 +1502,6 @@
   align-items: center;
   gap: 6px;
 }
-
 .asv-tool-live-header::before {
   content: "";
   display: inline-block;
@@ -1418,12 +1529,12 @@
   to { transform: rotate(360deg); }
 }
 
-.asv-tool-live-item.turn {
+.asv-tool-live-item.step {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--border);
 }
-.asv-tool-live-item.turn .asv-tool-live-name {
+.asv-tool-live-item.step .asv-tool-live-name {
   color: var(--text-secondary);
   font-weight: 500;
   font-size: var(--font-size-3xs);
@@ -1468,29 +1579,28 @@
   opacity: 0.5;
 }
 
-/* ── Turn separator ── */
-
-.asv-turn-sep {
-  margin: 10px 0 6px;
-  height: 1px;
-  background: var(--border);
-}
-
 /* ── Thinking indicator ── */
 
-.session-msg-thinking {
-  font-size: var(--font-size-xs);
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  padding: 4px 0;
+.asv-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
   opacity: 0;
   animation: asv-enter 0.2s ease-out forwards;
 }
-
-.session-msg-thinking::before {
-  content: "›";
-  margin-right: 6px;
-  opacity: 0.4;
+.asv-thinking-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: c-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.asv-thinking-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* Session prompts bar */
@@ -1712,31 +1822,37 @@
   font-family: var(--font-mono);
 }
 
-/* Composer */
+/* ── Composer ── */
 .asv-composer {
-  padding: 8px 24px 12px;
+  padding: 8px 24px 16px;
   flex-shrink: 0;
-  width: 100%;
 }
 
 .asv-composer-inner {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   background: var(--bg-base);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 8px 12px;
-  transition: border-color 0.2s ease;
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  transition: border-color 0.2s;
 }
 
 .asv-composer-inner:focus-within {
-  border-color: var(--text-muted);
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 .asv-composer-busy {
-  border-color: var(--border-hover);
-  opacity: 0.7;
+  /* Composer stays interactive during streaming */
+}
+
+/* Queued user messages */
+.asv-msg-queued .asv-msg-body {
+  opacity: 0.55;
+}
+.asv-msg-queued .asv-msg-footer span:last-child {
+  font-style: italic;
 }
 
 .asv-textarea {
@@ -1745,7 +1861,7 @@
   border: none;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
+  font-size: 13px;
   resize: none;
   min-height: 22px;
   max-height: 160px;
@@ -1762,26 +1878,27 @@
 }
 
 .asv-textarea:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .asv-send {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--bg-elevated);
-  border: none;
+  background: transparent;
+  border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all 0.12s;
 }
 
 .asv-send.ready {
-  background: var(--accent);
+  background: var(--text-primary);
+  border-color: var(--text-primary);
   color: var(--bg-base);
 }
 
@@ -1791,12 +1908,12 @@
 
 .asv-send:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .asv-send.busy {
   background: transparent;
-  border: 1px solid var(--border);
+  border-color: var(--border);
 }
 
 .asv-send-spinner {

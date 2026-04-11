@@ -98,6 +98,40 @@ pub fn request_field<'a>(request: &'a serde_json::Value, key: &str) -> Option<&'
         .filter(|value| !value.is_empty())
 }
 
+async fn record_assistant_complete(
+    session_store: &Option<Arc<SessionStore>>,
+    session_id: Option<&str>,
+    prompt_tokens: u32,
+    completion_tokens: u32,
+    cost_usd: f64,
+    iterations: u32,
+    duration_ms: u64,
+) {
+    let Some(cs) = session_store.as_ref() else {
+        return;
+    };
+    let Some(sid) = session_id else {
+        return;
+    };
+    let meta = serde_json::json!({
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "cost_usd": cost_usd,
+        "iterations": iterations,
+        "duration_ms": duration_ms,
+    });
+    let _ = cs
+        .record_event_by_session(
+            sid,
+            "assistant_complete",
+            "system",
+            "",
+            Some("web"),
+            Some(&meta),
+        )
+        .await;
+}
+
 pub fn resolve_web_chat_id(
     explicit_chat_id: Option<i64>,
     project_hint: Option<&str>,
@@ -179,6 +213,7 @@ struct IpcContext {
     leader_agent_name: String,
     daily_budget_usd: f64,
     project_budgets: std::collections::HashMap<String, f64>,
+    prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -214,6 +249,8 @@ pub struct Daemon {
     pub project_budgets: std::collections::HashMap<String, f64>,
     /// Global scheduler for the unified schedule() loop.
     pub scheduler: Arc<Scheduler>,
+    /// Unified prompt loader.
+    pub prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
 }
 
 impl Daemon {
@@ -253,6 +290,7 @@ impl Daemon {
             daily_budget_usd: 50.0,
             project_budgets: std::collections::HashMap::new(),
             scheduler,
+            prompt_loader: None,
         }
     }
 
@@ -863,6 +901,7 @@ impl Daemon {
                     leader_agent_name: self.leader_agent_name.clone(),
                     daily_budget_usd: self.daily_budget_usd,
                     project_budgets: self.project_budgets.clone(),
+                    prompt_loader: self.prompt_loader.clone(),
                 });
                 let dispatch_es = self.event_store.clone();
                 let trigger_store = self.trigger_store.clone();
@@ -1305,6 +1344,7 @@ impl Daemon {
                 leader_agent_name: ipc_ctx.leader_agent_name.clone(),
                 daily_budget_usd: ipc_ctx.daily_budget_usd,
                 project_budgets: ipc_ctx.project_budgets.clone(),
+                prompt_loader: ipc_ctx.prompt_loader.clone(),
             };
 
             let response = match cmd {
@@ -1620,6 +1660,7 @@ impl Daemon {
                         serde_json::json!({"ok": false, "error": "access denied"})
                     } else {
                         let session_store = ipc_ctx.session_store.clone();
+                        let request_started = std::time::Instant::now();
 
                         // Resolve store_session_id: use explicit session_id_hint, or find/create one.
                         let store_session_id: Option<String> = if let Some(ref sid) =
@@ -1713,11 +1754,23 @@ impl Daemon {
                                                     }
 
                                                     match &event {
+                                                        aeqi_core::ChatStreamEvent::StepStart { step, model } => {
+                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                let meta = serde_json::json!({
+                                                                    "step": step,
+                                                                    "model": model,
+                                                                });
+                                                                let _ = cs.record_event_by_session(
+                                                                    usid, "step_start", "system",
+                                                                    &format!("Step {step}"), Some("session"), Some(&meta),
+                                                                ).await;
+                                                            }
+                                                        }
                                                         aeqi_core::ChatStreamEvent::TextDelta { text: delta } => {
                                                             text.push_str(delta);
                                                         }
                                                         aeqi_core::ChatStreamEvent::ToolComplete {
-                                                            tool_use_id: _,
+                                                            tool_use_id,
                                                             tool_name,
                                                             success,
                                                             input_preview,
@@ -1726,6 +1779,7 @@ impl Daemon {
                                                         } => {
                                                             if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
                                                                 let meta = serde_json::json!({
+                                                                    "tool_use_id": tool_use_id,
                                                                     "tool_name": tool_name,
                                                                     "success": success,
                                                                     "input_preview": input_preview,
@@ -1738,12 +1792,29 @@ impl Daemon {
                                                                 ).await;
                                                             }
                                                         }
+                                                        aeqi_core::ChatStreamEvent::StepComplete { .. } => {
+                                                            if !text.is_empty() {
+                                                                if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                    let _ = cs.record_by_session(
+                                                                        usid, "assistant", &text, Some("web"),
+                                                                    ).await;
+                                                                    text.clear();
+                                                                }
+                                                            }
+                                                        }
                                                         aeqi_core::ChatStreamEvent::Complete {
                                                             total_prompt_tokens: pt,
                                                             total_completion_tokens: ct,
                                                             iterations: it,
                                                             ..
                                                         } => {
+                                                            if !text.is_empty() {
+                                                                if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                    let _ = cs.record_by_session(
+                                                                        usid, "assistant", &text, Some("web"),
+                                                                    ).await;
+                                                                }
+                                                            }
                                                             prompt_tokens = *pt;
                                                             completion_tokens = *ct;
                                                             iterations = *it;
@@ -1763,7 +1834,7 @@ impl Daemon {
                                             }
                                         }
 
-                                        // Text already flushed per-turn in TurnComplete/Complete handlers above.
+                                        // Text already flushed per-step in StepComplete/Complete handlers above.
                                         if let Some(ref cs) = session_store {
                                             if store_session_id.is_none() {
                                                 let _ = cs
@@ -1782,6 +1853,30 @@ impl Daemon {
                                             prompt_tokens,
                                             completion_tokens,
                                         );
+                                        let duration_ms =
+                                            request_started.elapsed().as_millis() as u64;
+                                        record_assistant_complete(
+                                            &session_store,
+                                            store_session_id
+                                                .as_deref()
+                                                .or(Some(resolved_session_id.as_str())),
+                                            prompt_tokens,
+                                            completion_tokens,
+                                            cost_usd,
+                                            iterations,
+                                            duration_ms,
+                                        )
+                                        .await;
+                                        let _ = ipc_ctx
+                                            .event_store
+                                            .record_cost(
+                                                &agent_hint,
+                                                &resolved_session_id,
+                                                &agent_hint,
+                                                cost_usd,
+                                                iterations,
+                                            )
+                                            .await;
                                         let done = serde_json::json!({
                                             "done": true,
                                             "type": "Complete",
@@ -1791,6 +1886,7 @@ impl Daemon {
                                             "prompt_tokens": prompt_tokens,
                                             "completion_tokens": completion_tokens,
                                             "cost_usd": cost_usd,
+                                            "duration_ms": duration_ms,
                                         });
                                         let mut bytes =
                                             serde_json::to_vec(&done).unwrap_or_default();
@@ -1831,6 +1927,20 @@ impl Daemon {
                                             resp.prompt_tokens,
                                             resp.completion_tokens,
                                         );
+                                        let duration_ms =
+                                            request_started.elapsed().as_millis() as u64;
+                                        record_assistant_complete(
+                                            &session_store,
+                                            store_session_id
+                                                .as_deref()
+                                                .or(Some(resolved_session_id.as_str())),
+                                            resp.prompt_tokens,
+                                            resp.completion_tokens,
+                                            cost_usd,
+                                            resp.iterations,
+                                            duration_ms,
+                                        )
+                                        .await;
                                         let _ = ipc_ctx
                                             .event_store
                                             .record_cost(
@@ -1851,6 +1961,7 @@ impl Daemon {
                                             "prompt_tokens": resp.prompt_tokens,
                                             "completion_tokens": resp.completion_tokens,
                                             "cost_usd": cost_usd,
+                                            "duration_ms": duration_ms,
                                         })
                                     }
                                     Err(e) => {
@@ -1870,6 +1981,11 @@ impl Daemon {
                             let mut spawn_opts =
                                 crate::session_manager::SpawnOptions::interactive();
                             spawn_opts.extra_prompts = extra_prompts;
+                            if let Some(ref sid) = store_session_id {
+                                spawn_opts = spawn_opts
+                                    .with_session_id(sid.clone())
+                                    .without_initial_prompt_record();
+                            }
 
                             match session_manager
                                 .spawn_session(
@@ -1884,7 +2000,8 @@ impl Daemon {
                                     let session_id = spawned.session_id.clone();
 
                                     let mut rx = spawned.stream_sender.subscribe();
-                                    let mut text = String::new();
+                                    let mut step_text = String::new();
+                                    let mut full_text = String::new();
                                     let mut iterations = 0u32;
                                     let mut prompt_tokens = 0u32;
                                     let mut completion_tokens = 0u32;
@@ -1906,13 +2023,37 @@ impl Daemon {
                                                 }
 
                                                 match &event {
+                                                    aeqi_core::ChatStreamEvent::StepStart {
+                                                        step,
+                                                        model,
+                                                    } => {
+                                                        if let (Some(cs), Some(usid)) =
+                                                            (&session_store, &store_session_id)
+                                                        {
+                                                            let meta = serde_json::json!({
+                                                                "step": step,
+                                                                "model": model,
+                                                            });
+                                                            let _ = cs
+                                                                .record_event_by_session(
+                                                                    usid,
+                                                                    "step_start",
+                                                                    "system",
+                                                                    &format!("Step {step}"),
+                                                                    Some("session"),
+                                                                    Some(&meta),
+                                                                )
+                                                                .await;
+                                                        }
+                                                    }
                                                     aeqi_core::ChatStreamEvent::TextDelta {
                                                         text: delta,
                                                     } => {
-                                                        text.push_str(delta);
+                                                        step_text.push_str(delta);
+                                                        full_text.push_str(delta);
                                                     }
                                                     aeqi_core::ChatStreamEvent::ToolComplete {
-                                                        tool_use_id: _,
+                                                        tool_use_id,
                                                         tool_name,
                                                         success,
                                                         input_preview,
@@ -1923,6 +2064,7 @@ impl Daemon {
                                                             (&session_store, &store_session_id)
                                                         {
                                                             let meta = serde_json::json!({
+                                                                "tool_use_id": tool_use_id,
                                                                 "tool_name": tool_name,
                                                                 "success": success,
                                                                 "input_preview": input_preview,
@@ -1941,15 +2083,24 @@ impl Daemon {
                                                                 .await;
                                                         }
                                                     }
-                                                    aeqi_core::ChatStreamEvent::TurnComplete { .. } => {
-                                                        // Flush accumulated text as an assistant message per-turn.
-                                                        if !text.is_empty() {
-                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
-                                                                let _ = cs.record_by_session(
-                                                                    usid, "assistant", &text, Some("web"),
-                                                                ).await;
+                                                    aeqi_core::ChatStreamEvent::StepComplete {
+                                                        ..
+                                                    } => {
+                                                        // Flush accumulated text as an assistant message per-step.
+                                                        if !step_text.is_empty() {
+                                                            if let (Some(cs), Some(usid)) =
+                                                                (&session_store, &store_session_id)
+                                                            {
+                                                                let _ = cs
+                                                                    .record_by_session(
+                                                                        usid,
+                                                                        "assistant",
+                                                                        &step_text,
+                                                                        Some("web"),
+                                                                    )
+                                                                    .await;
                                                             }
-                                                            text.clear();
+                                                            step_text.clear();
                                                         }
                                                     }
                                                     aeqi_core::ChatStreamEvent::Complete {
@@ -1958,13 +2109,21 @@ impl Daemon {
                                                         iterations: it,
                                                         ..
                                                     } => {
-                                                        // Flush any remaining text from the final turn.
-                                                        if !text.is_empty() {
-                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
-                                                                let _ = cs.record_by_session(
-                                                                    usid, "assistant", &text, Some("web"),
-                                                                ).await;
+                                                        // Flush any remaining text from the final step.
+                                                        if !step_text.is_empty() {
+                                                            if let (Some(cs), Some(usid)) =
+                                                                (&session_store, &store_session_id)
+                                                            {
+                                                                let _ = cs
+                                                                    .record_by_session(
+                                                                        usid,
+                                                                        "assistant",
+                                                                        &step_text,
+                                                                        Some("web"),
+                                                                    )
+                                                                    .await;
                                                             }
+                                                            step_text.clear();
                                                         }
                                                         prompt_tokens = *pt;
                                                         completion_tokens = *ct;
@@ -1976,20 +2135,23 @@ impl Daemon {
                                             }
                                             Ok(Err(_)) => break,
                                             Err(_) => {
-                                                text = "Session response timed out".to_string();
+                                                let timeout_text =
+                                                    "Session response timed out".to_string();
+                                                step_text = timeout_text.clone();
+                                                full_text = timeout_text;
                                                 break;
                                             }
                                         }
                                     }
 
-                                    // Text already flushed per-turn above.
+                                    // Text already flushed per-step above.
                                     if let Some(ref cs) = session_store {
-                                        if store_session_id.is_none() {
+                                        if store_session_id.is_none() && !full_text.is_empty() {
                                             let _ = cs
                                                 .record_with_source(
                                                     chat_id,
                                                     "assistant",
-                                                    &text,
+                                                    &full_text,
                                                     Some("web"),
                                                 )
                                                 .await;
@@ -2001,6 +2163,17 @@ impl Daemon {
                                         prompt_tokens,
                                         completion_tokens,
                                     );
+                                    let duration_ms = request_started.elapsed().as_millis() as u64;
+                                    record_assistant_complete(
+                                        &session_store,
+                                        store_session_id.as_deref().or(Some(session_id.as_str())),
+                                        prompt_tokens,
+                                        completion_tokens,
+                                        cost_usd,
+                                        iterations,
+                                        duration_ms,
+                                    )
+                                    .await;
                                     let _ = ipc_ctx
                                         .event_store
                                         .record_cost(
@@ -2022,6 +2195,7 @@ impl Daemon {
                                             "prompt_tokens": prompt_tokens,
                                             "completion_tokens": completion_tokens,
                                             "cost_usd": cost_usd,
+                                            "duration_ms": duration_ms,
                                         });
                                         let mut bytes =
                                             serde_json::to_vec(&done).unwrap_or_default();
@@ -2031,7 +2205,7 @@ impl Daemon {
                                     } else {
                                         serde_json::json!({
                                             "ok": true,
-                                            "text": text,
+                                            "text": full_text,
                                             "chat_id": chat_id,
                                             "session_id": session_id,
                                             "store_session_id": store_session_id,
@@ -2040,6 +2214,7 @@ impl Daemon {
                                             "completion_tokens": completion_tokens,
                                             "model": default_model,
                                             "cost_usd": cost_usd,
+                                            "duration_ms": duration_ms,
                                         })
                                     }
                                 }
@@ -2359,7 +2534,7 @@ mod tests {
             outcome: "done".into(),
             confidence: 1.0,
             cost_usd: 0.1,
-            turns: 2,
+            steps: 2,
             duration_ms: 100,
             runtime: None,
         });
@@ -2373,7 +2548,7 @@ mod tests {
 
         buffer.push(ExecutionEvent::Progress {
             quest_id: "t-2".into(),
-            turns: 1,
+            steps: 1,
             cost_usd: 0.05,
             last_tool: Some("shell".into()),
         });
@@ -2390,7 +2565,7 @@ mod tests {
         for i in 0..(super::MAX_EVENT_BUFFER_LEN + 5) {
             buffer.push(ExecutionEvent::Progress {
                 quest_id: format!("t-{i}"),
-                turns: i as u32,
+                steps: i as u32,
                 cost_usd: i as f64,
                 last_tool: None,
             });

@@ -727,8 +727,8 @@ impl Scheduler {
 
             // The on_complete callback already updated task status in AgentRegistry.
             // Here we handle cost recording, expertise, and event broadcasting.
-            let (outcome_status, cost_usd, turns) = match result {
-                Ok((_task_outcome, runtime_exec, cost, turns)) => {
+            let (outcome_status, cost_usd, steps) = match result {
+                Ok((_task_outcome, runtime_exec, cost, steps)) => {
                     // Record cost as an event in the unified EventStore.
                     let _ = spawn_event_store
                         .emit(
@@ -740,7 +740,7 @@ impl Scheduler {
                                 "project": "global",
                                 "agent_name": agent_name,
                                 "cost_usd": cost,
-                                "turns": turns,
+                                "steps": steps,
                             }),
                         )
                         .await;
@@ -750,7 +750,7 @@ impl Scheduler {
                         crate::runtime::RuntimeOutcomeStatus::Handoff
                         | crate::runtime::RuntimeOutcomeStatus::Failed => "retry",
                     };
-                    (status, cost, turns)
+                    (status, cost, steps)
                 }
                 Err(e) => {
                     warn!(task = %quest_id, error = %e, "worker execution failed");
@@ -769,7 +769,7 @@ impl Scheduler {
                         "agent_name": agent_name,
                         "outcome": outcome_status,
                         "cost_usd": cost_usd,
-                        "turns": turns,
+                        "steps": steps,
                     }),
                 )
                 .await;
@@ -821,7 +821,7 @@ impl Scheduler {
                 outcome: outcome_status.to_string(),
                 confidence: 0.0,
                 cost_usd,
-                turns,
+                steps,
                 duration_ms: 0,
                 runtime: None,
             });

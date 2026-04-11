@@ -9,7 +9,6 @@ use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 // ---------------------------------------------------------------------------
@@ -284,7 +283,7 @@ pub struct EventFilter {
 
 /// The unified event store, backed by a shared SQLite connection.
 pub struct EventStore {
-    db: Arc<Mutex<Connection>>,
+    db: Arc<crate::agent_registry::ConnectionPool>,
     /// TTL for dispatch pruning (seconds).
     dispatch_ttl_secs: std::sync::atomic::AtomicU64,
     /// Max queue depth per recipient (soft limit).
@@ -296,8 +295,8 @@ pub struct EventStore {
 }
 
 impl EventStore {
-    /// Create an EventStore sharing an existing connection (from AgentRegistry).
-    pub fn new(db: Arc<Mutex<Connection>>) -> Self {
+    /// Create an EventStore sharing a connection pool (from AgentRegistry).
+    pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             db,
@@ -594,7 +593,7 @@ impl EventStore {
         quest_id: &str,
         agent_name: &str,
         cost_usd: f64,
-        turns: u32,
+        steps: u32,
     ) -> Result<String> {
         self.emit(
             "cost",
@@ -604,7 +603,7 @@ impl EventStore {
             &serde_json::json!({
                 "agent_name": agent_name,
                 "cost_usd": cost_usd,
-                "turns": turns,
+                "steps": steps,
             }),
         )
         .await
@@ -615,7 +614,7 @@ impl EventStore {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .unwrap();
+            .expect("midnight is always valid");
         let today = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc);
         self.query_sum("cost", "$.cost_usd", Some(&today)).await
     }
@@ -625,7 +624,7 @@ impl EventStore {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .unwrap();
+            .expect("midnight is always valid");
         let today_str = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc).to_rfc3339();
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
@@ -651,7 +650,7 @@ impl EventStore {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .unwrap();
+            .expect("midnight is always valid");
         let today_str = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc).to_rfc3339();
         let db = self.db.lock().await;
         let result: f64 = db.query_row(
@@ -1083,15 +1082,18 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
 mod tests {
     use super::*;
 
-    fn open_test_db() -> Arc<Mutex<Connection>> {
-        let conn = Connection::open_in_memory().unwrap();
-        EventStore::create_tables(&conn).unwrap();
-        Arc::new(Mutex::new(conn))
+    async fn open_test_db() -> Arc<crate::agent_registry::ConnectionPool> {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+            EventStore::create_tables(&conn).unwrap();
+        }
+        Arc::new(pool)
     }
 
     #[tokio::test]
     async fn emit_and_query() {
-        let db = open_test_db();
+        let db = open_test_db().await;
         let store = EventStore::new(db);
 
         let id = store
@@ -1124,7 +1126,7 @@ mod tests {
 
     #[tokio::test]
     async fn query_sum() {
-        let db = open_test_db();
+        let db = open_test_db().await;
         let store = EventStore::new(db);
 
         store
@@ -1154,7 +1156,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_event() {
-        let db = open_test_db();
+        let db = open_test_db().await;
         let store = EventStore::new(db);
 
         let id = store
@@ -1189,7 +1191,7 @@ mod tests {
 
     #[tokio::test]
     async fn count_events() {
-        let db = open_test_db();
+        let db = open_test_db().await;
         let store = EventStore::new(db);
 
         store
@@ -1209,8 +1211,8 @@ mod tests {
         assert_eq!(store.count("other", None).await.unwrap(), 1);
     }
 
-    fn open_test_store() -> Arc<EventStore> {
-        let db = open_test_db();
+    async fn open_test_store() -> Arc<EventStore> {
+        let db = open_test_db().await;
         Arc::new(EventStore::new(db))
     }
 
@@ -1244,7 +1246,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_and_read() {
-        let store = open_test_store();
+        let store = open_test_store().await;
         store
             .send(Dispatch::new_typed("a", "b", test_delegate_request()))
             .await;
@@ -1258,7 +1260,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_indexed_recipient() {
-        let store = open_test_store();
+        let store = open_test_store().await;
 
         store
             .send(Dispatch::new_typed("a", "b", test_delegate_request()))
@@ -1274,7 +1276,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ack_required_dispatch() {
-        let store = open_test_store();
+        let store = open_test_store().await;
         let dispatch = Dispatch::new_typed("a", "b", test_delegate_request()).with_ack_required();
         let dispatch_id = dispatch.id.clone();
         assert!(dispatch.requires_ack);
@@ -1295,7 +1297,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dead_letter_after_max_retries() {
-        let store = open_test_store();
+        let store = open_test_store().await;
         let mut dispatch =
             Dispatch::new_typed("a", "b", test_delegate_request()).with_ack_required();
         dispatch.max_retries = 2;
@@ -1320,7 +1322,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ack_prevents_retry() {
-        let store = open_test_store();
+        let store = open_test_store().await;
         let dispatch = Dispatch::new_typed("a", "b", test_delegate_request()).with_ack_required();
         let id = dispatch.id.clone();
         store.send(dispatch).await;

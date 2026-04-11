@@ -1523,8 +1523,8 @@
   border-top: 1px solid var(--border);
 }
 
-/* Turn separator in tool panel */
-.session-turn-separator {
+/* Step separator in tool panel */
+.session-step-separator {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);

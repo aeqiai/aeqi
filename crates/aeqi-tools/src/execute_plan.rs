@@ -4,8 +4,8 @@
 //! in-process sequentially (parallel-safe steps can run concurrently). Intermediate
 //! results never enter the context window — only the final summary is returned.
 //!
-//! This collapses multi-step tool chains into a single inference turn with zero
-//! context cost. For a 10-step research phase, this saves 9 inference turns and
+//! This collapses multi-step tool chains into a single inference step with zero
+//! context cost. For a 10-step research phase, this saves 9 inference steps and
 //! keeps all intermediate file contents out of context.
 //!
 //! Inspired by Hermes Agent's execute_code PTC pattern, but implemented natively
@@ -187,7 +187,7 @@ impl Tool for ExecutePlanTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "execute_plan".to_string(),
-            description: "Execute multiple tool calls in a single turn. Intermediate results \
+            description: "Execute multiple tool calls in a single step. Intermediate results \
                 stay internal — only the final summary enters your context. Use this when you \
                 need to run many sequential operations (read files, search, inspect) without \
                 growing your context window. Much more efficient than calling tools one by one."

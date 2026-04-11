@@ -1317,7 +1317,7 @@
   font-family: var(--font-mono);
 }
 
-.checkpoint-turns {
+.checkpoint-steps {
   color: var(--text-muted);
 }
 

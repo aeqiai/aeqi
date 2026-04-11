@@ -16,7 +16,8 @@ use tracing::{info, warn};
 
 use crate::cli::DaemonAction;
 use crate::helpers::{
-    build_project_tools, build_provider_for_project, build_tools, daemon_ipc_request,
+    build_project_tools, build_provider_for_project, build_provider_for_runtime, build_tools,
+    daemon_ipc_request,
     find_agent_dir, find_project_dir, get_api_key, handle_fast_lane, load_config,
     load_config_with_agents, open_insights, pid_file_path,
 };
@@ -406,7 +407,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                         execution_mode: exec_mode.to_string(),
                         worker_timeout_secs: project_cfg.worker_timeout_secs,
                         worktree_root: project_cfg.worktree_root.clone(),
-                        max_turns: project_cfg.max_turns,
+                        max_steps: project_cfg.max_steps,
                         max_budget_usd: project_cfg.max_budget_usd,
                         max_cost_per_day_usd: project_cfg.max_cost_per_day_usd,
                         source: "toml".to_string(),
@@ -530,13 +531,24 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 daily_budget_usd,
             };
 
-            // Build a default provider for the scheduler (uses first project's provider).
+            // Build a default provider for the scheduler. Prefer the first configured
+            // company, but fall back to the runtime's default provider so dynamically
+            // created root-runtime companies can still execute sessions.
             let default_provider: Option<Arc<dyn aeqi_core::traits::Provider>> =
                 if let Some(first) = config.agent_spawns.first() {
                     match build_provider_for_project(&config, &first.name) {
                         Ok(p) => Some(p),
                         Err(e) => {
                             warn!(error = %e, "failed to build default session provider");
+                            None
+                        }
+                    }
+                } else if let Some(provider_kind) = config.default_provider_kind() {
+                    let model = config.default_model_for_provider(provider_kind);
+                    match build_provider_for_runtime(&config, provider_kind, Some(&model)) {
+                        Ok(p) => Some(p),
+                        Err(e) => {
+                            warn!(error = %e, "failed to build runtime default provider");
                             None
                         }
                     }
@@ -547,6 +559,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 .agent_spawns
                 .first()
                 .map(|c| config.model_for_company(&c.name))
+                .or_else(|| {
+                    config
+                        .default_provider_kind()
+                        .map(|provider_kind| config.default_model_for_provider(provider_kind))
+                })
                 .unwrap_or_default();
 
             let scheduler_provider: Arc<dyn aeqi_core::traits::Provider> = if let Some(first) =
@@ -648,6 +665,15 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.default_model = default_model;
             daemon.daily_budget_usd = daily_budget_usd;
             daemon.project_budgets = project_budgets;
+
+            // Set up unified prompt loader.
+            let prompt_loader = Arc::new(aeqi_orchestrator::PromptLoader::from_cwd());
+            daemon.prompt_loader = Some(prompt_loader.clone());
+
+            // Also wire prompt loader into session manager (for spawn_session).
+            if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {
+                sm.set_prompt_loader(prompt_loader);
+            }
 
             // Set up trigger store.
             let trigger_store = Arc::new(agent_reg.trigger_store());

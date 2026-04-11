@@ -45,12 +45,12 @@ impl CheckpointManager {
         self
     }
 
-    /// Signal a new turn — resets the per-turn dedup flag.
+    /// Signal a new step — resets the per-step dedup flag.
     pub fn new_turn(&mut self) {
         self.taken_this_turn = false;
     }
 
-    /// Take a checkpoint. Deduplicates within a turn.
+    /// Take a checkpoint. Deduplicates within a step.
     /// Returns Ok(true) if a checkpoint was actually taken.
     pub fn checkpoint(&mut self, label: &str) -> Result<bool, String> {
         if self.taken_this_turn {
@@ -246,7 +246,7 @@ mod tests {
         assert_eq!(mgr.count(), 1);
 
         mgr.new_turn();
-        assert!(mgr.checkpoint("after turn").unwrap());
+        assert!(mgr.checkpoint("after step").unwrap());
         assert_eq!(mgr.count(), 2);
 
         mgr.cleanup().unwrap();

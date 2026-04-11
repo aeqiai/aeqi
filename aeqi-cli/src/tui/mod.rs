@@ -103,7 +103,7 @@ fn spawn_ws_thread(
 
 fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut impl Write) {
     match evt {
-        ChatStreamEvent::TurnStart { model, .. } => {
+        ChatStreamEvent::StepStart { model, .. } => {
             state.model = model;
             state.agent_state = AgentState::Thinking;
             state.open_response_box();
@@ -146,13 +146,13 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             state.push_tool_activity(&tool_name, &detail, success, duration_ms);
             render::print_message(stdout, state.messages.last().unwrap(), state, 80);
         }
-        ChatStreamEvent::TurnComplete {
+        ChatStreamEvent::StepComplete {
             prompt_tokens,
             completion_tokens,
             ..
         } => {
             state.tokens = prompt_tokens + completion_tokens;
-            state.turns += 1;
+            state.steps += 1;
         }
         ChatStreamEvent::Complete {
             total_prompt_tokens,
@@ -247,7 +247,7 @@ fn handle_slash_command(
             state.streaming_text.clear();
             state.tokens = 0;
             state.cost = 0.0;
-            state.turns = 0;
+            state.steps = 0;
             state.start_time = std::time::Instant::now();
             let _ = writeln!(stdout, "\n  \x1b[90m✦ New conversation\x1b[0m\n");
         }
@@ -255,11 +255,11 @@ fn handle_slash_command(
             let face = state.agent.face("idle");
             let _ = writeln!(
                 stdout,
-                "\n  {face} {} | {} | {} tokens | {} turns | {} | {}\n",
+                "\n  {face} {} | {} | {} tokens | {} steps | {} | {}\n",
                 state.agent.display_name,
                 state.model,
                 render::format_number(state.tokens),
-                state.turns,
+                state.steps,
                 if state.cost > 0.0 {
                     format!("${:.4}", state.cost)
                 } else {

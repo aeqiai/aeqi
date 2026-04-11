@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// A typed context attachment for mid-turn enrichment.
+/// A typed context attachment for mid-step enrichment.
 ///
 /// Observers collect these between tool execution and the next model call.
 /// The agent loop applies per-type token budgets, sorts by priority, and
@@ -108,11 +108,11 @@ pub trait Observer: Send + Sync {
         LoopAction::Continue
     }
 
-    /// Called when the model finishes with no tool calls (end of turn).
+    /// Called when the model finishes with no tool calls (end of step).
     /// Return Continue to accept the stop. Return Inject to add messages and
     /// force the agent to continue (e.g., for validation or correction).
     /// Return Halt to stop with a specific reason.
-    async fn after_turn(
+    async fn after_step(
         &self,
         _iteration: u32,
         _response_text: &str,
@@ -145,7 +145,7 @@ pub trait Observer: Send + Sync {
     /// Called when a subagent completes or fails.
     async fn subagent_stop(&self, _agent_id: &str, _status: &str) {}
 
-    /// Called when a file is modified externally (detected between turns).
+    /// Called when a file is modified externally (detected between steps).
     async fn file_changed(&self, _path: &str) {}
 
     /// Called when a quest is created.

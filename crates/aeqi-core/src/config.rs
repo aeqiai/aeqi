@@ -346,7 +346,7 @@ pub struct PeerAgentConfig {
     #[serde(default = "default_agent_max_workers")]
     pub max_workers: u32,
     #[serde(default)]
-    pub max_turns: Option<u32>,
+    pub max_steps: Option<u32>,
     #[serde(default)]
     pub max_budget_usd: Option<f64>,
     #[serde(default)]
@@ -874,8 +874,8 @@ pub struct AgentSpawnConfig {
     pub worktree_root: Option<String>,
     #[serde(default)]
     pub execution_mode: ExecutionMode,
-    #[serde(default = "default_max_turns")]
-    pub max_turns: Option<u32>,
+    #[serde(default = "default_max_steps")]
+    pub max_steps: Option<u32>,
     #[serde(default)]
     pub max_budget_usd: Option<f64>,
     #[serde(default = "default_worker_timeout")]
@@ -912,7 +912,7 @@ pub struct DomainHintConfig {
 fn default_max_workers() -> u32 {
     2
 }
-fn default_max_turns() -> Option<u32> {
+fn default_max_steps() -> Option<u32> {
     Some(25)
 }
 fn default_worker_timeout() -> u64 {
@@ -1972,7 +1972,7 @@ model: claude-opus-4-6
 runtime: anthropic_agent
 role: advisor
 max_workers: 2
-max_turns: 15
+max_steps: 15
 expertise: [testing]
 capabilities: [memory]
 ---
@@ -1987,7 +1987,7 @@ You are a test agent."#;
         assert_eq!(loaded.runtime.as_deref(), Some("anthropic_agent"));
         assert_eq!(loaded.role, "advisor".to_string());
         assert_eq!(loaded.max_workers, 2);
-        assert_eq!(loaded.max_turns, Some(15));
+        assert_eq!(loaded.max_steps, Some(15));
         assert_eq!(loaded.expertise, vec!["testing"]);
         assert_eq!(loaded.prompt.unwrap().system, "You are a test agent.");
     }

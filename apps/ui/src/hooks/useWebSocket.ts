@@ -55,7 +55,7 @@ export interface WorkerEvent {
   quest_id?: string;
   agent?: string;
   company?: string;
-  turns?: number;
+  steps?: number;
   cost_usd?: number;
   outcome?: string;
   confidence?: number;

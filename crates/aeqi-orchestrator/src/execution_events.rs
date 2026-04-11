@@ -32,7 +32,7 @@ pub enum ExecutionEvent {
     Progress {
         #[serde(alias = "task_id")]
         quest_id: String,
-        turns: u32,
+        steps: u32,
         cost_usd: f64,
         last_tool: Option<String>,
     },
@@ -65,7 +65,7 @@ pub enum ExecutionEvent {
         outcome: String,
         confidence: f32,
         cost_usd: f64,
-        turns: u32,
+        steps: u32,
         duration_ms: u64,
         #[serde(skip_serializing_if = "Option::is_none")]
         runtime: Option<RuntimeExecution>,
@@ -340,7 +340,7 @@ mod tests {
 
         broadcaster.publish(ExecutionEvent::Progress {
             quest_id: "t-2".into(),
-            turns: 3,
+            steps: 3,
             cost_usd: 0.05,
             last_tool: Some("Bash".into()),
         });
@@ -353,12 +353,12 @@ mod tests {
             (
                 ExecutionEvent::Progress {
                     quest_id: id1,
-                    turns: t1,
+                    steps: t1,
                     ..
                 },
                 ExecutionEvent::Progress {
                     quest_id: id2,
-                    turns: t2,
+                    steps: t2,
                     ..
                 },
             ) => {
@@ -391,7 +391,7 @@ mod tests {
             outcome: "done".into(),
             confidence: 0.95,
             cost_usd: 0.1,
-            turns: 5,
+            steps: 5,
             duration_ms: 30000,
             runtime: None,
         });

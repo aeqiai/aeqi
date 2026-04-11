@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// Events are ordered and should be rendered incrementally by the client.
 /// The protocol is designed so that a client joining mid-stream can
-/// reconstruct the current state from the most recent `TurnStart` event.
+/// reconstruct the current state from the most recent `StepStart` event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ChatStreamEvent {
-    /// Agent is starting a new turn (LLM call).
-    TurnStart { turn: u32, model: String },
+    /// Agent is starting a new step (LLM call).
+    StepStart { step: u32, model: String },
 
     /// Incremental text token from the model's response.
     TextDelta { text: String },
@@ -70,9 +70,9 @@ pub enum ChatStreamEvent {
         compaction_number: u32,
     },
 
-    /// The agent's turn is complete (model returned end_turn).
-    TurnComplete {
-        turn: u32,
+    /// The agent's step is complete (model returned end_turn).
+    StepComplete {
+        step: u32,
         prompt_tokens: u32,
         completion_tokens: u32,
     },

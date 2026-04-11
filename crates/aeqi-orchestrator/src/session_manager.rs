@@ -24,12 +24,16 @@ use crate::event_store::EventStore;
 use crate::execution_events::EventBroadcaster;
 use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
+use crate::prompt_loader::PromptLoader;
 
 /// A running agent session — the in-memory handle to a live agent loop.
 pub struct RunningSession {
     pub session_id: String,
     pub agent_id: String,
     pub agent_name: String,
+    /// Correlation ID for distributed tracing. Propagated to child sessions
+    /// (delegations) and included in all structured log spans.
+    pub correlation_id: String,
     pub input_tx: mpsc::UnboundedSender<aeqi_core::SessionInput>,
     pub stream_sender: ChatStreamSender,
     pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
@@ -78,7 +82,7 @@ impl RunningSession {
                         break;
                     }
                     _ => {
-                        // TurnStart, ToolStart, ToolComplete, etc. — skip.
+                        // StepStart, ToolStart, ToolComplete, etc. — skip.
                     }
                 },
                 Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n))) => {
@@ -119,8 +123,9 @@ pub struct SessionResponse {
 /// What kind of session to spawn.
 /// Options for spawning a session. Every field is optional context —
 /// spawn_session works with just agent_id + prompt + provider.
-#[derive(Default)]
 pub struct SpawnOptions {
+    /// Existing session id to bind the running agent loop to.
+    pub session_id: Option<String>,
     /// Project scope (for workdir, memory, tools).
     pub project_id: Option<String>,
     /// Parent session (for delegation chains).
@@ -134,16 +139,31 @@ pub struct SpawnOptions {
     /// Close session automatically when agent.run() completes.
     /// Default: true. Set false for persistent/interactive sessions.
     pub auto_close: bool,
+    /// Record the initial prompt into the session store.
+    pub record_initial_prompt: bool,
     /// Label for the session (shown in UI sidebar).
     pub name: Option<String>,
 }
 
+impl Default for SpawnOptions {
+    fn default() -> Self {
+        Self {
+            session_id: None,
+            project_id: None,
+            parent_id: None,
+            quest_id: None,
+            skills: Vec::new(),
+            extra_prompts: Vec::new(),
+            auto_close: true,
+            record_initial_prompt: true,
+            name: None,
+        }
+    }
+}
+
 impl SpawnOptions {
     pub fn new() -> Self {
-        Self {
-            auto_close: true,
-            ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn interactive() -> Self {
@@ -183,6 +203,16 @@ impl SpawnOptions {
         self
     }
 
+    pub fn with_session_id(mut self, id: impl Into<String>) -> Self {
+        self.session_id = Some(id.into());
+        self
+    }
+
+    pub fn without_initial_prompt_record(mut self) -> Self {
+        self.record_initial_prompt = false;
+        self
+    }
+
     pub fn with_extra_prompts(mut self, prompts: Vec<aeqi_core::PromptEntry>) -> Self {
         self.extra_prompts.extend(prompts);
         self
@@ -204,6 +234,7 @@ impl SpawnOptions {
 /// Returned from `spawn_session` — the caller uses this to subscribe to events.
 pub struct SpawnedSession {
     pub session_id: String,
+    pub correlation_id: String,
     pub stream_sender: ChatStreamSender,
 }
 
@@ -222,6 +253,8 @@ pub struct SessionManager {
     default_project: String,
     /// Sandbox configuration. When set, sessions are sandboxed in git worktrees.
     sandbox_config: Option<SandboxConfig>,
+    /// Unified prompt file loader.
+    prompt_loader: Option<Arc<PromptLoader>>,
 }
 
 impl SessionManager {
@@ -238,6 +271,7 @@ impl SessionManager {
             insight_store: None,
             default_project: String::new(),
             sandbox_config: None,
+            prompt_loader: None,
         }
     }
 
@@ -277,6 +311,11 @@ impl SessionManager {
     /// and shell commands run inside bubblewrap.
     pub fn set_sandbox_config(&mut self, config: SandboxConfig) {
         self.sandbox_config = Some(config);
+    }
+
+    /// Set the unified prompt loader.
+    pub fn set_prompt_loader(&mut self, loader: Arc<PromptLoader>) {
+        self.prompt_loader = Some(loader);
     }
 
     /// Spawn a new agent session — the universal executor.
@@ -481,26 +520,17 @@ impl SessionManager {
             )));
         }
 
-        // 5b. Discover all available prompts (shared + project).
-        let base_dir = workdir
-            .parent()
-            .and_then(|p| p.parent())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-        let mut all_prompts: Vec<aeqi_tools::Prompt> = Vec::new();
-        if let Ok(shared) = aeqi_tools::Prompt::discover(&base_dir.join("projects/shared/skills")) {
-            all_prompts.extend(shared);
-        }
-        if !self.default_project.is_empty()
-            && let Ok(proj_prompts) = aeqi_tools::Prompt::discover(
-                &base_dir
-                    .join("projects")
-                    .join(&self.default_project)
-                    .join("skills"),
-            )
+        // 5b. Discover all available prompts via unified PromptLoader.
+        let all_prompts: Arc<Vec<aeqi_tools::Prompt>> = if let Some(ref loader) = self.prompt_loader
         {
-            all_prompts.extend(proj_prompts);
-        }
+            loader.all().await
+        } else {
+            // Fallback: create a temporary loader from cwd (shouldn't happen in
+            // production — the daemon always configures a PromptLoader).
+            warn!("prompt_loader not configured — using cwd fallback");
+            let loader = PromptLoader::from_cwd();
+            loader.all().await
+        };
 
         // 5c. Apply session prompts — load into system prompt and filter tools.
         let mut session_prompt_parts: Vec<String> = Vec::new();
@@ -518,21 +548,32 @@ impl SessionManager {
             system_prompt = format!("{system_prompt}\n\n---\n\n{prompt_context}");
         }
 
-        // 5d. Resolve turn prompts.
-        let turn_prompt_names: &[String] = &opts.skills;
-        let mut turn_prompt_specs: Vec<aeqi_core::TurnPromptSpec> = Vec::new();
-        for name in turn_prompt_names {
+        // 5d. Resolve step prompts — snapshot content at session start
+        //     to prevent mid-flight drift from disk edits.
+        let step_prompt_names: &[String] = &opts.skills;
+        let mut step_prompt_specs: Vec<aeqi_core::StepPromptSpec> = Vec::new();
+        for name in step_prompt_names {
             if let Some(p) = all_prompts.iter().find(|s| s.name == *name) {
                 if let Some(ref path) = p.source_path {
-                    turn_prompt_specs.push(aeqi_core::TurnPromptSpec {
+                    // Snapshot: read + parse + expand now, store as content.
+                    let snapshotted = {
+                        let body = p.body.clone();
+                        if p.allow_shell {
+                            aeqi_core::frontmatter::expand_shell_commands(&body)
+                        } else {
+                            body
+                        }
+                    };
+                    step_prompt_specs.push(aeqi_core::StepPromptSpec {
                         path: path.clone(),
                         allow_shell: p.allow_shell,
                         name: p.name.clone(),
+                        content: Some(snapshotted),
                     });
-                    debug!(turn_prompt = %name, "turn prompt resolved");
+                    debug!(step_prompt = %name, "step prompt snapshotted");
                 }
             } else {
-                warn!(turn_prompt = %name, "turn prompt not found — skipping");
+                warn!(step_prompt = %name, "step prompt not found — skipping");
             }
         }
 
@@ -566,7 +607,7 @@ impl SessionManager {
         let mut agent =
             aeqi_core::Agent::new(agent_config, provider, tools, observer, system_prompt)
                 .with_chat_stream(stream_sender.clone())
-                .with_turn_prompts(turn_prompt_specs);
+                .with_step_prompts(step_prompt_specs);
 
         if let Some(ref mem) = memory_for_agent {
             agent = agent.with_memory(mem.clone());
@@ -588,7 +629,9 @@ impl SessionManager {
         let quest_id = opts.quest_id.as_deref();
         let session_type_str = opts.session_type_str();
 
-        let session_id = if let Some(ref ss) = self.session_store {
+        let session_id = if let Some(existing_id) = opts.session_id.clone() {
+            existing_id
+        } else if let Some(ref ss) = self.session_store {
             let aid = agent_uuid.as_deref().unwrap_or("");
             let display_name = opts.name.as_deref().unwrap_or(&agent_name);
             ss.create_session(aid, session_type_str, display_name, parent_id, quest_id)
@@ -599,7 +642,9 @@ impl SessionManager {
         };
 
         // 10. Record prompt as user message.
-        if let Some(ref ss) = self.session_store {
+        if opts.record_initial_prompt
+            && let Some(ref ss) = self.session_store
+        {
             let _ = ss
                 .record_by_session(&session_id, "user", prompt, Some(session_type_str))
                 .await;
@@ -624,11 +669,15 @@ impl SessionManager {
             result
         });
 
-        // 12. Register RunningSession.
+        // 12. Generate correlation ID for distributed tracing.
+        let correlation_id = uuid::Uuid::new_v4().to_string();
+
+        // 13. Register RunningSession.
         let running = RunningSession {
             session_id: session_id.clone(),
             agent_id: agent_uuid.unwrap_or_default(),
             agent_name: agent_name.clone(),
+            correlation_id: correlation_id.clone(),
             input_tx,
             stream_sender: stream_sender.clone(),
             cancel_token,
@@ -640,15 +689,17 @@ impl SessionManager {
 
         info!(
             session_id = %session_id,
+            correlation_id = %correlation_id,
             agent = %agent_name,
             session_type = session_type_str,
             auto_close = opts.auto_close,
             "spawn_session: session spawned"
         );
 
-        // 13. Return SpawnedSession.
+        // 14. Return SpawnedSession.
         Ok(SpawnedSession {
             session_id,
+            correlation_id,
             stream_sender,
         })
     }

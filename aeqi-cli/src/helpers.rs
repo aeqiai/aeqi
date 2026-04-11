@@ -242,7 +242,7 @@ pub(crate) fn build_tools(workdir: &Path) -> Vec<Arc<dyn Tool>> {
         Arc::new(GlobTool::new(workdir.to_path_buf())),
     ];
 
-    // Execute plan — batch multiple tool calls in one turn (context compression).
+    // Execute plan — batch multiple tool calls in one step (context compression).
     tools.push(Arc::new(ExecutePlanTool::new(tools.clone())));
 
     // Secrets management — encrypted credential store.

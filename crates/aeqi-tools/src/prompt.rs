@@ -43,9 +43,9 @@ pub struct Prompt {
     /// Other prompts to load into the session (composed at session start).
     #[serde(default)]
     pub session_prompts: Vec<String>,
-    /// Other prompts to re-read each turn (composed as turn context).
+    /// Other prompts to re-read each step (composed as step context).
     #[serde(default)]
-    pub turn_prompts: Vec<String>,
+    pub step_prompts: Vec<String>,
     /// Path to the source `.md` file on disk.
     #[serde(skip)]
     pub source_path: Option<PathBuf>,

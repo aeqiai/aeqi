@@ -122,8 +122,8 @@ pub struct Outcome {
     pub artifacts: Vec<String>,
     /// Total cost in USD for this execution.
     pub cost_usd: f64,
-    /// Number of agentic turns used.
-    pub turns: u32,
+    /// Number of agentic steps used.
+    pub steps: u32,
     /// Wall-clock duration in milliseconds.
     pub duration_ms: u64,
     /// Human-readable reason (especially for non-Done outcomes).
@@ -139,7 +139,7 @@ impl Default for Outcome {
             confidence: 1.0,
             artifacts: Vec::new(),
             cost_usd: 0.0,
-            turns: 0,
+            steps: 0,
             duration_ms: 0,
             reason: None,
             runtime: None,
@@ -257,10 +257,10 @@ pub trait Middleware: Send + Sync + 'static {
         MiddlewareAction::Continue
     }
 
-    /// Called when the model finishes a turn with no tool calls.
+    /// Called when the model finishes a step with no tool calls.
     /// Allows middleware to validate the agent's response before accepting it.
     /// Return `Inject` to force the agent to continue with additional instructions.
-    async fn after_turn(
+    async fn after_step(
         &self,
         _ctx: &mut WorkerContext,
         _response_text: &str,
@@ -417,14 +417,14 @@ impl MiddlewareChain {
             .on_error(ctx, error))
     }
 
-    /// Run `after_turn` across all middleware.
-    pub async fn run_after_turn(
+    /// Run `after_step` across all middleware.
+    pub async fn run_after_step(
         &self,
         ctx: &mut WorkerContext,
         response_text: &str,
         stop_reason: &str,
     ) -> MiddlewareAction {
-        run_chain!(&self.layers, ctx, "after_turn", |mw, ctx| mw.after_turn(
+        run_chain!(&self.layers, ctx, "after_step", |mw, ctx| mw.after_step(
             ctx,
             response_text,
             stop_reason

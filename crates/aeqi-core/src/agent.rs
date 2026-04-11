@@ -10,7 +10,7 @@ use crate::traits::{
     ToolSpec, Usage,
 };
 
-/// Generic notification that can be injected into the agent loop between turns.
+/// Generic notification that can be injected into the agent loop between steps.
 /// Used by background agents to deliver results to the parent.
 #[derive(Debug, Clone)]
 pub struct LoopNotification {
@@ -30,8 +30,8 @@ pub type NotificationReceiver = mpsc::UnboundedReceiver<LoopNotification>;
 /// Default per-tool result size limit (characters).
 const DEFAULT_MAX_TOOL_RESULT_CHARS: usize = 50_000;
 
-/// Default aggregate tool results limit per turn (characters).
-const DEFAULT_MAX_TOOL_RESULTS_PER_TURN: usize = 200_000;
+/// Default aggregate tool results limit per step (characters).
+const DEFAULT_MAX_TOOL_RESULTS_PER_STEP: usize = 200_000;
 
 /// Default characters-per-token estimate for plain text.
 const CHARS_PER_TOKEN: usize = 4;
@@ -131,8 +131,8 @@ pub struct AgentConfig {
     pub context_window: u32,
     /// Maximum characters per individual tool result before persistence/truncation.
     pub max_tool_result_chars: usize,
-    /// Maximum aggregate tool result characters per turn.
-    pub max_tool_results_per_turn: usize,
+    /// Maximum aggregate tool result characters per step.
+    pub max_tool_results_per_step: usize,
     /// Loop-level retries on transient API errors. Default: 0.
     /// Retries should normally be handled by the Provider layer (ReliableProvider,
     /// FallbackChain). Set >0 only when your provider lacks built-in retry.
@@ -163,11 +163,11 @@ pub struct AgentConfig {
     /// Session type — Perpetual (never ends, can self-delegate) or Async (runs to completion).
     pub session_type: SessionType,
     /// Optional token budget for auto-continuation. When set, the agent continues
-    /// automatically after end-turn if total output tokens < budget * 0.9.
+    /// automatically after end-step if total output tokens < budget * 0.9.
     /// Parsed from "+500k" or "use 2m tokens" syntax in the user prompt.
     pub token_budget: Option<u32>,
     /// Cheap/fast model for simple messages. When set, the agent routes trivial
-    /// turns (short messages without code, URLs, or complex keywords) to this
+    /// steps (short messages without code, URLs, or complex keywords) to this
     /// model instead of the primary. Saves cost on simple queries while keeping
     /// quality for complex work. Hermes calls this "smart model routing."
     pub routing_model: Option<String>,
@@ -187,7 +187,7 @@ impl Default for AgentConfig {
             ancestor_ids: Vec::new(),
             context_window: 200_000,
             max_tool_result_chars: DEFAULT_MAX_TOOL_RESULT_CHARS,
-            max_tool_results_per_turn: DEFAULT_MAX_TOOL_RESULTS_PER_TURN,
+            max_tool_results_per_step: DEFAULT_MAX_TOOL_RESULTS_PER_STEP,
             max_retries: 0,
             retry_base_delay_ms: 500,
             max_output_recovery: 3,
@@ -561,7 +561,7 @@ const SYNTHETIC_TOOL_RESULT: &str = "[Tool result unavailable — context was co
 /// - **Tool concurrency via trait**: `Tool::is_concurrent_safe()` lets each tool
 ///   declare its safety. Safe tools run in parallel, unsafe tools run sequentially.
 ///
-/// - **after_turn hook**: Enables AEQI's verification pipeline to validate the
+/// - **after_step hook**: Enables AEQI's verification pipeline to validate the
 ///   agent's work before accepting a "done" signal.
 ///
 /// A message sent into a session — content plus optional prompt/task attachments.
@@ -574,8 +574,8 @@ pub struct SessionInput {
     pub content: String,
     /// Session prompts to add (loaded once from files, appended to system prompt).
     pub session_prompts: Vec<String>,
-    /// Turn prompts to add (re-read from disk each turn).
-    pub turn_prompts: Vec<TurnPromptSpec>,
+    /// Step prompts to add (re-read from disk each step).
+    pub step_prompts: Vec<StepPromptSpec>,
     /// Quest ID to attach to this session.
     pub quest_id: Option<String>,
 }
@@ -589,15 +589,21 @@ impl SessionInput {
     }
 }
 
-/// A turn-level prompt that is re-read from disk before each API call.
+/// A step-level prompt injected before each API call.
+///
+/// Content is snapshotted at session start to prevent mid-flight drift.
+/// Shell expansion (`allow_shell`) runs once at snapshot time.
 #[derive(Debug, Clone)]
-pub struct TurnPromptSpec {
-    /// Path to the `.md` file on disk.
+pub struct StepPromptSpec {
+    /// Path to the source `.md` file (retained for diagnostics only).
     pub path: PathBuf,
-    /// Whether to expand `!`backtick`` shell commands in the body each turn.
+    /// Whether to expand `!`backtick`` shell commands.
     pub allow_shell: bool,
     /// Name for logging.
     pub name: String,
+    /// Snapshotted content. When set, `build_step_context` uses this
+    /// instead of re-reading from disk.
+    pub content: Option<String>,
 }
 
 pub struct Agent {
@@ -606,12 +612,12 @@ pub struct Agent {
     tools: Vec<Arc<dyn Tool>>,
     observer: Arc<dyn Observer>,
     system_prompt: String,
-    /// Turn-level prompts re-read from disk before each API call. Mutable at
-    /// runtime — messages can amend turn prompts mid-session.
-    turn_prompts: Mutex<Vec<TurnPromptSpec>>,
+    /// Step-level prompts re-read from disk before each API call. Mutable at
+    /// runtime — messages can amend step prompts mid-session.
+    step_prompts: Mutex<Vec<StepPromptSpec>>,
     memory: Option<Arc<dyn Insight>>,
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
-    /// Receiver for notifications from background agents. Drained between turns.
+    /// Receiver for notifications from background agents. Drained between steps.
     notification_rx: Option<Arc<Mutex<NotificationReceiver>>>,
     /// Receiver for user input in perpetual session mode. The agent loop waits
     /// on this channel after each EndTurn instead of exiting.
@@ -635,7 +641,7 @@ impl Agent {
             tools,
             observer,
             system_prompt,
-            turn_prompts: Mutex::new(Vec::new()),
+            step_prompts: Mutex::new(Vec::new()),
             memory: None,
             chat_stream: None,
             notification_rx: None,
@@ -663,15 +669,15 @@ impl Agent {
     }
 
     /// Attach a notification receiver for background agent results.
-    /// Notifications are drained between turns and injected as user-role messages.
+    /// Notifications are drained between steps and injected as user-role messages.
     pub fn with_notification_rx(mut self, rx: NotificationReceiver) -> Self {
         self.notification_rx = Some(Arc::new(Mutex::new(rx)));
         self
     }
 
-    /// Attach turn-level prompts that are re-read from disk before each API call.
-    pub fn with_turn_prompts(mut self, specs: Vec<TurnPromptSpec>) -> Self {
-        self.turn_prompts = Mutex::new(specs);
+    /// Attach step-level prompts that are re-read from disk before each API call.
+    pub fn with_step_prompts(mut self, specs: Vec<StepPromptSpec>) -> Self {
+        self.step_prompts = Mutex::new(specs);
         self
     }
 
@@ -841,9 +847,9 @@ impl Agent {
             }
 
             // Smart model routing: use cheap model for simple messages when configured.
-            let turn_model = if let Some(ref routing) = self.config.routing_model
+            let step_model = if let Some(ref routing) = self.config.routing_model
                 && iterations == 1
-            // Only route on first turn (tool-use turns need the strong model)
+            // Only route on first step (tool-use steps need the strong model)
             {
                 let last_user_text = messages
                     .iter()
@@ -865,25 +871,25 @@ impl Agent {
                 active_model.clone()
             };
 
-            // Build request — inject fresh turn context into the request copy.
+            // Build request — inject fresh step context into the request copy.
             let mut request_messages = messages.clone();
-            let has_turn_prompts = !self.turn_prompts.lock().await.is_empty();
-            if has_turn_prompts {
-                let turn_ctx = self.build_turn_context().await;
+            let has_step_prompts = !self.step_prompts.lock().await.is_empty();
+            if has_step_prompts {
+                let turn_ctx = self.build_step_context().await;
                 if !turn_ctx.is_empty() {
                     request_messages.insert(
                         1,
                         Message {
                             role: Role::System,
                             content: MessageContent::text(format!(
-                                "<turn-context>\n{turn_ctx}\n</turn-context>"
+                                "<step-context>\n{turn_ctx}\n</step-context>"
                             )),
                         },
                     );
                 }
             }
             let request = ChatRequest {
-                model: turn_model,
+                model: step_model,
                 messages: request_messages,
                 tools: tool_specs.clone(),
                 max_tokens: self.config.max_tokens,
@@ -897,8 +903,8 @@ impl Agent {
                 })
                 .await;
 
-            self.emit(crate::chat_stream::ChatStreamEvent::TurnStart {
-                turn: iterations,
+            self.emit(crate::chat_stream::ChatStreamEvent::StepStart {
+                step: iterations,
                 model: request.model.clone(),
             });
 
@@ -1002,8 +1008,8 @@ impl Agent {
             // TextDelta events are always emitted during streaming in
             // try_streaming_with_tools — no need to re-emit here.
 
-            self.emit(crate::chat_stream::ChatStreamEvent::TurnComplete {
-                turn: iterations,
+            self.emit(crate::chat_stream::ChatStreamEvent::StepComplete {
+                step: iterations,
                 prompt_tokens: response.usage.prompt_tokens,
                 completion_tokens: response.usage.completion_tokens,
             });
@@ -1051,7 +1057,7 @@ impl Agent {
                 final_text = text.clone();
             }
 
-            // --- Turn completion: no tool calls ---
+            // --- Step completion: no tool calls ---
             if response.tool_calls.is_empty() {
                 // MaxTokens recovery: output was truncated, auto-continue.
                 if response.stop_reason == StopReason::MaxTokens
@@ -1087,18 +1093,18 @@ impl Agent {
                     continue;
                 }
 
-                // --- after_turn hook ---
+                // --- after_step hook ---
                 let stop_str = format!("{:?}", response.stop_reason);
                 match self
                     .observer
-                    .after_turn(iterations, &final_text, &stop_str)
+                    .after_step(iterations, &final_text, &stop_str)
                     .await
                 {
                     LoopAction::Inject(msgs) => {
                         info!(
                             agent = %self.config.name,
                             injected = msgs.len(),
-                            "after_turn forcing continuation"
+                            "after_step forcing continuation"
                         );
                         // Add assistant response + injected messages to continue.
                         if let Some(ref text) = response.content {
@@ -1185,18 +1191,18 @@ impl Agent {
                                             "session prompt amendments received"
                                         );
                                     }
-                                    if !input.turn_prompts.is_empty() {
-                                        self.turn_prompts
+                                    if !input.step_prompts.is_empty() {
+                                        self.step_prompts
                                             .lock()
                                             .await
-                                            .extend(input.turn_prompts.clone());
+                                            .extend(input.step_prompts.clone());
                                     }
 
                                     messages.push(Message {
                                         role: Role::User,
                                         content: MessageContent::text(&input.content),
                                     });
-                                    // Reset ALL per-turn state for clean slate.
+                                    // Reset ALL per-step state for clean slate.
                                     output_recovery_count = 0;
                                     consecutive_low_output = 0;
                                     consecutive_errors = 0;
@@ -1221,7 +1227,7 @@ impl Agent {
                 }
             }
 
-            // Reset output recovery counter on tool-use turns.
+            // Reset output recovery counter on tool-use steps.
             output_recovery_count = 0;
 
             // --- Diminishing returns detection ---
@@ -1364,7 +1370,7 @@ impl Agent {
                             });
                         }
 
-                        // Empty result injection — prevents model confusion on turn boundaries.
+                        // Empty result injection — prevents model confusion on step boundaries.
                         let output = if tr.output.trim().is_empty() && !tr.is_error {
                             format!("({name} completed with no output)")
                         } else {
@@ -1470,8 +1476,8 @@ impl Agent {
                 );
             }
 
-            // --- Enforce aggregate per-turn budget ---
-            Self::enforce_result_budget(&mut processed, self.config.max_tool_results_per_turn);
+            // --- Enforce aggregate per-step budget ---
+            Self::enforce_result_budget(&mut processed, self.config.max_tool_results_per_step);
 
             // --- Budget pressure injection into last tool result (Hermes pattern) ---
             // Inject warnings into the last tool result JSON instead of as separate
@@ -1486,7 +1492,7 @@ impl Agent {
                     if let Some(last) = processed.last_mut() {
                         last.output.push_str(&format!(
                             "\n\n⚠️ BUDGET WARNING: {budget_pct}% of iteration budget used \
-                             ({iterations}/{} turns). Wrap up current work and commit results NOW.",
+                             ({iterations}/{} steps). Wrap up current work and commit results NOW.",
                             self.config.max_iterations
                         ));
                     }
@@ -1495,7 +1501,7 @@ impl Agent {
                 {
                     last.output.push_str(&format!(
                         "\n\n💡 Budget note: {budget_pct}% of iteration budget used \
-                         ({iterations}/{} turns). Plan remaining work efficiently.",
+                         ({iterations}/{} steps). Plan remaining work efficiently.",
                         self.config.max_iterations
                     ));
                 }
@@ -1545,9 +1551,6 @@ impl Agent {
             if mid_loop_recalls < MAX_MID_LOOP_RECALLS
                 && let Some(ref mem) = self.memory
             {
-                self.emit(crate::chat_stream::ChatStreamEvent::Status {
-                    message: "Recalling insights...".into(),
-                });
                 let tool_output: String = processed
                     .iter()
                     .filter(|r| !r.is_error)
@@ -1567,6 +1570,16 @@ impl Agent {
                             .map(|e| format!("{}: {}", e.key, e.content))
                             .collect::<Vec<_>>()
                             .join("\n");
+                        let preview = all_entries
+                            .iter()
+                            .map(|e| e.key.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        self.emit(crate::chat_stream::ChatStreamEvent::MemoryActivity {
+                            action: "recalled".into(),
+                            key: format!("{} insights", all_entries.len()),
+                            preview,
+                        });
                         messages.push(Message {
                             role: Role::System,
                             content: MessageContent::text(format!(
@@ -1593,7 +1606,7 @@ impl Agent {
                 &self.config.agent_id,
             );
 
-            // --- Detect file changes since last read (mid-turn enrichment) ---
+            // --- Detect file changes since last read (mid-step enrichment) ---
             let file_change_msgs = Self::detect_file_changes(&recent_files).await;
             if !file_change_msgs.is_empty() {
                 debug!(
@@ -1790,37 +1803,48 @@ impl Agent {
     }
 
     // -----------------------------------------------------------------------
-    // Turn context
+    // Step context
     // -----------------------------------------------------------------------
 
-    /// Build fresh turn context by re-reading prompt files from disk.
-    async fn build_turn_context(&self) -> String {
-        let turn_prompts = self.turn_prompts.lock().await;
+    /// Build step context from snapshotted prompt content.
+    ///
+    /// Content is read from the `StepPromptSpec.content` field, which is
+    /// populated at session start. This prevents mid-flight prompt drift
+    /// when files are edited during a running session.
+    async fn build_step_context(&self) -> String {
+        let step_prompts = self.step_prompts.lock().await;
         let mut parts: Vec<String> = Vec::new();
-        for spec in turn_prompts.iter() {
-            match std::fs::read_to_string(&spec.path) {
-                Ok(content) => {
-                    let body = match crate::frontmatter::parse_frontmatter(&content) {
-                        Ok((_meta, body)) => body,
-                        Err(_) => content,
-                    };
-                    let expanded = if spec.allow_shell {
-                        crate::frontmatter::expand_shell_commands(&body)
-                    } else {
-                        body
-                    };
-                    if !expanded.trim().is_empty() {
-                        parts.push(expanded);
+        for spec in step_prompts.iter() {
+            // Use snapshotted content if available, otherwise read from disk (legacy).
+            let body = if let Some(ref cached) = spec.content {
+                cached.clone()
+            } else {
+                match std::fs::read_to_string(&spec.path) {
+                    Ok(content) => {
+                        let parsed = match crate::frontmatter::parse_frontmatter(&content) {
+                            Ok((_meta, body)) => body,
+                            Err(_) => content,
+                        };
+                        if spec.allow_shell {
+                            crate::frontmatter::expand_shell_commands(&parsed)
+                        } else {
+                            parsed
+                        }
+                    }
+                    Err(e) => {
+                        warn!(
+                            agent = %self.config.name,
+                            path = %spec.path.display(),
+                            prompt = %spec.name,
+                            "failed to read step prompt: {e}"
+                        );
+                        continue;
                     }
                 }
-                Err(e) => {
-                    warn!(
-                        agent = %self.config.name,
-                        path = %spec.path.display(),
-                        prompt = %spec.name,
-                        "failed to read turn prompt: {e}"
-                    );
-                }
+            };
+
+            if !body.trim().is_empty() {
+                parts.push(body);
             }
         }
         parts.join("\n\n---\n\n")
@@ -2143,7 +2167,7 @@ impl Agent {
         )
     }
 
-    /// Enforce aggregate character budget across all tool results in a turn.
+    /// Enforce aggregate character budget across all tool results in a step.
     fn enforce_result_budget(results: &mut [ProcessedToolResult], max_chars: usize) {
         let total: usize = results.iter().map(|r| r.output.len()).sum();
         if total <= max_chars {
@@ -2172,7 +2196,7 @@ impl Agent {
     }
 
     // -----------------------------------------------------------------------
-    // Mid-turn context enrichment
+    // Mid-step context enrichment
     // -----------------------------------------------------------------------
 
     /// Apply token budgets to enrichment attachments and inject as system messages.
@@ -2223,7 +2247,7 @@ impl Agent {
         if total_tokens > 0 {
             debug!(
                 injected = attachments.len(),
-                total_tokens, "mid-turn enrichments injected"
+                total_tokens, "mid-step enrichments injected"
             );
         }
     }
@@ -2294,7 +2318,7 @@ impl Agent {
     }
 
     /// Fire-and-forget session memory extraction. Runs in background after
-    /// tool-use turns when enough context has accumulated. Stores a running
+    /// tool-use steps when enough context has accumulated. Stores a running
     /// session summary in memory for cheaper compaction.
     fn maybe_extract_session_memory(
         memory: &Option<Arc<dyn Insight>>,
@@ -2338,7 +2362,7 @@ impl Agent {
     }
 
     /// Detect files that changed externally since we last read them.
-    /// Returns system messages with change notifications for injection between turns.
+    /// Returns system messages with change notifications for injection between steps.
     async fn detect_file_changes(recent_files: &[RecentFile]) -> Vec<Message> {
         let mut changes = Vec::new();
 
@@ -2968,7 +2992,7 @@ impl Agent {
                 role: Role::User,
                 content: MessageContent::text(format!(
                     "CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.\n\
-                     Tool calls will be REJECTED and will waste your only turn — you will fail the task.\n\
+                     Tool calls will be REJECTED and will waste your only step — you will fail the task.\n\
                      Your entire response must be plain text: an <analysis> block followed by a <summary> block.\n\n\
                      You are summarizing an autonomous agent's execution context. This summary \
                      replaces the compacted messages — the agent will use it to continue working. \
@@ -3606,7 +3630,7 @@ mod tests {
         let config = AgentConfig::default();
         assert_eq!(config.context_window, 200_000);
         assert_eq!(config.max_tool_result_chars, 50_000);
-        assert_eq!(config.max_tool_results_per_turn, 200_000);
+        assert_eq!(config.max_tool_results_per_step, 200_000);
         assert_eq!(config.max_retries, 0);
         assert_eq!(config.max_output_recovery, 3);
         assert_eq!(config.max_tokens, 8192);

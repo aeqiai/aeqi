@@ -76,10 +76,10 @@ impl ContextBudget {
         if checkpoints.len() <= self.max_checkpoint_count {
             for (i, cp) in checkpoints.iter().enumerate() {
                 out.push_str(&format!(
-                    "### Attempt {} (by {}, {} turns, ${:.4})\n{}\n\n",
+                    "### Attempt {} (by {}, {} steps, ${:.4})\n{}\n\n",
                     i + 1,
                     cp.worker,
-                    cp.turns_used,
+                    cp.steps_used,
                     cp.cost_usd,
                     cp.progress
                 ));
@@ -95,18 +95,18 @@ impl ContextBudget {
                     first_line
                 };
                 out.push_str(&format!(
-                    "- {} ({} turns, ${:.4}): {}\n",
-                    cp.worker, cp.turns_used, cp.cost_usd, line
+                    "- {} ({} steps, ${:.4}): {}\n",
+                    cp.worker, cp.steps_used, cp.cost_usd, line
                 ));
             }
             out.push('\n');
 
             for (i, cp) in checkpoints[split..].iter().enumerate() {
                 out.push_str(&format!(
-                    "### Attempt {} (by {}, {} turns, ${:.4})\n{}\n\n",
+                    "### Attempt {} (by {}, {} steps, ${:.4})\n{}\n\n",
                     split + i + 1,
                     cp.worker,
-                    cp.turns_used,
+                    cp.steps_used,
                     cp.cost_usd,
                     cp.progress
                 ));
@@ -155,7 +155,7 @@ mod tests {
             worker: "s1".into(),
             progress: "did thing 1".into(),
             cost_usd: 0.05,
-            turns_used: 3,
+            steps_used: 3,
         }];
         let result = budget.budget_checkpoints(&cps);
         assert!(result.contains("did thing 1"));
@@ -173,7 +173,7 @@ mod tests {
                 worker: format!("s{i}"),
                 progress: format!("progress for attempt {i}"),
                 cost_usd: 0.01 * i as f64,
-                turns_used: i as u32,
+                steps_used: i as u32,
             })
             .collect();
         let result = budget.budget_checkpoints(&cps);

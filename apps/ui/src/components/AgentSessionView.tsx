@@ -9,8 +9,9 @@ import RoundAvatar from "./RoundAvatar";
 // ── Types ──
 
 interface ToolEvent {
-  type: "start" | "complete" | "turn" | "status";
+  type: "start" | "complete" | "step" | "status";
   name: string;
+  id?: string;
   success?: boolean;
   input_preview?: string;
   output_preview?: string;
@@ -21,6 +22,7 @@ interface ToolEvent {
 type MessageSegment =
   | { kind: "text"; text: string }
   | { kind: "tool"; event: ToolEvent }
+  | { kind: "step"; step: number }
   | { kind: "status"; text: string };
 
 interface Message {
@@ -29,11 +31,12 @@ interface Message {
   segments?: MessageSegment[];
   timestamp?: number;
   duration?: string;
-  toolEvents?: ToolEvent[];
   costUsd?: number;
+  stepCount?: number;
   tokenUsage?: { prompt: number; completion: number };
   eventType?: string;
   taskId?: string;
+  queued?: boolean;
 }
 
 // ── Helpers ──
@@ -110,26 +113,59 @@ function toolLabel(name: string): string {
   return TOOL_LABELS[name] || name.replace(/_/g, " ");
 }
 
-function toolCategoryIcon(toolName: string): string {
-  if (toolName.startsWith("agents_")) return "◉";
-  if (toolName.startsWith("quests_")) return "☰";
-  if (toolName.startsWith("events_")) return "⊞";
-  if (toolName.startsWith("insights_")) return "✦";
-  if (toolName.startsWith("prompts_")) return "⚡";
-  if (toolName.startsWith("notes")) return "✎";
-  if (["shell", "read_file", "write_file", "edit_file", "glob", "grep", "list_dir", "execute_plan"].includes(toolName)) return "›";
-  if (toolName.startsWith("web_")) return "↗";
-  if (toolName === "git_worktree") return "⑂";
-  return "·";
+function shouldRenderStatus(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  if (/^step \d+$/.test(normalized)) return false;
+  if (normalized === "recalling insights...") return false;
+  return true;
 }
 
-function toolCategoryClass(toolName: string): string {
-  if (toolName.startsWith("agents_")) return "cat-agents";
-  if (toolName.startsWith("quests_")) return "cat-quests";
-  if (toolName.startsWith("events_")) return "cat-events";
-  if (toolName.startsWith("insights_")) return "cat-insights";
-  if (toolName.startsWith("prompts_")) return "cat-prompts";
-  return "cat-util";
+function numberFromMeta(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function formatStepCount(count: number): string {
+  return `${count} step${count === 1 ? "" : "s"}`;
+}
+
+function countStepSegments(segments?: MessageSegment[]): number {
+  return segments?.filter((seg) => seg.kind === "step").length || 0;
+}
+
+function applyAssistantMeta(message: Message, meta: Record<string, unknown>) {
+  const durationMs = numberFromMeta(meta.duration_ms);
+  const costUsd = numberFromMeta(meta.cost_usd);
+  const stepCount = numberFromMeta(meta.iterations ?? meta.steps ?? meta.step_count);
+  const promptTokens = numberFromMeta(meta.prompt_tokens ?? meta.total_prompt_tokens);
+  const completionTokens = numberFromMeta(meta.completion_tokens ?? meta.total_completion_tokens);
+
+  if (durationMs != null && durationMs > 0) {
+    message.duration = formatDuration(0, durationMs);
+  }
+  if (costUsd != null && costUsd > 0) {
+    message.costUsd = costUsd;
+  }
+  if (stepCount != null && stepCount > 0) {
+    message.stepCount = Math.round(stepCount);
+  }
+  if ((promptTokens != null && promptTokens > 0) || (completionTokens != null && completionTokens > 0)) {
+    message.tokenUsage = {
+      prompt: Math.round(promptTokens || 0),
+      completion: Math.round(completionTokens || 0),
+    };
+  }
+}
+
+function currentRunningToolName(segments: MessageSegment[]): string | undefined {
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i];
+    if (seg.kind === "tool" && seg.event.type === "start") {
+      return toolLabel(seg.event.name);
+    }
+  }
+  return undefined;
 }
 
 // ── Sub-components ──
@@ -162,36 +198,50 @@ function ExpandableOutput({
 }
 
 /** A single collapsible tool block with its own expand state. */
-function ToolBlock({ items }: { items: MessageSegment[] }) {
-  const [expanded, setExpanded] = useState(false);
+function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: boolean }) {
+  const [expanded, setExpanded] = useState(live);
   const tools = items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
   const count = tools.length;
-  const cats = [...new Set(tools.map((t) => toolCategoryIcon(t.event.name)))];
+  const cats = [...new Set(tools.map((t) => {
+    const n = t.event.name;
+    if (n.startsWith("agents_")) return "agents";
+    if (n.startsWith("quests_")) return "quests";
+    if (n.startsWith("events_")) return "events";
+    if (n.startsWith("insights_")) return "insights";
+    if (n.startsWith("prompts_")) return "prompts";
+    if (n.startsWith("web_")) return "web";
+    return "system";
+  }))];
+  const hasFail = tools.some((t) => t.event.success === false);
+  const showDetail = live || expanded;
 
   return (
-    <div className="asv-tools-group">
-      <button className="asv-tools-toggle" onClick={() => setExpanded(!expanded)}>
-        <span className="asv-tools-toggle-icon">{expanded ? "▾" : "▸"}</span>
-        {cats.join(" ")} {count} tool{count !== 1 ? "s" : ""}
-      </button>
-      {expanded && (
-        <div className="asv-tools-expanded">
+    <div className={`asv-tools-group${live ? " asv-tools-group--live" : ""}${hasFail ? " asv-tools-group--fail" : ""}`}>
+      {!live && (
+        <button className="asv-tools-toggle" onClick={() => setExpanded(!expanded)}>
+          <span className="asv-tools-chevron">{expanded ? "▾" : "▸"}</span>
+          <span className="asv-tools-count">{count} tool{count !== 1 ? "s" : ""}</span>
+          {!expanded && cats.length > 0 && (
+            <span className="asv-tools-cats">{cats.join(", ")}</span>
+          )}
+        </button>
+      )}
+      {showDetail && (
+        <div className="asv-tools-detail">
           {items.map((seg, si) =>
             seg.kind === "tool" ? (
-              <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
-                <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
-                  {toolCategoryIcon(seg.event.name)}
-                </span>
+              <div key={si} className={`asv-tool-row${seg.event.success === false ? " fail" : ""}`}>
+                <span className={`asv-tool-dot ${seg.event.type}`} />
                 <span className="asv-tool-name">{toolLabel(seg.event.name)}</span>
                 {seg.event.duration_ms != null && (
-                  <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
+                  <span className="asv-tool-dur">{formatMs(seg.event.duration_ms)}</span>
                 )}
-                {seg.event.output_preview && (
+                {!live && seg.event.output_preview && (
                   <ExpandableOutput text={seg.event.output_preview} />
                 )}
               </div>
             ) : seg.kind === "status" ? (
-              <div key={si} className="asv-status-item">{seg.text}</div>
+              <div key={si} className="asv-tool-status-msg">{seg.text}</div>
             ) : null,
           )}
         </div>
@@ -200,18 +250,26 @@ function ToolBlock({ items }: { items: MessageSegment[] }) {
   );
 }
 
-/** Renders segments, grouping consecutive tool/status items into collapsible blocks. */
-function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
+/** Renders segments, grouping consecutive tool items into blocks. */
+function SegmentRenderer({ segments, live = false }: { segments: MessageSegment[]; live?: boolean }) {
   type SegGroup =
     | { kind: "text"; text: string }
-    | { kind: "turn"; text: string }
+    | { kind: "step"; step: number }
+    | { kind: "status"; text: string }
     | { kind: "tools"; items: MessageSegment[] };
   const groups: SegGroup[] = [];
   for (const seg of segments) {
     if (seg.kind === "text") {
       groups.push({ kind: "text", text: seg.text });
-    } else if (seg.kind === "status" && seg.text.startsWith("Turn ")) {
-      groups.push({ kind: "turn", text: seg.text });
+    } else if (seg.kind === "step") {
+      groups.push({ kind: "step", step: seg.step });
+    } else if (seg.kind === "status") {
+      const stepMatch = seg.text.trim().match(/^step\s+(\d+)$/i);
+      if (stepMatch) {
+        groups.push({ kind: "step", step: Number(stepMatch[1]) });
+      } else if (shouldRenderStatus(seg.text)) {
+        groups.push({ kind: "status", text: seg.text });
+      }
     } else {
       const last = groups[groups.length - 1];
       if (last && last.kind === "tools") {
@@ -229,10 +287,14 @@ function SegmentRenderer({ segments }: { segments: MessageSegment[] }) {
           <div key={gi} className="asv-msg-content">
             <Markdown>{group.text}</Markdown>
           </div>
-        ) : group.kind === "turn" ? (
-          <div key={gi} className="asv-turn-sep" />
+        ) : group.kind === "step" ? (
+          <div key={gi} className="asv-step-sep">
+            <span>{`Step ${group.step}`}</span>
+          </div>
+        ) : group.kind === "status" ? (
+          <div key={gi} className="asv-status-line">{group.text}</div>
         ) : (
-          <ToolBlock key={gi} items={group.items} />
+          <ToolBlock key={gi} items={group.items} live={live} />
         ),
       )}
     </>
@@ -248,7 +310,7 @@ function CopyButton({ text }: { text: string }) {
   };
   return (
     <button
-      className="session-msg-copy"
+      className="asv-copy"
       onClick={handleCopy}
       title={copied ? "Copied" : "Copy"}
     >
@@ -285,9 +347,12 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function ThinkingStatus({ toolName }: { toolName?: string }) {
-  if (toolName)
-    return <div className="session-msg-thinking">{toolName}...</div>;
-  return <div className="session-msg-thinking">thinking...</div>;
+  return (
+    <div className="asv-thinking">
+      <span className="asv-thinking-dot" />
+      <span className="asv-thinking-text">{toolName ? `${toolName}...` : "thinking..."}</span>
+    </div>
+  );
 }
 
 function ThinkingTimer({ start }: { start: number }) {
@@ -327,6 +392,8 @@ export default function AgentSessionView({
 }: AgentSessionProps) {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
+  const authMode = useAuthStore((s) => s.authMode);
+  const user = useAuthStore((s) => s.user);
   const wsConnected = useDaemonStore((s) => s.wsConnected);
   const agents = useDaemonStore((s) => s.agents);
 
@@ -336,12 +403,18 @@ export default function AgentSessionView({
   );
   const agentName = agentInfo?.name || agentId;
   const displayName = agentInfo?.display_name || agentName;
+  const userName = user?.name || (authMode === "none" ? "Local" : "Account");
+  const userAvatarUrl = user?.avatar_url || null;
 
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [showSessionList, setShowSessionList] = useState(false);
 
   // The active session comes from the URL
   const activeSessionId = urlSessionId;
+  const sessionIdRef = useRef<string | null>(activeSessionId);
+  useEffect(() => {
+    sessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
 
   // Navigate helpers
   const setSession = useCallback(
@@ -382,13 +455,12 @@ export default function AgentSessionView({
   const [hoveredPrompt, setHoveredPrompt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
-  const [streamText, setStreamText] = useState("");
-  const [liveToolEvents, setLiveToolEvents] = useState<ToolEvent[]>([]);
   const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const messageQueueRef = useRef<string[]>([]);
 
   // Fetch available prompts and quests when picker opens
   useEffect(() => {
@@ -528,9 +600,8 @@ export default function AgentSessionView({
   // Start a new conversation: drop session param, show empty composer.
   const handleNewConversation = useCallback(() => {
     prevSessionRef.current = null;
+    sessionIdRef.current = null;
     setMessages([]);
-    setStreamText("");
-    setLiveToolEvents([]);
     setLiveSegments([]);
     setSession(null);
     setShowSessionList(false);
@@ -540,6 +611,7 @@ export default function AgentSessionView({
   const handleSelectSession = useCallback(
     (sid: string) => {
       prevSessionRef.current = null; // Force reload on next effect
+      sessionIdRef.current = sid;
       setMessages([]);
       setSession(sid);
       setShowSessionList(false);
@@ -551,13 +623,51 @@ export default function AgentSessionView({
   const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
     let pendingTools: MessageSegment[] = [];
-    let currentAgent: Message | null = null; // Accumulator for multi-turn agent response
-    let turnCount = 0;
+    let currentAgent: Message | null = null; // Accumulator for multi-step agent response
+    let stepCount = 0;
+    let sawStoredStepMarkers = false;
 
     const flushAgent = () => {
       if (currentAgent) {
+        if (!currentAgent.stepCount) {
+          currentAgent.stepCount = countStepSegments(currentAgent.segments);
+        }
         processed.push(currentAgent);
         currentAgent = null;
+      }
+    };
+
+    const ensureCurrentAgent = (timestamp: number) => {
+      if (!currentAgent) {
+        currentAgent = {
+          role: "assistant",
+          content: "",
+          segments: [],
+          timestamp,
+        };
+      }
+      return currentAgent;
+    };
+
+    const startStep = (_step: number | undefined, timestamp: number) => {
+      const message = ensureCurrentAgent(timestamp);
+      // Always count from 1 per response — ignore server's session-level number
+      stepCount += 1;
+      message.stepCount = Math.max(message.stepCount || 0, stepCount);
+      message.segments!.push({ kind: "step", step: stepCount });
+      return message;
+    };
+
+    const applyMetaToCurrentAssistant = (meta: Record<string, unknown>) => {
+      if (currentAgent) {
+        applyAssistantMeta(currentAgent, meta);
+        return;
+      }
+      for (let i = processed.length - 1; i >= 0; i--) {
+        if (processed[i].role === "assistant") {
+          applyAssistantMeta(processed[i], meta);
+          return;
+        }
       }
     };
 
@@ -572,6 +682,7 @@ export default function AgentSessionView({
           event: {
             type: "complete",
             name: String(meta.tool_name || m.content || "tool"),
+            id: meta.tool_use_id ? String(meta.tool_use_id) : undefined,
             success: meta.success !== false,
             input_preview: meta.input_preview as string | undefined,
             output_preview: meta.output_preview as string | undefined,
@@ -579,32 +690,51 @@ export default function AgentSessionView({
             timestamp: ts,
           },
         });
-      } else if (m.role === "assistant") {
-        turnCount++;
-        // Ensure we have an agent message to accumulate into
-        if (!currentAgent) {
+      } else if (eventType === "step_start") {
+        const meta = (m.metadata || {}) as Record<string, unknown>;
+        sawStoredStepMarkers = true;
+        if (pendingTools.length > 0 && currentAgent) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        startStep(numberFromMeta(meta.step), ts);
+      } else if (eventType === "assistant_complete") {
+        if (!currentAgent && pendingTools.length > 0) {
           currentAgent = {
             role: "assistant",
             content: "",
             segments: [],
             timestamp: ts,
           };
-        }
-        // Add turn separator (after first turn)
-        if (turnCount > 1) {
-          currentAgent.segments!.push({ kind: "status", text: `Turn ${turnCount}` });
-        }
-        // Flush pending tools before this turn's text
-        if (pendingTools.length > 0) {
+          if (!sawStoredStepMarkers) {
+            startStep(undefined, ts);
+          }
           currentAgent.segments!.push(...pendingTools);
           pendingTools = [];
         }
-        // Add this turn's text
+        applyMetaToCurrentAssistant((m.metadata || {}) as Record<string, unknown>);
+      } else if (m.role === "assistant") {
+        // Older histories do not have stored step markers, so infer one marker per persisted assistant step.
+        const agent = !sawStoredStepMarkers
+          ? startStep(undefined, ts)
+          : ensureCurrentAgent(ts);
+        if (agent.timestamp == null) {
+          agent.timestamp = ts;
+        } else {
+          agent.timestamp = Math.min(agent.timestamp, ts);
+        }
+        // Flush pending tools before this step's text
+        if (pendingTools.length > 0) {
+          agent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        // Add this step's text
         const text = String(m.content || "");
         if (text) {
-          currentAgent.segments!.push({ kind: "text", text });
-          currentAgent.content += (currentAgent.content ? "\n\n" : "") + text;
+          agent.segments!.push({ kind: "text", text });
+          agent.content += (agent.content ? "\n\n" : "") + text;
         }
+        applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
       } else if (m.role === "user" || m.role === "User") {
         // Flush any pending state
         if (pendingTools.length > 0 && currentAgent) {
@@ -612,7 +742,8 @@ export default function AgentSessionView({
           pendingTools = [];
         }
         flushAgent();
-        turnCount = 0;
+        stepCount = 0;
+        sawStoredStepMarkers = false;
         processed.push({
           role: "user",
           content: String(m.content || ""),
@@ -622,6 +753,20 @@ export default function AgentSessionView({
     }
     // Flush remaining
     if (pendingTools.length > 0 && currentAgent) {
+      currentAgent.segments!.push(...pendingTools);
+    } else if (pendingTools.length > 0) {
+      const firstTool = pendingTools.find(
+        (seg): seg is { kind: "tool"; event: ToolEvent } => seg.kind === "tool",
+      );
+      currentAgent = {
+        role: "assistant",
+        content: "",
+        segments: [],
+        timestamp: firstTool?.event.timestamp || Date.now(),
+      };
+      if (!sawStoredStepMarkers) {
+        startStep(undefined, currentAgent.timestamp || Date.now());
+      }
       currentAgent.segments!.push(...pendingTools);
     }
     flushAgent();
@@ -634,9 +779,7 @@ export default function AgentSessionView({
     if (!activeSessionId) {
       // No session = new conversation, clear everything
       setMessages([]);
-      setStreamText("");
-      setLiveToolEvents([]);
-    setLiveSegments([]);
+      setLiveSegments([]);
       prevSessionRef.current = null;
       return;
     }
@@ -646,8 +789,6 @@ export default function AgentSessionView({
     prevSessionRef.current = activeSessionId;
 
     // Clear and reload from API
-    setStreamText("");
-    setLiveToolEvents([]);
     setLiveSegments([]);
 
     api
@@ -666,40 +807,43 @@ export default function AgentSessionView({
   // Auto-scroll
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamText]);
+  }, [messages, liveSegments]);
 
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, [agentId]);
 
-  // Send message via WebSocket streaming.
-  // If no active session, creates one first, then sends.
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || streaming || !token) return;
-
-    const messageText = input;
+  // Core dispatch — opens WebSocket and sends a message
+  const dispatchMessage = useCallback(async (messageText: string) => {
     const startTime = Date.now();
-    const userMsg: Message = {
-      role: "user",
-      content: messageText,
-      timestamp: startTime,
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+
+    // Un-queue this message in the transcript
+    setMessages((prev) => {
+      let found = false;
+      return prev.map((m) => {
+        if (!found && m.queued && m.content === messageText) {
+          found = true;
+          return { ...m, queued: false };
+        }
+        return m;
+      });
+    });
+
     setStreaming(true);
-    setStreamText("");
-    setLiveToolEvents([]);
     setLiveSegments([]);
     setThinkingStart(startTime);
 
     // If no active session, create one with the first message.
-    let sessionId = activeSessionId;
+    let sessionId = sessionIdRef.current;
+    const isNewConversation = !sessionId;
     if (!sessionId) {
       try {
         const d = await api.createSession(agentId);
         if (d.session_id) {
           sessionId = d.session_id as string;
+          sessionIdRef.current = sessionId;
+          prevSessionRef.current = sessionId;
           // Update URL to include the new session
           setSession(sessionId);
           // Add to session list
@@ -734,7 +878,7 @@ export default function AgentSessionView({
         session_id: sessionId || undefined,
       };
       // Include prompts, quest, and files on first message (session creation)
-      if (!activeSessionId) {
+      if (isNewConversation) {
         if (sessionPrompts.length > 0) {
           payload.session_prompts = sessionPrompts;
         }
@@ -753,7 +897,6 @@ export default function AgentSessionView({
 
     let fullText = "";
     let done = false;
-    const toolEvents: ToolEvent[] = [];
     const segments: MessageSegment[] = [];
 
     const appendText = (delta: string) => {
@@ -772,7 +915,6 @@ export default function AgentSessionView({
         switch (event.type) {
           case "TextDelta": {
             appendText(event.text || event.delta || "");
-            setStreamText(fullText);
             setLiveSegments([...segments]);
             break;
           }
@@ -783,11 +925,10 @@ export default function AgentSessionView({
             const ev: ToolEvent = {
               type: "start",
               name,
+              id: event.tool_use_id || event.id,
               timestamp: Date.now(),
             };
-            toolEvents.push(ev);
             segments.push({ kind: "tool", event: ev });
-            setLiveToolEvents([...toolEvents]);
             setLiveSegments([...segments]);
             break;
           }
@@ -798,108 +939,38 @@ export default function AgentSessionView({
             const completed: ToolEvent = {
               type: "complete",
               name,
+              id: event.tool_use_id || event.id,
               success: event.success !== false,
               input_preview: event.input_preview || undefined,
               output_preview: event.output_preview || event.output || "",
               duration_ms: event.duration_ms,
               timestamp: Date.now(),
             };
-            const startIdx = toolEvents.findIndex(
-              (e) => e.type === "start" && e.name === name,
-            );
-            if (startIdx >= 0) toolEvents[startIdx] = completed;
-            else toolEvents.push(completed);
             const segIdx = segments.findIndex(
               (s) =>
                 s.kind === "tool" &&
                 s.event.type === "start" &&
-                s.event.name === name,
+                ((completed.id && s.event.id === completed.id) ||
+                  (!completed.id && s.event.name === name)),
             );
             if (segIdx >= 0)
               segments[segIdx] = { kind: "tool", event: completed };
             else segments.push({ kind: "tool", event: completed });
-            setLiveToolEvents([...toolEvents]);
             setLiveSegments([...segments]);
             break;
           }
-          case "TurnStart": {
-            const turnNum = event.turn || 0;
-            toolEvents.push({
-              type: "turn",
-              name: `Turn ${turnNum}`,
-              timestamp: Date.now(),
-            });
-            segments.push({ kind: "status", text: `Turn ${turnNum}` });
-            setLiveToolEvents([...toolEvents]);
+          case "StepStart": {
+            // Count per-response, not session-level
+            const step = countStepSegments(segments) + 1;
+            segments.push({ kind: "step", step });
             setLiveSegments([...segments]);
             break;
           }
-          case "Status": {
-            const statusMsg = event.message || "";
-            toolEvents.push({
-              type: "status",
-              name: statusMsg,
-              timestamp: Date.now(),
-            });
-            segments.push({ kind: "status", text: statusMsg });
-            setLiveToolEvents([...toolEvents]);
-            setLiveSegments([...segments]);
-            break;
-          }
-          case "Compacted": {
-            toolEvents.push({
-              type: "status",
-              name: `Context compacted (${event.original_messages}\u2192${event.remaining_messages} msgs)`,
-              timestamp: Date.now(),
-            });
-            setLiveToolEvents([...toolEvents]);
-            break;
-          }
-          case "MemoryActivity": {
-            const desc = `${event.action}: ${event.key}`;
-            toolEvents.push({
-              type: "status",
-              name: desc,
-              timestamp: Date.now(),
-            });
-            setLiveToolEvents([...toolEvents]);
-            break;
-          }
-          case "DelegateStart": {
-            const workerName = event.worker_name || "subagent";
-            const subject = event.quest_subject || "delegated quest";
-            toolEvents.push({
-              type: "start",
-              name: `delegate: ${workerName}`,
-              timestamp: Date.now(),
-            });
-            segments.push({
-              kind: "status",
-              text: `Delegating to ${workerName}: ${subject}`,
-            });
-            setLiveToolEvents([...toolEvents]);
-            break;
-          }
+          case "Status":
+          case "Compacted":
+          case "MemoryActivity":
+          case "DelegateStart":
           case "DelegateComplete": {
-            const doneWorker = event.worker_name || "subagent";
-            const delegateStartIdx = toolEvents.findIndex(
-              (e) => e.type === "start" && e.name === `delegate: ${doneWorker}`,
-            );
-            if (delegateStartIdx >= 0) {
-              toolEvents[delegateStartIdx] = {
-                type: "complete",
-                name: `delegate: ${doneWorker}`,
-                success: true,
-                output_preview: event.outcome,
-                timestamp: Date.now(),
-              };
-            }
-            const outcomePreview = (event.outcome || "").slice(0, 200);
-            segments.push({
-              kind: "status",
-              text: `${doneWorker} completed: ${outcomePreview}`,
-            });
-            setLiveToolEvents([...toolEvents]);
             break;
           }
           case "Complete":
@@ -908,21 +979,21 @@ export default function AgentSessionView({
             done = true;
             const endTime = Date.now();
             const duration = formatDuration(startTime, endTime);
-            const hasContent = fullText || toolEvents.length > 0;
+            const hasContent = fullText || segments.length > 0;
             if (hasContent) {
               const promptTok = event.prompt_tokens || 0;
               const completionTok = event.completion_tokens || 0;
+              const stepCount = countStepSegments(segments) || undefined;
               setMessages((prev) => [
                 ...prev,
                 {
                   role: "assistant",
-                  content: fullText || "(no text output)",
+                  content: fullText,
                   segments: segments.length > 0 ? [...segments] : undefined,
                   timestamp: endTime,
                   duration,
-                  toolEvents:
-                    toolEvents.length > 0 ? [...toolEvents] : undefined,
                   costUsd: event.cost_usd || undefined,
+                  stepCount,
                   tokenUsage:
                     promptTok || completionTok
                       ? { prompt: promptTok, completion: completionTok }
@@ -930,10 +1001,8 @@ export default function AgentSessionView({
                 },
               ]);
             }
-            setStreamText("");
             setStreaming(false);
-            setLiveToolEvents([]);
-    setLiveSegments([]);
+            setLiveSegments([]);
             setThinkingStart(null);
             ws.close();
             break;
@@ -961,27 +1030,65 @@ export default function AgentSessionView({
 
     ws.onerror = () => {
       setStreaming(false);
+      setLiveSegments([]);
       setThinkingStart(null);
     };
     ws.onclose = () => {
-      if (!done && fullText) {
+      if (!done && (fullText || segments.length > 0)) {
         const endTime = Date.now();
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content: fullText,
+            segments: segments.length > 0 ? [...segments] : undefined,
             timestamp: endTime,
             duration: formatDuration(startTime, endTime),
-            toolEvents: toolEvents.length > 0 ? [...toolEvents] : undefined,
           },
         ]);
-        setStreamText("");
       }
       setStreaming(false);
+      setLiveSegments([]);
       setThinkingStart(null);
     };
-  }, [input, streaming, token, agentId]);
+  }, [token, agentId, agentName, setSession, sessionPrompts, sessionTask, attachedFiles]);
+
+  // Ref to latest dispatchMessage for queue processing
+  const dispatchRef = useRef(dispatchMessage);
+  dispatchRef.current = dispatchMessage;
+
+  // Process queued messages when streaming ends
+  useEffect(() => {
+    if (streaming) return;
+    if (messageQueueRef.current.length === 0) return;
+    const next = messageQueueRef.current.shift()!;
+    const timer = setTimeout(() => dispatchRef.current(next), 100);
+    return () => clearTimeout(timer);
+  }, [streaming]);
+
+  // User-facing send handler
+  const handleSend = useCallback(() => {
+    if (!input.trim() || !token) return;
+
+    const messageText = input;
+    setInput("");
+    requestAnimationFrame(() => inputRef.current?.focus());
+
+    // Add to transcript — mark as queued if currently streaming
+    setMessages((prev) => [...prev, {
+      role: "user",
+      content: messageText,
+      timestamp: Date.now(),
+      queued: streaming || undefined,
+    }]);
+
+    if (streaming) {
+      messageQueueRef.current.push(messageText);
+      return;
+    }
+
+    void dispatchMessage(messageText);
+  }, [input, streaming, token, dispatchMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -998,6 +1105,16 @@ export default function AgentSessionView({
   };
 
   if (!agentId) return null;
+
+  const runningToolName = currentRunningToolName(liveSegments);
+  const liveStepCount = countStepSegments(liveSegments);
+  const liveLastSegment = liveSegments[liveSegments.length - 1];
+  const showLiveThinking =
+    streaming &&
+    (runningToolName != null ||
+      liveSegments.length === 0 ||
+      liveLastSegment?.kind === "tool" ||
+      liveLastSegment?.kind === "step");
 
   return (
     <div
@@ -1138,59 +1255,46 @@ export default function AgentSessionView({
               </div>
             );
           }
-          const userName = localStorage.getItem("aeqi_user_name") || "operator";
+          const stepCount = msg.stepCount || countStepSegments(msg.segments);
+          const metaParts = [
+            msg.timestamp && formatTime(msg.timestamp),
+            msg.duration,
+            msg.role === "assistant" && stepCount > 0 && formatStepCount(stepCount),
+            msg.costUsd != null && msg.costUsd > 0 && `$${msg.costUsd.toFixed(4)}`,
+            msg.tokenUsage && (msg.tokenUsage.prompt > 0 || msg.tokenUsage.completion > 0) &&
+              `${msg.tokenUsage.prompt}\u2192${msg.tokenUsage.completion} tok`,
+            msg.queued && "queued",
+          ].filter(Boolean) as string[];
           return (
-            <div key={i} className={`asv-msg asv-msg-${msg.role}`}>
+            <div key={i} className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
               <div className="asv-msg-avatar">
                 <RoundAvatar
                   name={msg.role === "assistant" ? agentName : userName}
+                  src={msg.role === "assistant" ? undefined : userAvatarUrl}
                   size={24}
                 />
               </div>
               <div className="asv-msg-body">
-                <div className="asv-msg-header">
-                  {msg.timestamp && (
-                    <span className="asv-msg-time">
-                      {formatTime(msg.timestamp)}
-                    </span>
-                  )}
-                  {msg.duration && (
-                    <span className="asv-msg-duration">{msg.duration}</span>
-                  )}
-                  {msg.costUsd != null && msg.costUsd > 0 && (
-                    <span className="asv-msg-cost">
-                      ${msg.costUsd.toFixed(4)}
-                    </span>
-                  )}
-                  {msg.tokenUsage &&
-                    (msg.tokenUsage.prompt > 0 ||
-                      msg.tokenUsage.completion > 0) && (
-                      <span className="asv-msg-tokens">
-                        {msg.tokenUsage.prompt}→{msg.tokenUsage.completion} tok
-                      </span>
-                    )}
-                </div>
-
                 {msg.segments && msg.segments.length > 0 ? (
-                  <>
-                    <SegmentRenderer segments={msg.segments} />
-                    {msg.role === "assistant" && (
-                      <CopyButton text={msg.content} />
-                    )}
-                  </>
+                  <SegmentRenderer segments={msg.segments} />
                 ) : (
-                  <>
-                    <div className="asv-msg-content">
-                      {msg.role === "assistant" ? (
-                        <Markdown>{msg.content}</Markdown>
-                      ) : (
-                        <span>{msg.content}</span>
-                      )}
-                    </div>
-                    {msg.role === "assistant" && (
-                      <CopyButton text={msg.content} />
+                  <div className="asv-msg-content">
+                    {msg.role === "assistant" ? (
+                      <Markdown>{msg.content}</Markdown>
+                    ) : (
+                      <span>{msg.content}</span>
                     )}
-                  </>
+                  </div>
+                )}
+                {msg.role === "assistant" && msg.content.trim().length > 0 && (
+                  <CopyButton text={msg.content} />
+                )}
+                {metaParts.length > 0 && (
+                  <div className="asv-msg-footer">
+                    {metaParts.map((part, idx) => (
+                      <span key={idx}>{part}</span>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -1204,65 +1308,14 @@ export default function AgentSessionView({
               <RoundAvatar name={agentName} size={24} />
             </div>
             <div className="asv-msg-body">
-              <div className="asv-msg-header">
-                {thinkingStart && <ThinkingTimer start={thinkingStart} />}
-              </div>
-              {(() => {
-                // Group live segments: text directly, turns as separators, tools in panels
-                type LiveGroup =
-                  | { kind: "text"; text: string }
-                  | { kind: "turn"; text: string }
-                  | { kind: "tools"; items: MessageSegment[] };
-                const groups: LiveGroup[] = [];
-                for (const seg of liveSegments) {
-                  if (seg.kind === "text") {
-                    groups.push({ kind: "text", text: seg.text });
-                  } else if (seg.kind === "status" && seg.text.startsWith("Turn ")) {
-                    groups.push({ kind: "turn", text: seg.text });
-                  } else {
-                    const last = groups[groups.length - 1];
-                    if (last && last.kind === "tools") {
-                      last.items.push(seg);
-                    } else {
-                      groups.push({ kind: "tools", items: [seg] });
-                    }
-                  }
-                }
-                return groups.map((group, gi) =>
-                  group.kind === "text" ? (
-                    <div key={gi} className="asv-msg-content">
-                      <Markdown>{group.text}</Markdown>
-                    </div>
-                  ) : group.kind === "turn" ? (
-                    <div key={gi} className="asv-turn-sep">
-                      <span className="asv-turn-label">{group.text}</span>
-                    </div>
-                  ) : (
-                    <div key={gi} className="asv-tools-group asv-tools-group--live">
-                      {group.items.map((seg, si) =>
-                        seg.kind === "tool" ? (
-                          <div key={si} className={`asv-tool-inline ${seg.event.type} ${toolCategoryClass(seg.event.name)}`}>
-                            <span className={`asv-tool-icon ${toolCategoryClass(seg.event.name)}`}>
-                              {toolCategoryIcon(seg.event.name)}
-                            </span>
-                            <span className="asv-tool-name">{toolLabel(seg.event.name)}</span>
-                            {seg.event.duration_ms != null && (
-                              <span className="asv-tool-ms">{formatMs(seg.event.duration_ms)}</span>
-                            )}
-                          </div>
-                        ) : seg.kind === "status" ? (
-                          <div key={si} className="asv-status-item">{seg.text}</div>
-                        ) : null,
-                      )}
-                    </div>
-                  ),
-                );
-              })()}
-              {!liveSegments.length && <ThinkingStatus />}
-              {liveToolEvents.some((e) => e.type === "start") && (
-                <ThinkingStatus
-                  toolName={toolLabel(liveToolEvents.filter((e) => e.type === "start").pop()?.name || "")}
-                />
+              <SegmentRenderer segments={liveSegments} live />
+              {showLiveThinking && <ThinkingStatus toolName={runningToolName} />}
+              {thinkingStart && (
+                <div className="asv-msg-footer">
+                  <span>{formatTime(thinkingStart)}</span>
+                  <ThinkingTimer start={thinkingStart} />
+                  {liveStepCount > 0 && <span>{formatStepCount(liveStepCount)}</span>}
+                </div>
               )}
             </div>
           </div>
@@ -1552,7 +1605,7 @@ export default function AgentSessionView({
             ref={inputRef}
             className="asv-textarea"
             placeholder={
-              streaming ? "Responding..." : `Message ${displayName}...`
+              streaming ? "Queue a message..." : `Message ${displayName}...`
             }
             value={input}
             onChange={handleInputChange}
@@ -1566,13 +1619,12 @@ export default function AgentSessionView({
                 readFiles(e.dataTransfer.files);
               }
             }}
-            disabled={streaming}
             rows={1}
           />
           <button
-            className={`asv-send ${input.trim() && !streaming ? "ready" : ""} ${streaming ? "busy" : ""}`}
+            className={`asv-send ${input.trim() ? "ready" : ""} ${streaming && !input.trim() ? "busy" : ""}`}
             onClick={handleSend}
-            disabled={!input.trim() || streaming}
+            disabled={!input.trim()}
           >
             {streaming ? (
               <svg

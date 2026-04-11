@@ -37,8 +37,8 @@ export default function CheckpointTimeline({ checkpoints }: CheckpointTimelinePr
               {cp.cost_usd != null && (
                 <span className="checkpoint-cost">${cp.cost_usd.toFixed(2)}</span>
               )}
-              {cp.turns_used != null && (
-                <span className="checkpoint-turns">{cp.turns_used} turns</span>
+              {cp.steps_used != null && (
+                <span className="checkpoint-steps">{cp.steps_used} steps</span>
               )}
               <span className="checkpoint-time">{formatTimestamp(cp.timestamp)}</span>
             </div>

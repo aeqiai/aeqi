@@ -7,7 +7,7 @@ use tracing::{debug, info, warn};
 pub struct ClaudeCodeResult {
     pub text: String,
     pub cost_usd: f64,
-    pub num_turns: u32,
+    pub num_steps: u32,
     pub session_id: String,
     pub model: String,
 }
@@ -88,7 +88,7 @@ impl ClaudeCodeExecutor {
         let mut reader = BufReader::new(stdout).lines();
         let mut result_text = String::new();
         let mut cost_usd = 0.0;
-        let mut num_turns = 0u32;
+        let mut num_steps = 0u32;
         let mut session_id = String::new();
         let mut model = String::from("claude-code");
 
@@ -129,14 +129,14 @@ impl ClaudeCodeExecutor {
                             }
                         }
                     }
-                    num_turns += 1;
+                    num_steps += 1;
                 }
                 "result" => {
                     if let Some(c) = event.get("cost_usd").and_then(|v| v.as_f64()) {
                         cost_usd = c;
                     }
-                    if let Some(t) = event.get("num_turns").and_then(|v| v.as_u64()) {
-                        num_turns = t as u32;
+                    if let Some(t) = event.get("num_steps").and_then(|v| v.as_u64()) {
+                        num_steps = t as u32;
                     }
                     if let Some(sid) = event.get("session_id").and_then(|v| v.as_str()) {
                         session_id = sid.to_string();
@@ -146,7 +146,7 @@ impl ClaudeCodeExecutor {
                     }
                     debug!(
                         cost = cost_usd,
-                        turns = num_turns,
+                        steps = num_steps,
                         "claude code execution complete"
                     );
                 }
@@ -168,7 +168,7 @@ impl ClaudeCodeExecutor {
         Ok(ClaudeCodeResult {
             text: result_text,
             cost_usd,
-            num_turns,
+            num_steps,
             session_id,
             model,
         })

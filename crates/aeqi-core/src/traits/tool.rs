@@ -7,10 +7,10 @@ use super::provider::ToolSpec;
 /// Tools return these to evolve the agent's capabilities mid-session.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ContextModifier {
-    /// System message to inject before the next turn.
+    /// System message to inject before the next step.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inject_system_message: Option<String>,
-    /// Tool specs to add to the agent's available tools for subsequent turns.
+    /// Tool specs to add to the agent's available tools for subsequent steps.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub add_tool_specs: Vec<ToolSpec>,
 }

@@ -131,7 +131,7 @@ pub struct Checkpoint {
     pub worker: String,
     pub progress: String,
     pub cost_usd: f64,
-    pub turns_used: u32,
+    pub steps_used: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
