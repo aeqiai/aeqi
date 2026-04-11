@@ -1776,6 +1776,191 @@ impl Tool for IdeasFindTool {
 /// is automatically delivered to the originating channel by the daemon's polling loop.
 /// Including `channel_reply` causes double-delivery: the tool sends once, and the
 /// task's outcome summary (the LLM's confirmation text) gets sent again.
+// ---------------------------------------------------------------------------
+// AgentSelfTool — introspection: identity, tree position, quests, events
+// ---------------------------------------------------------------------------
+
+/// Tool for agents to introspect their own identity, hierarchy position,
+/// active quests, and event handlers.
+pub struct AgentSelfTool {
+    agent_name: String,
+    agent_registry: Arc<AgentRegistry>,
+    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+}
+
+impl AgentSelfTool {
+    pub fn new(
+        agent_name: String,
+        agent_registry: Arc<AgentRegistry>,
+        event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    ) -> Self {
+        Self {
+            agent_name,
+            agent_registry,
+            event_handler_store,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for AgentSelfTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let detail = args
+            .get("detail")
+            .and_then(|v| v.as_str())
+            .unwrap_or("all");
+
+        // Look up self by name.
+        let agent = match self
+            .agent_registry
+            .get_active_by_name(&self.agent_name)
+            .await?
+        {
+            Some(a) => a,
+            None => {
+                return Ok(ToolResult::error(format!(
+                    "Could not find active agent with name: {}",
+                    self.agent_name
+                )));
+            }
+        };
+
+        let mut result = serde_json::Map::new();
+
+        // Identity section.
+        if detail == "identity" || detail == "all" {
+            result.insert(
+                "identity".to_string(),
+                serde_json::json!({
+                    "id": agent.id,
+                    "name": agent.name,
+                    "display_name": agent.display_name,
+                    "model": agent.model,
+                    "status": format!("{}", agent.status),
+                    "capabilities": agent.capabilities,
+                    "created_at": agent.created_at.to_rfc3339(),
+                }),
+            );
+        }
+
+        // Tree section.
+        if detail == "tree" || detail == "all" {
+            let ancestors = self
+                .agent_registry
+                .get_ancestors(&agent.id)
+                .await
+                .unwrap_or_default();
+            // get_ancestors returns the chain starting from self, so skip self.
+            let parent_chain: Vec<serde_json::Value> = ancestors
+                .iter()
+                .skip(1)
+                .map(|a| {
+                    serde_json::json!({
+                        "id": a.id,
+                        "name": a.name,
+                        "display_name": a.display_name,
+                    })
+                })
+                .collect();
+
+            let children = self
+                .agent_registry
+                .get_children(&agent.id)
+                .await
+                .unwrap_or_default();
+            let children_list: Vec<serde_json::Value> = children
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "id": a.id,
+                        "name": a.name,
+                        "display_name": a.display_name,
+                        "status": format!("{}", a.status),
+                    })
+                })
+                .collect();
+
+            result.insert(
+                "tree".to_string(),
+                serde_json::json!({
+                    "parent_id": agent.parent_id,
+                    "ancestors": parent_chain,
+                    "children": children_list,
+                }),
+            );
+        }
+
+        // Quests section.
+        if detail == "quests" || detail == "all" {
+            let quests = self
+                .agent_registry
+                .list_tasks(None, Some(&agent.id))
+                .await
+                .unwrap_or_default();
+            let quests_list: Vec<serde_json::Value> = quests
+                .iter()
+                .map(|q| {
+                    serde_json::json!({
+                        "id": q.id.0,
+                        "name": q.name,
+                        "status": format!("{:?}", q.status),
+                        "priority": format!("{}", q.priority),
+                    })
+                })
+                .collect();
+
+            result.insert("quests".to_string(), serde_json::json!(quests_list));
+        }
+
+        // Events section.
+        if detail == "events" || detail == "all" {
+            if let Some(ref ehs) = self.event_handler_store {
+                let events = ehs.list_for_agent(&agent.id).await.unwrap_or_default();
+                let events_list: Vec<serde_json::Value> = events
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "id": e.id,
+                            "name": e.name,
+                            "pattern": e.pattern,
+                            "scope": e.scope,
+                            "enabled": e.enabled,
+                        })
+                    })
+                    .collect();
+                result.insert("events".to_string(), serde_json::json!(events_list));
+            } else {
+                result.insert("events".to_string(), serde_json::json!([]));
+            }
+        }
+
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &serde_json::Value::Object(result),
+        )?))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "agent_self".to_string(),
+            description: "Introspect: see your own identity, position in the agent tree, active quests, and event handlers.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "detail": {
+                        "type": "string",
+                        "enum": ["identity", "tree", "quests", "events", "all"],
+                        "description": "Which section to return (default: all)"
+                    }
+                }
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "agent_self"
+    }
+}
+
 pub fn build_orchestration_tools(
     leader_name: String,
     _default_project: String,
@@ -1829,6 +2014,16 @@ pub fn build_orchestration_tools(
     let events_list_tool = EventsListTool::new(trigger_store.clone(), leader_name.clone());
     let events_remove_tool = EventsRemoveTool::new(trigger_store);
 
+    // Self-introspection tool.
+    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(
+        agent_registry.db(),
+    ));
+    let agent_self_tool = AgentSelfTool::new(
+        leader_name.clone(),
+        agent_registry.clone(),
+        Some(event_handler_store),
+    );
+
     let mut tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(detail_tool),
         Arc::new(cancel_tool),
@@ -1848,6 +2043,7 @@ pub fn build_orchestration_tools(
         Arc::new(IdeasListTool::new(agent_registry.clone())),
         Arc::new(IdeasLoadTool::new(agent_registry.clone())),
         Arc::new(IdeasFindTool::new(agent_registry.clone())),
+        Arc::new(agent_self_tool),
     ];
 
     if let Some(mem) = memory {
