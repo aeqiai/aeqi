@@ -251,6 +251,8 @@ pub struct Daemon {
     pub scheduler: Arc<Scheduler>,
     /// Unified prompt loader.
     pub prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
+    /// Event handler store (the fourth primitive).
+    pub event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
 }
 
 impl Daemon {
@@ -291,6 +293,7 @@ impl Daemon {
             project_budgets: std::collections::HashMap::new(),
             scheduler,
             prompt_loader: None,
+            event_handler_store: None,
         }
     }
 
@@ -643,6 +646,8 @@ impl Daemon {
 
         self.spawn_signal_handlers();
         self.spawn_event_listeners();
+        self.spawn_event_matcher();
+        self.spawn_schedule_timer();
         self.spawn_ipc_listener();
         self.load_persisted_state().await;
 
@@ -880,6 +885,59 @@ impl Daemon {
                 }
             });
         }
+    }
+
+    /// Spawn the EventMatcher — subscribes to activity stream and fires event handlers.
+    fn spawn_event_matcher(&self) {
+        let Some(ref ehs) = self.event_handler_store else {
+            return;
+        };
+        let matcher = Arc::new(crate::event_matcher::EventMatcher::new(
+            ehs.clone(),
+            self.agent_registry.clone(),
+            self.activity_log.clone(),
+        ));
+        let mut rx = self.activity_log.subscribe();
+
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event_json) => {
+                        let event_type = event_json
+                            .get("type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        let agent_id = event_json.get("agent_id").and_then(|v| v.as_str());
+                        let quest_id = event_json.get("quest_id").and_then(|v| v.as_str());
+
+                        matcher
+                            .match_activity(event_type, agent_id, quest_id, &event_json)
+                            .await;
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!(skipped = n, "event matcher lagged");
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                }
+            }
+        });
+        info!("event matcher spawned");
+    }
+
+    /// Spawn the ScheduleTimer — fires schedule-type events at precise times.
+    fn spawn_schedule_timer(&self) {
+        let Some(ref ehs) = self.event_handler_store else {
+            return;
+        };
+        let timer = crate::schedule_timer::ScheduleTimer::new(
+            ehs.clone(),
+            self.agent_registry.clone(),
+            self.activity_log.clone(),
+        );
+        let shutdown = self.shutdown_notify.clone();
+        tokio::spawn(async move {
+            timer.run(shutdown).await;
+        });
     }
 
     /// Bind the Unix socket for IPC queries (if configured).

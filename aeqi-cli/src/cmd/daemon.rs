@@ -695,11 +695,17 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 sm.set_prompt_loader(prompt_loader);
             }
 
-            // Set up trigger store.
+            // Set up trigger store (legacy — being replaced by events).
             let trigger_store = Arc::new(agent_reg.trigger_store());
             let trigger_count = trigger_store.count_enabled().await.unwrap_or(0);
-            println!("Triggers: {trigger_count} enabled");
+            println!("Triggers: {trigger_count} enabled (legacy)");
             daemon.set_trigger_store(trigger_store.clone());
+
+            // Set up event handler store (the fourth primitive).
+            let event_handler_store = Arc::new(aeqi_orchestrator::EventHandlerStore::new(agent_reg.db()));
+            let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
+            println!("Events: {event_count} enabled");
+            daemon.event_handler_store = Some(event_handler_store);
 
             daemon.set_readiness_context(
                 config.agent_spawns.len(),
