@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 /// An insight entry owned by an agent in the tree.
 /// Scoping is positional — determined by which agent_id owns the insight,
 /// not by an enum. Insight walks up the parent_id chain.
+///
+/// Everything is an insight. Entries with `injection_mode` set are
+/// deterministically injected into the agent's context (like prompts).
+/// Entries without it are recalled via semantic search.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InsightEntry {
     pub id: String,
@@ -16,6 +20,51 @@ pub struct InsightEntry {
     pub created_at: DateTime<Utc>,
     pub session_id: Option<String>,
     pub score: f64,
+    /// Injection mode: None = search-only, Some("system"|"prepend"|"append"|"step") = deterministic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub injection_mode: Option<String>,
+    /// Inheritance scope: "self" (only this agent) or "descendants" (all children).
+    #[serde(default = "default_inheritance")]
+    pub inheritance: String,
+    /// Tool allow-list (empty = all allowed).
+    #[serde(default)]
+    pub tool_allow: Vec<String>,
+    /// Tool deny-list.
+    #[serde(default)]
+    pub tool_deny: Vec<String>,
+}
+
+fn default_inheritance() -> String {
+    "self".to_string()
+}
+
+impl InsightEntry {
+    /// Create a search-returned entry (no injection metadata).
+    pub fn recalled(
+        id: String,
+        key: String,
+        content: String,
+        category: InsightCategory,
+        agent_id: Option<String>,
+        created_at: DateTime<Utc>,
+        session_id: Option<String>,
+        score: f64,
+    ) -> Self {
+        Self {
+            id,
+            key,
+            content,
+            category,
+            agent_id,
+            created_at,
+            session_id,
+            score,
+            injection_mode: None,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -142,6 +191,42 @@ pub trait Insight: Send + Sync {
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
 
     fn name(&self) -> &str;
+
+    /// Store a prompt-type insight (deterministically injected into agent context).
+    /// This is the unified API for what was previously stored in the prompts table.
+    #[allow(clippy::too_many_arguments)]
+    async fn store_prompt(
+        &self,
+        key: &str,
+        content: &str,
+        agent_id: Option<&str>,
+        _injection_mode: &str,
+        _inheritance: &str,
+        _tool_allow: &[String],
+        _tool_deny: &[String],
+    ) -> anyhow::Result<String> {
+        // Default implementation: fall back to store() — subclasses override.
+        self.store(key, content, InsightCategory::Evergreen, agent_id)
+            .await
+    }
+
+    /// Retrieve all prompt-type insights for an agent (injection_mode IS NOT NULL).
+    /// Returns entries ordered for prompt assembly.
+    async fn get_prompts(
+        &self,
+        _agent_id: &str,
+    ) -> anyhow::Result<Vec<InsightEntry>> {
+        Ok(Vec::new())
+    }
+
+    /// Retrieve prompt-type insights for an agent and all its ancestors.
+    /// Used by prompt_assembly to build the full system prompt.
+    async fn get_prompts_for_chain(
+        &self,
+        _ancestor_ids: &[String],
+    ) -> anyhow::Result<Vec<InsightEntry>> {
+        Ok(Vec::new())
+    }
 
     /// Store an insight graph edge. Default is no-op.
     async fn store_insight_edge(

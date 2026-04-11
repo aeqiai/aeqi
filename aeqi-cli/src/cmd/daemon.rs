@@ -465,38 +465,29 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .await;
             }
 
-            // Inject shared_primer and project_primer as prompts entries on agents.
-            // This makes primers data (stored on agents) rather than code (injected per-worker).
-            if let Some(ref primer) = config.shared_primer {
-                // Find or create the root agent and inject shared primer.
-                // For now, inject on all company agents as descendants-scoped.
-                for project_cfg in &config.agent_spawns {
-                    if let Ok(Some(agent)) = agent_reg.get_active_by_name(&project_cfg.name).await {
-                        let mut prompts = agent.prompts.clone();
-                        // Only add if not already present.
-                        if !prompts.iter().any(|p| p.content == *primer) {
-                            prompts.insert(0, aeqi_core::PromptEntry::primer(primer.clone()));
-                            let prompts_json = serde_json::to_string(&prompts).unwrap_or_default();
-                            let _ = agent_reg.update_prompts(&agent.id, &prompts_json).await;
+            // Import agent identity prompts into the prompt store as managed prompts.
+            // This makes the DB authoritative — .md files are import format only.
+            // If the .md content changed since last import, the prompt is updated.
+            for agent_cfg in &advisor_agents {
+                if agent_reg.get_active_by_name(&agent_cfg.name).await.ok().flatten().is_some() {
+                    if let Some(ref prompt_cfg) = agent_cfg.prompt {
+                        let identity_content = &prompt_cfg.system;
+                        if !identity_content.is_empty() {
+                            let source_ref = format!("agent:{}", agent_cfg.name);
+                            let _ = agent_reg
+                                .upsert_managed_prompt(
+                                    &format!("{}-identity", agent_cfg.name),
+                                    identity_content,
+                                    &["identity".to_string()],
+                                    "system",
+                                    "self",
+                                    &[],
+                                    &[],
+                                    "agent-template",
+                                    &source_ref,
+                                )
+                                .await;
                         }
-                    }
-                }
-            }
-            for project_cfg in &config.agent_spawns {
-                if let Some(ref primer) = project_cfg.primer
-                    && let Ok(Some(agent)) = agent_reg.get_active_by_name(&project_cfg.name).await
-                {
-                    let mut prompts = agent.prompts.clone();
-                    if !prompts.iter().any(|p| p.content == *primer) {
-                        prompts.insert(
-                            prompts
-                                .iter()
-                                .position(|p| p.scope == aeqi_core::PromptScope::SelfOnly)
-                                .unwrap_or(prompts.len()),
-                            aeqi_core::PromptEntry::primer(primer.clone()),
-                        );
-                        let prompts_json = serde_json::to_string(&prompts).unwrap_or_default();
-                        let _ = agent_reg.update_prompts(&agent.id, &prompts_json).await;
                     }
                 }
             }

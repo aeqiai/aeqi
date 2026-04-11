@@ -3,7 +3,7 @@ use aeqi_core::traits::{Embedder, Insight, InsightCategory, InsightEntry, Insigh
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -141,6 +141,9 @@ impl SqliteInsights {
 
         // Migrate: add content_hash column for embedding cache dedup.
         Self::migrate_embedding_hash(&conn)?;
+
+        // Migrate: add injection metadata columns (prompts consolidated into insights).
+        Self::migrate_injection_columns(&conn)?;
 
         Ok(Self {
             conn: Mutex::new(conn),
@@ -296,6 +299,36 @@ impl SqliteInsights {
         Ok(())
     }
 
+    /// Migrate: add injection metadata columns — unifies prompts into insights.
+    ///
+    /// Insights with injection_mode != NULL are deterministically injected into
+    /// the agent's context (like prompts). Others are recalled via search.
+    fn migrate_injection_columns(conn: &Connection) -> Result<()> {
+        let cols: Vec<String> = conn
+            .prepare("PRAGMA table_info(insights)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !cols.contains(&"injection_mode".to_string()) {
+            conn.execute_batch(
+                "ALTER TABLE insights ADD COLUMN injection_mode TEXT;
+                 ALTER TABLE insights ADD COLUMN inheritance TEXT NOT NULL DEFAULT 'self';
+                 ALTER TABLE insights ADD COLUMN tool_allow TEXT NOT NULL DEFAULT '[]';
+                 ALTER TABLE insights ADD COLUMN tool_deny TEXT NOT NULL DEFAULT '[]';
+                 ALTER TABLE insights ADD COLUMN content_hash TEXT;
+                 ALTER TABLE insights ADD COLUMN source_kind TEXT;
+                 ALTER TABLE insights ADD COLUMN source_ref TEXT;
+                 ALTER TABLE insights ADD COLUMN managed INTEGER NOT NULL DEFAULT 0;
+                 CREATE INDEX IF NOT EXISTS idx_insights_injection ON insights(injection_mode);
+                 CREATE INDEX IF NOT EXISTS idx_insights_content_hash ON insights(content_hash);
+                 CREATE INDEX IF NOT EXISTS idx_insights_source ON insights(source_kind, source_ref);",
+            )?;
+            debug!("migrated insights: added injection metadata columns (prompt consolidation)");
+        }
+        Ok(())
+    }
+
     /// Compute SHA256 hash of content for embedding cache lookup.
     fn content_hash(content: &str) -> String {
         use sha2::{Digest, Sha256};
@@ -346,16 +379,9 @@ impl SqliteInsights {
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(InsightEntry {
-                        id,
-                        key,
-                        content,
-                        category,
-                        agent_id,
-                        created_at,
-                        session_id,
-                        score: 1.0,
-                    })
+                    Some(InsightEntry::recalled(
+                        id, key, content, category, agent_id, created_at, session_id, 1.0,
+                    ))
                 },
             )
             .collect();
@@ -434,16 +460,9 @@ impl SqliteInsights {
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(InsightEntry {
-                        id,
-                        key,
-                        content,
-                        category,
-                        agent_id,
-                        created_at,
-                        session_id,
-                        score: 1.0,
-                    })
+                    Some(InsightEntry::recalled(
+                        id, key, content, category, agent_id, created_at, session_id, 1.0,
+                    ))
                 },
             )
             .collect();
@@ -773,16 +792,9 @@ impl SqliteInsights {
             self.decay_factor(&created_at)
         };
 
-        Some(InsightEntry {
-            id: row.id,
-            key: row.key,
-            content: row.content,
-            category,
-            agent_id: row.agent_id,
-            created_at,
-            session_id: row.session_id,
-            score: score * decay,
-        })
+        Some(InsightEntry::recalled(
+            row.id, row.key, row.content, category, row.agent_id, created_at, row.session_id, score * decay,
+        ))
     }
 
     // ── Memory graph edge operations ──
@@ -1260,6 +1272,97 @@ impl Insight for SqliteInsights {
                 .unwrap_or(MemoryRelation::RelatedTo);
         let edge = MemoryEdge::new(source_id, target_id, relation_enum, strength);
         self.store_edge(&edge)
+    }
+
+    async fn store_prompt(
+        &self,
+        key: &str,
+        content: &str,
+        agent_id: Option<&str>,
+        injection_mode: &str,
+        inheritance: &str,
+        tool_allow: &[String],
+        tool_deny: &[String],
+    ) -> Result<String> {
+        let content_hash = Self::content_hash(content);
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+
+        // Dedup by content_hash — reuse existing insight if content is identical.
+        let existing_id: Option<String> = conn
+            .query_row(
+                "SELECT id FROM insights WHERE content_hash = ?1",
+                rusqlite::params![content_hash],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(id) = existing_id {
+            debug!(id = %id, key = %key, "prompt deduped by content_hash");
+            return Ok(id);
+        }
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+        let tool_allow_json = serde_json::to_string(tool_allow)?;
+        let tool_deny_json = serde_json::to_string(tool_deny)?;
+
+        conn.execute(
+            "INSERT INTO insights (id, key, content, category, agent_id, injection_mode, inheritance, tool_allow, tool_deny, content_hash, created_at)
+             VALUES (?1, ?2, ?3, 'evergreen', ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![id, key, content, agent_id, injection_mode, inheritance, tool_allow_json, tool_deny_json, content_hash, now],
+        )?;
+
+        debug!(id = %id, key = %key, injection_mode = %injection_mode, "prompt insight stored");
+        Ok(id)
+    }
+
+    async fn get_prompts(&self, agent_id: &str) -> Result<Vec<InsightEntry>> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let mut stmt = conn.prepare(
+            "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+             FROM insights WHERE agent_id = ?1 AND injection_mode IS NOT NULL
+             ORDER BY created_at ASC",
+        )?;
+        let entries = stmt
+            .query_map(rusqlite::params![agent_id], |row| {
+                let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
+                Ok(InsightEntry {
+                    id: row.get(0)?,
+                    key: row.get(1)?,
+                    content: row.get(2)?,
+                    category: {
+                        let s: String = row.get(3)?;
+                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(InsightCategory::Evergreen)
+                    },
+                    agent_id: row.get(4)?,
+                    created_at: {
+                        let s: String = row.get(5)?;
+                        DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
+                    },
+                    session_id: row.get(6)?,
+                    score: 1.0,
+                    injection_mode: row.get(7)?,
+                    inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(entries)
+    }
+
+    async fn get_prompts_for_chain(&self, ancestor_ids: &[String]) -> Result<Vec<InsightEntry>> {
+        if ancestor_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut all = Vec::new();
+        for agent_id in ancestor_ids {
+            let entries = self.get_prompts(agent_id).await?;
+            all.extend(entries);
+        }
+        Ok(all)
     }
 }
 

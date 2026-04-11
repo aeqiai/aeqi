@@ -497,16 +497,16 @@ mod tests {
 
     #[test]
     fn test_roundtrip_markdown() {
-        let entry = InsightEntry {
-            id: "abc-123".to_string(),
-            key: "test-key".to_string(),
-            content: "Some test content".to_string(),
-            category: InsightCategory::Fact,
-            agent_id: None,
-            created_at: chrono::Utc::now(),
-            session_id: None,
-            score: 1.0,
-        };
+        let entry = InsightEntry::recalled(
+            "abc-123".to_string(),
+            "test-key".to_string(),
+            "Some test content".to_string(),
+            InsightCategory::Fact,
+            None,
+            chrono::Utc::now(),
+            None,
+            1.0,
+        );
 
         let md = render_markdown(&entry, None, &HashMap::new());
         let (fm, body) = split_frontmatter(&md);
