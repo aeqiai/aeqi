@@ -1247,18 +1247,18 @@ impl Tool for EventsRemoveTool {
 
 // ── Prompt tools ──
 
-pub struct PromptsListTool {
+pub struct IdeasListTool {
     agent_registry: Arc<AgentRegistry>,
 }
 
-impl PromptsListTool {
+impl IdeasListTool {
     pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
         Self { agent_registry }
     }
 }
 
 #[async_trait]
-impl Tool for PromptsListTool {
+impl Tool for IdeasListTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let tag = args.get("tag").and_then(|v| v.as_str());
         match self.agent_registry.list_prompts(tag).await {
@@ -1286,8 +1286,8 @@ impl Tool for PromptsListTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "prompts_list".to_string(),
-            description: "List available prompts, optionally filtered by tag.".to_string(),
+            name: "ideas_list".to_string(),
+            description: "List available ideas, optionally filtered by tag.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -1301,22 +1301,22 @@ impl Tool for PromptsListTool {
     }
 
     fn name(&self) -> &str {
-        "prompts_list"
+        "ideas_list"
     }
 }
 
-pub struct PromptsLoadTool {
+pub struct IdeasLoadTool {
     agent_registry: Arc<AgentRegistry>,
 }
 
-impl PromptsLoadTool {
+impl IdeasLoadTool {
     pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
         Self { agent_registry }
     }
 }
 
 #[async_trait]
-impl Tool for PromptsLoadTool {
+impl Tool for IdeasLoadTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let name = args
             .get("name")
@@ -1341,8 +1341,8 @@ impl Tool for PromptsLoadTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "prompts_load".to_string(),
-            description: "Load a prompt by name. Returns the full content.".to_string(),
+            name: "ideas_load".to_string(),
+            description: "Load an idea by name. Returns the full content.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -1357,22 +1357,22 @@ impl Tool for PromptsLoadTool {
     }
 
     fn name(&self) -> &str {
-        "prompts_load"
+        "ideas_load"
     }
 }
 
-pub struct PromptsSearchTool {
+pub struct IdeasFindTool {
     agent_registry: Arc<AgentRegistry>,
 }
 
-impl PromptsSearchTool {
+impl IdeasFindTool {
     pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
         Self { agent_registry }
     }
 }
 
 #[async_trait]
-impl Tool for PromptsSearchTool {
+impl Tool for IdeasFindTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let query = args
             .get("query")
@@ -1410,8 +1410,8 @@ impl Tool for PromptsSearchTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "prompts_search".to_string(),
-            description: "Search prompts by name, content, or tag.".to_string(),
+            name: "ideas_find".to_string(),
+            description: "Search ideas by name, content, or tag.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -1426,7 +1426,7 @@ impl Tool for PromptsSearchTool {
     }
 
     fn name(&self) -> &str {
-        "prompts_search"
+        "ideas_find"
     }
 }
 
@@ -1497,9 +1497,9 @@ pub fn build_orchestration_tools(
         Arc::new(events_create_tool),
         Arc::new(events_list_tool),
         Arc::new(events_remove_tool),
-        Arc::new(PromptsListTool::new(agent_registry.clone())),
-        Arc::new(PromptsLoadTool::new(agent_registry.clone())),
-        Arc::new(PromptsSearchTool::new(agent_registry.clone())),
+        Arc::new(IdeasListTool::new(agent_registry.clone())),
+        Arc::new(IdeasLoadTool::new(agent_registry.clone())),
+        Arc::new(IdeasFindTool::new(agent_registry.clone())),
     ];
 
     if let Some(mem) = memory {
@@ -1966,7 +1966,7 @@ impl Tool for TranscriptSearchTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "insights_search".to_string(),
+            name: "ideas_search".to_string(),
             description: "Search past session transcripts. Returns matching messages from previous agent sessions. Use when you need to recall HOW you solved something.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -1986,7 +1986,7 @@ impl Tool for TranscriptSearchTool {
     }
 
     fn name(&self) -> &str {
-        "insights_search"
+        "ideas_search"
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
