@@ -2136,6 +2136,17 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Reset quests stuck in `in_progress` from a previous daemon run.
+    /// These quests had workers that were killed by a crash/restart.
+    pub async fn reset_stale_in_progress(&self) -> Result<usize> {
+        let db = self.db.lock().await;
+        let count = db.execute(
+            "UPDATE quests SET status = 'pending', retry_count = retry_count + 1 WHERE status = 'in_progress'",
+            [],
+        )?;
+        Ok(count)
+    }
+
     /// Update a task using a closure (mirrors QuestBoard API).
     pub async fn update_task<F: FnOnce(&mut aeqi_quests::Quest)>(
         &self,

@@ -398,6 +398,17 @@ impl Daemon {
         self.spawn_ipc_listener();
         self.load_persisted_state().await;
 
+        // Crash recovery: reset stale in_progress quests from previous run.
+        match self.agent_registry.reset_stale_in_progress().await {
+            Ok(count) if count > 0 => {
+                info!(count, "reset stale in_progress quests from previous run");
+            }
+            Err(e) => {
+                warn!(error = %e, "failed to reset stale quests");
+            }
+            _ => {}
+        }
+
         info!(triggers = self.trigger_store.is_some(), "daemon started");
 
         self.run_patrol_loop().await;

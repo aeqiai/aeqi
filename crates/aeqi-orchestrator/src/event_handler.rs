@@ -64,6 +64,17 @@ impl EventHandlerStore {
 
     /// Create a new event handler.
     pub async fn create(&self, e: &NewEvent) -> Result<Event> {
+        // Validate schedule interval minimum.
+        if e.pattern.starts_with("schedule:every ") {
+            let interval_part = &e.pattern["schedule:every ".len()..];
+            if interval_part.ends_with('s') {
+                let secs: u64 = interval_part[..interval_part.len() - 1].parse().unwrap_or(0);
+                if secs < 60 {
+                    anyhow::bail!("schedule interval must be >= 60 seconds, got {secs}s");
+                }
+            }
+        }
+
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         {
