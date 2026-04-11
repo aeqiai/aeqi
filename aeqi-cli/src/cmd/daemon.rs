@@ -4,7 +4,7 @@ use aeqi_core::traits::Channel;
 use aeqi_gates::TelegramChannel;
 use aeqi_orchestrator::tools::build_orchestration_tools;
 use aeqi_orchestrator::{
-    AEQIMetrics, AgentRouter, CompanyRecord, Daemon, EventStore, Scheduler, SchedulerConfig,
+    AEQIMetrics, AgentRouter, CompanyRecord, Daemon, ActivityLog, Scheduler, SchedulerConfig,
     SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
@@ -49,7 +49,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             }
 
             let _data_dir = config.data_dir();
-            let event_broadcaster = Arc::new(aeqi_orchestrator::EventBroadcaster::new());
+            let activity_stream = Arc::new(aeqi_orchestrator::ActivityStream::new());
             let daily_budget_usd = config.security.max_cost_per_day_usd;
             let leader_name = config
                 .leader_agent()
@@ -111,9 +111,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     }
                 };
 
-            // Create the unified EventStore sharing the AgentRegistry DB.
-            let event_store = Arc::new(EventStore::new(agent_reg.db()));
-            event_store.set_event_broadcaster(event_broadcaster.clone());
+            // Create the unified ActivityLog sharing the AgentRegistry DB.
+            let activity_log = Arc::new(ActivityLog::new(agent_reg.db()));
+            activity_log.set_activity_stream(activity_stream.clone());
             info!("event store initialized (unified)");
 
             // Create the SessionStore sharing the AgentRegistry DB (tables
@@ -137,7 +137,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 Arc::new(aeqi_orchestrator::MessageRouter {
                     conversations: cs.clone(),
                     agent_registry: agent_reg.clone(),
-                    event_store: event_store.clone(),
+                    activity_log: activity_log.clone(),
                     agent_router: agent_router.clone(),
                     council_advisors: council_advisors.clone(),
                     auto_council_enabled,
@@ -202,7 +202,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                                 let advisor_bots_outer = advisor_bots.clone();
                                                 let debounce_ms = tg_config.debounce_window_ms;
                                                 let ptm = pending_telegram_messages.clone();
-                                                let eb = event_broadcaster.clone();
+                                                let eb = activity_stream.clone();
                                                 let default_chat = tg_config
                                                     .main_chat_id
                                                     .or_else(|| {
@@ -286,7 +286,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     leader_name.clone(),
                     default_project.clone(),
                     project_name,
-                    event_store.clone(),
+                    activity_log.clone(),
                     channels.clone(),
                     get_api_key(&config).ok(),
                     fa_memory,
@@ -608,8 +608,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     agent_reg.clone(),
                     ss.clone(),
                     default_model.clone(),
-                    Some(event_broadcaster.clone()),
-                    event_store.clone(),
+                    Some(activity_stream.clone()),
+                    activity_log.clone(),
                     shared_idea_store.clone(),
                     sm_default_project,
                     config.shared_primer.clone(),
@@ -625,8 +625,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 scheduler_provider,
                 scheduler_tools,
                 metrics.clone(),
-                event_broadcaster.clone(),
-                event_store.clone(),
+                activity_stream.clone(),
+                activity_log.clone(),
             );
 
             // Wire optional services into the scheduler.
@@ -644,7 +644,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Construct the daemon — use the shared session_manager.
             let mut daemon =
-                Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), event_store);
+                Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), activity_log);
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             daemon.leader_agent_name = leader_name.clone();
@@ -680,7 +680,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Still set in-memory primers for backward compat during migration.
             daemon.shared_primer = config.shared_primer.clone();
             daemon.project_primer = config.agent_spawns.first().and_then(|c| c.primer.clone());
-            daemon.event_broadcaster = event_broadcaster;
+            daemon.activity_stream = activity_stream;
             daemon.message_router = message_router;
             daemon.default_provider = default_provider;
             daemon.default_model = default_model;
@@ -828,7 +828,7 @@ async fn telegram_message_loop(
     _advisor_bots: HashMap<String, Arc<TelegramChannel>>,
     debounce_ms: u64,
     pending_telegram_messages: Arc<std::sync::Mutex<Vec<(i64, String)>>>,
-    event_broadcaster: Arc<aeqi_orchestrator::EventBroadcaster>,
+    activity_stream: Arc<aeqi_orchestrator::ActivityStream>,
     default_chat_id: i64,
     telegram_routes: Arc<HashMap<i64, TelegramChatRouteConfig>>,
     shared_scheduler: Arc<std::sync::RwLock<Option<Arc<Scheduler>>>>,
@@ -917,11 +917,11 @@ async fn telegram_message_loop(
     if default_chat_id != 0 {
         let tg_notify = tg_reply.clone();
         let engine_pending = engine.clone();
-        let mut event_rx = event_broadcaster.subscribe();
+        let mut event_rx = activity_stream.subscribe();
         tokio::spawn(async move {
             loop {
                 match event_rx.recv().await {
-                    Ok(aeqi_orchestrator::ExecutionEvent::QuestCompleted {
+                    Ok(aeqi_orchestrator::Activity::QuestCompleted {
                         quest_id,
                         outcome,
                         cost_usd,

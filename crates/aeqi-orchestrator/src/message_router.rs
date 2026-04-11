@@ -191,8 +191,8 @@ pub struct MessageRouter {
     pub task_notify: Arc<tokio::sync::Notify>,
     /// Single insight store for all agents (scoped by agent_id within queries).
     pub idea_store: Option<Arc<dyn IdeaStore>>,
-    /// EventStore for emitting quest_created events (drives scheduler via broadcast).
-    pub event_store: Arc<crate::event_store::EventStore>,
+    /// ActivityLog for emitting quest_created events (drives scheduler via broadcast).
+    pub activity_log: Arc<crate::activity_log::ActivityLog>,
 }
 
 impl MessageRouter {
@@ -375,7 +375,7 @@ impl MessageRouter {
 
         if !hold_for_council {
             let _ = self
-                .event_store
+                .activity_log
                 .emit(
                     "quest_created",
                     Some(&agent.id),
@@ -696,7 +696,7 @@ impl MessageRouter {
             let source_tag_for_spawn = source_tag.clone();
             let project_hint = msg.project_hint.clone();
             let chat_id = msg.chat_id;
-            let event_store = self.event_store.clone();
+            let activity_log = self.activity_log.clone();
 
             tokio::spawn(async move {
                 MessageRouter::finish_council_enrichment(
@@ -712,7 +712,7 @@ impl MessageRouter {
                     chat_id,
                     source_tag_for_spawn,
                     project_hint,
-                    event_store,
+                    activity_log,
                 )
                 .await;
             });
@@ -1404,7 +1404,7 @@ impl MessageRouter {
         chat_id: i64,
         source_tag: String,
         project_hint: Option<String>,
-        event_store: Arc<crate::event_store::EventStore>,
+        activity_log: Arc<crate::activity_log::ActivityLog>,
     ) {
         let advisors_to_invoke = Self::classify_advisors_with(
             &agent_registry,
@@ -1484,7 +1484,7 @@ impl MessageRouter {
                         })),
                     )
                     .await;
-                let _ = event_store
+                let _ = activity_log
                     .emit(
                         "quest_created",
                         None,

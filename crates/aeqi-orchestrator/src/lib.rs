@@ -3,7 +3,7 @@
 //!
 //! Coordinates worker execution ([`AgentWorker`]), agent routing ([`AgentRouter`]),
 //! global scheduling ([`Scheduler`]), agent registry ([`agent_registry::AgentRegistry`]),
-//! event store ([`EventStore`]), Prometheus metrics ([`AEQIMetrics`]), and session storage.
+//! event store ([`ActivityLog`]), Prometheus metrics ([`AEQIMetrics`]), and session storage.
 
 pub mod agent_registry;
 pub mod agent_router;
@@ -14,8 +14,8 @@ pub mod context_budget;
 pub mod daemon;
 pub mod delegate;
 pub mod escalation;
-pub mod event_store;
-pub mod execution_events;
+pub mod activity_log;
+pub mod activity;
 pub mod executor;
 pub mod failure_analysis;
 pub mod hook;
@@ -44,8 +44,8 @@ pub use agent_worker::{AgentWorker, WorkerState};
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;
-pub use event_store::{Dispatch, DispatchHealth, DispatchKind, EventStore};
-pub use execution_events::{EventBroadcaster, ExecutionEvent};
+pub use activity_log::{Dispatch, DispatchHealth, DispatchKind, ActivityLog};
+pub use activity::{ActivityStream, Activity};
 pub use executor::QuestOutcome;
 pub use hook::Hook;
 pub use message_router::MessageRouter;

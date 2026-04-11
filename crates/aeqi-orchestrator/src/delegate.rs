@@ -16,7 +16,7 @@ use tracing::info;
 
 use crate::SessionStore;
 use crate::agent_registry::AgentRegistry;
-use crate::event_store::{Dispatch, DispatchKind, EventStore};
+use crate::activity_log::{Dispatch, DispatchKind, ActivityLog};
 use crate::session_manager::SessionManager;
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ use crate::session_manager::SessionManager;
 /// - `"dept:<name>"` — resolved to agent lookup by name (backward compat)
 /// - `<agent_name>` — send a DelegateRequest dispatch to a named agent
 pub struct DelegateTool {
-    event_store: Arc<EventStore>,
+    activity_log: Arc<ActivityLog>,
     /// The name of the calling agent (used as the "from" field in dispatches).
     agent_name: String,
     /// Optional agent registry for resolving default agents.
@@ -52,9 +52,9 @@ pub struct DelegateTool {
 }
 
 impl DelegateTool {
-    pub fn new(event_store: Arc<EventStore>, agent_name: String) -> Self {
+    pub fn new(activity_log: Arc<ActivityLog>, agent_name: String) -> Self {
         Self {
-            event_store,
+            activity_log,
             agent_name,
             agent_registry: None,
             project_name: None,
@@ -149,7 +149,7 @@ impl DelegateTool {
             "sending DelegateRequest dispatch"
         );
 
-        self.event_store.send(dispatch).await;
+        self.activity_log.send(dispatch).await;
 
         let mut msg = format!(
             "Delegation sent to '{to}' (dispatch_id: {dispatch_id}, response_mode: {response_mode})"
@@ -397,16 +397,16 @@ impl Tool for DelegateTool {
 mod tests {
     use super::*;
 
-    async fn test_event_store() -> Arc<crate::event_store::EventStore> {
+    async fn test_activity_log() -> Arc<crate::activity_log::ActivityLog> {
         let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
         let conn = pool.lock().await;
-        crate::event_store::EventStore::create_tables(&conn).unwrap();
+        crate::activity_log::ActivityLog::create_tables(&conn).unwrap();
         drop(conn);
-        Arc::new(crate::event_store::EventStore::new(Arc::new(pool)))
+        Arc::new(crate::activity_log::ActivityLog::new(Arc::new(pool)))
     }
 
     async fn make_tool() -> DelegateTool {
-        DelegateTool::new(test_event_store().await, "test-agent".to_string())
+        DelegateTool::new(test_activity_log().await, "test-agent".to_string())
     }
 
     #[test]
@@ -452,7 +452,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subagent_with_fallback_target() {
-        let es = test_event_store().await;
+        let es = test_activity_log().await;
         let mut tool = DelegateTool::new(es.clone(), "caller".to_string());
         tool.fallback_target = Some("leader".to_string());
 
@@ -542,7 +542,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_actually_sent() {
-        let es = test_event_store().await;
+        let es = test_activity_log().await;
         let tool = DelegateTool::new(es.clone(), "sender".to_string());
 
         let args = serde_json::json!({
@@ -562,7 +562,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dept_prefix_dispatch_sent_to_agent() {
-        let es = test_event_store().await;
+        let es = test_activity_log().await;
         let tool = DelegateTool::new(es.clone(), "leader".to_string());
 
         let args = serde_json::json!({

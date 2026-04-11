@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::agent_registry::AgentRegistry;
-use crate::event_store::EventStore;
+use crate::activity_log::ActivityLog;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
 use crate::scheduler::Scheduler;
@@ -32,13 +32,13 @@ use crate::trigger::TriggerStore;
 /// Replaces the 13 loose parameters previously passed to handle_socket_connection.
 pub struct CommandContext {
     pub metrics: Arc<AEQIMetrics>,
-    pub event_store: Arc<EventStore>,
+    pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
-    pub dispatch_es: Arc<EventStore>,
+    pub dispatch_es: Arc<ActivityLog>,
     pub trigger_store: Option<Arc<TriggerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
-    pub event_buffer: Arc<Mutex<EventBuffer>>,
+    pub activity_buffer: Arc<Mutex<ActivityBuffer>>,
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     pub default_model: String,
     pub session_manager: Arc<SessionManager>,
@@ -49,7 +49,7 @@ pub struct CommandContext {
     pub prompt_loader: Option<Arc<PromptLoader>>,
 }
 
-pub use crate::daemon::EventBuffer;
+pub use crate::daemon::ActivityBuffer;
 
 /// Extract a non-empty string field from a JSON request.
 pub fn request_field<'a>(request: &'a serde_json::Value, key: &str) -> Option<&'a str> {

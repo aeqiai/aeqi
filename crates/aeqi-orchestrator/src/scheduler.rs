@@ -7,7 +7,7 @@
 //! budget, concurrency) live on the agent tree in AgentRegistry.
 //!
 //! Three dispatch paths (all trigger the same schedule() cycle):
-//! 1. **EventStore broadcast** — `quest_created` / `quest_completed` events
+//! 1. **ActivityLog broadcast** — `quest_created` / `quest_completed` events
 //!    push through a `tokio::broadcast` channel for sub-millisecond dispatch.
 //! 2. **Completion channel** — workers report completion via `mpsc` channel,
 //!    immediately triggering re-scheduling for dependent tasks.
@@ -15,7 +15,7 @@
 //!
 //! ```text
 //! Scheduler
-//! ├── event_rx   ← EventStore broadcast (quest_created, quest_completed)
+//! ├── event_rx   ← ActivityLog broadcast (quest_created, quest_completed)
 //! ├── completion_rx ← worker finished (CompletionEvent)
 //! ├── patrol     ← 60s safety net
 //! ├── reap()     → clean finished workers, handle timeouts
@@ -35,8 +35,8 @@ use tracing::{debug, info, warn};
 use crate::agent_registry::AgentRegistry;
 use crate::agent_worker::AgentWorker;
 use crate::escalation::{EscalationPolicy, EscalationTracker};
-use crate::event_store::{EventFilter, EventStore};
-use crate::execution_events::{EventBroadcaster, ExecutionEvent};
+use crate::activity_log::{EventFilter, ActivityLog};
+use crate::activity::{ActivityStream, Activity};
 use crate::metrics::AEQIMetrics;
 use crate::middleware::{
     ClarificationMiddleware, ContextBudgetMiddleware, ContextCompressionMiddleware,
@@ -118,12 +118,12 @@ pub struct Scheduler {
     pub provider: Arc<dyn Provider>,
     pub tools: Vec<Arc<dyn Tool>>,
     pub metrics: Arc<AEQIMetrics>,
-    pub event_broadcaster: Arc<EventBroadcaster>,
+    pub activity_stream: Arc<ActivityStream>,
 
     // Optional services
     pub idea_store: Option<Arc<dyn IdeaStore>>,
     pub reflect_provider: Option<Arc<dyn Provider>>,
-    pub event_store: Arc<EventStore>,
+    pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
     pub session_manager: Option<Arc<SessionManager>>,
     pub trigger_store: Option<Arc<TriggerStore>>,
@@ -135,7 +135,7 @@ pub struct Scheduler {
     escalation_tracker: Mutex<EscalationTracker>,
 
     // Event-driven dispatch channels
-    /// Broadcast receiver for EventStore events (quest_created, quest_completed, etc.)
+    /// Broadcast receiver for ActivityLog events (quest_created, quest_completed, etc.)
     event_rx: Mutex<tokio::sync::broadcast::Receiver<serde_json::Value>>,
     /// Worker completion channel — sender cloned into each spawned worker.
     completion_tx: mpsc::UnboundedSender<CompletionEvent>,
@@ -150,11 +150,11 @@ impl Scheduler {
         provider: Arc<dyn Provider>,
         tools: Vec<Arc<dyn Tool>>,
         metrics: Arc<AEQIMetrics>,
-        event_broadcaster: Arc<EventBroadcaster>,
-        event_store: Arc<EventStore>,
+        activity_stream: Arc<ActivityStream>,
+        activity_log: Arc<ActivityLog>,
     ) -> Self {
-        // Subscribe to the EventStore broadcast for push-based dispatch.
-        let event_rx = event_store.subscribe();
+        // Subscribe to the ActivityLog broadcast for push-based dispatch.
+        let event_rx = activity_log.subscribe();
         let (completion_tx, completion_rx) = mpsc::unbounded_channel();
         Self {
             config,
@@ -162,10 +162,10 @@ impl Scheduler {
             provider,
             tools,
             metrics,
-            event_broadcaster,
+            activity_stream,
             idea_store: None,
             reflect_provider: None,
-            event_store,
+            activity_log,
             session_store: None,
             session_manager: None,
             trigger_store: None,
@@ -188,7 +188,7 @@ impl Scheduler {
 
     /// Run the scheduler loop. Blocks until shutdown.
     ///
-    /// Event-driven: wakes immediately on EventStore broadcasts (quest_created,
+    /// Event-driven: wakes immediately on ActivityLog broadcasts (quest_created,
     /// quest_completed) and worker completion signals.
     /// A 60-second patrol timer acts as a safety net.
     pub async fn run(&self, shutdown: Arc<tokio::sync::Notify>) {
@@ -208,7 +208,7 @@ impl Scheduler {
 
         loop {
             tokio::select! {
-                // Event-driven: wake immediately on relevant EventStore events.
+                // Event-driven: wake immediately on relevant ActivityLog events.
                 result = event_rx.recv() => {
                     match result {
                         Ok(event) => {
@@ -324,8 +324,8 @@ impl Scheduler {
                 continue;
             }
 
-            // Budget check via EventStore.
-            let daily_cost = self.event_store.daily_cost().await.unwrap_or(0.0);
+            // Budget check via ActivityLog.
+            let daily_cost = self.activity_log.daily_cost().await.unwrap_or(0.0);
             if daily_cost >= self.config.daily_budget_usd {
                 debug!(
                     agent = %agent_id,
@@ -338,7 +338,7 @@ impl Scheduler {
 
             // Phase 5: Expertise routing — check if a sibling agent has a better track record.
             // Only reroute if the assigned agent has siblings and expertise data exists.
-            if let Ok(expertise) = self.event_store.query_expertise().await
+            if let Ok(expertise) = self.activity_log.query_expertise().await
                 && let Ok(Some(assigned)) = self.agent_registry.get(&agent_id).await
             {
                 // Find sibling agents (same parent) that could handle this task.
@@ -445,7 +445,7 @@ impl Scheduler {
             warn!(task = %quest_id, agent = %agent_name, timeout, "worker timed out");
 
             let _ = self
-                .event_store
+                .activity_log
                 .emit(
                     "decision",
                     None,
@@ -469,7 +469,7 @@ impl Scheduler {
 
             // Emit event so the broadcast channel triggers re-scheduling.
             let _ = self
-                .event_store
+                .activity_log
                 .emit(
                     "quest_created",
                     None,
@@ -576,7 +576,7 @@ impl Scheduler {
                     cwd,
                     budget,
                     system_prompt.clone(),
-                    self.event_store.clone(),
+                    self.activity_log.clone(),
                 )
             }
             _ => {
@@ -592,7 +592,7 @@ impl Scheduler {
                     self.tools.clone(),
                     system_prompt,
                     model,
-                    self.event_store.clone(),
+                    self.activity_log.clone(),
                 )
             }
         };
@@ -664,7 +664,7 @@ impl Scheduler {
         worker.set_middleware(chain);
 
         // Inject event broadcaster.
-        worker.set_broadcaster(self.event_broadcaster.clone());
+        worker.set_broadcaster(self.activity_stream.clone());
 
         // Inject session store.
         if let Some(ref ss) = self.session_store {
@@ -717,8 +717,8 @@ impl Scheduler {
         let agent_name = agent.name.clone();
         let agent_id_clone = agent_id.clone();
         let registry = self.agent_registry.clone();
-        let spawn_event_store = self.event_store.clone();
-        let event_broadcaster = self.event_broadcaster.clone();
+        let spawn_activity_log = self.activity_log.clone();
+        let activity_stream = self.activity_stream.clone();
         let completion_tx = self.completion_tx.clone();
         let session_manager = self.session_manager.clone();
 
@@ -729,8 +729,8 @@ impl Scheduler {
             // Here we handle cost recording, expertise, and event broadcasting.
             let (outcome_status, cost_usd, steps) = match result {
                 Ok((_task_outcome, runtime_exec, cost, steps)) => {
-                    // Record cost as an event in the unified EventStore.
-                    let _ = spawn_event_store
+                    // Record cost as an event in the unified ActivityLog.
+                    let _ = spawn_activity_log
                         .emit(
                             "cost",
                             Some(&agent_id_clone),
@@ -759,7 +759,7 @@ impl Scheduler {
             };
 
             // Record task completion in unified event store.
-            let _ = spawn_event_store
+            let _ = spawn_activity_log
                 .emit(
                     "quest_completed",
                     Some(&agent_id_clone),
@@ -776,7 +776,7 @@ impl Scheduler {
 
             // Session resolution: notify creator session of task completion.
             if let Some(ref sm) = session_manager
-                && let Ok(events) = spawn_event_store
+                && let Ok(events) = spawn_activity_log
                     .query(
                         &EventFilter {
                             event_type: Some("quest_created".to_string()),
@@ -816,7 +816,7 @@ impl Scheduler {
 
             let _ = registry.record_session(&agent_id_clone, 0).await;
 
-            event_broadcaster.publish(ExecutionEvent::QuestCompleted {
+            activity_stream.publish(Activity::QuestCompleted {
                 quest_id: quest_id.clone(),
                 outcome: outcome_status.to_string(),
                 confidence: 0.0,

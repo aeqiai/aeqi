@@ -1,7 +1,7 @@
 use aeqi_core::chat_stream::ChatStreamEvent;
 /// Real-time execution events streamed from workers to observers.
 ///
-/// Workers publish events through an [`EventBroadcaster`] during quest execution.
+/// Workers publish events through an [`ActivityStream`] during quest execution.
 /// Dashboard WebSocket handlers, logging pipelines, and other consumers subscribe
 /// to receive events as they happen. This replaces polling-based progress tracking
 /// with push-based streaming.
@@ -12,13 +12,13 @@ use tracing::debug;
 use crate::runtime::{RuntimeExecution, RuntimeSession};
 
 // ---------------------------------------------------------------------------
-// ExecutionEvent
+// Activity
 // ---------------------------------------------------------------------------
 
 /// An event emitted during worker quest execution.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event_type")]
-pub enum ExecutionEvent {
+pub enum Activity {
     /// Worker has begun executing a quest.
     QuestStarted {
         #[serde(alias = "task_id")]
@@ -139,8 +139,8 @@ pub enum ExecutionEvent {
     },
 }
 
-impl ExecutionEvent {
-    /// Extract event type, agent_id, quest_id, and content for EventStore persistence.
+impl Activity {
+    /// Extract event type, agent_id, quest_id, and content for ActivityLog persistence.
     fn to_event_fields(&self) -> (String, Option<String>, Option<String>, serde_json::Value) {
         let content = serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
         match self {
@@ -214,7 +214,7 @@ impl ExecutionEvent {
 }
 
 // ---------------------------------------------------------------------------
-// EventBroadcaster
+// ActivityStream
 // ---------------------------------------------------------------------------
 
 /// Broadcast channel for distributing execution events to multiple subscribers.
@@ -222,40 +222,40 @@ impl ExecutionEvent {
 /// Uses `tokio::sync::broadcast` with a fixed capacity. Slow consumers that
 /// fall behind will experience lag (missed events) rather than blocking the
 /// publisher.
-pub struct EventBroadcaster {
-    sender: broadcast::Sender<ExecutionEvent>,
+pub struct ActivityStream {
+    sender: broadcast::Sender<Activity>,
     /// Optional event store for persistence. When set, every published event
     /// is also written to the events table (fire-and-forget).
-    event_store: Option<std::sync::Arc<crate::event_store::EventStore>>,
+    activity_log: Option<std::sync::Arc<crate::activity_log::ActivityLog>>,
 }
 
-impl EventBroadcaster {
+impl ActivityStream {
     /// Create a new broadcaster with capacity 256.
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(256);
         Self {
             sender,
-            event_store: None,
+            activity_log: None,
         }
     }
 
-    /// Attach an EventStore for persistence. Every publish() will also emit
+    /// Attach an ActivityLog for persistence. Every publish() will also emit
     /// to the events table.
-    pub fn set_event_store(&mut self, store: std::sync::Arc<crate::event_store::EventStore>) {
-        self.event_store = Some(store);
+    pub fn set_activity_log(&mut self, store: std::sync::Arc<crate::activity_log::ActivityLog>) {
+        self.activity_log = Some(store);
     }
 
     /// Subscribe to receive execution events.
-    pub fn subscribe(&self) -> broadcast::Receiver<ExecutionEvent> {
+    pub fn subscribe(&self) -> broadcast::Receiver<Activity> {
         self.sender.subscribe()
     }
 
     /// Publish an event to all subscribers and persist to the events table.
     /// Non-blocking; ignores lag errors and silently drops events when there
     /// are no subscribers.
-    pub fn publish(&self, event: ExecutionEvent) {
+    pub fn publish(&self, event: Activity) {
         // Persist to events table (fire-and-forget).
-        if let Some(ref store) = self.event_store {
+        if let Some(ref store) = self.activity_log {
             let store = store.clone();
             let (event_type, agent_id, quest_id, content) = event.to_event_fields();
             tokio::spawn(async move {
@@ -288,7 +288,7 @@ impl EventBroadcaster {
     }
 }
 
-impl Default for EventBroadcaster {
+impl Default for ActivityStream {
     fn default() -> Self {
         Self::new()
     }
@@ -304,10 +304,10 @@ mod tests {
 
     #[tokio::test]
     async fn publish_subscribe_single() {
-        let broadcaster = EventBroadcaster::new();
+        let broadcaster = ActivityStream::new();
         let mut rx = broadcaster.subscribe();
 
-        broadcaster.publish(ExecutionEvent::QuestStarted {
+        broadcaster.publish(Activity::QuestStarted {
             quest_id: "t-1".into(),
             agent: "engineer".into(),
             project: "aeqi".into(),
@@ -316,7 +316,7 @@ mod tests {
 
         let event = rx.recv().await.unwrap();
         match event {
-            ExecutionEvent::QuestStarted {
+            Activity::QuestStarted {
                 quest_id,
                 agent,
                 project,
@@ -332,13 +332,13 @@ mod tests {
 
     #[tokio::test]
     async fn publish_subscribe_multiple() {
-        let broadcaster = EventBroadcaster::new();
+        let broadcaster = ActivityStream::new();
         let mut rx1 = broadcaster.subscribe();
         let mut rx2 = broadcaster.subscribe();
 
         assert_eq!(broadcaster.subscriber_count(), 2);
 
-        broadcaster.publish(ExecutionEvent::Progress {
+        broadcaster.publish(Activity::Progress {
             quest_id: "t-2".into(),
             steps: 3,
             cost_usd: 0.05,
@@ -351,12 +351,12 @@ mod tests {
         // Both subscribers should receive the same event.
         match (&e1, &e2) {
             (
-                ExecutionEvent::Progress {
+                Activity::Progress {
                     quest_id: id1,
                     steps: t1,
                     ..
                 },
-                ExecutionEvent::Progress {
+                Activity::Progress {
                     quest_id: id2,
                     steps: t2,
                     ..
@@ -373,11 +373,11 @@ mod tests {
 
     #[tokio::test]
     async fn publish_no_subscribers_does_not_panic() {
-        let broadcaster = EventBroadcaster::new();
+        let broadcaster = ActivityStream::new();
         assert_eq!(broadcaster.subscriber_count(), 0);
 
         // This must not panic even with zero subscribers.
-        broadcaster.publish(ExecutionEvent::QuestFailed {
+        broadcaster.publish(Activity::QuestFailed {
             quest_id: "t-3".into(),
             reason: "build error".into(),
             artifacts_preserved: false,
@@ -386,7 +386,7 @@ mod tests {
 
         // Still functional after publishing to zero subscribers.
         let mut rx = broadcaster.subscribe();
-        broadcaster.publish(ExecutionEvent::QuestCompleted {
+        broadcaster.publish(Activity::QuestCompleted {
             quest_id: "t-4".into(),
             outcome: "done".into(),
             confidence: 0.95,
@@ -397,12 +397,12 @@ mod tests {
         });
 
         let event = rx.recv().await.unwrap();
-        assert!(matches!(event, ExecutionEvent::QuestCompleted { .. }));
+        assert!(matches!(event, Activity::QuestCompleted { .. }));
     }
 
     #[tokio::test]
     async fn subscriber_count_tracks_correctly() {
-        let broadcaster = EventBroadcaster::new();
+        let broadcaster = ActivityStream::new();
         assert_eq!(broadcaster.subscriber_count(), 0);
 
         let rx1 = broadcaster.subscribe();
@@ -420,7 +420,7 @@ mod tests {
 
     #[tokio::test]
     async fn serialization_round_trip() {
-        let event = ExecutionEvent::ToolCallCompleted {
+        let event = Activity::ToolCallCompleted {
             quest_id: "t-5".into(),
             tool_name: "Read".into(),
             success: true,
@@ -435,16 +435,16 @@ mod tests {
 
     #[tokio::test]
     async fn default_creates_broadcaster() {
-        let broadcaster = EventBroadcaster::default();
+        let broadcaster = ActivityStream::default();
         assert_eq!(broadcaster.subscriber_count(), 0);
 
         let mut rx = broadcaster.subscribe();
-        broadcaster.publish(ExecutionEvent::CheckpointCreated {
+        broadcaster.publish(Activity::CheckpointCreated {
             quest_id: "t-6".into(),
             message: "captured git state".into(),
             runtime: None,
         });
         let event = rx.recv().await.unwrap();
-        assert!(matches!(event, ExecutionEvent::CheckpointCreated { .. }));
+        assert!(matches!(event, Activity::CheckpointCreated { .. }));
     }
 }

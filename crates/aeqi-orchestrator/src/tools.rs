@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::agent_registry::AgentRegistry;
-use crate::event_store::EventStore;
+use crate::activity_log::ActivityLog;
 use aeqi_core::traits::{IdeaStore, IdeaCategory, IdeaQuery};
 
 /// Tool that surfaces OpenRouter key usage and per-project worker execution
@@ -1440,7 +1440,7 @@ pub fn build_orchestration_tools(
     leader_name: String,
     _default_project: String,
     project_name: Option<String>,
-    event_store: Arc<EventStore>,
+    activity_log: Arc<ActivityLog>,
     _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
     api_key: Option<String>,
     memory: Option<Arc<dyn IdeaStore>>,
@@ -1452,7 +1452,7 @@ pub fn build_orchestration_tools(
     default_model: String,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
 ) -> Vec<Arc<dyn Tool>> {
-    let mut delegate_tool = crate::delegate::DelegateTool::new(event_store, leader_name.clone())
+    let mut delegate_tool = crate::delegate::DelegateTool::new(activity_log, leader_name.clone())
         .with_project(project_name)
         .with_agent_registry(agent_registry.clone());
     if let Some(sid) = session_id {

@@ -1,6 +1,6 @@
 //! Chat stream protocol — typed events for real-time CLI/WebSocket chat.
 //!
-//! These events flow from the agent loop through the EventBroadcaster to
+//! These events flow from the agent loop through the ActivityStream to
 //! connected chat clients. Designed for token-by-token text streaming,
 //! tool execution visibility, and agent lifecycle awareness.
 

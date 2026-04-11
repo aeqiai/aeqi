@@ -39,11 +39,11 @@ pub async fn handle_status(
         0
     };
 
-    let spent = ctx.event_store.daily_cost().await.unwrap_or(0.0);
+    let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
     let project_costs = ctx
-        .event_store
+        .activity_log
         .daily_costs_by_project()
         .await
         .unwrap_or_default();
@@ -117,7 +117,7 @@ pub async fn handle_readiness(
         })
         .unwrap_or_default();
     let dispatch_health = ctx.dispatch_es.dispatch_health(ACK_RETRY_AGE_SECS).await;
-    let spent = ctx.event_store.daily_cost().await.unwrap_or(0.0);
+    let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
     crate::daemon::readiness_response(
@@ -158,15 +158,15 @@ pub async fn handle_worker_events(
 ) -> serde_json::Value {
     let cursor = request.get("cursor").and_then(|v| v.as_u64());
     let snapshot = {
-        let buffer: tokio::sync::MutexGuard<'_, super::EventBuffer> = ctx.event_buffer.lock().await;
+        let buffer: tokio::sync::MutexGuard<'_, super::ActivityBuffer> = ctx.activity_buffer.lock().await;
         buffer.read_since(cursor)
     };
-    let events: Vec<crate::execution_events::ExecutionEvent> = if allowed.is_some() {
+    let events: Vec<crate::activity::Activity> = if allowed.is_some() {
         snapshot
             .events
             .into_iter()
             .filter(|ev| match ev {
-                crate::execution_events::ExecutionEvent::QuestStarted { project, .. } => {
+                crate::activity::Activity::QuestStarted { project, .. } => {
                     is_allowed(allowed, project)
                 }
                 _ => false,
@@ -198,11 +198,11 @@ pub async fn handle_cost(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let spent = ctx.event_store.daily_cost().await.unwrap_or(0.0);
+    let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
     let report = ctx
-        .event_store
+        .activity_log
         .daily_costs_by_project()
         .await
         .unwrap_or_default();
@@ -257,12 +257,12 @@ pub async fn handle_audit(
         .and_then(|v| v.as_str())
         .map(String::from);
     let last = request.get("last").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
-    let filter = crate::event_store::EventFilter {
+    let filter = crate::activity_log::EventFilter {
         event_type: Some("decision".to_string()),
         quest_id: task_filter,
         ..Default::default()
     };
-    match ctx.event_store.query(&filter, last, 0).await {
+    match ctx.activity_log.query(&filter, last, 0).await {
         Ok(events) => {
             let items: Vec<serde_json::Value> = events
                 .iter()
@@ -299,7 +299,7 @@ pub async fn handle_expertise(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    match ctx.event_store.query_expertise().await {
+    match ctx.activity_log.query_expertise().await {
         Ok(scores) => {
             let scores: Vec<serde_json::Value> = if allowed.is_some() {
                 scores

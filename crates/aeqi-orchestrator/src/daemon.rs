@@ -7,9 +7,9 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
-use crate::event_store::EventStore;
-use crate::event_store::{Dispatch, DispatchHealth, DispatchKind};
-use crate::execution_events::{EventBroadcaster, ExecutionEvent};
+use crate::activity_log::ActivityLog;
+use crate::activity_log::{Dispatch, DispatchHealth, DispatchKind};
+use crate::activity::{ActivityStream, Activity};
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
 use crate::progress_tracker::ProgressTracker;
@@ -30,30 +30,30 @@ pub struct ReadinessContext {
 }
 
 #[derive(Debug, Clone)]
-struct BufferedExecutionEvent {
+struct BufferedActivity {
     cursor: u64,
-    event: ExecutionEvent,
+    event: Activity,
 }
 
 #[derive(Debug, Clone)]
 pub struct EventReadResult {
-    pub events: Vec<ExecutionEvent>,
+    pub events: Vec<Activity>,
     pub next_cursor: u64,
     pub oldest_cursor: u64,
     pub reset: bool,
 }
 
 #[derive(Debug, Default)]
-pub struct EventBuffer {
+pub struct ActivityBuffer {
     next_cursor: u64,
-    events: Vec<BufferedExecutionEvent>,
+    events: Vec<BufferedActivity>,
 }
 
-impl EventBuffer {
-    fn push(&mut self, event: ExecutionEvent) {
+impl ActivityBuffer {
+    fn push(&mut self, event: Activity) {
         let cursor = self.next_cursor;
         self.next_cursor = self.next_cursor.saturating_add(1);
-        self.events.push(BufferedExecutionEvent { cursor, event });
+        self.events.push(BufferedActivity { cursor, event });
 
         let overflow = self.events.len().saturating_sub(MAX_EVENT_BUFFER_LEN);
         if overflow > 0 {
@@ -208,7 +208,7 @@ pub fn attach_chat_id(mut payload: serde_json::Value, chat_id: i64) -> serde_jso
 /// Avoids passing many individual parameters to socket_accept_loop / handle_socket_connection.
 struct IpcContext {
     metrics: Arc<AEQIMetrics>,
-    event_store: Arc<EventStore>,
+    activity_log: Arc<ActivityLog>,
     session_store: Option<Arc<SessionStore>>,
     leader_agent_name: String,
     daily_budget_usd: f64,
@@ -220,7 +220,7 @@ struct IpcContext {
 /// and trigger system.
 pub struct Daemon {
     pub metrics: Arc<AEQIMetrics>,
-    pub event_store: Arc<EventStore>,
+    pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
     pub leader_agent_name: String,
     pub shared_primer: Option<String>,
@@ -231,10 +231,10 @@ pub struct Daemon {
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub write_queue: Arc<std::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
-    pub event_broadcaster: Arc<EventBroadcaster>,
+    pub activity_stream: Arc<ActivityStream>,
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     pub default_model: String,
-    event_buffer: Arc<Mutex<EventBuffer>>,
+    activity_buffer: Arc<Mutex<ActivityBuffer>>,
     pub session_manager: Arc<SessionManager>,
     pub pid_file: Option<PathBuf>,
     pub socket_path: Option<PathBuf>,
@@ -258,11 +258,11 @@ impl Daemon {
         metrics: Arc<AEQIMetrics>,
         scheduler: Arc<Scheduler>,
         agent_registry: Arc<AgentRegistry>,
-        event_store: Arc<EventStore>,
+        activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
             metrics,
-            event_store,
+            activity_log,
             session_store: None,
             leader_agent_name: String::new(),
             shared_primer: None,
@@ -275,10 +275,10 @@ impl Daemon {
             write_queue: Arc::new(std::sync::Mutex::new(
                 aeqi_ideas::debounce::WriteQueue::default(),
             )),
-            event_broadcaster: Arc::new(EventBroadcaster::new()),
+            activity_stream: Arc::new(ActivityStream::new()),
             default_provider: None,
             default_model: String::new(),
-            event_buffer: Arc::new(Mutex::new(EventBuffer::default())),
+            activity_buffer: Arc::new(Mutex::new(ActivityBuffer::default())),
             session_manager: Arc::new(SessionManager::new()),
             pid_file: None,
             socket_path: None,
@@ -346,7 +346,7 @@ impl Daemon {
         {
             Ok(task) => {
                 let _ = self
-                    .event_store
+                    .activity_log
                     .emit(
                         "quest_created",
                         Some(&trigger.agent_id),
@@ -406,10 +406,10 @@ impl Daemon {
                 continue;
             }
 
-            let dispatches = self.event_store.read(&agent.name).await;
+            let dispatches = self.activity_log.read(&agent.name).await;
             if dispatches.is_empty() {
                 // Also check by agent UUID (dispatches may be addressed by ID).
-                let id_dispatches = self.event_store.read(&agent.id).await;
+                let id_dispatches = self.activity_log.read(&agent.id).await;
                 if id_dispatches.is_empty() {
                     continue;
                 }
@@ -438,7 +438,7 @@ impl Daemon {
         agent_id: &str,
         agent_name: &str,
         project: &Option<String>,
-        dispatches: &[crate::event_store::Dispatch],
+        dispatches: &[crate::activity_log::Dispatch],
     ) {
         let _project = match project {
             Some(p) => p.clone(),
@@ -450,7 +450,7 @@ impl Daemon {
 
         for dispatch in dispatches {
             if dispatch.requires_ack {
-                self.event_store.acknowledge(&dispatch.id).await;
+                self.activity_log.acknowledge(&dispatch.id).await;
             }
 
             match &dispatch.kind {
@@ -496,7 +496,7 @@ impl Daemon {
                     {
                         Ok(task) => {
                             let _ = self
-                                .event_store
+                                .activity_log
                                 .emit(
                                     "quest_created",
                                     Some(agent_id),
@@ -548,7 +548,7 @@ impl Daemon {
                     let mut rerouted = dispatch.clone();
                     rerouted.to = self.leader_agent_name.clone();
                     rerouted.read = false;
-                    self.event_store.send(rerouted).await;
+                    self.activity_log.send(rerouted).await;
                 }
             }
         }
@@ -717,8 +717,8 @@ impl Daemon {
         if let Some(ref trigger_store) = self.trigger_store {
             let ts = trigger_store.clone();
             let agent_reg = self.agent_registry.clone();
-            let dispatch_es = self.event_store.clone();
-            let mut rx = self.event_broadcaster.subscribe();
+            let dispatch_es = self.activity_log.clone();
+            let mut rx = self.activity_stream.subscribe();
             tokio::spawn(async move {
                 let mut cooldowns: std::collections::HashMap<String, chrono::DateTime<Utc>> =
                     std::collections::HashMap::new();
@@ -764,7 +764,7 @@ impl Daemon {
                             let subject = format!("[trigger:{}] {}", trigger.name, trigger.skill);
                             let mut delegation_labels: Vec<String> = Vec::new();
                             let dispatch_context =
-                                if let crate::execution_events::ExecutionEvent::DispatchReceived {
+                                if let crate::activity::Activity::DispatchReceived {
                                     ref to_agent,
                                     ..
                                 } = event
@@ -859,13 +859,13 @@ impl Daemon {
 
         // Execution event buffer — collects events for the event buffer API.
         {
-            let event_buffer = self.event_buffer.clone();
-            let mut rx = self.event_broadcaster.subscribe();
+            let activity_buffer = self.activity_buffer.clone();
+            let mut rx = self.activity_stream.subscribe();
             tokio::spawn(async move {
                 loop {
                     match rx.recv().await {
                         Ok(event) => {
-                            let mut buffer = event_buffer.lock().await;
+                            let mut buffer = activity_buffer.lock().await;
                             buffer.push(event);
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -896,24 +896,24 @@ impl Daemon {
             Ok(listener) => {
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
-                    event_store: self.event_store.clone(),
+                    activity_log: self.activity_log.clone(),
                     session_store: self.session_store.clone(),
                     leader_agent_name: self.leader_agent_name.clone(),
                     daily_budget_usd: self.daily_budget_usd,
                     project_budgets: self.project_budgets.clone(),
                     prompt_loader: self.prompt_loader.clone(),
                 });
-                let dispatch_es = self.event_store.clone();
+                let dispatch_es = self.activity_log.clone();
                 let trigger_store = self.trigger_store.clone();
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
-                let event_buffer = self.event_buffer.clone();
+                let activity_buffer = self.activity_buffer.clone();
                 let running = self.running.clone();
                 let readiness = self.readiness.clone();
                 let default_provider = self.default_provider.clone();
                 let default_model = self.default_model.clone();
                 let session_manager = self.session_manager.clone();
-                let event_broadcaster = self.event_broadcaster.clone();
+                let activity_stream = self.activity_stream.clone();
                 let scheduler = self.scheduler.clone();
                 info!(path = %sock_path.display(), "IPC socket listening");
                 tokio::spawn(async move {
@@ -924,13 +924,13 @@ impl Daemon {
                         trigger_store,
                         agent_registry,
                         message_router,
-                        event_buffer,
+                        activity_buffer,
                         running,
                         readiness,
                         default_provider,
                         default_model,
                         session_manager,
-                        event_broadcaster,
+                        activity_stream,
                         scheduler,
                     )
                     .await;
@@ -949,12 +949,12 @@ impl Daemon {
 
     /// Load persisted state (dispatch bus, cost ledger) from disk.
     async fn load_persisted_state(&self) {
-        match self.event_store.load_dispatches().await {
+        match self.activity_log.load_dispatches().await {
             Ok(n) if n > 0 => info!(count = n, "loaded persisted dispatches"),
             Ok(_) => {}
             Err(e) => warn!(error = %e, "failed to load dispatch bus"),
         }
-        // Cost entries are now stored in EventStore (SQLite) — no JSONL load needed.
+        // Cost entries are now stored in ActivityLog (SQLite) — no JSONL load needed.
     }
 
     /// Run one patrol iteration: triggers, config reload, persistence, metrics, pruning.
@@ -997,13 +997,13 @@ impl Daemon {
         }
 
         // 4. Periodic persistence: save dispatch bus every patrol.
-        //    Cost entries are persisted automatically via EventStore (SQLite).
-        if let Err(e) = self.event_store.save_dispatches().await {
+        //    Cost entries are persisted automatically via ActivityLog (SQLite).
+        if let Err(e) = self.activity_log.save_dispatches().await {
             warn!(error = %e, "failed to save dispatch bus");
         }
 
         // 5. Surface dispatch retries / dead letters for critical dispatches.
-        let retried = self.event_store.retry_unacked(ACK_RETRY_AGE_SECS).await;
+        let retried = self.activity_log.retry_unacked(ACK_RETRY_AGE_SECS).await;
         for dispatch in &retried {
             warn!(
                 to = %dispatch.to,
@@ -1013,7 +1013,7 @@ impl Daemon {
             );
         }
         self.metrics.dispatch_retries.inc_by(retried.len() as u64);
-        let dead_letters = self.event_store.dead_letters().await;
+        let dead_letters = self.activity_log.dead_letters().await;
         for dispatch in &dead_letters {
             warn!(
                 to = %dispatch.to,
@@ -1024,9 +1024,9 @@ impl Daemon {
         }
 
         // 6. Update daily cost gauge and dispatch health metrics.
-        let spent = self.event_store.daily_cost().await.unwrap_or(0.0);
+        let spent = self.activity_log.daily_cost().await.unwrap_or(0.0);
         self.metrics.daily_cost_usd.set(spent);
-        let dispatch_health = self.event_store.dispatch_health(ACK_RETRY_AGE_SECS).await;
+        let dispatch_health = self.activity_log.dispatch_health(ACK_RETRY_AGE_SECS).await;
         self.metrics
             .dispatch_queue_depth
             .set(dispatch_health.unread as f64);
@@ -1042,7 +1042,7 @@ impl Daemon {
 
         // 7. Prune old cost events (older than 7 days).
         let cutoff = chrono::Utc::now() - chrono::Duration::days(7);
-        if let Err(e) = self.event_store.prune("cost", &cutoff).await {
+        if let Err(e) = self.activity_log.prune("cost", &cutoff).await {
             warn!(error = %e, "failed to prune old cost events");
         }
 
@@ -1126,12 +1126,12 @@ impl Daemon {
 
     /// The main patrol loop: event-driven with a safety-net patrol timer.
     ///
-    /// Primary dispatch is push-based via EventStore broadcast: when quest_created
+    /// Primary dispatch is push-based via ActivityLog broadcast: when quest_created
     /// or quest_completed events arrive, schedule() runs immediately (sub-ms).
     /// The full patrol iteration (triggers, metrics, pruning, etc.) runs on a
     /// 60-second timer as housekeeping.
     async fn run_patrol_loop(&mut self) {
-        let mut event_rx = self.event_store.subscribe();
+        let mut event_rx = self.activity_log.subscribe();
         let mut patrol = tokio::time::interval(std::time::Duration::from_secs(60));
         // Run an initial full patrol iteration on startup.
         self.run_patrol_iteration().await;
@@ -1187,17 +1187,17 @@ impl Daemon {
     async fn socket_accept_loop(
         listener: tokio::net::UnixListener,
         ipc_ctx: Arc<IpcContext>,
-        dispatch_es: Arc<EventStore>,
+        dispatch_es: Arc<ActivityLog>,
         trigger_store: Option<Arc<TriggerStore>>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
-        event_buffer: Arc<Mutex<EventBuffer>>,
+        activity_buffer: Arc<Mutex<ActivityBuffer>>,
         running: Arc<std::sync::atomic::AtomicBool>,
         readiness: ReadinessContext,
         default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
         default_model: String,
         session_manager: Arc<SessionManager>,
-        event_broadcaster: Arc<EventBroadcaster>,
+        activity_stream: Arc<ActivityStream>,
         scheduler: Arc<Scheduler>,
     ) {
         loop {
@@ -1211,12 +1211,12 @@ impl Daemon {
                     let trigger_store = trigger_store.clone();
                     let agent_registry = agent_registry.clone();
                     let message_router = message_router.clone();
-                    let event_buffer = event_buffer.clone();
+                    let activity_buffer = activity_buffer.clone();
                     let readiness = readiness.clone();
                     let default_provider = default_provider.clone();
                     let default_model = default_model.clone();
                     let session_manager = session_manager.clone();
-                    let event_broadcaster = event_broadcaster.clone();
+                    let activity_stream = activity_stream.clone();
                     let scheduler = scheduler.clone();
                     tokio::spawn(async move {
                         if let Err(e) = Self::handle_socket_connection(
@@ -1226,12 +1226,12 @@ impl Daemon {
                             trigger_store,
                             agent_registry,
                             message_router,
-                            event_buffer,
+                            activity_buffer,
                             readiness,
                             default_provider,
                             default_model,
                             session_manager,
-                            event_broadcaster,
+                            activity_stream,
                             scheduler,
                         )
                         .await
@@ -1254,16 +1254,16 @@ impl Daemon {
     async fn handle_socket_connection(
         stream: tokio::net::UnixStream,
         ipc_ctx: Arc<IpcContext>,
-        dispatch_es: Arc<EventStore>,
+        dispatch_es: Arc<ActivityLog>,
         trigger_store: Option<Arc<TriggerStore>>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
-        event_buffer: Arc<Mutex<EventBuffer>>,
+        activity_buffer: Arc<Mutex<ActivityBuffer>>,
         readiness: ReadinessContext,
         default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
         default_model: String,
         session_manager: Arc<SessionManager>,
-        _event_broadcaster: Arc<EventBroadcaster>,
+        _activity_stream: Arc<ActivityStream>,
         scheduler: Arc<Scheduler>,
     ) -> Result<()> {
         const MAX_IPC_LINE_BYTES: usize = 10 * 1024 * 1024; // 10 MB
@@ -1330,13 +1330,13 @@ impl Daemon {
 
             let ctx = crate::ipc::CommandContext {
                 metrics: ipc_ctx.metrics.clone(),
-                event_store: ipc_ctx.event_store.clone(),
+                activity_log: ipc_ctx.activity_log.clone(),
                 session_store: ipc_ctx.session_store.clone(),
                 dispatch_es: dispatch_es.clone(),
                 trigger_store: trigger_store.clone(),
                 agent_registry: agent_registry.clone(),
                 message_router: message_router.clone(),
-                event_buffer: event_buffer.clone(),
+                activity_buffer: activity_buffer.clone(),
                 default_provider: default_provider.clone(),
                 default_model: default_model.clone(),
                 session_manager: session_manager.clone(),
@@ -1872,7 +1872,7 @@ impl Daemon {
                                         )
                                         .await;
                                         let _ = ipc_ctx
-                                            .event_store
+                                            .activity_log
                                             .record_cost(
                                                 &agent_hint,
                                                 &resolved_session_id,
@@ -1946,7 +1946,7 @@ impl Daemon {
                                         )
                                         .await;
                                         let _ = ipc_ctx
-                                            .event_store
+                                            .activity_log
                                             .record_cost(
                                                 &agent_hint,
                                                 &resolved_session_id,
@@ -2179,7 +2179,7 @@ impl Daemon {
                                     )
                                     .await;
                                     let _ = ipc_ctx
-                                        .event_store
+                                        .activity_log
                                         .record_cost(
                                             &agent_hint,
                                             &session_id,
@@ -2436,7 +2436,7 @@ pub fn readiness_response(
 #[cfg(test)]
 mod tests {
     use super::{
-        DispatchHealth, EventBuffer, ExecutionEvent, ReadinessContext, readiness_response,
+        DispatchHealth, ActivityBuffer, Activity, ReadinessContext, readiness_response,
         resolve_web_chat_id,
     };
     use crate::session_store::{agency_chat_id, named_channel_chat_id, project_chat_id};
@@ -2525,15 +2525,15 @@ mod tests {
     }
 
     #[test]
-    fn event_buffer_supports_independent_cursors() {
-        let mut buffer = EventBuffer::default();
-        buffer.push(ExecutionEvent::QuestStarted {
+    fn activity_buffer_supports_independent_cursors() {
+        let mut buffer = ActivityBuffer::default();
+        buffer.push(Activity::QuestStarted {
             quest_id: "t-1".into(),
             agent: "engineer".into(),
             project: "aeqi".into(),
             runtime_session: None,
         });
-        buffer.push(ExecutionEvent::QuestCompleted {
+        buffer.push(Activity::QuestCompleted {
             quest_id: "t-1".into(),
             outcome: "done".into(),
             confidence: 1.0,
@@ -2550,7 +2550,7 @@ mod tests {
         assert_eq!(client_a.next_cursor, 2);
         assert_eq!(client_b.next_cursor, 2);
 
-        buffer.push(ExecutionEvent::Progress {
+        buffer.push(Activity::Progress {
             quest_id: "t-2".into(),
             steps: 1,
             cost_usd: 0.05,
@@ -2564,10 +2564,10 @@ mod tests {
     }
 
     #[test]
-    fn event_buffer_flags_cursor_resets_after_truncation() {
-        let mut buffer = EventBuffer::default();
+    fn activity_buffer_flags_cursor_resets_after_truncation() {
+        let mut buffer = ActivityBuffer::default();
         for i in 0..(super::MAX_EVENT_BUFFER_LEN + 5) {
-            buffer.push(ExecutionEvent::Progress {
+            buffer.push(Activity::Progress {
                 quest_id: format!("t-{i}"),
                 steps: i as u32,
                 cost_usd: i as f64,

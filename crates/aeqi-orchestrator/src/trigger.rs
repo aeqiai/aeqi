@@ -7,7 +7,7 @@
 //! Trigger types:
 //! - Schedule: cron expression ("0 9 * * *") or interval ("every 1h")
 //! - Once: fire at a specific time, then auto-disable
-//! - Event: pattern match on ExecutionEvent with mandatory cooldown
+//! - Event: pattern match on Activity with mandatory cooldown
 
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Timelike, Utc};
@@ -49,7 +49,7 @@ pub enum TriggerType {
     /// One-shot: fire once at a specific time, then auto-disable.
     #[serde(rename = "once")]
     Once { at: DateTime<Utc> },
-    /// Event-driven: pattern match on ExecutionEvent with mandatory cooldown.
+    /// Event-driven: pattern match on Activity with mandatory cooldown.
     #[serde(rename = "event")]
     Event {
         pattern: EventPattern,
@@ -379,26 +379,26 @@ impl EventPattern {
     /// Note: QuestCompleted/QuestFailed events don't carry a project field,
     /// so project filters match against the task_id prefix convention
     /// (task IDs are formatted as "project:counter").
-    pub fn matches_event(&self, event: &crate::execution_events::ExecutionEvent) -> bool {
-        use crate::execution_events::ExecutionEvent;
+    pub fn matches_event(&self, event: &crate::activity::Activity) -> bool {
+        use crate::activity::Activity;
         match (self, event) {
             (
                 EventPattern::QuestCompleted { project },
-                ExecutionEvent::QuestCompleted { quest_id, .. },
+                Activity::QuestCompleted { quest_id, .. },
             ) => match project {
                 Some(p) => quest_id.starts_with(&format!("{p}:")),
                 None => true,
             },
             (
                 EventPattern::QuestFailed { project },
-                ExecutionEvent::QuestFailed { quest_id, .. },
+                Activity::QuestFailed { quest_id, .. },
             ) => match project {
                 Some(p) => quest_id.starts_with(&format!("{p}:")),
                 None => true,
             },
             (
                 EventPattern::ToolCallCompleted { tool },
-                ExecutionEvent::ToolCallCompleted { tool_name, .. },
+                Activity::ToolCallCompleted { tool_name, .. },
             ) => match tool {
                 Some(t) => tool_name == t,
                 None => true,
@@ -408,7 +408,7 @@ impl EventPattern {
                     key_pattern,
                     scope: pattern_scope,
                 },
-                ExecutionEvent::MemoryStored { key, scope, .. },
+                Activity::MemoryStored { key, scope, .. },
             ) => {
                 let key_match = key_pattern
                     .as_ref()
@@ -423,7 +423,7 @@ impl EventPattern {
                     key_pattern,
                     project: pattern_project,
                 },
-                ExecutionEvent::NotePosted { key, project, .. },
+                Activity::NotePosted { key, project, .. },
             ) => {
                 let key_match = key_pattern
                     .as_ref()
@@ -436,7 +436,7 @@ impl EventPattern {
                     project: pattern_project,
                     threshold_usd,
                 },
-                ExecutionEvent::BudgetExceeded {
+                Activity::BudgetExceeded {
                     project,
                     current_usd,
                     ..
@@ -447,7 +447,7 @@ impl EventPattern {
                     agent_id: pattern_agent,
                     idle_secs: threshold,
                 },
-                ExecutionEvent::AgentIdle {
+                Activity::AgentIdle {
                     agent_id,
                     idle_secs,
                 },
@@ -461,7 +461,7 @@ impl EventPattern {
                     to_agent: pattern_to,
                     kind: pattern_kind,
                 },
-                ExecutionEvent::DispatchReceived {
+                Activity::DispatchReceived {
                     from_agent,
                     to_agent,
                     kind,
@@ -477,7 +477,7 @@ impl EventPattern {
                     channel_name: pattern_channel,
                     from_agent: pattern_from,
                 },
-                ExecutionEvent::ChannelMessage {
+                Activity::ChannelMessage {
                     channel_name,
                     from_agent,
                     ..

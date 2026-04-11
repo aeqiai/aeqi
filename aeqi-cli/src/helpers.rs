@@ -522,7 +522,7 @@ pub(crate) async fn handle_fast_lane(
              /help — This message"
             .to_string(),
         "/cost" => {
-            let spent = scheduler.event_store.daily_cost().await.unwrap_or(0.0);
+            let spent = scheduler.activity_log.daily_cost().await.unwrap_or(0.0);
             let budget = scheduler.config.daily_budget_usd;
             let remaining = (budget - spent).max(0.0);
             format!(

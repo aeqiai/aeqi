@@ -188,7 +188,7 @@ impl Dispatch {
         self
     }
 
-    /// Serialize this dispatch to JSON content for EventStore storage.
+    /// Serialize this dispatch to JSON content for ActivityLog storage.
     fn to_event_content(&self) -> serde_json::Value {
         let kind_json = serde_json::to_value(&self.kind).unwrap_or_default();
         serde_json::json!({
@@ -282,37 +282,37 @@ pub struct EventFilter {
 }
 
 /// The unified event store, backed by a shared SQLite connection.
-pub struct EventStore {
+pub struct ActivityLog {
     db: Arc<crate::agent_registry::ConnectionPool>,
     /// TTL for dispatch pruning (seconds).
     dispatch_ttl_secs: std::sync::atomic::AtomicU64,
     /// Max queue depth per recipient (soft limit).
     dispatch_max_queue: usize,
     /// Optional event broadcaster for emitting DispatchReceived events.
-    event_broadcaster: std::sync::RwLock<Option<Arc<crate::execution_events::EventBroadcaster>>>,
+    activity_stream: std::sync::RwLock<Option<Arc<crate::activity::ActivityStream>>>,
     /// Broadcast channel for push-based event dispatch (scheduler subscribes).
     broadcast_tx: tokio::sync::broadcast::Sender<serde_json::Value>,
 }
 
-impl EventStore {
-    /// Create an EventStore sharing a connection pool (from AgentRegistry).
+impl ActivityLog {
+    /// Create an ActivityLog sharing a connection pool (from AgentRegistry).
     pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             db,
             dispatch_ttl_secs: std::sync::atomic::AtomicU64::new(3600),
             dispatch_max_queue: 1000,
-            event_broadcaster: std::sync::RwLock::new(None),
+            activity_stream: std::sync::RwLock::new(None),
             broadcast_tx,
         }
     }
 
     /// Set the event broadcaster for emitting DispatchReceived events.
-    pub fn set_event_broadcaster(
+    pub fn set_activity_stream(
         &self,
-        broadcaster: Arc<crate::execution_events::EventBroadcaster>,
+        broadcaster: Arc<crate::activity::ActivityStream>,
     ) {
-        if let Ok(mut guard) = self.event_broadcaster.write() {
+        if let Ok(mut guard) = self.activity_stream.write() {
             *guard = Some(broadcaster);
         }
     }
@@ -332,7 +332,7 @@ impl EventStore {
     /// Create the events table and indexes. Called during AgentRegistry::open().
     pub fn create_tables(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS events (
+            "CREATE TABLE IF NOT EXISTS activity (
                  id TEXT PRIMARY KEY,
                  type TEXT NOT NULL,
                  agent_id TEXT,
@@ -341,18 +341,18 @@ impl EventStore {
                  content TEXT NOT NULL DEFAULT '{}',
                  created_at TEXT NOT NULL
              );
-             CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
-             CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
-             CREATE INDEX IF NOT EXISTS idx_events_quest ON events(quest_id);
-             CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);",
+             CREATE INDEX IF NOT EXISTS idx_activity_type ON activity(type);
+             CREATE INDEX IF NOT EXISTS idx_activity_agent ON activity(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_activity_session ON activity(session_id);
+             CREATE INDEX IF NOT EXISTS idx_activity_quest ON activity(quest_id);
+             CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at);",
         )?;
 
         // FTS5 for full-text search over event content.
         // Ignore errors (FTS5 may not be compiled in on all platforms).
         let _ = conn.execute_batch(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS events_fts
-                 USING fts5(content, content=events, content_rowid=rowid);",
+            "CREATE VIRTUAL TABLE IF NOT EXISTS activity_fts
+                 USING fts5(content, content=activity, content_rowid=rowid);",
         );
 
         Ok(())
@@ -373,7 +373,7 @@ impl EventStore {
 
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO events (id, type, agent_id, session_id, quest_id, content, created_at)
+            "INSERT INTO activity (id, type, agent_id, session_id, quest_id, content, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 id,
@@ -402,7 +402,7 @@ impl EventStore {
     /// Query events with filters.
     pub async fn query(&self, filter: &EventFilter, limit: u32, offset: u32) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
-        let mut sql = String::from("SELECT * FROM events WHERE 1=1");
+        let mut sql = String::from("SELECT * FROM activity WHERE 1=1");
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
         let mut idx = 1;
 
@@ -468,12 +468,12 @@ impl EventStore {
         let sql = if since.is_some() {
             format!(
                 "SELECT COALESCE(SUM(json_extract(content, '{json_path}')), 0.0)
-                 FROM events WHERE type = ?1 AND created_at >= ?2"
+                 FROM activity WHERE type = ?1 AND created_at >= ?2"
             )
         } else {
             format!(
                 "SELECT COALESCE(SUM(json_extract(content, '{json_path}')), 0.0)
-                 FROM events WHERE type = ?1"
+                 FROM activity WHERE type = ?1"
             )
         };
 
@@ -507,9 +507,9 @@ impl EventStore {
     pub async fn search(&self, query_text: &str, limit: u32) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT e.* FROM events e
-             JOIN events_fts f ON e.rowid = f.rowid
-             WHERE events_fts MATCH ?1
+            "SELECT e.* FROM activity e
+             JOIN activity_fts f ON e.rowid = f.rowid
+             WHERE activity_fts MATCH ?1
              ORDER BY rank LIMIT ?2",
         )?;
         let events = stmt
@@ -524,7 +524,7 @@ impl EventStore {
         let content_str = serde_json::to_string(content)?;
         let db = self.db.lock().await;
         let updated = db.execute(
-            "UPDATE events SET content = ?1 WHERE id = ?2",
+            "UPDATE activity SET content = ?1 WHERE id = ?2",
             params![content_str, event_id],
         )?;
         if updated == 0 {
@@ -538,13 +538,13 @@ impl EventStore {
         let db = self.db.lock().await;
         let count: i64 = if let Some(since_dt) = since {
             db.query_row(
-                "SELECT COUNT(*) FROM events WHERE type = ?1 AND created_at >= ?2",
+                "SELECT COUNT(*) FROM activity WHERE type = ?1 AND created_at >= ?2",
                 params![event_type, since_dt.to_rfc3339()],
                 |row| row.get(0),
             )?
         } else {
             db.query_row(
-                "SELECT COUNT(*) FROM events WHERE type = ?1",
+                "SELECT COUNT(*) FROM activity WHERE type = ?1",
                 params![event_type],
                 |row| row.get(0),
             )?
@@ -560,7 +560,7 @@ impl EventStore {
                     SUM(CASE WHEN json_extract(content, '$.outcome') = 'done' THEN 1 ELSE 0 END) as wins,
                     COUNT(*) as total,
                     AVG(json_extract(content, '$.cost_usd')) as avg_cost
-             FROM events WHERE type = 'task_completed'
+             FROM activity WHERE type = 'task_completed'
              GROUP BY agent ORDER BY wins DESC",
         )?;
         let rows = stmt
@@ -630,7 +630,7 @@ impl EventStore {
         let mut stmt = db.prepare(
             "SELECT json_extract(content, '$.project') as project,
                     SUM(json_extract(content, '$.cost_usd')) as total
-             FROM events WHERE type = 'cost' AND created_at >= ?1
+             FROM activity WHERE type = 'cost' AND created_at >= ?1
              GROUP BY project",
         )?;
         let rows: Vec<(String, f64)> = stmt
@@ -655,7 +655,7 @@ impl EventStore {
         let db = self.db.lock().await;
         let result: f64 = db.query_row(
             "SELECT COALESCE(SUM(json_extract(content, '$.cost_usd')), 0.0)
-             FROM events WHERE type = 'cost'
+             FROM activity WHERE type = 'cost'
              AND json_extract(content, '$.project') = ?1
              AND created_at >= ?2",
             params![project, today_str],
@@ -668,7 +668,7 @@ impl EventStore {
     pub async fn prune(&self, event_type: &str, older_than: &DateTime<Utc>) -> Result<u64> {
         let db = self.db.lock().await;
         let deleted = db.execute(
-            "DELETE FROM events WHERE type = ?1 AND created_at < ?2",
+            "DELETE FROM activity WHERE type = ?1 AND created_at < ?2",
             params![event_type, older_than.to_rfc3339()],
         )?;
         Ok(deleted as u64)
@@ -689,7 +689,7 @@ impl EventStore {
         {
             let db = self.db.lock().await;
             let exists: bool = db.query_row(
-                "SELECT COUNT(*) > 0 FROM events
+                "SELECT COUNT(*) > 0 FROM activity
                      WHERE type = 'dispatch'
                      AND json_extract(content, '$.idempotency_key') = ?1",
                 params![key],
@@ -711,7 +711,7 @@ impl EventStore {
 
         // Find unread dispatches addressed to this recipient.
         let mut stmt = db.prepare(
-            "SELECT * FROM events
+            "SELECT * FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.to') = ?1
              AND json_extract(content, '$.status') = 'pending'
@@ -725,7 +725,7 @@ impl EventStore {
         // Mark them as read.
         for event in &events {
             let _ = db.execute(
-                "UPDATE events SET content = json_set(content, '$.status', 'read')
+                "UPDATE activity SET content = json_set(content, '$.status', 'read')
                  WHERE id = ?1",
                 params![event.id],
             );
@@ -738,7 +738,7 @@ impl EventStore {
     pub async fn acknowledge_dispatch(&self, dispatch_id: &str) -> Result<()> {
         let db = self.db.lock().await;
         db.execute(
-            "UPDATE events SET content = json_set(
+            "UPDATE activity SET content = json_set(
                 json_set(content, '$.status', 'acked'),
                 '$.requires_ack', json('false')
              )
@@ -753,7 +753,7 @@ impl EventStore {
     pub async fn all_dispatches(&self) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
         let mut stmt =
-            db.prepare("SELECT * FROM events WHERE type = 'dispatch' ORDER BY created_at ASC")?;
+            db.prepare("SELECT * FROM activity WHERE type = 'dispatch' ORDER BY created_at ASC")?;
         let events = stmt
             .query_map([], |row| Ok(row_to_event(row)))?
             .filter_map(|r| r.ok())
@@ -765,7 +765,7 @@ impl EventStore {
     pub async fn drain_dispatches(&self) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT * FROM events
+            "SELECT * FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.status') = 'pending'
              ORDER BY created_at ASC",
@@ -777,7 +777,7 @@ impl EventStore {
 
         for event in &events {
             let _ = db.execute(
-                "UPDATE events SET content = json_set(content, '$.status', 'read')
+                "UPDATE activity SET content = json_set(content, '$.status', 'read')
                  WHERE id = ?1",
                 params![event.id],
             );
@@ -790,7 +790,7 @@ impl EventStore {
     pub async fn pending_dispatch_count(&self) -> Result<u64> {
         let db = self.db.lock().await;
         let count: i64 = db.query_row(
-            "SELECT COUNT(*) FROM events
+            "SELECT COUNT(*) FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.status') = 'pending'",
             [],
@@ -803,7 +803,7 @@ impl EventStore {
     pub async fn unread_dispatch_count(&self, recipient: &str) -> Result<u64> {
         let db = self.db.lock().await;
         let count: i64 = db.query_row(
-            "SELECT COUNT(*) FROM events
+            "SELECT COUNT(*) FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.to') = ?1
              AND json_extract(content, '$.status') = 'pending'",
@@ -823,7 +823,7 @@ impl EventStore {
         // Update matching dispatches: status=read, requires_ack=true,
         // retry_count < max_retries, created_at < cutoff.
         db.execute(
-            "UPDATE events SET content = json_set(
+            "UPDATE activity SET content = json_set(
                 json_set(
                     json_set(content, '$.status', 'pending'),
                     '$.retry_count', json_extract(content, '$.retry_count') + 1
@@ -840,7 +840,7 @@ impl EventStore {
 
         // Return the retried dispatches.
         let mut stmt = db.prepare(
-            "SELECT * FROM events
+            "SELECT * FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.status') = 'pending'
              AND json_extract(content, '$.requires_ack') = 1
@@ -859,7 +859,7 @@ impl EventStore {
     pub async fn dead_letter_dispatches(&self) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT * FROM events
+            "SELECT * FROM activity
              WHERE type = 'dispatch'
              AND json_extract(content, '$.requires_ack') = 1
              AND json_extract(content, '$.retry_count') >= json_extract(content, '$.max_retries')
@@ -882,7 +882,7 @@ impl EventStore {
 
         match self.send_dispatch(&content).await {
             Ok(_id) => {
-                debug!(to = %dispatch.to, kind = %dispatch.kind.subject_tag(), "dispatch sent via EventStore");
+                debug!(to = %dispatch.to, kind = %dispatch.kind.subject_tag(), "dispatch sent via ActivityLog");
             }
             Err(e) => {
                 let msg = e.to_string();
@@ -899,10 +899,10 @@ impl EventStore {
         self.prune_and_limit_dispatches(&dispatch.to).await;
 
         // Emit DispatchReceived event for trigger system.
-        if let Ok(guard) = self.event_broadcaster.read()
+        if let Ok(guard) = self.activity_stream.read()
             && let Some(ref broadcaster) = *guard
         {
-            broadcaster.publish(crate::execution_events::ExecutionEvent::DispatchReceived {
+            broadcaster.publish(crate::activity::Activity::DispatchReceived {
                 from_agent: dispatch.from.clone(),
                 to_agent: dispatch.to.clone(),
                 kind: dispatch.kind.subject_tag().to_string(),
@@ -1086,7 +1086,7 @@ mod tests {
         let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
         {
             let conn = pool.lock().await;
-            EventStore::create_tables(&conn).unwrap();
+            ActivityLog::create_tables(&conn).unwrap();
         }
         Arc::new(pool)
     }
@@ -1094,7 +1094,7 @@ mod tests {
     #[tokio::test]
     async fn emit_and_query() {
         let db = open_test_db().await;
-        let store = EventStore::new(db);
+        let store = ActivityLog::new(db);
 
         let id = store
             .emit(
@@ -1127,7 +1127,7 @@ mod tests {
     #[tokio::test]
     async fn query_sum() {
         let db = open_test_db().await;
-        let store = EventStore::new(db);
+        let store = ActivityLog::new(db);
 
         store
             .emit(
@@ -1157,7 +1157,7 @@ mod tests {
     #[tokio::test]
     async fn update_event() {
         let db = open_test_db().await;
-        let store = EventStore::new(db);
+        let store = ActivityLog::new(db);
 
         let id = store
             .emit(
@@ -1192,7 +1192,7 @@ mod tests {
     #[tokio::test]
     async fn count_events() {
         let db = open_test_db().await;
-        let store = EventStore::new(db);
+        let store = ActivityLog::new(db);
 
         store
             .emit("test", None, None, None, &serde_json::json!({}))
@@ -1211,9 +1211,9 @@ mod tests {
         assert_eq!(store.count("other", None).await.unwrap(), 1);
     }
 
-    async fn open_test_store() -> Arc<EventStore> {
+    async fn open_test_store() -> Arc<ActivityLog> {
         let db = open_test_db().await;
-        Arc::new(EventStore::new(db))
+        Arc::new(ActivityLog::new(db))
     }
 
     fn test_delegate_request() -> DispatchKind {

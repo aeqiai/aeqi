@@ -584,8 +584,29 @@ impl AgentRegistry {
              );",
         )?;
 
-        // Create events table (unified event store).
-        crate::event_store::EventStore::create_tables(&conn)?;
+        // Migrate: rename events → activity for existing databases.
+        {
+            let has_events: bool = conn.query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='events'",
+                [],
+                |row| row.get(0),
+            )?;
+            if has_events {
+                conn.execute_batch(
+                    "ALTER TABLE events RENAME TO activity;
+                     DROP INDEX IF EXISTS idx_events_type;
+                     DROP INDEX IF EXISTS idx_events_agent;
+                     DROP INDEX IF EXISTS idx_events_session;
+                     DROP INDEX IF EXISTS idx_events_quest;
+                     DROP INDEX IF EXISTS idx_events_created;
+                     DROP TABLE IF EXISTS events_fts;",
+                )?;
+                debug!("migrated: renamed events table → activity");
+            }
+        }
+
+        // Create activity table (audit log, cost tracking).
+        crate::activity_log::ActivityLog::create_tables(&conn)?;
 
         // Create session/conversation tables (unified session store).
         crate::session_store::SessionStore::create_tables(&conn)?;
@@ -2237,7 +2258,7 @@ impl AgentRegistry {
         Ok(tasks)
     }
 
-    /// Expose the connection pool for shared use (e.g., by EventStore, SessionStore).
+    /// Expose the connection pool for shared use (e.g., by ActivityLog, SessionStore).
     pub fn db(&self) -> Arc<ConnectionPool> {
         self.db.clone()
     }

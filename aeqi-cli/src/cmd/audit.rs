@@ -14,15 +14,15 @@ pub(crate) async fn cmd_audit(
 
     // Open the AgentRegistry DB (which contains the unified events table).
     let agent_reg = aeqi_orchestrator::agent_registry::AgentRegistry::open(&data_dir)?;
-    let event_store = aeqi_orchestrator::EventStore::new(agent_reg.db());
+    let activity_log = aeqi_orchestrator::ActivityLog::new(agent_reg.db());
 
-    let filter = aeqi_orchestrator::event_store::EventFilter {
+    let filter = aeqi_orchestrator::activity_log::EventFilter {
         event_type: Some("decision".to_string()),
         quest_id: quest.map(String::from),
         ..Default::default()
     };
 
-    let events = event_store.query(&filter, last, 0).await?;
+    let events = activity_log.query(&filter, last, 0).await?;
 
     if events.is_empty() {
         println!("No audit events found.");

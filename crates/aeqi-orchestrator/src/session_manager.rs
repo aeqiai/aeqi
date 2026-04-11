@@ -20,8 +20,8 @@ use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender};
 use aeqi_core::traits::{IdeaStore, Provider};
 
 use crate::agent_registry::AgentRegistry;
-use crate::event_store::EventStore;
-use crate::execution_events::EventBroadcaster;
+use crate::activity_log::ActivityLog;
+use crate::activity::ActivityStream;
 use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
 use crate::prompt_loader::PromptLoader;
@@ -245,8 +245,8 @@ pub struct SessionManager {
     agent_registry: Option<Arc<AgentRegistry>>,
     session_store: Option<Arc<SessionStore>>,
     default_model: String,
-    event_broadcaster: Option<Arc<EventBroadcaster>>,
-    event_store: Option<Arc<EventStore>>,
+    activity_stream: Option<Arc<ActivityStream>>,
+    activity_log: Option<Arc<ActivityLog>>,
     shared_primer: Option<String>,
     project_primer: Option<String>,
     idea_store: Option<Arc<dyn IdeaStore>>,
@@ -264,8 +264,8 @@ impl SessionManager {
             agent_registry: None,
             session_store: None,
             default_model: String::new(),
-            event_broadcaster: None,
-            event_store: None,
+            activity_stream: None,
+            activity_log: None,
             shared_primer: None,
             project_primer: None,
             idea_store: None,
@@ -282,8 +282,8 @@ impl SessionManager {
         agent_registry: Arc<AgentRegistry>,
         session_store: Arc<SessionStore>,
         default_model: String,
-        event_broadcaster: Option<Arc<EventBroadcaster>>,
-        event_store: Arc<EventStore>,
+        activity_stream: Option<Arc<ActivityStream>>,
+        activity_log: Arc<ActivityLog>,
         idea_store: Option<Arc<dyn IdeaStore>>,
         default_project: String,
         shared_primer: Option<String>,
@@ -294,8 +294,8 @@ impl SessionManager {
         self.agent_registry = Some(agent_registry);
         self.session_store = Some(session_store);
         self.default_model = default_model;
-        self.event_broadcaster = event_broadcaster;
-        self.event_store = Some(event_store);
+        self.activity_stream = activity_stream;
+        self.activity_log = Some(activity_log);
         self.idea_store = idea_store;
         self.default_project = default_project;
     }
@@ -334,10 +334,10 @@ impl SessionManager {
             .agent_registry
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("session manager not configured (no agent_registry)"))?;
-        let event_store = self
-            .event_store
+        let activity_log = self
+            .activity_log
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("session manager not configured (no event_store)"))?;
+            .ok_or_else(|| anyhow::anyhow!("session manager not configured (no activity_log)"))?;
 
         // 1. Resolve agent from agent_registry by UUID (or by name via resolve_by_hint).
         let agent_opt = if uuid::Uuid::parse_str(agent_id_or_hint).is_ok() {
@@ -499,7 +499,7 @@ impl SessionManager {
                 agent_name.clone(),
                 self.default_project.clone(),
                 project_name,
-                event_store.clone(),
+                activity_log.clone(),
                 empty_channels,
                 None,
                 memory_for_agent.clone(),

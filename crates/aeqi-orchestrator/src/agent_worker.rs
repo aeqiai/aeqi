@@ -11,9 +11,9 @@ use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
 use crate::checkpoint::AgentCheckpoint;
-use crate::event_store::EventStore;
-use crate::event_store::{Dispatch, DispatchKind};
-use crate::execution_events::{EventBroadcaster, ExecutionEvent};
+use crate::activity_log::ActivityLog;
+use crate::activity_log::{Dispatch, DispatchKind};
+use crate::activity::{ActivityStream, Activity};
 use crate::executor::QuestOutcome;
 use crate::failure_analysis::{FailureAnalysis, FailureMode};
 use crate::hook::Hook;
@@ -57,7 +57,7 @@ pub struct AgentWorker {
     pub execution: WorkerExecution,
     pub system_prompt: String,
     pub assembled_prompt: Option<AssembledPrompt>,
-    pub event_store: Arc<EventStore>,
+    pub activity_log: Arc<ActivityLog>,
     /// Snapshot of the assigned task, populated at assign() time.
     pub task_snapshot: Option<aeqi_quests::Quest>,
     /// Called once at the end of execute() with the final status and optional outcome record.
@@ -77,7 +77,7 @@ pub struct AgentWorker {
     /// Middleware chain for composable execution behavior (guardrails, cost tracking, etc.).
     pub middleware_chain: Option<Arc<MiddlewareChain>>,
     /// Event broadcaster for real-time execution event streaming.
-    pub event_broadcaster: Option<Arc<EventBroadcaster>>,
+    pub activity_stream: Option<Arc<ActivityStream>>,
     /// Optional debounced write queue for batching reflection memory writes.
     pub write_queue: Option<Arc<tokio::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>>,
     /// Persistent agent UUID for entity-scoped memory. When set, memory queries
@@ -99,7 +99,7 @@ impl AgentWorker {
         tools: Vec<Arc<dyn Tool>>,
         system_prompt: String,
         model: String,
-        event_store: Arc<EventStore>,
+        activity_log: Arc<ActivityLog>,
     ) -> Self {
         let reflect_model = model.clone();
         Self {
@@ -115,7 +115,7 @@ impl AgentWorker {
             },
             system_prompt,
             assembled_prompt: None,
-            event_store,
+            activity_log,
             task_snapshot: None,
             on_complete: None,
             idea_store: None,
@@ -127,7 +127,7 @@ impl AgentWorker {
             adaptive_retry: false,
             failure_analysis_model: String::new(),
             middleware_chain: None,
-            event_broadcaster: None,
+            activity_stream: None,
             write_queue: None,
             persistent_agent_id: None,
             session_store: None,
@@ -142,7 +142,7 @@ impl AgentWorker {
         cwd: PathBuf,
         max_budget_usd: f64,
         system_prompt: String,
-        event_store: Arc<EventStore>,
+        activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
             agent_name,
@@ -156,7 +156,7 @@ impl AgentWorker {
             },
             system_prompt,
             assembled_prompt: None,
-            event_store,
+            activity_log,
             task_snapshot: None,
             on_complete: None,
             idea_store: None,
@@ -168,7 +168,7 @@ impl AgentWorker {
             adaptive_retry: false,
             failure_analysis_model: String::new(),
             middleware_chain: None,
-            event_broadcaster: None,
+            activity_stream: None,
             write_queue: None,
             persistent_agent_id: None,
             session_store: None,
@@ -220,8 +220,8 @@ impl AgentWorker {
     }
 
     /// Set the event broadcaster for real-time execution event streaming.
-    pub fn set_broadcaster(&mut self, broadcaster: Arc<EventBroadcaster>) {
-        self.event_broadcaster = Some(broadcaster);
+    pub fn set_broadcaster(&mut self, broadcaster: Arc<ActivityStream>) {
+        self.activity_stream = Some(broadcaster);
     }
 
     /// Set the debounced write queue for batching reflection memory writes.
@@ -310,12 +310,12 @@ impl AgentWorker {
         let mut sections = Vec::new();
 
         {
-            let filter = crate::event_store::EventFilter {
+            let filter = crate::activity_log::EventFilter {
                 event_type: Some("decision".to_string()),
                 quest_id: Some(quest.id.0.clone()),
                 ..Default::default()
             };
-            if let Ok(events) = self.event_store.query(&filter, 6, 0).await
+            if let Ok(events) = self.activity_log.query(&filter, 6, 0).await
                 && !events.is_empty()
             {
                 let lines = events
@@ -345,7 +345,7 @@ impl AgentWorker {
         }
 
         let mut dispatches = self
-            .event_store
+            .activity_log
             .all()
             .await
             .into_iter()
@@ -509,8 +509,8 @@ impl AgentWorker {
                     };
                     self.persist_runtime_execution(&hook.quest_id.0, &runtime_execution)
                         .await;
-                    if let Some(ref broadcaster) = self.event_broadcaster {
-                        broadcaster.publish(ExecutionEvent::QuestFailed {
+                    if let Some(ref broadcaster) = self.activity_stream {
+                        broadcaster.publish(Activity::QuestFailed {
                             quest_id: hook.quest_id.0.clone(),
                             reason: reason.clone(),
                             artifacts_preserved: false,
@@ -532,8 +532,8 @@ impl AgentWorker {
         }
 
         // Publish QuestStarted event.
-        if let Some(ref broadcaster) = self.event_broadcaster {
-            broadcaster.publish(ExecutionEvent::QuestStarted {
+        if let Some(ref broadcaster) = self.activity_stream {
+            broadcaster.publish(Activity::QuestStarted {
                 quest_id: hook.quest_id.0.clone(),
                 agent: self.agent_name.clone(),
                 project: self.project_name.clone(),
@@ -1017,7 +1017,7 @@ impl AgentWorker {
 
                                 // Record decision event.
                                 let _ = self
-                                    .event_store
+                                    .activity_log
                                     .emit(
                                         "decision",
                                         None,
@@ -1070,7 +1070,7 @@ impl AgentWorker {
                         retries = current_retry + 1,
                         "quest auto-cancelled after max retries"
                     );
-                    let _ = self.event_store.emit(
+                    let _ = self.activity_log.emit(
                         "decision",
                         None,
                         None,
@@ -1121,10 +1121,10 @@ impl AgentWorker {
             .await;
 
         // Publish outcome-specific execution events with the finalized runtime state.
-        if let Some(ref broadcaster) = self.event_broadcaster {
+        if let Some(ref broadcaster) = self.activity_stream {
             match &outcome {
                 QuestOutcome::Done(summary) => {
-                    broadcaster.publish(ExecutionEvent::QuestCompleted {
+                    broadcaster.publish(Activity::QuestCompleted {
                         quest_id: hook.quest_id.0.clone(),
                         outcome: summary.chars().take(500).collect(),
                         confidence: 1.0,
@@ -1135,7 +1135,7 @@ impl AgentWorker {
                     });
                 }
                 QuestOutcome::Blocked { question, .. } => {
-                    broadcaster.publish(ExecutionEvent::ClarificationNeeded {
+                    broadcaster.publish(Activity::ClarificationNeeded {
                         quest_id: hook.quest_id.0.clone(),
                         question: question.clone(),
                         options: Vec::new(),
@@ -1143,7 +1143,7 @@ impl AgentWorker {
                     });
                 }
                 QuestOutcome::Handoff { checkpoint } => {
-                    broadcaster.publish(ExecutionEvent::CheckpointCreated {
+                    broadcaster.publish(Activity::CheckpointCreated {
                         quest_id: hook.quest_id.0.clone(),
                         message: format!(
                             "HANDOFF: {}",
@@ -1153,7 +1153,7 @@ impl AgentWorker {
                     });
                 }
                 QuestOutcome::Failed(reason) => {
-                    broadcaster.publish(ExecutionEvent::QuestFailed {
+                    broadcaster.publish(Activity::QuestFailed {
                         quest_id: hook.quest_id.0.clone(),
                         reason: reason.chars().take(500).collect(),
                         artifacts_preserved: !runtime_execution.outcome.artifacts.is_empty(),
@@ -1370,8 +1370,8 @@ impl AgentWorker {
         }
 
         // Wire chat stream: create sender, subscribe in background task to
-        // forward ChatStreamEvents to the EventBroadcaster as ChatStream events.
-        if let Some(ref broadcaster) = self.event_broadcaster {
+        // forward ChatStreamEvents to the ActivityStream as ChatStream events.
+        if let Some(ref broadcaster) = self.activity_stream {
             let quest_id = self
                 .hook
                 .as_ref()
@@ -1382,7 +1382,7 @@ impl AgentWorker {
             let tid = quest_id.clone();
             tokio::spawn(async move {
                 while let Ok(event) = rx.recv().await {
-                    bc.publish(crate::execution_events::ExecutionEvent::ChatStream {
+                    bc.publish(crate::activity::Activity::ChatStream {
                         quest_id: tid.clone(),
                         chat_id: 0, // Filled by MessageRouter when routing
                         event,
