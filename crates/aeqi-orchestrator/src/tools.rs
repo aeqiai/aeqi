@@ -498,6 +498,346 @@ impl Tool for QuestReprioritizeTool {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Quest CRUD tools (SQLite-backed via AgentRegistry)
+// ---------------------------------------------------------------------------
+
+/// Create a quest on self or a named agent.
+pub struct QuestCreateTool {
+    agent_registry: Arc<AgentRegistry>,
+    agent_name: String,
+}
+
+impl QuestCreateTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>, agent_name: String) -> Self {
+        Self {
+            agent_registry,
+            agent_name,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for QuestCreateTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let agent_hint = args
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&self.agent_name);
+        let subject = args
+            .get("subject")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing subject"))?;
+        let description = args
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let priority_str = args
+            .get("priority")
+            .and_then(|v| v.as_str())
+            .unwrap_or("normal");
+
+        // Resolve agent name/hint to a registered agent.
+        let agent = match self.agent_registry.resolve_by_hint(agent_hint).await {
+            Ok(Some(a)) => a,
+            Ok(None) => {
+                return Ok(ToolResult::error(format!(
+                    "Agent not found: {agent_hint}"
+                )));
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "Failed to resolve agent: {e}"
+                )));
+            }
+        };
+
+        let quest = match self
+            .agent_registry
+            .create_task(&agent.id, subject, description, None, &[])
+            .await
+        {
+            Ok(q) => q,
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "Failed to create quest: {e}"
+                )));
+            }
+        };
+
+        // Apply non-default priority if requested.
+        let quest_id = quest.id.0.clone();
+        if priority_str != "normal" {
+            let priority = match priority_str.to_lowercase().as_str() {
+                "low" => aeqi_quests::Priority::Low,
+                "high" => aeqi_quests::Priority::High,
+                "critical" => aeqi_quests::Priority::Critical,
+                _ => aeqi_quests::Priority::Normal,
+            };
+            if let Err(e) = self
+                .agent_registry
+                .update_task(&quest_id, |q| {
+                    q.priority = priority;
+                })
+                .await
+            {
+                return Ok(ToolResult::error(format!(
+                    "Quest created ({quest_id}) but failed to set priority: {e}"
+                )));
+            }
+        }
+
+        Ok(ToolResult::success(format!(
+            "Created quest {quest_id}: {subject} (agent: {}, priority: {priority_str})",
+            agent.name
+        )))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "quests_create".to_string(),
+            description: "Create a new quest on self or a named agent.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "agent": { "type": "string", "description": "Agent name or ID (defaults to self)" },
+                    "subject": { "type": "string", "description": "Short title for the quest" },
+                    "description": { "type": "string", "description": "Detailed description of the quest" },
+                    "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority level (default: normal)" }
+                },
+                "required": ["subject"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "quests_create"
+    }
+}
+
+/// List quests filtered by status and/or agent.
+pub struct QuestListTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl QuestListTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for QuestListTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let status = args.get("status").and_then(|v| v.as_str());
+        let agent_hint = args.get("agent").and_then(|v| v.as_str());
+
+        // Resolve agent hint to agent ID if provided.
+        let agent_id = match agent_hint {
+            Some(hint) => match self.agent_registry.resolve_by_hint(hint).await {
+                Ok(Some(a)) => Some(a.id),
+                Ok(None) => {
+                    return Ok(ToolResult::error(format!(
+                        "Agent not found: {hint}"
+                    )));
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Failed to resolve agent: {e}"
+                    )));
+                }
+            },
+            None => None,
+        };
+
+        let quests = match self
+            .agent_registry
+            .list_tasks(status, agent_id.as_deref())
+            .await
+        {
+            Ok(q) => q,
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "Failed to list quests: {e}"
+                )));
+            }
+        };
+
+        if quests.is_empty() {
+            let mut msg = "No quests found".to_string();
+            if let Some(s) = status {
+                msg.push_str(&format!(" with status={s}"));
+            }
+            if let Some(hint) = agent_hint {
+                msg.push_str(&format!(" for agent={hint}"));
+            }
+            msg.push('.');
+            return Ok(ToolResult::success(msg));
+        }
+
+        let mut out = format!("Found {} quest(s):\n\n", quests.len());
+        for q in &quests {
+            out.push_str(&format!(
+                "- {} [{}] (priority: {}) — {}\n",
+                q.id, q.status, q.priority, q.name
+            ));
+        }
+        Ok(ToolResult::success(out))
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "quests_list".to_string(),
+            description: "List quests, optionally filtered by status and/or agent.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter by quest status" },
+                    "agent": { "type": "string", "description": "Filter by agent name or ID" }
+                }
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "quests_list"
+    }
+}
+
+/// Update a quest's status.
+pub struct QuestUpdateTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl QuestUpdateTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for QuestUpdateTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let quest_id = args
+            .get("quest_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+        let status_str = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing status"))?;
+
+        let status = match status_str.to_lowercase().as_str() {
+            "pending" => aeqi_quests::QuestStatus::Pending,
+            "in_progress" => aeqi_quests::QuestStatus::InProgress,
+            "done" => aeqi_quests::QuestStatus::Done,
+            "blocked" => aeqi_quests::QuestStatus::Blocked,
+            "cancelled" => aeqi_quests::QuestStatus::Cancelled,
+            _ => {
+                return Ok(ToolResult::error(format!(
+                    "Invalid status: {status_str}. Use: pending, in_progress, done, blocked, cancelled"
+                )));
+            }
+        };
+
+        match self
+            .agent_registry
+            .update_task_status(quest_id, status)
+            .await
+        {
+            Ok(()) => Ok(ToolResult::success(format!(
+                "Quest {quest_id} status updated to {status_str}."
+            ))),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to update quest {quest_id}: {e}"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "quests_update".to_string(),
+            description: "Update a quest's status.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "quest_id": { "type": "string", "description": "Quest ID (e.g. 'as-001')" },
+                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "New status" }
+                },
+                "required": ["quest_id", "status"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "quests_update"
+    }
+}
+
+/// Complete a quest with a result summary.
+pub struct QuestCloseTool {
+    agent_registry: Arc<AgentRegistry>,
+}
+
+impl QuestCloseTool {
+    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
+        Self { agent_registry }
+    }
+}
+
+#[async_trait]
+impl Tool for QuestCloseTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let quest_id = args
+            .get("quest_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+        let result = args
+            .get("result")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing result"))?;
+
+        let result_owned = result.to_string();
+        match self
+            .agent_registry
+            .update_task(quest_id, |q| {
+                q.status = aeqi_quests::QuestStatus::Done;
+                q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                    aeqi_quests::QuestOutcomeKind::Done,
+                    &result_owned,
+                ));
+            })
+            .await
+        {
+            Ok(_) => Ok(ToolResult::success(format!(
+                "Quest {quest_id} closed as done."
+            ))),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to close quest {quest_id}: {e}"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "quests_close".to_string(),
+            description: "Complete a quest with a result summary.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "quest_id": { "type": "string", "description": "Quest ID to close" },
+                    "result": { "type": "string", "description": "Text summary of the quest result" }
+                },
+                "required": ["quest_id", "result"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "quests_close"
+    }
+}
+
 /// Tool for posting/querying shared insights and claiming resources via quests.
 ///
 /// post/query/get/delete operate on the idea store.
@@ -1472,6 +1812,10 @@ pub fn build_orchestration_tools(
     let detail_tool = QuestDetailTool::new(agent_registry.clone());
     let cancel_tool = QuestCancelTool::new(agent_registry.clone());
     let reprioritize_tool = QuestReprioritizeTool::new(agent_registry.clone());
+    let create_tool = QuestCreateTool::new(agent_registry.clone(), leader_name.clone());
+    let quest_list_tool = QuestListTool::new(agent_registry.clone());
+    let update_tool = QuestUpdateTool::new(agent_registry.clone());
+    let close_tool = QuestCloseTool::new(agent_registry.clone());
 
     // Agent management tools.
     let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
@@ -1489,6 +1833,10 @@ pub fn build_orchestration_tools(
         Arc::new(detail_tool),
         Arc::new(cancel_tool),
         Arc::new(reprioritize_tool),
+        Arc::new(create_tool),
+        Arc::new(quest_list_tool),
+        Arc::new(update_tool),
+        Arc::new(close_tool),
         Arc::new(delegate_tool),
         Arc::new(UsageStatsTool::new(api_key)),
         Arc::new(hire_tool),
