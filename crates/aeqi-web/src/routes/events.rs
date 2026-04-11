@@ -1,0 +1,65 @@
+use axum::{
+    Json, Router,
+    extract::{Path, Query, State},
+    response::Response,
+    routing::get,
+};
+use serde::Deserialize;
+
+use super::helpers::ipc_proxy;
+use crate::extractors::Scope;
+use crate::server::AppState;
+
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/events", get(list_events).post(create_event))
+        .route(
+            "/events/{id}",
+            axum::routing::put(update_event).delete(delete_event),
+        )
+}
+
+#[derive(Deserialize, Default)]
+struct ListEventsQuery {
+    agent_id: Option<String>,
+}
+
+async fn list_events(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<ListEventsQuery>,
+) -> Response {
+    let mut params = serde_json::json!({});
+    if let Some(agent_id) = &q.agent_id {
+        params["agent_id"] = serde_json::json!(agent_id);
+    }
+    ipc_proxy(state, scope.as_ref(), "list_events", params).await
+}
+
+async fn create_event(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "create_event", body).await
+}
+
+async fn update_event(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let mut params = body;
+    params["id"] = serde_json::json!(id);
+    ipc_proxy(state, scope.as_ref(), "update_event", params).await
+}
+
+async fn delete_event(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    let params = serde_json::json!({"id": id});
+    ipc_proxy(state, scope.as_ref(), "delete_event", params).await
+}

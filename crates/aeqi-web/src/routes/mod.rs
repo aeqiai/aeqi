@@ -3,6 +3,7 @@ pub mod auth;
 mod chat;
 mod companies;
 mod dashboard;
+mod events;
 mod helpers;
 mod hosting;
 mod memory;
@@ -31,6 +32,7 @@ pub fn api_routes() -> Router<AppState> {
         .merge(chat::routes())
         .merge(memory::routes())
         .merge(prompts::routes())
+        .merge(events::routes())
         .merge(vfs::routes())
         .merge(hosting::routes())
 }
