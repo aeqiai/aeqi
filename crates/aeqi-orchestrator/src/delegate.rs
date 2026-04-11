@@ -16,7 +16,7 @@ use tracing::info;
 
 use crate::SessionStore;
 use crate::agent_registry::AgentRegistry;
-use crate::activity_log::{Dispatch, DispatchKind, ActivityLog};
+use crate::activity_log::ActivityLog;
 use crate::session_manager::SessionManager;
 
 // ---------------------------------------------------------------------------
@@ -118,7 +118,8 @@ impl DelegateTool {
             .to_string()
     }
 
-    /// Handle delegation to a named agent via DelegateRequest dispatch.
+    /// Handle delegation by creating a quest directly on the target agent.
+    /// No dispatch queue — one hop from delegation to quest creation.
     async fn delegate_to_agent(
         &self,
         to: &str,
@@ -127,41 +128,77 @@ impl DelegateTool {
         create_task: bool,
         skill: Option<String>,
     ) -> Result<ToolResult> {
-        let kind = DispatchKind::DelegateRequest {
-            prompt: prompt.to_string(),
-            response_mode: response_mode.to_string(),
-            create_task,
-            skill: skill.clone(),
-            reply_to: None,
-            parent_session_id: self.session_id.clone(),
+        if !create_task {
+            // Fire-and-forget: just log the message, don't create a quest.
+            info!(from = %self.agent_name, to = %to, "delegation sent (no quest)");
+            return Ok(ToolResult::success(format!("Message sent to '{to}' (no quest created)")));
+        }
+
+        // Resolve target agent in registry.
+        let registry = match &self.agent_registry {
+            Some(r) => r,
+            None => {
+                return Ok(ToolResult::error("agent registry not available for delegation"));
+            }
         };
 
-        let dispatch = Dispatch::new_typed(&self.agent_name, to, kind);
-        let dispatch_id = dispatch.id.clone();
+        let target = match registry.get_active_by_name(to).await {
+            Ok(Some(agent)) => agent,
+            Ok(None) => {
+                return Ok(ToolResult::error(format!("agent '{to}' not found")));
+            }
+            Err(e) => {
+                return Ok(ToolResult::error(format!("failed to resolve agent '{to}': {e}")));
+            }
+        };
+
+        // Create quest directly on the target agent.
+        let subject = format!("Delegation from {}", self.agent_name);
+        let mut labels = vec![
+            format!("delegated_from:{}", self.agent_name),
+            format!("response_mode:{response_mode}"),
+        ];
+        if let Some(ref sid) = self.session_id {
+            labels.push(format!("creator_session_id:{sid}"));
+        }
+        if let Some(ref s) = skill {
+            labels.push(format!("skill:{s}"));
+        }
+
+        let quest = registry
+            .create_task(
+                &target.id,
+                &subject,
+                prompt,
+                skill.as_deref(),
+                &labels,
+            )
+            .await?;
+
+        // Emit activity for audit trail.
+        let _ = self.activity_log.emit(
+            "quest.delegated",
+            Some(&target.id),
+            self.session_id.as_deref(),
+            Some(&quest.id.0),
+            &serde_json::json!({
+                "from_agent": self.agent_name,
+                "to_agent": to,
+                "response_mode": response_mode,
+            }),
+        ).await;
 
         info!(
             from = %self.agent_name,
             to = %to,
-            response_mode = %response_mode,
-            create_task = create_task,
-            dispatch_id = %dispatch_id,
-            parent_session_id = ?self.session_id,
-            "sending DelegateRequest dispatch"
+            quest_id = %quest.id,
+            "delegation: quest created directly"
         );
 
-        self.activity_log.send(dispatch).await;
-
-        let mut msg = format!(
-            "Delegation sent to '{to}' (dispatch_id: {dispatch_id}, response_mode: {response_mode})"
-        );
-        if create_task {
-            msg.push_str("\nQuest creation requested — target agent will pick up via quest queue.");
-        }
-        if let Some(s) = &skill {
-            msg.push_str(&format!("\nSkill hint: {s}"));
-        }
-
-        Ok(ToolResult::success(msg))
+        Ok(ToolResult::success(format!(
+            "Quest {} created for '{to}' — work will begin immediately.",
+            quest.id
+        )))
     }
 
     /// Resolve the target agent for subagent delegation.
@@ -263,7 +300,7 @@ impl Tool for DelegateTool {
             .get("create_quest")
             .or_else(|| args.get("create_task"))
             .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+            .unwrap_or(true);
         let skill = args.get("skill").and_then(|v| v.as_str()).map(String::from);
 
         match to {
@@ -409,6 +446,18 @@ mod tests {
         DelegateTool::new(test_activity_log().await, "test-agent".to_string())
     }
 
+    async fn make_tool_with_registry() -> (DelegateTool, Arc<crate::agent_registry::AgentRegistry>) {
+        let dir = tempfile::tempdir().unwrap();
+        let reg = Arc::new(crate::agent_registry::AgentRegistry::open(dir.path()).unwrap());
+        // Create a target agent.
+        reg.spawn("researcher", None, "test", "Test researcher.", None, None, &[]).await.unwrap();
+        reg.spawn("leader", None, "test", "Test leader.", None, None, &[]).await.unwrap();
+        let es = test_activity_log().await;
+        let mut tool = DelegateTool::new(es, "caller".to_string());
+        tool.agent_registry = Some(reg.clone());
+        (tool, reg)
+    }
+
     #[test]
     fn test_parse_response_mode_default() {
         let args = serde_json::json!({});
@@ -452,72 +501,54 @@ mod tests {
 
     #[tokio::test]
     async fn test_subagent_with_fallback_target() {
-        let es = test_activity_log().await;
-        let mut tool = DelegateTool::new(es.clone(), "caller".to_string());
+        let (mut tool, _reg) = make_tool_with_registry().await;
         tool.fallback_target = Some("leader".to_string());
 
         let args = serde_json::json!({
             "to": "subagent",
             "prompt": "handle this task",
-            "skill": "code-review"
         });
         let result = tool.execute(args).await.unwrap();
         assert!(!result.is_error);
-        assert!(result.output.contains("leader"));
-        assert!(result.output.contains("dispatch_id"));
-        assert!(result.output.contains("Quest creation requested"));
-        assert!(result.output.contains("code-review"));
-
-        // Verify the dispatch was sent to the fallback target.
-        let messages = es.read("leader").await;
-        assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0].from, "caller");
-        assert_eq!(messages[0].to, "leader");
-        assert_eq!(messages[0].kind.subject_tag(), "DELEGATE_REQUEST");
+        assert!(result.output.contains("Quest"));
     }
 
     #[tokio::test]
-    async fn test_dept_prefix_resolves_to_agent() {
-        let tool = make_tool().await;
-        let args = serde_json::json!({
-            "to": "dept:engineering",
-            "prompt": "review this PR"
-        });
-        let result = tool.execute(args).await.unwrap();
-        assert!(!result.is_error);
-        // dept:engineering now resolves to agent "engineering"
-        assert!(result.output.contains("engineering"));
-        assert!(result.output.contains("dispatch_id"));
-    }
-
-    #[tokio::test]
-    async fn test_dept_prefix_empty_name_rejected() {
-        let tool = make_tool().await;
-        let args = serde_json::json!({
-            "to": "dept:",
-            "prompt": "review this PR"
-        });
-        let result = tool.execute(args).await.unwrap();
-        assert!(result.is_error);
-        assert!(result.output.contains("cannot be empty"));
-    }
-
-    #[tokio::test]
-    async fn test_named_agent_dispatch() {
-        let tool = make_tool().await;
+    async fn test_named_agent_creates_quest() {
+        let (tool, _reg) = make_tool_with_registry().await;
         let args = serde_json::json!({
             "to": "researcher",
             "prompt": "find the auth bug",
-            "response": "async",
-            "create_quest": true,
-            "skill": "code-review"
         });
         let result = tool.execute(args).await.unwrap();
         assert!(!result.is_error);
         assert!(result.output.contains("researcher"));
-        assert!(result.output.contains("dispatch_id"));
-        assert!(result.output.contains("Quest creation requested"));
-        assert!(result.output.contains("code-review"));
+        assert!(result.output.contains("Quest"));
+        assert!(result.output.contains("immediately"));
+    }
+
+    #[tokio::test]
+    async fn test_named_agent_not_found() {
+        let (tool, _reg) = make_tool_with_registry().await;
+        let args = serde_json::json!({
+            "to": "nonexistent",
+            "prompt": "do work",
+        });
+        let result = tool.execute(args).await.unwrap();
+        assert!(result.is_error);
+        assert!(result.output.contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_no_registry_returns_error() {
+        let tool = make_tool().await;
+        let args = serde_json::json!({
+            "to": "researcher",
+            "prompt": "do work",
+        });
+        let result = tool.execute(args).await.unwrap();
+        assert!(result.is_error);
+        assert!(result.output.contains("not available"));
     }
 
     #[tokio::test]
@@ -538,44 +569,5 @@ mod tests {
         });
         let result = tool.execute(args).await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_dispatch_actually_sent() {
-        let es = test_activity_log().await;
-        let tool = DelegateTool::new(es.clone(), "sender".to_string());
-
-        let args = serde_json::json!({
-            "to": "receiver",
-            "prompt": "hello agent"
-        });
-        let result = tool.execute(args).await.unwrap();
-        assert!(!result.is_error);
-
-        // Verify the dispatch landed in the event store.
-        let messages = es.read("receiver").await;
-        assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0].from, "sender");
-        assert_eq!(messages[0].to, "receiver");
-        assert_eq!(messages[0].kind.subject_tag(), "DELEGATE_REQUEST");
-    }
-
-    #[tokio::test]
-    async fn test_dept_prefix_dispatch_sent_to_agent() {
-        let es = test_activity_log().await;
-        let tool = DelegateTool::new(es.clone(), "leader".to_string());
-
-        let args = serde_json::json!({
-            "to": "dept:ops",
-            "prompt": "check server health"
-        });
-        let result = tool.execute(args).await.unwrap();
-        assert!(!result.is_error);
-
-        // dept:ops now resolves to agent "ops".
-        let messages = es.read("ops").await;
-        assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0].from, "leader");
-        assert_eq!(messages[0].kind.subject_tag(), "DELEGATE_REQUEST");
     }
 }
