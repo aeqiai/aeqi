@@ -1059,11 +1059,26 @@ export default function AgentSessionView({
             setLiveSegments([...segments]);
             break;
           }
-          case "Status":
-          case "Compacted":
-          case "MemoryActivity":
-          case "DelegateStart":
+          case "MemoryActivity": {
+            const label = event.action === "stored"
+              ? `Stored: ${event.key || "insight"}`
+              : `Recalled: ${event.key || "insight"}`;
+            segments.push({ kind: "status", text: label });
+            setLiveSegments([...segments]);
+            break;
+          }
+          case "DelegateStart": {
+            segments.push({ kind: "status", text: `Delegating to ${event.worker_name || "agent"}...` });
+            setLiveSegments([...segments]);
+            break;
+          }
           case "DelegateComplete": {
+            segments.push({ kind: "status", text: `${event.worker_name || "Agent"} finished: ${event.outcome || "done"}` });
+            setLiveSegments([...segments]);
+            break;
+          }
+          case "Status":
+          case "Compacted": {
             break;
           }
           case "Complete":
