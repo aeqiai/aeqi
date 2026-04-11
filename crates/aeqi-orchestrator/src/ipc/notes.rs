@@ -16,7 +16,7 @@ pub async fn handle_notes(
     }
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
+        if let Some(mem) = engine.idea_store.as_ref() {
             let query_text = request
                 .get("tags")
                 .and_then(|v| v.as_array())
@@ -32,7 +32,7 @@ pub async fn handle_notes(
             } else {
                 query_text
             };
-            let q = aeqi_core::traits::InsightQuery::new(&search_text, limit);
+            let q = aeqi_core::traits::IdeaQuery::new(&search_text, limit);
             match mem.search(&q).await {
                 Ok(entries) => {
                     let items: Vec<serde_json::Value> = entries
@@ -72,8 +72,8 @@ pub async fn handle_get_notes(
     let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
-            let q = aeqi_core::traits::InsightQuery::new(key, 1);
+        if let Some(mem) = engine.idea_store.as_ref() {
+            let q = aeqi_core::traits::IdeaQuery::new(key, 1);
             match mem.search(&q).await {
                 Ok(entries) => {
                     if let Some(e) = entries.into_iter().find(|e| e.key == key) {
@@ -235,8 +235,8 @@ pub async fn handle_delete_notes(
     let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
-            let q = aeqi_core::traits::InsightQuery::new(key, 5);
+        if let Some(mem) = engine.idea_store.as_ref() {
+            let q = aeqi_core::traits::IdeaQuery::new(key, 5);
             match mem.search(&q).await {
                 Ok(entries) => {
                     let mut deleted = false;

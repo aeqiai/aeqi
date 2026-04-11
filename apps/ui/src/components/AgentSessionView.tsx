@@ -83,9 +83,9 @@ const TOOL_LABELS: Record<string, string> = {
   events_remove: "Remove trigger",
   events_manage: "Manage triggers",
   // Insights
-  insights_store: "Store insight",
-  insights_recall: "Recall insight",
-  insights_graph: "Query graph",
+  ideas_store: "Store insight",
+  ideas_recall: "Recall insight",
+  ideas_graph: "Query graph",
   insights_search: "Search transcripts",
   // Prompts
   prompts_list: "List prompts",

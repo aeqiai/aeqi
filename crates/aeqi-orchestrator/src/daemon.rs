@@ -230,7 +230,7 @@ pub struct Daemon {
     pub trigger_store: Option<Arc<TriggerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
-    pub write_queue: Arc<std::sync::Mutex<aeqi_insights::debounce::WriteQueue>>,
+    pub write_queue: Arc<std::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
     pub event_broadcaster: Arc<EventBroadcaster>,
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     pub default_model: String,
@@ -273,7 +273,7 @@ impl Daemon {
             agent_registry,
             message_router: None,
             write_queue: Arc::new(std::sync::Mutex::new(
-                aeqi_insights::debounce::WriteQueue::default(),
+                aeqi_ideas::debounce::WriteQueue::default(),
             )),
             event_broadcaster: Arc::new(EventBroadcaster::new()),
             default_provider: None,
@@ -1093,13 +1093,13 @@ impl Daemon {
             return;
         };
         for w in &ready {
-            if let Some(mem) = engine.insight_store.as_ref() {
+            if let Some(mem) = engine.idea_store.as_ref() {
                 let category = match w.category.as_str() {
-                    "fact" => aeqi_core::traits::InsightCategory::Fact,
-                    "procedure" => aeqi_core::traits::InsightCategory::Procedure,
-                    "preference" => aeqi_core::traits::InsightCategory::Preference,
-                    "context" => aeqi_core::traits::InsightCategory::Context,
-                    _ => aeqi_core::traits::InsightCategory::Fact,
+                    "fact" => aeqi_core::traits::IdeaCategory::Fact,
+                    "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
+                    "preference" => aeqi_core::traits::IdeaCategory::Preference,
+                    "context" => aeqi_core::traits::IdeaCategory::Context,
+                    _ => aeqi_core::traits::IdeaCategory::Fact,
                 };
                 match mem.store(&w.key, &w.content, category, None).await {
                     Ok(id) => debug!(

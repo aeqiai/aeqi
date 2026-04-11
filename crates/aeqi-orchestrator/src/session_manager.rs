@@ -17,7 +17,7 @@ use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
 use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender};
-use aeqi_core::traits::{Insight, Provider};
+use aeqi_core::traits::{IdeaStore, Provider};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_store::EventStore;
@@ -249,7 +249,7 @@ pub struct SessionManager {
     event_store: Option<Arc<EventStore>>,
     shared_primer: Option<String>,
     project_primer: Option<String>,
-    insight_store: Option<Arc<dyn Insight>>,
+    idea_store: Option<Arc<dyn IdeaStore>>,
     default_project: String,
     /// Sandbox configuration. When set, sessions are sandboxed in git worktrees.
     sandbox_config: Option<SandboxConfig>,
@@ -268,7 +268,7 @@ impl SessionManager {
             event_store: None,
             shared_primer: None,
             project_primer: None,
-            insight_store: None,
+            idea_store: None,
             default_project: String::new(),
             sandbox_config: None,
             prompt_loader: None,
@@ -284,7 +284,7 @@ impl SessionManager {
         default_model: String,
         event_broadcaster: Option<Arc<EventBroadcaster>>,
         event_store: Arc<EventStore>,
-        insight_store: Option<Arc<dyn Insight>>,
+        idea_store: Option<Arc<dyn IdeaStore>>,
         default_project: String,
         shared_primer: Option<String>,
         project_primer: Option<String>,
@@ -296,7 +296,7 @@ impl SessionManager {
         self.default_model = default_model;
         self.event_broadcaster = event_broadcaster;
         self.event_store = Some(event_store);
-        self.insight_store = insight_store;
+        self.idea_store = idea_store;
         self.default_project = default_project;
     }
 
@@ -463,7 +463,7 @@ impl SessionManager {
         tools.push(Arc::new(aeqi_tools::WebSearchTool));
 
         // 5. Resolve memory — single shared insight store.
-        let memory_for_agent: Option<Arc<dyn Insight>> = self.insight_store.clone();
+        let memory_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
 
         // Resolve graph DB path.
         let graph_project = if self.default_project.is_empty() {

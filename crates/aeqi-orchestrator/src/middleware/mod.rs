@@ -14,7 +14,7 @@ pub mod context_compression;
 pub mod cost_tracking;
 pub mod graph_guardrails;
 pub mod guardrails;
-pub mod insight_refresh;
+pub mod idea_refresh;
 pub mod loop_detection;
 pub mod safety_net;
 #[cfg(test)]
@@ -26,7 +26,7 @@ pub use context_compression::ContextCompressionMiddleware;
 pub use cost_tracking::CostTrackingMiddleware;
 pub use graph_guardrails::GraphGuardrailsMiddleware;
 pub use guardrails::GuardrailsMiddleware;
-pub use insight_refresh::InsightRefreshMiddleware;
+pub use idea_refresh::IdeaRefreshMiddleware;
 pub use loop_detection::LoopDetectionMiddleware;
 pub use safety_net::SafetyNetMiddleware;
 

@@ -21,8 +21,8 @@
 //! ```
 
 use crate::graph::MemoryEdge;
-use crate::sqlite::SqliteInsights;
-use aeqi_core::traits::{InsightCategory, InsightEntry};
+use crate::sqlite::SqliteIdeas;
+use aeqi_core::traits::{IdeaCategory, Idea};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -33,7 +33,7 @@ use tracing::{debug, info, warn};
 /// Export all memories to an Obsidian vault directory.
 ///
 /// Returns the number of files written.
-pub fn export(store: &SqliteInsights, vault_dir: &Path) -> Result<usize> {
+pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
     let entries = store.list_all()?;
     if entries.is_empty() {
         info!("no memories to export");
@@ -87,7 +87,7 @@ pub fn export(store: &SqliteInsights, vault_dir: &Path) -> Result<usize> {
 
 /// Render a single insight as Obsidian-compatible markdown.
 fn render_markdown(
-    entry: &InsightEntry,
+    entry: &Idea,
     edges: Option<&Vec<&MemoryEdge>>,
     id_to_key: &HashMap<&str, &str>,
 ) -> String {
@@ -144,7 +144,7 @@ pub struct ParsedMemory {
     pub id: Option<String>,
     pub key: String,
     pub content: String,
-    pub category: InsightCategory,
+    pub category: IdeaCategory,
     pub agent_id: Option<String>,
     pub relations: Vec<ParsedRelation>,
 }
@@ -159,8 +159,8 @@ pub struct ParsedRelation {
 /// Import memories from an Obsidian vault into the store.
 ///
 /// Returns (imported, skipped) counts.
-pub async fn import(store: &SqliteInsights, vault_dir: &Path) -> Result<(usize, usize)> {
-    use aeqi_core::traits::Insight;
+pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usize)> {
+    use aeqi_core::traits::IdeaStore;
 
     let parsed = scan_vault(vault_dir)?;
     if parsed.is_empty() {
@@ -226,7 +226,7 @@ pub async fn import(store: &SqliteInsights, vault_dir: &Path) -> Result<(usize, 
                 continue;
             };
             if let Err(e) = store
-                .store_insight_edge(source_id, target_id, &rel.relation, rel.strength)
+                .store_idea_edge(source_id, target_id, &rel.relation, rel.strength)
                 .await
             {
                 warn!(
@@ -308,7 +308,7 @@ fn parse_memory_file(path: &Path) -> Result<ParsedMemory> {
     });
     let category = extract_field(&frontmatter, "category")
         .and_then(|c| parse_category(&c))
-        .unwrap_or(InsightCategory::Fact);
+        .unwrap_or(IdeaCategory::Fact);
     let agent_id = extract_field(&frontmatter, "agent_id").filter(|s| s != "null" && !s.is_empty());
 
     // Split body into content and relations.
@@ -326,27 +326,27 @@ fn parse_memory_file(path: &Path) -> Result<ParsedMemory> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-fn category_dir(cat: &InsightCategory) -> &'static str {
+fn category_dir(cat: &IdeaCategory) -> &'static str {
     match cat {
-        InsightCategory::Fact => "fact",
-        InsightCategory::Procedure => "procedure",
-        InsightCategory::Preference => "preference",
-        InsightCategory::Context => "context",
-        InsightCategory::Evergreen => "evergreen",
+        IdeaCategory::Fact => "fact",
+        IdeaCategory::Procedure => "procedure",
+        IdeaCategory::Preference => "preference",
+        IdeaCategory::Context => "context",
+        IdeaCategory::Evergreen => "evergreen",
     }
 }
 
-fn category_str(cat: &InsightCategory) -> &'static str {
+fn category_str(cat: &IdeaCategory) -> &'static str {
     category_dir(cat)
 }
 
-fn parse_category(s: &str) -> Option<InsightCategory> {
+fn parse_category(s: &str) -> Option<IdeaCategory> {
     match s.trim().to_lowercase().as_str() {
-        "fact" => Some(InsightCategory::Fact),
-        "procedure" => Some(InsightCategory::Procedure),
-        "preference" => Some(InsightCategory::Preference),
-        "context" => Some(InsightCategory::Context),
-        "evergreen" => Some(InsightCategory::Evergreen),
+        "fact" => Some(IdeaCategory::Fact),
+        "procedure" => Some(IdeaCategory::Procedure),
+        "preference" => Some(IdeaCategory::Preference),
+        "context" => Some(IdeaCategory::Context),
+        "evergreen" => Some(IdeaCategory::Evergreen),
         _ => None,
     }
 }
@@ -497,11 +497,11 @@ mod tests {
 
     #[test]
     fn test_roundtrip_markdown() {
-        let entry = InsightEntry::recalled(
+        let entry = Idea::recalled(
             "abc-123".to_string(),
             "test-key".to_string(),
             "Some test content".to_string(),
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             None,
             chrono::Utc::now(),
             None,
@@ -519,20 +519,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_export_import_roundtrip() {
-        use crate::sqlite::SqliteInsights;
-        use aeqi_core::traits::Insight;
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
 
         let dir = tempfile::TempDir::new().unwrap();
         let db_path = dir.path().join("test.db");
         let vault_dir = dir.path().join("vault");
 
         // Create store with some memories.
-        let store = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
         store
             .store(
                 "auth-system",
                 "JWT with 24h expiry",
-                InsightCategory::Fact,
+                IdeaCategory::Fact,
                 None,
             )
             .await
@@ -541,7 +541,7 @@ mod tests {
             .store(
                 "deploy-process",
                 "Merge to main, auto-deploy",
-                InsightCategory::Procedure,
+                IdeaCategory::Procedure,
                 None,
             )
             .await
@@ -550,7 +550,7 @@ mod tests {
             .store(
                 "code-style",
                 "Use snake_case everywhere",
-                InsightCategory::Preference,
+                IdeaCategory::Preference,
                 Some("eng-001"),
             )
             .await
@@ -567,14 +567,14 @@ mod tests {
 
         // Import into a fresh DB.
         let db2_path = dir.path().join("test2.db");
-        let store2 = SqliteInsights::open(&db2_path, 30.0).unwrap();
+        let store2 = SqliteIdeas::open(&db2_path, 30.0).unwrap();
         let (imported, skipped) = import(&store2, &vault_dir).await.unwrap();
         assert_eq!(imported, 3);
         assert_eq!(skipped, 0);
 
         // Verify all memories are searchable.
         let results = store2
-            .search(&aeqi_core::traits::InsightQuery::new("JWT auth", 10))
+            .search(&aeqi_core::traits::IdeaQuery::new("JWT auth", 10))
             .await
             .unwrap();
         assert!(!results.is_empty());

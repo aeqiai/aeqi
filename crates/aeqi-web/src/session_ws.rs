@@ -13,6 +13,7 @@
 use aeqi_core::config::AuthMode;
 use axum::{
     extract::{Query, State, WebSocketUpgrade},
+    http::HeaderMap,
     response::Response,
 };
 use serde::Deserialize;
@@ -29,6 +30,7 @@ pub struct SessionWsQuery {
 
 pub async fn handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(q): Query<SessionWsQuery>,
     ws: WebSocketUpgrade,
 ) -> Response {
@@ -37,7 +39,9 @@ pub async fn handler(
     let mut user_companies: Option<Vec<String>> = None;
 
     match state.auth_mode {
-        AuthMode::None => { /* allow without validation */ }
+        AuthMode::None => {
+            user_companies = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.companies);
+        }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");

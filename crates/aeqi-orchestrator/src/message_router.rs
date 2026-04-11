@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 use anyhow::Result;
 
-use aeqi_core::traits::{Insight, InsightQuery};
+use aeqi_core::traits::{IdeaStore, IdeaQuery};
 
 use crate::agent_registry::AgentRegistry;
 use crate::agent_router::AgentRouter;
@@ -190,7 +190,7 @@ pub struct MessageRouter {
     pub pending_tasks: Arc<Mutex<HashMap<String, PendingTask>>>,
     pub task_notify: Arc<tokio::sync::Notify>,
     /// Single insight store for all agents (scoped by agent_id within queries).
-    pub insight_store: Option<Arc<dyn Insight>>,
+    pub idea_store: Option<Arc<dyn IdeaStore>>,
     /// EventStore for emitting quest_created events (drives scheduler via broadcast).
     pub event_store: Arc<crate::event_store::EventStore>,
 }
@@ -884,8 +884,8 @@ impl MessageRouter {
             self.build_memory_context(project, q).await
         } else if let Some(q) = query {
             // Global query — search single insight store.
-            if let Some(ref mem) = self.insight_store {
-                let mq = InsightQuery::new(q, 5);
+            if let Some(ref mem) = self.idea_store {
+                let mq = IdeaQuery::new(q, 5);
                 if let Ok(results) = mem.search(&mq).await {
                     if results.is_empty() {
                         None
@@ -1023,8 +1023,8 @@ impl MessageRouter {
 
     /// Search memory for context relevant to a query.
     pub async fn build_memory_context(&self, _project: &str, query: &str) -> Option<String> {
-        let mem = self.insight_store.as_ref()?;
-        let mq = InsightQuery::new(query, 5);
+        let mem = self.idea_store.as_ref()?;
+        let mq = IdeaQuery::new(query, 5);
         let results = mem.search(&mq).await.ok()?;
         if results.is_empty() {
             return None;
@@ -1039,11 +1039,11 @@ impl MessageRouter {
     /// Store a note to the insight store.
     pub async fn store_note(&self, _project: &str, key: &str, content: &str) -> Result<String> {
         let mem = self
-            .insight_store
+            .idea_store
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no insight store available"))?;
         let id = mem
-            .store(key, content, aeqi_core::traits::InsightCategory::Fact, None)
+            .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
             .await?;
         Ok(id)
     }

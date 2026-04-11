@@ -13,7 +13,7 @@ fn resolve_env_value(value: &str) -> String {
         trimmed.to_string()
     }
 }
-use aeqi_insights::SqliteInsights;
+use aeqi_ideas::SqliteIdeas;
 use aeqi_providers::{AnthropicProvider, OllamaProvider, OpenRouterEmbedder, OpenRouterProvider};
 use aeqi_quests::QuestBoard;
 use aeqi_tools::{
@@ -330,13 +330,13 @@ pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> 
     QuestBoard::open(&quests_dir)
 }
 
-pub(crate) fn open_insights(config: &AEQIConfig) -> Result<SqliteInsights> {
+pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
     let db_path = config.data_dir().join("insights.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
     let halflife = config.memory.temporal_decay_halflife_days;
-    let mem = SqliteInsights::open(&db_path, halflife)?;
+    let mem = SqliteIdeas::open(&db_path, halflife)?;
 
     let api_key = get_api_key(config).ok();
     let embedding_model = config

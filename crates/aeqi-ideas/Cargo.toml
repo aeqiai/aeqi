@@ -1,8 +1,8 @@
 [package]
-name = "aeqi-insights"
+name = "aeqi-ideas"
 version.workspace = true
 edition.workspace = true
-description = "Hybrid insight store with SQLite FTS5 and vector search"
+description = "Unified idea store — identity, skills, knowledge, memory in one place"
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -19,7 +19,7 @@ use crate::helpers::{
     build_project_tools, build_provider_for_project, build_provider_for_runtime, build_tools,
     daemon_ipc_request,
     find_agent_dir, find_project_dir, get_api_key, handle_fast_lane, load_config,
-    load_config_with_agents, open_insights, pid_file_path,
+    load_config_with_agents, open_ideas, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
 
@@ -84,11 +84,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let fa_task_notify: Arc<tokio::sync::Notify> = Arc::new(tokio::sync::Notify::new());
 
             // Open a single insights DB for the entire daemon.
-            let shared_insight_store: Option<Arc<dyn aeqi_core::traits::Insight>> =
-                match open_insights(&config) {
+            let shared_idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
+                match open_ideas(&config) {
                     Ok(mem) => {
                         info!("insight store initialized (single DB)");
-                        Some(Arc::new(mem) as Arc<dyn aeqi_core::traits::Insight>)
+                        Some(Arc::new(mem) as Arc<dyn aeqi_core::traits::IdeaStore>)
                     }
                     Err(e) => {
                         warn!("failed to open insight store: {e}");
@@ -145,7 +145,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     default_project: sm_default_project.clone(),
                     pending_tasks: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
                     task_notify: fa_task_notify.clone(),
-                    insight_store: shared_insight_store.clone(),
+                    idea_store: shared_idea_store.clone(),
                 })
             });
 
@@ -274,8 +274,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
                 let mut fa_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> =
                     build_project_tools(&fa_workdir, &fa_tasks_dir, &fa_prefix, None);
-                let fa_memory: Option<Arc<dyn aeqi_core::traits::Insight>> =
-                    shared_insight_store.clone();
+                let fa_memory: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
+                    shared_idea_store.clone();
                 let default_project = config
                     .agent_spawns
                     .first()
@@ -610,7 +610,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     default_model.clone(),
                     Some(event_broadcaster.clone()),
                     event_store.clone(),
-                    shared_insight_store.clone(),
+                    shared_idea_store.clone(),
                     sm_default_project,
                     config.shared_primer.clone(),
                     config.agent_spawns.first().and_then(|c| c.primer.clone()),
@@ -636,7 +636,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 let trigger_store = Arc::new(agent_reg.trigger_store());
                 s.trigger_store = Some(trigger_store.clone());
                 // Wire memory for the scheduler (shared single store).
-                s.insight_store = shared_insight_store.clone();
+                s.idea_store = shared_idea_store.clone();
                 // Wire session manager for session resolution on task completion.
                 s.session_manager = Some(session_manager.clone());
                 Arc::new(s)

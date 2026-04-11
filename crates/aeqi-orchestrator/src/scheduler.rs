@@ -41,12 +41,12 @@ use crate::metrics::AEQIMetrics;
 use crate::middleware::{
     ClarificationMiddleware, ContextBudgetMiddleware, ContextCompressionMiddleware,
     CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware,
-    InsightRefreshMiddleware, LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
+    IdeaRefreshMiddleware, LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
 };
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
 use crate::trigger::TriggerStore;
-use aeqi_core::traits::{Channel, Insight, Provider, Tool};
+use aeqi_core::traits::{Channel, IdeaStore, Provider, Tool};
 
 /// A running worker with age tracking for timeout detection.
 struct TrackedWorker {
@@ -121,7 +121,7 @@ pub struct Scheduler {
     pub event_broadcaster: Arc<EventBroadcaster>,
 
     // Optional services
-    pub insight_store: Option<Arc<dyn Insight>>,
+    pub idea_store: Option<Arc<dyn IdeaStore>>,
     pub reflect_provider: Option<Arc<dyn Provider>>,
     pub event_store: Arc<EventStore>,
     pub session_store: Option<Arc<SessionStore>>,
@@ -163,7 +163,7 @@ impl Scheduler {
             tools,
             metrics,
             event_broadcaster,
-            insight_store: None,
+            idea_store: None,
             reflect_provider: None,
             event_store,
             session_store: None,
@@ -604,8 +604,8 @@ impl Scheduler {
         worker = worker.with_persistent_agent(agent_id.clone());
 
         // Inject insight store.
-        if let Some(ref mem) = self.insight_store {
-            worker = worker.with_insight_store(mem.clone());
+        if let Some(ref mem) = self.idea_store {
+            worker = worker.with_idea_store(mem.clone());
         }
 
         // Inject reflection provider.
@@ -657,7 +657,7 @@ impl Scheduler {
             )),
             Box::new(GuardrailsMiddleware::with_defaults()),
             Box::new(ContextCompressionMiddleware::new()),
-            Box::new(InsightRefreshMiddleware::new()),
+            Box::new(IdeaRefreshMiddleware::new()),
             Box::new(ClarificationMiddleware::new()),
             Box::new(SafetyNetMiddleware::new()),
         ]);

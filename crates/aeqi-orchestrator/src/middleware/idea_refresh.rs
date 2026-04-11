@@ -5,7 +5,7 @@
 //! building a query from recent tool activity and injecting a refresh hint into
 //! the worker context. The actual insight search is performed by the caller —
 //! this middleware stores the query in [`WorkerContext::metadata`] under the key
-//! `"insight_refresh_query"` for the executor to act on.
+//! `"idea_refresh_query"` for the executor to act on.
 //!
 //! Implements Priority 5 from the AEQI v4 synthesis: "Insight During Execution."
 
@@ -17,14 +17,14 @@ use super::{
 };
 
 /// Memory refresh middleware configuration.
-pub struct InsightRefreshMiddleware {
+pub struct IdeaRefreshMiddleware {
     /// Fire a refresh every N tool calls. Default: 5.
     refresh_interval: usize,
     /// Maximum number of lines to inject per refresh. Default: 20.
     max_refresh_lines: usize,
 }
 
-impl InsightRefreshMiddleware {
+impl IdeaRefreshMiddleware {
     /// Create with default configuration (interval=5, max_lines=20).
     pub fn new() -> Self {
         Self {
@@ -75,14 +75,14 @@ impl InsightRefreshMiddleware {
     }
 }
 
-impl Default for InsightRefreshMiddleware {
+impl Default for IdeaRefreshMiddleware {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl Middleware for InsightRefreshMiddleware {
+impl Middleware for IdeaRefreshMiddleware {
     fn name(&self) -> &str {
         "insight-refresh"
     }
@@ -116,7 +116,7 @@ impl Middleware for InsightRefreshMiddleware {
         );
         debug!(query = %query, "insight refresh query");
 
-        ctx.metadata.insert("insight_refresh_query".into(), query);
+        ctx.metadata.insert("idea_refresh_query".into(), query);
 
         MiddlewareAction::Inject(vec![inject_msg])
     }
@@ -148,7 +148,7 @@ mod tests {
 
     #[tokio::test]
     async fn fires_at_interval() {
-        let mw = InsightRefreshMiddleware::with_config(5, 20);
+        let mw = IdeaRefreshMiddleware::with_config(5, 20);
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -167,7 +167,7 @@ mod tests {
 
     #[tokio::test]
     async fn fires_at_second_interval() {
-        let mw = InsightRefreshMiddleware::with_config(5, 20);
+        let mw = IdeaRefreshMiddleware::with_config(5, 20);
         let mut ctx = test_ctx();
         let call = make_call("Read");
         let result = make_result();
@@ -186,7 +186,7 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_fire_between_intervals() {
-        let mw = InsightRefreshMiddleware::with_config(5, 20);
+        let mw = IdeaRefreshMiddleware::with_config(5, 20);
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -207,7 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn empty_tool_history_no_op() {
-        let mw = InsightRefreshMiddleware::new();
+        let mw = IdeaRefreshMiddleware::new();
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -221,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn inject_message_contains_tool_names() {
-        let mw = InsightRefreshMiddleware::with_config(3, 20);
+        let mw = IdeaRefreshMiddleware::with_config(3, 20);
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -245,7 +245,7 @@ mod tests {
 
     #[tokio::test]
     async fn metadata_key_set_correctly() {
-        let mw = InsightRefreshMiddleware::with_config(2, 20);
+        let mw = IdeaRefreshMiddleware::with_config(2, 20);
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -255,8 +255,8 @@ mod tests {
 
         let _ = mw.after_tool(&mut ctx, &call, &result).await;
 
-        let query = ctx.metadata.get("insight_refresh_query");
-        assert!(query.is_some(), "insight_refresh_query should be set");
+        let query = ctx.metadata.get("idea_refresh_query");
+        assert!(query.is_some(), "idea_refresh_query should be set");
         let query = query.unwrap();
         assert!(query.starts_with("Context for:"));
         assert!(query.contains("Read"));
@@ -265,7 +265,7 @@ mod tests {
 
     #[tokio::test]
     async fn query_uses_last_3_tools() {
-        let mw = InsightRefreshMiddleware::with_config(5, 20);
+        let mw = IdeaRefreshMiddleware::with_config(5, 20);
         let mut ctx = test_ctx();
         let call = make_call("Bash");
         let result = make_result();
@@ -278,7 +278,7 @@ mod tests {
 
         let _ = mw.after_tool(&mut ctx, &call, &result).await;
 
-        let query = ctx.metadata.get("insight_refresh_query").unwrap();
+        let query = ctx.metadata.get("idea_refresh_query").unwrap();
         // Last 3 should be Gamma, Delta, Epsilon.
         assert!(query.contains("Gamma"));
         assert!(query.contains("Delta"));
@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn default_impl() {
-        let mw = InsightRefreshMiddleware::default();
+        let mw = IdeaRefreshMiddleware::default();
         assert_eq!(mw.refresh_interval, 5);
         assert_eq!(mw.max_refresh_lines, 20);
     }

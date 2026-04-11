@@ -54,7 +54,7 @@ pub struct VectorResult {
 }
 
 impl VectorStore {
-    /// Open or create the vector store (uses same DB as SqliteInsights).
+    /// Open or create the vector store (uses same DB as SqliteIdeas).
     pub fn open(conn: &Connection, _dimensions: usize) -> Result<()> {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS memory_embeddings (

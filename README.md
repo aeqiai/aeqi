@@ -30,17 +30,19 @@ aeqi provides the full operational stack: agent orchestration, persistent memory
 
 An agent is a persistent identity with a role, expertise, and memory that compounds over time. Agents form teams — they can spawn specialists, inherit context from leadership, and delegate work up and down the hierarchy. They're not running processes — they're loaded into sessions on demand, accumulating knowledge across every interaction.
 
-```toml
-# agents/cto/agent.toml
-display_name = "CTO"
-model_tier = "capable"
-expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "events_manage"]
-
-[[triggers]]
-name = "memory-consolidation"
-schedule = "every 6h"
-skill = "memory-consolidation"
+```md
+# agents/cto/agent.md
+---
+name: cto
+display_name: CTO
+model_tier: capable
+expertise: [architecture, systems, rust]
+capabilities: [spawn_agents, events_manage]
+triggers:
+  - name: memory-consolidation
+    schedule: every 6h
+    skill: memory-consolidation
+---
 ```
 
 Agents declare a `model_tier` (capable, balanced, fast, cheapest) instead of hardcoding a model. One config change updates all agents:
@@ -318,7 +320,7 @@ All state lives in `~/.aeqi/`:
 
 **Add middleware** -- implement the `Middleware` trait with ordered hook points, add to the chain.
 
-**Add an agent** -- create a directory under `agents/` with an `agent.toml`, then spawn via `aeqi agent spawn <name>`. Agents can also spawn children at runtime through the delegate tool.
+**Add an agent** -- create a directory under `agents/` with an `agent.md`, then spawn via `aeqi agent spawn <name>`. Agents can also spawn children at runtime through the delegate tool.
 
 ---
 

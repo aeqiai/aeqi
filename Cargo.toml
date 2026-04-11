@@ -7,7 +7,7 @@ members = [
     "crates/aeqi-providers",
     "crates/aeqi-tools",
     "crates/aeqi-orchestrator",
-    "crates/aeqi-insights",
+    "crates/aeqi-ideas",
     "crates/aeqi-gates",
     "crates/aeqi-web",
     "crates/aeqi-graph",
@@ -108,7 +108,7 @@ aeqi-core = { path = "crates/aeqi-core" }
 aeqi-providers = { path = "crates/aeqi-providers" }
 aeqi-tools = { path = "crates/aeqi-tools" }
 aeqi-orchestrator = { path = "crates/aeqi-orchestrator" }
-aeqi-insights = { path = "crates/aeqi-insights" }
+aeqi-ideas = { path = "crates/aeqi-ideas" }
 aeqi-gates = { path = "crates/aeqi-gates" }
 aeqi-web = { path = "crates/aeqi-web" }
 aeqi-graph = { path = "crates/aeqi-graph" }

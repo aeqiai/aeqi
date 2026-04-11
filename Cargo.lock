@@ -31,7 +31,7 @@ dependencies = [
  "aeqi-core",
  "aeqi-gates",
  "aeqi-graph",
- "aeqi-insights",
+ "aeqi-ideas",
  "aeqi-orchestrator",
  "aeqi-providers",
  "aeqi-quests",
@@ -129,7 +129,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "aeqi-insights"
+name = "aeqi-ideas"
 version = "0.5.0"
 dependencies = [
  "aeqi-core",
@@ -153,7 +153,7 @@ version = "0.5.0"
 dependencies = [
  "aeqi-core",
  "aeqi-graph",
- "aeqi-insights",
+ "aeqi-ideas",
  "aeqi-providers",
  "aeqi-quests",
  "aeqi-tools",

@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_store::EventStore;
-use aeqi_core::traits::{Insight, InsightCategory, InsightQuery};
+use aeqi_core::traits::{IdeaStore, IdeaCategory, IdeaQuery};
 
 /// Tool that surfaces OpenRouter key usage and per-project worker execution
 /// costs aggregated from `~/.aeqi/usage.jsonl`.
@@ -158,18 +158,18 @@ pub fn usage_log_path() -> PathBuf {
         .join("usage.jsonl")
 }
 
-pub struct InsightStoreTool {
-    memory: Arc<dyn Insight>,
+pub struct IdeaStoreTool {
+    memory: Arc<dyn IdeaStore>,
 }
 
-impl InsightStoreTool {
-    pub fn new(memory: Arc<dyn Insight>) -> Self {
+impl IdeaStoreTool {
+    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
         Self { memory }
     }
 }
 
 #[async_trait]
-impl Tool for InsightStoreTool {
+impl Tool for IdeaStoreTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let key = args
             .get("key")
@@ -180,11 +180,11 @@ impl Tool for InsightStoreTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
         let category = match args.get("category").and_then(|v| v.as_str()) {
-            Some("procedure") => InsightCategory::Procedure,
-            Some("preference") => InsightCategory::Preference,
-            Some("context") => InsightCategory::Context,
-            Some("evergreen") => InsightCategory::Evergreen,
-            _ => InsightCategory::Fact,
+            Some("procedure") => IdeaCategory::Procedure,
+            Some("preference") => IdeaCategory::Preference,
+            Some("context") => IdeaCategory::Context,
+            Some("evergreen") => IdeaCategory::Evergreen,
+            _ => IdeaCategory::Fact,
         };
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
@@ -196,7 +196,7 @@ impl Tool for InsightStoreTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "insights_store".to_string(),
+            name: "ideas_store".to_string(),
             description: "Store a memory with semantic embeddings for later recall. Use for facts, preferences, patterns, and context worth remembering.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -212,22 +212,22 @@ impl Tool for InsightStoreTool {
     }
 
     fn name(&self) -> &str {
-        "insights_store"
+        "ideas_store"
     }
 }
 
-pub struct InsightRecallTool {
-    memory: Arc<dyn Insight>,
+pub struct IdeaRecallTool {
+    memory: Arc<dyn IdeaStore>,
 }
 
-impl InsightRecallTool {
-    pub fn new(memory: Arc<dyn Insight>) -> Self {
+impl IdeaRecallTool {
+    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
         Self { memory }
     }
 }
 
 #[async_trait]
-impl Tool for InsightRecallTool {
+impl Tool for IdeaRecallTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let query_text = args
             .get("query")
@@ -235,7 +235,7 @@ impl Tool for InsightRecallTool {
             .ok_or_else(|| anyhow::anyhow!("missing query"))?;
         let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
 
-        let mut query = InsightQuery::new(query_text, top_k);
+        let mut query = IdeaQuery::new(query_text, top_k);
 
         if let Some(agent_id) = args.get("agent_id").and_then(|v| v.as_str()) {
             query = query.with_agent(agent_id);
@@ -273,7 +273,7 @@ impl Tool for InsightRecallTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "insights_recall".to_string(),
+            name: "ideas_recall".to_string(),
             description: "Search memories using semantic similarity + keyword matching. Returns the most relevant memories ranked by hybrid score.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -288,7 +288,7 @@ impl Tool for InsightRecallTool {
     }
 
     fn name(&self) -> &str {
-        "insights_recall"
+        "ideas_recall"
     }
 }
 
@@ -503,19 +503,19 @@ impl Tool for QuestReprioritizeTool {
 /// post/query/get/delete operate on the insight store.
 /// claim/release operate on quests via agent_registry.
 pub struct NotesTool {
-    insight_store: Arc<dyn Insight>,
+    idea_store: Arc<dyn IdeaStore>,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
     agent_name: String,
 }
 
 impl NotesTool {
     pub fn new(
-        insight_store: Arc<dyn Insight>,
+        idea_store: Arc<dyn IdeaStore>,
         agent_registry: Arc<crate::agent_registry::AgentRegistry>,
         agent_name: String,
     ) -> Self {
         Self {
-            insight_store,
+            idea_store,
             agent_registry,
             agent_name,
         }
@@ -542,8 +542,8 @@ impl Tool for NotesTool {
                     .ok_or_else(|| anyhow::anyhow!("missing content"))?;
 
                 match self
-                    .insight_store
-                    .store(key, content, aeqi_core::traits::InsightCategory::Fact, None)
+                    .idea_store
+                    .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
                     .await
                 {
                     Ok(id) => Ok(ToolResult::success(format!(
@@ -567,8 +567,8 @@ impl Tool for NotesTool {
                     .unwrap_or_else(|| "*".to_string());
                 let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-                let q = aeqi_core::traits::InsightQuery::new(&query_text, limit);
-                match self.insight_store.search(&q).await {
+                let q = aeqi_core::traits::IdeaQuery::new(&query_text, limit);
+                match self.idea_store.search(&q).await {
                     Ok(entries) if entries.is_empty() => {
                         Ok(ToolResult::success("No matching entries."))
                     }
@@ -593,8 +593,8 @@ impl Tool for NotesTool {
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("missing key"))?;
 
-                let q = aeqi_core::traits::InsightQuery::new(key, 5);
-                match self.insight_store.search(&q).await {
+                let q = aeqi_core::traits::IdeaQuery::new(key, 5);
+                match self.idea_store.search(&q).await {
                     Ok(entries) => {
                         if let Some(e) = entries.into_iter().find(|e| e.key == key) {
                             Ok(ToolResult::success(format!(
@@ -713,13 +713,13 @@ impl Tool for NotesTool {
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("missing key"))?;
 
-                let q = aeqi_core::traits::InsightQuery::new(key, 5);
-                match self.insight_store.search(&q).await {
+                let q = aeqi_core::traits::IdeaQuery::new(key, 5);
+                match self.idea_store.search(&q).await {
                     Ok(entries) => {
                         let mut deleted = false;
                         for e in &entries {
                             if e.key == key {
-                                let _ = self.insight_store.delete(&e.id).await;
+                                let _ = self.idea_store.delete(&e.id).await;
                                 deleted = true;
                             }
                         }
@@ -1443,7 +1443,7 @@ pub fn build_orchestration_tools(
     event_store: Arc<EventStore>,
     _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
     api_key: Option<String>,
-    memory: Option<Arc<dyn Insight>>,
+    memory: Option<Arc<dyn IdeaStore>>,
     graph_db_path: Option<PathBuf>,
     session_id: Option<String>,
     provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
@@ -1503,8 +1503,8 @@ pub fn build_orchestration_tools(
     ];
 
     if let Some(mem) = memory {
-        tools.push(Arc::new(InsightStoreTool::new(mem.clone())));
-        tools.push(Arc::new(InsightRecallTool::new(mem.clone())));
+        tools.push(Arc::new(IdeaStoreTool::new(mem.clone())));
+        tools.push(Arc::new(IdeaRecallTool::new(mem.clone())));
         tools.push(Arc::new(NotesTool::new(mem, agent_registry, leader_name)));
     }
 
@@ -1602,7 +1602,7 @@ impl Tool for GraphTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "insights_graph".to_string(),
+            name: "ideas_graph".to_string(),
             description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius, list symbols in a file.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -1624,7 +1624,7 @@ impl Tool for GraphTool {
     }
 
     fn name(&self) -> &str {
-        "insights_graph"
+        "ideas_graph"
     }
 }
 

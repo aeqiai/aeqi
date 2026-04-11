@@ -12,7 +12,7 @@ import NewWorkspacePage from "@/pages/NewWorkspacePage";
 import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
-import InsightsPage from "@/pages/IdeasPage";
+import IdeasPage from "@/pages/IdeasPage";
 import EntitiesPage from "@/pages/EntitiesPage";
 import AccountPage from "@/pages/AccountPage";
 import CompanyPage from "@/pages/CompanyPage";
@@ -67,7 +67,7 @@ export default function App() {
         <Route path="agents" element={<AgentsPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
-        <Route path="insights" element={<InsightsPage />} />
+        <Route path="insights" element={<IdeasPage />} />
         <Route path="company" element={<CompanyPage />} />
         <Route path="companies" element={<EntitiesPage />} />
         <Route path="treasury" element={<TreasuryPage />} />

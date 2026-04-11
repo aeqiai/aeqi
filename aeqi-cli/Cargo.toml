@@ -15,7 +15,7 @@ aeqi-providers = { workspace = true }
 aeqi-tools = { workspace = true }
 aeqi-orchestrator = { workspace = true }
 aeqi-gates = { workspace = true }
-aeqi-insights = { workspace = true }
+aeqi-ideas = { workspace = true }
 aeqi-web = { workspace = true }
 aeqi-graph = { workspace = true }
 

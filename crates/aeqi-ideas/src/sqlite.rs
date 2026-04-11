@@ -1,5 +1,5 @@
 use crate::graph::{MemoryEdge, MemoryRelation};
-use aeqi_core::traits::{Embedder, Insight, InsightCategory, InsightEntry, InsightQuery};
+use aeqi_core::traits::{Embedder, IdeaStore, IdeaCategory, Idea, IdeaQuery};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -22,7 +22,7 @@ struct MemRow {
     session_id: Option<String>,
 }
 
-pub struct SqliteInsights {
+pub struct SqliteIdeas {
     conn: Mutex<Connection>,
     decay_halflife_days: f64,
     embedder: Option<Arc<dyn Embedder>>,
@@ -32,7 +32,7 @@ pub struct SqliteInsights {
     mmr_lambda: f64,
 }
 
-impl SqliteInsights {
+impl SqliteIdeas {
     pub fn open(path: &Path, decay_halflife_days: f64) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -60,11 +60,12 @@ impl SqliteInsights {
             true
         }))?;
 
-        // Migrate: rename memories → insights for existing databases.
+        // Migrate: rename memories → insights → ideas for existing databases.
         Self::migrate_table_rename(&conn)?;
+        Self::migrate_insights_to_ideas(&conn)?;
 
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS insights (
+            "CREATE TABLE IF NOT EXISTS ideas (
                 id TEXT PRIMARY KEY,
                 key TEXT NOT NULL,
                 content TEXT NOT NULL,
@@ -76,44 +77,44 @@ impl SqliteInsights {
                 updated_at TEXT
             );
 
-            CREATE INDEX IF NOT EXISTS idx_insights_key ON insights(key);
-            CREATE INDEX IF NOT EXISTS idx_insights_category ON insights(category);
-            CREATE INDEX IF NOT EXISTS idx_insights_created ON insights(created_at);
+            CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
+            CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
+            CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
             ",
         )?;
 
         Self::migrate(&conn)?;
 
         conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_insights_agent_id ON insights(agent_id);",
+            "CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
         )?;
 
         let fts_exists: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='insights_fts'",
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
             [],
             |row| row.get(0),
         )?;
 
         if !fts_exists {
             conn.execute_batch(
-                "CREATE VIRTUAL TABLE insights_fts USING fts5(
-                    key, content, content=insights, content_rowid=rowid
+                "CREATE VIRTUAL TABLE ideas_fts USING fts5(
+                    key, content, content=ideas, content_rowid=rowid
                 );
 
-                CREATE TRIGGER IF NOT EXISTS insights_ai AFTER INSERT ON insights BEGIN
-                    INSERT INTO insights_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
                 END;
 
-                CREATE TRIGGER IF NOT EXISTS insights_ad AFTER DELETE ON insights BEGIN
-                    INSERT INTO insights_fts(insights_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
+                CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
                 END;
 
-                CREATE TRIGGER IF NOT EXISTS insights_au AFTER UPDATE ON insights BEGIN
-                    INSERT INTO insights_fts(insights_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
-                    INSERT INTO insights_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
                 END;
 
-                INSERT INTO insights_fts(insights_fts) VALUES('rebuild');",
+                INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
             )?;
         }
 
@@ -193,11 +194,11 @@ impl SqliteInsights {
             "DROP TRIGGER IF EXISTS memories_ai;
              DROP TRIGGER IF EXISTS memories_ad;
              DROP TRIGGER IF EXISTS memories_au;
-             DROP TABLE IF EXISTS insights_fts;",
+             DROP TABLE IF EXISTS ideas_fts;",
         )?;
 
         // Rename the main table.
-        conn.execute_batch("ALTER TABLE memories RENAME TO insights;")?;
+        conn.execute_batch("ALTER TABLE memories RENAME TO ideas;")?;
 
         // Rename indexes (SQLite doesn't support ALTER INDEX, so drop + recreate).
         conn.execute_batch(
@@ -213,17 +214,55 @@ impl SqliteInsights {
         Ok(())
     }
 
+    /// Migrate: rename `insights` table to `ideas` for existing databases.
+    fn migrate_insights_to_ideas(conn: &Connection) -> Result<()> {
+        let has_insights: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='insights'",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_insights {
+            return Ok(());
+        }
+
+        conn.execute_batch("ALTER TABLE ideas RENAME TO ideas;")?;
+
+        // Drop old FTS table and triggers (will be recreated by main init).
+        conn.execute_batch(
+            "DROP TRIGGER IF EXISTS insights_ai;
+             DROP TRIGGER IF EXISTS insights_ad;
+             DROP TRIGGER IF EXISTS insights_au;
+             DROP TABLE IF EXISTS insights_fts;",
+        )?;
+
+        // Drop old indexes (recreated by main init with ideas_ prefix).
+        conn.execute_batch(
+            "DROP INDEX IF EXISTS idx_insights_key;
+             DROP INDEX IF EXISTS idx_insights_category;
+             DROP INDEX IF EXISTS idx_insights_created;
+             DROP INDEX IF EXISTS idx_insights_agent_id;
+             DROP INDEX IF EXISTS idx_insights_scope;
+             DROP INDEX IF EXISTS idx_insights_expires;
+             DROP INDEX IF EXISTS idx_insights_injection;
+             DROP INDEX IF EXISTS idx_insights_content_hash;
+             DROP INDEX IF EXISTS idx_insights_source;",
+        )?;
+
+        debug!("migrated: renamed insights table → ideas");
+        Ok(())
+    }
+
     fn migrate(conn: &Connection) -> Result<()> {
         let has_scope: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('insights') WHERE name='scope'")?
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='scope'")?
             .query_row([], |row| row.get(0))?;
 
         if !has_scope {
             conn.execute_batch(
-                "ALTER TABLE insights ADD COLUMN scope TEXT NOT NULL DEFAULT 'domain';
-                 ALTER TABLE insights ADD COLUMN agent_id TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_insights_scope ON insights(scope);
-                 CREATE INDEX IF NOT EXISTS idx_insights_agent_id ON insights(agent_id);",
+                "ALTER TABLE ideas ADD COLUMN scope TEXT NOT NULL DEFAULT 'domain';
+                 ALTER TABLE ideas ADD COLUMN agent_id TEXT;
+                 CREATE INDEX IF NOT EXISTS idx_ideas_scope ON ideas(scope);
+                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
             )?;
             debug!("migrated insights table: added scope + agent_id columns");
         }
@@ -231,30 +270,30 @@ impl SqliteInsights {
         // Rename companion_id → agent_id (for DBs created before the rename).
         let has_companion: bool = conn
             .prepare(
-                "SELECT COUNT(*) FROM pragma_table_info('insights') WHERE name='companion_id'",
+                "SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='companion_id'",
             )?
             .query_row([], |row| row.get(0))?;
         if has_companion {
             conn.execute_batch(
-                "ALTER TABLE insights RENAME COLUMN companion_id TO agent_id;
-                 UPDATE insights SET scope = 'entity' WHERE scope = 'companion';",
+                "ALTER TABLE ideas RENAME COLUMN companion_id TO agent_id;
+                 UPDATE ideas SET scope = 'entity' WHERE scope = 'companion';",
             )?;
             conn.execute_batch(
-                "DROP INDEX IF EXISTS idx_insights_companion;
-                 CREATE INDEX IF NOT EXISTS idx_insights_agent_id ON insights(agent_id);",
+                "DROP INDEX IF EXISTS idx_ideas_companion;
+                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
             )?;
             debug!("migrated: companion_id → agent_id");
         }
 
         // Rename entity_id → agent_id (for DBs created before this rename).
         let has_entity_id: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('insights') WHERE name='entity_id'")?
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='entity_id'")?
             .query_row([], |row| row.get(0))?;
         if has_entity_id {
-            conn.execute_batch("ALTER TABLE insights RENAME COLUMN entity_id TO agent_id;")?;
+            conn.execute_batch("ALTER TABLE ideas RENAME COLUMN entity_id TO agent_id;")?;
             conn.execute_batch(
-                "DROP INDEX IF EXISTS idx_insights_entity;
-                 CREATE INDEX IF NOT EXISTS idx_insights_agent_id ON insights(agent_id);",
+                "DROP INDEX IF EXISTS idx_ideas_entity;
+                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
             )?;
             debug!("migrated: entity_id → agent_id");
         }
@@ -285,13 +324,13 @@ impl SqliteInsights {
     /// Migrate: add optional expires_at column for TTL support.
     fn migrate_ttl(conn: &Connection) -> Result<()> {
         let has_expires: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('insights') WHERE name='expires_at'")?
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='expires_at'")?
             .query_row([], |row| row.get(0))?;
 
         if !has_expires {
             conn.execute_batch(
-                "ALTER TABLE insights ADD COLUMN expires_at TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_insights_expires ON insights(expires_at);",
+                "ALTER TABLE ideas ADD COLUMN expires_at TEXT;
+                 CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);",
             )?;
             debug!("migrated insights: added expires_at column + index");
         }
@@ -305,24 +344,24 @@ impl SqliteInsights {
     /// the agent's context (like prompts). Others are recalled via search.
     fn migrate_injection_columns(conn: &Connection) -> Result<()> {
         let cols: Vec<String> = conn
-            .prepare("PRAGMA table_info(insights)")?
+            .prepare("PRAGMA table_info(ideas)")?
             .query_map([], |row| row.get::<_, String>(1))?
             .filter_map(|r| r.ok())
             .collect();
 
         if !cols.contains(&"injection_mode".to_string()) {
             conn.execute_batch(
-                "ALTER TABLE insights ADD COLUMN injection_mode TEXT;
-                 ALTER TABLE insights ADD COLUMN inheritance TEXT NOT NULL DEFAULT 'self';
-                 ALTER TABLE insights ADD COLUMN tool_allow TEXT NOT NULL DEFAULT '[]';
-                 ALTER TABLE insights ADD COLUMN tool_deny TEXT NOT NULL DEFAULT '[]';
-                 ALTER TABLE insights ADD COLUMN content_hash TEXT;
-                 ALTER TABLE insights ADD COLUMN source_kind TEXT;
-                 ALTER TABLE insights ADD COLUMN source_ref TEXT;
-                 ALTER TABLE insights ADD COLUMN managed INTEGER NOT NULL DEFAULT 0;
-                 CREATE INDEX IF NOT EXISTS idx_insights_injection ON insights(injection_mode);
-                 CREATE INDEX IF NOT EXISTS idx_insights_content_hash ON insights(content_hash);
-                 CREATE INDEX IF NOT EXISTS idx_insights_source ON insights(source_kind, source_ref);",
+                "ALTER TABLE ideas ADD COLUMN injection_mode TEXT;
+                 ALTER TABLE ideas ADD COLUMN inheritance TEXT NOT NULL DEFAULT 'self';
+                 ALTER TABLE ideas ADD COLUMN tool_allow TEXT NOT NULL DEFAULT '[]';
+                 ALTER TABLE ideas ADD COLUMN tool_deny TEXT NOT NULL DEFAULT '[]';
+                 ALTER TABLE ideas ADD COLUMN content_hash TEXT;
+                 ALTER TABLE ideas ADD COLUMN source_kind TEXT;
+                 ALTER TABLE ideas ADD COLUMN source_ref TEXT;
+                 ALTER TABLE ideas ADD COLUMN managed INTEGER NOT NULL DEFAULT 0;
+                 CREATE INDEX IF NOT EXISTS idx_ideas_injection ON ideas(injection_mode);
+                 CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
+                 CREATE INDEX IF NOT EXISTS idx_ideas_source ON ideas(source_kind, source_ref);",
             )?;
             debug!("migrated insights: added injection metadata columns (prompt consolidation)");
         }
@@ -351,12 +390,12 @@ impl SqliteInsights {
     // ── Bulk queries for export ──
 
     /// List all non-expired insights (unscored, no search ranking).
-    pub fn list_all(&self) -> Result<Vec<InsightEntry>> {
+    pub fn list_all(&self) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let mut stmt = conn.prepare(
             "SELECT id, key, content, category, agent_id, session_id, created_at
-             FROM insights
+             FROM ideas
              WHERE expires_at IS NULL OR expires_at > ?1
              ORDER BY created_at DESC",
         )?;
@@ -374,12 +413,12 @@ impl SqliteInsights {
             .filter_map(|r| r.ok())
             .filter_map(
                 |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let category: InsightCategory =
+                    let category: IdeaCategory =
                         serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(InsightEntry::recalled(
+                    Some(Idea::recalled(
                         id, key, content, category, agent_id, created_at, session_id, 1.0,
                     ))
                 },
@@ -429,13 +468,13 @@ impl SqliteInsights {
 
     /// Search insights by key prefix (exact prefix match, not FTS5).
     /// Filters out expired entries. Returns newest first.
-    pub fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<InsightEntry>> {
+    pub fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let like_pattern = format!("{prefix}%");
         let mut stmt = conn.prepare(
             "SELECT id, key, content, category, agent_id, session_id, created_at
-             FROM insights
+             FROM ideas
              WHERE key LIKE ?1
              AND (expires_at IS NULL OR expires_at > ?2)
              ORDER BY created_at DESC
@@ -455,12 +494,12 @@ impl SqliteInsights {
             .filter_map(|r| r.ok())
             .filter_map(
                 |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let category: InsightCategory =
+                    let category: IdeaCategory =
                         serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(InsightEntry::recalled(
+                    Some(Idea::recalled(
                         id, key, content, category, agent_id, created_at, session_id, 1.0,
                     ))
                 },
@@ -477,7 +516,7 @@ impl SqliteInsights {
 
         // Get IDs of expired entries (for embedding cleanup).
         let expired_ids: Vec<String> = conn
-            .prepare("SELECT id FROM insights WHERE expires_at IS NOT NULL AND expires_at <= ?1")?
+            .prepare("SELECT id FROM ideas WHERE expires_at IS NOT NULL AND expires_at <= ?1")?
             .query_map(rusqlite::params![now], |row| row.get(0))?
             .filter_map(|r| r.ok())
             .collect();
@@ -499,7 +538,7 @@ impl SqliteInsights {
 
         // Delete the expired insights.
         conn.execute(
-            "DELETE FROM insights WHERE expires_at IS NOT NULL AND expires_at <= ?1",
+            "DELETE FROM ideas WHERE expires_at IS NOT NULL AND expires_at <= ?1",
             rusqlite::params![now],
         )?;
 
@@ -518,7 +557,7 @@ impl SqliteInsights {
 
     fn bm25_search(
         conn: &Connection,
-        query: &InsightQuery,
+        query: &IdeaQuery,
         limit: usize,
     ) -> Result<Vec<(MemRow, f64)>> {
         let fts_query = query
@@ -528,7 +567,7 @@ impl SqliteInsights {
             .collect::<Vec<_>>()
             .join(" OR ");
 
-        let mut conditions = vec!["insights_fts MATCH ?1".to_string()];
+        let mut conditions = vec!["ideas_fts MATCH ?1".to_string()];
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(fts_query)];
         let mut idx = 2usize;
 
@@ -548,9 +587,9 @@ impl SqliteInsights {
 
         let sql = format!(
             "SELECT m.id, m.key, m.content, m.category, m.agent_id,
-                    m.created_at, m.session_id, bm25(insights_fts) as rank
-             FROM insights_fts f
-             JOIN insights m ON m.rowid = f.rowid
+                    m.created_at, m.session_id, bm25(ideas_fts) as rank
+             FROM ideas_fts f
+             JOIN ideas m ON m.rowid = f.rowid
              WHERE {where_clause}
              ORDER BY rank
              LIMIT ?{idx}"
@@ -594,7 +633,7 @@ impl SqliteInsights {
         conn: &Connection,
         query_vec: &[f32],
         top_k: usize,
-        query: &InsightQuery,
+        query: &IdeaQuery,
     ) -> Vec<(String, f32)> {
         let mut conditions = vec!["1=1".to_string()];
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![];
@@ -611,7 +650,7 @@ impl SqliteInsights {
         let sql = format!(
             "SELECT me.memory_id, me.embedding
              FROM memory_embeddings me
-             JOIN insights m ON m.id = me.memory_id
+             JOIN ideas m ON m.id = me.memory_id
              WHERE {where_clause}"
         );
 
@@ -655,7 +694,7 @@ impl SqliteInsights {
             .join(",");
         let sql = format!(
             "SELECT id, key, content, category, agent_id, created_at, session_id
-             FROM insights WHERE id IN ({placeholders})"
+             FROM ideas WHERE id IN ({placeholders})"
         );
         let params: Vec<&dyn rusqlite::types::ToSql> = ids
             .iter()
@@ -712,14 +751,14 @@ impl SqliteInsights {
         .unwrap_or_default()
     }
 
-    fn parse_category(s: &str) -> InsightCategory {
+    fn parse_category(s: &str) -> IdeaCategory {
         match s {
-            "fact" => InsightCategory::Fact,
-            "procedure" => InsightCategory::Procedure,
-            "preference" => InsightCategory::Preference,
-            "context" => InsightCategory::Context,
-            "evergreen" => InsightCategory::Evergreen,
-            _ => InsightCategory::Fact,
+            "fact" => IdeaCategory::Fact,
+            "procedure" => IdeaCategory::Procedure,
+            "preference" => IdeaCategory::Preference,
+            "context" => IdeaCategory::Context,
+            "evergreen" => IdeaCategory::Evergreen,
+            _ => IdeaCategory::Fact,
         }
     }
 
@@ -732,7 +771,7 @@ impl SqliteInsights {
         };
         let count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM insights WHERE key = ?1 AND created_at > ?2",
+                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND created_at > ?2",
                 rusqlite::params![key, cutoff],
                 |row| row.get(0),
             )
@@ -755,7 +794,7 @@ impl SqliteInsights {
 
         let count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM insights WHERE content = ?1 AND created_at > ?2",
+                "SELECT COUNT(*) FROM ideas WHERE content = ?1 AND created_at > ?2",
                 rusqlite::params![content, cutoff],
                 |row| row.get(0),
             )
@@ -767,7 +806,7 @@ impl SqliteInsights {
         count > 0
     }
 
-    fn row_to_entry(&self, row: MemRow, score: f64, query: &InsightQuery) -> Option<InsightEntry> {
+    fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
         let category = Self::parse_category(&row.cat_str);
 
         if let Some(ref q_cat) = query.category
@@ -786,13 +825,13 @@ impl SqliteInsights {
             .ok()?
             .with_timezone(&Utc);
 
-        let decay = if category == InsightCategory::Evergreen {
+        let decay = if category == IdeaCategory::Evergreen {
             1.0
         } else {
             self.decay_factor(&created_at)
         };
 
-        Some(InsightEntry::recalled(
+        Some(Idea::recalled(
             row.id, row.key, row.content, category, row.agent_id, created_at, row.session_id, score * decay,
         ))
     }
@@ -933,12 +972,12 @@ impl SqliteInsights {
 }
 
 #[async_trait]
-impl Insight for SqliteInsights {
+impl IdeaStore for SqliteIdeas {
     async fn store(
         &self,
         key: &str,
         content: &str,
-        category: InsightCategory,
+        category: IdeaCategory,
         agent_id: Option<&str>,
     ) -> Result<String> {
         // Dedup by exact content within 24h
@@ -962,7 +1001,7 @@ impl Insight for SqliteInsights {
         {
             let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
-                "INSERT INTO insights (id, key, content, category, agent_id, created_at)
+                "INSERT INTO ideas (id, key, content, category, agent_id, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 rusqlite::params![id, key, content, cat, agent_id, now],
             )?;
@@ -1022,7 +1061,7 @@ impl Insight for SqliteInsights {
         Ok(id)
     }
 
-    async fn search(&self, query: &InsightQuery) -> Result<Vec<InsightEntry>> {
+    async fn search(&self, query: &IdeaQuery) -> Result<Vec<Idea>> {
         // Phase 1: embed query text if embedder present (async, no lock).
         let query_embedding: Option<Vec<f32>> = if let Some(ref embedder) = self.embedder {
             match embedder.embed(&query.text).await {
@@ -1058,7 +1097,7 @@ impl Insight for SqliteInsights {
 
         // Phase 3: if no vector results, use BM25 path with graph boost.
         if vector_scores.is_empty() {
-            let mut entries: Vec<InsightEntry> = bm25_rows
+            let mut entries: Vec<Idea> = bm25_rows
                 .into_iter()
                 .filter_map(|(row, bm25_score)| {
                     let raw = -bm25_score; // BM25 from FTS5 is negative, negate to get positive score.
@@ -1122,8 +1161,8 @@ impl Insight for SqliteInsights {
             HashMap::new()
         };
 
-        // Phase 6: build InsightEntry for each merged result, applying temporal decay.
-        let mut scored: Vec<(ScoredResult, InsightEntry)> = Vec::new();
+        // Phase 6: build Idea for each merged result, applying temporal decay.
+        let mut scored: Vec<(ScoredResult, Idea)> = Vec::new();
         for sr in merged.into_iter().take(query.top_k * 2) {
             let row_ref = bm25_map
                 .get(&sr.memory_id)
@@ -1181,12 +1220,12 @@ impl Insight for SqliteInsights {
         );
 
         // Phase 8: apply graph boost from memory edges.
-        let entry_map: HashMap<String, InsightEntry> =
+        let entry_map: HashMap<String, Idea> =
             scored.into_iter().map(|(_, e)| (e.id.clone(), e)).collect();
 
         let result_ids: Vec<String> = reranked.iter().map(|r| r.memory_id.clone()).collect();
 
-        let mut result: Vec<InsightEntry> = reranked
+        let mut result: Vec<Idea> = reranked
             .into_iter()
             .filter_map(|r| {
                 let mut entry = entry_map.get(&r.memory_id)?.clone();
@@ -1215,7 +1254,7 @@ impl Insight for SqliteInsights {
 
     async fn delete(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        conn.execute("DELETE FROM insights WHERE id = ?1", rusqlite::params![id])?;
+        conn.execute("DELETE FROM ideas WHERE id = ?1", rusqlite::params![id])?;
         conn.execute(
             "DELETE FROM memory_embeddings WHERE memory_id = ?1",
             rusqlite::params![id],
@@ -1227,7 +1266,7 @@ impl Insight for SqliteInsights {
         &self,
         key: &str,
         content: &str,
-        category: InsightCategory,
+        category: IdeaCategory,
         agent_id: Option<&str>,
         ttl_secs: Option<u64>,
     ) -> Result<String> {
@@ -1240,27 +1279,27 @@ impl Insight for SqliteInsights {
             let expires_str = expires.to_rfc3339();
             let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
-                "UPDATE insights SET expires_at = ?1 WHERE id = ?2",
+                "UPDATE ideas SET expires_at = ?1 WHERE id = ?2",
                 rusqlite::params![expires_str, id],
             )?;
         }
         Ok(id)
     }
 
-    fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<InsightEntry>> {
+    fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<Idea>> {
         // Delegate to inherent method.
-        SqliteInsights::search_by_prefix(self, prefix, limit)
+        SqliteIdeas::search_by_prefix(self, prefix, limit)
     }
 
     fn cleanup_expired(&self) -> Result<usize> {
-        SqliteInsights::cleanup_expired(self)
+        SqliteIdeas::cleanup_expired(self)
     }
 
     fn name(&self) -> &str {
         "sqlite"
     }
 
-    async fn store_insight_edge(
+    async fn store_idea_edge(
         &self,
         source_id: &str,
         target_id: &str,
@@ -1290,7 +1329,7 @@ impl Insight for SqliteInsights {
         // Dedup by content_hash — reuse existing insight if content is identical.
         let existing_id: Option<String> = conn
             .query_row(
-                "SELECT id FROM insights WHERE content_hash = ?1",
+                "SELECT id FROM ideas WHERE content_hash = ?1",
                 rusqlite::params![content_hash],
                 |row| row.get(0),
             )
@@ -1307,7 +1346,7 @@ impl Insight for SqliteInsights {
         let tool_deny_json = serde_json::to_string(tool_deny)?;
 
         conn.execute(
-            "INSERT INTO insights (id, key, content, category, agent_id, injection_mode, inheritance, tool_allow, tool_deny, content_hash, created_at)
+            "INSERT INTO ideas (id, key, content, category, agent_id, injection_mode, inheritance, tool_allow, tool_deny, content_hash, created_at)
              VALUES (?1, ?2, ?3, 'evergreen', ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![id, key, content, agent_id, injection_mode, inheritance, tool_allow_json, tool_deny_json, content_hash, now],
         )?;
@@ -1316,24 +1355,24 @@ impl Insight for SqliteInsights {
         Ok(id)
     }
 
-    async fn get_prompts(&self, agent_id: &str) -> Result<Vec<InsightEntry>> {
+    async fn get_prompts(&self, agent_id: &str) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let mut stmt = conn.prepare(
             "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
-             FROM insights WHERE agent_id = ?1 AND injection_mode IS NOT NULL
+             FROM ideas WHERE agent_id = ?1 AND injection_mode IS NOT NULL
              ORDER BY created_at ASC",
         )?;
         let entries = stmt
             .query_map(rusqlite::params![agent_id], |row| {
                 let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                 let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
-                Ok(InsightEntry {
+                Ok(Idea {
                     id: row.get(0)?,
                     key: row.get(1)?,
                     content: row.get(2)?,
                     category: {
                         let s: String = row.get(3)?;
-                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(InsightCategory::Evergreen)
+                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(IdeaCategory::Evergreen)
                     },
                     agent_id: row.get(4)?,
                     created_at: {
@@ -1353,7 +1392,7 @@ impl Insight for SqliteInsights {
         Ok(entries)
     }
 
-    async fn get_prompts_for_chain(&self, ancestor_ids: &[String]) -> Result<Vec<InsightEntry>> {
+    async fn get_prompts_for_chain(&self, ancestor_ids: &[String]) -> Result<Vec<Idea>> {
         if ancestor_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -1370,10 +1409,10 @@ impl Insight for SqliteInsights {
 mod tests {
     use super::*;
 
-    fn test_insights() -> (SqliteInsights, tempfile::TempDir) {
+    fn test_insights() -> (SqliteIdeas, tempfile::TempDir) {
         let dir = tempfile::TempDir::new().unwrap();
         let db_path = dir.path().join("test.db");
-        let insights = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let insights = SqliteIdeas::open(&db_path, 30.0).unwrap();
         (insights, dir)
     }
 
@@ -1384,7 +1423,7 @@ mod tests {
         mem.store(
             "login-flow",
             "The login uses JWT tokens with 24h expiry",
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             None,
         )
         .await
@@ -1392,7 +1431,7 @@ mod tests {
         mem.store(
             "deploy-process",
             "Deploy by merging to dev branch, auto-deploys",
-            InsightCategory::Procedure,
+            IdeaCategory::Procedure,
             None,
         )
         .await
@@ -1400,21 +1439,21 @@ mod tests {
         mem.store(
             "db-config",
             "PostgreSQL on port 5432 with TimescaleDB",
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             None,
         )
         .await
         .unwrap();
 
         let results = mem
-            .search(&InsightQuery::new("login JWT", 10))
+            .search(&IdeaQuery::new("login JWT", 10))
             .await
             .unwrap();
         assert!(!results.is_empty());
         assert!(results[0].content.contains("JWT"));
         assert!(results[0].agent_id.is_none());
 
-        let results = mem.search(&InsightQuery::new("deploy", 10)).await.unwrap();
+        let results = mem.search(&IdeaQuery::new("deploy", 10)).await.unwrap();
         assert!(!results.is_empty());
         assert!(results[0].content.contains("deploy"));
     }
@@ -1426,7 +1465,7 @@ mod tests {
         mem.store(
             "shared-fact",
             "The API runs on port 8080",
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             None,
         )
         .await
@@ -1434,7 +1473,7 @@ mod tests {
         mem.store(
             "guardian-note",
             "Risk tolerance is low for this user",
-            InsightCategory::Preference,
+            IdeaCategory::Preference,
             Some("guardian-001"),
         )
         .await
@@ -1442,23 +1481,23 @@ mod tests {
         mem.store(
             "librarian-note",
             "User prefers detailed explanations",
-            InsightCategory::Preference,
+            IdeaCategory::Preference,
             Some("librarian-001"),
         )
         .await
         .unwrap();
 
-        let guardian_query = InsightQuery::new("risk tolerance", 10).with_agent("guardian-001");
+        let guardian_query = IdeaQuery::new("risk tolerance", 10).with_agent("guardian-001");
         let results = mem.search(&guardian_query).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].agent_id.as_deref(), Some("guardian-001"));
 
-        let librarian_query = InsightQuery::new("risk tolerance", 10).with_agent("librarian-001");
+        let librarian_query = IdeaQuery::new("risk tolerance", 10).with_agent("librarian-001");
         let results = mem.search(&librarian_query).await.unwrap();
         assert!(results.is_empty());
 
         // Unscoped query should find the global memory.
-        let global_query = InsightQuery::new("API port", 10);
+        let global_query = IdeaQuery::new("API port", 10);
         let results = mem.search(&global_query).await.unwrap();
         assert!(!results.is_empty());
         assert!(results[0].agent_id.is_none());
@@ -1471,7 +1510,7 @@ mod tests {
         mem.store(
             "strategic-pref",
             "Always prefer Rust over Python for new services",
-            InsightCategory::Preference,
+            IdeaCategory::Preference,
             Some("root-agent"),
         )
         .await
@@ -1479,18 +1518,18 @@ mod tests {
         mem.store(
             "domain-fact",
             "The trading engine uses 50us tick",
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             None,
         )
         .await
         .unwrap();
 
-        let agent_query = InsightQuery::new("Rust Python", 10).with_agent("root-agent");
+        let agent_query = IdeaQuery::new("Rust Python", 10).with_agent("root-agent");
         let results = mem.search(&agent_query).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].agent_id.as_deref(), Some("root-agent"));
 
-        let all_query = InsightQuery::new("Rust Python services", 10);
+        let all_query = IdeaQuery::new("Rust Python services", 10);
         let results = mem.search(&all_query).await.unwrap();
         assert!(!results.is_empty());
     }
@@ -1520,10 +1559,10 @@ mod tests {
             ).unwrap();
         }
 
-        let mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
 
         let results = mem
-            .search(&InsightQuery::new("old data", 10))
+            .search(&IdeaQuery::new("old data", 10))
             .await
             .unwrap();
         assert_eq!(results.len(), 1);
@@ -1532,14 +1571,14 @@ mod tests {
         mem.store(
             "new-fact",
             "New data with agent",
-            InsightCategory::Fact,
+            IdeaCategory::Fact,
             Some("agent-1"),
         )
         .await
         .unwrap();
 
         let results = mem
-            .search(&InsightQuery::new("New data agent", 10).with_agent("agent-1"))
+            .search(&IdeaQuery::new("New data agent", 10).with_agent("agent-1"))
             .await
             .unwrap();
         assert_eq!(results.len(), 1);
@@ -1551,13 +1590,13 @@ mod tests {
         let (mem, _dir) = test_insights();
 
         let id = mem
-            .store("key", "content", InsightCategory::Fact, None)
+            .store("key", "content", IdeaCategory::Fact, None)
             .await
             .unwrap();
 
         mem.delete(&id).await.unwrap();
 
-        let results = mem.search(&InsightQuery::new("content", 10)).await.unwrap();
+        let results = mem.search(&IdeaQuery::new("content", 10)).await.unwrap();
         assert!(results.is_empty());
     }
 
@@ -1602,7 +1641,7 @@ mod tests {
         let db_path = dir.path().join("test_embed_cache.db");
         let embedder = Arc::new(MockEmbedder::new(4));
 
-        let mem = SqliteInsights::open(&db_path, 30.0)
+        let mem = SqliteIdeas::open(&db_path, 30.0)
             .unwrap()
             .with_embedder(embedder.clone(), 4, 0.6, 0.4, 0.7)
             .unwrap();
@@ -1612,7 +1651,7 @@ mod tests {
             .store(
                 "key-1",
                 "identical content for embedding",
-                InsightCategory::Fact,
+                IdeaCategory::Fact,
                 None,
             )
             .await
@@ -1631,7 +1670,7 @@ mod tests {
         // Instead, let's directly test the hash lookup mechanism.
         {
             let conn = mem.conn.lock().unwrap();
-            let hash = SqliteInsights::content_hash("identical content for embedding");
+            let hash = SqliteIdeas::content_hash("identical content for embedding");
 
             // Verify the hash was stored.
             let stored_hash: Option<String> = conn
@@ -1648,7 +1687,7 @@ mod tests {
             );
 
             // Verify lookup_embedding_by_hash finds it.
-            let cached = SqliteInsights::lookup_embedding_by_hash(&conn, &hash);
+            let cached = SqliteIdeas::lookup_embedding_by_hash(&conn, &hash);
             assert!(cached.is_some(), "should find cached embedding by hash");
         }
     }
@@ -1659,21 +1698,21 @@ mod tests {
         let db_path = dir.path().join("test_embed_diff.db");
         let embedder = Arc::new(MockEmbedder::new(4));
 
-        let mem = SqliteInsights::open(&db_path, 30.0)
+        let mem = SqliteIdeas::open(&db_path, 30.0)
             .unwrap()
             .with_embedder(embedder.clone(), 4, 0.6, 0.4, 0.7)
             .unwrap();
 
         // Store two memories with different content — both should call embedder.
         let _id1 = mem
-            .store("key-1", "first unique content", InsightCategory::Fact, None)
+            .store("key-1", "first unique content", IdeaCategory::Fact, None)
             .await
             .unwrap();
         let _id2 = mem
             .store(
                 "key-2",
                 "second unique content",
-                InsightCategory::Fact,
+                IdeaCategory::Fact,
                 None,
             )
             .await
@@ -1688,15 +1727,15 @@ mod tests {
         // Verify both have different hashes stored.
         {
             let conn = mem.conn.lock().unwrap();
-            let hash1 = SqliteInsights::content_hash("first unique content");
-            let hash2 = SqliteInsights::content_hash("second unique content");
+            let hash1 = SqliteIdeas::content_hash("first unique content");
+            let hash2 = SqliteIdeas::content_hash("second unique content");
             assert_ne!(
                 hash1, hash2,
                 "different content should have different hashes"
             );
 
-            let cached1 = SqliteInsights::lookup_embedding_by_hash(&conn, &hash1);
-            let cached2 = SqliteInsights::lookup_embedding_by_hash(&conn, &hash2);
+            let cached1 = SqliteIdeas::lookup_embedding_by_hash(&conn, &hash1);
+            let cached2 = SqliteIdeas::lookup_embedding_by_hash(&conn, &hash2);
             assert!(cached1.is_some(), "first hash should be cached");
             assert!(cached2.is_some(), "second hash should be cached");
         }
@@ -1704,9 +1743,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_content_hash_deterministic() {
-        let h1 = SqliteInsights::content_hash("hello world");
-        let h2 = SqliteInsights::content_hash("hello world");
-        let h3 = SqliteInsights::content_hash("different content");
+        let h1 = SqliteIdeas::content_hash("hello world");
+        let h2 = SqliteIdeas::content_hash("hello world");
+        let h3 = SqliteIdeas::content_hash("different content");
 
         assert_eq!(h1, h2, "same content should produce same hash");
         assert_ne!(h1, h3, "different content should produce different hash");
@@ -1743,7 +1782,7 @@ mod tests {
         }
 
         // Opening should auto-migrate and add content_hash column.
-        let _mem = SqliteInsights::open(&db_path, 30.0).unwrap();
+        let _mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
 
         // Verify the column exists.
         let conn = Connection::open(&db_path).unwrap();

@@ -35,7 +35,7 @@ interface GraphData {
   edges: GraphEdge[];
 }
 
-export default function InsightsPage() {
+export default function IdeasPage() {
   const selectedAgent = useChatStore((s) => s.selectedAgent);
   const [insights, setInsights] = useState<MemoryEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -175,7 +175,7 @@ export default function InsightsPage() {
           <input
             className="filter-input"
             style={{ flex: 1 }}
-            placeholder="Search insights (FTS5)..."
+            placeholder="Search ideas (FTS5)..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

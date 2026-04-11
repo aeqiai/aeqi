@@ -29,7 +29,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         { id: "nav-quests", label: "Quests", hint: "View all quests", section: "Navigate", action: () => go("/quests") },
         { id: "nav-sessions", label: "Sessions", hint: "Agent sessions", section: "Navigate", action: () => go("/sessions") },
         { id: "nav-events", label: "Events", hint: "Event stream", section: "Navigate", action: () => go("/events") },
-        { id: "nav-insights", label: "Insights", hint: "Agent knowledge", section: "Navigate", action: () => go("/insights") },
+        { id: "nav-insights", label: "Ideas", hint: "Agent knowledge", section: "Navigate", action: () => go("/ideas") },
         { id: "nav-settings", label: "Settings", hint: "Configuration", section: "Navigate", action: () => go("/settings") },
       ];
 
@@ -63,8 +63,8 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           id: `insight-${m.id || m.key}`,
           label: (m.key || m.title || "Insight") as string,
           hint: ((m.content || "") as string).slice(0, 50),
-          section: "Insights",
-          action: () => go(`/insights`),
+          section: "Ideas",
+          action: () => go(`/ideas`),
         }));
 
         setItems([...navItems, ...agentItems, ...questItems, ...insightItems]);

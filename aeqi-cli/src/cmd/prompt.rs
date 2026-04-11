@@ -10,7 +10,7 @@ use crate::cli::PromptAction;
 use crate::helpers::{
     augment_prompt_with_org_context, build_project_tools, build_provider_for_project,
     find_agent_dir, find_project_dir, load_config, load_system_prompt, load_system_prompt_from_dir,
-    one_shot_agent_name, open_insights,
+    one_shot_agent_name, open_ideas,
 };
 
 fn discover_project_prompts(project_dir: &Path) -> Result<Vec<Prompt>> {
@@ -137,7 +137,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
                 observer,
                 final_prompt,
             );
-            if let Ok(mem) = open_insights(&config) {
+            if let Ok(mem) = open_ideas(&config) {
                 agent = agent.with_memory(Arc::new(mem));
             }
             let result = agent.run(&user_prompt).await?;

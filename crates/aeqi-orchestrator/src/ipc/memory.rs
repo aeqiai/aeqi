@@ -24,8 +24,8 @@ pub async fn handle_memories(
     }
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
-            let mut mq = aeqi_core::traits::InsightQuery::new(query, limit);
+        if let Some(mem) = engine.idea_store.as_ref() {
+            let mut mq = aeqi_core::traits::IdeaQuery::new(query, limit);
             match scope {
                 "entity" => {
                     if let Some(aid) = agent_id_param {
@@ -299,7 +299,7 @@ pub async fn handle_memory_prefix(
     }
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
+        if let Some(mem) = engine.idea_store.as_ref() {
             match mem.search_by_prefix(prefix, limit) {
                 Ok(entries) => {
                     let memories: Vec<serde_json::Value> = entries
@@ -373,10 +373,10 @@ pub async fn handle_channel_knowledge(
     let mut items: Vec<serde_json::Value> = Vec::new();
 
     if let Some(ref engine) = ctx.message_router
-        && let Some(mem) = engine.insight_store.as_ref()
+        && let Some(mem) = engine.idea_store.as_ref()
     {
         let q = if query.is_empty() { project } else { query };
-        let mq = aeqi_core::traits::InsightQuery::new(q, limit);
+        let mq = aeqi_core::traits::IdeaQuery::new(q, limit);
         if let Ok(results) = mem.search(&mq).await {
             for entry in results {
                 items.push(serde_json::json!({
@@ -424,13 +424,13 @@ pub async fn handle_knowledge_store(
     }
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
+        if let Some(mem) = engine.idea_store.as_ref() {
             let cat = match category {
-                "procedure" => aeqi_core::traits::InsightCategory::Procedure,
-                "preference" => aeqi_core::traits::InsightCategory::Preference,
-                "context" => aeqi_core::traits::InsightCategory::Context,
-                "evergreen" => aeqi_core::traits::InsightCategory::Evergreen,
-                _ => aeqi_core::traits::InsightCategory::Fact,
+                "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
+                "preference" => aeqi_core::traits::IdeaCategory::Preference,
+                "context" => aeqi_core::traits::IdeaCategory::Context,
+                "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
+                _ => aeqi_core::traits::IdeaCategory::Fact,
             };
             let raw_agent_id = request.get("agent_id").and_then(|v| v.as_str());
             let agent_id = match scope {
@@ -469,7 +469,7 @@ pub async fn handle_knowledge_delete(
     }
 
     if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
+        if let Some(mem) = engine.idea_store.as_ref() {
             match mem.delete(id).await {
                 Ok(_) => serde_json::json!({"ok": true}),
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),

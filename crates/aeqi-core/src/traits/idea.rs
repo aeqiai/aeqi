@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 /// deterministically injected into the agent's context (like prompts).
 /// Entries without it are recalled via semantic search.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InsightEntry {
+pub struct Idea {
     pub id: String,
     pub key: String,
     pub content: String,
-    pub category: InsightCategory,
+    pub category: IdeaCategory,
     /// The agent that owns this insight.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -38,13 +38,13 @@ fn default_inheritance() -> String {
     "self".to_string()
 }
 
-impl InsightEntry {
+impl Idea {
     /// Create a search-returned entry (no injection metadata).
     pub fn recalled(
         id: String,
         key: String,
         content: String,
-        category: InsightCategory,
+        category: IdeaCategory,
         agent_id: Option<String>,
         created_at: DateTime<Utc>,
         session_id: Option<String>,
@@ -69,7 +69,7 @@ impl InsightEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum InsightCategory {
+pub enum IdeaCategory {
     Fact,
     Procedure,
     Preference,
@@ -78,10 +78,10 @@ pub enum InsightCategory {
 }
 
 #[derive(Debug, Clone)]
-pub struct InsightQuery {
+pub struct IdeaQuery {
     pub text: String,
     pub top_k: usize,
-    pub category: Option<InsightCategory>,
+    pub category: Option<IdeaCategory>,
     pub session_id: Option<String>,
     /// Filter to a specific agent's insights.
     pub agent_id: Option<String>,
@@ -90,7 +90,7 @@ pub struct InsightQuery {
     pub sibling_agent_ids: Vec<String>,
 }
 
-impl InsightQuery {
+impl IdeaQuery {
     pub fn new(text: impl Into<String>, top_k: usize) -> Self {
         Self {
             text: text.into(),
@@ -115,19 +115,19 @@ impl InsightQuery {
 }
 
 #[async_trait]
-pub trait Insight: Send + Sync {
+pub trait IdeaStore: Send + Sync {
     /// Store an insight owned by an agent.
     /// agent_id = None stores a global/system insight.
     async fn store(
         &self,
         key: &str,
         content: &str,
-        category: InsightCategory,
+        category: IdeaCategory,
         agent_id: Option<&str>,
     ) -> anyhow::Result<String>;
 
     /// Search insights, optionally filtered by agent_id.
-    async fn search(&self, query: &InsightQuery) -> anyhow::Result<Vec<InsightEntry>>;
+    async fn search(&self, query: &IdeaQuery) -> anyhow::Result<Vec<Idea>>;
 
     /// Hierarchical search: walk the agent tree from leaf to root.
     /// `ancestor_ids` = [self_id, parent_id, grandparent_id, ..., root_id].
@@ -137,18 +137,18 @@ pub trait Insight: Send + Sync {
         query: &str,
         ancestor_ids: &[String],
         top_k: usize,
-    ) -> anyhow::Result<Vec<InsightEntry>> {
+    ) -> anyhow::Result<Vec<Idea>> {
         let mut all = Vec::new();
 
         for agent_id in ancestor_ids {
-            let q = InsightQuery::new(query, top_k).with_agent(agent_id);
+            let q = IdeaQuery::new(query, top_k).with_agent(agent_id);
             if let Ok(entries) = self.search(&q).await {
                 all.extend(entries);
             }
         }
 
         // Also search global insights (agent_id IS NULL).
-        let mut q = InsightQuery::new(query, top_k);
+        let mut q = IdeaQuery::new(query, top_k);
         q.agent_id = None;
         if let Ok(entries) = self.search(&q).await {
             // Only include entries that are truly global (no agent_id).
@@ -171,7 +171,7 @@ pub trait Insight: Send + Sync {
         &self,
         key: &str,
         content: &str,
-        category: InsightCategory,
+        category: IdeaCategory,
         agent_id: Option<&str>,
         _ttl_secs: Option<u64>,
     ) -> anyhow::Result<String> {
@@ -179,7 +179,7 @@ pub trait Insight: Send + Sync {
     }
 
     /// Search by key prefix (exact prefix match, not FTS). Default returns empty.
-    fn search_by_prefix(&self, _prefix: &str, _limit: usize) -> anyhow::Result<Vec<InsightEntry>> {
+    fn search_by_prefix(&self, _prefix: &str, _limit: usize) -> anyhow::Result<Vec<Idea>> {
         Ok(Vec::new())
     }
 
@@ -206,7 +206,7 @@ pub trait Insight: Send + Sync {
         _tool_deny: &[String],
     ) -> anyhow::Result<String> {
         // Default implementation: fall back to store() — subclasses override.
-        self.store(key, content, InsightCategory::Evergreen, agent_id)
+        self.store(key, content, IdeaCategory::Evergreen, agent_id)
             .await
     }
 
@@ -215,7 +215,7 @@ pub trait Insight: Send + Sync {
     async fn get_prompts(
         &self,
         _agent_id: &str,
-    ) -> anyhow::Result<Vec<InsightEntry>> {
+    ) -> anyhow::Result<Vec<Idea>> {
         Ok(Vec::new())
     }
 
@@ -224,12 +224,12 @@ pub trait Insight: Send + Sync {
     async fn get_prompts_for_chain(
         &self,
         _ancestor_ids: &[String],
-    ) -> anyhow::Result<Vec<InsightEntry>> {
+    ) -> anyhow::Result<Vec<Idea>> {
         Ok(Vec::new())
     }
 
     /// Store an insight graph edge. Default is no-op.
-    async fn store_insight_edge(
+    async fn store_idea_edge(
         &self,
         _source_id: &str,
         _target_id: &str,

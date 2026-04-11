@@ -1,9 +1,9 @@
-use aeqi_core::traits::Insight;
+use aeqi_core::traits::IdeaStore;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 use crate::cli::MemoryAction;
-use crate::helpers::{load_config, open_insights};
+use crate::helpers::{load_config, open_ideas};
 
 pub(crate) async fn cmd_recall(
     config_path: &Option<PathBuf>,
@@ -12,10 +12,10 @@ pub(crate) async fn cmd_recall(
     top_k: usize,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
-    let memory = open_insights(&config)?;
+    let memory = open_ideas(&config)?;
 
     let results = memory
-        .search(&aeqi_core::traits::InsightQuery::new(query, top_k))
+        .search(&aeqi_core::traits::IdeaQuery::new(query, top_k))
         .await?;
 
     if results.is_empty() {
@@ -50,10 +50,10 @@ pub(crate) async fn cmd_remember(
     project_name: Option<&str>,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
-    let memory = open_insights(&config)?;
+    let memory = open_ideas(&config)?;
 
     let id = memory
-        .store(key, content, aeqi_core::traits::InsightCategory::Fact, None)
+        .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
         .await?;
     let scope = project_name.unwrap_or("global");
     println!("Stored memory {id} [{scope}] {key}");
@@ -69,18 +69,18 @@ pub(crate) async fn cmd_memory(config_path: &Option<PathBuf>, action: MemoryActi
 
 async fn cmd_memory_export(config_path: &Option<PathBuf>, vault: &Path) -> Result<()> {
     let (config, _) = load_config(config_path)?;
-    let memory = open_insights(&config)?;
+    let memory = open_ideas(&config)?;
 
-    let count = aeqi_insights::obsidian::export(&memory, vault)?;
+    let count = aeqi_ideas::obsidian::export(&memory, vault)?;
     println!("Exported {count} memories to {}", vault.display());
     Ok(())
 }
 
 async fn cmd_memory_import(config_path: &Option<PathBuf>, vault: &Path) -> Result<()> {
     let (config, _) = load_config(config_path)?;
-    let memory = open_insights(&config)?;
+    let memory = open_ideas(&config)?;
 
-    let (imported, skipped) = aeqi_insights::obsidian::import(&memory, vault).await?;
+    let (imported, skipped) = aeqi_ideas::obsidian::import(&memory, vault).await?;
     println!(
         "Imported {imported} memories ({skipped} skipped) from {}",
         vault.display()

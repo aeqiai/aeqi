@@ -1,7 +1,7 @@
 use aeqi_core::config::AuthMode;
 use axum::{
     extract::{Request, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -16,6 +16,9 @@ use crate::server::AppState;
 pub struct UserScope {
     pub companies: Vec<String>,
 }
+
+const PROXY_SCOPE_COMPANIES_HEADER: &str = "x-aeqi-allowed-companies";
+const PROXY_SCOPE_TOKEN_HEADER: &str = "x-aeqi-scope-token";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -76,10 +79,48 @@ pub fn signing_secret(state: &AppState) -> &str {
     }
 }
 
+pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option<UserScope> {
+    let scope_header = headers
+        .get(PROXY_SCOPE_COMPANIES_HEADER)?
+        .to_str()
+        .ok()?
+        .trim();
+    if scope_header.is_empty() {
+        return None;
+    }
+
+    let Some(expected_token) = state.auth_secret.as_deref().filter(|s| !s.is_empty()) else {
+        tracing::warn!("proxy scope header ignored: auth_secret not configured");
+        return None;
+    };
+
+    let provided_token = headers
+        .get(PROXY_SCOPE_TOKEN_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if provided_token != expected_token {
+        tracing::warn!("proxy scope header ignored: invalid scope token");
+        return None;
+    }
+
+    let companies: Vec<String> = scope_header
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+    if companies.is_empty() {
+        return None;
+    }
+
+    Some(UserScope { companies })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use aeqi_core::config::AuthConfig;
+    use axum::http::{HeaderMap, HeaderValue};
 
     #[test]
     fn create_and_validate_token_round_trip() {
@@ -177,12 +218,50 @@ mod tests {
         let state = test_state(Some("".to_string()));
         assert_eq!(signing_secret(&state), "aeqi-dev");
     }
+
+    #[test]
+    fn proxy_scope_from_headers_returns_companies_for_valid_token() {
+        let state = test_state(Some("scope-secret".to_string()));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            PROXY_SCOPE_COMPANIES_HEADER,
+            HeaderValue::from_static("aeqi, founder-lab"),
+        );
+        headers.insert(
+            PROXY_SCOPE_TOKEN_HEADER,
+            HeaderValue::from_static("scope-secret"),
+        );
+
+        let scope = proxy_scope_from_headers(&state, &headers).expect("scope should resolve");
+        assert_eq!(scope.companies, vec!["aeqi", "founder-lab"]);
+    }
+
+    #[test]
+    fn proxy_scope_from_headers_rejects_invalid_token() {
+        let state = test_state(Some("scope-secret".to_string()));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            PROXY_SCOPE_COMPANIES_HEADER,
+            HeaderValue::from_static("aeqi"),
+        );
+        headers.insert(
+            PROXY_SCOPE_TOKEN_HEADER,
+            HeaderValue::from_static("wrong-secret"),
+        );
+
+        assert!(proxy_scope_from_headers(&state, &headers).is_none());
+    }
 }
 
 /// Axum middleware — dispatches by auth mode.
 pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
     match state.auth_mode {
-        AuthMode::None => next.run(req).await,
+        AuthMode::None => {
+            if let Some(scope) = proxy_scope_from_headers(&state, req.headers()) {
+                req.extensions_mut().insert(scope);
+            }
+            next.run(req).await
+        }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = signing_secret(&state);
             let Some(token) = extract_bearer(&req) else {

@@ -350,9 +350,9 @@ pub async fn handle_post_notes(
     if key.is_empty() || content.is_empty() {
         serde_json::json!({"ok": false, "error": "key and content are required"})
     } else if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.insight_store.as_ref() {
+        if let Some(mem) = engine.idea_store.as_ref() {
             match mem
-                .store(key, content, aeqi_core::traits::InsightCategory::Fact, None)
+                .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
                 .await
             {
                 Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "key": key}}),

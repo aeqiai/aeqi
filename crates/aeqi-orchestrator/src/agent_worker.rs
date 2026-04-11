@@ -1,5 +1,5 @@
 use aeqi_core::traits::{
-    ChatRequest, Event, Insight, InsightCategory, LogObserver, LoopAction, Message, MessageContent,
+    ChatRequest, Event, IdeaStore, IdeaCategory, LogObserver, LoopAction, Message, MessageContent,
     Observer, Provider, Role, Tool,
 };
 use aeqi_core::{Agent, AgentConfig, AssembledPrompt};
@@ -63,7 +63,7 @@ pub struct AgentWorker {
     /// Called once at the end of execute() with the final status and optional outcome record.
     #[allow(clippy::type_complexity)]
     pub on_complete: Option<Box<dyn FnOnce(QuestStatus, Option<QuestOutcomeRecord>) + Send + Sync>>,
-    pub insight_store: Option<Arc<dyn Insight>>,
+    pub idea_store: Option<Arc<dyn IdeaStore>>,
     pub reflect_provider: Option<Arc<dyn Provider>>,
     pub reflect_model: String,
     /// Project directory path for checkpoint storage.
@@ -79,7 +79,7 @@ pub struct AgentWorker {
     /// Event broadcaster for real-time execution event streaming.
     pub event_broadcaster: Option<Arc<EventBroadcaster>>,
     /// Optional debounced write queue for batching reflection memory writes.
-    pub write_queue: Option<Arc<tokio::sync::Mutex<aeqi_insights::debounce::WriteQueue>>>,
+    pub write_queue: Option<Arc<tokio::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>>,
     /// Persistent agent UUID for entity-scoped memory. When set, memory queries
     /// include this agent's entity memories alongside domain/system memories.
     pub persistent_agent_id: Option<String>,
@@ -118,7 +118,7 @@ impl AgentWorker {
             event_store,
             task_snapshot: None,
             on_complete: None,
-            insight_store: None,
+            idea_store: None,
             reflect_provider: None,
             reflect_model,
             project_dir: None,
@@ -159,7 +159,7 @@ impl AgentWorker {
             event_store,
             task_snapshot: None,
             on_complete: None,
-            insight_store: None,
+            idea_store: None,
             reflect_provider: None,
             reflect_model: String::new(),
             project_dir: None,
@@ -181,8 +181,8 @@ impl AgentWorker {
         self
     }
 
-    pub fn with_insight_store(mut self, insight_store: Arc<dyn Insight>) -> Self {
-        self.insight_store = Some(insight_store);
+    pub fn with_idea_store(mut self, idea_store: Arc<dyn IdeaStore>) -> Self {
+        self.idea_store = Some(idea_store);
         self
     }
 
@@ -227,7 +227,7 @@ impl AgentWorker {
     /// Set the debounced write queue for batching reflection memory writes.
     pub fn set_write_queue(
         &mut self,
-        queue: Arc<tokio::sync::Mutex<aeqi_insights::debounce::WriteQueue>>,
+        queue: Arc<tokio::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
     ) {
         self.write_queue = Some(queue);
     }
@@ -617,10 +617,10 @@ impl AgentWorker {
         // Enrich system prompt with dynamic memory recall via query planner.
         // Primers are already assembled into self.system_prompt by assemble_prompts().
         // When a persistent agent UUID is set, also recall entity-scoped memories.
-        let enriched_system_prompt = if let Some(ref mem) = self.insight_store {
+        let enriched_system_prompt = if let Some(ref mem) = self.idea_store {
             // Try query planner first — generates typed, prioritized queries.
             let entries = match std::panic::catch_unwind(|| {
-                aeqi_insights::query_planner::QueryPlanner::plan(
+                aeqi_ideas::query_planner::QueryPlanner::plan(
                     &task_context,
                     Some(&self.project_name),
                 )
@@ -628,7 +628,7 @@ impl AgentWorker {
                 Ok(plan) => {
                     let mut all_entries = Vec::new();
                     for typed_query in &plan.queries {
-                        let query = aeqi_core::traits::InsightQuery::new(
+                        let query = aeqi_core::traits::IdeaQuery::new(
                             &typed_query.query_text,
                             plan.max_results_per_query,
                         );
@@ -655,7 +655,7 @@ impl AgentWorker {
                 Err(_) => {
                     // Fallback: single flat search if query planner fails.
                     warn!(worker = %self.name, "query planner failed, falling back to flat search");
-                    let query = aeqi_core::traits::InsightQuery::new(&task_context, 30);
+                    let query = aeqi_core::traits::IdeaQuery::new(&task_context, 30);
                     mem.search(&query).await.unwrap_or_default()
                 }
             };
@@ -663,7 +663,7 @@ impl AgentWorker {
             // Also recall entity-scoped memories for persistent agents.
             let mut all = entries;
             if let Some(ref agent_id) = self.persistent_agent_id {
-                let eq = aeqi_core::traits::InsightQuery::new(&task_context, 10)
+                let eq = aeqi_core::traits::IdeaQuery::new(&task_context, 10)
                     .with_agent(agent_id.clone());
                 if let Ok(entity_entries) = mem.search(&eq).await {
                     debug!(
@@ -788,7 +788,7 @@ impl AgentWorker {
         // Fire-and-forget reflection so the worker slot does not wait on memory extraction.
         if let Ok((ref result_text, _, _)) = raw_result
             && let (Some(mem), Some(provider)) =
-                (self.insight_store.clone(), self.reflect_provider.clone())
+                (self.idea_store.clone(), self.reflect_provider.clone())
         {
             let task_ctx = task_context.clone();
             let text = result_text.clone();
@@ -1365,7 +1365,7 @@ impl AgentWorker {
             system_prompt.to_string(),
         );
 
-        if let Some(ref mem) = self.insight_store {
+        if let Some(ref mem) = self.idea_store {
             agent = agent.with_memory(mem.clone());
         }
 
@@ -1401,7 +1401,7 @@ impl AgentWorker {
         task_context: String,
         result_text: String,
         model: String,
-        mem: Arc<dyn Insight>,
+        mem: Arc<dyn IdeaStore>,
         provider: Arc<dyn Provider>,
     ) {
         let transcript = format!("User: {}\n\nAssistant: {}", task_context, result_text);
@@ -1462,8 +1462,8 @@ impl AgentWorker {
         }
     }
 
-    async fn store_routed_insights_static(worker_name: &str, text: &str, mem: &Arc<dyn Insight>) {
-        use aeqi_insights::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarMemory};
+    async fn store_routed_insights_static(worker_name: &str, text: &str, mem: &Arc<dyn IdeaStore>) {
+        use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarMemory};
 
         let dedup = DedupPipeline::default();
 
@@ -1499,10 +1499,10 @@ impl AgentWorker {
             };
 
             let category = match cat_str.trim().to_uppercase().as_str() {
-                "FACT" => InsightCategory::Fact,
-                "PROCEDURE" => InsightCategory::Procedure,
-                "PREFERENCE" => InsightCategory::Preference,
-                "CONTEXT" => InsightCategory::Context,
+                "FACT" => IdeaCategory::Fact,
+                "PROCEDURE" => IdeaCategory::Procedure,
+                "PREFERENCE" => IdeaCategory::Preference,
+                "CONTEXT" => IdeaCategory::Context,
                 _ => continue,
             };
 
@@ -1514,7 +1514,7 @@ impl AgentWorker {
 
             // ── Dedup check: search for similar existing memories ──
             let should_store_action = async {
-                let query = aeqi_core::traits::InsightQuery::new(key, 5);
+                let query = aeqi_core::traits::IdeaQuery::new(key, 5);
                 let existing = mem.search(&query).await.unwrap_or_default();
                 let similar: Vec<SimilarMemory> = existing
                     .iter()
@@ -1573,7 +1573,7 @@ impl AgentWorker {
 
                     // Create memory graph edge if dedup detected a relationship.
                     if let Some((relation, target_id)) = supersede_target {
-                        if let Err(e) = mem.store_insight_edge(&id, &target_id, relation, 0.8).await
+                        if let Err(e) = mem.store_idea_edge(&id, &target_id, relation, 0.8).await
                         {
                             debug!(worker = %worker_name, "failed to store edge: {e}");
                         } else {
@@ -1588,7 +1588,7 @@ impl AgentWorker {
                     }
 
                     // Infer additional edges: search scoped to same agent
-                    let mut edge_query = aeqi_core::traits::InsightQuery::new(content, 3);
+                    let mut edge_query = aeqi_core::traits::IdeaQuery::new(content, 3);
                     if let Some(aid) = agent_id_for_store {
                         edge_query = edge_query.with_agent(aid.to_string());
                     }
@@ -1597,9 +1597,9 @@ impl AgentWorker {
                             if entry.id == id {
                                 continue;
                             }
-                            if aeqi_insights::dedup::is_support(content, &entry.content) {
+                            if aeqi_ideas::dedup::is_support(content, &entry.content) {
                                 let _ = mem
-                                    .store_insight_edge(&id, &entry.id, "supports", 0.7)
+                                    .store_idea_edge(&id, &entry.id, "supports", 0.7)
                                     .await;
                                 debug!(
                                     worker = %worker_name,
@@ -1608,7 +1608,7 @@ impl AgentWorker {
                                 );
                             } else if entry.score > 0.7 && entry.key != key {
                                 let _ = mem
-                                    .store_insight_edge(&id, &entry.id, "related_to", 0.5)
+                                    .store_idea_edge(&id, &entry.id, "related_to", 0.5)
                                     .await;
                                 debug!(
                                     worker = %worker_name,

@@ -5,7 +5,7 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::traits::{
-    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, Insight, InsightCategory,
+    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore, IdeaCategory,
     LoopAction, Message, MessageContent, Observer, Provider, Role, StopReason, Tool, ToolResult,
     ToolSpec, Usage,
 };
@@ -615,7 +615,7 @@ pub struct Agent {
     /// Step-level prompts re-read from disk before each API call. Mutable at
     /// runtime — messages can amend step prompts mid-session.
     step_prompts: Mutex<Vec<StepPromptSpec>>,
-    memory: Option<Arc<dyn Insight>>,
+    memory: Option<Arc<dyn IdeaStore>>,
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
     /// Receiver for notifications from background agents. Drained between steps.
     notification_rx: Option<Arc<Mutex<NotificationReceiver>>>,
@@ -657,7 +657,7 @@ impl Agent {
     }
 
     /// Attach a memory backend for context recall.
-    pub fn with_memory(mut self, memory: Arc<dyn Insight>) -> Self {
+    pub fn with_memory(mut self, memory: Arc<dyn IdeaStore>) -> Self {
         self.memory = Some(memory);
         self
     }
@@ -2321,7 +2321,7 @@ impl Agent {
     /// tool-use steps when enough context has accumulated. Stores a running
     /// session summary in memory for cheaper compaction.
     fn maybe_extract_session_memory(
-        memory: &Option<Arc<dyn Insight>>,
+        memory: &Option<Arc<dyn IdeaStore>>,
         messages: &[Message],
         tracker: &ContextTracker,
         agent_name: &str,
@@ -2350,7 +2350,7 @@ impl Agent {
                 .store(
                     SESSION_MEMORY_KEY,
                     &summary,
-                    InsightCategory::Context,
+                    IdeaCategory::Context,
                     agent_id.as_deref(),
                 )
                 .await
@@ -3213,7 +3213,7 @@ impl Agent {
         transcript
     }
 
-    async fn store_insights(&self, text: &str, mem: &Arc<dyn Insight>) {
+    async fn store_insights(&self, text: &str, mem: &Arc<dyn IdeaStore>) {
         for line in text.lines() {
             let line = line.trim();
             if line == "NONE" || line.is_empty() {
@@ -3246,10 +3246,10 @@ impl Agent {
             };
 
             let category = match cat_str.trim().to_uppercase().as_str() {
-                "FACT" => InsightCategory::Fact,
-                "PROCEDURE" => InsightCategory::Procedure,
-                "PREFERENCE" => InsightCategory::Preference,
-                "CONTEXT" => InsightCategory::Context,
+                "FACT" => IdeaCategory::Fact,
+                "PROCEDURE" => IdeaCategory::Procedure,
+                "PREFERENCE" => IdeaCategory::Preference,
+                "CONTEXT" => IdeaCategory::Context,
                 _ => continue,
             };
 

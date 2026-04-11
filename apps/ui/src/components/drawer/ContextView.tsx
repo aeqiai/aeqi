@@ -185,7 +185,7 @@ function InsightsSection({ agentName }: { agentName: string }) {
     <div className="ctx-section">
       <input
         className="ctx-insights-search"
-        placeholder="Search insights..."
+        placeholder="Search ideas..."
         value={search}
         onChange={(e) => handleSearchChange(e.target.value)}
       />

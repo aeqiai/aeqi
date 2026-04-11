@@ -4,31 +4,29 @@ Each subdirectory defines a persistent agent identity.
 
 ## Format
 
-One file per agent: `agent.toml`. Contains all config + system prompt.
+One file per agent: `agent.md`. It uses YAML frontmatter for config, followed by the prompt body.
 
-```toml
-display_name = "CTO"
-model_tier = "capable"           # resolved via [models] in aeqi.toml
-max_workers = 2
-max_turns = 30
-expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "events_manage"]
-color = "#00BFFF"
-avatar = "⚙"
+```md
+---
+name: cto
+display_name: CTO
+model_tier: capable
+max_workers: 2
+max_turns: 30
+expertise: [architecture, systems, rust]
+capabilities: [spawn_agents, events_manage]
+color: "#00BFFF"
+avatar: ⚙
+faces:
+  greeting: (⌐■_■)
+  thinking: (¬_¬ )
+triggers:
+  - name: memory-consolidation
+    schedule: every 6h
+    skill: memory-consolidation
+---
 
-[faces]
-greeting = "(⌐■_■)"
-thinking = "(¬_¬ )"
-
-[[triggers]]
-name = "memory-consolidation"
-schedule = "every 6h"
-skill = "memory-consolidation"
-
-[prompt]
-system = """
 You are CTO — the technology executive...
-"""
 ```
 
 ## Shipped Agents
@@ -58,7 +56,7 @@ Central `[models]` config in `aeqi.toml` resolves tiers to actual models.
 ## Creating an Agent
 
 1. Create a directory under `agents/`
-2. Add `agent.toml` with config + system prompt
+2. Add `agent.md` with frontmatter + system prompt
 3. Spawn via `aeqi agent spawn <directory_name>`
 
 The directory name is the template identifier. Spawned agents get a UUID in the registry.

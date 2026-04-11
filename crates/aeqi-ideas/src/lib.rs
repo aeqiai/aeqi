@@ -1,6 +1,6 @@
 //! Persistent insight store with full-text search and vector similarity.
 //!
-//! Combines SQLite FTS5 keyword search ([`SqliteInsights`]) with vector embeddings
+//! Combines SQLite FTS5 keyword search ([`SqliteIdeas`]) with vector embeddings
 //! ([`VectorStore`]) using Reciprocal Rank Fusion and MMR reranking ([`hybrid`]).
 //! Text chunking ([`chunker`]) splits documents into overlapping segments for indexing.
 //!
@@ -21,5 +21,5 @@ pub mod vector;
 
 pub use chunker::{Chunk, chunk_default, chunk_text};
 pub use hybrid::{ScoredResult, merge_scores, mmr_rerank};
-pub use sqlite::SqliteInsights;
+pub use sqlite::SqliteIdeas;
 pub use vector::{VectorStore, cosine_similarity};

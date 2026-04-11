@@ -91,25 +91,25 @@ Agents are persistent identities stored in a SQLite registry. They are defined a
 
 ### Agent template format
 
-Each agent lives in `agents/<name>/agent.toml`:
+Each agent lives in `agents/<name>/agent.md`:
 
-```toml
-display_name = "CTO"
-model_tier = "capable"           # resolved via [models] in aeqi.toml
-max_workers = 2
-max_turns = 30
-expertise = ["architecture", "systems", "rust"]
-capabilities = ["spawn_agents", "events_manage"]
-color = "#00BFFF"
-avatar = "gear"
+```md
+---
+name: cto
+display_name: CTO
+model_tier: capable           # resolved via [models] in aeqi.toml
+max_workers: 2
+max_turns: 30
+expertise: [architecture, systems, rust]
+capabilities: [spawn_agents, events_manage]
+color: "#00BFFF"
+avatar: gear
+triggers:
+  - name: memory-consolidation
+    schedule: every 6h
+    skill: memory-consolidation
+---
 
-[[triggers]]
-name = "memory-consolidation"
-schedule = "every 6h"
-skill = "memory-consolidation"
-
-[prompt]
-system = """
 You are CTO -- the technology executive. You own architecture, engineering
 quality, and technical strategy. Implementation is delegated.
 
@@ -124,7 +124,6 @@ quality, and technical strategy. Implementation is delegated.
 3. Design solution -- options with trade-offs, recommend one
 4. Delegate implementation -- break into quests, dispatch
 5. Review ruthlessly -- spec compliance first, quality second
-"""
 ```
 
 ### Spawning agents
@@ -243,7 +242,7 @@ When a worker executes, its context is built from these layers:
 ```
 1. Root agent prompts             (scope=descendants, inherited down the tree)
 2. Parent agent prompts           (scope=descendants, project-level context)
-3. Agent system prompt            (scope=self, from agent.toml)
+3. Agent system prompt            (scope=self, from agent.md)
 4. Quest prompts                  (quest description + skill prompts)
 5. Dynamic recall                 (hybrid search from memory, entity-scoped)
 6. Quest tree context             (parent, children, done siblings)

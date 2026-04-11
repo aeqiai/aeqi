@@ -1,6 +1,6 @@
 //! Foundation crate for the AEQI agent runtime and control plane.
 //!
-//! Provides core traits ([`traits::Provider`], [`traits::Tool`], [`traits::Insight`],
+//! Provides core traits ([`traits::Provider`], [`traits::Tool`], [`traits::IdeaStore`],
 //! [`traits::Observer`], [`traits::Channel`]), configuration loading ([`AEQIConfig`]),
 //! the generic agent loop, and secret management.
 //!

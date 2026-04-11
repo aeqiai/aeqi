@@ -25,7 +25,7 @@ const PRIMARY_ITEMS = [
 ];
 
 const SECONDARY_ITEMS = [
-  { key: "insights", name: "Insights", route: "/insights" },
+  { key: "insights", name: "Ideas", route: "/ideas" },
   { key: "company", name: "Company", route: "/company" },
   { key: "drive", name: "Drive", route: "/drive" },
   { key: "apps", name: "Apps", route: "/apps" },

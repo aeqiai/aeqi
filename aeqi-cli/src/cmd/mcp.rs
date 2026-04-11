@@ -105,7 +105,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "insights_recall".to_string(),
+            name: "ideas_recall".to_string(),
             description: "Search memory for relevant knowledge. Searches within a project's memory by default, or across all projects with scope 'system'.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -120,7 +120,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "insights_store".to_string(),
+            name: "ideas_store".to_string(),
             description: "Store knowledge in memory for future recall.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -147,7 +147,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
         ToolDef {
             name: "notes".to_string(),
-            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use insights_store instead.".to_string(),
+            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use ideas_store instead.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -208,7 +208,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             }),
         },
         ToolDef {
-            name: "insights_graph".to_string(),
+            name: "ideas_graph".to_string(),
             description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes, list communities or processes.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -425,7 +425,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     }
 
                     // ── Memory ──
-                    "insights_recall" | "aeqi_recall" => {
+                    "ideas_recall" | "aeqi_recall" => {
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
                         let scope = args
@@ -468,7 +468,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             r
                         }
                     }
-                    "insights_store" | "aeqi_remember" => {
+                    "ideas_store" | "aeqi_remember" => {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("knowledge_store");
                         if ipc
@@ -736,7 +736,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         result
                     }
 
-                    "insights_graph" | "aeqi_graph" => {
+                    "ideas_graph" | "aeqi_graph" => {
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let action = args
                             .get("action")

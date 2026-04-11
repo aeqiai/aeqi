@@ -1,5 +1,35 @@
-// Round avatar for users and agents — initials on a colored circle
-export default function RoundAvatar({ name, size = 22 }: { name: string; size?: number }) {
+import { useState } from "react";
+
+// Round avatar for users and agents — image when available, initials fallback.
+export default function RoundAvatar({
+  name,
+  size = 22,
+  src,
+}: {
+  name: string;
+  size?: number;
+  src?: string | null;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (src && !imageFailed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        onError={() => setImageFailed(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          flexShrink: 0,
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+    );
+  }
+
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
 
