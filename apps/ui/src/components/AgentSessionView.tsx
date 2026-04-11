@@ -984,9 +984,8 @@ export default function AgentSessionView({
               const promptTok = event.prompt_tokens || 0;
               const completionTok = event.completion_tokens || 0;
               const stepCount = countStepSegments(segments) || undefined;
-              setMessages((prev) => [
-                ...prev,
-                {
+              setMessages((prev) => {
+                const msg: Message = {
                   role: "assistant",
                   content: fullText,
                   segments: segments.length > 0 ? [...segments] : undefined,
@@ -998,8 +997,14 @@ export default function AgentSessionView({
                     promptTok || completionTok
                       ? { prompt: promptTok, completion: completionTok }
                       : undefined,
-                },
-              ]);
+                };
+                // Insert before any queued messages so transcript stays in order
+                const firstQueued = prev.findIndex((m) => m.queued);
+                if (firstQueued >= 0) {
+                  return [...prev.slice(0, firstQueued), msg, ...prev.slice(firstQueued)];
+                }
+                return [...prev, msg];
+              });
             }
             setStreaming(false);
             setLiveSegments([]);
@@ -1036,16 +1041,20 @@ export default function AgentSessionView({
     ws.onclose = () => {
       if (!done && (fullText || segments.length > 0)) {
         const endTime = Date.now();
-        setMessages((prev) => [
-          ...prev,
-          {
+        setMessages((prev) => {
+          const msg: Message = {
             role: "assistant",
             content: fullText,
             segments: segments.length > 0 ? [...segments] : undefined,
             timestamp: endTime,
             duration: formatDuration(startTime, endTime),
-          },
-        ]);
+          };
+          const firstQueued = prev.findIndex((m) => m.queued);
+          if (firstQueued >= 0) {
+            return [...prev.slice(0, firstQueued), msg, ...prev.slice(firstQueued)];
+          }
+          return [...prev, msg];
+        });
       }
       setStreaming(false);
       setLiveSegments([]);
