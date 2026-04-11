@@ -525,11 +525,8 @@ impl SessionManager {
         {
             loader.all().await
         } else {
-            // Fallback: create a temporary loader from cwd (shouldn't happen in
-            // production — the daemon always configures a PromptLoader).
-            warn!("prompt_loader not configured — using cwd fallback");
-            let loader = PromptLoader::from_cwd();
-            loader.all().await
+            // No prompt_loader configured — return empty. No ad-hoc disk scanning.
+            Arc::new(Vec::new())
         };
 
         // 5c. Apply session prompts — resolve from DB first, disk fallback.

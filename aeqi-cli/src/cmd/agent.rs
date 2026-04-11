@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 
 use crate::helpers::{format_agent_org_hint, load_config, resolve_agents_dir};
@@ -45,45 +45,10 @@ pub(crate) async fn cmd_agent(
             }
             Ok(())
         }
-        crate::cli::AgentAction::Migrate { force } => {
-            let (config, config_path_resolved) = load_config(config_path)?;
-            let agents_dir = resolve_agents_dir(&config_path_resolved);
-
-            println!("Migrating [[agents]] from aeqi.toml to agent.toml files...\n");
-            let mut migrated = 0;
-            let mut skipped = 0;
-
-            for agent_cfg in &config.agents {
-                let agent_dir = agents_dir.join(&agent_cfg.name);
-                let toml_path = agent_dir.join("agent.toml");
-
-                if toml_path.exists() && !force {
-                    println!(
-                        "  {} — skipped (agent.toml exists, use --force)",
-                        agent_cfg.name
-                    );
-                    skipped += 1;
-                    continue;
-                }
-
-                if !agent_dir.exists() {
-                    println!("  {} — skipped (agent dir not found)", agent_cfg.name);
-                    skipped += 1;
-                    continue;
-                }
-
-                let toml_str = toml::to_string_pretty(agent_cfg)
-                    .context(format!("failed to serialize config for {}", agent_cfg.name))?;
-                std::fs::write(&toml_path, &toml_str)?;
-                println!("  {} — written: {}", agent_cfg.name, toml_path.display());
-                migrated += 1;
-            }
-
-            println!("\nMigrated: {migrated}, Skipped: {skipped}");
-            if migrated > 0 {
-                println!("\nYou can now remove the [[agents]] blocks from aeqi.toml.");
-            }
-            Ok(())
+        crate::cli::AgentAction::Migrate { .. } => {
+            anyhow::bail!(
+                "The migrate command has been removed. Agents are now managed in the DB via `aeqi agent spawn`."
+            );
         }
         crate::cli::AgentAction::Spawn { template, company } => {
             let (config, _) = load_config(config_path)?;

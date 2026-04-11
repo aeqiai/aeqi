@@ -359,7 +359,7 @@ pub enum AgentAction {
         #[arg(short = 'r', long = "company", alias = "project")]
         company: Option<String>,
     },
-    /// Migrate `[[agents]]` from aeqi.toml to agent.toml files on disk.
+    /// [Removed] Migration to agent.toml is no longer supported. Agents live in the DB.
     Migrate {
         #[arg(long)]
         force: bool,

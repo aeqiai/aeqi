@@ -18,7 +18,7 @@ use crate::cli::DaemonAction;
 use crate::helpers::{
     build_project_tools, build_provider_for_project, build_provider_for_runtime, build_tools,
     daemon_ipc_request,
-    find_agent_dir, find_project_dir, get_api_key, handle_fast_lane, load_config,
+    find_agent_dir, get_api_key, handle_fast_lane, load_config,
     load_config_with_agents, open_ideas, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
@@ -500,18 +500,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .first()
                     .and_then(|c| c.max_budget_usd)
                     .unwrap_or(5.0),
-                prompt_dirs: {
-                    let mut dirs = Vec::new();
-                    for project_cfg in &config.agent_spawns {
-                        if let Ok(d) = find_project_dir(&project_cfg.name) {
-                            dirs.push(d.join("skills"));
-                            if let Some(parent) = d.parent() {
-                                dirs.push(parent.join("shared").join("skills"));
-                            }
-                        }
-                    }
-                    dirs
-                },
                 shared_primer: config.shared_primer.clone(),
                 reflect_model: config
                     .default_model_for_provider(aeqi_core::config::ProviderKind::OpenRouter),

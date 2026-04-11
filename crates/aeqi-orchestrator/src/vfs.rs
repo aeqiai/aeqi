@@ -351,24 +351,8 @@ impl VfsTree {
             return Ok(nodes);
         }
 
-        // Fallback: scan cwd/skills directly.
-        let mut nodes = Vec::new();
-        let cwd = std::env::current_dir().unwrap_or_default();
-        let skills_dir = cwd.join("skills");
-        if let Ok(mut entries) = tokio::fs::read_dir(&skills_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let fname = entry.file_name().to_string_lossy().to_string();
-                if fname.ends_with(".md") {
-                    nodes.push(file_node(
-                        &fname,
-                        &format!("/skills/{fname}"),
-                        "text/markdown",
-                        Some("⚡"),
-                    ));
-                }
-            }
-        }
-        Ok(nodes)
+        // No prompt_loader configured — return empty.
+        Ok(Vec::new())
     }
 
     // --- Sessions ---

@@ -72,40 +72,37 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
 
     let starter_files = [
         (
-            agents_dir.join("leader/agent.toml"),
-            render_agent_toml("leader", "ld", "orchestrator", "vocal", runtime),
+            agents_dir.join("leader/agent.md"),
+            render_agent_md(
+                "leader",
+                "ld",
+                "orchestrator",
+                "vocal",
+                runtime,
+                "You are AEQI's primary orchestrator. Break ambiguous work into clear tasks, route specialists when needed, and keep the control plane legible.\n\nCoordinate aggressively but conservatively. Prefer explicit plans, visible checkpoints, and clean handoffs over improvisation.",
+            ),
         ),
         (
-            agents_dir.join("leader/IDENTITY.md"),
-            "# Leader\n\nYou are AEQI's primary orchestrator. Break ambiguous work into clear tasks, route specialists when needed, and keep the control plane legible.\n".to_string(),
+            agents_dir.join("researcher/agent.md"),
+            render_agent_md(
+                "researcher",
+                "rs",
+                "advisor",
+                "silent",
+                worker_runtime,
+                "You gather missing context, compare alternatives, and turn uncertainty into actionable input for the rest of the harness.\n\nBias toward source-backed findings, explicit tradeoffs, and concise synthesis.",
+            ),
         ),
         (
-            agents_dir.join("leader/PERSONA.md"),
-            "Coordinate aggressively but conservatively. Prefer explicit plans, visible checkpoints, and clean handoffs over improvisation.\n".to_string(),
-        ),
-        (
-            agents_dir.join("researcher/agent.toml"),
-            render_agent_toml("researcher", "rs", "advisor", "silent", worker_runtime),
-        ),
-        (
-            agents_dir.join("researcher/IDENTITY.md"),
-            "# Researcher\n\nYou gather missing context, compare alternatives, and turn uncertainty into actionable input for the rest of the harness.\n".to_string(),
-        ),
-        (
-            agents_dir.join("researcher/PERSONA.md"),
-            "Bias toward source-backed findings, explicit tradeoffs, and concise synthesis.\n".to_string(),
-        ),
-        (
-            agents_dir.join("reviewer/agent.toml"),
-            render_agent_toml("reviewer", "rv", "advisor", "silent", worker_runtime),
-        ),
-        (
-            agents_dir.join("reviewer/IDENTITY.md"),
-            "# Reviewer\n\nYou look for regressions, missing tests, and control-plane risks before work is accepted as complete.\n".to_string(),
-        ),
-        (
-            agents_dir.join("reviewer/PERSONA.md"),
-            "Default to bug-finding, edge cases, and operational safety. Keep feedback direct.\n".to_string(),
+            agents_dir.join("reviewer/agent.md"),
+            render_agent_md(
+                "reviewer",
+                "rv",
+                "advisor",
+                "silent",
+                worker_runtime,
+                "You look for regressions, missing tests, and control-plane risks before work is accepted as complete.\n\nDefault to bug-finding, edge cases, and operational safety. Keep feedback direct.",
+            ),
         ),
         (
             shared_agents_dir.join("WORKFLOW.md"),
@@ -169,14 +166,27 @@ fn write_file(path: &Path, contents: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn render_agent_toml(name: &str, prefix: &str, role: &str, voice: &str, runtime: &str) -> String {
+fn render_agent_md(
+    name: &str,
+    prefix: &str,
+    role: &str,
+    voice: &str,
+    runtime: &str,
+    body: &str,
+) -> String {
     format!(
-        "name = \"{name}\"\n\
-prefix = \"{prefix}\"\n\
-role = \"{role}\"\n\
-voice = \"{voice}\"\n\
-runtime = \"{runtime}\"\n\
-max_workers = 1\n"
+        "---\n\
+name: {name}\n\
+prefix: {prefix}\n\
+role: {role}\n\
+voice: {voice}\n\
+runtime: {runtime}\n\
+max_workers: 1\n\
+---\n\
+\n\
+# {name}\n\
+\n\
+{body}\n"
     )
 }
 

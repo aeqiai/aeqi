@@ -831,13 +831,8 @@ fn list_agent_templates() -> Vec<(String, PathBuf)> {
                 if name == "shared" || name.starts_with('.') {
                     continue;
                 }
-                // Look for agent.md or agent.toml inside.
+                // Look for agent.md inside.
                 let template = path.join("agent.md");
-                if template.exists() {
-                    templates.push((name, template));
-                    continue;
-                }
-                let template = path.join("agent.toml");
                 if template.exists() {
                     templates.push((name, template));
                 }

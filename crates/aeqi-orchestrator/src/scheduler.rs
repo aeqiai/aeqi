@@ -68,8 +68,6 @@ pub struct SchedulerConfig {
     pub worker_max_budget_usd: f64,
     /// Global daily budget cap (replaces CostLedger daily budget).
     pub daily_budget_usd: f64,
-    /// Directories to search for prompt files.
-    pub prompt_dirs: Vec<PathBuf>,
     /// Shared primer injected into ALL agents.
     pub shared_primer: Option<String>,
     /// Model for post-execution reflection.
@@ -89,7 +87,6 @@ impl Default for SchedulerConfig {
             default_timeout_secs: 3600,
             worker_max_budget_usd: 5.0,
             daily_budget_usd: 50.0,
-            prompt_dirs: Vec::new(),
             shared_primer: None,
             reflect_model: String::new(),
             adaptive_retry: false,
@@ -541,14 +538,7 @@ impl Scheduler {
         );
 
         // Assemble prompts from ancestor chain + task.
-        let task_prompts: Vec<aeqi_core::PromptEntry> = task
-            .skill
-            .as_ref()
-            .and_then(|skill_name| {
-                load_prompt(skill_name, &self.config.prompt_dirs)
-                    .map(|prompt| vec![aeqi_core::PromptEntry::task_prepend(prompt)])
-            })
-            .unwrap_or_default();
+        let task_prompts: Vec<aeqi_core::PromptEntry> = Vec::new();
         let assembled = crate::prompt_assembly::assemble_prompts(
             &self.agent_registry,
             self.idea_store.as_ref(),
@@ -918,29 +908,6 @@ impl Scheduler {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Load a prompt from prompt directories.
-fn load_prompt(prompt_name: &str, prompt_dirs: &[PathBuf]) -> Option<String> {
-    for dir in prompt_dirs {
-        let path = dir.join(format!("{prompt_name}.md"));
-        if let Ok(prompt) = aeqi_tools::Prompt::load(&path) {
-            let mut text = prompt.body;
-            if !prompt.tools.is_empty() || !prompt.deny.is_empty() {
-                text.push_str("\n\n## Tool Restrictions");
-                if !prompt.tools.is_empty() {
-                    text.push_str(&format!(
-                        "\nYou may ONLY use these tools: {}",
-                        prompt.tools.join(", ")
-                    ));
-                }
-                if !prompt.deny.is_empty() {
-                    text.push_str(&format!("\nYou must NOT use: {}", prompt.deny.join(", ")));
-                }
-            }
-            return Some(text);
-        }
-    }
-    None
-}
 
 #[cfg(test)]
 mod tests {

@@ -33,7 +33,7 @@ leader = "leader"
 router_cooldown_secs = 60
 max_background_cost_usd = 0.50
 
-# Agents are discovered from agents/{name}/agent.toml files on disk.
+# Agents are discovered from agents/{name}/agent.md files on disk.
 # See agents/README.md for the directory structure.
 
 # Optional: Telegram channel integration
