@@ -758,7 +758,7 @@ impl Daemon {
                 debug!(
                     project = %w.project,
                     key = %w.key,
-                    "no insight store available — write dropped"
+                    "no idea store available — write dropped"
                 );
             }
         }

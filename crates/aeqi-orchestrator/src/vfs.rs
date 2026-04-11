@@ -324,7 +324,7 @@ impl VfsTree {
     }
 
     async fn list_company_knowledge(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
-        // Company knowledge now lives in the insight store, not notes.
+        // Company knowledge now lives in the idea store, not notes.
         Ok(vec![])
     }
 
@@ -415,7 +415,7 @@ impl VfsTree {
     // --- Memory ---
 
     async fn list_memory(&self) -> anyhow::Result<Vec<VfsNode>> {
-        // Memory now lives in the insight store.
+        // Memory now lives in the idea store.
         let nodes = Vec::new();
         Ok(nodes)
     }

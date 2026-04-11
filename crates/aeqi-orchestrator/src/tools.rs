@@ -500,7 +500,7 @@ impl Tool for QuestReprioritizeTool {
 
 /// Tool for posting/querying shared insights and claiming resources via quests.
 ///
-/// post/query/get/delete operate on the insight store.
+/// post/query/get/delete operate on the idea store.
 /// claim/release operate on quests via agent_registry.
 pub struct NotesTool {
     idea_store: Arc<dyn IdeaStore>,
@@ -547,7 +547,7 @@ impl Tool for NotesTool {
                     .await
                 {
                     Ok(id) => Ok(ToolResult::success(format!(
-                        "Stored insight: {key} (id: {id})"
+                        "Stored idea: {key} (id: {id})"
                     ))),
                     Err(e) => Ok(ToolResult::error(format!("Failed to store: {e}"))),
                 }
@@ -741,7 +741,7 @@ impl Tool for NotesTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "notes".to_string(),
-            description: "Shared coordination surface. Post discoveries, claim resources, signal state, query entries. Actions: post (store insight), query (search), get (lookup by key), claim (exclusive resource lock via quest), release (drop claim), delete (remove entry).".to_string(),
+            description: "Shared coordination surface. Post discoveries, claim resources, signal state, query entries. Actions: post (store idea), query (search), get (lookup by key), claim (exclusive resource lock via quest), release (drop claim), delete (remove entry).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {

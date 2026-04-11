@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// An insight entry owned by an agent in the tree.
+/// An idea entry owned by an agent in the tree.
 /// Scoping is positional — determined by which agent_id owns the insight,
 /// not by an enum. Insight walks up the parent_id chain.
 ///

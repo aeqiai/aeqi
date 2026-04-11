@@ -1,4 +1,4 @@
-//! Notes (insight-store backed) IPC handlers.
+//! Notes (idea-store backed) IPC handlers.
 
 pub async fn handle_notes(
     ctx: &super::CommandContext,

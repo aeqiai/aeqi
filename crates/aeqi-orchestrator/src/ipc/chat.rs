@@ -359,9 +359,9 @@ pub async fn handle_post_notes(
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         } else {
-            serde_json::json!({"ok": false, "error": format!("no insight store for project: {project}")})
+            serde_json::json!({"ok": false, "error": format!("no idea store for project: {project}")})
         }
     } else {
-        serde_json::json!({"ok": false, "error": "insight stores not initialized"})
+        serde_json::json!({"ok": false, "error": "idea stores not initialized"})
     }
 }

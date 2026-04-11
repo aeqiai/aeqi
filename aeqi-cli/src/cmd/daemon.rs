@@ -87,11 +87,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let shared_idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
                 match open_ideas(&config) {
                     Ok(mem) => {
-                        info!("insight store initialized (single DB)");
+                        info!("idea store initialized (single DB)");
                         Some(Arc::new(mem) as Arc<dyn aeqi_core::traits::IdeaStore>)
                     }
                     Err(e) => {
-                        warn!("failed to open insight store: {e}");
+                        warn!("failed to open idea store: {e}");
                         None
                     }
                 };
@@ -114,7 +114,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Create the unified ActivityLog sharing the AgentRegistry DB.
             let activity_log = Arc::new(ActivityLog::new(agent_reg.db()));
             activity_log.set_activity_stream(activity_stream.clone());
-            info!("event store initialized (unified)");
+            info!("activity log initialized (unified)");
 
             // Create the SessionStore sharing the AgentRegistry DB (tables
             // already created by AgentRegistry::open -> SessionStore::create_tables).

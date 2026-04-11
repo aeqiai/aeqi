@@ -3132,7 +3132,7 @@ impl Agent {
             "You are a memory extraction system. Analyze this conversation and extract ONLY \
              genuinely important insights worth remembering long-term. Output NOTHING if the \
              conversation is trivial (greetings, status checks, small talk).\n\n\
-             For each insight, output exactly one line in this format:\n\
+             For each idea, output exactly one line in this format:\n\
              SCOPE CATEGORY: key-slug | The insight content\n\n\
              Scopes (choose the most appropriate):\n\
              - DOMAIN: Technical facts about this specific project/codebase\n\
@@ -3264,10 +3264,10 @@ impl Agent {
                 .await
             {
                 Ok(id) => {
-                    debug!(agent = %self.config.name, id = %id, key = %key, "insight stored")
+                    debug!(agent = %self.config.name, id = %id, key = %key, "idea stored")
                 }
                 Err(e) => {
-                    warn!(agent = %self.config.name, key = %key, "failed to store insight: {e}")
+                    warn!(agent = %self.config.name, key = %key, "failed to store idea: {e}")
                 }
             }
         }

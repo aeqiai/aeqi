@@ -462,7 +462,7 @@ impl SessionManager {
         tools.push(Arc::new(aeqi_tools::WebFetchTool));
         tools.push(Arc::new(aeqi_tools::WebSearchTool));
 
-        // 5. Resolve memory — single shared insight store.
+        // 5. Resolve memory — single shared idea store.
         let memory_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
 
         // Resolve graph DB path.

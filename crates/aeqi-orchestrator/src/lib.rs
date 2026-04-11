@@ -3,7 +3,7 @@
 //!
 //! Coordinates worker execution ([`AgentWorker`]), agent routing ([`AgentRouter`]),
 //! global scheduling ([`Scheduler`]), agent registry ([`agent_registry::AgentRegistry`]),
-//! event store ([`ActivityLog`]), Prometheus metrics ([`AEQIMetrics`]), and session storage.
+//! activity log ([`ActivityLog`]), Prometheus metrics ([`AEQIMetrics`]), and session storage.
 
 pub mod agent_registry;
 pub mod agent_router;

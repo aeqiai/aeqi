@@ -1,4 +1,4 @@
-//! Persistent insight store with full-text search and vector similarity.
+//! Persistent idea store with full-text search and vector similarity.
 //!
 //! Combines SQLite FTS5 keyword search ([`SqliteIdeas`]) with vector embeddings
 //! ([`VectorStore`]) using Reciprocal Rank Fusion and MMR reranking ([`hybrid`]).

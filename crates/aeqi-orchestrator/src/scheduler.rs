@@ -603,7 +603,7 @@ impl Scheduler {
         // Inject persistent agent identity.
         worker = worker.with_persistent_agent(agent_id.clone());
 
-        // Inject insight store.
+        // Inject idea store.
         if let Some(ref mem) = self.idea_store {
             worker = worker.with_idea_store(mem.clone());
         }
@@ -758,7 +758,7 @@ impl Scheduler {
                 }
             };
 
-            // Record task completion in unified event store.
+            // Record task completion in unified activity log.
             let _ = spawn_activity_log
                 .emit(
                     "quest_completed",

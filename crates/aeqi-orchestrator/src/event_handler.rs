@@ -52,7 +52,7 @@ pub struct NewEvent {
     pub system: bool,
 }
 
-/// SQLite-backed event store. Shares the agents.db connection pool.
+/// SQLite-backed activity log. Shares the agents.db connection pool.
 pub struct EventHandlerStore {
     db: Arc<ConnectionPool>,
 }

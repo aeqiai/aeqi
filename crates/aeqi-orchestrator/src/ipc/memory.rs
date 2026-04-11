@@ -320,7 +320,7 @@ pub async fn handle_memory_prefix(
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         } else {
-            serde_json::json!({"ok": false, "error": "no insight store available"})
+            serde_json::json!({"ok": false, "error": "no idea store available"})
         }
     } else {
         serde_json::json!({"ok": false, "error": "chat engine not initialized"})
@@ -446,7 +446,7 @@ pub async fn handle_knowledge_store(
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         } else {
-            serde_json::json!({"ok": false, "error": format!("no insight store available: {project}")})
+            serde_json::json!({"ok": false, "error": format!("no idea store available: {project}")})
         }
     } else {
         serde_json::json!({"ok": false, "error": "chat engine not initialized"})
@@ -475,7 +475,7 @@ pub async fn handle_knowledge_delete(
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         } else {
-            serde_json::json!({"ok": false, "error": "no insight store available"})
+            serde_json::json!({"ok": false, "error": "no idea store available"})
         }
     } else {
         serde_json::json!({"ok": false, "error": "chat engine not initialized"})

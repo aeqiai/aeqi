@@ -189,7 +189,7 @@ pub struct MessageRouter {
     pub default_project: String,
     pub pending_tasks: Arc<Mutex<HashMap<String, PendingTask>>>,
     pub task_notify: Arc<tokio::sync::Notify>,
-    /// Single insight store for all agents (scoped by agent_id within queries).
+    /// Single idea store for all agents (scoped by agent_id within queries).
     pub idea_store: Option<Arc<dyn IdeaStore>>,
     /// ActivityLog for emitting quest_created events (drives scheduler via broadcast).
     pub activity_log: Arc<crate::activity_log::ActivityLog>,
@@ -883,7 +883,7 @@ impl MessageRouter {
         let memory_context = if let (Some(project), Some(q)) = (project_hint, query) {
             self.build_memory_context(project, q).await
         } else if let Some(q) = query {
-            // Global query — search single insight store.
+            // Global query — search single idea store.
             if let Some(ref mem) = self.idea_store {
                 let mq = IdeaQuery::new(q, 5);
                 if let Ok(results) = mem.search(&mq).await {
@@ -1036,12 +1036,12 @@ impl MessageRouter {
         Some(ctx)
     }
 
-    /// Store a note to the insight store.
+    /// Store a note to the idea store.
     pub async fn store_note(&self, _project: &str, key: &str, content: &str) -> Result<String> {
         let mem = self
             .idea_store
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("no insight store available"))?;
+            .ok_or_else(|| anyhow::anyhow!("no idea store available"))?;
         let id = mem
             .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
             .await?;

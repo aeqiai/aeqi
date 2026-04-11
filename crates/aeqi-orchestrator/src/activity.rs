@@ -224,7 +224,7 @@ impl Activity {
 /// publisher.
 pub struct ActivityStream {
     sender: broadcast::Sender<Activity>,
-    /// Optional event store for persistence. When set, every published event
+    /// Optional activity log for persistence. When set, every published event
     /// is also written to the events table (fire-and-forget).
     activity_log: Option<std::sync::Arc<crate::activity_log::ActivityLog>>,
 }

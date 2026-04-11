@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use tracing::{debug, info};
 
 use super::{
-    Middleware, MiddlewareAction, ORDER_INSIGHT_REFRESH, ToolCall, ToolResult, WorkerContext,
+    Middleware, MiddlewareAction, ORDER_IDEA_REFRESH, ToolCall, ToolResult, WorkerContext,
 };
 
 /// Memory refresh middleware configuration.
@@ -69,7 +69,7 @@ impl IdeaRefreshMiddleware {
             .collect();
 
         format!(
-            "[Insight refresh suggested based on tools: {}]",
+            "[Idea refresh suggested based on tools: {}]",
             tools.join(", ")
         )
     }
@@ -84,11 +84,11 @@ impl Default for IdeaRefreshMiddleware {
 #[async_trait]
 impl Middleware for IdeaRefreshMiddleware {
     fn name(&self) -> &str {
-        "insight-refresh"
+        "idea-refresh"
     }
 
     fn order(&self) -> u32 {
-        ORDER_INSIGHT_REFRESH
+        ORDER_IDEA_REFRESH
     }
 
     async fn after_tool(
@@ -112,9 +112,9 @@ impl Middleware for IdeaRefreshMiddleware {
             call_count,
             interval = self.refresh_interval,
             max_lines = self.max_refresh_lines,
-            "insight refresh triggered"
+            "idea refresh triggered"
         );
-        debug!(query = %query, "insight refresh query");
+        debug!(query = %query, "idea refresh query");
 
         ctx.metadata.insert("idea_refresh_query".into(), query);
 
@@ -237,7 +237,7 @@ mod tests {
                 assert!(msgs[0].contains("Read"));
                 assert!(msgs[0].contains("Edit"));
                 assert!(msgs[0].contains("Bash"));
-                assert!(msgs[0].contains("[Insight refresh suggested"));
+                assert!(msgs[0].contains("[Idea refresh suggested"));
             }
             other => panic!("expected Inject, got {other:?}"),
         }

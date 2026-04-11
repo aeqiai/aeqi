@@ -1,4 +1,4 @@
-//! Unified event store — one table for all events.
+//! Unified activity log — one table for all events.
 //!
 //! Replaces: audit log, cost ledger, expertise ledger, session messages,
 //! dispatch bus. Every event is an immutable row with a type, optional
@@ -281,7 +281,7 @@ pub struct EventFilter {
     pub since_id: Option<String>,
 }
 
-/// The unified event store, backed by a shared SQLite connection.
+/// The unified activity log, backed by a shared SQLite connection.
 pub struct ActivityLog {
     db: Arc<crate::agent_registry::ConnectionPool>,
     /// TTL for dispatch pruning (seconds).
@@ -1021,7 +1021,7 @@ impl ActivityLog {
     pub async fn load_dispatches(&self) -> Result<usize> {
         let count = self.pending_dispatch_count().await.unwrap_or(0) as usize;
         if count > 0 {
-            debug!(count, "event store has persisted unread dispatches");
+            debug!(count, "activity log has persisted unread dispatches");
         }
         Ok(count)
     }

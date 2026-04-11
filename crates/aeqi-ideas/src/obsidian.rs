@@ -1,4 +1,4 @@
-//! Obsidian vault export/import for the insight store.
+//! Obsidian vault export/import for the idea store.
 //!
 //! Each insight becomes a `.md` file with YAML frontmatter.
 //! Graph edges become `[[wikilinks]]` — Obsidian's graph view

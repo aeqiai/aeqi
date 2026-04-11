@@ -1351,7 +1351,7 @@ impl IdeaStore for SqliteIdeas {
             rusqlite::params![id, key, content, agent_id, injection_mode, inheritance, tool_allow_json, tool_deny_json, content_hash, now],
         )?;
 
-        debug!(id = %id, key = %key, injection_mode = %injection_mode, "prompt insight stored");
+        debug!(id = %id, key = %key, injection_mode = %injection_mode, "prompt idea stored");
         Ok(id)
     }
 

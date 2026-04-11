@@ -1420,7 +1420,7 @@ impl AgentWorker {
             "You are a memory extraction system. Analyze this conversation and extract ONLY \
              genuinely important insights worth remembering long-term. Output NOTHING if the \
              conversation is trivial.\n\n\
-             For each insight, output exactly one line in this format:\n\
+             For each idea, output exactly one line in this format:\n\
              SCOPE CATEGORY: key-slug | The insight content\n\n\
              Scopes (choose the most appropriate):\n\
              - DOMAIN: Technical facts about this specific project/codebase\n\
@@ -1569,7 +1569,7 @@ impl AgentWorker {
 
             match mem.store(key, content, category, agent_id_for_store).await {
                 Ok(id) if !id.is_empty() => {
-                    debug!(worker = %worker_name, id = %id, key = %key, "insight stored");
+                    debug!(worker = %worker_name, id = %id, key = %key, "idea stored");
 
                     // Create memory graph edge if dedup detected a relationship.
                     if let Some((relation, target_id)) = supersede_target {
@@ -1623,7 +1623,7 @@ impl AgentWorker {
                     debug!(worker = %worker_name, key = %key, "store returned empty id (likely dedup)")
                 }
                 Err(e) => {
-                    warn!(worker = %worker_name, key = %key, "failed to store insight: {e}")
+                    warn!(worker = %worker_name, key = %key, "failed to store idea: {e}")
                 }
             }
         }
