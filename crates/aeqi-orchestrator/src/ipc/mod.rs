@@ -6,6 +6,7 @@
 pub mod agents;
 pub mod chat;
 pub mod companies;
+pub mod events;
 pub mod memory;
 pub mod notes;
 pub mod prompts;
@@ -26,6 +27,7 @@ use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
 use crate::prompt_loader::PromptLoader;
+use crate::event_handler::EventHandlerStore;
 use crate::trigger::TriggerStore;
 
 /// Shared context for all IPC command handlers.
@@ -36,6 +38,7 @@ pub struct CommandContext {
     pub session_store: Option<Arc<SessionStore>>,
     pub dispatch_es: Arc<ActivityLog>,
     pub trigger_store: Option<Arc<TriggerStore>>,
+    pub event_handler_store: Option<Arc<EventHandlerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub activity_buffer: Arc<Mutex<ActivityBuffer>>,

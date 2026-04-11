@@ -214,6 +214,7 @@ struct IpcContext {
     daily_budget_usd: f64,
     project_budgets: std::collections::HashMap<String, f64>,
     prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
+    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -574,6 +575,7 @@ impl Daemon {
                     daily_budget_usd: self.daily_budget_usd,
                     project_budgets: self.project_budgets.clone(),
                     prompt_loader: self.prompt_loader.clone(),
+                    event_handler_store: self.event_handler_store.clone(),
                 });
                 let dispatch_es = self.activity_log.clone();
                 let trigger_store = self.trigger_store.clone();
@@ -985,6 +987,7 @@ impl Daemon {
                 session_store: ipc_ctx.session_store.clone(),
                 dispatch_es: dispatch_es.clone(),
                 trigger_store: trigger_store.clone(),
+                event_handler_store: ipc_ctx.event_handler_store.clone(),
                 agent_registry: agent_registry.clone(),
                 message_router: message_router.clone(),
                 activity_buffer: activity_buffer.clone(),
@@ -1205,6 +1208,23 @@ impl Daemon {
                 }
                 "seed_ideas" => {
                     crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies)
+                        .await
+                }
+
+                "list_events" => {
+                    crate::ipc::events::handle_list_events(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "create_event" => {
+                    crate::ipc::events::handle_create_event(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "update_event" => {
+                    crate::ipc::events::handle_update_event(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "delete_event" => {
+                    crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_companies)
                         .await
                 }
 
