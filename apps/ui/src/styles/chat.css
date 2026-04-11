@@ -1047,7 +1047,12 @@
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
+}
+.asv-messages > * {
+  width: 100%;
+  max-width: 720px;
 }
 
 /* ── Empty state ── */
@@ -1875,14 +1880,19 @@
 .asv-composer {
   padding: 0 24px 20px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .asv-composer-inner {
   display: flex;
   align-items: flex-end;
   gap: 10px;
+  width: 100%;
+  max-width: 720px;
   background: var(--bg-base);
-  border: 1px solid var(--border);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
   padding: 12px 12px 12px 18px;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -1890,8 +1900,8 @@
 }
 
 .asv-composer-inner:focus-within {
-  border-color: rgba(0, 0, 0, 0.2);
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* Streaming: thin scanning line below composer */
@@ -1955,6 +1965,9 @@
 .asv-composer-hint {
   display: flex;
   justify-content: flex-end;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   padding: 5px 6px 0;
   font-size: 10px;
   color: var(--text-muted);
@@ -1963,7 +1976,7 @@
   pointer-events: none;
   user-select: none;
 }
-.asv-composer-inner:focus-within ~ .asv-composer-hint {
+.asv-composer:has(.asv-composer-inner:focus-within) .asv-composer-hint {
   opacity: 1;
 }
 .asv-composer-hint kbd {
