@@ -349,23 +349,7 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
              CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
 
-             CREATE TABLE IF NOT EXISTS triggers (
-                 id TEXT PRIMARY KEY,
-                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-                 name TEXT NOT NULL,
-                 trigger_type TEXT NOT NULL,
-                 config TEXT NOT NULL,
-                 skill TEXT NOT NULL,
-                 enabled INTEGER NOT NULL DEFAULT 1,
-                 max_budget_usd REAL,
-                 created_at TEXT NOT NULL,
-                 last_fired TEXT,
-                 fire_count INTEGER NOT NULL DEFAULT 0,
-                 total_cost_usd REAL NOT NULL DEFAULT 0.0,
-                 UNIQUE(agent_id, name)
-             );
-             CREATE INDEX IF NOT EXISTS idx_triggers_agent ON triggers(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_triggers_enabled ON triggers(enabled);
+             -- triggers table replaced by events table (the fourth primitive).
 
              CREATE TABLE IF NOT EXISTS budget_policies (
                  id TEXT PRIMARY KEY,
@@ -494,6 +478,32 @@ impl AgentRegistry {
              );",
         )?;
 
+        // Events table — reaction rules (the fourth primitive).
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS events (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 name TEXT NOT NULL,
+                 pattern TEXT NOT NULL,
+                 scope TEXT NOT NULL DEFAULT 'self',
+                 idea_id TEXT,
+                 content TEXT,
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 cooldown_secs INTEGER NOT NULL DEFAULT 0,
+                 max_budget_usd REAL,
+                 webhook_secret TEXT,
+                 last_fired TEXT,
+                 fire_count INTEGER NOT NULL DEFAULT 0,
+                 total_cost_usd REAL NOT NULL DEFAULT 0.0,
+                 system INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT NOT NULL,
+                 UNIQUE(agent_id, name)
+             );
+             CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_events_pattern ON events(pattern);
+             CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
+        )?;
+
         // Idempotent migration: add prompts column to tasks table.
         let has_task_prompts: bool = conn
             .prepare("PRAGMA table_info(quests)")?
@@ -512,51 +522,6 @@ impl AgentRegistry {
             .any(|col| col == "outcome");
         if !has_outcome {
             conn.execute_batch("ALTER TABLE quests ADD COLUMN outcome TEXT;")?;
-        }
-
-        // Idempotent migration: add public_id column for webhook triggers.
-        let has_public_id: bool = conn
-            .prepare("PRAGMA table_info(triggers)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "public_id");
-        if !has_public_id {
-            conn.execute_batch(
-                "ALTER TABLE triggers ADD COLUMN public_id TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_triggers_public_id ON triggers(public_id);",
-            )?;
-            let mut stmt =
-                conn.prepare("SELECT id, config FROM triggers WHERE trigger_type = 'webhook'")?;
-            let rows: Vec<(String, String)> = stmt
-                .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?
-                .filter_map(|r| r.ok())
-                .collect();
-            for (id, config_json) in rows {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&config_json)
-                    && let Some(pid) = v.get("public_id").and_then(|p| p.as_str())
-                {
-                    conn.execute(
-                        "UPDATE triggers SET public_id = ?1 WHERE id = ?2",
-                        rusqlite::params![pid, id],
-                    )?;
-                }
-            }
-        } else {
-            conn.execute_batch(
-                "CREATE INDEX IF NOT EXISTS idx_triggers_public_id ON triggers(public_id);",
-            )?;
-        }
-
-        // Idempotent migration: add prompts column to triggers table.
-        let has_trigger_prompts: bool = conn
-            .prepare("PRAGMA table_info(triggers)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "prompts");
-        if !has_trigger_prompts {
-            conn.execute_batch("ALTER TABLE triggers ADD COLUMN prompts TEXT DEFAULT '[]';")?;
         }
 
         // Create companies table (identity + config, separate from agent tree).
@@ -584,26 +549,11 @@ impl AgentRegistry {
              );",
         )?;
 
-        // Migrate: rename events → activity for existing databases.
-        {
-            let has_events: bool = conn.query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='events'",
-                [],
-                |row| row.get(0),
-            )?;
-            if has_events {
-                conn.execute_batch(
-                    "ALTER TABLE events RENAME TO activity;
-                     DROP INDEX IF EXISTS idx_events_type;
-                     DROP INDEX IF EXISTS idx_events_agent;
-                     DROP INDEX IF EXISTS idx_events_session;
-                     DROP INDEX IF EXISTS idx_events_quest;
-                     DROP INDEX IF EXISTS idx_events_created;
-                     DROP TABLE IF EXISTS events_fts;",
-                )?;
-                debug!("migrated: renamed events table → activity");
-            }
-        }
+        // Purge legacy tables — these are replaced by the four primitives.
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS events_fts;
+             DROP TABLE IF EXISTS triggers;",
+        )?;
 
         // Create activity table (audit log, cost tracking).
         crate::activity_log::ActivityLog::create_tables(&conn)?;
@@ -810,25 +760,38 @@ impl AgentRegistry {
             );
         }
 
-        // Create triggers from template.
+        // Create events from template triggers.
         if !triggers.is_empty() {
-            let trigger_store = self.trigger_store();
+            let event_store = crate::event_handler::EventHandlerStore::new(self.db.clone());
             for t in &triggers {
-                let trigger_type = template_trigger_to_type(t)?;
-                trigger_store
-                    .create(&crate::trigger::NewTrigger {
+                let pattern = if let Some(ref schedule) = t.schedule {
+                    format!("schedule:{schedule}")
+                } else if let Some(ref at) = t.at {
+                    format!("once:{at}")
+                } else if let Some(ref event) = t.event {
+                    format!("lifecycle:{event}")
+                } else {
+                    continue;
+                };
+                let _ = event_store
+                    .create(&crate::event_handler::NewEvent {
                         agent_id: agent.id.clone(),
                         name: t.name.clone(),
-                        trigger_type,
-                        skill: t.skill.clone(),
+                        pattern,
+                        scope: "self".into(),
+                        idea_id: None,
+                        content: Some(format!("Run skill: {}", t.skill)),
+                        cooldown_secs: t.cooldown_secs.unwrap_or(300),
                         max_budget_usd: t.max_budget_usd,
+                        webhook_secret: None,
+                        system: false,
                     })
-                    .await?;
+                    .await;
                 info!(
                     agent = %agent.name,
-                    trigger = %t.name,
+                    event = %t.name,
                     skill = %t.skill,
-                    "trigger created from template"
+                    "event created from template"
                 );
             }
         }
@@ -2498,55 +2461,6 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         worktree_branch: row.get("worktree_branch").ok(),
         worktree_path: row.get("worktree_path").ok(),
     }
-}
-
-fn template_trigger_to_type(t: &TemplateTrigger) -> Result<crate::trigger::TriggerType> {
-    if let Some(ref schedule) = t.schedule {
-        return Ok(crate::trigger::TriggerType::Schedule {
-            expr: schedule.clone(),
-        });
-    }
-    if let Some(ref at_str) = t.at {
-        let at = chrono::DateTime::parse_from_rfc3339(at_str)
-            .map_err(|e| anyhow::anyhow!("invalid 'at' timestamp: {e}"))?
-            .with_timezone(&Utc);
-        return Ok(crate::trigger::TriggerType::Once { at });
-    }
-    if let Some(ref event) = t.event {
-        let cooldown_secs = t.cooldown_secs.unwrap_or(300);
-        if cooldown_secs < 60 {
-            anyhow::bail!("cooldown_secs must be >= 60, got {cooldown_secs}");
-        }
-        let pattern = match event.as_str() {
-            "quest_completed" => crate::trigger::EventPattern::QuestCompleted {
-                project: t.event_project.clone(),
-            },
-            "quest_failed" => crate::trigger::EventPattern::QuestFailed {
-                project: t.event_project.clone(),
-            },
-            "tool_call_completed" => crate::trigger::EventPattern::ToolCallCompleted {
-                tool: t.event_tool.clone(),
-            },
-            "dispatch_received" => crate::trigger::EventPattern::DispatchReceived {
-                from_agent: t.event_from.clone(),
-                to_agent: t.event_to.clone(),
-                kind: t.event_kind.clone(),
-            },
-            "channel_message" => crate::trigger::EventPattern::ChannelMessage {
-                channel_name: t.event_channel.clone(),
-                from_agent: t.event_from.clone(),
-            },
-            other => anyhow::bail!("unknown event pattern: {other}"),
-        };
-        return Ok(crate::trigger::TriggerType::Event {
-            pattern,
-            cooldown_secs,
-        });
-    }
-    anyhow::bail!(
-        "trigger '{}' must have one of: schedule, at, or event",
-        t.name
-    )
 }
 
 fn row_to_prompt(row: &rusqlite::Row) -> PromptRecord {
