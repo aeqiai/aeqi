@@ -1878,11 +1878,13 @@
 /* ── Composer ── */
 
 .asv-composer {
-  padding: 0 24px 20px;
+  padding: 16px 24px 20px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: rgba(0, 0, 0, 0.025);
+  border-top: 1px solid var(--border);
 }
 
 .asv-composer-inner {
