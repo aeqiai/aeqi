@@ -48,11 +48,11 @@ impl EventMatcher {
     ) {
         // Map activity types to event patterns.
         let event_pattern = match activity_type {
-            "quest.created" | "execution.quest_started" => "lifecycle:quest_received",
-            "execution.quest_completed" | "quest.completed" => "lifecycle:quest_completed",
+            "quest_created" | "execution.quest_started" => "lifecycle:quest_received",
+            "execution.quest_completed" | "quest_completed" => "lifecycle:quest_completed",
             "execution.quest_failed" => "lifecycle:quest_failed",
             "quest.delegated" => "lifecycle:quest_received",
-            "budget.exceeded" => "lifecycle:budget_exceeded",
+            "budget_exceeded" => "lifecycle:budget_exceeded",
             _ => return, // Skip unhandled activity types.
         };
 

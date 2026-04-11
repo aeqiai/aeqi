@@ -259,6 +259,16 @@ pub trait IdeaStore: Send + Sync {
         Ok(Vec::new())
     }
 
+    /// Reassign ideas from one agent_id to another.
+    /// Used after agent spawning to reconcile name-based references with actual UUIDs.
+    async fn reassign_agent(
+        &self,
+        _old_agent_id: &str,
+        _new_agent_id: &str,
+    ) -> anyhow::Result<u64> {
+        Ok(0)
+    }
+
     /// Store an insight graph edge. Default is no-op.
     async fn store_idea_edge(
         &self,

@@ -18,7 +18,6 @@ use crate::session_manager::SessionManager;
 use crate::session_store::{SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id};
 
 
-const ACK_RETRY_AGE_SECS: u64 = 60;
 const MAX_EVENT_BUFFER_LEN: usize = 512;
 
 #[derive(Debug, Clone, Default)]
@@ -649,51 +648,11 @@ impl Daemon {
             self.apply_config_reload().await;
         }
 
-        // 4. Periodic persistence: save dispatch bus every patrol.
-        //    Cost entries are persisted automatically via ActivityLog (SQLite).
-        if let Err(e) = self.activity_log.save_dispatches().await {
-            warn!(error = %e, "failed to save dispatch bus");
-        }
-
-        // 5. Surface dispatch retries / dead letters for critical dispatches.
-        let retried = self.activity_log.retry_unacked(ACK_RETRY_AGE_SECS).await;
-        for dispatch in &retried {
-            warn!(
-                to = %dispatch.to,
-                subject = %dispatch.kind.subject_tag(),
-                retry = dispatch.retry_count,
-                "retrying unacknowledged dispatch"
-            );
-        }
-        self.metrics.dispatch_retries.inc_by(retried.len() as u64);
-        let dead_letters = self.activity_log.dead_letters().await;
-        for dispatch in &dead_letters {
-            warn!(
-                to = %dispatch.to,
-                subject = %dispatch.kind.subject_tag(),
-                retries = dispatch.retry_count,
-                "dispatch moved to dead-letter state"
-            );
-        }
-
-        // 6. Update daily cost gauge and dispatch health metrics.
+        // 4. Update daily cost gauge.
         let spent = self.activity_log.daily_cost().await.unwrap_or(0.0);
         self.metrics.daily_cost_usd.set(spent);
-        let dispatch_health = self.activity_log.dispatch_health(ACK_RETRY_AGE_SECS).await;
-        self.metrics
-            .dispatch_queue_depth
-            .set(dispatch_health.unread as f64);
-        self.metrics
-            .dispatches_awaiting_ack
-            .set(dispatch_health.awaiting_ack as f64);
-        self.metrics
-            .dispatches_overdue_ack
-            .set(dispatch_health.overdue_ack as f64);
-        self.metrics
-            .dispatch_dead_letters
-            .set(dispatch_health.dead_letters as f64);
 
-        // 7. Prune old cost events (older than 7 days).
+        // 5. Prune old cost events (older than 7 days).
         let cutoff = chrono::Utc::now() - chrono::Duration::days(7);
         if let Err(e) = self.activity_log.prune("cost", &cutoff).await {
             warn!(error = %e, "failed to prune old cost events");

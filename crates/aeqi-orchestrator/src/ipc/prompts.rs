@@ -408,6 +408,10 @@ pub async fn handle_seed_ideas(
                 .await
             {
                 Ok(agent) => {
+                    // Reconcile: update ideas that reference this agent by name
+                    // to use the actual UUID now that the agent exists.
+                    let _ = idea_store.reassign_agent(name, &agent.id).await;
+
                     agent_results.push(serde_json::json!({
                         "name": name,
                         "id": agent.id,

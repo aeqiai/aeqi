@@ -1299,6 +1299,19 @@ impl IdeaStore for SqliteIdeas {
         "sqlite"
     }
 
+    async fn reassign_agent(
+        &self,
+        old_agent_id: &str,
+        new_agent_id: &str,
+    ) -> Result<u64> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let updated = conn.execute(
+            "UPDATE ideas SET agent_id = ?1 WHERE agent_id = ?2",
+            rusqlite::params![new_agent_id, old_agent_id],
+        )?;
+        Ok(updated as u64)
+    }
+
     async fn store_idea_edge(
         &self,
         source_id: &str,
