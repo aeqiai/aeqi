@@ -897,6 +897,12 @@ impl AgentRegistry {
         )?;
 
         info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");
+        drop(db);
+
+        // Create default lifecycle events for the new agent.
+        let ehs = crate::event_handler::EventHandlerStore::new(self.db.clone());
+        crate::event_handler::create_default_lifecycle_events(&ehs, &agent.id).await?;
+
         Ok(agent)
     }
 

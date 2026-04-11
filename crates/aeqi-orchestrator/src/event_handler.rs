@@ -225,6 +225,77 @@ impl EventHandlerStore {
     }
 }
 
+/// Create default lifecycle events for a newly spawned agent.
+pub async fn create_default_lifecycle_events(
+    store: &EventHandlerStore,
+    agent_id: &str,
+) -> anyhow::Result<()> {
+    let defaults: &[(&str, &str, &str, &str)] = &[
+        (
+            "on_quest_received",
+            "lifecycle:quest_received",
+            "self",
+            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools (shell, file read/write, ideas) to complete the work. When finished, call quests_close with a summary of what you accomplished.",
+        ),
+        (
+            "on_quest_completed",
+            "lifecycle:quest_completed",
+            "self",
+            "You completed a quest. Reflect on what you learned. Store any reusable knowledge as ideas using ideas_store. Key facts, procedures, and preferences should be preserved for future work.",
+        ),
+        (
+            "on_quest_failed",
+            "lifecycle:quest_failed",
+            "self",
+            "A quest failed. Analyze the root cause. If the failure is recoverable and retry count is under 3, create a refined quest with lessons learned using quests_create. If the failure is terminal or retries exhausted, store the failure analysis as an idea and notify your parent by creating a quest describing the blocker.",
+        ),
+        (
+            "on_child_completed",
+            "lifecycle:quest_completed",
+            "children",
+            "A child agent completed a quest. Review the outcome. If there are dependent quests waiting on this result, they will be unblocked automatically. Store any cross-cutting insights as ideas.",
+        ),
+        (
+            "on_child_failed",
+            "lifecycle:quest_failed",
+            "children",
+            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child via quests_create, or (3) handle the work yourself. Consider the failure reason before deciding.",
+        ),
+        (
+            "on_idea_received",
+            "lifecycle:idea_received",
+            "self",
+            "New knowledge has been shared with you. Acknowledge it and integrate it into your working context. This may change how you approach future quests.",
+        ),
+        (
+            "on_budget_exceeded",
+            "lifecycle:budget_exceeded",
+            "self",
+            "Your cost budget has been exceeded. Immediately checkpoint any in-progress work. Do not start new tool calls. Report the situation to your parent by creating a quest describing what was completed and what remains.",
+        ),
+    ];
+
+    for &(name, pattern, scope, content) in defaults {
+        store
+            .create(&NewEvent {
+                agent_id: agent_id.to_string(),
+                name: name.to_string(),
+                pattern: pattern.to_string(),
+                scope: scope.to_string(),
+                idea_id: None,
+                content: Some(content.to_string()),
+                cooldown_secs: 0,
+                max_budget_usd: None,
+                webhook_secret: None,
+                system: true,
+            })
+            .await?;
+    }
+
+    info!(agent_id = %agent_id, "created 7 default lifecycle events");
+    Ok(())
+}
+
 fn row_to_event(row: &rusqlite::Row) -> Event {
     let last_fired_str: Option<String> = row.get("last_fired").ok().flatten();
     let last_fired = last_fired_str

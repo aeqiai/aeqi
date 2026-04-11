@@ -390,6 +390,7 @@ mod tests {
         ).await;
 
         let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
-        assert!(tasks.is_empty(), "quest_failed event should not fire on quest_completed");
+        let fail_tasks: Vec<_> = tasks.iter().filter(|t| t.name.contains("on-fail")).collect();
+        assert!(fail_tasks.is_empty(), "quest_failed event should not fire on quest_completed");
     }
 }
