@@ -135,24 +135,21 @@ fn is_schedule_due(expr: &str, last_fired: Option<&chrono::DateTime<Utc>>) -> bo
     let now = Utc::now();
 
     // Interval format: "every 1h", "every 30m", "every 2d"
-    if expr.starts_with("every ") {
-        let interval_str = &expr[6..];
-        if let Some(duration) = parse_interval(interval_str) {
+    if let Some(interval_str) = expr.strip_prefix("every ")
+        && let Some(duration) = parse_interval(interval_str) {
             return match last_fired {
                 None => true, // Never fired → fire immediately.
                 Some(last) => (now - *last) >= duration,
             };
         }
-    }
 
     // Cron format: "0 9 * * *" (minute hour day month weekday)
     if let Some(cron) = parse_simple_cron(expr) {
         // Don't re-fire within the same minute.
-        if let Some(last) = last_fired {
-            if (now - *last).num_seconds() < 60 {
+        if let Some(last) = last_fired
+            && (now - *last).num_seconds() < 60 {
                 return false;
             }
-        }
         return cron.matches_now();
     }
 
@@ -207,7 +204,7 @@ impl CronField {
         match self {
             CronField::Any => true,
             CronField::Exact(v) => value == *v,
-            CronField::Step(s) => *s > 0 && value % *s == 0,
+            CronField::Step(s) => *s > 0 && value.is_multiple_of(*s),
         }
     }
 }

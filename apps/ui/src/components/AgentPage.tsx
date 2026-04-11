@@ -105,7 +105,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     <span className="agent-settings-label">Parent</span>
                     <span
                       className="agent-settings-value agent-settings-link"
-                      onClick={() => navigate(`/?agent=${encodeURIComponent(parent.id)}`)}
+                      onClick={() => navigate(`/agents?agent=${encodeURIComponent(parent.id)}`)}
                     >
                       <RoundAvatar name={parent.name} size={14} />
                       {parent.display_name || parent.name}
@@ -122,7 +122,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                           <span
                             key={child.id}
                             className="agent-settings-child"
-                            onClick={() => navigate(`/?agent=${encodeURIComponent(child.id)}`)}
+                            onClick={() => navigate(`/agents?agent=${encodeURIComponent(child.id)}`)}
                           >
                             <RoundAvatar name={child.name} size={14} />
                             {child.display_name || child.name}

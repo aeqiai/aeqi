@@ -33,7 +33,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   context: "#6b7280",
   evergreen: "#22c55e",
   decision: "#000000",
-  insight: "#22c55e",
+  idea: "#22c55e",
 };
 
 const RELATION_COLORS: Record<string, string> = {

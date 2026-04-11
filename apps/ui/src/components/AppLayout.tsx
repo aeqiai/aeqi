@@ -136,8 +136,8 @@ export default function AppLayout() {
             </a>
             <a className={`sidebar-nav-item ${isActive("/ideas") ? "active" : ""}`} href="/ideas" onClick={(e) => { e.preventDefault(); navigate("/ideas"); }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4" strokeLinecap="round" /></svg>
-              <span className="sidebar-nav-label">Insights</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/ideas"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New insight">
+              <span className="sidebar-nav-label">Ideas</span>
+              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/ideas"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New idea">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
               </span>
             </a>

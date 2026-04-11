@@ -469,8 +469,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // This makes the DB authoritative — .md files are import format only.
             // If the .md content changed since last import, the prompt is updated.
             for agent_cfg in &advisor_agents {
-                if agent_reg.get_active_by_name(&agent_cfg.name).await.ok().flatten().is_some() {
-                    if let Some(ref prompt_cfg) = agent_cfg.prompt {
+                if agent_reg.get_active_by_name(&agent_cfg.name).await.ok().flatten().is_some()
+                    && let Some(ref prompt_cfg) = agent_cfg.prompt {
                         let identity_content = &prompt_cfg.system;
                         if !identity_content.is_empty() {
                             let source_ref = format!("agent:{}", agent_cfg.name);
@@ -489,7 +489,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 .await;
                         }
                     }
-                }
             }
 
             // Build the global Scheduler.

@@ -1028,7 +1028,7 @@
 }
 
 /* Insight rows */
-.ctx-insight-row {
+.ctx-idea-row {
   padding: 6px 4px;
   display: flex;
   flex-direction: column;
@@ -1037,18 +1037,18 @@
   transition: background 0.1s ease;
 }
 
-.ctx-insight-row:hover {
+.ctx-idea-row:hover {
   background: var(--bg-elevated);
 }
 
-.ctx-insight-key {
+.ctx-idea-key {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--accent);
   font-weight: 500;
 }
 
-.ctx-insight-content {
+.ctx-idea-content {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   line-height: 1.4;

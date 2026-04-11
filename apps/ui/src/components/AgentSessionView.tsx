@@ -82,11 +82,11 @@ const TOOL_LABELS: Record<string, string> = {
   events_list: "List triggers",
   events_remove: "Remove trigger",
   events_manage: "Manage triggers",
-  // Insights
-  ideas_store: "Store insight",
-  ideas_recall: "Recall insight",
+  // Ideas
+  ideas_store: "Store idea",
+  ideas_recall: "Recall idea",
   ideas_graph: "Query graph",
-  insights_search: "Search transcripts",
+  ideas_search: "Search transcripts",
   // Prompts
   prompts_list: "List prompts",
   prompts_load: "Load prompt",
@@ -117,7 +117,7 @@ function shouldRenderStatus(text: string): boolean {
   const normalized = text.trim().toLowerCase();
   if (!normalized) return false;
   if (/^step \d+$/.test(normalized)) return false;
-  if (normalized === "recalling insights...") return false;
+  if (normalized === "recalling ideas...") return false;
   return true;
 }
 
@@ -207,7 +207,7 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
     if (n.startsWith("agents_")) return "agents";
     if (n.startsWith("quests_")) return "quests";
     if (n.startsWith("events_")) return "events";
-    if (n.startsWith("insights_")) return "insights";
+    if (n.startsWith("ideas_")) return "ideas";
     if (n.startsWith("prompts_")) return "prompts";
     if (n.startsWith("web_")) return "web";
     return "system";
@@ -514,11 +514,11 @@ export default function AgentSessionView({
     (sid: string | null) => {
       if (sid) {
         navigate(
-          `/?agent=${encodeURIComponent(agentId)}&session=${encodeURIComponent(sid)}`,
+          `/agents?agent=${encodeURIComponent(agentId)}&session=${encodeURIComponent(sid)}`,
           { replace: true },
         );
       } else {
-        navigate(`/?agent=${encodeURIComponent(agentId)}`, { replace: true });
+        navigate(`/agents?agent=${encodeURIComponent(agentId)}`, { replace: true });
       }
     },
     [agentId, navigate],
@@ -1061,8 +1061,8 @@ export default function AgentSessionView({
           }
           case "MemoryActivity": {
             const label = event.action === "stored"
-              ? `Stored: ${event.key || "insight"}`
-              : `Recalled: ${event.key || "insight"}`;
+              ? `Stored: ${event.key || "idea"}`
+              : `Recalled: ${event.key || "idea"}`;
             segments.push({ kind: "status", text: label });
             setLiveSegments([...segments]);
             break;

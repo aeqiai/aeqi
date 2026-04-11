@@ -22,13 +22,13 @@ export default function QuickActions({
       const result = await api.createSession(agentId);
       const sessionId = result?.session_id || result?.id;
       if (sessionId) {
-        navigate(`/sessions?agent=${encodeURIComponent(agentName)}&session=${sessionId}`);
+        navigate(`/agents?agent=${encodeURIComponent(agentName)}&session=${sessionId}`);
       } else {
-        navigate(`/sessions?agent=${encodeURIComponent(agentName)}`);
+        navigate(`/agents?agent=${encodeURIComponent(agentName)}`);
       }
     } catch {
       // Navigate to sessions page even on failure
-      navigate(`/sessions?agent=${encodeURIComponent(agentName)}`);
+      navigate(`/agents?agent=${encodeURIComponent(agentName)}`);
     } finally {
       setCreating(false);
     }

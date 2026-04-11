@@ -44,12 +44,12 @@ export default function SessionRail({
   }, [agentId]);
 
   const handleSelect = (sid: string) => {
-    navigate(`/?agent=${encodeURIComponent(agentId)}&session=${encodeURIComponent(sid)}`);
+    navigate(`/agents?agent=${encodeURIComponent(agentId)}&session=${encodeURIComponent(sid)}`);
   };
 
   const handleNew = () => {
     // Navigate without session — AgentSessionView will create one on first message
-    navigate(`/?agent=${encodeURIComponent(agentId)}`);
+    navigate(`/agents?agent=${encodeURIComponent(agentId)}`);
   };
 
   return (

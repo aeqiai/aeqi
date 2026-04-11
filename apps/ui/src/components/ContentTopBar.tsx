@@ -7,7 +7,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   "/agents": { title: "Agents", create: { label: "New agent" } },
   "/events": { title: "Events", create: { label: "New event" } },
   "/quests": { title: "Quests", create: { label: "New quest" } },
-  "/ideas": { title: "Ideas", create: { label: "New insight" } },
+  "/ideas": { title: "Ideas", create: { label: "New idea" } },
   "/drive": { title: "Drive" },
   "/company": { title: "Company" },
   "/treasury": { title: "Treasury" },

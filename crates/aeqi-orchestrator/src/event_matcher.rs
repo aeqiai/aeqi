@@ -144,7 +144,7 @@ impl EventMatcher {
             }
 
             // Fire the event.
-            self.fire(&event, source_agent_id, quest_id, payload).await;
+            self.fire(event, source_agent_id, quest_id, payload).await;
         }
     }
 

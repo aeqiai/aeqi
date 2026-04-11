@@ -67,7 +67,7 @@ export default function App() {
         <Route path="agents" element={<AgentsPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
-        <Route path="insights" element={<IdeasPage />} />
+        <Route path="ideas" element={<IdeasPage />} />
         <Route path="company" element={<CompanyPage />} />
         <Route path="companies" element={<EntitiesPage />} />
         <Route path="treasury" element={<TreasuryPage />} />

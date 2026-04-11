@@ -22,7 +22,7 @@ pub async fn handle_list_events(
 
     match events {
         Ok(list) => {
-            let items: Vec<serde_json::Value> = list.iter().map(|e| event_to_json(e)).collect();
+            let items: Vec<serde_json::Value> = list.iter().map(event_to_json).collect();
             serde_json::json!({"ok": true, "events": items})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),

@@ -70,6 +70,7 @@ impl Idea {
     }
 
     /// Create a search-returned entry (no injection metadata).
+    #[allow(clippy::too_many_arguments)]
     pub fn recalled(
         id: String,
         key: String,

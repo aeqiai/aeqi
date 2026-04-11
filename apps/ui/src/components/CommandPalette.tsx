@@ -29,12 +29,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         { id: "nav-quests", label: "Quests", hint: "View all quests", section: "Navigate", action: () => go("/quests") },
         { id: "nav-sessions", label: "Sessions", hint: "Agent sessions", section: "Navigate", action: () => go("/sessions") },
         { id: "nav-events", label: "Events", hint: "Event stream", section: "Navigate", action: () => go("/events") },
-        { id: "nav-insights", label: "Ideas", hint: "Agent knowledge", section: "Navigate", action: () => go("/ideas") },
+        { id: "nav-ideas", label: "Ideas", hint: "Agent knowledge", section: "Navigate", action: () => go("/ideas") },
         { id: "nav-settings", label: "Settings", hint: "Configuration", section: "Navigate", action: () => go("/settings") },
       ];
 
       try {
-        const [agentsData, questsData, insightsData] = await Promise.all([
+        const [agentsData, questsData, ideasData] = await Promise.all([
           api.getAgents().catch(() => ({ agents: [] })),
           api.getTasks({}).catch(() => ({ tasks: [] })),
           api.getMemories({ limit: 30 }).catch(() => ({ memories: [] })),
@@ -58,16 +58,16 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           action: () => go(`/quests`),
         }));
 
-        const rawInsights = (insightsData.memories || []) as Array<Record<string, unknown>>;
-        const insightItems: PaletteItem[] = rawInsights.slice(0, 15).map((m) => ({
-          id: `insight-${m.id || m.key}`,
-          label: (m.key || m.title || "Insight") as string,
+        const rawIdeas = (ideasData.memories || []) as Array<Record<string, unknown>>;
+        const ideaItems: PaletteItem[] = rawIdeas.slice(0, 15).map((m) => ({
+          id: `idea-${m.id || m.key}`,
+          label: (m.key || m.title || "Idea") as string,
           hint: ((m.content || "") as string).slice(0, 50),
           section: "Ideas",
           action: () => go(`/ideas`),
         }));
 
-        setItems([...navItems, ...agentItems, ...questItems, ...insightItems]);
+        setItems([...navItems, ...agentItems, ...questItems, ...ideaItems]);
       } catch {
         setItems(navItems);
       }

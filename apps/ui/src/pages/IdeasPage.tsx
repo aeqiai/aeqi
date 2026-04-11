@@ -37,7 +37,7 @@ interface GraphData {
 
 export default function IdeasPage() {
   const selectedAgent = useChatStore((s) => s.selectedAgent);
-  const [insights, setInsights] = useState<MemoryEntry[]>([]);
+  const [insights, setIdeas] = useState<MemoryEntry[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -64,7 +64,7 @@ export default function IdeasPage() {
         limit: 200,
       })
       .then((d) => {
-        setInsights((d.memories || []) as MemoryEntry[]);
+        setIdeas((d.memories || []) as MemoryEntry[]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -118,7 +118,7 @@ export default function IdeasPage() {
   const handleDelete = async (id: string) => {
     try {
       await api.deleteKnowledge({ company: selectedAgent?.name || "", id });
-      setInsights((prev) => prev.filter((m) => m.id !== id));
+      setIdeas((prev) => prev.filter((m) => m.id !== id));
       if (selected?.id === id) setSelected(null);
     } catch {
       // Silently fail.
@@ -136,20 +136,20 @@ export default function IdeasPage() {
   const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
 
   return (
-    <div className="page-content insights-page">
+    <div className="page-content ideas-page">
       {/* View toggle — hero removed, title in ContentTopBar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
         <span style={{ fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
           {insights.length} memories{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
         </span>
-        <div className="insights-view-toggle">
+        <div className="ideas-view-toggle">
           <button className={`view-btn ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>List</button>
           <button className={`view-btn ${view === "graph" ? "active" : ""}`} onClick={() => setView("graph")}>Graph</button>
         </div>
       </div>
 
       {/* Category chips */}
-      <div className="insights-categories">
+      <div className="ideas-categories">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
@@ -184,15 +184,15 @@ export default function IdeasPage() {
       )}
 
       {/* Content area with optional detail panel */}
-      <div className={`insights-body ${selected ? "with-detail" : ""}`}>
+      <div className={`ideas-body ${selected ? "with-detail" : ""}`}>
         {/* Main content */}
-        <div className="insights-main">
+        <div className="ideas-main">
           {view === "list" ? (
             <DataState
               loading={loading}
               empty={filtered.length === 0}
-              emptyTitle="No insights"
-              emptyDescription="Insights are memories and knowledge stored by agents across sessions."
+              emptyTitle="No ideas"
+              emptyDescription="Ideas are knowledge and identity stored by agents across sessions."
               loadingText="Searching..."
             >
               <div className="memory-list">
@@ -270,7 +270,7 @@ export default function IdeasPage() {
 
         {/* Detail panel */}
         {selected && (
-          <div className="insights-detail">
+          <div className="ideas-detail">
             <div className="detail-header">
               <code className="detail-key">{selected.key}</code>
               <button
@@ -356,7 +356,7 @@ export default function IdeasPage() {
               className="detail-delete"
               onClick={() => handleDelete(selected.id)}
             >
-              Delete insight
+              Delete idea
             </button>
           </div>
         )}

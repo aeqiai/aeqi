@@ -93,7 +93,7 @@ export interface Event {
   metadata?: Record<string, unknown>;
 }
 
-export interface Insight {
+export interface Idea {
   id: string;
   key: string;
   content: string;

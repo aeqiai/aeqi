@@ -1468,14 +1468,13 @@ impl Daemon {
                                                             }
                                                         }
                                                         aeqi_core::ChatStreamEvent::StepComplete { .. } => {
-                                                            if !text.is_empty() {
-                                                                if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                            if !text.is_empty()
+                                                                && let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
                                                                     let _ = cs.record_by_session(
                                                                         usid, "assistant", &text, Some("web"),
                                                                     ).await;
                                                                     text.clear();
                                                                 }
-                                                            }
                                                         }
                                                         aeqi_core::ChatStreamEvent::Complete {
                                                             total_prompt_tokens: pt,
@@ -1483,13 +1482,12 @@ impl Daemon {
                                                             iterations: it,
                                                             ..
                                                         } => {
-                                                            if !text.is_empty() {
-                                                                if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                            if !text.is_empty()
+                                                                && let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
                                                                     let _ = cs.record_by_session(
                                                                         usid, "assistant", &text, Some("web"),
                                                                     ).await;
                                                                 }
-                                                            }
                                                             prompt_tokens = *pt;
                                                             completion_tokens = *ct;
                                                             iterations = *it;
@@ -1510,8 +1508,8 @@ impl Daemon {
                                         }
 
                                         // Text already flushed per-step in StepComplete/Complete handlers above.
-                                        if let Some(ref cs) = session_store {
-                                            if store_session_id.is_none() {
+                                        if let Some(ref cs) = session_store
+                                            && store_session_id.is_none() {
                                                 let _ = cs
                                                     .record_with_source(
                                                         chat_id,
@@ -1521,7 +1519,6 @@ impl Daemon {
                                                     )
                                                     .await;
                                             }
-                                        }
 
                                         let cost_usd = aeqi_providers::estimate_cost(
                                             &default_model,
@@ -1820,8 +1817,8 @@ impl Daemon {
                                     }
 
                                     // Text already flushed per-step above.
-                                    if let Some(ref cs) = session_store {
-                                        if store_session_id.is_none() && !full_text.is_empty() {
+                                    if let Some(ref cs) = session_store
+                                        && store_session_id.is_none() && !full_text.is_empty() {
                                             let _ = cs
                                                 .record_with_source(
                                                     chat_id,
@@ -1831,7 +1828,6 @@ impl Daemon {
                                                 )
                                                 .await;
                                         }
-                                    }
 
                                     let cost_usd = aeqi_providers::estimate_cost(
                                         &default_model,

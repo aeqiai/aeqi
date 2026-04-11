@@ -145,33 +145,33 @@ function PromptsSection({ agentName }: { agentName: string }) {
   );
 }
 
-// --- Insights Section ---
+// --- Ideas Section ---
 
-function InsightsSection({ agentName }: { agentName: string }) {
-  const [insights, setInsights] = useState<any[]>([]);
+function IdeasSection({ agentName }: { agentName: string }) {
+  const [ideas, setIdeas] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchInsights = useCallback(
+  const fetchIdeas = useCallback(
     (query: string) => {
       api
         .getMemories({ query: query || agentName, limit: 20 })
-        .then((d: any) => setInsights(d.memories || d.items || []))
-        .catch(() => setInsights([]));
+        .then((d: any) => setIdeas(d.memories || d.items || []))
+        .catch(() => setIdeas([]));
     },
     [agentName],
   );
 
   // Fetch on mount and when agentName changes
   useEffect(() => {
-    fetchInsights(search);
+    fetchIdeas(search);
   }, [agentName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchInsights(value), 300);
+    debounceRef.current = setTimeout(() => fetchIdeas(value), 300);
   };
 
   // Cleanup debounce on unmount
@@ -184,14 +184,14 @@ function InsightsSection({ agentName }: { agentName: string }) {
   return (
     <div className="ctx-section">
       <input
-        className="ctx-insights-search"
+        className="ctx-ideas-search"
         placeholder="Search ideas..."
         value={search}
         onChange={(e) => handleSearchChange(e.target.value)}
       />
-      {insights.length > 0 ? (
+      {ideas.length > 0 ? (
         <div className="ctx-list">
-          {insights.map((item: any) => {
+          {ideas.map((item: any) => {
             const id = item.id || item.key;
             const isExpanded = expandedId === id;
             const content = item.content || "";
@@ -201,7 +201,7 @@ function InsightsSection({ agentName }: { agentName: string }) {
             return (
               <div
                 key={id}
-                className="ctx-insight-row"
+                className="ctx-idea-row"
                 onClick={() => setExpandedId(isExpanded ? null : id)}
                 style={{ cursor: content.length > 120 ? "pointer" : "default" }}
               >
@@ -216,7 +216,7 @@ function InsightsSection({ agentName }: { agentName: string }) {
           })}
         </div>
       ) : (
-        <div className="ctx-empty-state">No insights found</div>
+        <div className="ctx-empty-state">No ideas found</div>
       )}
     </div>
   );
@@ -228,7 +228,7 @@ export default function ContextView({ agentName }: { agentName: string }) {
   return (
     <div className="context-view">
       <PromptsSection agentName={agentName} />
-      <InsightsSection agentName={agentName} />
+      <IdeasSection agentName={agentName} />
     </div>
   );
 }
