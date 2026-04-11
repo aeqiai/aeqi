@@ -1823,28 +1823,51 @@
 }
 
 /* ── Composer ── */
+/* ── Composer ── */
+
 .asv-composer {
-  padding: 8px 24px 16px;
+  padding: 0 24px 20px;
   flex-shrink: 0;
 }
 
 .asv-composer-inner {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
   background: var(--bg-base);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 10px 14px;
-  transition: border-color 0.2s;
+  border-radius: 16px;
+  padding: 12px 12px 12px 18px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
 }
 
 .asv-composer-inner:focus-within {
   border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.03);
 }
 
+/* Streaming: thin scanning line below composer */
 .asv-composer-busy {
-  /* Composer stays interactive during streaming */
+  border-color: var(--border);
+}
+.asv-composer-busy::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+  transform-origin: left;
+  animation: asv-stream-scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes asv-stream-scan {
+  0%    { transform: scaleX(0); opacity: 0; transform-origin: left; }
+  40%   { transform: scaleX(1); opacity: 1; }
+  40.1% { transform-origin: right; }
+  80%   { transform: scaleX(0); opacity: 0; }
+  100%  { transform: scaleX(0); opacity: 0; }
 }
 
 /* Queued user messages */
@@ -1861,12 +1884,14 @@
   border: none;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
   resize: none;
-  min-height: 22px;
-  max-height: 160px;
-  line-height: 22px;
-  padding: 0;
+  min-height: 24px;
+  max-height: 200px;
+  line-height: 24px;
+  padding: 2px 0;
+  letter-spacing: -0.01em;
 }
 
 .asv-textarea:focus {
@@ -1875,45 +1900,73 @@
 
 .asv-textarea::placeholder {
   color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-.asv-textarea:disabled {
-  opacity: 0.4;
+/* Keyboard hint — fades in on focus */
+.asv-composer-hint {
+  display: flex;
+  justify-content: flex-end;
+  padding: 5px 6px 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+  user-select: none;
 }
+.asv-composer-inner:focus-within ~ .asv-composer-hint {
+  opacity: 1;
+}
+.asv-composer-hint kbd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  margin: 0 1px;
+  line-height: 1.6;
+}
+
+/* ── Send button ── */
 
 .asv-send {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.12s;
+  transition: background 0.15s, color 0.15s, transform 0.12s ease;
 }
 
 .asv-send.ready {
   background: var(--text-primary);
-  border-color: var(--text-primary);
   color: var(--bg-base);
 }
 
 .asv-send.ready:hover {
-  opacity: 0.85;
+  transform: scale(1.08);
+}
+
+.asv-send.ready:active {
+  transform: scale(0.92);
 }
 
 .asv-send:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
+  cursor: default;
+  opacity: 0.25;
 }
 
 .asv-send.busy {
-  background: transparent;
-  border-color: var(--border);
+  color: var(--text-muted);
 }
 
 .asv-send-spinner {

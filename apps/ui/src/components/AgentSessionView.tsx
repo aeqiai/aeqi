@@ -1626,7 +1626,7 @@ export default function AgentSessionView({
             onClick={handleSend}
             disabled={!input.trim()}
           >
-            {streaming ? (
+            {streaming && !input.trim() ? (
               <svg
                 className="asv-send-spinner"
                 width="16"
@@ -1652,16 +1652,19 @@ export default function AgentSessionView({
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
               >
                 <path
-                  d="M2 8h12M10 4l4 4-4 4"
+                  d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
             )}
           </button>
+        </div>
+        <div className="asv-composer-hint">
+          <kbd>Enter</kbd>&nbsp;send&ensp;<kbd>Shift+Enter</kbd>&nbsp;newline
         </div>
       </div>
     </div>
