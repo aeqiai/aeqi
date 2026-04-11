@@ -1552,6 +1552,10 @@ impl Daemon {
                     crate::ipc::prompts::handle_import_prompts(&ctx, &request, &allowed_companies)
                         .await
                 }
+                "seed_ideas" => {
+                    crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)

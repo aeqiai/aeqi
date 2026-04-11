@@ -17,6 +17,7 @@ pub fn routes() -> Router<AppState> {
             "/prompts/{id}",
             get(get_prompt).put(update_prompt).delete(delete_prompt),
         )
+        .route("/ideas/seed", axum::routing::post(seed_ideas))
 }
 
 #[derive(Deserialize, Default)]
@@ -71,4 +72,14 @@ async fn delete_prompt(
 ) -> Response {
     let params = serde_json::json!({"id": id});
     ipc_proxy(state, scope.as_ref(), "delete_prompt", params).await
+}
+
+/// Seed ideas + agents into a tenant's workspace.
+/// Called by the platform after company provisioning.
+async fn seed_ideas(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "seed_ideas", body).await
 }
