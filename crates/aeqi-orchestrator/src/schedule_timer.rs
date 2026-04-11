@@ -235,3 +235,91 @@ fn parse_simple_cron(expr: &str) -> Option<CronMatcher> {
         weekday: parse_cron_field(parts[4]),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_interval_hours() {
+        let d = parse_interval("1h").unwrap();
+        assert_eq!(d.num_hours(), 1);
+    }
+
+    #[test]
+    fn parse_interval_minutes() {
+        let d = parse_interval("30m").unwrap();
+        assert_eq!(d.num_minutes(), 30);
+    }
+
+    #[test]
+    fn parse_interval_days() {
+        let d = parse_interval("2d").unwrap();
+        assert_eq!(d.num_days(), 2);
+    }
+
+    #[test]
+    fn parse_interval_seconds_minimum_60() {
+        let d = parse_interval("5s").unwrap();
+        assert_eq!(d.num_seconds(), 60); // Min 60s enforced
+    }
+
+    #[test]
+    fn parse_interval_invalid() {
+        assert!(parse_interval("abc").is_none());
+        assert!(parse_interval("").is_none());
+    }
+
+    #[test]
+    fn parse_cron_valid() {
+        let cron = parse_simple_cron("0 9 * * *");
+        assert!(cron.is_some());
+    }
+
+    #[test]
+    fn parse_cron_invalid() {
+        assert!(parse_simple_cron("0 9 *").is_none()); // Too few fields
+        assert!(parse_simple_cron("").is_none());
+    }
+
+    #[test]
+    fn cron_field_any_matches_all() {
+        assert!(CronField::Any.matches(0));
+        assert!(CronField::Any.matches(59));
+    }
+
+    #[test]
+    fn cron_field_exact() {
+        assert!(CronField::Exact(9).matches(9));
+        assert!(!CronField::Exact(9).matches(10));
+    }
+
+    #[test]
+    fn cron_field_step() {
+        assert!(CronField::Step(5).matches(0));
+        assert!(CronField::Step(5).matches(15));
+        assert!(!CronField::Step(5).matches(7));
+    }
+
+    #[test]
+    fn interval_never_fired_is_due() {
+        assert!(is_schedule_due("every 1h", None));
+    }
+
+    #[test]
+    fn interval_recently_fired_not_due() {
+        let last = Utc::now() - chrono::Duration::minutes(10);
+        assert!(!is_schedule_due("every 1h", Some(&last)));
+    }
+
+    #[test]
+    fn interval_long_ago_is_due() {
+        let last = Utc::now() - chrono::Duration::hours(2);
+        assert!(is_schedule_due("every 1h", Some(&last)));
+    }
+
+    #[test]
+    fn unknown_pattern_not_due() {
+        assert!(!is_schedule_due("garbage", None));
+    }
+}

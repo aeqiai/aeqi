@@ -256,3 +256,140 @@ impl EventMatcher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn setup() -> (EventMatcher, Arc<AgentRegistry>, Arc<EventHandlerStore>) {
+        let dir = tempfile::tempdir().unwrap();
+        let reg = Arc::new(AgentRegistry::open(dir.path()).unwrap());
+        let ehs = Arc::new(EventHandlerStore::new(reg.db()));
+        let al = Arc::new(ActivityLog::new(reg.db()));
+        let matcher = EventMatcher::new(ehs.clone(), reg.clone(), al);
+        (matcher, reg, ehs)
+    }
+
+    #[tokio::test]
+    async fn self_scope_matches_own_agent() {
+        let (matcher, reg, ehs) = setup().await;
+        let agent = reg.spawn("shadow", None, "t", "Test.", None, None, &[]).await.unwrap();
+
+        ehs.create(&crate::event_handler::NewEvent {
+            agent_id: agent.id.clone(),
+            name: "on-complete".into(),
+            pattern: "lifecycle:quest_completed".into(),
+            scope: "self".into(),
+            idea_id: None,
+            content: Some("Review work".into()),
+            cooldown_secs: 0,
+            max_budget_usd: None,
+            webhook_secret: None,
+            system: false,
+        }).await.unwrap();
+
+        // Should fire — agent's own event
+        matcher.match_activity(
+            "execution.quest_completed",
+            Some(&agent.id),
+            None,
+            &serde_json::json!({}),
+        ).await;
+
+        // Check a quest was created for the agent
+        let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
+        assert!(!tasks.is_empty(), "event should have created a quest");
+    }
+
+    #[tokio::test]
+    async fn self_scope_does_not_match_other_agent() {
+        let (matcher, reg, ehs) = setup().await;
+        let agent_a = reg.spawn("shadow", None, "t", "A.", None, None, &[]).await.unwrap();
+        let agent_b = reg.spawn("cto", None, "t", "B.", None, None, &[]).await.unwrap();
+
+        ehs.create(&crate::event_handler::NewEvent {
+            agent_id: agent_a.id.clone(),
+            name: "on-complete".into(),
+            pattern: "lifecycle:quest_completed".into(),
+            scope: "self".into(),
+            idea_id: None,
+            content: Some("Review".into()),
+            cooldown_secs: 0,
+            max_budget_usd: None,
+            webhook_secret: None,
+            system: false,
+        }).await.unwrap();
+
+        // Agent B completes — A's self-scoped event should NOT fire
+        matcher.match_activity(
+            "execution.quest_completed",
+            Some(&agent_b.id),
+            None,
+            &serde_json::json!({}),
+        ).await;
+
+        let tasks = reg.list_tasks(None, Some(&agent_a.id)).await.unwrap();
+        assert!(tasks.is_empty(), "self-scoped event should not fire for other agent");
+    }
+
+    #[tokio::test]
+    async fn children_scope_matches_child() {
+        let (matcher, reg, ehs) = setup().await;
+        let parent = reg.spawn("cto", None, "t", "Parent.", None, None, &[]).await.unwrap();
+        let child = reg.spawn("impl", None, "t", "Child.", Some(&parent.id), None, &[]).await.unwrap();
+
+        ehs.create(&crate::event_handler::NewEvent {
+            agent_id: parent.id.clone(),
+            name: "child-done".into(),
+            pattern: "lifecycle:quest_completed".into(),
+            scope: "children".into(),
+            idea_id: None,
+            content: Some("Review child work".into()),
+            cooldown_secs: 0,
+            max_budget_usd: None,
+            webhook_secret: None,
+            system: false,
+        }).await.unwrap();
+
+        // Child completes — parent's children-scoped event should fire
+        matcher.match_activity(
+            "execution.quest_completed",
+            Some(&child.id),
+            None,
+            &serde_json::json!({}),
+        ).await;
+
+        let tasks = reg.list_tasks(None, Some(&parent.id)).await.unwrap();
+        assert!(!tasks.is_empty(), "children-scoped event should fire for child");
+    }
+
+    #[tokio::test]
+    async fn unmatched_pattern_does_not_fire() {
+        let (matcher, reg, ehs) = setup().await;
+        let agent = reg.spawn("shadow", None, "t", "Test.", None, None, &[]).await.unwrap();
+
+        ehs.create(&crate::event_handler::NewEvent {
+            agent_id: agent.id.clone(),
+            name: "on-fail".into(),
+            pattern: "lifecycle:quest_failed".into(),
+            scope: "self".into(),
+            idea_id: None,
+            content: Some("Handle failure".into()),
+            cooldown_secs: 0,
+            max_budget_usd: None,
+            webhook_secret: None,
+            system: false,
+        }).await.unwrap();
+
+        // Quest completed, not failed — should not fire
+        matcher.match_activity(
+            "execution.quest_completed",
+            Some(&agent.id),
+            None,
+            &serde_json::json!({}),
+        ).await;
+
+        let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
+        assert!(tasks.is_empty(), "quest_failed event should not fire on quest_completed");
+    }
+}
