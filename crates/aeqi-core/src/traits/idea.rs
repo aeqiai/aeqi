@@ -39,6 +39,36 @@ fn default_inheritance() -> String {
 }
 
 impl Idea {
+    /// Convert an idea with injection_mode into a PromptEntry for prompt assembly.
+    /// Maps injection_mode → PromptPosition, inheritance → PromptScope,
+    /// and tool_allow/tool_deny → ToolRestrictions.
+    pub fn to_prompt_entry(&self) -> crate::prompt::PromptEntry {
+        let position = match self.injection_mode.as_deref() {
+            Some("prepend") => crate::prompt::PromptPosition::Prepend,
+            Some("append") => crate::prompt::PromptPosition::Append,
+            // "system" or any other value → System (the default).
+            _ => crate::prompt::PromptPosition::System,
+        };
+        let scope = match self.inheritance.as_str() {
+            "descendants" => crate::prompt::PromptScope::Descendants,
+            _ => crate::prompt::PromptScope::SelfOnly,
+        };
+        let tools = if self.tool_allow.is_empty() && self.tool_deny.is_empty() {
+            None
+        } else {
+            Some(crate::prompt::ToolRestrictions {
+                allow: self.tool_allow.clone(),
+                deny: self.tool_deny.clone(),
+            })
+        };
+        crate::prompt::PromptEntry {
+            content: self.content.clone(),
+            position,
+            scope,
+            tools,
+        }
+    }
+
     /// Create a search-returned entry (no injection metadata).
     pub fn recalled(
         id: String,

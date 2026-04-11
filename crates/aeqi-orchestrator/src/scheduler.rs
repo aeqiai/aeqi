@@ -551,6 +551,7 @@ impl Scheduler {
             .unwrap_or_default();
         let assembled = crate::prompt_assembly::assemble_prompts(
             &self.agent_registry,
+            self.idea_store.as_ref(),
             &agent_id,
             &task_prompts,
         )
