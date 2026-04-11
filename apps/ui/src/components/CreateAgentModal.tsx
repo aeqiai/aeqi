@@ -100,6 +100,8 @@ export default function CreateAgentModal({ open, onClose }: Props) {
       await api.spawnAgent({
         template: template.trim(),
         ...(parentId ? { parent_id: parentId } : {}),
+        ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
+        ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
       setSuccess(true);
       await fetchAgents();

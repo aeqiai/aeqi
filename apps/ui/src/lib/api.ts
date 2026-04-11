@@ -438,7 +438,7 @@ export const api = {
     request<Record<string, unknown>>("/sessions", { method: "POST", body: JSON.stringify({ agent_id: agentId }) }),
 
   // Spawn Agent
-  spawnAgent: (data: { template: string; project?: string; parent_id?: string }) =>
+  spawnAgent: (data: { template: string; project?: string; parent_id?: string; display_name?: string; system_prompt?: string }) =>
     request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
   // Create Prompt
