@@ -1241,18 +1241,6 @@ export default function AgentSessionView({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
     >
-      {/* Agent header */}
-      <div className="asv-header">
-        <div className="asv-header-info">
-          <RoundAvatar name={agentName} size={22} />
-          <span className="asv-header-name">{displayName}</span>
-          <span className={`asv-header-dot ${wsConnected ? "live" : ""}`} />
-          {agentInfo?.model && (
-            <span className="asv-header-model">{agentInfo.model}</span>
-          )}
-        </div>
-      </div>
-
       {/* Session tabs */}
       <div className="asv-session-tabs" role="tablist">
         {sessions.map((s) => {

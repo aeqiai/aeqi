@@ -3,8 +3,7 @@ import { useNavigate, useLocation, useSearchParams, Outlet } from "react-router-
 import AgentTree from "./Sidebar";
 import ContextDrawer from "./ContextDrawer";
 import CommandPalette from "./CommandPalette";
-import AgentSessionView from "./AgentSessionView";
-import SessionRail from "./SessionRail";
+import AgentPage from "./AgentPage";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import ContentTopBar from "./ContentTopBar";
 import { useDaemonStore } from "@/store/daemon";
@@ -162,7 +161,7 @@ export default function AppLayout() {
         {/* Main content */}
         <div className="content-area">
           {agentId ? (
-            <AgentSessionView agentId={agentId} sessionId={sessionId} />
+            <AgentPage agentId={agentId} />
           ) : (
             <>
               <ContentTopBar />
