@@ -1786,12 +1786,6 @@ impl Tool for IdeasFindTool {
     }
 }
 
-/// Build orchestration tools for the leader agent.
-///
-/// NOTE: `channel_reply` is intentionally excluded. The leader agent's final text output
-/// is automatically delivered to the originating channel by the daemon's polling loop.
-/// Including `channel_reply` causes double-delivery: the tool sends once, and the
-/// task's outcome summary (the LLM's confirmation text) gets sent again.
 // ---------------------------------------------------------------------------
 // AgentSelfTool — introspection: identity, tree position, quests, events
 // ---------------------------------------------------------------------------
