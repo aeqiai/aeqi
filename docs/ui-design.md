@@ -2,7 +2,7 @@
 
 This document defines the target shape of the AEQI UI as an operator product.
 
-It is grounded in the current frontend under `apps/ui`, which exposes sessions, dashboard, agents, quests, triggers, skills, memories, notes, and settings.
+It is grounded in the current frontend under `apps/ui`, which exposes sessions, dashboard, agents, quests, events, ideas, and settings.
 
 ## Product Goal
 
@@ -21,9 +21,9 @@ It should feel like a control plane where a human can move fluidly between thoug
 The current UI has meaningful coverage:
 
 - sessions are the core interaction surface with persistent agent conversations
-- there are pages for sessions, agents, quests, triggers, skills, memories, notes, and settings
-- the dashboard surfaces stats, activity feed, budget, and project/agent overview
-- layout: project rail → agent nav → floating nav bar → content
+- there are pages for sessions, agents, quests, events, ideas, and settings
+- the dashboard surfaces stats, activity feed, budget, and agent overview
+- layout: agent nav --> floating nav bar --> content
 
 The main gaps are coherence and operator flow:
 
@@ -67,7 +67,7 @@ Important state should not be hidden behind disconnected pages if it belongs to 
 
 The operator should never have to guess:
 
-- what project this belongs to
+- what agent/scope this belongs to
 - who is working on it
 - what the quest state is
 - what constraints apply
@@ -77,14 +77,14 @@ The UI should keep live context visible while the operator is reading or typing.
 
 ### 4. Notes and work must connect directly
 
-AEQI should eventually treat notes as durable directives. The UI must reflect that.
+Ideas should serve as durable directives. The UI must reflect that.
 
 The flow should be:
 
-- capture a note
+- capture an idea
 - turn it into intent
 - attach it to goals, missions, or quests
-- keep the note visible as an ongoing driver of decisions
+- keep the idea visible as an ongoing driver of decisions
 
 ### 5. Metrics over vanity
 
@@ -141,12 +141,12 @@ The current chat page is the right foundation for this.
 
 ### 3. Workspace
 
-A project or mission workspace should show:
+A mission workspace should show:
 
 - goals
 - quests
 - active workers
-- memory and knowledge
+- ideas and knowledge
 - metrics
 - recent decisions
 
@@ -158,7 +158,7 @@ This should make humans and agents legible:
 - mandates
 - ownership
 - reporting lines
-- skills
+- ideas (injection-mode as expertise)
 - active workload
 
 ### 5. Command Surface
@@ -168,7 +168,7 @@ The UI should let advanced users act quickly through:
 - command palette
 - keyboard-first navigation
 - inline approvals
-- quick creation of quests, notes, missions, and interventions
+- quick creation of quests, ideas, missions, and interventions
 
 ## Short-Term UI Priorities
 
@@ -191,7 +191,7 @@ in one continuous view.
 Several current areas should become tighter or merge:
 
 - chat + operations timeline
-- memory + notes navigation
+- ideas navigation
 - dashboard + inbox prioritization
 
 ### 3. Remove vendor residue
@@ -203,9 +203,9 @@ Examples:
 - no `Claude Code` special language in generic control surfaces
 - no runtime-specific assumptions in primary UI concepts
 
-### 4. Add notes as a first-class surface
+### 4. Make ideas a first-class surface
 
-Notes should become a top-level operator object, not just a backend capability.
+Ideas should be browsable and editable as a top-level operator object.
 
 ### 5. Add org and mission clarity
 

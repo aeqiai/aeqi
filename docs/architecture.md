@@ -1,6 +1,17 @@
 # AEQI Architecture
 
-AEQI is an agent runtime and orchestration engine in Rust. 10 crates, 545+ tests.
+AEQI is an agent runtime and orchestration engine in Rust. 10 crates.
+
+## Four Primitives
+
+| Primitive | Purpose | Storage |
+|-----------|---------|---------|
+| **Agent** | Persistent identity in a tree (`parent_id` hierarchy) | `aeqi.db` |
+| **Idea** | Knowledge store -- identity, instructions, memories | `ideas.db` |
+| **Quest** | Unit of work with dependencies and outcomes | `aeqi.db` |
+| **Event** | Reaction rule -- when pattern X fires, run idea Z | `aeqi.db` |
+
+Plus **Activity** as infrastructure (audit log, costs -- not a primitive) in `aeqi.db`.
 
 ## Two Orthogonal Concepts
 
@@ -9,36 +20,13 @@ Quest = WHAT needs to be done (persistent, trackable, assignable)
 Session = HOW it's being done (execution transcript, agent loop, tools)
 ```
 
-A Quest is a Jira issue. A Session is a terminal window.
-
 - Quest can exist without a session (queued, unstarted)
 - Quest can have multiple sessions (retries, handoffs)
 - Session can exist without a quest (ad-hoc chat, exploration)
-- Session references `quest_id` when executing quest work
-- Quest references `session_id` of its current execution
 
-## Sessions — The Universal Execution Model
+## Sessions -- The Universal Execution Model
 
-Every execution is a session. `SessionManager.spawn_session()` is the single entry point:
-
-```rust
-session_manager.spawn_session(
-    agent_id,
-    prompt,
-    provider,
-    SpawnOptions::new()
-        .with_parent(parent_session_id)
-        .with_quest(quest_id)
-        .with_skill("architecture-audit")
-        .with_project(project_id)
-        .with_name("Review PR #42")
-)
-```
-
-`auto_close: true` (default) = session closes when agent finishes.
-`auto_close: false` = session stays open for follow-up messages.
-
-### Session Types (derived from context, not declared)
+Every execution is a session. `SessionManager.spawn_session()` is the single entry point.
 
 | Context | Type | Behavior |
 |---------|------|----------|
@@ -47,42 +35,41 @@ session_manager.spawn_session(
 | `auto_close: false` | perpetual | Accepts follow-up messages |
 | Default | session | Runs to completion |
 
-### Session Hierarchy
+## Agent Identity
 
-Sessions form a tree via `parent_id`. Children visible in parent's UI.
+Agents are persistent identities in SQLite (`agents` table):
 
-### Operations on Sessions
+- `id` (UUID) -- stable identity, idea scope key
+- `name` -- display label
+- `parent_id` -- position in the agent tree
+- `model` -- preferred model (inheritable)
+- `capabilities` -- permissions
 
-| Operation | Method |
-|-----------|--------|
-| Spawn | `session_manager.spawn_session(agent, prompt, provider, opts)` |
-| Send message | `session_manager.send(session_id, message)` |
-| Stream events | `session_manager.send_streaming(session_id, message)` |
-| Close | `session_manager.close(session_id)` |
-| List children | `session_store.list_children(parent_id)` |
+Ideas attached to the agent provide its instructions, personality, expertise, and accumulated knowledge. There is no separate identity struct.
 
-## Skills — Spawn-Time Context Injection
+## Ideas -- Three Activation Modes
 
-Skills are TOML files (`projects/shared/skills/*.toml`):
+| Mode | How | Use case |
+|------|-----|----------|
+| `injection_mode` set | Always in context | Identity, system prompt, expertise, instructions |
+| Referenced by event | Loaded on event fire | Automated behaviors, scheduled work |
+| Neither | Semantic search recall | Accumulated knowledge, memories, learned facts |
 
-```toml
-[skill]
-name = "architecture-audit"
-description = "Find structural problems"
-model = "anthropic/claude-sonnet-4.6"
+Ideas are stored in `ideas.db` with SQLite FTS5 full-text search and optional vector embeddings for hybrid retrieval.
 
-[tools]
-allow = ["read_file", "grep", "glob", "shell"]
+- **Knowledge graph** -- typed edges (caused_by, supports, contradicts, supersedes) with strength weights
+- **Hybrid search** -- BM25 keyword + vector cosine similarity + graph boost + MMR reranking
+- **Temporal decay** -- exponential with configurable halflife, evergreen category exempt
 
-[prompt]
-system = "You are a systems architecture auditor..."
-```
+Idea searches walk the agent tree upward: an agent sees its own ideas, its parent's, and ancestors' up to root.
 
-When injected via `SpawnOptions.with_skill()`:
-- Skill prompt appended to agent identity
-- Tools filtered by allow/deny policy
-- Model overridden if specified
-- Multiple skills stack: `.with_skill("a").with_skill("b")`
+## Events -- Autonomous Operations
+
+Events define when agents act autonomously. Types: schedule (cron/interval), pattern (quest_completed, etc.), once (fire-at-time), webhook (HTTP with HMAC).
+
+Events are tree-scoped: they can fire on the agent itself (`self`), its direct children, or all descendants.
+
+When an event fires, it creates a quest loaded with the referenced idea.
 
 ## Entry Points
 
@@ -90,83 +77,39 @@ All converge to `spawn_session`:
 
 | Entry | How |
 |-------|-----|
-| Web chat | `spawn_session(agent, message, provider, SpawnOptions::interactive())` |
-| Delegation | `agents_delegate` tool → `spawn_session(opts.with_parent(id))` |
-| Quest execution | Patrol loop → `spawn_session(opts.with_quest(id))` |
-| Trigger/cron | Creates quest → patrol spawns session |
-| Telegram/Discord | MessageRouter → quest or direct session |
+| Web chat | `spawn_session(agent, message, provider)` |
+| Delegation | `delegate` tool --> `spawn_session` with parent_id |
+| Quest execution | Patrol loop --> `spawn_session` with quest_id |
+| Event fire | Creates quest --> patrol spawns session |
+| Telegram/Discord/Slack | Gate --> quest or direct session |
 
-## Quests — Tracked Work Items
+## Daemon Patrol Loop
 
-Persistent work units with status, priority, dependencies, acceptance criteria, checkpoints, retry logic, and escalation chains.
-
-Quests live in `.tasks/*.jsonl` (git-native). The patrol loop finds ready quests and spawns sessions.
-
-| Need | Use |
-|------|-----|
-| "Do this right now" | Spawn session directly |
-| "This needs to get done" | Create quest (patrol assigns) |
-| "Track retries and priority" | Quest |
-| "Just run a prompt" | Session |
-
-## Agent Identity
-
-Agents are persistent identities in SQLite (`agents` table):
-
-- `id` (UUID) — stable identity, memory scope key
-- `name` — display label
-- `system_prompt` — personality + instructions
-- `project` / `project_id` — project scope
-- `parent_id` — position in the agent tree
-- `model` — preferred model
-- `capabilities` — permissions
-
-## Memory — Three-Tier Hierarchical Recall
-
-```
-Agent scope      → entity_id = agent UUID
-Project scope    → entity_id = project UUID
-System scope     → cross-project knowledge
-```
-
-`hierarchical_search` queries all tiers, deduplicates, returns top-k. Memory searches walk the agent tree upward: an agent sees its own memories, its parent's, and ancestors' up to root.
-
-## Project Identity
-
-Projects have stable UUIDs (auto-generated, persisted in `project_ids.json`). Names are display labels — renaming preserves all data.
+1. Reap completed sessions
+2. Assign ready quests --> spawn sessions
+3. Fire due events
+4. Persist activity (costs, decisions)
+5. Detect timeouts, handle blocked quests
+6. Flush idea writes
 
 ## Event Streaming
 
-13 `ChatStreamEvent` types, all forwarded to the frontend:
+13 `ChatStreamEvent` types forwarded to the frontend:
 
 TurnStart, TextDelta, ToolStart, ToolComplete, TurnComplete, Status, DelegateStart, DelegateComplete, MemoryActivity, Compacted, ToolProgress, Complete, Error.
-
-Tool events persist to session store — visible on page reload.
-
-## Web UI
-
-Sessions page shows: sidebar (permanent, active work, spawned work, closed), session header (agent, model, status), spawned sessions bar (inline children with live timers), interleaved message timeline (text → tools → text with expandable output), duration/cost/tokens per response.
-
-## Daemon Patrol Loop (30s)
-
-1. Assign ready quests → spawn sessions
-2. Detect timeouts, handle blocked quests
-3. Fire due triggers
-4. Persist cost ledger
-5. Reap dead sessions
-6. Flush memory writes
 
 ## Crates
 
 | Crate | Purpose |
 |-------|---------|
-| aeqi-core | Agent loop, config, identity, traits, streaming executor |
-| aeqi-orchestrator | Daemon, sessions, quests, delegation, memory routing |
-| aeqi-tools | Shell, file, web, skills |
+| aeqi-core | Agent loop, config, traits, streaming executor |
+| aeqi-orchestrator | Daemon, sessions, events, delegation, middleware |
+| aeqi-tools | Shell, file, web, delegate |
 | aeqi-providers | OpenRouter, Anthropic, Ollama |
-| aeqi-insights | SQLite + FTS5, vector search, hierarchical scoping |
+| aeqi-ideas | SQLite + FTS5 + vector, hierarchical scoping, knowledge graph |
 | aeqi-quests | Quest DAG, dependency inference, status machine |
 | aeqi-web | Axum REST + WebSocket API |
 | aeqi-gates | Telegram, Discord, Slack bridges |
 | aeqi-graph | Code intelligence (symbol graph, call chains) |
-| aeqi-cli | CLI, MCP server, TUI |
+| aeqi-cli | CLI, TUI, MCP server |
+| aeqi-hosting | Multi-tenant platform, bubblewrap sandboxing |

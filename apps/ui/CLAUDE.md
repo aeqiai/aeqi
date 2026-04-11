@@ -20,7 +20,7 @@ The UI is built around four primitives:
 - **Agent** -- autonomous entities with parent-child hierarchy
 - **Quest** -- work items (formerly "tasks")
 - **Event** -- audit/activity stream
-- **Insight** -- agent knowledge and memories
+- **Idea** -- agent knowledge, identity, instructions, memories
 
 ## Pages
 
@@ -30,7 +30,7 @@ The UI is built around four primitives:
 | Quests | `/quests` | Quest list, filter by status/agent |
 | Sessions | `/sessions` | Split pane: session list + transcript. WebSocket chat with agents |
 | Events | `/events` | Event stream (audit trail) |
-| Insights | `/insights` | Agent knowledge/memory search |
+| Ideas | `/ideas` | Agent knowledge/idea search |
 | Agent Detail | `/agents/:name` | Agent identity, files, activity |
 | Settings | `/settings` | Daemon connection, logout |
 | Login | `/login` | JWT authentication |

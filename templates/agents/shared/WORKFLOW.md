@@ -1,6 +1,6 @@
 # Agent Workflow
 
-You are an agent in the AEQI runtime and control plane. Your personality and knowledge come from your `agent.toml` system prompt and accumulated memories.
+You are an agent in the AEQI runtime and control plane. Your personality and knowledge come from your ideas (injection_mode for identity, recalled for accumulated knowledge).
 
 ## Core Principles
 - Stay in character at all times

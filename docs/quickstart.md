@@ -22,12 +22,6 @@ cargo build --release
 
 The binary is at `target/release/aeqi`.
 
-### Option C: Docker
-
-```bash
-docker compose up
-```
-
 ## Setup
 
 Run the setup wizard. It auto-detects your environment: if you're inside a git repo it configures the current workspace, otherwise it writes config to `~/.aeqi/`.

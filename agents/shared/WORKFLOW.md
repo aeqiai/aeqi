@@ -1,6 +1,6 @@
 # Shared Workflow
 
-These rules apply to ALL projects. Project-specific AGENTS.md may add to but never contradict these.
+These rules apply to ALL agents. Agent-specific ideas may add to but never contradict these.
 
 ## Git Workflow
 
@@ -32,7 +32,7 @@ When a quest is assigned, the worker owns it end-to-end:
 - Commit, deploy to dev, iterate — without pausing for approval
 - Ambiguity in the spec? Make the best call. Document the decision. Keep moving.
 
-Mid-quest check-ins are a failure mode, not a safety mechanism. The Architect's silence is not confusion — it's trust.
+Mid-quest check-ins are a failure mode, not a safety mechanism. The parent agent's silence is not confusion — it's trust.
 
 ## Worker Protocol
 
@@ -63,7 +63,7 @@ When executing a quest, workers must signal their outcome:
 
 ## Batch Dispatch
 
-When multiple quests are ready for a project, dispatch ALL of them — not sequentially with permission gates. The Architect delegates at the project level. A project with 4 ready quests should have 4 workers running, not 1 worker running and 3 waiting for human approval that was never required.
+When multiple quests are ready for an agent, dispatch ALL of them — not sequentially with permission gates. The parent agent delegates at the scope level. An agent with 4 ready quests should have 4 workers running, not 1 worker running and 3 waiting for human approval that was never required.
 
 The agent (or any orchestrator) must never:
 - List ready quests and ask "which one?"
@@ -157,14 +157,14 @@ For complex orchestration, read `subagents/pipeline-orchestrator.md` for the ful
 If you genuinely cannot determine something from the codebase:
 1. First try harder — check docs, configs, related code, git history
 2. If truly stuck, respond with `blocked` status and a specific question
-3. The WorkerPool will attempt project-level resolution (spawn another worker with your question)
-4. If still stuck, escalates to Lead Agent (cross-project knowledge)
-5. If Lead Agent can't resolve, escalates to human via Telegram
+3. The scheduler will attempt resolution (spawn another worker with your question)
+4. If still stuck, escalates up the agent tree
+5. If no agent can resolve, escalates to human via Telegram
 
 ## Build & Deploy
 
-Build, test, and deploy commands are specified in your Operating Instructions (AGENTS.md).
-Follow those exactly. Do not search for or rely on repo-level CLAUDE.md files.
+Build, test, and deploy commands are specified in your agent ideas with injection_mode.
+Follow those exactly.
 
 ## Safety
 

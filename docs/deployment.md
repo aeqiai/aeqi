@@ -141,33 +141,6 @@ server {
 
 The `Connection: upgrade` headers are required for WebSocket support on the dashboard.
 
-## Docker
-
-A multi-stage `Dockerfile` and `docker-compose.yml` are included in the repo root.
-
-### docker-compose
-
-```bash
-# Place your config at ./config/aeqi.toml, then:
-docker compose up -d
-```
-
-This builds the image (UI + Rust binary), exposes port 8400, mounts `./config` for configuration, and creates a named volume for `~/.aeqi` data.
-
-### Manual docker build
-
-```bash
-docker build -t aeqi .
-docker run -d \
-  -p 8400:8400 \
-  -v ./config:/home/aeqi/config \
-  -v aeqi-data:/home/aeqi/.aeqi \
-  -e AEQI_CONFIG=/home/aeqi/config/aeqi.toml \
-  aeqi
-```
-
-The container runs `aeqi start` by default (daemon + web in one process).
-
 ## Configuration
 
 Copy `config/aeqi.example.toml` to `config/aeqi.toml` and edit it. Key sections:
@@ -179,7 +152,7 @@ Copy `config/aeqi.example.toml` to `config/aeqi.toml` and edit it. Key sections:
 | `[security]` | Autonomy level, cost limits |
 | `[web]` | Bind address, CORS, auth secret |
 | `[repos]` | Repository paths agents can access |
-| `[[agents]]` | Agent spawn definitions, worker limits |
+| `[[agents]]` | Agent definitions, worker limits |
 
 ### Secrets and environment variables
 
@@ -208,10 +181,3 @@ This is optional and not needed for production.
 1. Pull the latest source.
 2. Run `./scripts/deploy.sh` (builds UI, compiles binary, restarts services).
 3. SQLite migrations run automatically on startup.
-
-For Docker deployments:
-
-```bash
-docker compose build
-docker compose up -d
-```

@@ -5,8 +5,8 @@
 ### What existed
 AEQI already had most of the infrastructure for a production platform, but the pieces weren't connected:
 
-- **aeqi-platform (aeqi-cloud)** — A Rust/Axum control plane that spawns Docker containers per tenant, manages ports (8401-8500), enforces resource limits (512MB RAM, 512 CPU shares), runs health checks, and drops all Linux capabilities. Production-grade container orchestration already working.
-- **aeqi-daemon** — An agent orchestration engine with a registry, scheduler (10 concurrent workers), trigger system, session management, and IPC socket. Agents for riftdecks, entity-legal, and unifutures already registered.
+- **aeqi-platform (aeqi-platform)** — A Rust/Axum control plane that spawns bubblewrap sandboxes per tenant, manages ports (8401-8500), enforces resource limits (512MB RAM, 512 CPU shares), runs health checks, and drops all Linux capabilities. Production-grade sandbox orchestration already working.
+- **aeqi-daemon** — An agent orchestration engine with a registry, scheduler (10 concurrent workers), event system, session management, and IPC socket. Agents for riftdecks, entity-legal, and unifutures already registered.
 - **23+ systemd services** — aeqi-app, riftdecks, entity-legal, gacha-agency, algostaking (18 services across dev/prod), all running behind nginx reverse proxy with SSL.
 - **Nginx** — 20+ site configs, Let's Encrypt SSL, WebSocket proxying, rate limiting, static asset caching.
 
@@ -62,7 +62,7 @@ Added to aeqi-platform at `/api/webhooks/deploy`:
 ## Concerns
 
 ### Immediate
-- **Disk is 96% full** (83GB remaining on 2TB). This is the most urgent infrastructure issue. A full disk will take down everything — builds, containers, databases.
+- **Disk is 96% full** (83GB remaining on 2TB). This is the most urgent infrastructure issue. A full disk will take down everything — builds, sandboxes, databases.
 - **Swap pressure** — 3.9GB/4GB swap used. Under heavy load, the system will thrash.
 - **Only aeqi-app has the webhook configured.** Other repos need the same webhook added in GitHub settings (same URL, same secret).
 
@@ -84,12 +84,12 @@ This is the dashboard people self-host. It's the local experience. No vendor loc
 **2. AEQI Platform (the SaaS)**
 For users who don't want to manage infrastructure, AEQI Platform hosts it for them. Each customer gets:
 
-- **A fenced environment** — a Docker container running the AEQI runtime, with isolated storage, its own port, and resource limits. No cross-tenant data access.
-- **Agent execution** — agents run inside the container with access to the customer's tools and data only.
-- **Persistent storage** — bind-mounted at `/var/lib/aeqi/containers/{company}/`, surviving container restarts.
-- **A subdomain or custom domain** — nginx dynamically routes `{company}.aeqi.ai` to the right container port.
+- **A fenced environment** — a bubblewrap sandbox running the AEQI runtime, with isolated storage, its own port, and resource limits. No cross-tenant data access.
+- **Agent execution** — agents run inside the sandbox with access to the customer's tools and data only.
+- **Persistent storage** — bind-mounted at `/var/lib/aeqi/containers/{company}/`, surviving sandbox restarts.
+- **A subdomain or custom domain** — nginx dynamically routes `{company}.aeqi.ai` to the right sandbox port.
 
-This is already partially built. The `ContainerManager` in aeqi-platform creates containers, allocates ports, runs health checks, and enforces security policies. The missing pieces are:
+This is already partially built. The `ContainerManager` in aeqi-platform creates sandboxes, allocates ports, runs health checks, and enforces security policies. The missing pieces are:
 
 ### What's Missing for Full Multi-Tenant SaaS
 
@@ -108,7 +108,7 @@ Options:
 Recommendation: Start with template-based (simplest, nginx stays). Switch to Traefik when the tenant count exceeds what nginx reload can handle (~100+ tenants).
 
 **B. Custom Domain Support**
-Tenants want `agents.theircompany.com` pointing to their container. This requires:
+Tenants want `agents.theircompany.com` pointing to their sandbox. This requires:
 - DNS verification (CNAME to aeqi.ai)
 - Automatic SSL via Let's Encrypt / ACME
 - nginx SNI routing
@@ -116,7 +116,7 @@ Tenants want `agents.theircompany.com` pointing to their container. This require
 **C. Container Image Updates**
 When the AEQI runtime gets a new release:
 1. Build new `aeqi-runtime:latest` image
-2. Rolling restart: stop container → pull new image → start container
+2. Rolling restart: stop sandbox --> update binary --> start sandbox
 3. Health check before marking complete
 
 The ContainerManager already handles create/start/stop. Adding rolling updates is straightforward.
@@ -124,18 +124,18 @@ The ContainerManager already handles create/start/stop. Adding rolling updates i
 **D. Per-Tenant Git Deployments**
 For customers who build apps on the platform (like Vercel):
 1. Customer pushes to their repo
-2. AEQI builds a container image from their code
+2. AEQI builds a runtime binary from their code
 3. Deploys to their allocated slot
 4. Routes their domain to it
 
-This is Phase 3. It reuses the exact same webhook → deploy pattern we built today, but targets containers instead of systemd services.
+This is Phase 3. It reuses the exact same webhook → deploy pattern we built today, but targets sandboxes instead of systemd services.
 
 ### The Fencing Model
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                  AEQI Platform                       │
-│              (aeqi-cloud, port 8443)                 │
+│              (aeqi-platform, port 8443)                 │
 │                                                     │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
 │  │ Tenant A │  │ Tenant B │  │ Tenant C │   ...     │
@@ -156,12 +156,12 @@ This is Phase 3. It reuses the exact same webhook → deploy pattern we built to
 └─────────────────────────────────────────────────────┘
 ```
 
-Each tenant container is:
+Each tenant sandbox is:
 - **Read-only root filesystem** — no writes to the OS layer
 - **All capabilities dropped** — CAP_DROP=ALL
 - **No privilege escalation** — no-new-privileges security option
 - **Resource-limited** — 512MB RAM, 512 CPU shares (configurable per plan)
-- **Network-isolated** — custom Docker bridge, DNS hardened
+- **Network-isolated** — custom network namespace, DNS hardened
 - **Storage-isolated** — bind mount to `/var/lib/aeqi/containers/{company}/`
 - **tmpfs /tmp** — ephemeral scratch space
 
@@ -169,24 +169,24 @@ This is already implemented and running (`aeqi-co-test-company` on port 8401).
 
 ### The Path: Single Server → Kubernetes
 
-**Phase 1 (Now) — Single Server, Systemd + Docker**
+**Phase 1 (Now) -- Single Server, Systemd + Bubblewrap**
 - Own projects: systemd services, deployed via webhook + deploy script
-- Tenant containers: Docker, managed by aeqi-platform
+- Tenant sandboxes: bubblewrap, managed by aeqi-platform
 - Capacity: ~100 tenants (port range 8401-8500)
 - Works today. No new infrastructure needed.
 
 **Phase 2 (Scale) — Single Server, Container-Only**
-- Migrate own projects (aeqi-app, riftdecks, etc.) into containers too
-- Everything is a container, managed by aeqi-platform
+- Migrate own projects (aeqi-app, riftdecks, etc.) into sandboxes too
+- Everything is a sandbox, managed by aeqi-platform
 - Unified monitoring, logging, resource management
-- Deploy script targets container restart instead of systemctl
+- Deploy script targets sandbox restart instead of systemctl
 
 **Phase 3 (Multi-Server) — Kubernetes**
 - aeqi-platform becomes a k8s operator
 - Each tenant gets a namespace or pod
 - Container definitions translate directly to k8s manifests
 - Horizontal scaling, multi-region, rolling updates
-- The deploy webhook stays the same — it just calls k8s API instead of Docker API
+- The deploy webhook stays the same — it just calls k8s API instead of platform API
 
 The architecture is designed so that **nothing changes conceptually** between phases. A "tenant" is always a fenced runtime with storage, agents, and a network endpoint. The backing infrastructure swaps out underneath.
 
@@ -206,20 +206,20 @@ Full agent platform on their own hardware. Open source kernel, no platform depen
 
 ### For customers (hosted on AEQI Platform)
 ```
-sign up → create company → container spawns → agents run → data stays fenced
+sign up → create company → sandbox spawns → agents run → data stays fenced
 ```
-Managed infrastructure. Their agents, their data, our operations. They get a dashboard at `{company}.aeqi.ai` backed by an isolated container with persistent storage.
+Managed infrastructure. Their agents, their data, our operations. They get a dashboard at `{company}.aeqi.ai` backed by an isolated sandbox with persistent storage.
 
 ### For customers (building apps on AEQI)
 ```
 connect repo → push code → AEQI builds + deploys → live at their domain
 ```
-Vercel-like experience powered by the same webhook + deploy infrastructure. Their app runs in a container, served by AEQI's proxy layer. They edit code, push, it's live.
+Vercel-like experience powered by the same webhook + deploy infrastructure. Their app runs in a sandbox, served by AEQI's proxy layer. They edit code, push, it's live.
 
 ## Summary
 
 The deploy system built today solves the immediate problem (manual deploys) and establishes the pattern for everything else. The webhook handler, deploy registry, and health verification are the primitives that scale from "my own websites" to "hosting customer apps."
 
-The multi-tenant container infrastructure already exists in aeqi-platform. The fencing (security, isolation, resource limits) is already implemented. What remains is dynamic routing (nginx config generation), custom domains (ACME/SSL automation), and the self-service UI for customers to manage their environments.
+The multi-tenant sandbox infrastructure already exists in aeqi-platform. The fencing (security, isolation, resource limits) is already implemented. What remains is dynamic routing (nginx config generation), custom domains (ACME/SSL automation), and the self-service UI for customers to manage their environments.
 
 AEQI is not just using CI/CD. AEQI is the CI/CD.

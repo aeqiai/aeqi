@@ -6,10 +6,10 @@ This document connects the AEQI vision to the current codebase.
 
 AEQI already has meaningful foundations:
 
-- a Rust workspace with a daemon, API, memory layer, quest storage, and orchestration logic
+- a Rust workspace with a daemon, API, idea store, quest storage, and orchestration logic
 - a native agent loop
 - a web UI
-- quest DAGs, audit, notes, budgets, and triggers
+- quest DAGs, activity tracking, budgets, and events
 - provider abstraction and room for multiple model backends
 
 What it does not yet have is full product coherence around the north star.
@@ -41,15 +41,15 @@ Goal: unify notes, quests, projects, orgs, and memory into one operator-facing m
 
 Focus areas:
 
-- notes as directives, not just saved text
-- project and mission dashboards tied directly to execution state
-- stronger org model for human and agent roles
-- better knowledge and skill surfacing in the UI
+- ideas as directives, not just stored knowledge
+- mission dashboards tied directly to execution state
+- stronger agent tree model for human and agent roles
+- better idea surfacing in the UI
 - approvals and intervention flows integrated into the main operator experience
 
 Exit criteria:
 
-- a user can move from note to plan to execution without leaving AEQI
+- a user can move from idea to plan to execution without leaving AEQI
 - ownership, status, and blockers are visible in one place
 - the system feels like a coherent work OS rather than a set of features
 
@@ -102,7 +102,7 @@ Focus areas:
 - automatic org and role synthesis
 - durable planning and reprioritization
 - multi-project coordination
-- richer skill composition
+- richer idea composition
 - long-horizon strategy review and adaptation
 
 This is the phase where prompts like "build this business" or "run this operation" become meaningful.
@@ -114,7 +114,7 @@ The next practical moves should be:
 1. Define the native runtime contract in code and docs.
 2. Build an eval suite for coding and repo quests.
 3. Tighten the native coding loop before expanding more surface area.
-4. Keep shaping the UI around notes, work, org, and operator control.
+4. Keep shaping the UI around ideas, work, agent tree, and operator control.
 5. Make metrics and outcome tracking a first-class part of the control plane.
 
 ## Decision Rule

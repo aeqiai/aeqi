@@ -10,7 +10,7 @@ The long-term AEQI experience should feel like this:
 
 1. A human states an outcome.
 2. AEQI turns that outcome into structure.
-3. AEQI creates or updates the right notes, goals, quests, teams, skills, and knowledge.
+3. AEQI creates or updates the right ideas, goals, quests, agents, and events.
 4. AEQI executes through software, content, communication, and operations.
 5. AEQI measures whether reality is improving.
 6. AEQI keeps adapting until the outcome is achieved or the operator changes course.
@@ -21,10 +21,10 @@ In that world, AEQI is not just a coding tool and not just a quest manager. It i
 
 AEQI should converge on five tightly connected surfaces:
 
-- Notes and directives: messy human thought captured without friction, then turned into durable intent
-- Work graph: quests, missions, dependencies, approvals, blockers, and ownership
-- Organization graph: humans, agents, teams, mandates, permissions, and reporting lines
-- Knowledge graph: project memory, operating context, learned preferences, skills, and reusable playbooks
+- Ideas: knowledge, identity, instructions, memories -- the unified store
+- Work graph: quests, dependencies, approvals, blockers, and ownership
+- Agent tree: agents with parent-child hierarchy, mandates, permissions, and reporting lines
+- Knowledge graph: ideas with typed edges, operating context, learned preferences
 - Execution engine: the native agent runtime that can inspect, change, verify, and operate systems directly
 
 ## Core Thesis
@@ -41,7 +41,7 @@ AEQI should be broad on the surface but code-native at its execution core.
 
 That means:
 
-- humans should interact in goals, notes, and outcomes
+- humans should interact in goals, ideas, and outcomes
 - AEQI should translate those into structured work
 - the strongest execution substrate should be a native runtime that can build and operate software
 

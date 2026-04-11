@@ -9,8 +9,8 @@ How an agent's input context is assembled when it wakes on a quest.
 An agent sees context through exactly two paths:
 
 **System prompt** (static for the session lifetime):
-- Assembled by `prompt_assembly::assemble_prompts()` from the agent ancestor chain
-- Root ancestor prompts (scope=descendants) -> parent prompts -> self prompts -> quest prompts
+- Assembled from the agent ancestor chain by walking ideas with injection_mode set
+- Root ancestor ideas (scope=descendants) -> parent ideas -> self ideas -> event-activated ideas
 - This is the agent's identity, inherited instructions, and role definition
 
 **User message** (the first message in the conversation — the "quest context"):
@@ -141,7 +141,7 @@ Use this to avoid repeating earlier failures or redundant work.
 
 Source: `build_resume_brief()` — queries EventStore for decisions and dispatches. Already implemented.
 
-### Layer 7: Dynamic Memory Recall (~30 results, auto-queried)
+### Layer 7: Dynamic Idea Recall (~30 results, auto-queried)
 
 ```
 ## Dynamic Recall
@@ -150,7 +150,7 @@ Source: `build_resume_brief()` — queries EventStore for decisions and dispatch
 - [engineer] auth-cookie-policy: Set cookie domain to `.localhost` for local dev
 ```
 
-Source: `InsightStore::search()` via QueryPlanner. Already implemented. Searches both domain-scoped and entity-scoped memories using the quest context as the query.
+Source: `IdeaStore::search()` via QueryPlanner. Already implemented. Searches both domain-scoped and entity-scoped ideas using the quest context as the query.
 
 ---
 
@@ -471,10 +471,10 @@ Anything beyond the one-level tree window requires the agent to call `recall`:
 - Code graph context (what files are related to this quest)
 
 The agent has 4 tools for this: `create_quest`, `close_quest`, `recall`, `remember`.
-The `recall` tool searches the memory system, which includes:
-- Domain memories (project-level knowledge)
-- Entity memories (this agent's personal knowledge across sessions)
-- Shared memories (sibling-visible, from `remember` with scope=shared)
+The `recall` tool searches the idea store, which includes:
+- Domain ideas (workspace-level knowledge)
+- Entity ideas (this agent's personal knowledge across sessions)
+- Shared ideas (sibling-visible, from `remember` with scope=shared)
 
 ---
 
@@ -504,7 +504,7 @@ When creating sub-quests, use create_quest with clear descriptions.
 
 ---
 
-## Dynamic Recall
+## Dynamic Idea Recall
 - [engineer] auth-jwt-pattern: Use RS256 for JWT signing, public key at /auth/keys
 - [global] rust-axum-patterns: Use extractors for auth, tower middleware for rate limiting
 - [engineer] cookie-policy: Set domain=.localhost for local dev, secure=true in prod

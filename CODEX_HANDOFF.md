@@ -21,7 +21,7 @@ Modified in `/home/claudedev/aeqi`:
 - `crates/aeqi-orchestrator/src/daemon.rs`
 - `crates/aeqi-orchestrator/src/session_manager.rs`
 
-Also updated platform-served artifacts in `/home/claudedev/aeqi-platform`:
+Also updated platform-served artifacts in `/home/claudedev/aeqi-platform` (formerly aeqi-cloud):
 - `ui-dist/`
 - `runtime/bin/aeqi`
 
@@ -97,7 +97,7 @@ So backend changes are built and staged, but already-running host/tenant process
 
 First inspect:
 ```bash
-ps -eo pid,ppid,user,stat,lstart,cmd | rg 'aeqi-cloud|target/release/aeqi .*start|aeqi start|aeqi-tenant'
+ps -eo pid,ppid,user,stat,lstart,cmd | rg 'aeqi-platform|target/release/aeqi .*start|aeqi start|aeqi-tenant'
 systemctl status --no-pager aeqi-platform.service aeqi-runtime.service
 ```
 

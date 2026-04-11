@@ -1,62 +1,20 @@
 # Agents
 
-Each subdirectory defines a persistent agent identity.
+Agents are persistent identities stored in the database. The DB is the source of truth -- there are no agent definition files on disk.
 
-## Format
+Agent templates in subdirectories here are historical presets used during initial setup. Once spawned, all agent configuration (ideas, events, model, budget) lives in `aeqi.db`.
 
-One file per agent: `agent.md`. It uses YAML frontmatter for config, followed by the prompt body.
+## Agent Tree
 
-```md
----
-name: cto
-display_name: CTO
-model_tier: capable
-max_workers: 2
-max_turns: 30
-expertise: [architecture, systems, rust]
-capabilities: [spawn_agents, events_manage]
-color: "#00BFFF"
-avatar: ⚙
-faces:
-  greeting: (⌐■_■)
-  thinking: (¬_¬ )
-triggers:
-  - name: memory-consolidation
-    schedule: every 6h
-    skill: memory-consolidation
----
+Agents form a hierarchy via `parent_id`. Configuration (model, budget, workdir, timeout) inherits from parent to child. Override at any node.
 
-You are CTO — the technology executive...
+## Managing Agents
+
+```bash
+aeqi agent list               # show all agents
+aeqi agent show <name>        # show agent details
+aeqi agent retire <name>      # deactivate (preserves ideas)
+aeqi agent activate <name>    # reactivate
 ```
 
-## Shipped Agents
-
-| Agent | Directory | Function |
-|-------|-----------|----------|
-| Shadow | `shadow/` | Personal assistant, default identity |
-| CEO | `ceo/` | Strategic coordination |
-| CTO | `cto/` | Architecture, engineering |
-| CPO | `cpo/` | Product, UX |
-| CFO | `cfo/` | Financial ops, trading, risk |
-| COO | `coo/` | Deployment, reliability |
-| GC | `gc/` | Legal, compliance |
-| CISO | `ciso/` | Security, threat modeling |
-
-## Model Tiers
-
-Agents declare `model_tier` instead of hardcoding model names:
-
-- `capable` — architecture, security, complex decisions
-- `balanced` — standard work, review, implementation
-- `fast` — simple queries, formatting
-- `cheapest` — health checks, memory consolidation
-
-Central `[models]` config in `aeqi.toml` resolves tiers to actual models.
-
-## Creating an Agent
-
-1. Create a directory under `agents/`
-2. Add `agent.md` with frontmatter + system prompt
-3. Spawn via `aeqi agent spawn <directory_name>`
-
-The directory name is the template identifier. Spawned agents get a UUID in the registry.
+Agents spawn children at runtime through the delegate tool or via the API.

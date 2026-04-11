@@ -22,7 +22,7 @@ Make AEQI's agent loop (`aeqi-core/src/agent.rs`) at least as resilient, perform
 - Sessions unified — one table, parent-child linked
 - Everything creates a session (workers, delegates, triggers)
 - SessionManager.spawn_session() as universal executor
-- SpawnOptions builder (flat params, skills, auto_close)
+- SpawnOptions builder (flat params, ideas, auto_close)
 
 **Architecture:**
 - ChatEngine → MessageRouter
@@ -31,7 +31,7 @@ Make AEQI's agent loop (`aeqi-core/src/agent.rs`) at least as resilient, perform
 - chat_ws.rs → session_ws.rs
 - .company → .project on all DB structs
 - Skill injection at spawn time
-- architecture-audit skill
+- architecture-audit idea
 - Full web UI with interleaved segments, tool panels, session sidebar
 
 ### What AEQI's Agent Loop Does Well
@@ -56,7 +56,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 
 1. **Three-tier hierarchical memory** — agent→project→system scoped memory with `hierarchical_search`. CC has flat memory prefetch.
 2. **Mid-loop memory recall** — proactively re-queries memory when tool output has novel terms (>200 chars, 3+ new terms). CC doesn't recall mid-loop.
-3. **Session memory extraction** — fire-and-forget background task extracting structured insights (SCOPE CATEGORY: key | content) into domain-scoped memory at 50K+ prompt tokens.
+3. **Session memory extraction** — fire-and-forget background task extracting structured ideas (SCOPE CATEGORY: key | content) into domain-scoped memory at 50K+ prompt tokens.
 4. **Perpetual sessions** — stays open via `input_rx` channel, accepts follow-up messages with full state reset per turn.
 5. **Token budget auto-continuation** — built-in with percentage tracking, nudge messages showing "X% of budget used", stops at 90%.
 6. **Budget pressure injection** — injects warnings into tool results at 70% and 90% of iteration budget. CC has no equivalent.
@@ -65,7 +65,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 9. **Structured 9-section compaction** — detailed prompt with `<analysis>` scratchpad + `<summary>` extraction, custom `compact_instructions` per project.
 10. **File change detection between turns** — checks mtime of recently-read files, injects system reminders to re-read before editing.
 11. **Smart model routing** — uses cheap `routing_model` for simple messages on iteration 1.
-12. **Post-run reflection** — `reflect()` extracts up to 5 structured insights with scope/category/key/content into memory.
+12. **Post-run reflection** — `reflect()` extracts up to 5 structured ideas with scope/category/key/content into memory.
 
 ## Phase 3: Side-by-Side Comparison (Completed 2026-04-04)
 
@@ -141,7 +141,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 | **Order** | Microcompact → Snip → Context Collapse → Auto-compact → Reactive | Snip (85%) → Microcompact (85%) → Full compact (80%) → Reactive (on error) |
 | **Microcompact trigger** | Time-based (cache expired) OR count-based (cached path) | Token threshold (85% of compact threshold) |
 | **Snip** | Removes old rounds | Removes oldest assistant+tool rounds from compactable window |
-| **Full compact** | LLM summarization with file+skill re-injection | 9-section LLM summarization with file restoration + skill preservation |
+| **Full compact** | LLM summarization with file+idea re-injection | 9-section LLM summarization with file restoration + idea preservation |
 | **Reactive** | Triggered by API 413, runs full compaction | Triggered by context-length error, runs snip+microcompact+full compact |
 | **Context Collapse** | Persistent commit log, 90% commit / 95% block thresholds | Not implemented |
 | **Circuit breaker** | 3 consecutive autocompact failures → stop | `MAX_COMPACTIONS_PER_RUN = 3` hard cap |
@@ -157,7 +157,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 | | Claude Code | AEQI |
 |---|---|---|
 | **Files** | Re-reads via cache clearing + forced CLAUDE.md re-read | Restores from `recent_files` tracking (5 files, 5K tokens each, 50K budget) |
-| **Skills** | Clears invoked-skill-names so skills re-inject on next turn | Preserves skill messages verbatim in compacted output |
+| **Skills** | Clears invoked-skill-names so ideas re-inject on next turn | Preserves idea messages verbatim in compacted output |
 | **State clearing** | Resets microcompact, context collapse, getUserContext cache, system prompt sections, classifier approvals | Resets replacement_state for microcompacted entries |
 | **Tool pairing** | Invariant maintained at error boundaries (4 sites) | `repair_tool_pairing()` post-compact: injects synthetic results for dangling tool_use, strips orphan tool_results |
 
@@ -177,7 +177,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 
 **Gap**: AEQI's `after_turn` is more powerful programmatically (can inject arbitrary messages, has full context) but not user-configurable. CC's shell-command hooks are accessible to end users.
 
-**Fix (P2)**: Add configurable shell-command hooks to AEQI's observer system. Could implement as a `ShellHookObserver` that reads hook definitions from project config and executes them.
+**Fix (P2)**: Add configurable shell-command hooks to AEQI's observer system. Could implement as a `ShellHookObserver` that reads hook definitions from agent config and executes them.
 
 ### 8. Prefetching During Streaming
 
@@ -266,7 +266,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 | # | Fix | Effort | Impact |
 |---|---|---|---|
 | P2-1 | **Max output token escalation**: try `max_tokens * 4` before falling to continuation | Small | May avoid multi-turn continuation overhead |
-| P2-2 | **Shell-command stop hooks**: `ShellHookObserver` reads hook defs from project config | Medium | User-configurable post-turn validation |
+| P2-2 | **Shell-command stop hooks**: `ShellHookObserver` reads hook defs from agent config | Medium | User-configurable post-turn validation |
 | P2-3 | **Safety-sensitive path detection**: warn before modifying .git/, config files | Small | Basic safety for non-solo use |
 
 ### P3 — Polish
@@ -304,7 +304,7 @@ Read these files END TO END, not grep:
    - Threshold calculation (effective window - 13K buffer)
    - Proactive vs reactive trigger
    - Circuit breaker (3 consecutive failures → stop)
-   - Post-compact: file restoration, skill re-injection
+   - Post-compact: file restoration, idea re-injection
 
 5. **`refs/claude-code/src/services/compact/microCompact.ts`**
    - Time-based and token-based clearing
@@ -405,7 +405,7 @@ For each of these concerns, document CC's exact mechanism, AEQI's exact mechanis
    - Gap: No persistent context collapse log. Different ordering.
 
 6. **Context compaction: post-compact restoration**
-   - CC: Re-inject files + skills after compaction
+   - CC: Re-inject files + ideas after compaction
    - AEQI: Re-inject recent files via recent_files tracking
    - Gap: Skills not re-injected after compaction?
 
@@ -415,7 +415,7 @@ For each of these concerns, document CC's exact mechanism, AEQI's exact mechanis
    - Gap: No user-configurable post-turn hooks
 
 8. **Prefetching during streaming**
-   - CC: Memory prefetch + skill discovery start during LLM streaming, consumed post-tools
+   - CC: Memory prefetch + idea discovery start during LLM streaming, consumed post-tools
    - AEQI: Memory recall happens after tools, not during
    - Gap: No prefetching during stream
 
@@ -446,7 +446,7 @@ After the comparison, rank fixes by impact:
 **P0 (Resilience):** Error recovery, streaming fallback, context collapse persistence
 **P1 (Performance):** Prefetching during stream, worktree isolation
 **P2 (UX):** Permission model, user-configurable hooks, stop hooks
-**P3 (Polish):** Post-compact skill re-injection, token budget carryover
+**P3 (Polish):** Post-compact idea re-injection, token budget carryover
 
 ## Key Files Reference
 
@@ -470,8 +470,8 @@ crates/aeqi-core/src/agent.rs              — Main agent loop (~3100 lines)
 crates/aeqi-core/src/streaming_executor.rs — Tool executor (~500 lines)
 crates/aeqi-core/src/chat_stream.rs        — Event types
 crates/aeqi-core/src/traits/               — Provider, Observer, Memory, Tool traits
-crates/aeqi-core/src/config.rs             — Agent + project config
-crates/aeqi-core/src/identity.rs           — Agent identity (persona, knowledge, memory)
+crates/aeqi-core/src/config.rs             — Agent + agent config
+crates/aeqi-ideas                             — Idea store (knowledge, identity, instructions)
 crates/aeqi-orchestrator/src/session_manager.rs — spawn_session (universal executor)
 crates/aeqi-orchestrator/src/delegate.rs        — Delegation tool
 crates/aeqi-orchestrator/src/middleware/        — Middleware chain (9 layers)
