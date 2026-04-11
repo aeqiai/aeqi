@@ -67,8 +67,8 @@ impl EventHandlerStore {
         // Validate schedule interval minimum.
         if e.pattern.starts_with("schedule:every ") {
             let interval_part = &e.pattern["schedule:every ".len()..];
-            if interval_part.ends_with('s') {
-                let secs: u64 = interval_part[..interval_part.len() - 1].parse().unwrap_or(0);
+            if let Some(num_str) = interval_part.strip_suffix('s') {
+                let secs: u64 = num_str.parse().unwrap_or(0);
                 if secs < 60 {
                     anyhow::bail!("schedule interval must be >= 60 seconds, got {secs}s");
                 }

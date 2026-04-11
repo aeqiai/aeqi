@@ -17,7 +17,7 @@ invite_codes_per_user = 3
 
 [providers.openrouter]
 api_key = "${OPENROUTER_API_KEY}"
-default_model = "qwen/qwen3-235b-a22b:free"
+default_model = "google/gemma-4-27b-it:free"
 embedding_model = "openai/text-embedding-3-small"
 
 [security]
