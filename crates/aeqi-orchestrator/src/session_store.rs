@@ -9,7 +9,6 @@ use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tracing::debug;
 
 /// A single session message.
@@ -52,14 +51,14 @@ pub struct ThreadEvent {
 
 /// Persistent session store backed by SQLite.
 pub struct SessionStore {
-    db: Arc<Mutex<Connection>>,
+    db: Arc<crate::agent_registry::ConnectionPool>,
     /// Max messages per session before auto-summarization kicks in.
     pub max_messages_per_chat: usize,
 }
 
 impl SessionStore {
-    /// Create a SessionStore sharing an existing connection (from AgentRegistry).
-    pub fn new(db: Arc<Mutex<Connection>>) -> Self {
+    /// Create a SessionStore sharing a connection pool (from AgentRegistry).
+    pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
         Self {
             db,
             max_messages_per_chat: 30,
@@ -1103,19 +1102,22 @@ pub struct ChannelInfo {
 mod tests {
     use super::*;
 
-    fn open_test_db() -> Arc<Mutex<Connection>> {
-        let conn = Connection::open_in_memory().unwrap();
-        SessionStore::create_tables(&conn).unwrap();
-        Arc::new(Mutex::new(conn))
+    async fn open_test_db() -> Arc<crate::agent_registry::ConnectionPool> {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+            SessionStore::create_tables(&conn).unwrap();
+        }
+        Arc::new(pool)
     }
 
-    fn test_store() -> SessionStore {
-        SessionStore::new(open_test_db())
+    async fn test_store() -> SessionStore {
+        SessionStore::new(open_test_db().await)
     }
 
     #[tokio::test]
     async fn test_record_and_recent() {
-        let store = test_store();
+        let store = test_store().await;
 
         store.record(123, "User", "hello").await.unwrap();
         store.record(123, "Assistant", "hi there").await.unwrap();
@@ -1130,7 +1132,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_recent_limit() {
-        let store = test_store();
+        let store = test_store().await;
 
         for i in 0..10 {
             store.record(1, "User", &format!("msg {i}")).await.unwrap();
@@ -1144,7 +1146,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_context_string() {
-        let store = test_store();
+        let store = test_store().await;
 
         store.record(42, "User", "hello").await.unwrap();
         store.record(42, "Assistant", "world").await.unwrap();
@@ -1157,7 +1159,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_context_string_empty() {
-        let store = test_store();
+        let store = test_store().await;
 
         let ctx = store.context_string(999, 10).await.unwrap();
         assert!(ctx.is_empty());
@@ -1165,7 +1167,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_save_summary() {
-        let store = test_store();
+        let store = test_store().await;
 
         for i in 0..10 {
             store.record(1, "User", &format!("msg {i}")).await.unwrap();
@@ -1187,7 +1189,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_message_count() {
-        let store = test_store();
+        let store = test_store().await;
 
         store.record(1, "User", "a").await.unwrap();
         store.record(1, "User", "b").await.unwrap();
@@ -1200,7 +1202,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_chat_isolation() {
-        let store = test_store();
+        let store = test_store().await;
 
         store.record(1, "User", "chat1").await.unwrap();
         store.record(2, "User", "chat2").await.unwrap();
@@ -1216,7 +1218,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_timeline_records_typed_events() {
-        let store = test_store();
+        let store = test_store().await;
 
         store.record(7, "User", "hello").await.unwrap();
         store
@@ -1253,7 +1255,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_session_creates_and_returns() {
-        let store = test_store();
+        let store = test_store().await;
 
         let id1 = store
             .ensure_session(100, "web", "test-session", None)
@@ -1272,7 +1274,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_session_with_agent() {
-        let store = test_store();
+        let store = test_store().await;
 
         let id = store
             .ensure_session(200, "web", "agent-session", Some("agent-uuid-1"))
@@ -1287,7 +1289,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_record_and_history_by_session() {
-        let store = test_store();
+        let store = test_store().await;
 
         let session_id = store
             .create_session("agent-1", "web", "history-test", None, None)
@@ -1311,7 +1313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_sessions_filtering() {
-        let store = test_store();
+        let store = test_store().await;
 
         store
             .create_session("a1", "web", "s1", None, None)
@@ -1335,7 +1337,7 @@ mod tests {
 
     #[tokio::test]
     async fn record_empty_content() {
-        let store = test_store();
+        let store = test_store().await;
 
         // Recording empty content should succeed (the DB allows it).
         store.record(1, "User", "").await.unwrap();
@@ -1347,7 +1349,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_sessions_empty() {
-        let store = test_store();
+        let store = test_store().await;
 
         let sessions = store.list_sessions(None, 100).await.unwrap();
         assert!(sessions.is_empty());
@@ -1355,7 +1357,7 @@ mod tests {
 
     #[tokio::test]
     async fn close_nonexistent_session() {
-        let store = test_store();
+        let store = test_store().await;
 
         // close_session runs an UPDATE that matches zero rows — no error, just a no-op.
         let result = store.close_session("nonexistent-uuid").await;
@@ -1364,7 +1366,7 @@ mod tests {
 
     #[tokio::test]
     async fn session_messages_with_limit() {
-        let store = test_store();
+        let store = test_store().await;
 
         let session_id = store
             .create_session("agent-1", "web", "limit-test", None, None)
@@ -1388,7 +1390,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_session_no_legacy_chat_id() {
-        let store = test_store();
+        let store = test_store().await;
 
         let id = store
             .create_session("agent-1", "perpetual", "Test Session", None, None)

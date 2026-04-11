@@ -150,6 +150,9 @@ pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String)
 }
 
 /// A reusable prompt stored in the prompt store.
+///
+/// Everything is a prompt — agent identities, skills, primers, step context.
+/// The difference is injection metadata: position, scope, and mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptRecord {
     pub id: String,
@@ -157,8 +160,60 @@ pub struct PromptRecord {
     pub name: String,
     pub content: String,
     pub tags: Vec<String>,
+    /// Where this prompt is injected: "system" | "prepend" | "append".
+    #[serde(default = "default_position")]
+    pub position: String,
+    /// Inheritance scope: "self" | "descendants".
+    #[serde(default = "default_scope")]
+    pub scope: String,
+    /// Tool allow-list (empty = all allowed). JSON array stored as string.
+    #[serde(default)]
+    pub tool_allow: Vec<String>,
+    /// Tool deny-list. JSON array stored as string.
+    #[serde(default)]
+    pub tool_deny: Vec<String>,
+    pub source_kind: Option<String>,
+    pub source_ref: Option<String>,
+    pub managed: bool,
+    pub source_hash: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn default_position() -> String {
+    "system".into()
+}
+fn default_scope() -> String {
+    "self".into()
+}
+
+impl PromptRecord {
+    /// Convert to a PromptEntry for assembly.
+    pub fn to_prompt_entry(&self) -> aeqi_core::PromptEntry {
+        let position = match self.position.as_str() {
+            "prepend" => aeqi_core::PromptPosition::Prepend,
+            "append" => aeqi_core::PromptPosition::Append,
+            _ => aeqi_core::PromptPosition::System,
+        };
+        let scope = match self.scope.as_str() {
+            "descendants" => aeqi_core::PromptScope::Descendants,
+            _ => aeqi_core::PromptScope::SelfOnly,
+        };
+        let tools = if self.tool_allow.is_empty() && self.tool_deny.is_empty() {
+            None
+        } else {
+            Some(aeqi_core::ToolRestrictions {
+                allow: self.tool_allow.clone(),
+                deny: self.tool_deny.clone(),
+            })
+        };
+        aeqi_core::PromptEntry {
+            content: self.content.clone(),
+            position,
+            scope,
+            tools,
+        }
+    }
 }
 
 /// Lifecycle status of an agent.
@@ -195,7 +250,7 @@ pub struct CompanyRecord {
     pub execution_mode: String,
     pub worker_timeout_secs: u64,
     pub worktree_root: Option<String>,
-    pub max_turns: Option<u32>,
+    pub max_steps: Option<u32>,
     pub max_budget_usd: Option<f64>,
     pub max_cost_per_day_usd: Option<f64>,
     pub source: String,
@@ -204,9 +259,59 @@ pub struct CompanyRecord {
     pub updated_at: String,
 }
 
+/// A lightweight SQLite connection pool.
+///
+/// Maintains N connections to the same database, distributing lock contention
+/// across them. All connections share WAL mode + busy_timeout settings.
+/// Round-robins via atomic counter.
+pub struct ConnectionPool {
+    connections: Vec<Mutex<Connection>>,
+    next: std::sync::atomic::AtomicUsize,
+}
+
+impl ConnectionPool {
+    /// Open a pool of `size` connections to the same DB file.
+    pub fn open(db_path: &Path, size: usize) -> Result<Self> {
+        let mut connections = Vec::with_capacity(size);
+        for _ in 0..size {
+            let conn = Connection::open(db_path)?;
+            conn.execute_batch(
+                "PRAGMA journal_mode = WAL;
+                 PRAGMA busy_timeout = 5000;
+                 PRAGMA foreign_keys = ON;",
+            )?;
+            connections.push(Mutex::new(conn));
+        }
+        Ok(Self {
+            connections,
+            next: std::sync::atomic::AtomicUsize::new(0),
+        })
+    }
+
+    /// Create a single-connection in-memory pool (for tests).
+    pub fn in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;
+             PRAGMA foreign_keys = ON;",
+        )?;
+        Ok(Self {
+            connections: vec![Mutex::new(conn)],
+            next: std::sync::atomic::AtomicUsize::new(0),
+        })
+    }
+
+    /// Acquire a connection from the pool.
+    pub async fn lock(&self) -> tokio::sync::MutexGuard<'_, Connection> {
+        let idx = self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % self.connections.len();
+        self.connections[idx].lock().await
+    }
+}
+
 /// SQLite-backed registry — the single source of truth for the agent tree.
 pub struct AgentRegistry {
-    db: Arc<Mutex<Connection>>,
+    db: Arc<ConnectionPool>,
 }
 
 impl AgentRegistry {
@@ -279,11 +384,19 @@ impl AgentRegistry {
                  name TEXT NOT NULL,
                  content TEXT NOT NULL,
                  tags TEXT NOT NULL DEFAULT '[]',
+                 position TEXT NOT NULL DEFAULT 'system',
+                 scope TEXT NOT NULL DEFAULT 'self',
+                 tool_allow TEXT NOT NULL DEFAULT '[]',
+                 tool_deny TEXT NOT NULL DEFAULT '[]',
+                 source_kind TEXT,
+                 source_ref TEXT,
+                 managed INTEGER NOT NULL DEFAULT 0,
+                 source_hash TEXT,
                  created_at TEXT NOT NULL,
                  updated_at TEXT NOT NULL
              );
              CREATE INDEX IF NOT EXISTS idx_prompts_name ON prompts(name);
-             CREATE INDEX IF NOT EXISTS idx_prompts_hash ON prompts(content_hash);
+             CREATE UNIQUE INDEX IF NOT EXISTS idx_prompts_hash ON prompts(content_hash);
 
              CREATE TABLE IF NOT EXISTS approvals (
                  id TEXT PRIMARY KEY,
@@ -319,6 +432,31 @@ impl AgentRegistry {
                 conn.execute_batch(&format!("ALTER TABLE agents ADD COLUMN {col} {typ};"))?;
             }
         }
+
+        let prompt_columns = [
+            ("source_kind", "TEXT"),
+            ("source_ref", "TEXT"),
+            ("managed", "INTEGER NOT NULL DEFAULT 0"),
+            ("source_hash", "TEXT"),
+            ("position", "TEXT NOT NULL DEFAULT 'system'"),
+            ("scope", "TEXT NOT NULL DEFAULT 'self'"),
+            ("tool_allow", "TEXT NOT NULL DEFAULT '[]'"),
+            ("tool_deny", "TEXT NOT NULL DEFAULT '[]'"),
+        ];
+        for (col, typ) in &prompt_columns {
+            let has_col: bool = conn
+                .prepare("PRAGMA table_info(prompts)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .any(|c| c == *col);
+            if !has_col {
+                conn.execute_batch(&format!("ALTER TABLE prompts ADD COLUMN {col} {typ};"))?;
+            }
+        }
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_prompts_source
+                 ON prompts(source_kind, source_ref);",
+        )?;
 
         // Create unified tasks table (replaces per-project JSONL TaskBoards).
         conn.execute_batch(
@@ -436,7 +574,7 @@ impl AgentRegistry {
                  execution_mode TEXT NOT NULL DEFAULT 'agent',
                  worker_timeout_secs INTEGER NOT NULL DEFAULT 1800,
                  worktree_root TEXT,
-                 max_turns INTEGER DEFAULT 25,
+                 max_steps INTEGER DEFAULT 25,
                  max_budget_usd REAL,
                  max_cost_per_day_usd REAL,
                  source TEXT NOT NULL DEFAULT 'api',
@@ -584,9 +722,12 @@ impl AgentRegistry {
             }
         }
 
-        info!(path = %db_path.display(), "agent registry opened");
+        // Close the migration connection and open a pool.
+        drop(conn);
+        let pool = ConnectionPool::open(&db_path, 4)?;
+        info!(path = %db_path.display(), pool_size = 4, "agent registry opened");
         Ok(Self {
-            db: Arc::new(Mutex::new(conn)),
+            db: Arc::new(pool),
         })
     }
 
@@ -689,8 +830,13 @@ impl AgentRegistry {
         let now = Utc::now();
         let caps_json = serde_json::to_string(capabilities)?;
         let session_id = uuid::Uuid::new_v4().to_string();
+        let prompts = if system_prompt.is_empty() {
+            Vec::new()
+        } else {
+            vec![aeqi_core::PromptEntry::system(system_prompt)]
+        };
 
-        let agent = Agent {
+        let mut agent = Agent {
             id: id.clone(),
             name: name.to_string(),
             display_name: display_name.map(|s| s.to_string()),
@@ -714,20 +860,20 @@ impl AgentRegistry {
             execution_mode: None,
             quest_prefix: None,
             worker_timeout_secs: None,
-            prompts: if system_prompt.is_empty() {
-                Vec::new()
-            } else {
-                vec![aeqi_core::PromptEntry::system(system_prompt)]
-            },
+            prompts,
             prompt_ids: Vec::new(),
         };
 
         let db = self.db.lock().await;
         let prompts_json =
             serde_json::to_string(&agent.prompts).unwrap_or_else(|_| "[]".to_string());
+        agent.prompt_ids =
+            Self::materialize_prompt_entries(&db, &format!("{name}-identity"), &agent.prompts)?;
+        let prompt_ids_json =
+            serde_json::to_string(&agent.prompt_ids).unwrap_or_else(|_| "[]".to_string());
         db.execute(
-            "INSERT INTO agents (id, name, display_name, template, system_prompt, parent_id, model, capabilities, status, created_at, session_id, prompts)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO agents (id, name, display_name, template, system_prompt, parent_id, model, capabilities, status, created_at, session_id, prompts, prompt_ids)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 agent.id,
                 agent.name,
@@ -741,6 +887,7 @@ impl AgentRegistry {
                 agent.created_at.to_rfc3339(),
                 session_id,
                 prompts_json,
+                prompt_ids_json,
             ],
         )?;
 
@@ -1007,15 +1154,28 @@ impl AgentRegistry {
 
     /// Update the prompts array for an agent.
     pub async fn update_prompts(&self, id: &str, prompts_json: &str) -> Result<()> {
+        let prompts: Vec<aeqi_core::PromptEntry> = serde_json::from_str(prompts_json)
+            .map_err(|e| anyhow::anyhow!("invalid prompts JSON: {e}"))?;
         let db = self.db.lock().await;
+        let agent_name: String = db
+            .query_row(
+                "SELECT name FROM agents WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| anyhow::anyhow!("agent '{id}' not found"))?;
+        let prompt_ids =
+            Self::materialize_prompt_entries(&db, &format!("{agent_name}-prompt"), &prompts)?;
+        let prompt_ids_json = serde_json::to_string(&prompt_ids)?;
         let updated = db.execute(
-            "UPDATE agents SET prompts = ?1 WHERE id = ?2",
-            params![prompts_json, id],
+            "UPDATE agents SET prompts = ?1, prompt_ids = ?2 WHERE id = ?3",
+            params![prompts_json, prompt_ids_json, id],
         )?;
         if updated == 0 {
             anyhow::bail!("agent '{id}' not found");
         }
-        debug!(id = %id, "agent prompts updated");
+        debug!(id = %id, count = prompt_ids.len(), "agent prompts updated");
         Ok(())
     }
 
@@ -1315,6 +1475,117 @@ impl AgentRegistry {
         format!("{:x}", hasher.finalize())
     }
 
+    fn prompt_source_hash(name: &str, content: &str, tags: &[String]) -> Result<String> {
+        let source = serde_json::json!({
+            "name": name,
+            "content": content,
+            "tags": tags,
+        });
+        Ok(Self::content_hash(&serde_json::to_string(&source)?))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert_prompt_record(
+        conn: &Connection,
+        name: &str,
+        content: &str,
+        tags: &[String],
+        position: &str,
+        scope: &str,
+        tool_allow: &[String],
+        tool_deny: &[String],
+        source_kind: Option<&str>,
+        source_ref: Option<&str>,
+        managed: bool,
+        source_hash: Option<&str>,
+    ) -> Result<String> {
+        let hash = Self::content_hash(content);
+
+        // Dedup: if a prompt with the same content_hash already exists, reuse it.
+        if let Some(existing_id) = conn
+            .query_row(
+                "SELECT id FROM prompts WHERE content_hash = ?1",
+                params![hash],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+        {
+            debug!(id = %existing_id, name = %name, "prompt deduped by content_hash");
+            return Ok(existing_id);
+        }
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let tags_json = serde_json::to_string(tags)?;
+        let tool_allow_json = serde_json::to_string(tool_allow)?;
+        let tool_deny_json = serde_json::to_string(tool_deny)?;
+        conn.execute(
+            "INSERT INTO prompts (id, content_hash, name, content, tags, position, scope, tool_allow, tool_deny, source_kind, source_ref, managed, source_hash, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
+            params![
+                id,
+                hash,
+                name,
+                content,
+                tags_json,
+                position,
+                scope,
+                tool_allow_json,
+                tool_deny_json,
+                source_kind,
+                source_ref,
+                if managed { 1 } else { 0 },
+                source_hash,
+                now,
+            ],
+        )?;
+        Ok(id)
+    }
+
+    fn materialize_prompt_entries(
+        conn: &Connection,
+        prompt_name_prefix: &str,
+        entries: &[aeqi_core::PromptEntry],
+    ) -> Result<Vec<String>> {
+        let mut prompt_ids = Vec::new();
+        for (i, entry) in entries.iter().enumerate() {
+            if entry.content.is_empty() {
+                continue;
+            }
+            let prompt_name = if entries.len() == 1 {
+                prompt_name_prefix.to_string()
+            } else {
+                format!("{prompt_name_prefix}-{i}")
+            };
+            let pos = match entry.position {
+                aeqi_core::PromptPosition::System => "system",
+                aeqi_core::PromptPosition::Prepend => "prepend",
+                aeqi_core::PromptPosition::Append => "append",
+            };
+            let sc = match entry.scope {
+                aeqi_core::PromptScope::SelfOnly => "self",
+                aeqi_core::PromptScope::Descendants => "descendants",
+            };
+            let (ta, td) = entry.tools.as_ref().map(|t| (t.allow.as_slice(), t.deny.as_slice())).unwrap_or((&[], &[]));
+            let prompt_id = Self::insert_prompt_record(
+                conn,
+                &prompt_name,
+                &entry.content,
+                &[],
+                pos,
+                sc,
+                ta,
+                td,
+                None,
+                None,
+                false,
+                None,
+            )?;
+            prompt_ids.push(prompt_id);
+        }
+        Ok(prompt_ids)
+    }
+
     /// Create a prompt in the store. Returns the UUID.
     pub async fn create_prompt(
         &self,
@@ -1322,18 +1593,110 @@ impl AgentRegistry {
         content: &str,
         tags: &[String],
     ) -> Result<String> {
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = chrono::Utc::now().to_rfc3339();
-        let hash = Self::content_hash(content);
-        let tags_json = serde_json::to_string(tags)?;
         let db = self.db.lock().await;
-        db.execute(
-            "INSERT INTO prompts (id, content_hash, name, content, tags, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, hash, name, content, tags_json, now, now],
-        )?;
+        let id = Self::insert_prompt_record(&db, name, content, tags, "system", "self", &[], &[], None, None, false, None)?;
         info!(id = %id, name = %name, "prompt created");
         Ok(id)
+    }
+
+    /// Create a prompt with full injection metadata.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_prompt_full(
+        &self,
+        name: &str,
+        content: &str,
+        tags: &[String],
+        position: &str,
+        scope: &str,
+        tool_allow: &[String],
+        tool_deny: &[String],
+    ) -> Result<String> {
+        let db = self.db.lock().await;
+        let id = Self::insert_prompt_record(&db, name, content, tags, position, scope, tool_allow, tool_deny, None, None, false, None)?;
+        info!(id = %id, name = %name, position, scope, "prompt created");
+        Ok(id)
+    }
+
+    /// Find a prompt by name. Returns the first match.
+    pub async fn find_prompt_by_name(&self, name: &str) -> Result<Option<PromptRecord>> {
+        let db = self.db.lock().await;
+        let record = db
+            .query_row(
+                "SELECT * FROM prompts WHERE name = ?1 LIMIT 1",
+                params![name],
+                |row| Ok(row_to_prompt(row)),
+            )
+            .optional()?;
+        Ok(record)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn upsert_managed_prompt(
+        &self,
+        name: &str,
+        content: &str,
+        tags: &[String],
+        position: &str,
+        scope: &str,
+        tool_allow: &[String],
+        tool_deny: &[String],
+        source_kind: &str,
+        source_ref: &str,
+    ) -> Result<(String, &'static str)> {
+        let db = self.db.lock().await;
+        let now = chrono::Utc::now().to_rfc3339();
+        let content_hash = Self::content_hash(content);
+        let tags_json = serde_json::to_string(tags)?;
+        let tool_allow_json = serde_json::to_string(tool_allow)?;
+        let tool_deny_json = serde_json::to_string(tool_deny)?;
+        let source_hash = Self::prompt_source_hash(name, content, tags)?;
+
+        let existing = db
+            .query_row(
+                "SELECT id, source_hash FROM prompts WHERE source_kind = ?1 AND source_ref = ?2",
+                params![source_kind, source_ref],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+            )
+            .optional()?;
+
+        if let Some((id, existing_hash)) = existing {
+            if existing_hash.as_deref() == Some(source_hash.as_str()) {
+                return Ok((id, "unchanged"));
+            }
+            db.execute(
+                "UPDATE prompts
+                 SET content_hash = ?1,
+                     name = ?2,
+                     content = ?3,
+                     tags = ?4,
+                     position = ?5,
+                     scope = ?6,
+                     tool_allow = ?7,
+                     tool_deny = ?8,
+                     managed = 1,
+                     source_hash = ?9,
+                     updated_at = ?10
+                 WHERE id = ?11",
+                params![content_hash, name, content, tags_json, position, scope, tool_allow_json, tool_deny_json, source_hash, now, id],
+            )?;
+            return Ok((id, "updated"));
+        }
+
+        let id = Self::insert_prompt_record(
+            &db,
+            name,
+            content,
+            tags,
+            position,
+            scope,
+            tool_allow,
+            tool_deny,
+            Some(source_kind),
+            Some(source_ref),
+            true,
+            Some(&source_hash),
+        )?;
+        Ok((id, "created"))
     }
 
     /// Get a prompt by UUID.
@@ -1341,8 +1704,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let record = db
             .query_row(
-                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
-                 FROM prompts WHERE id = ?1",
+                "SELECT * FROM prompts WHERE id = ?1",
                 params![id],
                 |row| Ok(row_to_prompt(row)),
             )
@@ -1357,15 +1719,13 @@ impl AgentRegistry {
             // Use JSON function to check if tag array contains the value.
             let pattern = format!("%\"{}\"%", tag.replace('"', ""));
             let mut stmt = db.prepare(
-                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
-                 FROM prompts WHERE tags LIKE ?1 ORDER BY name ASC",
+                "SELECT * FROM prompts WHERE tags LIKE ?1 ORDER BY name ASC",
             )?;
             stmt.query_map(params![pattern], |row| Ok(row_to_prompt(row)))?
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             let mut stmt = db.prepare(
-                "SELECT id, content_hash, name, content, tags, created_at, updated_at \
-                 FROM prompts ORDER BY name ASC",
+                "SELECT * FROM prompts ORDER BY name ASC",
             )?;
             stmt.query_map([], |row| Ok(row_to_prompt(row)))?
                 .collect::<Result<Vec<_>, _>>()?
@@ -1403,15 +1763,23 @@ impl AgentRegistry {
         let new_name = name.unwrap_or(&current.0);
         let new_content = content.unwrap_or(&current.1);
         let new_hash = Self::content_hash(new_content);
-        let new_tags = match tags {
-            Some(t) => serde_json::to_string(t)?,
-            None => current.2,
+        let new_tags_vec = match tags {
+            Some(t) => t.to_vec(),
+            None => serde_json::from_str::<Vec<String>>(&current.2).unwrap_or_default(),
         };
+        let new_tags = serde_json::to_string(&new_tags_vec)?;
+        let new_source_hash = Self::prompt_source_hash(new_name, new_content, &new_tags_vec)?;
 
         let updated = db.execute(
-            "UPDATE prompts SET name = ?1, content = ?2, content_hash = ?3, tags = ?4, updated_at = ?5 \
-             WHERE id = ?6",
-            params![new_name, new_content, new_hash, new_tags, now, id],
+            "UPDATE prompts
+             SET name = ?1,
+                 content = ?2,
+                 content_hash = ?3,
+                 tags = ?4,
+                 source_hash = ?5,
+                 updated_at = ?6
+             WHERE id = ?7",
+            params![new_name, new_content, new_hash, new_tags, new_source_hash, now, id],
         )?;
         if updated == 0 {
             anyhow::bail!("prompt '{id}' not found");
@@ -1439,8 +1807,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("?{i}")).collect();
         let sql = format!(
-            "SELECT id, content_hash, name, content, tags, created_at, updated_at \
-             FROM prompts WHERE id IN ({})",
+            "SELECT * FROM prompts WHERE id IN ({})",
             placeholders.join(", ")
         );
         let mut stmt = db.prepare(&sql)?;
@@ -1870,8 +2237,8 @@ impl AgentRegistry {
         Ok(tasks)
     }
 
-    /// Expose the database connection for shared use (e.g., by Scheduler).
-    pub fn db(&self) -> Arc<Mutex<Connection>> {
+    /// Expose the connection pool for shared use (e.g., by EventStore, SessionStore).
+    pub fn db(&self) -> Arc<ConnectionPool> {
         self.db.clone()
     }
 
@@ -1882,13 +2249,13 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         db.execute(
             "INSERT INTO companies (name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                max_workers, execution_mode, worker_timeout_secs, worktree_root, max_turns,
+                max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
                 max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,'toml',?16,?17,?17)
              ON CONFLICT(name) DO UPDATE SET
                 prefix=?3, primer=?6, repo=?7, model=?8, max_workers=?9,
                 execution_mode=?10, worker_timeout_secs=?11, worktree_root=?12,
-                max_turns=?13, max_budget_usd=?14, max_cost_per_day_usd=?15,
+                max_steps=?13, max_budget_usd=?14, max_cost_per_day_usd=?15,
                 agent_id=?16, updated_at=?17
              WHERE source='toml'",
             rusqlite::params![
@@ -1904,7 +2271,7 @@ impl AgentRegistry {
                 record.execution_mode,
                 record.worker_timeout_secs,
                 record.worktree_root,
-                record.max_turns,
+                record.max_steps,
                 record.max_budget_usd,
                 record.max_cost_per_day_usd,
                 record.agent_id,
@@ -1937,7 +2304,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_turns,
+                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
                     max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
              FROM companies WHERE name = ?1",
         )?;
@@ -1950,7 +2317,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_turns,
+                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
                     max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
              FROM companies ORDER BY created_at",
         )?;
@@ -1966,7 +2333,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_turns,
+                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
                     max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
              FROM companies WHERE source = 'api' ORDER BY created_at",
         )?;
@@ -2021,7 +2388,7 @@ fn row_to_company(row: &rusqlite::Row) -> rusqlite::Result<CompanyRecord> {
             .unwrap_or_else(|_| "agent".to_string()),
         worker_timeout_secs: row.get::<_, u64>(10).unwrap_or(1800),
         worktree_root: row.get(11)?,
-        max_turns: row.get(12)?,
+        max_steps: row.get(12)?,
         max_budget_usd: row.get(13)?,
         max_cost_per_day_usd: row.get(14)?,
         source: row
@@ -2164,12 +2531,24 @@ fn template_trigger_to_type(t: &TemplateTrigger) -> Result<crate::trigger::Trigg
 fn row_to_prompt(row: &rusqlite::Row) -> PromptRecord {
     let tags_str: String = row.get("tags").unwrap_or_else(|_| "[]".to_string());
     let tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
+    let tool_allow_str: String = row.get("tool_allow").unwrap_or_else(|_| "[]".to_string());
+    let tool_allow: Vec<String> = serde_json::from_str(&tool_allow_str).unwrap_or_default();
+    let tool_deny_str: String = row.get("tool_deny").unwrap_or_else(|_| "[]".to_string());
+    let tool_deny: Vec<String> = serde_json::from_str(&tool_deny_str).unwrap_or_default();
     PromptRecord {
         id: row.get("id").unwrap_or_default(),
         content_hash: row.get("content_hash").unwrap_or_default(),
         name: row.get("name").unwrap_or_default(),
         content: row.get("content").unwrap_or_default(),
         tags,
+        position: row.get("position").unwrap_or_else(|_| "system".to_string()),
+        scope: row.get("scope").unwrap_or_else(|_| "self".to_string()),
+        tool_allow,
+        tool_deny,
+        source_kind: row.get("source_kind").ok(),
+        source_ref: row.get("source_ref").ok(),
+        managed: row.get::<_, i64>("managed").unwrap_or(0) != 0,
+        source_hash: row.get("source_hash").ok(),
         created_at: row.get("created_at").unwrap_or_default(),
         updated_at: row.get("updated_at").unwrap_or_default(),
     }
@@ -2278,11 +2657,108 @@ mod tests {
 
         assert_eq!(agent.name, "shadow");
         assert_eq!(agent.system_prompt, "You are Shadow.");
+        assert_eq!(agent.prompt_ids.len(), 1);
         assert!(agent.parent_id.is_none()); // Root agent
         assert_eq!(agent.status, AgentStatus::Active);
 
         let fetched = reg.get(&agent.id).await.unwrap().unwrap();
         assert_eq!(fetched.id, agent.id);
+        assert_eq!(fetched.prompt_ids, agent.prompt_ids);
+        let prompt = reg
+            .get_prompt(&agent.prompt_ids[0])
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(prompt.name, "shadow-identity");
+        assert_eq!(prompt.content, "You are Shadow.");
+    }
+
+    #[tokio::test]
+    async fn update_prompts_refreshes_prompt_ids() {
+        let reg = test_registry().await;
+        let agent = reg
+            .spawn("assistant", None, "root", "Root agent.", None, None, &[])
+            .await
+            .unwrap();
+        let original_prompt_ids = agent.prompt_ids.clone();
+        let updated_prompts = vec![
+            aeqi_core::PromptEntry::primer("Shared primer".to_string()),
+            aeqi_core::PromptEntry::system("Root agent.".to_string()),
+        ];
+        let prompts_json = serde_json::to_string(&updated_prompts).unwrap();
+
+        reg.update_prompts(&agent.id, &prompts_json).await.unwrap();
+
+        let fetched = reg.get(&agent.id).await.unwrap().unwrap();
+        assert_eq!(fetched.prompts.len(), 2);
+        assert_eq!(fetched.prompts[0].content, "Shared primer");
+        assert_eq!(fetched.prompts[1].content, "Root agent.");
+        assert_eq!(fetched.prompt_ids.len(), 2);
+        assert_ne!(fetched.prompt_ids, original_prompt_ids);
+    }
+
+    #[tokio::test]
+    async fn upsert_managed_prompt_tracks_source_metadata() {
+        let reg = test_registry().await;
+        let tags = vec!["identity".to_string(), "company".to_string()];
+
+        let (prompt_id, status) = reg
+            .upsert_managed_prompt(
+                "company-identity",
+                "Initial content",
+                &tags,
+                "system",
+                "self",
+                &[],
+                &[],
+                "file",
+                "/tmp/company-identity.md",
+            )
+            .await
+            .unwrap();
+        assert_eq!(status, "created");
+
+        let prompt = reg.get_prompt(&prompt_id).await.unwrap().unwrap();
+        assert_eq!(prompt.source_kind.as_deref(), Some("file"));
+        assert_eq!(prompt.source_ref.as_deref(), Some("/tmp/company-identity.md"));
+        assert!(prompt.managed);
+        assert_eq!(prompt.position, "system");
+        assert_eq!(prompt.scope, "self");
+
+        let (_prompt_id, status) = reg
+            .upsert_managed_prompt(
+                "company-identity",
+                "Initial content",
+                &tags,
+                "system",
+                "self",
+                &[],
+                &[],
+                "file",
+                "/tmp/company-identity.md",
+            )
+            .await
+            .unwrap();
+        assert_eq!(status, "unchanged");
+
+        let (_prompt_id, status) = reg
+            .upsert_managed_prompt(
+                "company-identity",
+                "Updated content",
+                &tags,
+                "system",
+                "self",
+                &[],
+                &[],
+                "file",
+                "/tmp/company-identity.md",
+            )
+            .await
+            .unwrap();
+        assert_eq!(status, "updated");
+
+        let updated_prompt = reg.get_prompt(&prompt_id).await.unwrap().unwrap();
+        assert_eq!(updated_prompt.content, "Updated content");
     }
 
     #[tokio::test]
@@ -2672,7 +3148,7 @@ You are a worker agent."#;
             execution_mode: "agent".to_string(),
             worker_timeout_secs: 1800,
             worktree_root: None,
-            max_turns: None,
+            max_steps: None,
             max_budget_usd: None,
             max_cost_per_day_usd: None,
             source: "api".to_string(),

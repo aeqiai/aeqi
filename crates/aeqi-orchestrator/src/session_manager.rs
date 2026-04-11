@@ -532,37 +532,46 @@ impl SessionManager {
             loader.all().await
         };
 
-        // 5c. Apply session prompts — load into system prompt and filter tools.
+        // 5c. Apply session prompts — resolve from DB first, disk fallback.
         let mut session_prompt_parts: Vec<String> = Vec::new();
+        let mut step_prompt_specs: Vec<aeqi_core::StepPromptSpec> = Vec::new();
+
         for prompt_name in &opts.skills {
+            // Try DB first (prompts imported at daemon startup).
+            if let Ok(Some(db_prompt)) = agent_registry.find_prompt_by_name(prompt_name).await {
+                let entry = db_prompt.to_prompt_entry();
+                session_prompt_parts.push(entry.content.clone());
+                if let Some(ref tr) = entry.tools {
+                    tools.retain(|t| {
+                        if !tr.deny.is_empty() && tr.deny.contains(&t.name().to_string()) {
+                            return false;
+                        }
+                        if !tr.allow.is_empty() {
+                            return tr.allow.contains(&t.name().to_string());
+                        }
+                        true
+                    });
+                }
+                // Snapshot for step injection.
+                step_prompt_specs.push(aeqi_core::StepPromptSpec {
+                    path: std::path::PathBuf::from(format!("db://{}", db_prompt.id)),
+                    allow_shell: false,
+                    name: db_prompt.name.clone(),
+                    content: Some(entry.content),
+                });
+                debug!(prompt = %prompt_name, source = "db", "session prompt applied");
+                continue;
+            }
+
+            // Disk fallback (for prompts not yet imported).
             if let Some(p) = all_prompts.iter().find(|s| s.name == *prompt_name) {
                 session_prompt_parts.push(p.system_prompt(""));
                 tools.retain(|t| p.is_tool_allowed(t.name()));
-                debug!(prompt = %prompt_name, "session prompt applied");
-            } else {
-                warn!(prompt = %prompt_name, "session prompt not found — skipping");
-            }
-        }
-        if !session_prompt_parts.is_empty() {
-            let prompt_context = session_prompt_parts.join("\n\n---\n\n");
-            system_prompt = format!("{system_prompt}\n\n---\n\n{prompt_context}");
-        }
-
-        // 5d. Resolve step prompts — snapshot content at session start
-        //     to prevent mid-flight drift from disk edits.
-        let step_prompt_names: &[String] = &opts.skills;
-        let mut step_prompt_specs: Vec<aeqi_core::StepPromptSpec> = Vec::new();
-        for name in step_prompt_names {
-            if let Some(p) = all_prompts.iter().find(|s| s.name == *name) {
                 if let Some(ref path) = p.source_path {
-                    // Snapshot: read + parse + expand now, store as content.
-                    let snapshotted = {
-                        let body = p.body.clone();
-                        if p.allow_shell {
-                            aeqi_core::frontmatter::expand_shell_commands(&body)
-                        } else {
-                            body
-                        }
+                    let snapshotted = if p.allow_shell {
+                        aeqi_core::frontmatter::expand_shell_commands(&p.body)
+                    } else {
+                        p.body.clone()
                     };
                     step_prompt_specs.push(aeqi_core::StepPromptSpec {
                         path: path.clone(),
@@ -570,11 +579,16 @@ impl SessionManager {
                         name: p.name.clone(),
                         content: Some(snapshotted),
                     });
-                    debug!(step_prompt = %name, "step prompt snapshotted");
                 }
+                debug!(prompt = %prompt_name, source = "disk", "session prompt applied (fallback)");
             } else {
-                warn!(step_prompt = %name, "step prompt not found — skipping");
+                warn!(prompt = %prompt_name, "session prompt not found — skipping");
             }
+        }
+
+        if !session_prompt_parts.is_empty() {
+            let prompt_context = session_prompt_parts.join("\n\n---\n\n");
+            system_prompt = format!("{system_prompt}\n\n---\n\n{prompt_context}");
         }
 
         // 6. Build AgentConfig.

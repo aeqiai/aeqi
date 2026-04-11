@@ -341,85 +341,33 @@ pub async fn handle_rate_limit(
 }
 
 pub async fn handle_skills(
-    _ctx: &super::CommandContext,
+    ctx: &super::CommandContext,
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let mut skills = Vec::new();
-
-    let scan_skills = |dir: &std::path::Path, source: &str, out: &mut Vec<serde_json::Value>| {
-        if !dir.exists() {
-            return;
-        }
-        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                continue;
-            }
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if ext == "md" {
-                let name = path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string();
-                let content = std::fs::read_to_string(&path).unwrap_or_default();
-                out.push(serde_json::json!({
-                    "name": name,
-                    "source": source,
-                    "kind": "prompt",
-                    "path": path.display().to_string(),
-                    "content": content,
-                }));
-            }
+    // Use unified PromptLoader if available, otherwise fall back to ad-hoc scan.
+    let loader = match ctx.prompt_loader {
+        Some(ref l) => l.clone(),
+        None => {
+            let l = crate::prompt_loader::PromptLoader::from_cwd();
+            std::sync::Arc::new(l)
         }
     };
 
-    scan_skills(
-        &cwd.join("projects").join("shared").join("skills"),
-        "shared",
-        &mut skills,
-    );
-    scan_skills(
-        &cwd.join("projects").join("shared").join("agents"),
-        "shared/agents",
-        &mut skills,
-    );
-    for entry in std::fs::read_dir(cwd.join("projects"))
+    let entries = loader.entries_filtered(allowed).await;
+    let skills: Vec<serde_json::Value> = entries
         .into_iter()
-        .flatten()
-        .flatten()
-    {
-        let project = entry.file_name().to_string_lossy().to_string();
-        if project == "shared" {
-            continue;
-        }
-        scan_skills(&entry.path().join("skills"), &project, &mut skills);
-        scan_skills(
-            &entry.path().join("agents"),
-            &format!("{project}/agents"),
-            &mut skills,
-        );
-    }
-
-    let skills: Vec<serde_json::Value> = if allowed.is_some() {
-        skills
-            .into_iter()
-            .filter(|s| {
-                let source = s.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                source == "shared" || source == "shared/agents" || is_allowed(allowed, source) || {
-                    source
-                        .split('/')
-                        .next()
-                        .map(|n| is_allowed(allowed, n))
-                        .unwrap_or(false)
-                }
+        .map(|e| {
+            serde_json::json!({
+                "name": e.name,
+                "source": e.source,
+                "kind": e.kind,
+                "path": e.path.display().to_string(),
+                "content": e.content,
             })
-            .collect()
-    } else {
-        skills
-    };
+        })
+        .collect();
+
     serde_json::json!({"ok": true, "skills": skills})
 }
 

@@ -102,7 +102,7 @@ impl OperationStore {
         info!(id = %op.id, name = %name, quests = op.tasks.len(), "operation created");
         self.operations.push(op);
         self.save()?;
-        Ok(self.operations.last().unwrap())
+        Ok(self.operations.last().expect("just pushed"))
     }
 
     /// Mark a quest as closed across all active operations.

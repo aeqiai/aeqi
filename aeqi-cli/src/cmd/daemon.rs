@@ -657,6 +657,36 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             daemon.leader_agent_name = leader_name.clone();
+            // Import primers into prompt store (DB-first — primers are just prompts
+            // with position=prepend, scope=descendants).
+            if let Some(ref primer_text) = config.shared_primer {
+                let _ = agent_reg
+                    .create_prompt_full(
+                        "shared-primer",
+                        primer_text,
+                        &["primer".to_string(), "shared".to_string()],
+                        "prepend",
+                        "descendants",
+                        &[],
+                        &[],
+                    )
+                    .await;
+            }
+            if let Some(ref project_primer) = config.agent_spawns.first().and_then(|c| c.primer.clone()) {
+                let project_name = config.agent_spawns.first().map(|c| c.name.as_str()).unwrap_or("default");
+                let _ = agent_reg
+                    .create_prompt_full(
+                        &format!("{project_name}-primer"),
+                        project_primer,
+                        &["primer".to_string(), project_name.to_string()],
+                        "prepend",
+                        "descendants",
+                        &[],
+                        &[],
+                    )
+                    .await;
+            }
+            // Still set in-memory primers for backward compat during migration.
             daemon.shared_primer = config.shared_primer.clone();
             daemon.project_primer = config.agent_spawns.first().and_then(|c| c.primer.clone());
             daemon.event_broadcaster = event_broadcaster;
@@ -666,9 +696,59 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.daily_budget_usd = daily_budget_usd;
             daemon.project_budgets = project_budgets;
 
-            // Set up unified prompt loader.
+            // Set up unified prompt loader and import skill files into DB.
             let prompt_loader = Arc::new(aeqi_orchestrator::PromptLoader::from_cwd());
             daemon.prompt_loader = Some(prompt_loader.clone());
+
+            // Auto-import all prompt files from disk into the prompt store.
+            // This makes the DB the single source of truth — files are import format only.
+            {
+                let all_prompts = prompt_loader.all().await;
+                let mut imported = 0u32;
+                let mut updated = 0u32;
+                let mut unchanged = 0u32;
+                for p in all_prompts.iter() {
+                    let source_ref = p
+                        .source_path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default();
+                    let position = if p.tags.contains(&"identity".to_string()) {
+                        "system"
+                    } else {
+                        "append"
+                    };
+                    let scope = if p.tags.contains(&"primer".to_string()) || p.tags.contains(&"shared".to_string()) {
+                        "descendants"
+                    } else {
+                        "self"
+                    };
+                    match agent_reg
+                        .upsert_managed_prompt(
+                            &p.name,
+                            &p.body,
+                            &p.tags,
+                            position,
+                            scope,
+                            &p.tools,
+                            &p.deny,
+                            "file",
+                            &source_ref,
+                        )
+                        .await
+                    {
+                        Ok((_id, "created")) => imported += 1,
+                        Ok((_id, "updated")) => updated += 1,
+                        Ok(_) => unchanged += 1,
+                        Err(e) => tracing::warn!(name = %p.name, error = %e, "failed to import prompt"),
+                    }
+                }
+                if imported > 0 || updated > 0 {
+                    println!("Prompts: {imported} imported, {updated} updated, {unchanged} unchanged");
+                } else {
+                    println!("Prompts: {unchanged} in store (all current)");
+                }
+            }
 
             // Also wire prompt loader into session manager (for spawn_session).
             if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {

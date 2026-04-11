@@ -56,7 +56,7 @@ impl ProgressTracker {
                 let counts = self.scheduler.agent_counts().await;
                 let project_str = match counts.len() {
                     0 => "no agents".to_string(),
-                    1 => counts.keys().next().unwrap().clone(),
+                    1 => counts.keys().next().expect("len==1").clone(),
                     n => format!("{n} agents"),
                 };
                 // Scheduler only tracks running workers; treat active as "working",

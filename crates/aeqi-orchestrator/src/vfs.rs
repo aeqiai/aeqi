@@ -59,6 +59,7 @@ pub struct VfsSearchResponse {
 pub struct VfsTree {
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
     session_store: Option<Arc<crate::session_store::SessionStore>>,
+    prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
 }
 
 impl VfsTree {
@@ -66,6 +67,7 @@ impl VfsTree {
         Self {
             agent_registry,
             session_store: None,
+            prompt_loader: None,
         }
     }
 
@@ -73,10 +75,12 @@ impl VfsTree {
     pub fn with_direct_deps(
         agent_registry: Arc<crate::agent_registry::AgentRegistry>,
         session_store: Option<Arc<crate::session_store::SessionStore>>,
+        prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
     ) -> Self {
         Self {
             agent_registry,
             session_store,
+            prompt_loader,
         }
     }
 
@@ -333,6 +337,21 @@ impl VfsTree {
     // --- Skills ---
 
     async fn list_skills(&self) -> anyhow::Result<Vec<VfsNode>> {
+        if let Some(ref loader) = self.prompt_loader {
+            let entries = loader.entries().await;
+            let nodes = entries
+                .iter()
+                .map(|e| file_node(
+                    &format!("{}.md", e.name),
+                    &format!("/skills/{}.md", e.name),
+                    "text/markdown",
+                    Some("⚡"),
+                ))
+                .collect();
+            return Ok(nodes);
+        }
+
+        // Fallback: scan cwd/skills directly.
         let mut nodes = Vec::new();
         let cwd = std::env::current_dir().unwrap_or_default();
         let skills_dir = cwd.join("skills");

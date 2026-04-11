@@ -11,10 +11,9 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tracing::{debug, info};
 
 // ---------------------------------------------------------------------------
@@ -499,12 +498,12 @@ impl EventPattern {
 
 /// SQLite-backed store for triggers. Shares the agents.db connection.
 pub struct TriggerStore {
-    db: Arc<Mutex<Connection>>,
+    db: Arc<crate::agent_registry::ConnectionPool>,
 }
 
 impl TriggerStore {
-    /// Create a new TriggerStore sharing a database connection.
-    pub fn new(db: Arc<Mutex<Connection>>) -> Self {
+    /// Create a new TriggerStore sharing a connection pool.
+    pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
         Self { db }
     }
 
@@ -765,8 +764,9 @@ fn row_to_trigger(row: &rusqlite::Row) -> Trigger {
 mod tests {
     use super::*;
 
-    fn test_db() -> Arc<Mutex<Connection>> {
-        let conn = Connection::open_in_memory().unwrap();
+    async fn test_db() -> Arc<crate::agent_registry::ConnectionPool> {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        let conn = pool.lock().await;
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
              CREATE TABLE agents (
@@ -811,13 +811,14 @@ mod tests {
             [],
         )
         .unwrap();
+        drop(conn);
 
-        Arc::new(Mutex::new(conn))
+        Arc::new(pool)
     }
 
     #[tokio::test]
     async fn create_and_get() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let trigger = store
@@ -849,7 +850,7 @@ mod tests {
 
     #[tokio::test]
     async fn unique_name_per_agent() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         store
@@ -882,7 +883,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_for_agent() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         store
@@ -917,7 +918,7 @@ mod tests {
 
     #[tokio::test]
     async fn enable_disable() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let trigger = store
@@ -944,7 +945,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_trigger() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let trigger = store
@@ -966,7 +967,7 @@ mod tests {
 
     #[tokio::test]
     async fn cascade_delete_on_agent_removal() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db.clone());
 
         store
@@ -1008,7 +1009,7 @@ mod tests {
 
     #[tokio::test]
     async fn record_fire() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let trigger = store
@@ -1035,7 +1036,7 @@ mod tests {
 
     #[tokio::test]
     async fn event_trigger_type_roundtrip() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let trigger = store
@@ -1074,7 +1075,7 @@ mod tests {
 
     #[tokio::test]
     async fn once_trigger_type_roundtrip() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         let target = Utc::now() + chrono::Duration::hours(1);
@@ -1100,7 +1101,7 @@ mod tests {
 
     #[tokio::test]
     async fn count_enabled() {
-        let db = test_db();
+        let db = test_db().await;
         let store = TriggerStore::new(db);
 
         store

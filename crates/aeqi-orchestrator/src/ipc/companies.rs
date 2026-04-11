@@ -110,17 +110,16 @@ pub async fn handle_create_company(
         execution_mode: "agent".to_string(),
         worker_timeout_secs: 1800,
         worktree_root: None,
-        max_turns: Some(25),
+        max_steps: Some(25),
         max_budget_usd: None,
         max_cost_per_day_usd: None,
         source: "api".to_string(),
         agent_id: None,
         created_at: now.clone(),
         updated_at: now,
-    };
+        };
     match ctx.agent_registry.create_company(&record).await {
         Ok(()) => {
-            // Create identity prompt in the prompt store.
             let identity_content = format!(
                 "You are the lead agent for **{name}**.\n\n\
                  ## Role\n\n\
@@ -134,15 +133,6 @@ pub async fn handle_create_company(
                  - Be direct, specific, and action-oriented."
             );
             let identity_tags = vec!["identity".to_string(), "company".to_string()];
-            let prompt_id = ctx
-                .agent_registry
-                .create_prompt(
-                    &format!("{name}-identity"),
-                    &identity_content,
-                    &identity_tags,
-                )
-                .await
-                .ok();
 
             let agent = ctx
                 .agent_registry
@@ -169,11 +159,15 @@ pub async fn handle_create_company(
                             name
                         );
                     }
-                    // Attach identity prompt to agent.
-                    if let Some(ref pid) = prompt_id {
+                    if let Some(prompt_id) = a.prompt_ids.first() {
                         let _ = ctx
                             .agent_registry
-                            .set_agent_prompt_ids(&a.id, std::slice::from_ref(pid))
+                            .update_prompt(
+                                prompt_id,
+                                Some(&format!("{name}-identity")),
+                                None,
+                                Some(&identity_tags),
+                            )
                             .await;
                     }
                 }

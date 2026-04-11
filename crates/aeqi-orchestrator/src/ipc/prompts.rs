@@ -20,6 +20,10 @@ pub async fn handle_list_prompts(
                         "name": p.name,
                         "content": p.content,
                         "tags": p.tags,
+                        "source_kind": p.source_kind,
+                        "source_ref": p.source_ref,
+                        "managed": p.managed,
+                        "source_hash": p.source_hash,
                         "created_at": p.created_at,
                         "updated_at": p.updated_at,
                     })
@@ -49,6 +53,10 @@ pub async fn handle_get_prompt(
                 "name": p.name,
                 "content": p.content,
                 "tags": p.tags,
+                "source_kind": p.source_kind,
+                "source_ref": p.source_ref,
+                "managed": p.managed,
+                "source_hash": p.source_hash,
                 "created_at": p.created_at,
                 "updated_at": p.updated_at,
             }
@@ -143,6 +151,7 @@ pub async fn handle_import_prompts(
     }
 
     let mut imported = 0u32;
+    let mut updated = 0u32;
     let mut skipped = 0u32;
     let mut errors = Vec::new();
 
@@ -166,37 +175,77 @@ pub async fn handle_import_prompts(
         };
 
         // Parse frontmatter if present.
-        let (name, tags, body) = parse_prompt_file(&file_path, &content);
+        let parsed = parse_prompt_file(&file_path, &content);
 
-        // Skip if a prompt with this name already exists.
-        if let Ok(existing) = ctx.agent_registry.list_prompts(None).await
-            && existing.iter().any(|p| p.name == name)
+        let source_ref = std::fs::canonicalize(&file_path)
+            .unwrap_or(file_path.clone())
+            .display()
+            .to_string();
+
+        match ctx
+            .agent_registry
+            .upsert_managed_prompt(
+                &parsed.name,
+                &parsed.body,
+                &parsed.tags,
+                &parsed.position,
+                &parsed.scope,
+                &parsed.tool_allow,
+                &parsed.tool_deny,
+                "file",
+                &source_ref,
+            )
+            .await
         {
-            skipped += 1;
-            continue;
-        }
-
-        match ctx.agent_registry.create_prompt(&name, &body, &tags).await {
-            Ok(_) => imported += 1,
-            Err(e) => errors.push(format!("{name}: {e}")),
+            Ok((_id, status)) => {
+                match status {
+                    "created" => imported += 1,
+                    "updated" => updated += 1,
+                    _ => skipped += 1,
+                }
+            }
+            Err(e) => errors.push(format!("{}: {e}", parsed.name)),
         }
     }
 
     serde_json::json!({
         "ok": true,
         "imported": imported,
+        "updated": updated,
         "skipped": skipped,
         "errors": errors,
     })
 }
 
 /// Parse a prompt .md file. Extracts name and tags from YAML frontmatter if present.
-fn parse_prompt_file(path: &Path, content: &str) -> (String, Vec<String>, String) {
+/// Parsed prompt file with all metadata.
+struct ParsedPromptFile {
+    name: String,
+    tags: Vec<String>,
+    body: String,
+    position: String,
+    scope: String,
+    tool_allow: Vec<String>,
+    tool_deny: Vec<String>,
+}
+
+fn parse_prompt_file(path: &Path, content: &str) -> ParsedPromptFile {
     let default_name = path
         .file_stem()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
+
+    fn extract_string_array(fm: &serde_json::Value, key: &str) -> Vec<String> {
+        fm.get(key)
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 
     match aeqi_core::frontmatter::parse_frontmatter(content) {
         Ok((fm, body)) => {
@@ -205,17 +254,37 @@ fn parse_prompt_file(path: &Path, content: &str) -> (String, Vec<String>, String
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| default_name.clone());
-            let tags: Vec<String> = fm
-                .get("tags")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-            (name, tags, body)
+            let tags = extract_string_array(&fm, "tags");
+            let position = fm
+                .get("position")
+                .and_then(|v| v.as_str())
+                .unwrap_or("append")
+                .to_string();
+            let scope = fm
+                .get("scope")
+                .and_then(|v| v.as_str())
+                .unwrap_or("self")
+                .to_string();
+            let tool_allow = extract_string_array(&fm, "tools");
+            let tool_deny = extract_string_array(&fm, "deny");
+            ParsedPromptFile {
+                name,
+                tags,
+                body,
+                position,
+                scope,
+                tool_allow,
+                tool_deny,
+            }
         }
-        Err(_) => (default_name, Vec::new(), content.to_string()),
+        Err(_) => ParsedPromptFile {
+            name: default_name,
+            tags: Vec::new(),
+            body: content.to_string(),
+            position: "system".to_string(),
+            scope: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        },
     }
 }

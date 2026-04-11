@@ -62,6 +62,30 @@ pub fn public_routes() -> Router<AppState> {
         .route("/api/health", get(health_handler))
         .route("/api/auth/mode", get(auth_mode_handler))
         .route("/api/auth/login", post(login_handler))
+        .route("/metrics", get(metrics_handler))
+}
+
+/// Prometheus metrics endpoint — returns text exposition format.
+async fn metrics_handler(State(state): State<AppState>) -> Response {
+    match state.ipc.cmd("metrics").await {
+        Ok(resp) => {
+            let text = resp
+                .get("metrics")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            (
+                axum::http::StatusCode::OK,
+                [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+                text.to_string(),
+            )
+                .into_response()
+        }
+        Err(_) => (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "# metrics unavailable — daemon not connected\n",
+        )
+            .into_response(),
+    }
 }
 
 /// Account-related routes (signup, login, verify, OAuth, waitlist, invites).

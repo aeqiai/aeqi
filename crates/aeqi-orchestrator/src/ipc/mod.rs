@@ -25,6 +25,7 @@ use crate::metrics::AEQIMetrics;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
+use crate::prompt_loader::PromptLoader;
 use crate::trigger::TriggerStore;
 
 /// Shared context for all IPC command handlers.
@@ -45,6 +46,7 @@ pub struct CommandContext {
     pub leader_agent_name: String,
     pub daily_budget_usd: f64,
     pub project_budgets: std::collections::HashMap<String, f64>,
+    pub prompt_loader: Option<Arc<PromptLoader>>,
 }
 
 pub use crate::daemon::EventBuffer;

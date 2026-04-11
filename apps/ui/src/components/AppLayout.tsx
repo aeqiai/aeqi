@@ -148,18 +148,14 @@ export default function AppLayout() {
           </div>
           <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
             <a className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`} href="/account" onClick={(e) => { e.preventDefault(); navigate("/account"); }}>
-              {user?.avatar_url ? (
-                <img src={user.avatar_url} alt="" style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0 }} />
-              ) : (
-                <RoundAvatar name={userName} size={22} />
-              )}
+              <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
               <span className="sidebar-nav-label">Account</span>
             </a>
           </nav>
           <div className="sidebar-footer">
             <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">Docs</a>
             <span className="sidebar-footer-dot">·</span>
-            <span className="sidebar-footer-version">v0.4.0</span>
+            <span className="sidebar-footer-version">v{__APP_VERSION__}</span>
           </div>
         </div>
 

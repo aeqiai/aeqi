@@ -397,15 +397,16 @@ impl Tool for DelegateTool {
 mod tests {
     use super::*;
 
-    fn test_event_store() -> Arc<crate::event_store::EventStore> {
-        let conn = rusqlite::Connection::open_in_memory().unwrap();
+    async fn test_event_store() -> Arc<crate::event_store::EventStore> {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        let conn = pool.lock().await;
         crate::event_store::EventStore::create_tables(&conn).unwrap();
-        let db = Arc::new(tokio::sync::Mutex::new(conn));
-        Arc::new(crate::event_store::EventStore::new(db))
+        drop(conn);
+        Arc::new(crate::event_store::EventStore::new(Arc::new(pool)))
     }
 
-    fn make_tool() -> DelegateTool {
-        DelegateTool::new(test_event_store(), "test-agent".to_string())
+    async fn make_tool() -> DelegateTool {
+        DelegateTool::new(test_event_store().await, "test-agent".to_string())
     }
 
     #[test]
@@ -420,9 +421,9 @@ mod tests {
         assert_eq!(DelegateTool::parse_response_mode(&args), "async");
     }
 
-    #[test]
-    fn test_spec_has_required_fields() {
-        let tool = make_tool();
+    #[tokio::test]
+    async fn test_spec_has_required_fields() {
+        let tool = make_tool().await;
         let spec = tool.spec();
         assert_eq!(spec.name, "agents_delegate");
         let required = spec.input_schema["required"].as_array().unwrap();
@@ -430,16 +431,16 @@ mod tests {
         assert!(required.contains(&serde_json::json!("prompt")));
     }
 
-    #[test]
-    fn test_name() {
-        let tool = make_tool();
+    #[tokio::test]
+    async fn test_name() {
+        let tool = make_tool().await;
         assert_eq!(tool.name(), "agents_delegate");
     }
 
     #[tokio::test]
     async fn test_subagent_no_target_returns_error() {
         // Without agent_registry or fallback_target, subagent should error.
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "to": "subagent",
             "prompt": "do something"
@@ -451,7 +452,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subagent_with_fallback_target() {
-        let es = test_event_store();
+        let es = test_event_store().await;
         let mut tool = DelegateTool::new(es.clone(), "caller".to_string());
         tool.fallback_target = Some("leader".to_string());
 
@@ -477,7 +478,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dept_prefix_resolves_to_agent() {
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "to": "dept:engineering",
             "prompt": "review this PR"
@@ -491,7 +492,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dept_prefix_empty_name_rejected() {
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "to": "dept:",
             "prompt": "review this PR"
@@ -503,7 +504,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_named_agent_dispatch() {
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "to": "researcher",
             "prompt": "find the auth bug",
@@ -521,7 +522,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_missing_to_param() {
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "prompt": "do something"
         });
@@ -531,7 +532,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_missing_prompt_param() {
-        let tool = make_tool();
+        let tool = make_tool().await;
         let args = serde_json::json!({
             "to": "researcher"
         });
@@ -541,7 +542,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_actually_sent() {
-        let es = test_event_store();
+        let es = test_event_store().await;
         let tool = DelegateTool::new(es.clone(), "sender".to_string());
 
         let args = serde_json::json!({
@@ -561,7 +562,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dept_prefix_dispatch_sent_to_agent() {
-        let es = test_event_store();
+        let es = test_event_store().await;
         let tool = DelegateTool::new(es.clone(), "leader".to_string());
 
         let args = serde_json::json!({
