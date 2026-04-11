@@ -619,10 +619,10 @@ impl Scheduler {
                 .capabilities
                 .iter()
                 .any(|c| c == "events_manage" || c == "manage_triggers")
-                && let Some(ref ts) = self.trigger_store
             {
+                let ehs = Arc::new(crate::event_handler::EventHandlerStore::new(self.agent_registry.db()));
                 tools.push(Arc::new(crate::tools::TriggerManageTool::new(
-                    ts.clone(),
+                    ehs,
                     agent_id.clone(),
                 )));
             }

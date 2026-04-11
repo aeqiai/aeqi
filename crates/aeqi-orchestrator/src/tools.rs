@@ -1339,19 +1339,19 @@ impl Tool for AgentsListTool {
 }
 
 // ---------------------------------------------------------------------------
-// EventsCreateTool — create a trigger
+// EventsCreateTool — create an event handler
 // ---------------------------------------------------------------------------
 
-/// Tool for creating a trigger (scheduled or event-driven).
+/// Tool for creating an event handler (scheduled or lifecycle-driven).
 pub struct EventsCreateTool {
-    trigger_store: Arc<crate::trigger::TriggerStore>,
+    event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
     agent_id: String,
 }
 
 impl EventsCreateTool {
-    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>, agent_id: String) -> Self {
+    pub fn new(event_handler_store: Arc<crate::event_handler::EventHandlerStore>, agent_id: String) -> Self {
         Self {
-            trigger_store,
+            event_handler_store,
             agent_id,
         }
     }
@@ -1364,57 +1364,57 @@ impl Tool for EventsCreateTool {
             .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing required parameter 'name'"))?;
-        let skill = args
-            .get("skill")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'skill'"))?;
 
-        let trigger_type = if let Some(schedule) = args.get("schedule").and_then(|v| v.as_str()) {
-            crate::trigger::TriggerType::Schedule {
-                expr: schedule.to_string(),
-            }
+        // Build the pattern string: "schedule:<expr>" or "lifecycle:<event>".
+        let pattern = if let Some(schedule) = args.get("schedule").and_then(|v| v.as_str()) {
+            format!("schedule:{schedule}")
         } else if let Some(event) = args.get("event").and_then(|v| v.as_str()) {
-            let pattern = match event {
-                "quest_completed" => crate::trigger::EventPattern::QuestCompleted { project: None },
-                "quest_failed" => crate::trigger::EventPattern::QuestFailed { project: None },
-                "tool_call_completed" => {
-                    crate::trigger::EventPattern::ToolCallCompleted { tool: None }
-                }
-                other => {
-                    return Ok(ToolResult::error(format!(
-                        "Unknown event pattern: {other}. Use: quest_completed, quest_failed, tool_call_completed"
-                    )));
-                }
-            };
-            crate::trigger::TriggerType::Event {
-                pattern,
-                cooldown_secs: 300,
-            }
+            format!("lifecycle:{event}")
+        } else if let Some(p) = args.get("pattern").and_then(|v| v.as_str()) {
+            p.to_string()
         } else {
             return Ok(ToolResult::error(
-                "Provide either 'schedule' (cron expr) or 'event' pattern.",
+                "Provide 'schedule' (cron expr), 'event' (lifecycle event), or 'pattern'.",
             ));
         };
 
+        let scope = args
+            .get("scope")
+            .and_then(|v| v.as_str())
+            .unwrap_or("self")
+            .to_string();
+        let content = args.get("content").and_then(|v| v.as_str()).map(String::from);
+        // Also accept legacy "skill" as content fallback.
+        let content = content.or_else(|| args.get("skill").and_then(|v| v.as_str()).map(String::from));
+        let cooldown_secs = args
+            .get("cooldown_secs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let max_budget_usd = args.get("max_budget_usd").and_then(|v| v.as_f64());
+
         match self
-            .trigger_store
-            .create(&crate::trigger::NewTrigger {
+            .event_handler_store
+            .create(&crate::event_handler::NewEvent {
                 agent_id: self.agent_id.clone(),
                 name: name.to_string(),
-                trigger_type,
-                skill: skill.to_string(),
-                max_budget_usd: None,
+                pattern: pattern.clone(),
+                scope,
+                idea_id: None,
+                content,
+                cooldown_secs,
+                max_budget_usd,
+                webhook_secret: None,
+                system: false,
             })
             .await
         {
-            Ok(trigger) => Ok(ToolResult::success(format!(
-                "Trigger '{}' created (id: {}, skill: {}, type: {})",
-                trigger.name,
-                trigger.id,
-                trigger.skill,
-                trigger.trigger_type.type_str()
+            Ok(event) => Ok(ToolResult::success(format!(
+                "Event '{}' created (id: {}, pattern: {})",
+                event.name,
+                event.id,
+                event.pattern,
             ))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to create trigger: {e}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to create event: {e}"))),
         }
     }
 
@@ -1422,30 +1422,46 @@ impl Tool for EventsCreateTool {
         ToolSpec {
             name: "events_create".to_string(),
             description:
-                "Create a new trigger (scheduled or event-driven) that runs a skill automatically."
+                "Create a new event handler (scheduled or lifecycle-driven) that runs automatically."
                     .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Trigger name"
+                        "description": "Event handler name"
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": "Full pattern string (e.g. 'schedule:0 9 * * *', 'lifecycle:quest_completed')"
                     },
                     "schedule": {
                         "type": "string",
-                        "description": "Cron expression or interval (e.g. '0 9 * * *')"
+                        "description": "Cron expression (e.g. '0 9 * * *') — shorthand for pattern 'schedule:<expr>'"
                     },
                     "event": {
                         "type": "string",
-                        "enum": ["quest_completed", "quest_failed", "tool_call_completed"],
-                        "description": "Event pattern to react to"
+                        "description": "Lifecycle event (e.g. 'quest_completed') — shorthand for pattern 'lifecycle:<event>'"
                     },
-                    "skill": {
+                    "scope": {
                         "type": "string",
-                        "description": "Skill to run when triggered"
+                        "enum": ["self", "children", "descendants"],
+                        "description": "Event scope (default: 'self')"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Inline instruction to run when the event fires"
+                    },
+                    "cooldown_secs": {
+                        "type": "integer",
+                        "description": "Minimum seconds between fires (default: 0)"
+                    },
+                    "max_budget_usd": {
+                        "type": "number",
+                        "description": "Maximum budget per execution in USD"
                     }
                 },
-                "required": ["name", "skill"]
+                "required": ["name"]
             }),
         }
     }
@@ -1460,19 +1476,19 @@ impl Tool for EventsCreateTool {
 }
 
 // ---------------------------------------------------------------------------
-// EventsListTool — list triggers for the current agent
+// EventsListTool — list events for the current agent
 // ---------------------------------------------------------------------------
 
-/// Tool for listing triggers owned by the current agent.
+/// Tool for listing event handlers owned by the current agent.
 pub struct EventsListTool {
-    trigger_store: Arc<crate::trigger::TriggerStore>,
+    event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
     agent_id: String,
 }
 
 impl EventsListTool {
-    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>, agent_id: String) -> Self {
+    pub fn new(event_handler_store: Arc<crate::event_handler::EventHandlerStore>, agent_id: String) -> Self {
         Self {
-            trigger_store,
+            event_handler_store,
             agent_id,
         }
     }
@@ -1481,27 +1497,26 @@ impl EventsListTool {
 #[async_trait]
 impl Tool for EventsListTool {
     async fn execute(&self, _args: serde_json::Value) -> Result<ToolResult> {
-        let triggers = self
-            .trigger_store
+        let events = self
+            .event_handler_store
             .list_for_agent(&self.agent_id)
             .await
             .unwrap_or_default();
 
-        if triggers.is_empty() {
-            return Ok(ToolResult::success("No triggers."));
+        if events.is_empty() {
+            return Ok(ToolResult::success("No events."));
         }
 
-        let items: Vec<String> = triggers
+        let items: Vec<String> = events
             .iter()
-            .map(|t| {
+            .map(|e| {
                 format!(
-                    "- {} (id: {}, type: {}, skill: {}, enabled: {}, fires: {})",
-                    t.name,
-                    t.id,
-                    t.trigger_type.type_str(),
-                    t.skill,
-                    t.enabled,
-                    t.fire_count
+                    "- {} (id: {}, pattern: {}, enabled: {}, fires: {})",
+                    e.name,
+                    e.id,
+                    e.pattern,
+                    e.enabled,
+                    e.fire_count
                 )
             })
             .collect();
@@ -1511,7 +1526,7 @@ impl Tool for EventsListTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "events_list".to_string(),
-            description: "List all triggers owned by this agent.".to_string(),
+            description: "List all event handlers owned by this agent.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {}
@@ -1529,49 +1544,50 @@ impl Tool for EventsListTool {
 }
 
 // ---------------------------------------------------------------------------
-// EventsRemoveTool — remove a trigger
+// EventsRemoveTool — remove an event handler
 // ---------------------------------------------------------------------------
 
-/// Tool for removing (deleting) a trigger by ID.
+/// Tool for removing (deleting) an event handler by ID.
 pub struct EventsRemoveTool {
-    trigger_store: Arc<crate::trigger::TriggerStore>,
+    event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
 }
 
 impl EventsRemoveTool {
-    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>) -> Self {
-        Self { trigger_store }
+    pub fn new(event_handler_store: Arc<crate::event_handler::EventHandlerStore>) -> Self {
+        Self { event_handler_store }
     }
 }
 
 #[async_trait]
 impl Tool for EventsRemoveTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let trigger_id = args
-            .get("trigger_id")
+        let event_id = args
+            .get("event_id")
+            .or_else(|| args.get("trigger_id"))
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'trigger_id'"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'event_id'"))?;
 
-        match self.trigger_store.delete(trigger_id).await {
+        match self.event_handler_store.delete(event_id).await {
             Ok(()) => Ok(ToolResult::success(format!(
-                "Trigger {trigger_id} removed."
+                "Event {event_id} removed."
             ))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to remove trigger: {e}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to remove event: {e}"))),
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "events_remove".to_string(),
-            description: "Remove (delete) a trigger by its ID.".to_string(),
+            description: "Remove (delete) an event handler by its ID.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "trigger_id": {
+                    "event_id": {
                         "type": "string",
-                        "description": "ID of the trigger to remove"
+                        "description": "ID of the event handler to remove"
                     }
                 },
-                "required": ["trigger_id"]
+                "required": ["event_id"]
             }),
         }
     }
@@ -2008,11 +2024,11 @@ pub fn build_orchestration_tools(
     let retire_tool = AgentsRetireTool::new(agent_registry.clone());
     let list_tool = AgentsListTool::new(agent_registry.clone());
 
-    // Events tools via TriggerStore.
-    let trigger_store = Arc::new(agent_registry.trigger_store());
-    let events_create_tool = EventsCreateTool::new(trigger_store.clone(), leader_name.clone());
-    let events_list_tool = EventsListTool::new(trigger_store.clone(), leader_name.clone());
-    let events_remove_tool = EventsRemoveTool::new(trigger_store);
+    // Events tools via EventHandlerStore.
+    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(agent_registry.db()));
+    let events_create_tool = EventsCreateTool::new(event_handler_store.clone(), leader_name.clone());
+    let events_list_tool = EventsListTool::new(event_handler_store.clone(), leader_name.clone());
+    let events_remove_tool = EventsRemoveTool::new(event_handler_store);
 
     // Self-introspection tool.
     let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(
@@ -2173,20 +2189,20 @@ impl Tool for GraphTool {
 }
 
 // ---------------------------------------------------------------------------
-// TriggerManageTool — CRUD for agent-owned triggers
+// TriggerManageTool — CRUD for agent-owned event handlers
 // ---------------------------------------------------------------------------
 
-/// Tool for creating, listing, enabling, disabling, and deleting triggers.
-/// Scoped to the calling agent's own triggers.
+/// Tool for creating, listing, enabling, disabling, and deleting event handlers.
+/// Scoped to the calling agent's own events.
 pub struct TriggerManageTool {
-    trigger_store: Arc<crate::trigger::TriggerStore>,
+    event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
     agent_id: String,
 }
 
 impl TriggerManageTool {
-    pub fn new(trigger_store: Arc<crate::trigger::TriggerStore>, agent_id: String) -> Self {
+    pub fn new(event_handler_store: Arc<crate::event_handler::EventHandlerStore>, agent_id: String) -> Self {
         Self {
-            trigger_store,
+            event_handler_store,
             agent_id,
         }
     }
@@ -2206,94 +2222,66 @@ impl Tool for TriggerManageTool {
                     .get("name")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("'name' is required"))?;
-                let skill = args
-                    .get("skill")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("'skill' is required"))?;
                 let max_budget_usd = args.get("max_budget_usd").and_then(|v| v.as_f64());
+                let cooldown_secs = args
+                    .get("cooldown_secs")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let scope = args
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("self")
+                    .to_string();
 
-                // Determine trigger type from args.
-                let trigger_type = if let Some(schedule) =
+                // Build pattern from schedule, event_pattern, or raw pattern.
+                let pattern = if let Some(schedule) =
                     args.get("schedule").and_then(|v| v.as_str())
                 {
-                    crate::trigger::TriggerType::Schedule {
-                        expr: schedule.to_string(),
-                    }
+                    format!("schedule:{schedule}")
                 } else if let Some(event) = args.get("event_pattern").and_then(|v| v.as_str()) {
-                    let cooldown = args
-                        .get("cooldown_secs")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(300);
-                    if cooldown < 60 {
-                        return Ok(ToolResult {
-                            output: "cooldown_secs must be >= 60".to_string(),
-                            is_error: true,
-                            context_modifier: None,
-                        });
-                    }
-                    let pattern = match event {
-                        "quest_completed" => crate::trigger::EventPattern::QuestCompleted {
-                            project: args
-                                .get("project_filter")
-                                .and_then(|v| v.as_str())
-                                .map(String::from),
-                        },
-                        "quest_failed" => crate::trigger::EventPattern::QuestFailed {
-                            project: args
-                                .get("project_filter")
-                                .and_then(|v| v.as_str())
-                                .map(String::from),
-                        },
-                        "tool_call_completed" => crate::trigger::EventPattern::ToolCallCompleted {
-                            tool: args
-                                .get("tool_filter")
-                                .and_then(|v| v.as_str())
-                                .map(String::from),
-                        },
-                        other => {
-                            return Ok(ToolResult {
-                                output: format!("unknown event pattern: {other}"),
-                                is_error: true,
-                                context_modifier: None,
-                            });
-                        }
-                    };
-                    crate::trigger::TriggerType::Event {
-                        pattern,
-                        cooldown_secs: cooldown,
-                    }
+                    format!("lifecycle:{event}")
+                } else if let Some(p) = args.get("pattern").and_then(|v| v.as_str()) {
+                    p.to_string()
                 } else {
                     return Ok(ToolResult {
-                        output: "provide 'schedule' or 'event_pattern'".to_string(),
+                        output: "provide 'schedule', 'event_pattern', or 'pattern'".to_string(),
                         is_error: true,
                         context_modifier: None,
                     });
                 };
 
+                // Content: explicit content field, or fall back to legacy "skill".
+                let content = args.get("content").and_then(|v| v.as_str()).map(String::from)
+                    .or_else(|| args.get("skill").and_then(|v| v.as_str()).map(String::from));
+
                 match self
-                    .trigger_store
-                    .create(&crate::trigger::NewTrigger {
+                    .event_handler_store
+                    .create(&crate::event_handler::NewEvent {
                         agent_id: self.agent_id.clone(),
                         name: name.to_string(),
-                        trigger_type,
-                        skill: skill.to_string(),
+                        pattern: pattern.clone(),
+                        scope,
+                        idea_id: None,
+                        content,
+                        cooldown_secs,
                         max_budget_usd,
+                        webhook_secret: None,
+                        system: false,
                     })
                     .await
                 {
-                    Ok(trigger) => Ok(ToolResult {
+                    Ok(event) => Ok(ToolResult {
                         output: format!(
-                            "Trigger '{}' created (id: {}, skill: {}, type: {})",
-                            trigger.name,
-                            trigger.id,
-                            trigger.skill,
-                            trigger.trigger_type.type_str()
+                            "Event '{}' created (id: {}, pattern: {})",
+                            event.name,
+                            event.id,
+                            event.pattern,
                         ),
                         is_error: false,
                         context_modifier: None,
                     }),
                     Err(e) => Ok(ToolResult {
-                        output: format!("Failed to create trigger: {e}"),
+                        output: format!("Failed to create event: {e}"),
                         is_error: true,
                         context_modifier: None,
                     }),
@@ -2301,28 +2289,27 @@ impl Tool for TriggerManageTool {
             }
 
             "list" => {
-                let triggers = self
-                    .trigger_store
+                let events = self
+                    .event_handler_store
                     .list_for_agent(&self.agent_id)
                     .await
                     .unwrap_or_default();
-                let items: Vec<String> = triggers
+                let items: Vec<String> = events
                     .iter()
-                    .map(|t| {
+                    .map(|e| {
                         format!(
-                            "- {} (id: {}, type: {}, skill: {}, enabled: {}, fires: {})",
-                            t.name,
-                            t.id,
-                            t.trigger_type.type_str(),
-                            t.skill,
-                            t.enabled,
-                            t.fire_count
+                            "- {} (id: {}, pattern: {}, enabled: {}, fires: {})",
+                            e.name,
+                            e.id,
+                            e.pattern,
+                            e.enabled,
+                            e.fire_count
                         )
                     })
                     .collect();
                 Ok(ToolResult {
                     output: if items.is_empty() {
-                        "No triggers.".to_string()
+                        "No events.".to_string()
                     } else {
                         items.join("\n")
                     },
@@ -2333,14 +2320,15 @@ impl Tool for TriggerManageTool {
 
             "enable" | "disable" => {
                 let id = args
-                    .get("trigger_id")
+                    .get("event_id")
+                    .or_else(|| args.get("trigger_id"))
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("'trigger_id' is required"))?;
+                    .ok_or_else(|| anyhow::anyhow!("'event_id' is required"))?;
                 let enabled = action == "enable";
-                match self.trigger_store.update_enabled(id, enabled).await {
+                match self.event_handler_store.set_enabled(id, enabled).await {
                     Ok(()) => Ok(ToolResult {
                         output: format!(
-                            "Trigger {id} {}.",
+                            "Event {id} {}.",
                             if enabled { "enabled" } else { "disabled" }
                         ),
                         is_error: false,
@@ -2356,12 +2344,13 @@ impl Tool for TriggerManageTool {
 
             "delete" => {
                 let id = args
-                    .get("trigger_id")
+                    .get("event_id")
+                    .or_else(|| args.get("trigger_id"))
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("'trigger_id' is required"))?;
-                match self.trigger_store.delete(id).await {
+                    .ok_or_else(|| anyhow::anyhow!("'event_id' is required"))?;
+                match self.event_handler_store.delete(id).await {
                     Ok(()) => Ok(ToolResult {
-                        output: format!("Trigger {id} deleted."),
+                        output: format!("Event {id} deleted."),
                         is_error: false,
                         context_modifier: None,
                     }),
@@ -2386,7 +2375,7 @@ impl Tool for TriggerManageTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "events_manage".to_string(),
-            description: "Create, list, enable, disable, or delete triggers for this agent. Triggers automate recurring quests on a schedule or in response to events.".to_string(),
+            description: "Create, list, enable, disable, or delete event handlers for this agent. Events automate recurring quests on a schedule or in response to lifecycle events.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -2397,40 +2386,40 @@ impl Tool for TriggerManageTool {
                     },
                     "name": {
                         "type": "string",
-                        "description": "Trigger name (for create)"
+                        "description": "Event handler name (for create)"
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": "Full pattern string (e.g. 'schedule:0 9 * * *', 'lifecycle:quest_completed')"
                     },
                     "schedule": {
                         "type": "string",
-                        "description": "Cron expression or interval (e.g., '0 9 * * *' or 'every 1h')"
+                        "description": "Cron expression or interval (e.g., '0 9 * * *') — shorthand for pattern 'schedule:<expr>'"
                     },
                     "event_pattern": {
                         "type": "string",
-                        "enum": ["quest_completed", "quest_failed", "tool_call_completed"],
-                        "description": "Event to react to"
+                        "description": "Lifecycle event (e.g. 'quest_completed') — shorthand for pattern 'lifecycle:<event>'"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["self", "children", "descendants"],
+                        "description": "Event scope (default: 'self')"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Inline instruction to run when the event fires"
                     },
                     "cooldown_secs": {
                         "type": "integer",
-                        "description": "Minimum seconds between event trigger fires (>= 60)"
-                    },
-                    "skill": {
-                        "type": "string",
-                        "description": "Skill to run when triggered"
+                        "description": "Minimum seconds between fires"
                     },
                     "max_budget_usd": {
                         "type": "number",
                         "description": "Maximum budget per execution in USD"
                     },
-                    "trigger_id": {
+                    "event_id": {
                         "type": "string",
-                        "description": "Trigger ID (for enable/disable/delete)"
-                    },
-                    "project_filter": {
-                        "type": "string",
-                        "description": "Filter events by project (optional)"
-                    },
-                    "tool_filter": {
-                        "type": "string",
-                        "description": "Filter tool_call_completed events by tool name (optional)"
+                        "description": "Event handler ID (for enable/disable/delete)"
                     }
                 },
                 "required": ["action"]
