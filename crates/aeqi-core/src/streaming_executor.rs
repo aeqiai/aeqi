@@ -5,7 +5,7 @@
 //! (not completion order) for deterministic API message construction.
 
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::task::JoinHandle;
 use tracing::debug;
 
@@ -66,7 +66,7 @@ pub struct StreamingToolExecutor {
     tools_defs: Vec<Arc<dyn Tool>>,
     queue: Vec<TrackedTool>,
     /// Shared flag — set when a tool errors, signals siblings to abort.
-    sibling_errored: Arc<Mutex<bool>>,
+    sibling_errored: Arc<AtomicBool>,
 }
 
 impl StreamingToolExecutor {
@@ -74,7 +74,7 @@ impl StreamingToolExecutor {
         Self {
             tools_defs: tools,
             queue: Vec::new(),
-            sibling_errored: Arc::new(Mutex::new(false)),
+            sibling_errored: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -149,19 +149,19 @@ impl StreamingToolExecutor {
             let tool_name = self.queue[i].name.clone();
 
             let handle = tokio::spawn(async move {
-                if *sibling_errored.lock().await {
+                if sibling_errored.load(Ordering::Acquire) {
                     return Err("Cancelled: sibling tool errored".to_string());
                 }
                 match tool_def.execute(input).await {
                     Ok(result) => {
                         if result.is_error {
-                            *sibling_errored.lock().await = true;
+                            sibling_errored.store(true, Ordering::Release);
                             debug!(tool = %tool_name, "tool errored — signaling siblings");
                         }
                         Ok(result)
                     }
                     Err(e) => {
-                        *sibling_errored.lock().await = true;
+                        sibling_errored.store(true, Ordering::Release);
                         Err(e.to_string())
                     }
                 }

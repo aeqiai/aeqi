@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import { api } from "@/lib/api";
@@ -367,6 +367,99 @@ function ThinkingTimer({ start }: { start: number }) {
     </span>
   );
 }
+
+// ── Memoized message item — prevents re-rendering historical messages during streaming ──
+
+const MessageItem = memo(function MessageItem({
+  msg,
+  agentName,
+  userName,
+  userAvatarUrl,
+}: {
+  msg: Message;
+  agentName: string;
+  userName: string;
+  userAvatarUrl: string | null;
+}) {
+  if (msg.role === "quest_event") {
+    return (
+      <div className="asv-quest-event">
+        <span className="asv-quest-event-icon">
+          {(msg.eventType || "").includes("create")
+            ? "+"
+            : (msg.eventType || "").includes("complete") ||
+                (msg.eventType || "").includes("close")
+              ? "\u2713"
+              : (msg.eventType || "").includes("block")
+                ? "!"
+                : "\u2192"}
+        </span>
+        <span className="asv-quest-event-text">{msg.content}</span>
+        {msg.timestamp && (
+          <span className="asv-quest-event-time">
+            {formatTime(msg.timestamp)}
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (msg.role === "error") {
+    return (
+      <div className="asv-msg asv-msg-error">
+        <div className="asv-msg-header">
+          {msg.duration && (
+            <span className="asv-msg-duration">{msg.duration}</span>
+          )}
+        </div>
+        <div className="asv-msg-content">{msg.content}</div>
+      </div>
+    );
+  }
+  const stepCount = msg.stepCount || countStepSegments(msg.segments);
+  const metaParts = [
+    msg.timestamp && formatTime(msg.timestamp),
+    msg.duration,
+    msg.role === "assistant" && stepCount > 0 && formatStepCount(stepCount),
+    msg.costUsd != null && msg.costUsd > 0 && `$${msg.costUsd.toFixed(4)}`,
+    msg.tokenUsage && (msg.tokenUsage.prompt > 0 || msg.tokenUsage.completion > 0) &&
+      `${msg.tokenUsage.prompt}\u2192${msg.tokenUsage.completion} tok`,
+    msg.queued && "queued",
+  ].filter(Boolean) as string[];
+  return (
+    <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
+      <div className="asv-msg-avatar">
+        <RoundAvatar
+          name={msg.role === "assistant" ? agentName : userName}
+          src={msg.role === "assistant" ? undefined : userAvatarUrl}
+          size={24}
+        />
+      </div>
+      <div className="asv-msg-body">
+        {msg.segments && msg.segments.length > 0 ? (
+          <SegmentRenderer segments={msg.segments} />
+        ) : (
+          <div className="asv-msg-content">
+            {msg.role === "assistant" ? (
+              <Markdown>{msg.content}</Markdown>
+            ) : (
+              <span>{msg.content}</span>
+            )}
+          </div>
+        )}
+        {msg.role === "assistant" && msg.content.trim().length > 0 && (
+          <CopyButton text={msg.content} />
+        )}
+        {metaParts.length > 0 && (
+          <div className="asv-msg-footer">
+            {metaParts.map((part, idx) => (
+              <span key={idx}>{part}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
 
 // ── Main Component ──
 
@@ -1229,86 +1322,15 @@ export default function AgentSessionView({
           </div>
         )}
 
-        {messages.map((msg, i) => {
-          if (msg.role === "quest_event") {
-            return (
-              <div key={i} className="asv-quest-event">
-                <span className="asv-quest-event-icon">
-                  {(msg.eventType || "").includes("create")
-                    ? "+"
-                    : (msg.eventType || "").includes("complete") ||
-                        (msg.eventType || "").includes("close")
-                      ? "\u2713"
-                      : (msg.eventType || "").includes("block")
-                        ? "!"
-                        : "\u2192"}
-                </span>
-                <span className="asv-quest-event-text">{msg.content}</span>
-                {msg.timestamp && (
-                  <span className="asv-quest-event-time">
-                    {formatTime(msg.timestamp)}
-                  </span>
-                )}
-              </div>
-            );
-          }
-          if (msg.role === "error") {
-            return (
-              <div key={i} className="asv-msg asv-msg-error">
-                <div className="asv-msg-header">
-                  {msg.duration && (
-                    <span className="asv-msg-duration">{msg.duration}</span>
-                  )}
-                </div>
-                <div className="asv-msg-content">{msg.content}</div>
-              </div>
-            );
-          }
-          const stepCount = msg.stepCount || countStepSegments(msg.segments);
-          const metaParts = [
-            msg.timestamp && formatTime(msg.timestamp),
-            msg.duration,
-            msg.role === "assistant" && stepCount > 0 && formatStepCount(stepCount),
-            msg.costUsd != null && msg.costUsd > 0 && `$${msg.costUsd.toFixed(4)}`,
-            msg.tokenUsage && (msg.tokenUsage.prompt > 0 || msg.tokenUsage.completion > 0) &&
-              `${msg.tokenUsage.prompt}\u2192${msg.tokenUsage.completion} tok`,
-            msg.queued && "queued",
-          ].filter(Boolean) as string[];
-          return (
-            <div key={i} className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
-              <div className="asv-msg-avatar">
-                <RoundAvatar
-                  name={msg.role === "assistant" ? agentName : userName}
-                  src={msg.role === "assistant" ? undefined : userAvatarUrl}
-                  size={24}
-                />
-              </div>
-              <div className="asv-msg-body">
-                {msg.segments && msg.segments.length > 0 ? (
-                  <SegmentRenderer segments={msg.segments} />
-                ) : (
-                  <div className="asv-msg-content">
-                    {msg.role === "assistant" ? (
-                      <Markdown>{msg.content}</Markdown>
-                    ) : (
-                      <span>{msg.content}</span>
-                    )}
-                  </div>
-                )}
-                {msg.role === "assistant" && msg.content.trim().length > 0 && (
-                  <CopyButton text={msg.content} />
-                )}
-                {metaParts.length > 0 && (
-                  <div className="asv-msg-footer">
-                    {metaParts.map((part, idx) => (
-                      <span key={idx}>{part}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((msg, i) => (
+          <MessageItem
+            key={i}
+            msg={msg}
+            agentName={agentName}
+            userName={userName}
+            userAvatarUrl={userAvatarUrl}
+          />
+        ))}
 
         {/* Live streaming — segments in order */}
         {streaming && (
