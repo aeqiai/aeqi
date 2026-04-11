@@ -56,14 +56,8 @@ export default function AgentPage({ agentId }: { agentId: string }) {
             <div className="agent-settings-grid">
               <div className="agent-settings-field">
                 <span className="agent-settings-label">Name</span>
-                <span className="agent-settings-value">{agent?.name || agentId}</span>
+                <span className="agent-settings-value">{displayName}</span>
               </div>
-              {agent?.display_name && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">Display name</span>
-                  <span className="agent-settings-value">{agent.display_name}</span>
-                </div>
-              )}
               {agent?.model && (
                 <div className="agent-settings-field">
                   <span className="agent-settings-label">Model</span>
@@ -76,12 +70,10 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   <span className="agent-settings-value">{agent.status}</span>
                 </div>
               )}
-              {agent?.id && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">ID</span>
-                  <span className="agent-settings-value agent-settings-mono">{agent.id}</span>
-                </div>
-              )}
+              <div className="agent-settings-field">
+                <span className="agent-settings-label">ID</span>
+                <span className="agent-settings-value agent-settings-mono">{agent?.id || agentId}</span>
+              </div>
             </div>
           </div>
         </div>

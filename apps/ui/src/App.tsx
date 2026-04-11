@@ -12,7 +12,7 @@ import NewWorkspacePage from "@/pages/NewWorkspacePage";
 import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
-import InsightsPage from "@/pages/InsightsPage";
+import InsightsPage from "@/pages/IdeasPage";
 import EntitiesPage from "@/pages/EntitiesPage";
 import AccountPage from "@/pages/AccountPage";
 import CompanyPage from "@/pages/CompanyPage";
