@@ -1315,6 +1315,98 @@
   font-size: 12px;
 }
 
+/* Stats row */
+.agent-stats-row {
+  display: flex;
+  gap: 0;
+}
+.agent-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 0;
+  border-right: 1px solid var(--border);
+}
+.agent-stat:first-child {
+  padding-left: 0;
+}
+.agent-stat:last-child {
+  border-right: none;
+}
+.agent-stat:not(:first-child) {
+  padding-left: 16px;
+}
+.agent-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.agent-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+/* Hierarchy links */
+.agent-settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: color 0.1s;
+}
+.agent-settings-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-hover);
+}
+.agent-settings-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-right: 12px;
+  transition: color 0.1s;
+}
+.agent-settings-child:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-hover);
+}
+
+/* Status dot */
+.agent-settings-status-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.4;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.agent-settings-status-dot.live {
+  background: var(--success);
+  opacity: 1;
+}
+
+/* Capability badges */
+.agent-settings-cap {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  margin-right: 4px;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
 .content-scroll {
   flex: 1;
   overflow-y: auto;

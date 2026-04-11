@@ -15,6 +15,15 @@ export interface Agent {
   color?: string;
   avatar?: string;
   created_at?: string;
+  last_active?: string;
+  session_count?: number;
+  total_tokens?: number;
+  budget_usd?: number;
+  execution_mode?: string;
+  workdir?: string;
+  quest_prefix?: string;
+  worker_timeout_secs?: number;
+  prompt_ids?: string[];
 }
 
 export interface AgentRef {
