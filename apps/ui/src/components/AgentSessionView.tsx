@@ -1241,85 +1241,44 @@ export default function AgentSessionView({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
     >
-      {/* Session header */}
+      {/* Agent header */}
       <div className="asv-header">
         <div className="asv-header-info">
-          <RoundAvatar name={agentName} size={24} />
-          <div className="asv-header-text">
-            <span className="asv-header-name">{displayName}</span>
-            {activeSessionId && (
-              <span className="asv-header-session-name">
-                {sessions.find((s) => s.id === activeSessionId)?.first_message?.slice(0, 40) || `Session ${activeSessionId.slice(0, 8)}`}
-              </span>
-            )}
-          </div>
+          <RoundAvatar name={agentName} size={22} />
+          <span className="asv-header-name">{displayName}</span>
           <span className={`asv-header-dot ${wsConnected ? "live" : ""}`} />
-        </div>
-        <div className="asv-header-actions">
           {agentInfo?.model && (
             <span className="asv-header-model">{agentInfo.model}</span>
           )}
-          <button
-            className={`asv-session-toggle ${showSessionList ? "asv-session-toggle--open" : ""}`}
-            onClick={() => setShowSessionList(!showSessionList)}
-            title="Sessions"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M2 3.5h10M2 7h10M2 10.5h10" />
-            </svg>
-            {sessions.length > 0 && (
-              <span className="asv-session-count">{sessions.length}</span>
-            )}
-          </button>
-          <button
-            className="asv-new-session"
-            onClick={handleNewConversation}
-            title="New conversation"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M7 3v8M3 7h8" />
-            </svg>
-          </button>
         </div>
       </div>
 
-      {/* Session list dropdown */}
-      {showSessionList && (
-        <div className="asv-session-list">
-          {sessions.length === 0 ? (
-            <div className="asv-session-empty">
-              No sessions yet. Start a conversation below.
-            </div>
-          ) : (
-            sessions.map((s) => {
-              const isActive = s.id === activeSessionId;
-              const isLive = s.status === "active";
-              const preview = s.first_message || `Session ${s.id.slice(0, 8)}`;
-              const date = new Date(s.created_at);
-              const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-              const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
-              return (
-                <div
-                  key={s.id}
-                  className={`asv-session-item${isActive ? " active" : ""}`}
-                  onClick={() => { handleSelectSession(s.id); setShowSessionList(false); }}
-                >
-                  <div className="asv-session-item-top">
-                    <span className={`asv-session-dot ${isLive ? "live" : ""}`} />
-                    <span className="asv-session-item-preview">{preview}</span>
-                  </div>
-                  <div className="asv-session-item-bottom">
-                    <span className="asv-session-item-date">{dateStr} {timeStr}</span>
-                    {s.message_count != null && (
-                      <span className="asv-session-item-count">{s.message_count} msgs</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
+      {/* Session tabs */}
+      <div className="asv-session-tabs" role="tablist">
+        {sessions.map((s) => {
+          const isActive = s.id === activeSessionId;
+          const label = s.first_message?.slice(0, 28) || s.id.slice(0, 8);
+          return (
+            <button
+              key={s.id}
+              role="tab"
+              aria-selected={isActive}
+              className={`asv-session-tab${isActive ? " active" : ""}`}
+              onClick={() => handleSelectSession(s.id)}
+              title={s.first_message || s.id}
+            >
+              {label}{s.first_message && s.first_message.length > 28 ? "..." : ""}
+            </button>
+          );
+        })}
+        <button
+          className="asv-session-tab asv-session-tab-new"
+          onClick={handleNewConversation}
+          title="New session"
+        >
+          +
+        </button>
+      </div>
 
       {/* Message transcript */}
       <div className="asv-messages">

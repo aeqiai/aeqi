@@ -842,41 +842,25 @@
 }
 
 /* ── Header ── */
+/* ── Agent header ── */
 .asv-header {
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 20px;
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .asv-header-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.asv-header-text {
-  display: flex;
-  flex-direction: column;
+  gap: 8px;
   min-width: 0;
 }
 .asv-header-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.2;
-}
-.asv-header-session-name {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 320px;
-  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 .asv-header-dot {
   width: 5px;
@@ -891,12 +875,6 @@
   opacity: 1;
   animation: c-pulse 2s ease-in-out infinite;
 }
-.asv-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
 .asv-header-model {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -904,6 +882,54 @@
   padding: 2px 6px;
   background: var(--bg-surface);
   border-radius: var(--radius-sm);
+  margin-left: 4px;
+}
+
+/* ── Session tabs ── */
+.asv-session-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.asv-session-tabs::-webkit-scrollbar {
+  display: none;
+}
+.asv-session-tab {
+  padding: 8px 14px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+}
+.asv-session-tab:hover {
+  color: var(--text-secondary);
+}
+.asv-session-tab.active {
+  color: var(--text-primary);
+  font-weight: 500;
+  border-bottom-color: var(--text-primary);
+}
+.asv-session-tab-new {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-muted);
+  padding: 8px 12px;
+}
+.asv-session-tab-new:hover {
+  color: var(--text-primary);
 }
 .asv-session-toggle,
 .asv-new-session {

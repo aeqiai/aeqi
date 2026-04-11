@@ -162,10 +162,7 @@ export default function AppLayout() {
         {/* Main content */}
         <div className="content-area">
           {agentId ? (
-            <div className="content-agent-layout">
-              <SessionRail agentId={agentId} activeSessionId={sessionId} />
-              <AgentSessionView agentId={agentId} sessionId={sessionId} />
-            </div>
+            <AgentSessionView agentId={agentId} sessionId={sessionId} />
           ) : (
             <>
               <ContentTopBar />
