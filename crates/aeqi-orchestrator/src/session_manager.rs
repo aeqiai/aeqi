@@ -483,31 +483,13 @@ impl SessionManager {
 
         // Build orchestration tools (delegate, memory, notes, graph, etc.)
         {
-            let empty_channels: Arc<
-                tokio::sync::RwLock<
-                    std::collections::HashMap<String, Arc<dyn aeqi_core::traits::Channel>>,
-                >,
-            > = Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new()));
-            let project_name = if self.default_project.is_empty() {
-                None
-            } else {
-                Some(self.default_project.clone())
-            };
-
             let orch_tools = crate::tools::build_orchestration_tools(
                 agent_name.clone(),
-                self.default_project.clone(),
-                project_name,
                 activity_log.clone(),
-                empty_channels,
                 None,
                 memory_for_agent.clone(),
                 graph_db_path,
-                None, // session_id — not yet known, delegate uses parent_session_id from SpawnType
-                Some(provider.clone()),
                 self.session_store.clone(),
-                Some(Arc::new(Self::new())), // placeholder — delegate spawns go through dispatch
-                self.default_model.clone(),
                 agent_registry.clone(),
             );
             tools.extend(orch_tools);

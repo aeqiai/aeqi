@@ -38,7 +38,6 @@ pub mod session_store;
 pub mod prompt_loader;
 pub mod template;
 pub mod tools;
-pub mod trigger;
 pub mod vfs;
 
 pub use agent_registry::{Agent, CompanyRecord, PromptRecord};
@@ -66,7 +65,6 @@ pub use session_manager::SessionManager;
 pub use session_store::SessionStore;
 pub use template::Template;
 pub use tools::SandboxedShellTool;
-pub use trigger::{EventPattern, Trigger, TriggerStore, TriggerType};
 pub use event_handler::{Event, EventHandlerStore, NewEvent};
 pub use event_matcher::EventMatcher;
 pub use schedule_timer::ScheduleTimer;

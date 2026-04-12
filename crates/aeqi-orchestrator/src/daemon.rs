@@ -8,7 +8,6 @@ use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
 use crate::activity_log::{ActivityLog, Dispatch, DispatchHealth};
-use crate::trigger::TriggerStore;
 use crate::activity::{ActivityStream, Activity};
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
@@ -227,7 +226,6 @@ pub struct Daemon {
     pub project_primer: Option<String>,
     pub patrol_interval_secs: u64,
     pub background_automation_enabled: bool,
-    pub trigger_store: Option<Arc<crate::trigger::TriggerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub write_queue: Arc<std::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
@@ -271,7 +269,6 @@ impl Daemon {
             project_primer: None,
             patrol_interval_secs: 30,
             background_automation_enabled: true,
-            trigger_store: None,
             agent_registry,
             message_router: None,
             write_queue: Arc::new(std::sync::Mutex::new(
@@ -322,11 +319,6 @@ impl Daemon {
             notify.notify_waiters();
             info!("session tracker stopped");
         }
-    }
-
-    /// Set the trigger store for agent-owned triggers.
-    pub fn set_trigger_store(&mut self, store: Arc<crate::trigger::TriggerStore>) {
-        self.trigger_store = Some(store);
     }
 
     /// Set a PID file path (written on start, removed on stop).
@@ -409,7 +401,7 @@ impl Daemon {
             _ => {}
         }
 
-        info!(triggers = self.trigger_store.is_some(), "daemon started");
+        info!("daemon started");
 
         self.run_patrol_loop().await;
 
@@ -577,7 +569,6 @@ impl Daemon {
                     event_handler_store: self.event_handler_store.clone(),
                 });
                 let dispatch_es = self.activity_log.clone();
-                let trigger_store = self.trigger_store.clone();
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
                 let activity_buffer = self.activity_buffer.clone();
@@ -594,7 +585,6 @@ impl Daemon {
                         listener,
                         ipc_ctx,
                         dispatch_es,
-                        trigger_store,
                         agent_registry,
                         message_router,
                         activity_buffer,
@@ -800,7 +790,6 @@ impl Daemon {
         listener: tokio::net::UnixListener,
         ipc_ctx: Arc<IpcContext>,
         dispatch_es: Arc<ActivityLog>,
-        trigger_store: Option<Arc<TriggerStore>>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
         activity_buffer: Arc<Mutex<ActivityBuffer>>,
@@ -820,7 +809,6 @@ impl Daemon {
                 Ok((stream, _)) => {
                     let ipc_ctx = ipc_ctx.clone();
                     let dispatch_es = dispatch_es.clone();
-                    let trigger_store = trigger_store.clone();
                     let agent_registry = agent_registry.clone();
                     let message_router = message_router.clone();
                     let activity_buffer = activity_buffer.clone();
@@ -835,7 +823,6 @@ impl Daemon {
                             stream,
                             ipc_ctx,
                             dispatch_es,
-                            trigger_store,
                             agent_registry,
                             message_router,
                             activity_buffer,
@@ -867,7 +854,6 @@ impl Daemon {
         stream: tokio::net::UnixStream,
         ipc_ctx: Arc<IpcContext>,
         dispatch_es: Arc<ActivityLog>,
-        trigger_store: Option<Arc<TriggerStore>>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
         activity_buffer: Arc<Mutex<ActivityBuffer>>,
@@ -945,7 +931,6 @@ impl Daemon {
                 activity_log: ipc_ctx.activity_log.clone(),
                 session_store: ipc_ctx.session_store.clone(),
                 dispatch_es: dispatch_es.clone(),
-                trigger_store: trigger_store.clone(),
                 event_handler_store: ipc_ctx.event_handler_store.clone(),
                 agent_registry: agent_registry.clone(),
                 message_router: message_router.clone(),
@@ -1021,11 +1006,12 @@ impl Daemon {
                     crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_companies).await
                 }
                 "triggers" => {
-                    crate::ipc::status::handle_triggers(&ctx, &request, &allowed_companies).await
+                    // Legacy trigger system removed; return empty list.
+                    serde_json::json!({"ok": true, "triggers": []})
                 }
                 "webhook_fire" => {
-                    crate::ipc::status::handle_webhook_fire(&ctx, &request, &allowed_companies)
-                        .await
+                    // Legacy trigger system removed.
+                    serde_json::json!({"ok": false, "error": "trigger system removed — use events"})
                 }
 
                 "notes" => {

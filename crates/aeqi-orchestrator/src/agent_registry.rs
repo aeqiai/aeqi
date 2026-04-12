@@ -1305,11 +1305,6 @@ impl AgentRegistry {
         Ok(max_concurrent.unwrap_or(1))
     }
 
-    /// Get a TriggerStore sharing this registry's database connection.
-    pub fn trigger_store(&self) -> crate::trigger::TriggerStore {
-        crate::trigger::TriggerStore::new(self.db.clone())
-    }
-
     // -----------------------------------------------------------------------
     // Budget policy operations
     // -----------------------------------------------------------------------

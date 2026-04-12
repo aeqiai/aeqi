@@ -130,13 +130,6 @@ pub enum Commands {
         action: PipelineAction,
     },
 
-    // --- Phase 6: Triggers ---
-    /// Manage agent triggers (scheduled + event-driven).
-    Trigger {
-        #[command(subcommand)]
-        action: TriggerAction,
-    },
-
     // --- Phase 7: Prompts ---
     /// List or run prompts.
     Prompt {
@@ -412,63 +405,6 @@ pub enum ConfigAction {
     Reload,
     /// Show current config.
     Show,
-}
-
-#[derive(Subcommand)]
-#[allow(clippy::large_enum_variant)]
-pub enum TriggerAction {
-    /// Create a new trigger for an agent.
-    Create {
-        /// Trigger name.
-        name: String,
-        /// Agent name (must be a persistent agent).
-        #[arg(short, long)]
-        agent: String,
-        /// Cron expression or interval (e.g., "0 9 * * *" or "every 1h").
-        #[arg(short, long)]
-        schedule: Option<String>,
-        /// One-shot timestamp (ISO 8601).
-        #[arg(long)]
-        at: Option<String>,
-        /// Event pattern: quest_completed, quest_failed, tool_call_completed.
-        #[arg(short, long)]
-        event: Option<String>,
-        /// Event company filter (optional).
-        #[arg(long, alias = "event-project")]
-        event_company: Option<String>,
-        /// Event tool filter (optional).
-        #[arg(long)]
-        event_tool: Option<String>,
-        /// Cooldown in seconds for event triggers.
-        #[arg(long)]
-        cooldown: Option<u64>,
-        /// Create a webhook trigger (externally fired via HTTP POST).
-        #[arg(long)]
-        webhook: bool,
-        /// HMAC-SHA256 signing secret for webhook payload verification.
-        #[arg(long)]
-        signing_secret: Option<String>,
-        /// Skill to run when triggered.
-        #[arg(long)]
-        skill: String,
-        /// Maximum budget per execution in USD.
-        #[arg(long)]
-        max_budget: Option<f64>,
-    },
-    /// List triggers.
-    List {
-        /// Filter by agent name.
-        #[arg(short, long)]
-        agent: Option<String>,
-    },
-    /// Show trigger details.
-    Show { id: String },
-    /// Enable a trigger.
-    Enable { id: String },
-    /// Disable a trigger.
-    Disable { id: String },
-    /// Delete a trigger.
-    Delete { id: String },
 }
 
 #[derive(Subcommand)]

@@ -276,26 +276,13 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     build_project_tools(&fa_workdir, &fa_tasks_dir, &fa_prefix, None);
                 let fa_memory: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
                     shared_idea_store.clone();
-                let default_project = config
-                    .agent_spawns
-                    .first()
-                    .map(|c| c.name.clone())
-                    .unwrap_or_default();
-                let project_name = config.agent_spawns.first().map(|c| c.name.clone());
                 let orch_tools = build_orchestration_tools(
                     leader_name.clone(),
-                    default_project.clone(),
-                    project_name,
                     activity_log.clone(),
-                    channels.clone(),
                     get_api_key(&config).ok(),
                     fa_memory,
-                    None,          // graph DB resolved per-session, not at daemon init
-                    None,          // session_id resolved per-session, not at daemon init
-                    None,          // provider — workers don't need direct session spawning
-                    None,          // session_store
-                    None,          // session_manager
-                    String::new(), // default_model
+                    None, // graph DB resolved per-session, not at daemon init
+                    None, // session_store
                     agent_reg.clone(),
                 );
                 fa_tools.extend(orch_tools);
@@ -620,8 +607,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let scheduler = {
                 let mut s = scheduler;
                 s.session_store = session_store.clone();
-                let trigger_store = Arc::new(agent_reg.trigger_store());
-                s.trigger_store = Some(trigger_store.clone());
                 // Wire memory for the scheduler (shared single store).
                 s.idea_store = shared_idea_store.clone();
                 // Wire session manager for session resolution on task completion.
@@ -682,14 +667,27 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 sm.set_prompt_loader(prompt_loader);
             }
 
-            // Set up trigger store (legacy — being replaced by events).
-            let trigger_store = Arc::new(agent_reg.trigger_store());
-            let trigger_count = trigger_store.count_enabled().await.unwrap_or(0);
-            println!("Triggers: {trigger_count} enabled (legacy)");
-            daemon.set_trigger_store(trigger_store.clone());
-
             // Set up event handler store (the fourth primitive).
             let event_handler_store = Arc::new(aeqi_orchestrator::EventHandlerStore::new(agent_reg.db()));
+
+            // Seed default lifecycle events for existing agents that have none.
+            // create_default_lifecycle_events is idempotent — only runs if 0 events exist.
+            if let Ok(agents) = agent_reg.list_active().await {
+                for agent in &agents {
+                    let existing = event_handler_store.list_for_agent(&agent.id).await.unwrap_or_default();
+                    if existing.is_empty() {
+                        if let Err(e) = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
+                            &event_handler_store,
+                            &agent.id,
+                        ).await {
+                            warn!(agent = %agent.name, error = %e, "failed to seed lifecycle events");
+                        } else {
+                            info!(agent = %agent.name, "seeded default lifecycle events");
+                        }
+                    }
+                }
+            }
+
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
             println!("Events: {event_count} enabled");
             daemon.event_handler_store = Some(event_handler_store);

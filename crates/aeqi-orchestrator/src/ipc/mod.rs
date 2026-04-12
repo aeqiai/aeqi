@@ -28,7 +28,6 @@ use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
 use crate::prompt_loader::PromptLoader;
 use crate::event_handler::EventHandlerStore;
-use crate::trigger::TriggerStore;
 
 /// Shared context for all IPC command handlers.
 /// Replaces the 13 loose parameters previously passed to handle_socket_connection.
@@ -37,7 +36,6 @@ pub struct CommandContext {
     pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
     pub dispatch_es: Arc<ActivityLog>,
-    pub trigger_store: Option<Arc<TriggerStore>>,
     pub event_handler_store: Option<Arc<EventHandlerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,

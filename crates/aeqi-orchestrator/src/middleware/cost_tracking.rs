@@ -33,6 +33,10 @@ impl CostTrackingMiddleware {
                 task_id = %ctx.quest_id,
                 "budget exceeded — halting execution"
             );
+            // TODO: emit activity_log.emit("budget_exceeded", Some(&ctx.agent_id), ...)
+            // Middleware doesn't currently have ActivityLog access. Wire it when
+            // the middleware chain gains shared context, or emit from the scheduler
+            // post-halt hook instead.
             return MiddlewareAction::Halt(format!(
                 "Budget exceeded: ${:.4} spent, ${:.4} budget. Execution halted.",
                 ctx.cost_usd, self.budget_usd

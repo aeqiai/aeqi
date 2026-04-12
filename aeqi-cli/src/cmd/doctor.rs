@@ -258,14 +258,14 @@ pub(crate) async fn cmd_doctor(
                 mem_path.display()
             );
 
-            // Check triggers.
+            // Check event handlers.
             match aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir()) {
                 Ok(reg) => {
-                    let ts = reg.trigger_store();
-                    let count = ts.count_enabled().await.unwrap_or(0);
-                    println!("[OK] Triggers: {count} enabled");
+                    let ehs = aeqi_orchestrator::EventHandlerStore::new(reg.db());
+                    let count = ehs.count_enabled().await.unwrap_or(0);
+                    println!("[OK] Event handlers: {count} enabled");
                 }
-                Err(_) => println!("[INFO] Triggers: no agent registry"),
+                Err(_) => println!("[INFO] Event handlers: no agent registry"),
             }
 
             // Check data dir

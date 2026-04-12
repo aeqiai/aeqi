@@ -1,12 +1,11 @@
 use aeqi_core::traits::Tool;
-use aeqi_core::traits::{Channel, ToolResult, ToolSpec};
+use aeqi_core::traits::{ToolResult, ToolSpec};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
@@ -459,11 +458,12 @@ impl Tool for AgentsTool {
 /// Unified ideas tool combining store, search, and delete.
 pub struct IdeasTool {
     memory: Arc<dyn IdeaStore>,
+    activity_log: Arc<ActivityLog>,
 }
 
 impl IdeasTool {
-    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
-        Self { memory }
+    pub fn new(memory: Arc<dyn IdeaStore>, activity_log: Arc<ActivityLog>) -> Self {
+        Self { memory, activity_log }
     }
 
     async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
@@ -485,7 +485,19 @@ impl IdeasTool {
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
         match self.memory.store(key, content, category, agent_id).await {
-            Ok(id) => Ok(ToolResult::success(format!("Stored memory {id} {key}"))),
+            Ok(id) => {
+                // Emit idea_received so lifecycle events can fire.
+                if let Some(aid) = agent_id {
+                    let _ = self.activity_log.emit(
+                        "idea_received",
+                        Some(aid),
+                        None,
+                        None,
+                        &serde_json::json!({"key": key, "idea_id": id}),
+                    ).await;
+                }
+                Ok(ToolResult::success(format!("Stored memory {id} {key}")))
+            }
             Err(e) => Ok(ToolResult::error(format!("Failed to store: {e}"))),
         }
     }
@@ -591,13 +603,15 @@ impl Tool for IdeasTool {
 pub struct QuestsTool {
     agent_registry: Arc<AgentRegistry>,
     agent_name: String,
+    activity_log: Arc<ActivityLog>,
 }
 
 impl QuestsTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>, agent_name: String) -> Self {
+    pub fn new(agent_registry: Arc<AgentRegistry>, agent_name: String, activity_log: Arc<ActivityLog>) -> Self {
         Self {
             agent_registry,
             agent_name,
+            activity_log,
         }
     }
 
@@ -647,6 +661,16 @@ impl QuestsTool {
         };
 
         let quest_id = quest.id.0.clone();
+
+        // Broadcast quest_created so the scheduler wakes up immediately.
+        let _ = self.activity_log.emit(
+            "quest_created",
+            Some(&agent.id),
+            None,
+            Some(&quest_id),
+            &serde_json::json!({"subject": subject}),
+        ).await;
+
         if priority_str != "normal" {
             let priority = match priority_str.to_lowercase().as_str() {
                 "low" => aeqi_quests::Priority::Low,
@@ -1585,18 +1609,11 @@ impl Tool for CodeTool {
 
 pub fn build_orchestration_tools(
     leader_name: String,
-    _default_project: String,
-    _project_name: Option<String>,
-    _activity_log: Arc<ActivityLog>,
-    _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
+    activity_log: Arc<ActivityLog>,
     api_key: Option<String>,
     memory: Option<Arc<dyn IdeaStore>>,
     graph_db_path: Option<PathBuf>,
-    _session_id: Option<String>,
-    _provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
-    _session_store: Option<Arc<crate::SessionStore>>,
-    _session_manager: Option<Arc<crate::session_manager::SessionManager>>,
-    _default_model: String,
+    session_store: Option<Arc<crate::SessionStore>>,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
 ) -> Vec<Arc<dyn Tool>> {
     let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
@@ -1611,13 +1628,13 @@ pub fn build_orchestration_tools(
     );
 
     // 2. Quests tool (create/list/show/update/close/cancel)
-    let quests_tool = QuestsTool::new(agent_registry.clone(), leader_name.clone());
+    let quests_tool = QuestsTool::new(agent_registry.clone(), leader_name.clone(), activity_log.clone());
 
     // 3. Events tool (create/list/enable/disable/delete)
     let events_tool = EventsTool::new(event_handler_store, leader_name);
 
     // 4. Code tool (search/graph/transcript/usage)
-    let code_tool = CodeTool::new(graph_db_path, _session_store, api_key);
+    let code_tool = CodeTool::new(graph_db_path, session_store, api_key);
 
     let mut tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(agents_tool),
@@ -1628,7 +1645,7 @@ pub fn build_orchestration_tools(
 
     // 5. Ideas tool (store/search/delete) — only if memory backend available
     if let Some(mem) = memory {
-        tools.push(Arc::new(IdeasTool::new(mem)));
+        tools.push(Arc::new(IdeasTool::new(mem, activity_log)));
     }
 
     // 6. Web tool (fetch/search)

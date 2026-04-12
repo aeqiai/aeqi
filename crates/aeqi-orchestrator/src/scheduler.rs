@@ -45,7 +45,6 @@ use crate::middleware::{
 };
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
-use crate::trigger::TriggerStore;
 use aeqi_core::traits::{Channel, IdeaStore, Provider, Tool};
 
 /// A running worker with age tracking for timeout detection.
@@ -123,7 +122,6 @@ pub struct Scheduler {
     pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
     pub session_manager: Option<Arc<SessionManager>>,
-    pub trigger_store: Option<Arc<TriggerStore>>,
     pub gate_channels: Vec<Arc<dyn Channel>>,
 
     // Runtime state
@@ -165,7 +163,6 @@ impl Scheduler {
             activity_log,
             session_store: None,
             session_manager: None,
-            trigger_store: None,
             gate_channels: Vec::new(),
             running: Mutex::new(Vec::new()),
             escalation_tracker: Mutex::new(EscalationTracker::new(EscalationPolicy {
