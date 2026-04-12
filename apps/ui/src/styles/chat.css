@@ -922,14 +922,35 @@
   font-weight: 500;
   border-bottom-color: var(--text-primary);
 }
-.asv-session-tab-new {
-  font-size: 15px;
-  font-weight: 400;
-  color: var(--text-muted);
-  padding: 8px 12px;
+/* New session button */
+.asv-session-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: color 0.1s, background 0.1s;
+  white-space: nowrap;
 }
-.asv-session-tab-new:hover {
+.asv-session-new-btn:hover {
   color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.asv-session-tabs-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: center;
+  margin: 0 4px;
 }
 .asv-session-toggle,
 .asv-new-session {

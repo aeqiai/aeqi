@@ -506,11 +506,25 @@ interface SessionInfo {
   id: string;
   agent_id?: string;
   agent_name?: string;
+  name?: string;
   status: string;
   created_at: string;
   last_active?: string;
   message_count?: number;
   first_message?: string;
+}
+
+/** Derive a short display label for a session */
+function sessionLabel(s: SessionInfo): string {
+  // Use explicit name if set
+  if (s.name && s.name !== s.id && !s.name.startsWith("session-")) return s.name;
+  // Derive from first message — take first ~5 words, clean up
+  if (s.first_message) {
+    const words = s.first_message.replace(/[\n\r]+/g, " ").trim().split(/\s+/).slice(0, 6);
+    const label = words.join(" ");
+    return label.length > 32 ? label.slice(0, 30) + "..." : label;
+  }
+  return s.id.slice(0, 8);
 }
 
 interface AgentSessionProps {
@@ -675,12 +689,14 @@ export default function AgentSessionView({
     }
   }, []);
 
-  // Keyboard shortcuts: Cmd+P → prompt picker, Cmd+Q → quest picker
+  // Keyboard shortcuts: Cmd+P → idea picker, Cmd+Q → quest picker, Cmd+N → new session
   useEffect(() => {
-    if (activeSessionId) return; // only before first message
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key === "p") {
+      if (e.key === "n") {
+        e.preventDefault();
+        handleNewConversation();
+      } else if (e.key === "p") {
         e.preventDefault();
         setShowAttachPicker((prev) => (prev === "prompt" ? null : "prompt"));
         setAttachSearch("");
@@ -693,7 +709,8 @@ export default function AgentSessionView({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeSessionId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Recent prompts (stored in localStorage)
   const recentPromptNames = useMemo(() => {
@@ -1303,29 +1320,27 @@ export default function AgentSessionView({
     >
       {/* Session tabs */}
       <div className="asv-session-tabs" role="tablist">
-        {sessions.map((s) => {
-          const isActive = s.id === activeSessionId;
-          const label = s.first_message?.slice(0, 28) || s.id.slice(0, 8);
-          return (
-            <button
-              key={s.id}
-              role="tab"
-              aria-selected={isActive}
-              className={`asv-session-tab${isActive ? " active" : ""}`}
-              onClick={() => handleSelectSession(s.id)}
-              title={s.first_message || s.id}
-            >
-              {label}{s.first_message && s.first_message.length > 28 ? "..." : ""}
-            </button>
-          );
-        })}
         <button
-          className="asv-session-tab asv-session-tab-new"
+          className="asv-session-new-btn"
           onClick={handleNewConversation}
-          title="New session"
+          title="New session (⌘N)"
         >
-          +
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+          New
         </button>
+        <div className="asv-session-tabs-divider" />
+        {sessions.map((s) => (
+          <button
+            key={s.id}
+            role="tab"
+            aria-selected={s.id === activeSessionId}
+            className={`asv-session-tab${s.id === activeSessionId ? " active" : ""}`}
+            onClick={() => handleSelectSession(s.id)}
+            title={s.first_message || s.name || s.id}
+          >
+            {sessionLabel(s)}
+          </button>
+        ))}
       </div>
 
       {/* Message transcript */}
