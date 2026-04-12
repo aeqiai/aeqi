@@ -12,59 +12,41 @@ use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
 use aeqi_core::traits::{IdeaStore, IdeaCategory, IdeaQuery};
 
-/// Tool that surfaces OpenRouter key usage and per-project worker execution
-/// costs aggregated from `~/.aeqi/usage.jsonl`.
-pub struct UsageStatsTool {
-    api_key: Option<String>,
-}
+// ---------------------------------------------------------------------------
+// Helper: format quest detail
+// ---------------------------------------------------------------------------
 
-impl UsageStatsTool {
-    pub fn new(api_key: Option<String>) -> Self {
-        Self { api_key }
+/// Format an `aeqi_quests::Quest` into a human-readable detail string.
+fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
+    let mut out = format!(
+        "Quest: {} \nStatus: {:?}\nPriority: {}\nSubject: {}\n",
+        quest.id, quest.status, quest.priority, quest.name,
+    );
+    if !quest.description.is_empty() {
+        out.push_str(&format!("Description: {}\n", quest.description));
     }
-}
-
-#[async_trait]
-impl Tool for UsageStatsTool {
-    async fn execute(&self, _args: serde_json::Value) -> Result<ToolResult> {
-        let mut output = String::new();
-
-        output.push_str("**OpenRouter API Key**\n");
-        match &self.api_key {
-            Some(key) => match collect_openrouter_usage(key).await {
-                Ok(s) => output.push_str(&s),
-                Err(e) => output.push_str(&format!("  Error fetching key info: {e}\n")),
-            },
-            None => output.push_str("  (API key not configured)\n"),
-        }
-        output.push('\n');
-
-        output.push_str("**Worker Executions (all time)**\n");
-        match collect_worker_usage().await {
-            Ok(s) => output.push_str(&s),
-            Err(_) => output.push_str("  (no executions logged yet)\n"),
-        }
-
-        Ok(ToolResult::success(output))
+    if let Some(ref agent_id) = quest.agent_id {
+        out.push_str(&format!("Agent: {}\n", agent_id));
     }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "usage_stats".to_string(),
-            description:
-                "Get OpenRouter API key credit usage and per-project worker execution costs."
-                    .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {}
-            }),
+    if let Some(outcome) = quest.task_outcome() {
+        out.push_str(&format!("Outcome: {}\n", outcome.kind));
+        out.push_str(&format!("Outcome summary: {}\n", outcome.summary));
+        if let Some(reason) = outcome.reason {
+            out.push_str(&format!("Outcome reason: {}\n", reason));
         }
     }
-
-    fn name(&self) -> &str {
-        "usage_stats"
+    if quest.retry_count > 0 {
+        out.push_str(&format!("Retries: {}\n", quest.retry_count));
     }
+    if !quest.checkpoints.is_empty() {
+        out.push_str(&format!("Checkpoints: {}\n", quest.checkpoints.len()));
+    }
+    out
 }
+
+// ---------------------------------------------------------------------------
+// Helper: OpenRouter / worker usage
+// ---------------------------------------------------------------------------
 
 /// Query OpenRouter /api/v1/auth/key and return a formatted credit summary.
 pub async fn collect_openrouter_usage(api_key: &str) -> Result<String> {
@@ -158,19 +140,333 @@ pub fn usage_log_path() -> PathBuf {
         .join("usage.jsonl")
 }
 
-pub struct IdeaStoreTool {
-    memory: Arc<dyn IdeaStore>,
+// ===================================================================
+// 1. AGENTS TOOL — hire | retire | list | self
+// ===================================================================
+
+/// Unified agents tool combining hire, retire, list, and self-introspection.
+pub struct AgentsTool {
+    agent_name: String,
+    agent_registry: Arc<AgentRegistry>,
+    templates_dir: PathBuf,
+    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
 }
 
-impl IdeaStoreTool {
-    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
-        Self { memory }
+impl AgentsTool {
+    pub fn new(
+        agent_name: String,
+        agent_registry: Arc<AgentRegistry>,
+        templates_dir: PathBuf,
+        event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    ) -> Self {
+        Self {
+            agent_name,
+            agent_registry,
+            templates_dir,
+            event_handler_store,
+        }
+    }
+
+    async fn action_hire(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let template = args
+            .get("template")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'template'"))?;
+        let parent_id = args
+            .get("parent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&self.agent_name);
+
+        let template_path = self.templates_dir.join(template).join("agent.md");
+        let content = tokio::fs::read_to_string(&template_path)
+            .await
+            .with_context(|| format!("failed to read template: {}", template_path.display()))?;
+
+        let agent = self
+            .agent_registry
+            .spawn_from_template(&content, Some(parent_id))
+            .await?;
+
+        Ok(ToolResult::success(format!(
+            "Agent hired: {} (id: {}, template: {})",
+            agent.name, agent.id, template
+        )))
+    }
+
+    async fn action_retire(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let agent_hint = args
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'agent'"))?;
+
+        let agent = self
+            .agent_registry
+            .resolve_by_hint(agent_hint)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("agent not found: {agent_hint}"))?;
+
+        self.agent_registry
+            .set_status(&agent.id, crate::agent_registry::AgentStatus::Retired)
+            .await?;
+
+        Ok(ToolResult::success(format!(
+            "Agent '{}' (id: {}) retired.",
+            agent.name, agent.id
+        )))
+    }
+
+    async fn action_list(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let status_str = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("active");
+
+        let status_filter = match status_str {
+            "active" => Some(crate::agent_registry::AgentStatus::Active),
+            "paused" => Some(crate::agent_registry::AgentStatus::Paused),
+            "retired" => Some(crate::agent_registry::AgentStatus::Retired),
+            "all" => None,
+            _ => Some(crate::agent_registry::AgentStatus::Active),
+        };
+
+        let agents = self.agent_registry.list(None, status_filter).await?;
+
+        if agents.is_empty() {
+            return Ok(ToolResult::success(format!(
+                "No agents with status '{status_str}'."
+            )));
+        }
+
+        let mut output = String::new();
+        for agent in &agents {
+            output.push_str(&format!(
+                "- {} (id: {}, display: {}, status: {}, template: {})\n",
+                agent.name,
+                agent.id,
+                agent.display_name.as_deref().unwrap_or("-"),
+                agent.status,
+                agent.template,
+            ));
+        }
+        Ok(ToolResult::success(output))
+    }
+
+    async fn action_self(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let detail = args
+            .get("detail")
+            .and_then(|v| v.as_str())
+            .unwrap_or("all");
+
+        let agent = match self
+            .agent_registry
+            .get_active_by_name(&self.agent_name)
+            .await?
+        {
+            Some(a) => a,
+            None => {
+                return Ok(ToolResult::error(format!(
+                    "Could not find active agent with name: {}",
+                    self.agent_name
+                )));
+            }
+        };
+
+        let mut result = serde_json::Map::new();
+
+        if detail == "identity" || detail == "all" {
+            result.insert(
+                "identity".to_string(),
+                serde_json::json!({
+                    "id": agent.id,
+                    "name": agent.name,
+                    "display_name": agent.display_name,
+                    "model": agent.model,
+                    "status": format!("{}", agent.status),
+                    "capabilities": agent.capabilities,
+                    "created_at": agent.created_at.to_rfc3339(),
+                }),
+            );
+        }
+
+        if detail == "tree" || detail == "all" {
+            let ancestors = self
+                .agent_registry
+                .get_ancestors(&agent.id)
+                .await
+                .unwrap_or_default();
+            let parent_chain: Vec<serde_json::Value> = ancestors
+                .iter()
+                .skip(1)
+                .map(|a| {
+                    serde_json::json!({
+                        "id": a.id,
+                        "name": a.name,
+                        "display_name": a.display_name,
+                    })
+                })
+                .collect();
+
+            let children = self
+                .agent_registry
+                .get_children(&agent.id)
+                .await
+                .unwrap_or_default();
+            let children_list: Vec<serde_json::Value> = children
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "id": a.id,
+                        "name": a.name,
+                        "display_name": a.display_name,
+                        "status": format!("{}", a.status),
+                    })
+                })
+                .collect();
+
+            result.insert(
+                "tree".to_string(),
+                serde_json::json!({
+                    "parent_id": agent.parent_id,
+                    "ancestors": parent_chain,
+                    "children": children_list,
+                }),
+            );
+        }
+
+        if detail == "quests" || detail == "all" {
+            let quests = self
+                .agent_registry
+                .list_tasks(None, Some(&agent.id))
+                .await
+                .unwrap_or_default();
+            let quests_list: Vec<serde_json::Value> = quests
+                .iter()
+                .map(|q| {
+                    serde_json::json!({
+                        "id": q.id.0,
+                        "name": q.name,
+                        "status": format!("{:?}", q.status),
+                        "priority": format!("{}", q.priority),
+                    })
+                })
+                .collect();
+
+            result.insert("quests".to_string(), serde_json::json!(quests_list));
+        }
+
+        if detail == "events" || detail == "all" {
+            if let Some(ref ehs) = self.event_handler_store {
+                let events = ehs.list_for_agent(&agent.id).await.unwrap_or_default();
+                let events_list: Vec<serde_json::Value> = events
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "id": e.id,
+                            "name": e.name,
+                            "pattern": e.pattern,
+                            "scope": e.scope,
+                            "enabled": e.enabled,
+                        })
+                    })
+                    .collect();
+                result.insert("events".to_string(), serde_json::json!(events_list));
+            } else {
+                result.insert("events".to_string(), serde_json::json!([]));
+            }
+        }
+
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &serde_json::Value::Object(result),
+        )?))
     }
 }
 
 #[async_trait]
-impl Tool for IdeaStoreTool {
+impl Tool for AgentsTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let action = args
+            .get("action")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'action'"))?;
+
+        match action {
+            "hire" => self.action_hire(&args).await,
+            "retire" => self.action_retire(&args).await,
+            "list" => self.action_list(&args).await,
+            "self" => self.action_self(&args).await,
+            other => Ok(ToolResult::error(format!(
+                "Unknown action: {other}. Use: hire, retire, list, self"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "agents".to_string(),
+            description: "Manage agents: hire from template, retire, list, or introspect self.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["hire", "retire", "list", "self"],
+                        "description": "hire: spawn agent from template (needs template). retire: deactivate agent (needs agent). list: show agents (optional status). self: introspect own identity/tree/quests/events (optional detail)."
+                    },
+                    "template": {
+                        "type": "string",
+                        "description": "Template directory name, e.g. 'shadow', 'analyst' (for hire)"
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "description": "Parent agent ID — defaults to calling agent (for hire)"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent name or ID (for retire)"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["active", "paused", "retired", "all"],
+                        "description": "Filter by agent status (for list, default: active)"
+                    },
+                    "detail": {
+                        "type": "string",
+                        "enum": ["identity", "tree", "quests", "events", "all"],
+                        "description": "Which section to return (for self, default: all)"
+                    }
+                },
+                "required": ["action"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "agents"
+    }
+
+    fn is_concurrent_safe(&self, input: &serde_json::Value) -> bool {
+        matches!(
+            input.get("action").and_then(|v| v.as_str()),
+            Some("list") | Some("self")
+        )
+    }
+}
+
+// ===================================================================
+// 2. IDEAS TOOL — store | search | delete
+// ===================================================================
+
+/// Unified ideas tool combining store, search, and delete.
+pub struct IdeasTool {
+    memory: Arc<dyn IdeaStore>,
+}
+
+impl IdeasTool {
+    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
+        Self { memory }
+    }
+
+    async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let key = args
             .get("key")
             .and_then(|v| v.as_str())
@@ -194,41 +490,7 @@ impl Tool for IdeaStoreTool {
         }
     }
 
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "ideas_store".to_string(),
-            description: "Store a memory with semantic embeddings for later recall. Use for facts, preferences, patterns, and context worth remembering.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "key": { "type": "string", "description": "Short label for the memory (e.g. 'jwt-auth-preference')" },
-                    "content": { "type": "string", "description": "The memory content to store" },
-                    "category": { "type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "description": "Memory category (default: fact)" },
-                    "agent_id": { "type": "string", "description": "Agent ID to associate with this memory" }
-                },
-                "required": ["key", "content"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "ideas_store"
-    }
-}
-
-pub struct IdeaRecallTool {
-    memory: Arc<dyn IdeaStore>,
-}
-
-impl IdeaRecallTool {
-    pub fn new(memory: Arc<dyn IdeaStore>) -> Self {
-        Self { memory }
-    }
-}
-
-#[async_trait]
-impl Tool for IdeaRecallTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+    async fn action_search(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let query_text = args
             .get("query")
             .and_then(|v| v.as_str())
@@ -270,185 +532,76 @@ impl Tool for IdeaRecallTool {
             Err(e) => Ok(ToolResult::error(format!("Search failed: {e}"))),
         }
     }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "ideas_search".to_string(),
-            description: "Search memories using semantic similarity + keyword matching. Returns the most relevant memories ranked by hybrid score.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": { "type": "string", "description": "Natural language search query" },
-                    "top_k": { "type": "integer", "description": "Max results to return (default: 5)" },
-                    "agent_id": { "type": "string", "description": "Filter to a specific agent's memories" }
-                },
-                "required": ["query"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "ideas_search"
-    }
-}
-
-/// Format an `aeqi_quests::Quest` into a human-readable detail string.
-fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
-    let mut out = format!(
-        "Quest: {} \nStatus: {:?}\nPriority: {}\nSubject: {}\n",
-        quest.id, quest.status, quest.priority, quest.name,
-    );
-    if !quest.description.is_empty() {
-        out.push_str(&format!("Description: {}\n", quest.description));
-    }
-    if let Some(ref agent_id) = quest.agent_id {
-        out.push_str(&format!("Agent: {}\n", agent_id));
-    }
-    if let Some(outcome) = quest.task_outcome() {
-        out.push_str(&format!("Outcome: {}\n", outcome.kind));
-        out.push_str(&format!("Outcome summary: {}\n", outcome.summary));
-        if let Some(reason) = outcome.reason {
-            out.push_str(&format!("Outcome reason: {}\n", reason));
-        }
-    }
-    if quest.retry_count > 0 {
-        out.push_str(&format!("Retries: {}\n", quest.retry_count));
-    }
-    if !quest.checkpoints.is_empty() {
-        out.push_str(&format!("Checkpoints: {}\n", quest.checkpoints.len()));
-    }
-    out
-}
-
-/// Tool for reading full quest details by ID.
-pub struct QuestDetailTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl QuestDetailTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
 }
 
 #[async_trait]
-impl Tool for QuestDetailTool {
+impl Tool for IdeasTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let quest_id = args
-            .get("quest_id")
+        let action = args
+            .get("action")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'action'"))?;
 
-        match self.agent_registry.get_task(quest_id).await {
-            Ok(Some(quest)) => Ok(ToolResult::success(format_quest_detail(&quest))),
-            Ok(None) => Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
-        }
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "quests_show".to_string(),
-            description: "Read full details of a quest by its ID.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "quest_id": { "type": "string", "description": "Quest ID (e.g. 'as-001')" }
-                },
-                "required": ["quest_id"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "quests_show"
-    }
-}
-
-/// Tool for cancelling a quest by ID.
-pub struct QuestCancelTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl QuestCancelTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for QuestCancelTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let quest_id = args
-            .get("quest_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
-        let reason = args
-            .get("reason")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Cancelled by leader agent");
-
-        let reason_owned = reason.to_string();
-        match self
-            .agent_registry
-            .update_task(quest_id, |q| {
-                q.status = aeqi_quests::QuestStatus::Cancelled;
-                q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
-                    aeqi_quests::QuestOutcomeKind::Cancelled,
-                    &reason_owned,
-                ));
-            })
-            .await
-        {
-            Ok(_) => Ok(ToolResult::success(format!("Quest {quest_id} cancelled."))),
-            Err(e) => Ok(ToolResult::error(format!(
-                "Failed to cancel quest {quest_id}: {e}"
+        match action {
+            "store" => self.action_store(&args).await,
+            "search" => self.action_search(&args).await,
+            "delete" => Ok(ToolResult::error(
+                "delete action not yet implemented".to_string(),
+            )),
+            other => Ok(ToolResult::error(format!(
+                "Unknown action: {other}. Use: store, search, delete"
             ))),
         }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "quests_cancel".to_string(),
-            description: "Cancel a quest by its ID.".to_string(),
+            name: "ideas".to_string(),
+            description: "Store, search, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "quest_id": { "type": "string", "description": "Quest ID to cancel" },
-                    "reason": { "type": "string", "description": "Reason for cancellation" }
+                    "action": {
+                        "type": "string",
+                        "enum": ["store", "search", "delete"],
+                        "description": "store: save a memory (needs key, content). search: find memories (needs query). delete: remove a memory (not yet implemented)."
+                    },
+                    "key": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store)" },
+                    "content": { "type": "string", "description": "The memory content to store (for store)" },
+                    "category": { "type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "description": "Memory category (for store, default: fact)" },
+                    "agent_id": { "type": "string", "description": "Agent ID to scope memories (for store, search)" },
+                    "query": { "type": "string", "description": "Natural language search query (for search)" },
+                    "top_k": { "type": "integer", "description": "Max results to return (for search, default: 5)" }
                 },
-                "required": ["quest_id"]
+                "required": ["action"]
             }),
         }
     }
 
     fn name(&self) -> &str {
-        "quests_cancel"
+        "ideas"
     }
 }
 
-// ---------------------------------------------------------------------------
-// Quest CRUD tools (SQLite-backed via AgentRegistry)
-// ---------------------------------------------------------------------------
+// ===================================================================
+// 3. QUESTS TOOL — create | list | show | update | close | cancel
+// ===================================================================
 
-/// Create a quest on self or a named agent.
-pub struct QuestCreateTool {
+/// Unified quests tool combining create, list, show, update, close, cancel.
+pub struct QuestsTool {
     agent_registry: Arc<AgentRegistry>,
     agent_name: String,
 }
 
-impl QuestCreateTool {
+impl QuestsTool {
     pub fn new(agent_registry: Arc<AgentRegistry>, agent_name: String) -> Self {
         Self {
             agent_registry,
             agent_name,
         }
     }
-}
 
-#[async_trait]
-impl Tool for QuestCreateTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+    async fn action_create(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let agent_hint = args
             .get("agent")
             .and_then(|v| v.as_str())
@@ -466,7 +619,6 @@ impl Tool for QuestCreateTool {
             .and_then(|v| v.as_str())
             .unwrap_or("normal");
 
-        // Resolve agent name/hint to a registered agent.
         let agent = match self.agent_registry.resolve_by_hint(agent_hint).await {
             Ok(Some(a)) => a,
             Ok(None) => {
@@ -494,7 +646,6 @@ impl Tool for QuestCreateTool {
             }
         };
 
-        // Apply non-default priority if requested.
         let quest_id = quest.id.0.clone();
         if priority_str != "normal" {
             let priority = match priority_str.to_lowercase().as_str() {
@@ -522,46 +673,10 @@ impl Tool for QuestCreateTool {
         )))
     }
 
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "quests_create".to_string(),
-            description: "Create a new quest on self or a named agent.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "agent": { "type": "string", "description": "Agent name or ID (defaults to self)" },
-                    "subject": { "type": "string", "description": "Short title for the quest" },
-                    "description": { "type": "string", "description": "Detailed description of the quest" },
-                    "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority level (default: normal)" }
-                },
-                "required": ["subject"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "quests_create"
-    }
-}
-
-/// List quests filtered by status and/or agent.
-pub struct QuestListTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl QuestListTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for QuestListTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+    async fn action_list(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let status = args.get("status").and_then(|v| v.as_str());
         let agent_hint = args.get("agent").and_then(|v| v.as_str());
 
-        // Resolve agent hint to agent ID if provided.
         let agent_id = match agent_hint {
             Some(hint) => match self.agent_registry.resolve_by_hint(hint).await {
                 Ok(Some(a)) => Some(a.id),
@@ -614,39 +729,20 @@ impl Tool for QuestListTool {
         Ok(ToolResult::success(out))
     }
 
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "quests_list".to_string(),
-            description: "List quests, optionally filtered by status and/or agent.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter by quest status" },
-                    "agent": { "type": "string", "description": "Filter by agent name or ID" }
-                }
-            }),
+    async fn action_show(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let quest_id = args
+            .get("quest_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+
+        match self.agent_registry.get_task(quest_id).await {
+            Ok(Some(quest)) => Ok(ToolResult::success(format_quest_detail(&quest))),
+            Ok(None) => Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
         }
     }
 
-    fn name(&self) -> &str {
-        "quests_list"
-    }
-}
-
-/// Update a quest's status and/or priority.
-pub struct QuestUpdateTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl QuestUpdateTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for QuestUpdateTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+    async fn action_update(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let quest_id = args
             .get("quest_id")
             .and_then(|v| v.as_str())
@@ -697,7 +793,6 @@ impl Tool for QuestUpdateTool {
             None => None,
         };
 
-        // Update status if provided.
         if let Some(new_status) = status
             && let Err(e) = self
                 .agent_registry
@@ -709,7 +804,6 @@ impl Tool for QuestUpdateTool {
             )));
         }
 
-        // Update priority if provided.
         if let Some(new_priority) = priority
             && let Err(e) = self
                 .agent_registry
@@ -733,41 +827,7 @@ impl Tool for QuestUpdateTool {
         Ok(ToolResult::success(msg))
     }
 
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "quests_update".to_string(),
-            description: "Update a quest's status and/or priority.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "quest_id": { "type": "string", "description": "Quest ID (e.g. 'as-001')" },
-                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "New status" },
-                    "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "New priority level" }
-                },
-                "required": ["quest_id"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "quests_update"
-    }
-}
-
-/// Complete a quest with a result summary.
-pub struct QuestCloseTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl QuestCloseTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for QuestCloseTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+    async fn action_close(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let quest_id = args
             .get("quest_id")
             .and_then(|v| v.as_str())
@@ -798,617 +858,77 @@ impl Tool for QuestCloseTool {
         }
     }
 
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "quests_close".to_string(),
-            description: "Complete a quest with a result summary.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "quest_id": { "type": "string", "description": "Quest ID to close" },
-                    "result": { "type": "string", "description": "Text summary of the quest result" }
-                },
-                "required": ["quest_id", "result"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "quests_close"
-    }
-}
-
-// ---------------------------------------------------------------------------
-// AgentsHireTool — spawn a child agent from a template
-// ---------------------------------------------------------------------------
-
-/// Tool for spawning a child agent from a template file.
-pub struct AgentsHireTool {
-    agent_registry: Arc<AgentRegistry>,
-    caller_agent_id: String,
-    templates_dir: PathBuf,
-}
-
-impl AgentsHireTool {
-    pub fn new(
-        agent_registry: Arc<AgentRegistry>,
-        caller_agent_id: String,
-        templates_dir: PathBuf,
-    ) -> Self {
-        Self {
-            agent_registry,
-            caller_agent_id,
-            templates_dir,
-        }
-    }
-}
-
-#[async_trait]
-impl Tool for AgentsHireTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let template = args
-            .get("template")
+    async fn action_cancel(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let quest_id = args
+            .get("quest_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'template'"))?;
-        let parent_id = args
-            .get("parent_id")
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+        let reason = args
+            .get("reason")
             .and_then(|v| v.as_str())
-            .unwrap_or(&self.caller_agent_id);
+            .unwrap_or("Cancelled by leader agent");
 
-        let template_path = self.templates_dir.join(template).join("agent.md");
-        let content = tokio::fs::read_to_string(&template_path)
+        let reason_owned = reason.to_string();
+        match self
+            .agent_registry
+            .update_task(quest_id, |q| {
+                q.status = aeqi_quests::QuestStatus::Cancelled;
+                q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                    aeqi_quests::QuestOutcomeKind::Cancelled,
+                    &reason_owned,
+                ));
+            })
             .await
-            .with_context(|| format!("failed to read template: {}", template_path.display()))?;
-
-        let agent = self
-            .agent_registry
-            .spawn_from_template(&content, Some(parent_id))
-            .await?;
-
-        Ok(ToolResult::success(format!(
-            "Agent hired: {} (id: {}, template: {})",
-            agent.name, agent.id, template
-        )))
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "agents_hire".to_string(),
-            description: "Spawn a child agent from a template. Reads the template file and registers a new agent in the hierarchy.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "template": {
-                        "type": "string",
-                        "description": "Template directory name (e.g. 'shadow', 'analyst')"
-                    },
-                    "display_name": {
-                        "type": "string",
-                        "description": "Optional display name for the new agent"
-                    },
-                    "parent_id": {
-                        "type": "string",
-                        "description": "Parent agent ID (defaults to the calling agent)"
-                    }
-                },
-                "required": ["template"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "agents_hire"
-    }
-
-    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
-        false
-    }
-}
-
-// ---------------------------------------------------------------------------
-// AgentsRetireTool — retire an agent
-// ---------------------------------------------------------------------------
-
-/// Tool for retiring an agent by name or ID.
-pub struct AgentsRetireTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl AgentsRetireTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for AgentsRetireTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let agent_hint = args
-            .get("agent")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'agent'"))?;
-
-        let agent = self
-            .agent_registry
-            .resolve_by_hint(agent_hint)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("agent not found: {agent_hint}"))?;
-
-        self.agent_registry
-            .set_status(&agent.id, crate::agent_registry::AgentStatus::Retired)
-            .await?;
-
-        Ok(ToolResult::success(format!(
-            "Agent '{}' (id: {}) retired.",
-            agent.name, agent.id
-        )))
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "agents_retire".to_string(),
-            description:
-                "Retire an agent by name or ID. The agent will no longer be scheduled for work."
-                    .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "agent": {
-                        "type": "string",
-                        "description": "Agent name or ID to retire"
-                    }
-                },
-                "required": ["agent"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "agents_retire"
-    }
-
-    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
-        false
-    }
-}
-
-// ---------------------------------------------------------------------------
-// AgentsListTool — list agents
-// ---------------------------------------------------------------------------
-
-/// Tool for listing agents, optionally filtered by status.
-pub struct AgentsListTool {
-    agent_registry: Arc<AgentRegistry>,
-}
-
-impl AgentsListTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>) -> Self {
-        Self { agent_registry }
-    }
-}
-
-#[async_trait]
-impl Tool for AgentsListTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let status_str = args
-            .get("status")
-            .and_then(|v| v.as_str())
-            .unwrap_or("active");
-
-        let status_filter = match status_str {
-            "active" => Some(crate::agent_registry::AgentStatus::Active),
-            "paused" => Some(crate::agent_registry::AgentStatus::Paused),
-            "retired" => Some(crate::agent_registry::AgentStatus::Retired),
-            "all" => None,
-            _ => Some(crate::agent_registry::AgentStatus::Active),
-        };
-
-        let agents = self.agent_registry.list(None, status_filter).await?;
-
-        if agents.is_empty() {
-            return Ok(ToolResult::success(format!(
-                "No agents with status '{status_str}'."
-            )));
-        }
-
-        let mut output = String::new();
-        for agent in &agents {
-            output.push_str(&format!(
-                "- {} (id: {}, display: {}, status: {}, template: {})\n",
-                agent.name,
-                agent.id,
-                agent.display_name.as_deref().unwrap_or("-"),
-                agent.status,
-                agent.template,
-            ));
-        }
-        Ok(ToolResult::success(output))
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "agents_list".to_string(),
-            description:
-                "List agents, optionally filtered by status (active, paused, retired, all)."
-                    .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "enum": ["active", "paused", "retired", "all"],
-                        "default": "active",
-                        "description": "Filter by agent status (default: active)"
-                    }
-                }
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "agents_list"
-    }
-
-    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
-        true
-    }
-}
-
-// ---------------------------------------------------------------------------
-// AgentSelfTool — introspection: identity, tree position, quests, events
-// ---------------------------------------------------------------------------
-
-/// Tool for agents to introspect their own identity, hierarchy position,
-/// active quests, and event handlers.
-pub struct AgentSelfTool {
-    agent_name: String,
-    agent_registry: Arc<AgentRegistry>,
-    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
-}
-
-impl AgentSelfTool {
-    pub fn new(
-        agent_name: String,
-        agent_registry: Arc<AgentRegistry>,
-        event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
-    ) -> Self {
-        Self {
-            agent_name,
-            agent_registry,
-            event_handler_store,
-        }
-    }
-}
-
-#[async_trait]
-impl Tool for AgentSelfTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let detail = args
-            .get("detail")
-            .and_then(|v| v.as_str())
-            .unwrap_or("all");
-
-        // Look up self by name.
-        let agent = match self
-            .agent_registry
-            .get_active_by_name(&self.agent_name)
-            .await?
         {
-            Some(a) => a,
-            None => {
-                return Ok(ToolResult::error(format!(
-                    "Could not find active agent with name: {}",
-                    self.agent_name
-                )));
-            }
-        };
-
-        let mut result = serde_json::Map::new();
-
-        // Identity section.
-        if detail == "identity" || detail == "all" {
-            result.insert(
-                "identity".to_string(),
-                serde_json::json!({
-                    "id": agent.id,
-                    "name": agent.name,
-                    "display_name": agent.display_name,
-                    "model": agent.model,
-                    "status": format!("{}", agent.status),
-                    "capabilities": agent.capabilities,
-                    "created_at": agent.created_at.to_rfc3339(),
-                }),
-            );
+            Ok(_) => Ok(ToolResult::success(format!("Quest {quest_id} cancelled."))),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to cancel quest {quest_id}: {e}"
+            ))),
         }
-
-        // Tree section.
-        if detail == "tree" || detail == "all" {
-            let ancestors = self
-                .agent_registry
-                .get_ancestors(&agent.id)
-                .await
-                .unwrap_or_default();
-            // get_ancestors returns the chain starting from self, so skip self.
-            let parent_chain: Vec<serde_json::Value> = ancestors
-                .iter()
-                .skip(1)
-                .map(|a| {
-                    serde_json::json!({
-                        "id": a.id,
-                        "name": a.name,
-                        "display_name": a.display_name,
-                    })
-                })
-                .collect();
-
-            let children = self
-                .agent_registry
-                .get_children(&agent.id)
-                .await
-                .unwrap_or_default();
-            let children_list: Vec<serde_json::Value> = children
-                .iter()
-                .map(|a| {
-                    serde_json::json!({
-                        "id": a.id,
-                        "name": a.name,
-                        "display_name": a.display_name,
-                        "status": format!("{}", a.status),
-                    })
-                })
-                .collect();
-
-            result.insert(
-                "tree".to_string(),
-                serde_json::json!({
-                    "parent_id": agent.parent_id,
-                    "ancestors": parent_chain,
-                    "children": children_list,
-                }),
-            );
-        }
-
-        // Quests section.
-        if detail == "quests" || detail == "all" {
-            let quests = self
-                .agent_registry
-                .list_tasks(None, Some(&agent.id))
-                .await
-                .unwrap_or_default();
-            let quests_list: Vec<serde_json::Value> = quests
-                .iter()
-                .map(|q| {
-                    serde_json::json!({
-                        "id": q.id.0,
-                        "name": q.name,
-                        "status": format!("{:?}", q.status),
-                        "priority": format!("{}", q.priority),
-                    })
-                })
-                .collect();
-
-            result.insert("quests".to_string(), serde_json::json!(quests_list));
-        }
-
-        // Events section.
-        if detail == "events" || detail == "all" {
-            if let Some(ref ehs) = self.event_handler_store {
-                let events = ehs.list_for_agent(&agent.id).await.unwrap_or_default();
-                let events_list: Vec<serde_json::Value> = events
-                    .iter()
-                    .map(|e| {
-                        serde_json::json!({
-                            "id": e.id,
-                            "name": e.name,
-                            "pattern": e.pattern,
-                            "scope": e.scope,
-                            "enabled": e.enabled,
-                        })
-                    })
-                    .collect();
-                result.insert("events".to_string(), serde_json::json!(events_list));
-            } else {
-                result.insert("events".to_string(), serde_json::json!([]));
-            }
-        }
-
-        Ok(ToolResult::success(serde_json::to_string_pretty(
-            &serde_json::Value::Object(result),
-        )?))
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "agent_self".to_string(),
-            description: "Introspect: see your own identity, position in the agent tree, active quests, and event handlers.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "detail": {
-                        "type": "string",
-                        "enum": ["identity", "tree", "quests", "events", "all"],
-                        "description": "Which section to return (default: all)"
-                    }
-                }
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "agent_self"
-    }
-}
-
-pub fn build_orchestration_tools(
-    leader_name: String,
-    _default_project: String,
-    _project_name: Option<String>,
-    _activity_log: Arc<ActivityLog>,
-    _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
-    api_key: Option<String>,
-    memory: Option<Arc<dyn IdeaStore>>,
-    graph_db_path: Option<PathBuf>,
-    _session_id: Option<String>,
-    _provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
-    _session_store: Option<Arc<crate::SessionStore>>,
-    _session_manager: Option<Arc<crate::session_manager::SessionManager>>,
-    _default_model: String,
-    agent_registry: Arc<crate::agent_registry::AgentRegistry>,
-) -> Vec<Arc<dyn Tool>> {
-    // Quest tools.
-    let detail_tool = QuestDetailTool::new(agent_registry.clone());
-    let cancel_tool = QuestCancelTool::new(agent_registry.clone());
-    let create_tool = QuestCreateTool::new(agent_registry.clone(), leader_name.clone());
-    let quest_list_tool = QuestListTool::new(agent_registry.clone());
-    let update_tool = QuestUpdateTool::new(agent_registry.clone());
-    let close_tool = QuestCloseTool::new(agent_registry.clone());
-
-    // Agent management tools.
-    let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
-    let hire_tool = AgentsHireTool::new(agent_registry.clone(), leader_name.clone(), templates_dir);
-    let retire_tool = AgentsRetireTool::new(agent_registry.clone());
-    let list_tool = AgentsListTool::new(agent_registry.clone());
-
-    // Events: single unified tool (events_manage) via TriggerManageTool.
-    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(agent_registry.db()));
-    let events_manage_tool = TriggerManageTool::new(event_handler_store.clone(), leader_name.clone());
-
-    // Self-introspection tool.
-    let agent_self_tool = AgentSelfTool::new(
-        leader_name.clone(),
-        agent_registry.clone(),
-        Some(event_handler_store),
-    );
-
-    let mut tools: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(detail_tool),
-        Arc::new(cancel_tool),
-        Arc::new(create_tool),
-        Arc::new(quest_list_tool),
-        Arc::new(update_tool),
-        Arc::new(close_tool),
-        Arc::new(UsageStatsTool::new(api_key)),
-        Arc::new(hire_tool),
-        Arc::new(retire_tool),
-        Arc::new(list_tool),
-        Arc::new(events_manage_tool),
-        Arc::new(agent_self_tool),
-    ];
-
-    if let Some(mem) = memory {
-        tools.push(Arc::new(IdeaStoreTool::new(mem.clone())));
-        tools.push(Arc::new(IdeaRecallTool::new(mem)));
-    }
-
-    if let Some(gp) = graph_db_path {
-        tools.push(Arc::new(GraphTool::new(gp)));
-    }
-
-    tools
-}
-
-// ---------------------------------------------------------------------------
-// GraphTool — code intelligence via aeqi-graph
-// ---------------------------------------------------------------------------
-
-/// Tool exposing code graph queries: search symbols, get context, analyze impact.
-pub struct GraphTool {
-    db_path: PathBuf,
-}
-
-impl GraphTool {
-    pub fn new(db_path: PathBuf) -> Self {
-        Self { db_path }
     }
 }
 
 #[async_trait]
-impl Tool for GraphTool {
+impl Tool for QuestsTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let action = args
             .get("action")
             .and_then(|v| v.as_str())
-            .unwrap_or("stats");
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'action'"))?;
 
-        let store = match aeqi_graph::GraphStore::open(&self.db_path) {
-            Ok(s) => s,
-            Err(e) => return Ok(ToolResult::error(format!("graph DB not available: {e}"))),
-        };
-
-        let result = match action {
-            "search" => {
-                let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
-                let results = store.search_nodes(query, limit)?;
-                serde_json::json!({
-                    "count": results.len(),
-                    "nodes": results,
-                })
-            }
-            "context" => {
-                let node_id = args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
-                let ctx = store.context(node_id)?;
-                serde_json::json!({
-                    "node": ctx.node,
-                    "callers": ctx.callers,
-                    "callees": ctx.callees,
-                    "implementors": ctx.implementors,
-                })
-            }
-            "impact" => {
-                let node_id = args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
-                let depth = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
-                let entries = store.impact(&[node_id], depth)?;
-                let affected: Vec<serde_json::Value> = entries
-                    .iter()
-                    .map(|e| {
-                        serde_json::json!({
-                            "node": e.node.name,
-                            "file": e.node.file_path,
-                            "depth": e.depth,
-                        })
-                    })
-                    .collect();
-                serde_json::json!({"affected": affected})
-            }
-            "file" => {
-                let file_path = args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
-                let nodes = store.nodes_in_file(file_path)?;
-                serde_json::json!({
-                    "file": file_path,
-                    "count": nodes.len(),
-                    "symbols": nodes,
-                })
-            }
-            "stats" => {
-                let stats = store.stats()?;
-                serde_json::json!({"stats": format!("{stats:?}")})
-            }
-            _ => {
-                return Ok(ToolResult::error(format!("unknown graph action: {action}")));
-            }
-        };
-
-        Ok(ToolResult::success(serde_json::to_string_pretty(&result)?))
+        match action {
+            "create" => self.action_create(&args).await,
+            "list" => self.action_list(&args).await,
+            "show" => self.action_show(&args).await,
+            "update" => self.action_update(&args).await,
+            "close" => self.action_close(&args).await,
+            "cancel" => self.action_cancel(&args).await,
+            other => Ok(ToolResult::error(format!(
+                "Unknown action: {other}. Use: create, list, show, update, close, cancel"
+            ))),
+        }
     }
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "code_graph".to_string(),
-            description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius, list symbols in a file.".to_string(),
+            name: "quests".to_string(),
+            description: "Manage quests: create, list, show details, update status/priority, close with result, or cancel.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["search", "context", "impact", "file", "stats"],
-                        "description": "search=FTS symbol search, context=360° view, impact=blast radius, file=symbols in a file, stats=graph statistics"
+                        "enum": ["create", "list", "show", "update", "close", "cancel"],
+                        "description": "create: make a new quest (needs subject). list: show quests (optional status, agent). show: quest details (needs quest_id). update: change status/priority (needs quest_id). close: complete with result (needs quest_id, result). cancel: abort (needs quest_id)."
                     },
-                    "query": {"type": "string", "description": "Search query (for search action)"},
-                    "node_id": {"type": "string", "description": "Node ID (for context/impact actions)"},
-                    "file_path": {"type": "string", "description": "File path (for file action)"},
-                    "depth": {"type": "integer", "description": "Impact depth (default 3)"},
-                    "limit": {"type": "integer", "description": "Max results (default 10)"}
+                    "quest_id": { "type": "string", "description": "Quest ID (for show/update/close/cancel)" },
+                    "subject": { "type": "string", "description": "Quest subject (for create)" },
+                    "description": { "type": "string", "description": "Quest description (for create)" },
+                    "agent": { "type": "string", "description": "Target agent name (for create, list)" },
+                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)" },
+                    "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)" },
+                    "result": { "type": "string", "description": "Completion result (for close)" },
+                    "reason": { "type": "string", "description": "Cancellation reason (for cancel)" }
                 },
                 "required": ["action"]
             }),
@@ -1416,23 +936,26 @@ impl Tool for GraphTool {
     }
 
     fn name(&self) -> &str {
-        "code_graph"
+        "quests"
     }
 }
 
-// ---------------------------------------------------------------------------
-// TriggerManageTool — CRUD for agent-owned event handlers
-// ---------------------------------------------------------------------------
+// ===================================================================
+// 4. EVENTS TOOL — create | list | enable | disable | delete
+// ===================================================================
 
-/// Tool for creating, listing, enabling, disabling, and deleting event handlers.
-/// Scoped to the calling agent's own events.
-pub struct TriggerManageTool {
+/// Unified events tool for CRUD on agent-owned event handlers.
+/// Renamed from TriggerManageTool; same logic.
+pub struct EventsTool {
     event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
     agent_id: String,
 }
 
-impl TriggerManageTool {
-    pub fn new(event_handler_store: Arc<crate::event_handler::EventHandlerStore>, agent_id: String) -> Self {
+impl EventsTool {
+    pub fn new(
+        event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
+        agent_id: String,
+    ) -> Self {
         Self {
             event_handler_store,
             agent_id,
@@ -1441,7 +964,7 @@ impl TriggerManageTool {
 }
 
 #[async_trait]
-impl Tool for TriggerManageTool {
+impl Tool for EventsTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let action = args
             .get("action")
@@ -1465,7 +988,6 @@ impl Tool for TriggerManageTool {
                     .unwrap_or("self")
                     .to_string();
 
-                // Build pattern from schedule, event_pattern, or raw pattern.
                 let pattern = if let Some(schedule) =
                     args.get("schedule").and_then(|v| v.as_str())
                 {
@@ -1482,7 +1004,6 @@ impl Tool for TriggerManageTool {
                     });
                 };
 
-                // Content: explicit content field, or fall back to legacy "skill".
                 let content = args.get("content").and_then(|v| v.as_str()).map(String::from)
                     .or_else(|| args.get("skill").and_then(|v| v.as_str()).map(String::from));
 
@@ -1606,7 +1127,7 @@ impl Tool for TriggerManageTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "events_manage".to_string(),
+            name: "events".to_string(),
             description: "Create, list, enable, disable, or delete event handlers for this agent. Events automate recurring quests on a schedule or in response to lifecycle events.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -1660,7 +1181,7 @@ impl Tool for TriggerManageTool {
     }
 
     fn name(&self) -> &str {
-        "events_manage"
+        "events"
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
@@ -1668,100 +1189,9 @@ impl Tool for TriggerManageTool {
     }
 }
 
-// ChannelPostTool removed — routing is handled by DelegateTool.
-
-// ---------------------------------------------------------------------------
-// TranscriptSearchTool — FTS search across past session transcripts
-// ---------------------------------------------------------------------------
-
-/// Tool for agents to search past session transcripts via FTS5.
-pub struct TranscriptSearchTool {
-    session_store: Arc<crate::SessionStore>,
-}
-
-impl TranscriptSearchTool {
-    pub fn new(session_store: Arc<crate::SessionStore>) -> Self {
-        Self { session_store }
-    }
-}
-
-#[async_trait]
-impl Tool for TranscriptSearchTool {
-    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let query = args
-            .get("query")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("'query' is required"))?;
-        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
-
-        match self.session_store.search_transcripts(query, limit).await {
-            Ok(messages) => {
-                if messages.is_empty() {
-                    return Ok(ToolResult {
-                        output: "No transcript matches found.".to_string(),
-                        is_error: false,
-                        context_modifier: None,
-                    });
-                }
-                let results: Vec<String> = messages
-                    .iter()
-                    .map(|m| {
-                        let preview: String = m.content.chars().take(200).collect();
-                        format!(
-                            "[{}] {}: {}",
-                            m.timestamp.format("%Y-%m-%d %H:%M"),
-                            m.role,
-                            preview
-                        )
-                    })
-                    .collect();
-                Ok(ToolResult {
-                    output: format!("{} matches:\n{}", results.len(), results.join("\n\n")),
-                    is_error: false,
-                    context_modifier: None,
-                })
-            }
-            Err(e) => Ok(ToolResult {
-                output: format!("Transcript search failed: {e}"),
-                is_error: true,
-                context_modifier: None,
-            }),
-        }
-    }
-
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
-            name: "transcript_search".to_string(),
-            description: "Search past session transcripts. Returns matching messages from previous agent sessions. Use when you need to recall HOW you solved something.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query (FTS5 syntax: words, phrases in quotes, OR/AND/NOT)"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Max results (default 10)"
-                    }
-                },
-                "required": ["query"]
-            }),
-        }
-    }
-
-    fn name(&self) -> &str {
-        "transcript_search"
-    }
-
-    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
-        true
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Sandboxed Shell Tool — wraps shell commands in bubblewrap for session isolation
-// ---------------------------------------------------------------------------
+// ===================================================================
+// 5. SHELL — unchanged (SandboxedShellTool stays as-is)
+// ===================================================================
 
 /// Shell tool that executes commands inside a bubblewrap sandbox scoped to a
 /// git worktree. Network is disabled; only the worktree is writable.
@@ -1794,7 +1224,6 @@ impl Tool for SandboxedShellTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing 'command' argument"))?;
 
-        // Parse timeout: arg in ms, default to self.timeout_secs * 1000, cap at 600_000ms.
         let timeout_ms = args
             .get("timeout")
             .and_then(|v| v.as_u64())
@@ -1825,7 +1254,6 @@ impl Tool for SandboxedShellTool {
 
             let pid = child.id().unwrap_or(0);
 
-            // Reap child to prevent zombies.
             tokio::spawn(async move {
                 let _ = child.wait().await;
             });
@@ -1860,7 +1288,6 @@ impl Tool for SandboxedShellTool {
                     result_text = "(no output)".to_string();
                 }
 
-                // Truncate if too long.
                 if result_text.len() > 30000 {
                     result_text.truncate(30000);
                     result_text.push_str("\n... (output truncated)");
@@ -1915,4 +1342,294 @@ impl Tool for SandboxedShellTool {
     fn name(&self) -> &str {
         "shell"
     }
+}
+
+// ===================================================================
+// 6. CODE TOOL — search | graph | transcript | usage
+// ===================================================================
+
+/// Unified code intelligence tool combining graph queries, transcript search,
+/// and usage statistics.
+pub struct CodeTool {
+    db_path: Option<PathBuf>,
+    session_store: Option<Arc<crate::SessionStore>>,
+    api_key: Option<String>,
+}
+
+impl CodeTool {
+    pub fn new(
+        db_path: Option<PathBuf>,
+        session_store: Option<Arc<crate::SessionStore>>,
+        api_key: Option<String>,
+    ) -> Self {
+        Self {
+            db_path,
+            session_store,
+            api_key,
+        }
+    }
+
+    async fn action_graph(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let db_path = match &self.db_path {
+            Some(p) => p,
+            None => return Ok(ToolResult::error("code graph not available (no DB path configured)".to_string())),
+        };
+
+        let sub_action = args
+            .get("sub_action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("stats");
+
+        let store = match aeqi_graph::GraphStore::open(db_path) {
+            Ok(s) => s,
+            Err(e) => return Ok(ToolResult::error(format!("graph DB not available: {e}"))),
+        };
+
+        let result = match sub_action {
+            "search" => {
+                let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+                let results = store.search_nodes(query, limit)?;
+                serde_json::json!({
+                    "count": results.len(),
+                    "nodes": results,
+                })
+            }
+            "context" => {
+                let node_id = args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+                let ctx = store.context(node_id)?;
+                serde_json::json!({
+                    "node": ctx.node,
+                    "callers": ctx.callers,
+                    "callees": ctx.callees,
+                    "implementors": ctx.implementors,
+                })
+            }
+            "impact" => {
+                let node_id = args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+                let depth = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
+                let entries = store.impact(&[node_id], depth)?;
+                let affected: Vec<serde_json::Value> = entries
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "node": e.node.name,
+                            "file": e.node.file_path,
+                            "depth": e.depth,
+                        })
+                    })
+                    .collect();
+                serde_json::json!({"affected": affected})
+            }
+            "file" => {
+                let file_path = args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+                let nodes = store.nodes_in_file(file_path)?;
+                serde_json::json!({
+                    "file": file_path,
+                    "count": nodes.len(),
+                    "symbols": nodes,
+                })
+            }
+            "stats" => {
+                let stats = store.stats()?;
+                serde_json::json!({"stats": format!("{stats:?}")})
+            }
+            _ => {
+                return Ok(ToolResult::error(format!(
+                    "unknown graph sub_action: {sub_action}. Use: search, context, impact, file, stats"
+                )));
+            }
+        };
+
+        Ok(ToolResult::success(serde_json::to_string_pretty(&result)?))
+    }
+
+    async fn action_transcript(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let ss = match &self.session_store {
+            Some(s) => s,
+            None => return Ok(ToolResult::error("transcript search not available (no session store configured)".to_string())),
+        };
+
+        let query = args
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("'query' is required"))?;
+        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+
+        match ss.search_transcripts(query, limit).await {
+            Ok(messages) => {
+                if messages.is_empty() {
+                    return Ok(ToolResult {
+                        output: "No transcript matches found.".to_string(),
+                        is_error: false,
+                        context_modifier: None,
+                    });
+                }
+                let results: Vec<String> = messages
+                    .iter()
+                    .map(|m| {
+                        let preview: String = m.content.chars().take(200).collect();
+                        format!(
+                            "[{}] {}: {}",
+                            m.timestamp.format("%Y-%m-%d %H:%M"),
+                            m.role,
+                            preview
+                        )
+                    })
+                    .collect();
+                Ok(ToolResult {
+                    output: format!("{} matches:\n{}", results.len(), results.join("\n\n")),
+                    is_error: false,
+                    context_modifier: None,
+                })
+            }
+            Err(e) => Ok(ToolResult {
+                output: format!("Transcript search failed: {e}"),
+                is_error: true,
+                context_modifier: None,
+            }),
+        }
+    }
+
+    async fn action_search(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        // Convenience: "search" dispatches to graph search by default.
+        self.action_graph(&{
+            let mut a = args.clone();
+            a.as_object_mut().map(|m| m.insert("sub_action".to_string(), serde_json::json!("search")));
+            a
+        }).await
+    }
+
+    async fn action_usage(&self) -> Result<ToolResult> {
+        let mut output = String::new();
+
+        output.push_str("**OpenRouter API Key**\n");
+        match &self.api_key {
+            Some(key) => match collect_openrouter_usage(key).await {
+                Ok(s) => output.push_str(&s),
+                Err(e) => output.push_str(&format!("  Error fetching key info: {e}\n")),
+            },
+            None => output.push_str("  (API key not configured)\n"),
+        }
+        output.push('\n');
+
+        output.push_str("**Worker Executions (all time)**\n");
+        match collect_worker_usage().await {
+            Ok(s) => output.push_str(&s),
+            Err(_) => output.push_str("  (no executions logged yet)\n"),
+        }
+
+        Ok(ToolResult::success(output))
+    }
+}
+
+#[async_trait]
+impl Tool for CodeTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let action = args
+            .get("action")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'action'"))?;
+
+        match action {
+            "search" => self.action_search(&args).await,
+            "graph" => self.action_graph(&args).await,
+            "transcript" => self.action_transcript(&args).await,
+            "usage" => self.action_usage().await,
+            other => Ok(ToolResult::error(format!(
+                "Unknown action: {other}. Use: search, graph, transcript, usage"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "code".to_string(),
+            description: "Code intelligence, transcript search, and usage stats. search: FTS symbol search. graph: advanced queries (sub_action: search/context/impact/file/stats). transcript: search past session transcripts. usage: API key and worker cost stats.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["search", "graph", "transcript", "usage"],
+                        "description": "search: quick FTS symbol search (needs query). graph: advanced graph queries (needs sub_action). transcript: search past sessions (needs query). usage: API/worker cost stats."
+                    },
+                    "sub_action": {
+                        "type": "string",
+                        "enum": ["search", "context", "impact", "file", "stats"],
+                        "description": "Graph sub-action (for action=graph): search, context, impact, file, stats"
+                    },
+                    "query": { "type": "string", "description": "Search query (for search, graph/search, transcript)" },
+                    "node_id": { "type": "string", "description": "Node ID (for graph context/impact)" },
+                    "file_path": { "type": "string", "description": "File path (for graph file)" },
+                    "depth": { "type": "integer", "description": "Impact depth (for graph impact, default 3)" },
+                    "limit": { "type": "integer", "description": "Max results (default 10)" }
+                },
+                "required": ["action"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "code"
+    }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        true
+    }
+}
+
+// ===================================================================
+// build_orchestration_tools — creates the 4 consolidated tools
+// ===================================================================
+
+pub fn build_orchestration_tools(
+    leader_name: String,
+    _default_project: String,
+    _project_name: Option<String>,
+    _activity_log: Arc<ActivityLog>,
+    _channels: Arc<RwLock<HashMap<String, Arc<dyn Channel>>>>,
+    api_key: Option<String>,
+    memory: Option<Arc<dyn IdeaStore>>,
+    graph_db_path: Option<PathBuf>,
+    _session_id: Option<String>,
+    _provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
+    _session_store: Option<Arc<crate::SessionStore>>,
+    _session_manager: Option<Arc<crate::session_manager::SessionManager>>,
+    _default_model: String,
+    agent_registry: Arc<crate::agent_registry::AgentRegistry>,
+) -> Vec<Arc<dyn Tool>> {
+    let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
+    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(agent_registry.db()));
+
+    // 1. Agents tool (hire/retire/list/self)
+    let agents_tool = AgentsTool::new(
+        leader_name.clone(),
+        agent_registry.clone(),
+        templates_dir,
+        Some(event_handler_store.clone()),
+    );
+
+    // 2. Quests tool (create/list/show/update/close/cancel)
+    let quests_tool = QuestsTool::new(agent_registry.clone(), leader_name.clone());
+
+    // 3. Events tool (create/list/enable/disable/delete)
+    let events_tool = EventsTool::new(event_handler_store, leader_name);
+
+    // 4. Code tool (search/graph/transcript/usage)
+    let code_tool = CodeTool::new(graph_db_path, _session_store, api_key);
+
+    let mut tools: Vec<Arc<dyn Tool>> = vec![
+        Arc::new(agents_tool),
+        Arc::new(quests_tool),
+        Arc::new(events_tool),
+        Arc::new(code_tool),
+    ];
+
+    // 5. Ideas tool (store/search/delete) — only if memory backend available
+    if let Some(mem) = memory {
+        tools.push(Arc::new(IdeasTool::new(mem)));
+    }
+
+    tools
 }

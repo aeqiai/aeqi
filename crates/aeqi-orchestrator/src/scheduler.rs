@@ -614,23 +614,25 @@ impl Scheduler {
         // Inject tools for persistent agents.
         if let crate::agent_worker::WorkerExecution::Agent { ref mut tools, .. } = worker.execution
         {
-            // Trigger management tool.
+            // Events management tool.
             if agent
                 .capabilities
                 .iter()
-                .any(|c| c == "events_manage" || c == "manage_triggers")
+                .any(|c| c == "events" || c == "events_manage" || c == "manage_triggers")
             {
                 let ehs = Arc::new(crate::event_handler::EventHandlerStore::new(self.agent_registry.db()));
-                tools.push(Arc::new(crate::tools::TriggerManageTool::new(
+                tools.push(Arc::new(crate::tools::EventsTool::new(
                     ehs,
                     agent_id.clone(),
                 )));
             }
 
-            // Transcript search tool.
+            // Code tool (transcript search + graph + usage).
             if let Some(ref ss) = self.session_store {
-                tools.push(Arc::new(crate::tools::TranscriptSearchTool::new(
-                    ss.clone(),
+                tools.push(Arc::new(crate::tools::CodeTool::new(
+                    None, // graph DB path — resolved per-session in session_manager
+                    Some(ss.clone()),
+                    None, // api_key not needed for worker transcript search
                 )));
             }
         }

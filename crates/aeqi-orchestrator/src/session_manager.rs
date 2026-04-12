@@ -514,11 +514,8 @@ impl SessionManager {
             tools.extend(orch_tools);
         }
 
-        if let Some(ref ss) = self.session_store {
-            tools.push(Arc::new(crate::tools::TranscriptSearchTool::new(
-                ss.clone(),
-            )));
-        }
+        // Note: transcript search is now part of the consolidated CodeTool,
+        // which is created inside build_orchestration_tools above.
 
         // 5b. Discover all available prompts via unified PromptLoader.
         let all_prompts: Arc<Vec<aeqi_tools::Prompt>> = if let Some(ref loader) = self.prompt_loader

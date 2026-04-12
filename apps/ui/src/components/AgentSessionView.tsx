@@ -77,12 +77,17 @@ const TOOL_LABELS: Record<string, string> = {
   quests_ready: "Ready quest",
   quests_prioritize: "Prioritize",
   quests_depend: "Set dependency",
-  // Events
+  // Consolidated tools (v2)
+  agents: "Agents",
+  quests: "Quests",
+  events: "Events",
+  ideas: "Ideas",
+  code: "Code",
+  // Legacy tool names (v1)
   events_create: "Create trigger",
   events_list: "List triggers",
   events_remove: "Remove trigger",
   events_manage: "Manage triggers",
-  // Ideas
   ideas_store: "Store idea",
   ideas_recall: "Recall idea",
   ideas_graph: "Query graph",
