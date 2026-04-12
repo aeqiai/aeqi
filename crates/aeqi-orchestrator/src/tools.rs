@@ -1631,5 +1631,72 @@ pub fn build_orchestration_tools(
         tools.push(Arc::new(IdeasTool::new(mem)));
     }
 
+    // 6. Web tool (fetch/search)
+    tools.push(Arc::new(WebTool));
+
     tools
+}
+
+// ---------------------------------------------------------------------------
+// WebTool — consolidated web fetch + search
+// ---------------------------------------------------------------------------
+
+pub struct WebTool;
+
+#[async_trait]
+impl Tool for WebTool {
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("fetch");
+        match action {
+            "fetch" => {
+                let tool = aeqi_tools::WebFetchTool;
+                tool.execute(args).await
+            }
+            "search" => {
+                let tool = aeqi_tools::WebSearchTool;
+                tool.execute(args).await
+            }
+            other => Ok(ToolResult::error(format!(
+                "unknown web action '{other}'. Use: fetch, search"
+            ))),
+        }
+    }
+
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "web".to_string(),
+            description: "Web access: fetch a URL or search the internet.\n\n\
+                Actions:\n\
+                - fetch: retrieve a web page as readable text (needs: url)\n\
+                - search: search the web via DuckDuckGo (needs: query)"
+                .to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["fetch", "search"],
+                        "description": "fetch: get a URL. search: web search."
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "URL to fetch (for fetch action)"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Search query (for search action)"
+                    },
+                    "max_length": {
+                        "type": "integer",
+                        "description": "Max response length in chars (for fetch)"
+                    }
+                },
+                "required": ["action"]
+            }),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "web"
+    }
 }

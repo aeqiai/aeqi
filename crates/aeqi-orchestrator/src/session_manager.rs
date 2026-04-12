@@ -458,9 +458,8 @@ impl SessionManager {
             effective_workdir.clone(),
         )));
 
-        // Network/runtime tools: unchanged, run in host process.
-        tools.push(Arc::new(aeqi_tools::WebFetchTool));
-        tools.push(Arc::new(aeqi_tools::WebSearchTool));
+        // Network tools now provided by the consolidated WebTool
+        // via build_orchestration_tools().
 
         // 5. Resolve memory — single shared idea store.
         let memory_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
