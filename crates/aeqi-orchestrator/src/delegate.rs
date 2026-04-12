@@ -1,5 +1,5 @@
-//! Unified delegate tool — consolidates subagent spawning, dispatch sending,
-//! task assignment, and channel posting into a single `delegate` tool with
+//! Unified delegate tool — consolidates subagent spawning, quest assignment,
+//! and channel posting into a single `delegate` tool with
 //! routing determined by the `to` parameter.
 //!
 //! Response modes:
@@ -28,10 +28,10 @@ use crate::session_manager::SessionManager;
 /// Routing is determined by the `to` parameter:
 /// - `"subagent"` — delegate to the project-default agent (ephemeral worker)
 /// - `"dept:<name>"` — resolved to agent lookup by name (backward compat)
-/// - `<agent_name>` — send a DelegateRequest dispatch to a named agent
+/// - `<agent_name>` — create a quest on a named agent
 pub struct DelegateTool {
     activity_log: Arc<ActivityLog>,
-    /// The name of the calling agent (used as the "from" field in dispatches).
+    /// The name of the calling agent (used as the "from" field in delegations).
     agent_name: String,
     /// Optional agent registry for resolving default agents.
     agent_registry: Option<Arc<AgentRegistry>>,
@@ -41,7 +41,7 @@ pub struct DelegateTool {
     fallback_target: Option<String>,
     /// Session ID of the calling agent, propagated as parent_session_id in delegations.
     session_id: Option<String>,
-    /// Provider for direct session spawning (bypasses dispatch bus).
+    /// Provider for direct session spawning.
     provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     /// Session store for persisting session records.
     session_store: Option<Arc<SessionStore>>,
@@ -119,7 +119,6 @@ impl DelegateTool {
     }
 
     /// Handle delegation by creating a quest directly on the target agent.
-    /// No dispatch queue — one hop from delegation to quest creation.
     async fn delegate_to_agent(
         &self,
         to: &str,
@@ -214,7 +213,7 @@ impl DelegateTool {
                 info!(
                     project = %project,
                     agent = %agent.name,
-                    "resolved project-default agent for subagent dispatch"
+                    "resolved project-default agent for subagent delegation"
                 );
                 return Some(agent.name.clone());
             }
@@ -223,7 +222,7 @@ impl DelegateTool {
             if let Ok(Some(agent)) = agent_reg.default_agent(None).await {
                 info!(
                     agent = %agent.name,
-                    "resolved fallback active agent for subagent dispatch"
+                    "resolved fallback active agent for subagent delegation"
                 );
                 return Some(agent.name.clone());
             }
@@ -298,19 +297,18 @@ impl Tool for DelegateTool {
         let response_mode = Self::parse_response_mode(&args);
         let create_task = args
             .get("create_quest")
-            .or_else(|| args.get("create_task"))
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
         let skill = args.get("skill").and_then(|v| v.as_str()).map(String::from);
 
         match to {
-            // Pattern 1: Subagent — spawn session directly (or fallback to dispatch)
+            // Pattern 1: Subagent — spawn session directly (or fallback to quest creation)
             "subagent" => {
                 if self.provider.is_some() && self.session_manager.is_some() {
-                    // Direct spawn — no dispatch bus, no patrol delay.
+                    // Direct spawn — no patrol delay.
                     self.spawn_session(prompt, skill.as_deref()).await
                 } else {
-                    // Fallback to dispatch (legacy path — provider/session_manager not wired).
+                    // Fallback to quest creation (provider/session_manager not wired).
                     let target = self.resolve_subagent_target().await;
                     let target = match target {
                         Some(name) => name,
@@ -325,7 +323,7 @@ impl Tool for DelegateTool {
                     info!(
                         from = %self.agent_name,
                         resolved_target = %target,
-                        "subagent request routed to project-default agent (dispatch fallback)"
+                        "subagent request routed to project-default agent (quest fallback)"
                     );
 
                     self.delegate_to_agent(&target, prompt, "origin", true, skill)
@@ -352,7 +350,7 @@ impl Tool for DelegateTool {
 
             // Pattern 2 & 4: Named agent (or fallback for unknown targets)
             agent_name => {
-                // Self-delegation: spawn a child session instead of dispatching to yourself.
+                // Self-delegation: spawn a child session instead of creating a quest on yourself.
                 if agent_name == self.agent_name
                     && self.provider.is_some()
                     && self.session_manager.is_some()

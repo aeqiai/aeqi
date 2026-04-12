@@ -284,29 +284,6 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
              CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
 
-             -- Triggers table kept temporarily for tool compatibility.
-             -- Will be removed when tools are migrated to EventHandlerStore.
-             CREATE TABLE IF NOT EXISTS triggers (
-                 id TEXT PRIMARY KEY,
-                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-                 name TEXT NOT NULL,
-                 trigger_type TEXT NOT NULL,
-                 config TEXT NOT NULL,
-                 skill TEXT NOT NULL,
-                 enabled INTEGER NOT NULL DEFAULT 1,
-                 max_budget_usd REAL,
-                 created_at TEXT NOT NULL,
-                 last_fired TEXT,
-                 fire_count INTEGER NOT NULL DEFAULT 0,
-                 total_cost_usd REAL NOT NULL DEFAULT 0.0,
-                 public_id TEXT,
-                 prompts TEXT DEFAULT '[]',
-                 UNIQUE(agent_id, name)
-             );
-             CREATE INDEX IF NOT EXISTS idx_triggers_agent ON triggers(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_triggers_enabled ON triggers(enabled);
-             CREATE INDEX IF NOT EXISTS idx_triggers_public_id ON triggers(public_id);
-
              CREATE TABLE IF NOT EXISTS budget_policies (
                  id TEXT PRIMARY KEY,
                  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,

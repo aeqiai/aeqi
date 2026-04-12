@@ -102,15 +102,14 @@ impl VfsTree {
             ["companies"] => self.list_companies().await?,
             ["companies", name] => self.list_company_detail(name).await?,
             ["companies", name, "knowledge"] => self.list_company_knowledge(name).await?,
-            ["companies", name, "quests"] | ["companies", name, "tasks"] => {
-                self.list_company_tasks(name).await?
+            ["companies", name, "quests"] => {
+                self.list_company_quests(name).await?
             }
             ["skills"] => self.list_skills().await?,
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,
             ["config"] => self.list_config().await?,
             ["memory"] => self.list_memory().await?,
-            ["triggers"] => self.list_triggers().await?,
             ["finance"] => self.list_finance().await?,
             _ => vec![],
         };
@@ -182,7 +181,6 @@ impl VfsTree {
             dir_node("skills", "/skills", Some("⚡"), None),
             dir_node("sessions", "/sessions", Some("💬"), None),
             dir_node("memory", "/memory", Some("🧠"), None),
-            dir_node("triggers", "/triggers", Some("⏰"), None),
             dir_node("finance", "/finance", Some("💰"), None),
             dir_node("config", "/config", Some("⚙️"), None),
         ])
@@ -328,9 +326,8 @@ impl VfsTree {
         Ok(vec![])
     }
 
-    async fn list_company_tasks(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
-        // Company tasks were backed by CompanyRegistry projects; now a no-op.
-        // TODO: wire up to a task source if needed.
+    async fn list_company_quests(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
+        // Company quests were backed by CompanyRegistry projects; now a no-op.
         Ok(vec![])
     }
 
@@ -401,29 +398,6 @@ impl VfsTree {
     async fn list_memory(&self) -> anyhow::Result<Vec<VfsNode>> {
         // Memory now lives in the idea store.
         let nodes = Vec::new();
-        Ok(nodes)
-    }
-
-    // --- Triggers ---
-
-    async fn list_triggers(&self) -> anyhow::Result<Vec<VfsNode>> {
-        // Triggers are stored on disk
-        let mut nodes = Vec::new();
-        let cwd = std::env::current_dir().unwrap_or_default();
-        let triggers_dir = cwd.join("triggers");
-        if let Ok(mut entries) = tokio::fs::read_dir(&triggers_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let fname = entry.file_name().to_string_lossy().to_string();
-                if fname.ends_with(".toml") {
-                    nodes.push(file_node(
-                        &fname,
-                        &format!("/triggers/{fname}"),
-                        "text/toml",
-                        Some("⏰"),
-                    ));
-                }
-            }
-        }
         Ok(nodes)
     }
 

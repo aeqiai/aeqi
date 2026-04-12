@@ -55,7 +55,7 @@ pub const ORDER_GUARDRAILS: u32 = 200;
 pub const ORDER_LOOP_DETECTION: u32 = 500;
 /// Cost tracking: enforce per-task budget ceilings.
 pub const ORDER_COST_TRACKING: u32 = 600;
-/// Idea refresh: periodic insight re-search during long executions.
+/// Idea refresh: periodic idea re-search during long executions.
 pub const ORDER_IDEA_REFRESH: u32 = 700;
 /// Safety net: preserve partial work on failure (runs late).
 pub const ORDER_SAFETY_NET: u32 = 900;

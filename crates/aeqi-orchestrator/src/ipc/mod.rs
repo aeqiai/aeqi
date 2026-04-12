@@ -7,6 +7,7 @@ pub mod agents;
 pub mod chat;
 pub mod companies;
 pub mod events;
+pub mod ideas;
 pub mod memory;
 pub mod notes;
 pub mod prompts;

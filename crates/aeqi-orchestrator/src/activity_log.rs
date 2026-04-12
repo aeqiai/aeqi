@@ -1,8 +1,8 @@
 //! Unified activity log — one table for all events.
 //!
-//! Replaces: audit log, cost ledger, expertise ledger, session messages,
-//! dispatch bus. Every event is an immutable row with a type, optional
-//! agent/session/task foreign keys, and JSON content.
+//! Replaces: audit log, cost ledger, expertise ledger, session messages.
+//! Every event is an immutable row with a type, optional agent/session/quest
+//! foreign keys, and JSON content.
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -249,7 +249,7 @@ impl ActivityLog {
         Ok(events)
     }
 
-    /// Update an event's content (for status changes on dispatches).
+    /// Update an event's content (for status changes).
     pub async fn update(&self, event_id: &str, content: &serde_json::Value) -> Result<()> {
         let content_str = serde_json::to_string(content)?;
         let db = self.db.lock().await;
@@ -510,7 +510,7 @@ mod tests {
 
         let id = store
             .emit(
-                "dispatch",
+                "quest_created",
                 None,
                 None,
                 None,
@@ -527,7 +527,7 @@ mod tests {
         let events = store
             .query(
                 &EventFilter {
-                    event_type: Some("dispatch".to_string()),
+                    event_type: Some("quest_created".to_string()),
                     ..Default::default()
                 },
                 10,

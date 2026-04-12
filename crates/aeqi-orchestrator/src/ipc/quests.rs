@@ -229,6 +229,163 @@ pub async fn handle_create_quest(
     }
 }
 
+pub async fn handle_get_quest(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let quest_id = request
+        .get("id")
+        .or_else(|| request.get("quest_id"))
+        .or_else(|| request.get("task_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if quest_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id is required"});
+    }
+
+    if allowed.is_some() {
+        let ok = match ctx.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => match q.agent_id.as_deref() {
+                Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
+                None => false,
+            },
+            _ => false,
+        };
+        if !ok {
+            return serde_json::json!({"ok": false, "error": "access denied"});
+        }
+    }
+
+    match ctx.agent_registry.get_task(quest_id).await {
+        Ok(Some(quest)) => serde_json::json!({
+            "ok": true,
+            "quest": {
+                "id": quest.id.0,
+                "subject": quest.name,
+                "description": quest.description,
+                "status": quest.status.to_string(),
+                "priority": quest.priority.to_string(),
+                "agent_id": quest.agent_id,
+                "idea_ids": quest.idea_ids,
+                "labels": quest.labels,
+                "retry_count": quest.retry_count,
+                "project": quest.agent_id.as_deref().unwrap_or(""),
+                "created_at": quest.created_at.to_rfc3339(),
+                "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
+                "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
+                "outcome": quest.task_outcome(),
+                "runtime": quest.runtime(),
+                "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
+                "acceptance_criteria": quest.acceptance_criteria,
+            }
+        }),
+        Ok(None) => serde_json::json!({"ok": false, "error": "quest not found"}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_update_quest(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let quest_id = request
+        .get("id")
+        .or_else(|| request.get("quest_id"))
+        .or_else(|| request.get("task_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if quest_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id is required"});
+    }
+
+    if allowed.is_some() {
+        let ok = match ctx.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => match q.agent_id.as_deref() {
+                Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
+                None => false,
+            },
+            _ => false,
+        };
+        if !ok {
+            return serde_json::json!({"ok": false, "error": "access denied"});
+        }
+    }
+
+    let status_str = request.get("status").and_then(|v| v.as_str());
+    let priority_str = request.get("priority").and_then(|v| v.as_str());
+    let description = request.get("description").and_then(|v| v.as_str());
+    let agent_id = request.get("agent_id").and_then(|v| v.as_str());
+    let labels: Option<Vec<String>> = request
+        .get("labels")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        });
+
+    let status = status_str.map(|s| match s {
+        "in_progress" => aeqi_quests::QuestStatus::InProgress,
+        "done" => aeqi_quests::QuestStatus::Done,
+        "blocked" => aeqi_quests::QuestStatus::Blocked,
+        "cancelled" => aeqi_quests::QuestStatus::Cancelled,
+        _ => aeqi_quests::QuestStatus::Pending,
+    });
+
+    let priority = priority_str.map(|s| match s {
+        "low" => aeqi_quests::Priority::Low,
+        "high" => aeqi_quests::Priority::High,
+        "critical" => aeqi_quests::Priority::Critical,
+        _ => aeqi_quests::Priority::Normal,
+    });
+
+    match ctx
+        .agent_registry
+        .update_task(quest_id, |quest| {
+            if let Some(status) = status {
+                quest.status = status;
+                if matches!(
+                    quest.status,
+                    aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled
+                ) {
+                    quest.closed_at = Some(chrono::Utc::now());
+                }
+            }
+            if let Some(priority) = priority {
+                quest.priority = priority;
+            }
+            if let Some(description) = description {
+                quest.description = description.to_string();
+            }
+            if let Some(agent_id) = agent_id {
+                quest.agent_id = Some(agent_id.to_string());
+            }
+            if let Some(ref labels) = labels {
+                quest.labels = labels.clone();
+            }
+        })
+        .await
+    {
+        Ok(quest) => serde_json::json!({
+            "ok": true,
+            "quest": {
+                "id": quest.id.0,
+                "subject": quest.name,
+                "description": quest.description,
+                "status": quest.status.to_string(),
+                "priority": quest.priority.to_string(),
+                "agent_id": quest.agent_id,
+                "labels": quest.labels,
+            }
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 pub async fn handle_close_quest(
     ctx: &super::CommandContext,
     request: &serde_json::Value,

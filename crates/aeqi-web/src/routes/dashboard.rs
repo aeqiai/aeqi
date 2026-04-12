@@ -22,7 +22,6 @@ pub fn routes() -> Router<AppState> {
         .route("/skills", get(skills))
         .route("/pipelines", get(pipelines))
         .route("/rate-limit", get(rate_limit))
-        .route("/triggers", get(triggers))
         .route("/approvals", get(approvals))
         .route("/approvals/{id}/resolve", post(resolve_approval))
 }
@@ -158,10 +157,6 @@ async fn pipelines(State(state): State<AppState>, scope: Scope) -> Response {
 
 async fn rate_limit(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "rate_limit", serde_json::Value::Null).await
-}
-
-async fn triggers(State(state): State<AppState>, scope: Scope) -> Response {
-    ipc_proxy(state, scope.as_ref(), "triggers", serde_json::Value::Null).await
 }
 
 #[derive(Deserialize, Default)]

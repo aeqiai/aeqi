@@ -179,6 +179,84 @@ impl EventHandlerStore {
         .map_err(Into::into)
     }
 
+    /// Partial update of event fields. System events cannot have pattern/scope changed.
+    pub async fn update_fields(
+        &self,
+        id: &str,
+        enabled: Option<bool>,
+        content: Option<&str>,
+        pattern: Option<&str>,
+        scope: Option<&str>,
+        cooldown_secs: Option<u64>,
+        idea_id: Option<&str>,
+        max_budget_usd: Option<f64>,
+    ) -> Result<()> {
+        let db = self.db.lock().await;
+
+        let is_system: bool = db
+            .query_row("SELECT system FROM events WHERE id = ?1", params![id], |row| row.get(0))
+            .optional()?
+            .unwrap_or(false);
+
+        if is_system {
+            if let Some(false) = enabled {
+                anyhow::bail!("cannot disable system lifecycle event");
+            }
+            if pattern.is_some() {
+                anyhow::bail!("cannot change pattern on system lifecycle event");
+            }
+            if scope.is_some() {
+                anyhow::bail!("cannot change scope on system lifecycle event");
+            }
+        }
+
+        // Build dynamic UPDATE.
+        let mut sets = Vec::new();
+        let mut values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(enabled) = enabled {
+            sets.push("enabled = ?");
+            values.push(Box::new(if enabled { 1i64 } else { 0i64 }));
+        }
+        if let Some(content) = content {
+            sets.push("content = ?");
+            values.push(Box::new(content.to_string()));
+        }
+        if let Some(pattern) = pattern {
+            sets.push("pattern = ?");
+            values.push(Box::new(pattern.to_string()));
+        }
+        if let Some(scope) = scope {
+            sets.push("scope = ?");
+            values.push(Box::new(scope.to_string()));
+        }
+        if let Some(cooldown_secs) = cooldown_secs {
+            sets.push("cooldown_secs = ?");
+            values.push(Box::new(cooldown_secs as i64));
+        }
+        if let Some(idea_id) = idea_id {
+            sets.push("idea_id = ?");
+            values.push(Box::new(idea_id.to_string()));
+        }
+        if let Some(max_budget_usd) = max_budget_usd {
+            sets.push("max_budget_usd = ?");
+            values.push(Box::new(max_budget_usd));
+        }
+
+        if sets.is_empty() {
+            anyhow::bail!("no fields to update");
+        }
+
+        values.push(Box::new(id.to_string()));
+        let sql = format!(
+            "UPDATE events SET {} WHERE id = ?",
+            sets.join(", ")
+        );
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = values.iter().map(|v| v.as_ref()).collect();
+        db.execute(&sql, param_refs.as_slice())?;
+        Ok(())
+    }
+
     /// Enable or disable an event.
     pub async fn set_enabled(&self, id: &str, enabled: bool) -> Result<()> {
         let db = self.db.lock().await;

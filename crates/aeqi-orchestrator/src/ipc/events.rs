@@ -94,14 +94,38 @@ pub async fn handle_update_event(
     }
 
     let enabled = request.get("enabled").and_then(|v| v.as_bool());
+    let content = request_field(request, "content");
+    let pattern = request_field(request, "pattern");
+    let scope = request_field(request, "scope");
+    let cooldown_secs = request.get("cooldown_secs").and_then(|v| v.as_u64());
+    let idea_id = request_field(request, "idea_id");
+    let max_budget_usd = request.get("max_budget_usd").and_then(|v| v.as_f64());
 
-    if let Some(enabled) = enabled {
-        match store.set_enabled(id, enabled).await {
-            Ok(()) => serde_json::json!({"ok": true}),
-            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    // Check if any field is provided at all.
+    if enabled.is_none()
+        && content.is_none()
+        && pattern.is_none()
+        && scope.is_none()
+        && cooldown_secs.is_none()
+        && idea_id.is_none()
+        && max_budget_usd.is_none()
+    {
+        return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
+    }
+
+    match store
+        .update_fields(id, enabled, content, pattern, scope, cooldown_secs, idea_id, max_budget_usd)
+        .await
+    {
+        Ok(()) => {
+            // Return the updated event.
+            match store.get(id).await {
+                Ok(Some(event)) => serde_json::json!({"ok": true, "event": event_to_json(&event)}),
+                Ok(None) => serde_json::json!({"ok": true}),
+                Err(_) => serde_json::json!({"ok": true}),
+            }
         }
-    } else {
-        serde_json::json!({"ok": false, "error": "enabled field is required"})
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
 

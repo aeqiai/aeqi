@@ -1450,14 +1450,14 @@ impl AgentWorker {
         match provider.chat(&request).await {
             Ok(response) => {
                 if let Some(text) = response.content {
-                    Self::store_routed_insights_static(&worker_name, &text, &mem).await;
+                    Self::store_routed_ideas_static(&worker_name, &text, &mem).await;
                 }
             }
             Err(e) => warn!(worker = %worker_name, "reflection failed: {e}"),
         }
     }
 
-    async fn store_routed_insights_static(worker_name: &str, text: &str, mem: &Arc<dyn IdeaStore>) {
+    async fn store_routed_ideas_static(worker_name: &str, text: &str, mem: &Arc<dyn IdeaStore>) {
         use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarMemory};
 
         let dedup = DedupPipeline::default();

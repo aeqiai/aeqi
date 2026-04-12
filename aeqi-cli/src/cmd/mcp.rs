@@ -684,7 +684,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }))
                     }
 
-                    "quests_create" | "aeqi_create_quest" | "aeqi_create_task" => {
+                    "quests_create" | "aeqi_create_quest" => {
                         let mut ipc = args.clone();
                         ipc["cmd"] = serde_json::json!("create_quest");
                         // Normalize depends_on: string → array
@@ -695,7 +695,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                         ipc_request_sync(&data_dir, &ipc)
                     }
-                    "quests_close" | "aeqi_close_quest" | "aeqi_close_task" => {
+                    "quests_close" | "aeqi_close_quest" => {
                         let project = args
                             .get("project")
                             .and_then(|v| v.as_str())

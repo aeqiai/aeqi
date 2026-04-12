@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::Response,
     routing::{get, post},
 };
@@ -13,6 +13,10 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/quests", get(quests).post(create_quest))
+        .route(
+            "/quests/{id}",
+            get(get_quest).put(update_quest),
+        )
         .route("/quests/{id}/close", post(close_quest))
 }
 
@@ -45,10 +49,30 @@ async fn create_quest(
     ipc_proxy(state, scope.as_ref(), "create_quest", body).await
 }
 
+async fn get_quest(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    let params = serde_json::json!({"id": id});
+    ipc_proxy(state, scope.as_ref(), "get_quest", params).await
+}
+
+async fn update_quest(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let mut params = body;
+    params["id"] = serde_json::Value::String(id);
+    ipc_proxy(state, scope.as_ref(), "update_quest", params).await
+}
+
 async fn close_quest(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let mut params = body;

@@ -215,7 +215,7 @@ struct IpcContext {
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
-/// and trigger system.
+/// and event system.
 pub struct Daemon {
     pub metrics: Arc<AEQIMetrics>,
     pub activity_log: Arc<ActivityLog>,
@@ -297,8 +297,7 @@ impl Daemon {
         self.background_automation_enabled = enabled;
     }
 
-    // fire_trigger, consume_agent_dispatches, process_agent_dispatches — DELETED.
-    // Trigger firing replaced by EventMatcher. Dispatch consumption replaced by direct delegation.
+    // Event firing handled by EventMatcher. Delegation handled by direct session spawning.
 
     /// Start the session tracker in a dedicated tokio::spawn.
     /// Returns the shutdown Notify so it can be stopped later.
@@ -465,7 +464,7 @@ impl Daemon {
         }
     }
 
-    /// Spawn background listeners for event triggers and execution event buffering.
+    /// Spawn background listeners for event handlers and execution event buffering.
     fn spawn_activity_buffer(&self) {
         // Activity buffer — collects activities for the dashboard API.
         {
@@ -612,15 +611,12 @@ impl Daemon {
         // Cost entries and events are stored in ActivityLog (SQLite) — no load needed.
     }
 
-    /// Run one patrol iteration: triggers, config reload, persistence, metrics, pruning.
+    /// Run one patrol iteration: config reload, persistence, metrics, pruning.
     async fn run_patrol_iteration(&mut self) {
         // 1. Patrol cycle: unified scheduler handles reap -> query -> spawn.
         if let Err(e) = self.scheduler.schedule().await {
             warn!(error = %e, "scheduler cycle failed");
         }
-
-        // Dispatch consumption and trigger firing are now handled by
-        // EventMatcher and ScheduleTimer (spawned as background tasks).
 
         // 2. Check for config reload signal (SIGHUP).
         if self
@@ -722,7 +718,7 @@ impl Daemon {
     ///
     /// Primary dispatch is push-based via ActivityLog broadcast: when quest_created
     /// or quest_completed events arrive, schedule() runs immediately (sub-ms).
-    /// The full patrol iteration (triggers, metrics, pruning, etc.) runs on a
+    /// The full patrol iteration (metrics, pruning, etc.) runs on a
     /// 60-second timer as housekeeping.
     async fn run_patrol_loop(&mut self) {
         let mut event_rx = self.activity_log.subscribe();
@@ -969,7 +965,6 @@ impl Daemon {
                         .await
                 }
 
-                // "mail" and "dispatches" — removed (dispatch bus is dead)
                 "metrics" => {
                     crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await
                 }
@@ -989,15 +984,6 @@ impl Daemon {
                 "pipelines" => {
                     crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_companies).await
                 }
-                "triggers" => {
-                    // Legacy trigger system removed; return empty list.
-                    serde_json::json!({"ok": true, "triggers": []})
-                }
-                "webhook_fire" => {
-                    // Legacy trigger system removed.
-                    serde_json::json!({"ok": false, "error": "trigger system removed — use events"})
-                }
-
                 "notes" => {
                     crate::ipc::notes::handle_notes(&ctx, &request, &allowed_companies).await
                 }
@@ -1018,14 +1004,21 @@ impl Daemon {
                     crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_companies).await
                 }
 
-                "quests" | "tasks" => {
+                "quests" => {
                     crate::ipc::quests::handle_quests(&ctx, &request, &allowed_companies).await
                 }
-                "create_quest" | "create_task" => {
+                "create_quest" => {
                     crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_companies)
                         .await
                 }
-                "close_quest" | "close_task" => {
+                "get_quest" => {
+                    crate::ipc::quests::handle_get_quest(&ctx, &request, &allowed_companies).await
+                }
+                "update_quest" => {
+                    crate::ipc::quests::handle_update_quest(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "close_quest" => {
                     crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_companies).await
                 }
 
@@ -1111,9 +1104,21 @@ impl Daemon {
                         .await
                 }
 
-                // prompt CRUD — removed (prompts table is dead)
                 "seed_ideas" => {
                     crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies)
+                        .await
+                }
+                "list_ideas" => {
+                    crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_companies).await
+                }
+                "store_idea" => {
+                    crate::ipc::ideas::handle_store_idea(&ctx, &request, &allowed_companies).await
+                }
+                "delete_idea" => {
+                    crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_companies).await
+                }
+                "search_ideas" => {
+                    crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_companies)
                         .await
                 }
 

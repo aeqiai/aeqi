@@ -1,13 +1,11 @@
-//! Insight Refresh Middleware — periodically suggests insight re-search during execution.
+//! Idea Refresh Middleware — periodically suggests idea re-search during execution.
 //!
-//! Workers start with an initial insight context, but on long-running tasks the
+//! Workers start with an initial idea context, but on long-running quests the
 //! initial context becomes stale. This middleware fires every N tool calls,
 //! building a query from recent tool activity and injecting a refresh hint into
-//! the worker context. The actual insight search is performed by the caller —
+//! the worker context. The actual idea search is performed by the caller —
 //! this middleware stores the query in [`WorkerContext::metadata`] under the key
 //! `"idea_refresh_query"` for the executor to act on.
-//!
-//! Implements Priority 5 from the AEQI v4 synthesis: "Insight During Execution."
 
 use async_trait::async_trait;
 use tracing::{debug, info};
