@@ -273,6 +273,24 @@ pub async fn create_default_lifecycle_events(
             "self",
             "Your cost budget has been exceeded. Immediately checkpoint any in-progress work. Do not start new tool calls. Report the situation to your parent by creating a quest describing what was completed and what remains.",
         ),
+        (
+            "on_session_start",
+            "lifecycle:session_start",
+            "self",
+            "A session is starting. This is your moment to establish context, recall relevant ideas, and prepare for the work ahead.",
+        ),
+        (
+            "on_session_end",
+            "lifecycle:session_end",
+            "self",
+            "A session is ending. Reflect on what happened. Store key learnings as ideas using ideas(action='store'). Consolidate important facts, procedures, and preferences for future sessions.",
+        ),
+        (
+            "on_quest_blocked",
+            "lifecycle:quest_blocked",
+            "self",
+            "A quest is blocked and needs external input. Clearly describe what you need — whether it's clarification from the user, approval for a risky action, or a dependency that must be resolved. Create a quest for your parent agent describing the blocker.",
+        ),
     ];
 
     for &(name, pattern, scope, content) in defaults {
@@ -292,7 +310,7 @@ pub async fn create_default_lifecycle_events(
             .await?;
     }
 
-    info!(agent_id = %agent_id, "created 7 default lifecycle events");
+    info!(agent_id = %agent_id, "created 10 default lifecycle events");
     Ok(())
 }
 

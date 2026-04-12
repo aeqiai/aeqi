@@ -53,6 +53,9 @@ impl EventMatcher {
             "execution.quest_failed" => "lifecycle:quest_failed",
             "quest.delegated" => "lifecycle:quest_received",
             "budget_exceeded" => "lifecycle:budget_exceeded",
+            "session_start" => "lifecycle:session_start",
+            "session_end" => "lifecycle:session_end",
+            "execution.blocked" => "lifecycle:quest_blocked",
             _ => return, // Skip unhandled activity types.
         };
 

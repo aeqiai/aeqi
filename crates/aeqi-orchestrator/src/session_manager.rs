@@ -619,6 +619,8 @@ impl SessionManager {
         let ss_clone = self.session_store.clone();
         let sid_clone = session_id.clone();
         let is_interactive_spawn = is_interactive;
+        let al_clone = activity_log.clone();
+        let agent_id_clone = agent_uuid.clone().unwrap_or_default();
 
         let join_handle = tokio::spawn(async move {
             let result = agent.run(&prompt_owned).await;
@@ -630,6 +632,13 @@ impl SessionManager {
                     .await;
                 let _ = ss.close_session(&sid_clone).await;
             }
+            let _ = al_clone.emit(
+                "session_end",
+                Some(&agent_id_clone),
+                Some(&sid_clone),
+                None,
+                &serde_json::json!({}),
+            ).await;
             result
         });
 
@@ -637,9 +646,10 @@ impl SessionManager {
         let correlation_id = uuid::Uuid::new_v4().to_string();
 
         // 13. Register RunningSession.
+        let agent_id_for_session = agent_uuid.unwrap_or_default();
         let running = RunningSession {
             session_id: session_id.clone(),
-            agent_id: agent_uuid.unwrap_or_default(),
+            agent_id: agent_id_for_session.clone(),
             agent_name: agent_name.clone(),
             correlation_id: correlation_id.clone(),
             input_tx,
@@ -650,6 +660,14 @@ impl SessionManager {
             sandbox,
         };
         self.register(running).await;
+
+        let _ = activity_log.emit(
+            "session_start",
+            Some(&agent_id_for_session),
+            Some(&session_id),
+            None,
+            &serde_json::json!({"agent_name": agent_name, "session_type": session_type_str}),
+        ).await;
 
         info!(
             session_id = %session_id,
