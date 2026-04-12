@@ -962,6 +962,14 @@ export default function AgentSessionView({
       }
     }
 
+    // Close any previous connection before opening a new one
+    if (wsRef.current) {
+      wsRef.current.onmessage = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const company = localStorage.getItem("aeqi_company") || "";
     const ws = new WebSocket(
@@ -1178,6 +1186,19 @@ export default function AgentSessionView({
   // Ref to latest dispatchMessage for queue processing
   const dispatchRef = useRef(dispatchMessage);
   dispatchRef.current = dispatchMessage;
+
+  // Clean up WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
 
   // Process queued messages when streaming ends
   useEffect(() => {

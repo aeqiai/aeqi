@@ -871,22 +871,19 @@ impl Agent {
                 active_model.clone()
             };
 
-            // Build request — inject fresh step context into the request copy.
+            // Build request. Single lock on step_prompts, clone messages once.
+            let step_ctx = self.build_step_context().await;
             let mut request_messages = messages.clone();
-            let has_step_prompts = !self.step_prompts.lock().await.is_empty();
-            if has_step_prompts {
-                let turn_ctx = self.build_step_context().await;
-                if !turn_ctx.is_empty() {
-                    request_messages.insert(
-                        1,
-                        Message {
-                            role: Role::System,
-                            content: MessageContent::text(format!(
-                                "<step-context>\n{turn_ctx}\n</step-context>"
-                            )),
-                        },
-                    );
-                }
+            if !step_ctx.is_empty() {
+                request_messages.insert(
+                    1,
+                    Message {
+                        role: Role::System,
+                        content: MessageContent::text(format!(
+                            "<step-context>\n{step_ctx}\n</step-context>"
+                        )),
+                    },
+                );
             }
             let request = ChatRequest {
                 model: step_model,
