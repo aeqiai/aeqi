@@ -178,7 +178,7 @@ mod tests {
             priority: Priority::Normal,
             agent_id: None,
             depends_on: vec![],
-            skill: None,
+            idea_ids: vec![],
             labels: vec![],
             retry_count: 0,
             checkpoints: vec![],
