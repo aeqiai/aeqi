@@ -1274,6 +1274,43 @@ impl IdeaStore for SqliteIdeas {
         Ok(())
     }
 
+    async fn update(
+        &self,
+        id: &str,
+        key: Option<&str>,
+        content: Option<&str>,
+        category: Option<IdeaCategory>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let now = Utc::now().to_rfc3339();
+        if let Some(key) = key {
+            conn.execute(
+                "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
+                rusqlite::params![key, now, id],
+            )?;
+        }
+        if let Some(content) = content {
+            conn.execute(
+                "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
+                rusqlite::params![content, now, id],
+            )?;
+        }
+        if let Some(category) = category {
+            let cat_str = match category {
+                IdeaCategory::Fact => "fact",
+                IdeaCategory::Procedure => "procedure",
+                IdeaCategory::Preference => "preference",
+                IdeaCategory::Context => "context",
+                IdeaCategory::Evergreen => "evergreen",
+            };
+            conn.execute(
+                "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
+                rusqlite::params![cat_str, now, id],
+            )?;
+        }
+        Ok(())
+    }
+
     async fn store_with_ttl(
         &self,
         key: &str,

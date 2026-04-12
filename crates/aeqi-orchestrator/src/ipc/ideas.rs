@@ -94,6 +94,41 @@ pub async fn handle_delete_idea(
     }
 }
 
+pub async fn handle_update_idea(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let idea_store = ctx
+        .message_router
+        .as_ref()
+        .and_then(|mr| mr.idea_store.as_ref());
+
+    let Some(idea_store) = idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+
+    let id = request_field(request, "id").unwrap_or("");
+    if id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id is required"});
+    }
+
+    let key = request_field(request, "key");
+    let content = request_field(request, "content");
+    let category = request_field(request, "category").map(|c| match c {
+        "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
+        "preference" => aeqi_core::traits::IdeaCategory::Preference,
+        "context" => aeqi_core::traits::IdeaCategory::Context,
+        "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
+        _ => aeqi_core::traits::IdeaCategory::Fact,
+    });
+
+    match idea_store.update(id, key, content, category).await {
+        Ok(()) => serde_json::json!({"ok": true}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 pub async fn handle_search_ideas(
     ctx: &super::CommandContext,
     request: &serde_json::Value,

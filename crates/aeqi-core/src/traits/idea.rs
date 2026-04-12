@@ -221,6 +221,18 @@ pub trait IdeaStore: Send + Sync {
 
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
 
+    /// Update an existing idea's key, content, and/or category.
+    async fn update(
+        &self,
+        id: &str,
+        key: Option<&str>,
+        content: Option<&str>,
+        category: Option<IdeaCategory>,
+    ) -> anyhow::Result<()> {
+        let _ = (id, key, content, category);
+        anyhow::bail!("update not supported by this store")
+    }
+
     fn name(&self) -> &str;
 
     /// Store a prompt-type insight (deterministically injected into agent context).

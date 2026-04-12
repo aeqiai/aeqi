@@ -15,7 +15,7 @@ pub fn routes() -> Router<AppState> {
         .route("/ideas", get(list_ideas).post(store_idea))
         .route("/ideas/search", get(search_ideas))
         .route("/ideas/seed", axum::routing::post(seed_ideas))
-        .route("/ideas/{id}", axum::routing::delete(delete_idea))
+        .route("/ideas/{id}", axum::routing::put(update_idea).delete(delete_idea))
 }
 
 #[derive(Deserialize, Default)]
@@ -41,6 +41,17 @@ async fn store_idea(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "store_idea", body).await
+}
+
+async fn update_idea(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let mut params = body;
+    params["id"] = serde_json::json!(id);
+    ipc_proxy(state, scope.as_ref(), "update_idea", params).await
 }
 
 async fn delete_idea(

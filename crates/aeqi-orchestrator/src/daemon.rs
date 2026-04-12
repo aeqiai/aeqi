@@ -1114,6 +1114,9 @@ impl Daemon {
                 "store_idea" => {
                     crate::ipc::ideas::handle_store_idea(&ctx, &request, &allowed_companies).await
                 }
+                "update_idea" => {
+                    crate::ipc::ideas::handle_update_idea(&ctx, &request, &allowed_companies).await
+                }
                 "delete_idea" => {
                     crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_companies).await
                 }
