@@ -80,7 +80,7 @@ impl EventHandlerStore {
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT INTO events (id, agent_id, name, pattern, scope, idea_id, content, enabled, cooldown_secs, max_budget_usd, webhook_secret, system, created_at)
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_id, content, enabled, cooldown_secs, max_budget_usd, webhook_secret, system, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     id, e.agent_id, e.name, e.pattern, e.scope,
@@ -91,8 +91,27 @@ impl EventHandlerStore {
                 ],
             )?;
         }
-        info!(id = %id, agent = %e.agent_id, name = %e.name, pattern = %e.pattern, "event created");
-        self.get(&id).await?.ok_or_else(|| anyhow::anyhow!("event created but not found"))
+        // INSERT OR IGNORE may skip if (agent_id, name) already exists.
+        // In that case, return the existing event.
+        match self.get(&id).await? {
+            Some(event) => {
+                info!(id = %id, agent = %e.agent_id, name = %e.name, pattern = %e.pattern, "event created");
+                Ok(event)
+            }
+            None => {
+                // Already exists — find by agent_id + name.
+                let db = self.db.lock().await;
+                let existing = db.query_row(
+                    "SELECT * FROM events WHERE agent_id = ?1 AND name = ?2",
+                    params![e.agent_id, e.name],
+                    |row| Ok(row_to_event(row)),
+                ).optional()?;
+                match existing {
+                    Some(event) => Ok(event),
+                    None => anyhow::bail!("event creation failed for {}", e.name),
+                }
+            }
+        }
     }
 
     /// Get an event by ID.

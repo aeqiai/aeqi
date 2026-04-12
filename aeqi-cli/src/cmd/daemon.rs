@@ -635,6 +635,19 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 }
             }
 
+            // Seed lifecycle events for all active agents that don't have the full set.
+            if let Ok(agents) = agent_reg.list_active().await {
+                for agent in &agents {
+                    let existing = event_handler_store.list_for_agent(&agent.id).await.unwrap_or_default();
+                    if existing.len() < 10 {
+                        let _ = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
+                            &event_handler_store,
+                            &agent.id,
+                        ).await;
+                    }
+                }
+            }
+
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
             println!("Events: {event_count} enabled");
             daemon.event_handler_store = Some(event_handler_store);
