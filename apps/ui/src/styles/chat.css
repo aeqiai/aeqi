@@ -1061,9 +1061,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
-  padding: 48px 48px 64px;
+  padding: 48px;
 }
 
 .asv-empty-icon {
@@ -2009,6 +2009,67 @@
 }
 .asv-msg-queued .asv-msg-footer span:last-child {
   font-style: italic;
+}
+
+/* Composer body — holds chips, textarea, attach row */
+.asv-composer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Attached chips inside composer */
+.asv-attach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.asv-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.asv-attach-chip-x {
+  cursor: pointer;
+  color: var(--text-muted);
+  margin-left: 2px;
+  font-size: 12px;
+}
+.asv-attach-chip-x:hover {
+  color: var(--text-primary);
+}
+
+/* Attach action buttons */
+.asv-attach-row {
+  display: flex;
+  gap: 2px;
+}
+.asv-attach-btn {
+  width: 26px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+  opacity: 0.6;
+}
+.asv-attach-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  opacity: 1;
 }
 
 .asv-textarea {

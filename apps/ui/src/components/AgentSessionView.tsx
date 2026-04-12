@@ -1390,303 +1390,80 @@ export default function AgentSessionView({
         <div ref={messagesEnd} />
       </div>
 
-      {/* Session attachments — prompts, quest, files (only visible before first message) */}
-      {!activeSessionId && (
-        <div
-          className="asv-attach-bar"
-        >
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            style={{ display: "none" }}
-            onChange={(e) => {
-              if (e.target.files) readFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          {/* Attached chips */}
-          {(sessionPrompts.length > 0 || sessionTask || attachedFiles.length > 0) && (
-            <div className="asv-attach-chips">
-              {sessionPrompts.map((p, i) => (
-                <div
-                  key={`p-${i}`}
-                  className="asv-attach-chip asv-attach-chip--prompt"
-                >
-                  <span className="asv-attach-chip-icon">⚡</span>
-                  <span className="asv-attach-chip-text">{p}</span>
-                  <span
-                    className="asv-attach-chip-x"
-                    onClick={() =>
-                      setSessionPrompts((prev) =>
-                        prev.filter((_, j) => j !== i),
-                      )
-                    }
-                  >
-                    ×
-                  </span>
-                </div>
-              ))}
-              {sessionTask && (
-                <div className="asv-attach-chip asv-attach-chip--quest">
-                  <span className="asv-attach-chip-icon">◆</span>
-                  <span className="asv-attach-chip-text">
-                    {sessionTask.name}
-                  </span>
-                  <span
-                    className="asv-attach-chip-x"
-                    onClick={() => setSessionTask(null)}
-                  >
-                    ×
-                  </span>
-                </div>
-              )}
-              {attachedFiles.map((f, i) => (
-                <div key={`f-${i}`} className="asv-attach-chip asv-attach-chip--file">
-                  <span className="asv-attach-chip-icon">📎</span>
-                  <span className="asv-attach-chip-text">{f.name}</span>
-                  <span className="asv-attach-chip-meta">{(f.size / 1024).toFixed(0)}K</span>
-                  <span
-                    className="asv-attach-chip-x"
-                    onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
-                  >
-                    ×
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Picker dropdown */}
-          {showAttachPicker && (
-            <div className="asv-attach-picker">
-              <div className="asv-attach-picker-header">
-                <input
-                  className="asv-attach-picker-search"
-                  placeholder={
-                    showAttachPicker === "prompt"
-                      ? "Search prompts..."
-                      : "Search quests..."
-                  }
-                  value={attachSearch}
-                  onChange={(e) => setAttachSearch(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  className="asv-attach-picker-close"
-                  onClick={() => {
-                    setShowAttachPicker(null);
-                    setAttachSearch("");
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              {/* Tag filters */}
-              {showAttachPicker === "prompt" && allTags.length > 0 && (
-                <div className="asv-attach-picker-tags">
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag}
-                      className={`asv-tag-btn ${activeTagFilters.includes(tag) ? "asv-tag-btn--active" : ""}`}
-                      onClick={() =>
-                        setActiveTagFilters((prev) =>
-                          prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-                        )
-                      }
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="asv-attach-picker-list">
-                {showAttachPicker === "prompt" && (
-                  <>
-                    {/* Recent section */}
-                    {!attachSearch && activeTagFilters.length === 0 && recentPromptNames.length > 0 && (
-                      <>
-                        <div className="asv-attach-picker-section">Recent</div>
-                        {recentPromptNames
-                          .filter((name) => !sessionPrompts.includes(name))
-                          .filter((name) => availablePrompts.some((p) => p.name === name))
-                          .slice(0, 4)
-                          .map((name) => {
-                            const p = availablePrompts.find((pr) => pr.name === name)!;
-                            return (
-                              <div
-                                key={`recent-${p.name}`}
-                                className="asv-attach-picker-item"
-                                onClick={() => {
-                                  setSessionPrompts((prev) => [...prev, p.name]);
-                                  trackRecentPrompt(p.name);
-                                  setAttachSearch("");
-                                  setShowAttachPicker(null);
-                                }}
-                                onMouseEnter={() => setHoveredPrompt(p.description)}
-                                onMouseLeave={() => setHoveredPrompt(null)}
-                              >
-                                <span className="asv-attach-picker-item-name">{p.name}</span>
-                                <span className="asv-attach-picker-item-tags">{p.tags.join(", ")}</span>
-                              </div>
-                            );
-                          })}
-                        <div className="asv-attach-picker-section">All</div>
-                      </>
-                    )}
-                    {availablePrompts
-                      .filter((p) => {
-                        const q = attachSearch.toLowerCase();
-                        const textMatch =
-                          !q ||
-                          p.name.toLowerCase().includes(q) ||
-                          p.description.toLowerCase().includes(q) ||
-                          p.tags.some((t) => t.includes(q));
-                        const tagMatch =
-                          activeTagFilters.length === 0 ||
-                          activeTagFilters.every((tf) => p.tags.includes(tf));
-                        return textMatch && tagMatch;
-                      })
-                      .filter((p) => !sessionPrompts.includes(p.name))
-                      .map((p) => (
-                        <div
-                          key={p.name}
-                          className="asv-attach-picker-item"
-                          onClick={() => {
-                            setSessionPrompts((prev) => [...prev, p.name]);
-                            trackRecentPrompt(p.name);
-                            setAttachSearch("");
-                            setShowAttachPicker(null);
-                            setActiveTagFilters([]);
-                          }}
-                          onMouseEnter={() => setHoveredPrompt(p.description)}
-                          onMouseLeave={() => setHoveredPrompt(null)}
-                        >
-                          <span className="asv-attach-picker-item-name">
-                            {p.name}
-                          </span>
-                          <span className="asv-attach-picker-item-desc">
-                            {p.description}
-                          </span>
-                          {p.tags.length > 0 && (
-                            <span className="asv-attach-picker-item-tags">
-                              {p.tags.join(", ")}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    {availablePrompts.length === 0 && (
-                      <div className="asv-attach-picker-empty">
-                        No prompts found
-                      </div>
-                    )}
-                  </>
-                )}
-                {showAttachPicker === "quest" && (
-                  <>
-                    {availableTasks
-                      .filter(
-                        (t) =>
-                          !attachSearch ||
-                          t.name
-                            .toLowerCase()
-                            .includes(attachSearch.toLowerCase()),
-                      )
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="asv-attach-picker-item"
-                          onClick={() => {
-                            setSessionTask({ id: t.id, name: t.name });
-                            setAttachSearch("");
-                            setShowAttachPicker(null);
-                          }}
-                        >
-                          <span className="asv-attach-picker-item-name">
-                            {t.name}
-                          </span>
-                          <span className="asv-attach-picker-item-desc">
-                            {t.id}
-                          </span>
-                        </div>
-                      ))}
-                    {availableTasks.length === 0 && (
-                      <div className="asv-attach-picker-empty">
-                        No open quests
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <a
-                className="asv-attach-picker-create"
-                href={showAttachPicker === "prompt" ? "/prompts" : "/quests"}
-                target="_blank"
-                rel="noreferrer"
-              >
-                + create new {showAttachPicker === "quest" ? "quest" : showAttachPicker}
-              </a>
-              {/* Hover preview */}
-              {hoveredPrompt && (
-                <div className="asv-attach-picker-preview">
-                  {hoveredPrompt}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Toggle buttons */}
-          {!showAttachPicker && (
-            <div className="asv-attach-toggles">
-              <button
-                className="asv-attach-toggle"
-                onClick={() => { setShowAttachPicker("prompt"); setActiveTagFilters([]); }}
-              >
-                + prompt <span className="asv-attach-shortcut">⌘P</span>
-              </button>
-              <button
-                className="asv-attach-toggle"
-                onClick={() => setShowAttachPicker("quest")}
-              >
-                + quest <span className="asv-attach-shortcut">⌘Q</span>
-              </button>
-              <button
-                className="asv-attach-toggle"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                + file
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          if (e.target.files) readFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
 
       {/* Input box */}
       <div className="asv-composer">
         <div
           className={`asv-composer-inner ${streaming ? "asv-composer-busy" : ""}`}
         >
-          <textarea
-            ref={inputRef}
-            className="asv-textarea"
-            placeholder={
-              streaming ? "Queue a message..." : `Message ${displayName}...`
-            }
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            onDrop={(e) => {
-              if (e.dataTransfer.files.length > 0) {
-                e.preventDefault();
-                e.stopPropagation();
-                dragCounter.current = 0;
-                setDragOver(false);
-                readFiles(e.dataTransfer.files);
+          <div className="asv-composer-body">
+            {/* Attached chips — always visible */}
+            {(sessionPrompts.length > 0 || sessionTask || attachedFiles.length > 0) && (
+              <div className="asv-attach-chips">
+                {sessionPrompts.map((p, i) => (
+                  <span key={`p-${i}`} className="asv-attach-chip">
+                    {p}
+                    <span className="asv-attach-chip-x" onClick={() => setSessionPrompts((prev) => prev.filter((_, j) => j !== i))}>×</span>
+                  </span>
+                ))}
+                {sessionTask && (
+                  <span className="asv-attach-chip">
+                    {sessionTask.name}
+                    <span className="asv-attach-chip-x" onClick={() => setSessionTask(null)}>×</span>
+                  </span>
+                )}
+                {attachedFiles.map((f, i) => (
+                  <span key={`f-${i}`} className="asv-attach-chip">
+                    {f.name}
+                    <span className="asv-attach-chip-x" onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}>×</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            <textarea
+              ref={inputRef}
+              className="asv-textarea"
+              placeholder={
+                streaming ? "Queue a message..." : `Message ${displayName}...`
               }
-            }}
-            rows={1}
-          />
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onDrop={(e) => {
+                if (e.dataTransfer.files.length > 0) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  dragCounter.current = 0;
+                  setDragOver(false);
+                  readFiles(e.dataTransfer.files);
+                }
+              }}
+              rows={1}
+            />
+            {/* Attach actions — always available */}
+            <div className="asv-attach-row">
+              <button className="asv-attach-btn" onClick={() => { setShowAttachPicker("prompt"); setActiveTagFilters([]); }} title="Attach idea (⌘P)">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4" strokeLinecap="round" /></svg>
+              </button>
+              <button className="asv-attach-btn" onClick={() => setShowAttachPicker("quest")} title="Attach quest (⌘Q)">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" /></svg>
+              </button>
+              <button className="asv-attach-btn" onClick={() => fileInputRef.current?.click()} title="Attach file">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" /></svg>
+              </button>
+            </div>
+          </div>
           <button
             className={`asv-send ${input.trim() ? "ready" : ""} ${streaming && !input.trim() ? "busy" : ""}`}
             onClick={handleSend}
