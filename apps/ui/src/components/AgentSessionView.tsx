@@ -290,7 +290,7 @@ function SegmentRenderer({ segments, live = false }: { segments: MessageSegment[
       {groups.map((group, gi) =>
         group.kind === "text" ? (
           <div key={gi} className="asv-msg-content">
-            <Markdown>{group.text}</Markdown>
+            <Markdown components={markdownComponents}>{group.text}</Markdown>
           </div>
         ) : group.kind === "step" ? (
           <div key={gi} className="asv-step-sep">
@@ -305,6 +305,42 @@ function SegmentRenderer({ segments, live = false }: { segments: MessageSegment[
     </>
   );
 }
+
+/** Code block with language label + copy button */
+function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const lang = className?.replace("language-", "") || "";
+  const code = String(children).replace(/\n$/, "");
+  return (
+    <div className="asv-codeblock">
+      <div className="asv-codeblock-header">
+        <span className="asv-codeblock-lang">{lang}</span>
+        <button
+          className="asv-codeblock-copy"
+          onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+        >
+          {copied ? "copied" : "copy"}
+        </button>
+      </div>
+      <pre><code className={className}>{children}</code></pre>
+    </div>
+  );
+}
+
+/** Custom markdown components — code blocks get headers */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const markdownComponents: any = {
+  code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
+    const isBlock = className?.startsWith("language-");
+    if (isBlock) {
+      return <CodeBlock className={className}>{children}</CodeBlock>;
+    }
+    return <code className={className} {...props}>{children}</code>;
+  },
+  pre({ children }: { children?: React.ReactNode }) {
+    return <>{children}</>;
+  },
+};
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -432,20 +468,18 @@ const MessageItem = memo(function MessageItem({
   ].filter(Boolean) as string[];
   return (
     <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
-      <div className="asv-msg-avatar">
-        <RoundAvatar
-          name={msg.role === "assistant" ? agentName : userName}
-          src={msg.role === "assistant" ? undefined : userAvatarUrl}
-          size={24}
-        />
-      </div>
+      {msg.role === "assistant" && (
+        <div className="asv-msg-avatar">
+          <RoundAvatar name={agentName} size={24} />
+        </div>
+      )}
       <div className="asv-msg-body">
         {msg.segments && msg.segments.length > 0 ? (
           <SegmentRenderer segments={msg.segments} />
         ) : (
           <div className="asv-msg-content">
             {msg.role === "assistant" ? (
-              <Markdown>{msg.content}</Markdown>
+              <Markdown components={markdownComponents}>{msg.content}</Markdown>
             ) : (
               <span>{msg.content}</span>
             )}
@@ -1299,14 +1333,27 @@ export default function AgentSessionView({
         {messages.length === 0 && !streaming && (
           <div className="asv-empty">
             <div className="asv-empty-icon">
-              <RoundAvatar name={agentName} size={48} />
+              <RoundAvatar name={agentName} size={40} />
             </div>
-            <div className="asv-empty-title">Message {displayName}</div>
+            <div className="asv-empty-title">{displayName}</div>
             <div className="asv-empty-hint">
               {activeSessionId
                 ? "Continue this conversation."
-                : "Your message starts a new session."}
+                : "Start a new session."}
             </div>
+            {!activeSessionId && (
+              <div className="asv-empty-suggestions">
+                {["What can you do?", "Show me your tools", "What quests are open?"].map((q) => (
+                  <button
+                    key={q}
+                    className="asv-empty-suggestion"
+                    onClick={() => { setInput(q); requestAnimationFrame(() => inputRef.current?.focus()); }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
