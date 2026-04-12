@@ -1347,7 +1347,10 @@ export default function AgentSessionView({
                   <button
                     key={q}
                     className="asv-empty-suggestion"
-                    onClick={() => { setInput(q); requestAnimationFrame(() => inputRef.current?.focus()); }}
+                    onClick={() => {
+                      setMessages((prev) => [...prev, { role: "user", content: q, timestamp: Date.now() }]);
+                      void dispatchMessage(q);
+                    }}
                   >
                     {q}
                   </button>
