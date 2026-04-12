@@ -197,7 +197,7 @@ impl EventMatcher {
                 &event.agent_id,
                 &format!("[event:{}] {}", event.name, event.pattern),
                 &description,
-                None,
+                &[],
                 &labels,
             )
             .await

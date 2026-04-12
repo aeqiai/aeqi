@@ -93,7 +93,7 @@ impl ScheduleTimer {
                 &event.agent_id,
                 &format!("[schedule:{}] {}", event.pattern, event.name),
                 &description,
-                None,
+                &[],
                 &labels,
             )
             .await

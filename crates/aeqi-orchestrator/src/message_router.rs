@@ -352,7 +352,7 @@ impl MessageRouter {
 
         let mut task = self
             .agent_registry
-            .create_task(&agent.id, subject, description, None, &labels)
+            .create_task(&agent.id, subject, description, &[], &labels)
             .await?;
 
         if hold_for_council {
@@ -1108,7 +1108,7 @@ impl MessageRouter {
         let create_result = match self.agent_registry.resolve_by_hint(&project).await {
             Ok(Some(agent)) => {
                 self.agent_registry
-                    .create_task(&agent.id, &subject, "", None, &["chat".to_string()])
+                    .create_task(&agent.id, &subject, "", &[], &["chat".to_string()])
                     .await
             }
             Ok(None) => Err(anyhow::anyhow!("agent not found for hint: {project}")),
@@ -1316,7 +1316,7 @@ impl MessageRouter {
                         &agent.id,
                         &task_subject,
                         &task_desc,
-                        None,
+                        &[],
                         &["council".to_string()],
                     )
                     .await

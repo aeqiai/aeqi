@@ -161,7 +161,7 @@ pub async fn handle_claim_notes(
                     &agent_id,
                     &format!("claim: {resource}"),
                     content,
-                    None,
+                    &[],
                     &[claim_label],
                 )
                 .await

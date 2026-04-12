@@ -533,6 +533,18 @@ impl AgentRegistry {
             conn.execute_batch("ALTER TABLE quests ADD COLUMN worktree_path TEXT;")?;
         }
 
+        // Idempotent migration: add idea_ids column to quests table.
+        let has_idea_ids: bool = conn
+            .prepare("PRAGMA table_info(quests)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == "idea_ids");
+        if !has_idea_ids {
+            conn.execute_batch(
+                "ALTER TABLE quests ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';",
+            )?;
+        }
+
         // Backfill: populate prompts from system_prompt for existing agents.
         conn.execute_batch(
             "UPDATE agents SET prompts = json_array(json_object(
@@ -1291,7 +1303,7 @@ impl AgentRegistry {
         agent_id: &str,
         subject: &str,
         description: &str,
-        skill: Option<&str>,
+        idea_ids: &[String],
         labels: &[String],
     ) -> Result<aeqi_quests::Quest> {
         // Resolve quest prefix: agent's quest_prefix, or first 2 chars of name, or "t".
@@ -1336,6 +1348,8 @@ impl AgentRegistry {
         let now = chrono::Utc::now();
         let labels_json = serde_json::to_string(labels)?;
 
+        let idea_ids_json = serde_json::to_string(idea_ids)?;
+
         let task = aeqi_quests::Quest {
             id: aeqi_quests::QuestId(task_id.clone()),
             name: subject.to_string(),
@@ -1344,7 +1358,7 @@ impl AgentRegistry {
             priority: aeqi_quests::quest::Priority::Normal,
             agent_id: Some(agent_id.to_string()),
             depends_on: Vec::new(),
-            skill: skill.map(|s| s.to_string()),
+            idea_ids: idea_ids.to_vec(),
             labels: labels.to_vec(),
             retry_count: 0,
             checkpoints: Vec::new(),
@@ -1359,14 +1373,14 @@ impl AgentRegistry {
         };
 
         db.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, skill, labels, created_at)
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7)",
             params![
                 task_id,
                 subject,
                 description,
                 agent_id,
-                skill,
+                idea_ids_json,
                 labels_json,
                 now.to_rfc3339(),
             ],
@@ -1382,7 +1396,7 @@ impl AgentRegistry {
         agent_id: &str,
         subject: &str,
         description: &str,
-        skill: Option<&str>,
+        idea_ids: &[String],
         labels: &[String],
         depends_on: &[aeqi_quests::QuestId],
         parent_id: Option<&str>,
@@ -1441,6 +1455,7 @@ impl AgentRegistry {
         let now = chrono::Utc::now();
         let labels_json = serde_json::to_string(labels)?;
         let deps_json = serde_json::to_string(depends_on)?;
+        let idea_ids_json = serde_json::to_string(idea_ids)?;
 
         let mut task = aeqi_quests::Quest::with_agent(
             aeqi_quests::QuestId(task_id.clone()),
@@ -1449,19 +1464,19 @@ impl AgentRegistry {
         );
         task.description = description.to_string();
         task.depends_on = depends_on.to_vec();
-        task.skill = skill.map(|s| s.to_string());
+        task.idea_ids = idea_ids.to_vec();
         task.labels = labels.to_vec();
         task.created_at = now;
 
         db.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, skill, labels, depends_on, created_at)
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, depends_on, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
             params![
                 task_id,
                 subject,
                 description,
                 agent_id,
-                skill,
+                idea_ids_json,
                 labels_json,
                 deps_json,
                 now.to_rfc3339(),
@@ -1604,6 +1619,7 @@ impl AgentRegistry {
         let labels_json = serde_json::to_string(&task.labels).unwrap_or_default();
         let checkpoints_json = serde_json::to_string(&task.checkpoints).unwrap_or_default();
         let deps_json = serde_json::to_string(&task.depends_on).unwrap_or_default();
+        let idea_ids_json = serde_json::to_string(&task.idea_ids).unwrap_or_default();
         let metadata_json = serde_json::to_string(&task.metadata).unwrap_or_default();
         let outcome_json = task
             .outcome
@@ -1613,7 +1629,7 @@ impl AgentRegistry {
         db.execute(
             "UPDATE quests SET
                 subject = ?1, description = ?2, status = ?3, priority = ?4,
-                agent_id = ?5, skill = ?6, labels = ?7,
+                agent_id = ?5, idea_ids = ?6, labels = ?7,
                 retry_count = ?8, checkpoints = ?9, metadata = ?10,
                 depends_on = ?11, acceptance_criteria = ?12,
                 updated_at = ?13, closed_at = ?14, outcome = ?15
@@ -1624,7 +1640,7 @@ impl AgentRegistry {
                 task.status.to_string(),
                 task.priority.to_string(),
                 task.agent_id,
-                task.skill,
+                idea_ids_json,
                 labels_json,
                 task.retry_count,
                 checkpoints_json,
@@ -1856,6 +1872,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
     let labels_str: String = row.get("labels").unwrap_or_else(|_| "[]".to_string());
     let checkpoints_str: String = row.get("checkpoints").unwrap_or_else(|_| "[]".to_string());
     let deps_str: String = row.get("depends_on").unwrap_or_else(|_| "[]".to_string());
+    let idea_ids_str: String = row.get("idea_ids").unwrap_or_else(|_| "[]".to_string());
     let metadata_str: String = row.get("metadata").unwrap_or_else(|_| "{}".to_string());
     let outcome_str: String = row.get("outcome").unwrap_or_else(|_| String::new());
 
@@ -1902,7 +1919,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         priority,
         agent_id: row.get("agent_id").ok(),
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
-        skill: row.get("skill").ok(),
+        idea_ids: serde_json::from_str(&idea_ids_str).unwrap_or_default(),
         labels: serde_json::from_str(&labels_str).unwrap_or_default(),
         retry_count: row.get::<_, u32>("retry_count").unwrap_or(0),
         checkpoints: serde_json::from_str(&checkpoints_str).unwrap_or_default(),
@@ -2471,7 +2488,7 @@ You are a worker agent."#;
 
         // Create two tasks.
         let t1 = reg
-            .create_task(&agent.id, "Build API", "Build the REST API", None, &[])
+            .create_task(&agent.id, "Build API", "Build the REST API", &[], &[])
             .await
             .unwrap();
         let t2 = reg
@@ -2479,7 +2496,7 @@ You are a worker agent."#;
                 &agent.id,
                 "Write tests",
                 "Add unit tests",
-                Some("test"),
+                &["idea-abc".to_string()],
                 &["testing".into()],
             )
             .await
@@ -2491,7 +2508,7 @@ You are a worker agent."#;
         assert_eq!(fetched.description, "Build the REST API");
 
         let fetched2 = reg.get_task(&t2.id.0).await.unwrap().unwrap();
-        assert_eq!(fetched2.skill.as_deref(), Some("test"));
+        assert_eq!(fetched2.idea_ids, vec!["idea-abc".to_string()]);
         assert_eq!(fetched2.labels, vec!["testing".to_string()]);
 
         // Get nonexistent.

@@ -170,7 +170,7 @@ impl DelegateTool {
                 &target.id,
                 &subject,
                 prompt,
-                skill.as_deref(),
+                &[],
                 &labels,
             )
             .await?;

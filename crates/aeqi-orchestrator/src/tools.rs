@@ -658,9 +658,20 @@ impl QuestsTool {
             }
         };
 
+        // Parse optional idea_ids from the request.
+        let idea_ids: Vec<String> = args
+            .get("idea_ids")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
         let quest = match self
             .agent_registry
-            .create_task(&agent.id, subject, description, None, &[])
+            .create_task(&agent.id, subject, description, &idea_ids, &[])
             .await
         {
             Ok(q) => q,

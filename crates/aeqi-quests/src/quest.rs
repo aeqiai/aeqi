@@ -172,9 +172,9 @@ pub struct Quest {
     /// Quest IDs that must be completed before this one can start.
     #[serde(default)]
     pub depends_on: Vec<QuestId>,
-    /// Skill to apply when executing this quest (loaded from project skills dir).
+    /// Idea IDs that this quest references (replaces the old skill field).
     #[serde(default)]
-    pub skill: Option<String>,
+    pub idea_ids: Vec<String>,
     /// Labels for categorization.
     #[serde(default)]
     pub labels: Vec<String>,
@@ -222,7 +222,7 @@ impl Quest {
             priority: Priority::Normal,
             agent_id: agent_id.map(|s| s.to_string()),
             depends_on: Vec::new(),
-            skill: None,
+            idea_ids: Vec::new(),
             labels: Vec::new(),
             retry_count: 0,
             checkpoints: Vec::new(),

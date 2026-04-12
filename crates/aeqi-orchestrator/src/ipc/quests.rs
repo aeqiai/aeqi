@@ -74,7 +74,7 @@ pub async fn handle_quests(
                         "status": quest.status.to_string(),
                         "priority": quest.priority.to_string(),
                         "agent_id": quest.agent_id,
-                        "skill": quest.skill,
+                        "idea_ids": quest.idea_ids,
                         "labels": quest.labels,
                         "retry_count": quest.retry_count,
                         "project": quest.agent_id.as_deref().unwrap_or(""),
@@ -163,7 +163,15 @@ pub async fn handle_create_quest(
 
     match agent {
         Some(agent) => {
-            let skill = request.get("skill").and_then(|v| v.as_str());
+            let idea_ids: Vec<String> = request
+                .get("idea_ids")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default();
             let labels: Vec<String> = request
                 .get("labels")
                 .and_then(|v| v.as_array())
@@ -179,7 +187,7 @@ pub async fn handle_create_quest(
                     &agent.id,
                     subject,
                     description,
-                    skill,
+                    &idea_ids,
                     &labels,
                     &depends_on,
                     parent_id,
