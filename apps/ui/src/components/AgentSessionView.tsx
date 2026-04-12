@@ -63,35 +63,12 @@ function formatTime(ts: number): string {
 // ── Tool display helpers ──
 
 const TOOL_LABELS: Record<string, string> = {
-  // Agents
-  agents_hire: "Hire agent",
-  agents_retire: "Retire agent",
-  agents_list: "List agents",
-  agents_delegate: "Delegate",
-  // Quests
-  quests_create: "Create quest",
-  quests_update: "Update quest",
-  quests_close: "Close quest",
-  quests_cancel: "Cancel quest",
-  quests_show: "View quest",
-  quests_ready: "Ready quest",
-  quests_prioritize: "Prioritize",
-  quests_depend: "Set dependency",
-  // Consolidated tools (v2)
+  // Consolidated tools
   agents: "Agents",
   quests: "Quests",
   events: "Events",
   ideas: "Ideas",
   code: "Code",
-  // Legacy tool names (v1)
-  events_create: "Create trigger",
-  events_list: "List triggers",
-  events_remove: "Remove trigger",
-  events_manage: "Manage triggers",
-  ideas_store: "Store idea",
-  ideas_recall: "Recall idea",
-  ideas_graph: "Query graph",
-  ideas_search: "Search transcripts",
   // Prompts
   prompts_list: "List prompts",
   prompts_load: "Load prompt",
@@ -1295,7 +1272,7 @@ export default function AgentSessionView({
     setInput(e.target.value);
     const el = e.target;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
   };
 
   if (!agentId) return null;

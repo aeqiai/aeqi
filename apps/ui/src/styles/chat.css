@@ -2101,10 +2101,12 @@
   font-weight: 400;
   resize: none;
   min-height: 48px;
+  max-height: 360px;
   line-height: 24px;
   padding: 2px 0;
   letter-spacing: -0.01em;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
 }
 
