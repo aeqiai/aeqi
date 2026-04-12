@@ -1984,14 +1984,13 @@
 
 .asv-composer-inner {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  flex-direction: column;
   width: 100%;
   max-width: 720px;
   background: var(--bg-base);
   border: 1.5px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
-  padding: 12px 12px 12px 18px;
+  padding: 14px 16px 8px;
   transition: border-color 0.2s, box-shadow 0.2s;
   position: relative;
 }
@@ -2147,21 +2146,32 @@
   line-height: 1.6;
 }
 
-/* ── Send button ── */
+/* Composer footer — attach left, send right */
+.asv-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+}
+
+/* ── Send button — wide pill ── */
 
 .asv-send {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
   background: transparent;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, transform 0.12s ease;
+  transition: background 0.15s, color 0.15s, transform 0.1s ease;
 }
 
 .asv-send.ready {
@@ -2170,20 +2180,27 @@
 }
 
 .asv-send.ready:hover {
-  transform: scale(1.08);
+  opacity: 0.88;
 }
 
 .asv-send.ready:active {
-  transform: scale(0.92);
+  transform: scale(0.96);
 }
 
 .asv-send:disabled {
   cursor: default;
-  opacity: 0.25;
+  opacity: 0.2;
+}
+.asv-send:disabled .asv-send-label {
+  display: none;
 }
 
 .asv-send.busy {
   color: var(--text-muted);
+}
+
+.asv-send-label {
+  font-size: 12px;
 }
 
 .asv-send-spinner {
