@@ -544,6 +544,18 @@ impl IdeasTool {
             Err(e) => Ok(ToolResult::error(format!("Search failed: {e}"))),
         }
     }
+
+    async fn action_delete(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing id"))?;
+
+        match self.memory.delete(id).await {
+            Ok(()) => Ok(ToolResult::success(format!("Deleted idea {id}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to delete: {e}"))),
+        }
+    }
 }
 
 #[async_trait]
@@ -557,9 +569,7 @@ impl Tool for IdeasTool {
         match action {
             "store" => self.action_store(&args).await,
             "search" => self.action_search(&args).await,
-            "delete" => Ok(ToolResult::error(
-                "delete action not yet implemented".to_string(),
-            )),
+            "delete" => self.action_delete(&args).await,
             other => Ok(ToolResult::error(format!(
                 "Unknown action: {other}. Use: store, search, delete"
             ))),
@@ -576,8 +586,9 @@ impl Tool for IdeasTool {
                     "action": {
                         "type": "string",
                         "enum": ["store", "search", "delete"],
-                        "description": "store: save a memory (needs key, content). search: find memories (needs query). delete: remove a memory (not yet implemented)."
+                        "description": "store: save a memory (needs key, content). search: find memories (needs query). delete: remove a memory (needs id)."
                     },
+                    "id": { "type": "string", "description": "Idea ID to delete (for delete)" },
                     "key": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store)" },
                     "content": { "type": "string", "description": "The memory content to store (for store)" },
                     "category": { "type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "description": "Memory category (for store, default: fact)" },

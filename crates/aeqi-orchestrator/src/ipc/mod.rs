@@ -35,7 +35,6 @@ pub struct CommandContext {
     pub metrics: Arc<AEQIMetrics>,
     pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
-    pub dispatch_es: Arc<ActivityLog>,
     pub event_handler_store: Option<Arc<EventHandlerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,

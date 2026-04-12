@@ -1,5 +1,4 @@
 use anyhow::Result;
-use chrono::Utc;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -7,7 +6,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
-use crate::activity_log::{ActivityLog, Dispatch, DispatchHealth};
+use crate::activity_log::ActivityLog;
 use crate::activity::{ActivityStream, Activity};
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
@@ -568,7 +567,6 @@ impl Daemon {
                     prompt_loader: self.prompt_loader.clone(),
                     event_handler_store: self.event_handler_store.clone(),
                 });
-                let dispatch_es = self.activity_log.clone();
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
                 let activity_buffer = self.activity_buffer.clone();
@@ -584,7 +582,6 @@ impl Daemon {
                     Self::socket_accept_loop(
                         listener,
                         ipc_ctx,
-                        dispatch_es,
                         agent_registry,
                         message_router,
                         activity_buffer,
@@ -610,14 +607,9 @@ impl Daemon {
         // IPC over Unix sockets is not supported on non-unix platforms.
     }
 
-    /// Load persisted state (dispatch bus, cost ledger) from disk.
+    /// Load persisted state from disk.
     async fn load_persisted_state(&self) {
-        match self.activity_log.load_dispatches().await {
-            Ok(n) if n > 0 => info!(count = n, "loaded persisted dispatches"),
-            Ok(_) => {}
-            Err(e) => warn!(error = %e, "failed to load dispatch bus"),
-        }
-        // Cost entries are now stored in ActivityLog (SQLite) — no JSONL load needed.
+        // Cost entries and events are stored in ActivityLog (SQLite) — no load needed.
     }
 
     /// Run one patrol iteration: triggers, config reload, persistence, metrics, pruning.
@@ -789,7 +781,6 @@ impl Daemon {
     async fn socket_accept_loop(
         listener: tokio::net::UnixListener,
         ipc_ctx: Arc<IpcContext>,
-        dispatch_es: Arc<ActivityLog>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
         activity_buffer: Arc<Mutex<ActivityBuffer>>,
@@ -808,7 +799,6 @@ impl Daemon {
             match listener.accept().await {
                 Ok((stream, _)) => {
                     let ipc_ctx = ipc_ctx.clone();
-                    let dispatch_es = dispatch_es.clone();
                     let agent_registry = agent_registry.clone();
                     let message_router = message_router.clone();
                     let activity_buffer = activity_buffer.clone();
@@ -822,7 +812,6 @@ impl Daemon {
                         if let Err(e) = Self::handle_socket_connection(
                             stream,
                             ipc_ctx,
-                            dispatch_es,
                             agent_registry,
                             message_router,
                             activity_buffer,
@@ -853,7 +842,6 @@ impl Daemon {
     async fn handle_socket_connection(
         stream: tokio::net::UnixStream,
         ipc_ctx: Arc<IpcContext>,
-        dispatch_es: Arc<ActivityLog>,
         agent_registry: Arc<AgentRegistry>,
         message_router: Option<Arc<MessageRouter>>,
         activity_buffer: Arc<Mutex<ActivityBuffer>>,
@@ -930,7 +918,6 @@ impl Daemon {
                 metrics: ipc_ctx.metrics.clone(),
                 activity_log: ipc_ctx.activity_log.clone(),
                 session_store: ipc_ctx.session_store.clone(),
-                dispatch_es: dispatch_es.clone(),
                 event_handler_store: ipc_ctx.event_handler_store.clone(),
                 agent_registry: agent_registry.clone(),
                 message_router: message_router.clone(),
@@ -982,10 +969,7 @@ impl Daemon {
                         .await
                 }
 
-                "mail" => crate::ipc::status::handle_mail(&ctx, &request, &allowed_companies).await,
-                "dispatches" => {
-                    crate::ipc::status::handle_dispatches(&ctx, &request, &allowed_companies).await
-                }
+                // "mail" and "dispatches" — removed (dispatch bus is dead)
                 "metrics" => {
                     crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await
                 }
@@ -1127,30 +1111,7 @@ impl Daemon {
                         .await
                 }
 
-                "list_prompts" => {
-                    crate::ipc::prompts::handle_list_prompts(&ctx, &request, &allowed_companies)
-                        .await
-                }
-                "get_prompt" => {
-                    crate::ipc::prompts::handle_get_prompt(&ctx, &request, &allowed_companies).await
-                }
-                "create_prompt" => {
-                    crate::ipc::prompts::handle_create_prompt(&ctx, &request, &allowed_companies)
-                        .await
-                }
-                "update_prompt" => {
-                    crate::ipc::prompts::handle_update_prompt(&ctx, &request, &allowed_companies)
-                        .await
-                }
-                "delete_prompt" => {
-                    crate::ipc::prompts::handle_delete_prompt(&ctx, &request, &allowed_companies)
-                        .await
-                }
-
-                "import_prompts" => {
-                    crate::ipc::prompts::handle_import_prompts(&ctx, &request, &allowed_companies)
-                        .await
-                }
+                // prompt CRUD — removed (prompts table is dead)
                 "seed_ideas" => {
                     crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies)
                         .await
@@ -1912,48 +1873,9 @@ impl Daemon {
     }
 }
 
-pub fn dispatch_state(dispatch: &Dispatch, overdue_cutoff: chrono::DateTime<Utc>) -> &'static str {
-    if dispatch.requires_ack && dispatch.retry_count >= dispatch.max_retries {
-        "dead_letter"
-    } else if dispatch.requires_ack && dispatch.read && dispatch.timestamp < overdue_cutoff {
-        "overdue_ack"
-    } else if dispatch.requires_ack && dispatch.read {
-        "awaiting_ack"
-    } else if dispatch.requires_ack && !dispatch.read && dispatch.retry_count > 0 {
-        "retrying_delivery"
-    } else if !dispatch.read {
-        "unread"
-    } else {
-        "handled"
-    }
-}
-
-pub fn dispatch_summary_json(
-    dispatch: &Dispatch,
-    overdue_cutoff: chrono::DateTime<Utc>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "id": dispatch.id,
-        "from": dispatch.from,
-        "to": dispatch.to,
-        "subject": dispatch.kind.subject_tag(),
-        "body": dispatch.kind.body_text(),
-        "timestamp": dispatch.timestamp.to_rfc3339(),
-        "first_sent_at": dispatch.first_sent_at.to_rfc3339(),
-        "read": dispatch.read,
-        "requires_ack": dispatch.requires_ack,
-        "retry_count": dispatch.retry_count,
-        "max_retries": dispatch.max_retries,
-        "state": dispatch_state(dispatch, overdue_cutoff),
-        "age_seconds": (Utc::now() - dispatch.timestamp).num_seconds().max(0),
-        "delivery_seconds": (Utc::now() - dispatch.first_sent_at).num_seconds().max(0),
-    })
-}
-
 pub fn readiness_response(
     leader_agent_name: &str,
     mut worker_limits: Vec<(String, u32)>,
-    dispatch_health: DispatchHealth,
     budget_status: (f64, f64, f64),
     readiness: &ReadinessContext,
 ) -> serde_json::Value {
@@ -1999,26 +1921,6 @@ pub fn readiness_response(
         ));
     }
 
-    let mut warnings = Vec::new();
-    if dispatch_health.overdue_ack > 0 {
-        warnings.push(format!(
-            "{} dispatch(es) are overdue for acknowledgment",
-            dispatch_health.overdue_ack
-        ));
-    }
-    if dispatch_health.dead_letters > 0 {
-        warnings.push(format!(
-            "{} dispatch(es) are in dead-letter state",
-            dispatch_health.dead_letters
-        ));
-    }
-    if dispatch_health.retrying_delivery > 0 {
-        warnings.push(format!(
-            "{} dispatch(es) are retrying delivery",
-            dispatch_health.retrying_delivery
-        ));
-    }
-
     serde_json::json!({
         "ok": true,
         "ready": blocking_reasons.is_empty(),
@@ -2028,27 +1930,19 @@ pub fn readiness_response(
         "registered_owners": registered_owners,
         "registered_owner_count": managed_owners.len(),
         "max_workers": max_workers,
-        "dispatch_health": {
-            "unread": dispatch_health.unread,
-            "awaiting_ack": dispatch_health.awaiting_ack,
-            "retrying_delivery": dispatch_health.retrying_delivery,
-            "overdue_ack": dispatch_health.overdue_ack,
-            "dead_letters": dispatch_health.dead_letters,
-        },
         "cost_today_usd": spent,
         "daily_budget_usd": budget,
         "budget_remaining_usd": remaining,
         "skipped_projects": readiness.skipped_projects.clone(),
         "skipped_advisors": readiness.skipped_advisors.clone(),
         "blocking_reasons": blocking_reasons,
-        "warnings": warnings,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        DispatchHealth, ActivityBuffer, Activity, ReadinessContext, readiness_response,
+        ActivityBuffer, Activity, ReadinessContext, readiness_response,
         resolve_web_chat_id,
     };
     use crate::session_store::{agency_chat_id, named_channel_chat_id, project_chat_id};
@@ -2058,7 +1952,6 @@ mod tests {
         let response = readiness_response(
             "leader",
             vec![("leader".to_string(), 1), ("alpha".to_string(), 2)],
-            DispatchHealth::default(),
             (2.5, 50.0, 47.5),
             &ReadinessContext {
                 configured_projects: 2,
@@ -2082,39 +1975,10 @@ mod tests {
     }
 
     #[test]
-    fn readiness_surfaces_dispatch_warnings_without_blocking() {
-        let response = readiness_response(
-            "leader",
-            vec![("leader".to_string(), 1), ("alpha".to_string(), 2)],
-            DispatchHealth {
-                unread: 0,
-                awaiting_ack: 1,
-                retrying_delivery: 1,
-                overdue_ack: 1,
-                dead_letters: 1,
-            },
-            (3.0, 50.0, 47.0),
-            &ReadinessContext {
-                configured_projects: 1,
-                configured_advisors: 0,
-                skipped_projects: Vec::new(),
-                skipped_advisors: Vec::new(),
-            },
-        );
-
-        assert_eq!(response["ready"], serde_json::json!(true));
-        assert_eq!(
-            response["warnings"].as_array().map(|items| items.len()),
-            Some(3)
-        );
-    }
-
-    #[test]
     fn readiness_blocks_when_budget_is_exhausted() {
         let response = readiness_response(
             "leader",
             vec![("leader".to_string(), 1), ("alpha".to_string(), 2)],
-            DispatchHealth::default(),
             (50.0, 50.0, 0.0),
             &ReadinessContext {
                 configured_projects: 1,

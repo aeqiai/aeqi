@@ -159,17 +159,8 @@ pub async fn handle_create_company(
                             name
                         );
                     }
-                    if let Some(prompt_id) = a.prompt_ids.first() {
-                        let _ = ctx
-                            .agent_registry
-                            .update_prompt(
-                                prompt_id,
-                                Some(&format!("{name}-identity")),
-                                None,
-                                Some(&identity_tags),
-                            )
-                            .await;
-                    }
+                    // prompt CRUD removed — identity tags managed via ideas.db now.
+                    let _ = &identity_tags;
                 }
                 Err(e) => {
                     tracing::warn!("create_company: failed to spawn agent for '{}': {e}", name);

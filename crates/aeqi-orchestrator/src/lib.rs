@@ -40,13 +40,13 @@ pub mod template;
 pub mod tools;
 pub mod vfs;
 
-pub use agent_registry::{Agent, CompanyRecord, PromptRecord};
+pub use agent_registry::{Agent, CompanyRecord};
 pub use agent_router::{AgentRouter, RouteDecision};
 pub use agent_worker::{AgentWorker, WorkerState};
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;
-pub use activity_log::{Dispatch, DispatchHealth, DispatchKind, ActivityLog};
+pub use activity_log::ActivityLog;
 pub use activity::{ActivityStream, Activity};
 pub use executor::QuestOutcome;
 pub use hook::Hook;

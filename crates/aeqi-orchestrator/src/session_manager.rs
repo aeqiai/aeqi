@@ -512,31 +512,6 @@ impl SessionManager {
         let mut step_prompt_specs: Vec<aeqi_core::StepPromptSpec> = Vec::new();
 
         for prompt_name in &opts.skills {
-            // Try DB first (prompts imported at daemon startup).
-            if let Ok(Some(db_prompt)) = agent_registry.find_prompt_by_name(prompt_name).await {
-                let entry = db_prompt.to_prompt_entry();
-                session_prompt_parts.push(entry.content.clone());
-                if let Some(ref tr) = entry.tools {
-                    tools.retain(|t| {
-                        if !tr.deny.is_empty() && tr.deny.contains(&t.name().to_string()) {
-                            return false;
-                        }
-                        if !tr.allow.is_empty() {
-                            return tr.allow.contains(&t.name().to_string());
-                        }
-                        true
-                    });
-                }
-                // Snapshot for step injection.
-                step_prompt_specs.push(aeqi_core::StepPromptSpec {
-                    path: std::path::PathBuf::from(format!("db://{}", db_prompt.id)),
-                    allow_shell: false,
-                    name: db_prompt.name.clone(),
-                    content: Some(entry.content),
-                });
-                debug!(prompt = %prompt_name, source = "db", "session prompt applied");
-                continue;
-            }
 
             // Disk fallback (for prompts not yet imported).
             if let Some(p) = all_prompts.iter().find(|s| s.name == *prompt_name) {

@@ -10,15 +10,6 @@ use crate::helpers::{
 };
 
 #[derive(Debug, Clone, Default, Serialize)]
-struct DispatchHealthSnapshot {
-    unread: u64,
-    awaiting_ack: u64,
-    retrying_delivery: u64,
-    overdue_ack: u64,
-    dead_letters: u64,
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
 struct DaemonMonitor {
     online: bool,
     ready: Option<bool>,
@@ -30,7 +21,6 @@ struct DaemonMonitor {
     cost_today_usd: Option<f64>,
     daily_budget_usd: Option<f64>,
     budget_remaining_usd: Option<f64>,
-    dispatch_health: DispatchHealthSnapshot,
     warnings: Vec<String>,
     blocking_reasons: Vec<String>,
     error: Option<String>,
@@ -184,20 +174,6 @@ async fn load_daemon_monitor(config_path: &Option<PathBuf>) -> DaemonMonitor {
         budget_remaining_usd: response
             .get("budget_remaining_usd")
             .and_then(serde_json::Value::as_f64),
-        dispatch_health: DispatchHealthSnapshot {
-            unread: json_u64_nested(&response, &["dispatch_health", "unread"]).unwrap_or(0),
-            awaiting_ack: json_u64_nested(&response, &["dispatch_health", "awaiting_ack"])
-                .unwrap_or(0),
-            retrying_delivery: json_u64_nested(
-                &response,
-                &["dispatch_health", "retrying_delivery"],
-            )
-            .unwrap_or(0),
-            overdue_ack: json_u64_nested(&response, &["dispatch_health", "overdue_ack"])
-                .unwrap_or(0),
-            dead_letters: json_u64_nested(&response, &["dispatch_health", "dead_letters"])
-                .unwrap_or(0),
-        },
         warnings: string_array(&response, "warnings"),
         blocking_reasons: string_array(&response, "blocking_reasons"),
         error: None,
@@ -342,18 +318,6 @@ fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> V
         }
     }
 
-    if daemon.dispatch_health.dead_letters > 0 {
-        interventions.push(format!(
-            "{} dispatch(es) are in dead-letter state. Inspect the backlog with `aeqi daemon query dispatches` and clear the failing route.",
-            daemon.dispatch_health.dead_letters
-        ));
-    }
-    if daemon.dispatch_health.overdue_ack > 0 {
-        interventions.push(format!(
-            "{} dispatch(es) are overdue for acknowledgment. Review `aeqi daemon query dispatches` before they silently stall escalations.",
-            daemon.dispatch_health.overdue_ack
-        ));
-    }
 
     let mut project_actions = Vec::new();
     for project in projects {
@@ -467,14 +431,6 @@ fn render_monitor_report(report: &MonitorReport) {
                 "  budget: ${spent:.2} / ${budget:.2} used ({pct:.0}%), ${remaining:.2} remaining"
             );
         }
-        println!(
-            "  dispatches: unread={} awaiting_ack={} retrying={} overdue={} dead_letters={}",
-            report.daemon.dispatch_health.unread,
-            report.daemon.dispatch_health.awaiting_ack,
-            report.daemon.dispatch_health.retrying_delivery,
-            report.daemon.dispatch_health.overdue_ack,
-            report.daemon.dispatch_health.dead_letters
-        );
     } else {
         println!("  readiness: unavailable");
         if let Some(error) = &report.daemon.error {
@@ -569,7 +525,7 @@ fn string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{DaemonMonitor, DispatchHealthSnapshot, ProjectMonitor, build_interventions};
+    use super::{DaemonMonitor, ProjectMonitor, build_interventions};
 
     #[test]
     fn monitor_interventions_prioritize_control_plane_failures() {
@@ -580,11 +536,6 @@ mod tests {
                 "1 configured project(s) were skipped because their directories were missing"
                     .to_string(),
             ],
-            dispatch_health: DispatchHealthSnapshot {
-                dead_letters: 1,
-                overdue_ack: 2,
-                ..DispatchHealthSnapshot::default()
-            },
             ..DaemonMonitor::default()
         };
         let projects = vec![ProjectMonitor {

@@ -137,17 +137,11 @@ pub struct AEQIMetrics {
     pub tasks_blocked: Counter,
     pub workers_spawned: Counter,
     pub workers_timed_out: Counter,
-    pub dispatches_sent: Counter,
-    pub dispatch_retries: Counter,
     pub escalations_total: Counter,
     pub patrol_cycles: Counter,
 
     pub workers_active: Gauge,
     pub tasks_pending: Gauge,
-    pub dispatch_queue_depth: Gauge,
-    pub dispatches_awaiting_ack: Gauge,
-    pub dispatches_overdue_ack: Gauge,
-    pub dispatch_dead_letters: Gauge,
     pub daily_cost_usd: Gauge,
 
     pub worker_duration_seconds: Histogram,
@@ -203,29 +197,11 @@ impl AEQIMetrics {
                 "aeqi_workers_timed_out_total",
                 "Total workers timed out",
             ),
-            dispatches_sent: Counter::new("aeqi_dispatches_sent_total", "Total dispatches sent"),
-            dispatch_retries: Counter::new(
-                "aeqi_dispatch_retries_total",
-                "Total critical dispatch retries",
-            ),
             escalations_total: Counter::new("aeqi_escalations_total", "Total escalations"),
             patrol_cycles: Counter::new("aeqi_patrol_cycles_total", "Total patrol cycles"),
 
             workers_active: Gauge::new("aeqi_workers_active", "Currently active workers"),
             tasks_pending: Gauge::new("aeqi_tasks_pending", "Currently pending tasks"),
-            dispatch_queue_depth: Gauge::new("aeqi_dispatch_queue_depth", "Dispatch queue depth"),
-            dispatches_awaiting_ack: Gauge::new(
-                "aeqi_dispatches_awaiting_ack",
-                "Critical dispatches awaiting explicit acknowledgment",
-            ),
-            dispatches_overdue_ack: Gauge::new(
-                "aeqi_dispatches_overdue_ack",
-                "Critical dispatches overdue for acknowledgment",
-            ),
-            dispatch_dead_letters: Gauge::new(
-                "aeqi_dispatch_dead_letters",
-                "Critical dispatches in dead-letter state",
-            ),
             daily_cost_usd: Gauge::new("aeqi_daily_cost_usd", "Cost today in USD"),
 
             worker_duration_seconds: Histogram::new(
@@ -268,17 +244,11 @@ impl AEQIMetrics {
         render_counter(&mut out, &self.tasks_blocked);
         render_counter(&mut out, &self.workers_spawned);
         render_counter(&mut out, &self.workers_timed_out);
-        render_counter(&mut out, &self.dispatches_sent);
-        render_counter(&mut out, &self.dispatch_retries);
         render_counter(&mut out, &self.escalations_total);
         render_counter(&mut out, &self.patrol_cycles);
 
         render_gauge(&mut out, &self.workers_active);
         render_gauge(&mut out, &self.tasks_pending);
-        render_gauge(&mut out, &self.dispatch_queue_depth);
-        render_gauge(&mut out, &self.dispatches_awaiting_ack);
-        render_gauge(&mut out, &self.dispatches_overdue_ack);
-        render_gauge(&mut out, &self.dispatch_dead_letters);
         render_gauge(&mut out, &self.daily_cost_usd);
 
         render_histogram(&mut out, &self.worker_duration_seconds);

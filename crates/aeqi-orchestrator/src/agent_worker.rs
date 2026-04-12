@@ -12,7 +12,6 @@ use tracing::{debug, info, warn};
 use crate::agent_registry::AgentRegistry;
 use crate::checkpoint::AgentCheckpoint;
 use crate::activity_log::ActivityLog;
-use crate::activity_log::{Dispatch, DispatchKind};
 use crate::activity::{ActivityStream, Activity};
 use crate::executor::QuestOutcome;
 use crate::failure_analysis::{FailureAnalysis, FailureMode};
@@ -344,25 +343,6 @@ impl AgentWorker {
             }
         }
 
-        let mut dispatches = self
-            .activity_log
-            .all()
-            .await
-            .into_iter()
-            .filter(|dispatch| is_relevant_dispatch(dispatch, &self.project_name, &quest.id.0))
-            .collect::<Vec<_>>();
-        if !dispatches.is_empty() {
-            if dispatches.len() > 6 {
-                dispatches = dispatches.split_off(dispatches.len() - 6);
-            }
-            let lines = dispatches
-                .iter()
-                .map(format_dispatch_for_prompt)
-                .collect::<Vec<_>>()
-                .join("\n");
-            sections.push(format!("### Control plane\n{lines}"));
-        }
-
         // Child task outcomes
         if let Some(ref registry) = self.agent_registry {
             let child_prefix = format!("{}.", quest.id.0);
@@ -516,6 +496,21 @@ impl AgentWorker {
                             artifacts_preserved: false,
                             runtime: Some(runtime_execution.clone()),
                         });
+                    }
+                    // Emit budget_exceeded if the halt was budget-related.
+                    let reason_lower = reason.to_lowercase();
+                    if reason_lower.contains("budget") || reason_lower.contains("cost") {
+                        let _ = self.activity_log.emit(
+                            "budget_exceeded",
+                            None,
+                            None,
+                            Some(&hook.quest_id.0),
+                            &serde_json::json!({
+                                "worker": self.name,
+                                "agent": self.agent_name,
+                                "reason": reason,
+                            }),
+                        ).await;
                     }
                     // Fire on_complete for this early exit path.
                     if let Some(cb) = self.on_complete.take() {
@@ -1647,27 +1642,6 @@ fn truncate_for_prompt(text: &str, max_chars: usize) -> String {
     out
 }
 
-fn is_relevant_dispatch(dispatch: &Dispatch, project: &str, quest_id: &str) -> bool {
-    match &dispatch.kind {
-        DispatchKind::DelegateRequest { reply_to, .. } => reply_to.as_deref() == Some(quest_id),
-        DispatchKind::DelegateResponse { reply_to, .. } => reply_to == quest_id,
-        DispatchKind::HumanEscalation {
-            project: dispatch_project,
-            quest_id: id,
-            ..
-        } => dispatch_project == project && id == quest_id,
-    }
-}
-
-fn format_dispatch_for_prompt(dispatch: &Dispatch) -> String {
-    format!(
-        "- {} [{} -> {}] {}",
-        dispatch.timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
-        dispatch.from,
-        dispatch.to,
-        truncate_for_prompt(&dispatch.kind.body_text(), 220),
-    )
-}
 
 // ---------------------------------------------------------------------------
 // MiddlewareObserver — bridges the middleware chain into the agent loop

@@ -188,7 +188,7 @@ pub async fn handle_create_quest(
             {
                 Ok(quest) => {
                     let _ = ctx
-                        .dispatch_es
+                        .activity_log
                         .emit(
                             "quest_created",
                             Some(&agent.id),

@@ -34,7 +34,7 @@ use tracing::{debug, info, warn};
 
 use crate::agent_registry::AgentRegistry;
 use crate::agent_worker::AgentWorker;
-use crate::escalation::{EscalationPolicy, EscalationTracker};
+// escalation module still exists but EscalationTracker is no longer used here.
 use crate::activity_log::{EventFilter, ActivityLog};
 use crate::activity::{ActivityStream, Activity};
 use crate::metrics::AEQIMetrics;
@@ -126,8 +126,6 @@ pub struct Scheduler {
 
     // Runtime state
     running: Mutex<Vec<TrackedWorker>>,
-    #[allow(dead_code)]
-    escalation_tracker: Mutex<EscalationTracker>,
 
     // Event-driven dispatch channels
     /// Broadcast receiver for ActivityLog events (quest_created, quest_completed, etc.)
@@ -165,11 +163,6 @@ impl Scheduler {
             session_manager: None,
             gate_channels: Vec::new(),
             running: Mutex::new(Vec::new()),
-            escalation_tracker: Mutex::new(EscalationTracker::new(EscalationPolicy {
-                max_retries: 4,
-                cooldown_secs: 300,
-                escalate_model: None,
-            })),
             event_rx: Mutex::new(event_rx),
             completion_tx,
             completion_rx: Mutex::new(completion_rx),

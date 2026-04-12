@@ -113,7 +113,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Create the unified ActivityLog sharing the AgentRegistry DB.
             let activity_log = Arc::new(ActivityLog::new(agent_reg.db()));
-            activity_log.set_activity_stream(activity_stream.clone());
             info!("activity log initialized (unified)");
 
             // Create the SessionStore sharing the AgentRegistry DB (tables
@@ -452,31 +451,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .await;
             }
 
-            // Import agent identity prompts into the prompt store as managed prompts.
-            // This makes the DB authoritative — .md files are import format only.
-            // If the .md content changed since last import, the prompt is updated.
-            for agent_cfg in &advisor_agents {
-                if agent_reg.get_active_by_name(&agent_cfg.name).await.ok().flatten().is_some()
-                    && let Some(ref prompt_cfg) = agent_cfg.prompt {
-                        let identity_content = &prompt_cfg.system;
-                        if !identity_content.is_empty() {
-                            let source_ref = format!("agent:{}", agent_cfg.name);
-                            let _ = agent_reg
-                                .upsert_managed_prompt(
-                                    &format!("{}-identity", agent_cfg.name),
-                                    identity_content,
-                                    &["identity".to_string()],
-                                    "system",
-                                    "self",
-                                    &[],
-                                    &[],
-                                    "agent-template",
-                                    &source_ref,
-                                )
-                                .await;
-                        }
-                    }
-            }
+            // Agent identity prompts are now managed via ideas.db — prompt store import removed.
 
             // Build the global Scheduler.
             let scheduler_config = SchedulerConfig {
@@ -620,35 +595,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             daemon.leader_agent_name = leader_name.clone();
-            // Import primers into prompt store (DB-first — primers are just prompts
-            // with position=prepend, scope=descendants).
-            if let Some(ref primer_text) = config.shared_primer {
-                let _ = agent_reg
-                    .create_prompt_full(
-                        "shared-primer",
-                        primer_text,
-                        &["primer".to_string(), "shared".to_string()],
-                        "prepend",
-                        "descendants",
-                        &[],
-                        &[],
-                    )
-                    .await;
-            }
-            if let Some(ref project_primer) = config.agent_spawns.first().and_then(|c| c.primer.clone()) {
-                let project_name = config.agent_spawns.first().map(|c| c.name.as_str()).unwrap_or("default");
-                let _ = agent_reg
-                    .create_prompt_full(
-                        &format!("{project_name}-primer"),
-                        project_primer,
-                        &["primer".to_string(), project_name.to_string()],
-                        "prepend",
-                        "descendants",
-                        &[],
-                        &[],
-                    )
-                    .await;
-            }
+            // Primers are now seeded via ideas.db — prompt store import removed.
             // Still set in-memory primers for backward compat during migration.
             daemon.shared_primer = config.shared_primer.clone();
             daemon.project_primer = config.agent_spawns.first().and_then(|c| c.primer.clone());

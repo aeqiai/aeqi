@@ -149,72 +149,7 @@ pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String)
     }
 }
 
-/// A reusable prompt stored in the prompt store.
-///
-/// Everything is a prompt — agent identities, skills, primers, step context.
-/// The difference is injection metadata: position, scope, and mode.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PromptRecord {
-    pub id: String,
-    pub content_hash: String,
-    pub name: String,
-    pub content: String,
-    pub tags: Vec<String>,
-    /// Where this prompt is injected: "system" | "prepend" | "append".
-    #[serde(default = "default_position")]
-    pub position: String,
-    /// Inheritance scope: "self" | "descendants".
-    #[serde(default = "default_scope")]
-    pub scope: String,
-    /// Tool allow-list (empty = all allowed). JSON array stored as string.
-    #[serde(default)]
-    pub tool_allow: Vec<String>,
-    /// Tool deny-list. JSON array stored as string.
-    #[serde(default)]
-    pub tool_deny: Vec<String>,
-    pub source_kind: Option<String>,
-    pub source_ref: Option<String>,
-    pub managed: bool,
-    pub source_hash: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-fn default_position() -> String {
-    "system".into()
-}
-fn default_scope() -> String {
-    "self".into()
-}
-
-impl PromptRecord {
-    /// Convert to a PromptEntry for assembly.
-    pub fn to_prompt_entry(&self) -> aeqi_core::PromptEntry {
-        let position = match self.position.as_str() {
-            "prepend" => aeqi_core::PromptPosition::Prepend,
-            "append" => aeqi_core::PromptPosition::Append,
-            _ => aeqi_core::PromptPosition::System,
-        };
-        let scope = match self.scope.as_str() {
-            "descendants" => aeqi_core::PromptScope::Descendants,
-            _ => aeqi_core::PromptScope::SelfOnly,
-        };
-        let tools = if self.tool_allow.is_empty() && self.tool_deny.is_empty() {
-            None
-        } else {
-            Some(aeqi_core::ToolRestrictions {
-                allow: self.tool_allow.clone(),
-                deny: self.tool_deny.clone(),
-            })
-        };
-        aeqi_core::PromptEntry {
-            content: self.content.clone(),
-            position,
-            scope,
-            tools,
-        }
-    }
-}
+// PromptRecord — DELETED. Prompt data lives exclusively in ideas.db now.
 
 /// Lifecycle status of an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -383,25 +318,8 @@ impl AgentRegistry {
                  created_at TEXT NOT NULL
              );
 
-             CREATE TABLE IF NOT EXISTS prompts (
-                 id TEXT PRIMARY KEY,
-                 content_hash TEXT NOT NULL,
-                 name TEXT NOT NULL,
-                 content TEXT NOT NULL,
-                 tags TEXT NOT NULL DEFAULT '[]',
-                 position TEXT NOT NULL DEFAULT 'system',
-                 scope TEXT NOT NULL DEFAULT 'self',
-                 tool_allow TEXT NOT NULL DEFAULT '[]',
-                 tool_deny TEXT NOT NULL DEFAULT '[]',
-                 source_kind TEXT,
-                 source_ref TEXT,
-                 managed INTEGER NOT NULL DEFAULT 0,
-                 source_hash TEXT,
-                 created_at TEXT NOT NULL,
-                 updated_at TEXT NOT NULL
-             );
-             CREATE INDEX IF NOT EXISTS idx_prompts_name ON prompts(name);
-             CREATE UNIQUE INDEX IF NOT EXISTS idx_prompts_hash ON prompts(content_hash);
+             -- Legacy prompts table purged; prompt data lives in ideas.db now.
+             DROP TABLE IF EXISTS prompts;
 
              CREATE TABLE IF NOT EXISTS approvals (
                  id TEXT PRIMARY KEY,
@@ -437,31 +355,6 @@ impl AgentRegistry {
                 conn.execute_batch(&format!("ALTER TABLE agents ADD COLUMN {col} {typ};"))?;
             }
         }
-
-        let prompt_columns = [
-            ("source_kind", "TEXT"),
-            ("source_ref", "TEXT"),
-            ("managed", "INTEGER NOT NULL DEFAULT 0"),
-            ("source_hash", "TEXT"),
-            ("position", "TEXT NOT NULL DEFAULT 'system'"),
-            ("scope", "TEXT NOT NULL DEFAULT 'self'"),
-            ("tool_allow", "TEXT NOT NULL DEFAULT '[]'"),
-            ("tool_deny", "TEXT NOT NULL DEFAULT '[]'"),
-        ];
-        for (col, typ) in &prompt_columns {
-            let has_col: bool = conn
-                .prepare("PRAGMA table_info(prompts)")?
-                .query_map([], |row| row.get::<_, String>(1))?
-                .filter_map(|r| r.ok())
-                .any(|c| c == *col);
-            if !has_col {
-                conn.execute_batch(&format!("ALTER TABLE prompts ADD COLUMN {col} {typ};"))?;
-            }
-        }
-        conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_prompts_source
-                 ON prompts(source_kind, source_ref);",
-        )?;
 
         // Create unified tasks table (replaces per-project JSONL TaskBoards).
         conn.execute_batch(
@@ -650,70 +543,6 @@ impl AgentRegistry {
              WHERE (prompts IS NULL OR prompts = '[]') AND system_prompt != '';",
         )?;
 
-        // Migration: for agents with prompts != '[]' and prompt_ids = '[]',
-        // create PromptRecord entries in the prompt store and populate prompt_ids.
-        // This runs synchronously (raw SQL) since open() is not async.
-        {
-            let mut stmt = conn.prepare(
-                "SELECT id, name, prompts FROM agents \
-                 WHERE (prompt_ids IS NULL OR prompt_ids = '[]') \
-                   AND prompts IS NOT NULL AND prompts != '[]' AND prompts != ''",
-            )?;
-            let agents_to_migrate: Vec<(String, String, String)> = stmt
-                .query_map([], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                    ))
-                })?
-                .filter_map(|r| r.ok())
-                .collect();
-
-            for (agent_id, agent_name, prompts_json) in &agents_to_migrate {
-                let entries: Vec<aeqi_core::PromptEntry> = match serde_json::from_str(prompts_json)
-                {
-                    Ok(v) => v,
-                    Err(_) => continue,
-                };
-                let mut new_ids: Vec<String> = Vec::new();
-                for (i, entry) in entries.iter().enumerate() {
-                    if entry.content.is_empty() {
-                        continue;
-                    }
-                    let prompt_id = uuid::Uuid::new_v4().to_string();
-                    let now = chrono::Utc::now().to_rfc3339();
-                    let prompt_name = if entries.len() == 1 {
-                        format!("{agent_name}-identity")
-                    } else {
-                        format!("{agent_name}-identity-{i}")
-                    };
-                    let hash = Self::content_hash(&entry.content);
-                    let tags_json = "[]";
-                    conn.execute(
-                        "INSERT OR IGNORE INTO prompts (id, content_hash, name, content, tags, created_at, updated_at) \
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                        params![prompt_id, hash, prompt_name, entry.content, tags_json, now, now],
-                    )?;
-                    new_ids.push(prompt_id);
-                }
-                if !new_ids.is_empty() {
-                    let ids_json =
-                        serde_json::to_string(&new_ids).unwrap_or_else(|_| "[]".to_string());
-                    conn.execute(
-                        "UPDATE agents SET prompt_ids = ?1 WHERE id = ?2",
-                        params![ids_json, agent_id],
-                    )?;
-                    info!(
-                        agent_id = %agent_id,
-                        agent_name = %agent_name,
-                        count = new_ids.len(),
-                        "migrated inline prompts to prompt store"
-                    );
-                }
-            }
-        }
-
         // Close the migration connection and open a pool.
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
@@ -841,7 +670,7 @@ impl AgentRegistry {
             vec![aeqi_core::PromptEntry::system(system_prompt)]
         };
 
-        let mut agent = Agent {
+        let agent = Agent {
             id: id.clone(),
             name: name.to_string(),
             display_name: display_name.map(|s| s.to_string()),
@@ -872,10 +701,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let prompts_json =
             serde_json::to_string(&agent.prompts).unwrap_or_else(|_| "[]".to_string());
-        agent.prompt_ids =
-            Self::materialize_prompt_entries(&db, &format!("{name}-identity"), &agent.prompts)?;
-        let prompt_ids_json =
-            serde_json::to_string(&agent.prompt_ids).unwrap_or_else(|_| "[]".to_string());
+        let prompt_ids_json = "[]".to_string();
         db.execute(
             "INSERT INTO agents (id, name, display_name, template, system_prompt, parent_id, model, capabilities, status, created_at, session_id, prompts, prompt_ids)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
@@ -1163,33 +989,6 @@ impl AgentRegistry {
         Ok(())
     }
 
-    /// Update the prompts array for an agent.
-    pub async fn update_prompts(&self, id: &str, prompts_json: &str) -> Result<()> {
-        let prompts: Vec<aeqi_core::PromptEntry> = serde_json::from_str(prompts_json)
-            .map_err(|e| anyhow::anyhow!("invalid prompts JSON: {e}"))?;
-        let db = self.db.lock().await;
-        let agent_name: String = db
-            .query_row(
-                "SELECT name FROM agents WHERE id = ?1",
-                params![id],
-                |row| row.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| anyhow::anyhow!("agent '{id}' not found"))?;
-        let prompt_ids =
-            Self::materialize_prompt_entries(&db, &format!("{agent_name}-prompt"), &prompts)?;
-        let prompt_ids_json = serde_json::to_string(&prompt_ids)?;
-        let updated = db.execute(
-            "UPDATE agents SET prompts = ?1, prompt_ids = ?2 WHERE id = ?3",
-            params![prompts_json, prompt_ids_json, id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("agent '{id}' not found");
-        }
-        debug!(id = %id, count = prompt_ids.len(), "agent prompts updated");
-        Ok(())
-    }
-
     /// Update the model for an agent.
     pub async fn update_model(&self, id: &str, model: &str) -> Result<()> {
         let db = self.db.lock().await;
@@ -1470,386 +1269,21 @@ impl AgentRegistry {
     }
 
     // -----------------------------------------------------------------------
-    // Prompt store
-    // -----------------------------------------------------------------------
-
-    /// Compute SHA-256 hash of content for the prompt store.
-    fn content_hash(content: &str) -> String {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        format!("{:x}", hasher.finalize())
-    }
-
-    fn prompt_source_hash(name: &str, content: &str, tags: &[String]) -> Result<String> {
-        let source = serde_json::json!({
-            "name": name,
-            "content": content,
-            "tags": tags,
-        });
-        Ok(Self::content_hash(&serde_json::to_string(&source)?))
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn insert_prompt_record(
-        conn: &Connection,
-        name: &str,
-        content: &str,
-        tags: &[String],
-        position: &str,
-        scope: &str,
-        tool_allow: &[String],
-        tool_deny: &[String],
-        source_kind: Option<&str>,
-        source_ref: Option<&str>,
-        managed: bool,
-        source_hash: Option<&str>,
-    ) -> Result<String> {
-        let hash = Self::content_hash(content);
-
-        // Dedup: if a prompt with the same content_hash already exists, reuse it.
-        if let Some(existing_id) = conn
-            .query_row(
-                "SELECT id FROM prompts WHERE content_hash = ?1",
-                params![hash],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?
-        {
-            debug!(id = %existing_id, name = %name, "prompt deduped by content_hash");
-            return Ok(existing_id);
-        }
-
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = chrono::Utc::now().to_rfc3339();
-        let tags_json = serde_json::to_string(tags)?;
-        let tool_allow_json = serde_json::to_string(tool_allow)?;
-        let tool_deny_json = serde_json::to_string(tool_deny)?;
-        conn.execute(
-            "INSERT INTO prompts (id, content_hash, name, content, tags, position, scope, tool_allow, tool_deny, source_kind, source_ref, managed, source_hash, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
-            params![
-                id,
-                hash,
-                name,
-                content,
-                tags_json,
-                position,
-                scope,
-                tool_allow_json,
-                tool_deny_json,
-                source_kind,
-                source_ref,
-                if managed { 1 } else { 0 },
-                source_hash,
-                now,
-            ],
-        )?;
-        Ok(id)
-    }
-
-    fn materialize_prompt_entries(
-        conn: &Connection,
-        prompt_name_prefix: &str,
-        entries: &[aeqi_core::PromptEntry],
-    ) -> Result<Vec<String>> {
-        let mut prompt_ids = Vec::new();
-        for (i, entry) in entries.iter().enumerate() {
-            if entry.content.is_empty() {
-                continue;
-            }
-            let prompt_name = if entries.len() == 1 {
-                prompt_name_prefix.to_string()
-            } else {
-                format!("{prompt_name_prefix}-{i}")
-            };
-            let pos = match entry.position {
-                aeqi_core::PromptPosition::System => "system",
-                aeqi_core::PromptPosition::Prepend => "prepend",
-                aeqi_core::PromptPosition::Append => "append",
-            };
-            let sc = match entry.scope {
-                aeqi_core::PromptScope::SelfOnly => "self",
-                aeqi_core::PromptScope::Descendants => "descendants",
-            };
-            let (ta, td) = entry.tools.as_ref().map(|t| (t.allow.as_slice(), t.deny.as_slice())).unwrap_or((&[], &[]));
-            let prompt_id = Self::insert_prompt_record(
-                conn,
-                &prompt_name,
-                &entry.content,
-                &[],
-                pos,
-                sc,
-                ta,
-                td,
-                None,
-                None,
-                false,
-                None,
-            )?;
-            prompt_ids.push(prompt_id);
-        }
-        Ok(prompt_ids)
-    }
-
-    /// Create a prompt in the store. Returns the UUID.
-    pub async fn create_prompt(
-        &self,
-        name: &str,
-        content: &str,
-        tags: &[String],
-    ) -> Result<String> {
-        let db = self.db.lock().await;
-        let id = Self::insert_prompt_record(&db, name, content, tags, "system", "self", &[], &[], None, None, false, None)?;
-        info!(id = %id, name = %name, "prompt created");
-        Ok(id)
-    }
-
-    /// Create a prompt with full injection metadata.
-    #[allow(clippy::too_many_arguments)]
-    pub async fn create_prompt_full(
-        &self,
-        name: &str,
-        content: &str,
-        tags: &[String],
-        position: &str,
-        scope: &str,
-        tool_allow: &[String],
-        tool_deny: &[String],
-    ) -> Result<String> {
-        let db = self.db.lock().await;
-        let id = Self::insert_prompt_record(&db, name, content, tags, position, scope, tool_allow, tool_deny, None, None, false, None)?;
-        info!(id = %id, name = %name, position, scope, "prompt created");
-        Ok(id)
-    }
-
-    /// Find a prompt by name. Returns the first match.
-    pub async fn find_prompt_by_name(&self, name: &str) -> Result<Option<PromptRecord>> {
-        let db = self.db.lock().await;
-        let record = db
-            .query_row(
-                "SELECT * FROM prompts WHERE name = ?1 LIMIT 1",
-                params![name],
-                |row| Ok(row_to_prompt(row)),
-            )
-            .optional()?;
-        Ok(record)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub async fn upsert_managed_prompt(
-        &self,
-        name: &str,
-        content: &str,
-        tags: &[String],
-        position: &str,
-        scope: &str,
-        tool_allow: &[String],
-        tool_deny: &[String],
-        source_kind: &str,
-        source_ref: &str,
-    ) -> Result<(String, &'static str)> {
-        let db = self.db.lock().await;
-        let now = chrono::Utc::now().to_rfc3339();
-        let content_hash = Self::content_hash(content);
-        let tags_json = serde_json::to_string(tags)?;
-        let tool_allow_json = serde_json::to_string(tool_allow)?;
-        let tool_deny_json = serde_json::to_string(tool_deny)?;
-        let source_hash = Self::prompt_source_hash(name, content, tags)?;
-
-        let existing = db
-            .query_row(
-                "SELECT id, source_hash FROM prompts WHERE source_kind = ?1 AND source_ref = ?2",
-                params![source_kind, source_ref],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
-            )
-            .optional()?;
-
-        if let Some((id, existing_hash)) = existing {
-            if existing_hash.as_deref() == Some(source_hash.as_str()) {
-                return Ok((id, "unchanged"));
-            }
-            db.execute(
-                "UPDATE prompts
-                 SET content_hash = ?1,
-                     name = ?2,
-                     content = ?3,
-                     tags = ?4,
-                     position = ?5,
-                     scope = ?6,
-                     tool_allow = ?7,
-                     tool_deny = ?8,
-                     managed = 1,
-                     source_hash = ?9,
-                     updated_at = ?10
-                 WHERE id = ?11",
-                params![content_hash, name, content, tags_json, position, scope, tool_allow_json, tool_deny_json, source_hash, now, id],
-            )?;
-            return Ok((id, "updated"));
-        }
-
-        let id = Self::insert_prompt_record(
-            &db,
-            name,
-            content,
-            tags,
-            position,
-            scope,
-            tool_allow,
-            tool_deny,
-            Some(source_kind),
-            Some(source_ref),
-            true,
-            Some(&source_hash),
-        )?;
-        Ok((id, "created"))
-    }
-
-    /// Get a prompt by UUID.
-    pub async fn get_prompt(&self, id: &str) -> Result<Option<PromptRecord>> {
-        let db = self.db.lock().await;
-        let record = db
-            .query_row(
-                "SELECT * FROM prompts WHERE id = ?1",
-                params![id],
-                |row| Ok(row_to_prompt(row)),
-            )
-            .optional()?;
-        Ok(record)
-    }
-
-    /// List all prompts, optionally filtered by tag.
-    pub async fn list_prompts(&self, tag_filter: Option<&str>) -> Result<Vec<PromptRecord>> {
-        let db = self.db.lock().await;
-        let records = if let Some(tag) = tag_filter {
-            // Use JSON function to check if tag array contains the value.
-            let pattern = format!("%\"{}\"%", tag.replace('"', ""));
-            let mut stmt = db.prepare(
-                "SELECT * FROM prompts WHERE tags LIKE ?1 ORDER BY name ASC",
-            )?;
-            stmt.query_map(params![pattern], |row| Ok(row_to_prompt(row)))?
-                .collect::<Result<Vec<_>, _>>()?
-        } else {
-            let mut stmt = db.prepare(
-                "SELECT * FROM prompts ORDER BY name ASC",
-            )?;
-            stmt.query_map([], |row| Ok(row_to_prompt(row)))?
-                .collect::<Result<Vec<_>, _>>()?
-        };
-        Ok(records)
-    }
-
-    /// Update a prompt's content (recomputes content_hash).
-    pub async fn update_prompt(
-        &self,
-        id: &str,
-        name: Option<&str>,
-        content: Option<&str>,
-        tags: Option<&[String]>,
-    ) -> Result<()> {
-        let now = chrono::Utc::now().to_rfc3339();
-        let db = self.db.lock().await;
-
-        // Fetch current values to merge.
-        let current = db
-            .query_row(
-                "SELECT name, content, tags FROM prompts WHERE id = ?1",
-                params![id],
-                |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                    ))
-                },
-            )
-            .optional()?
-            .ok_or_else(|| anyhow::anyhow!("prompt '{id}' not found"))?;
-
-        let new_name = name.unwrap_or(&current.0);
-        let new_content = content.unwrap_or(&current.1);
-        let new_hash = Self::content_hash(new_content);
-        let new_tags_vec = match tags {
-            Some(t) => t.to_vec(),
-            None => serde_json::from_str::<Vec<String>>(&current.2).unwrap_or_default(),
-        };
-        let new_tags = serde_json::to_string(&new_tags_vec)?;
-        let new_source_hash = Self::prompt_source_hash(new_name, new_content, &new_tags_vec)?;
-
-        let updated = db.execute(
-            "UPDATE prompts
-             SET name = ?1,
-                 content = ?2,
-                 content_hash = ?3,
-                 tags = ?4,
-                 source_hash = ?5,
-                 updated_at = ?6
-             WHERE id = ?7",
-            params![new_name, new_content, new_hash, new_tags, new_source_hash, now, id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("prompt '{id}' not found");
-        }
-        info!(id = %id, "prompt updated");
-        Ok(())
-    }
-
-    /// Delete a prompt.
-    pub async fn delete_prompt(&self, id: &str) -> Result<()> {
-        let db = self.db.lock().await;
-        let deleted = db.execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
-        if deleted == 0 {
-            anyhow::bail!("prompt '{id}' not found");
-        }
-        info!(id = %id, "prompt deleted");
-        Ok(())
-    }
-
-    /// Resolve prompt_ids to prompt content (for session assembly).
-    pub async fn resolve_prompts(&self, ids: &[String]) -> Result<Vec<PromptRecord>> {
-        if ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let db = self.db.lock().await;
-        let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("?{i}")).collect();
-        let sql = format!(
-            "SELECT * FROM prompts WHERE id IN ({})",
-            placeholders.join(", ")
-        );
-        let mut stmt = db.prepare(&sql)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> = ids
-            .iter()
-            .map(|id| id as &dyn rusqlite::types::ToSql)
-            .collect();
-        let rows = stmt
-            .query_map(params.as_slice(), |row| Ok(row_to_prompt(row)))?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // Return in the same order as the input ids.
-        let mut map: std::collections::HashMap<String, PromptRecord> =
-            rows.into_iter().map(|r| (r.id.clone(), r)).collect();
-        let ordered: Vec<PromptRecord> = ids.iter().filter_map(|id| map.remove(id)).collect();
-        Ok(ordered)
-    }
-
-    /// Set the prompt_ids for an agent.
-    pub async fn set_agent_prompt_ids(&self, agent_id: &str, prompt_ids: &[String]) -> Result<()> {
-        let json = serde_json::to_string(prompt_ids)?;
-        let db = self.db.lock().await;
-        let updated = db.execute(
-            "UPDATE agents SET prompt_ids = ?1 WHERE id = ?2",
-            params![json, agent_id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("agent '{agent_id}' not found");
-        }
-        info!(agent_id = %agent_id, count = prompt_ids.len(), "agent prompt_ids updated");
-        Ok(())
-    }
-
-    // -----------------------------------------------------------------------
     // Unified task store (SQLite-backed, replaces per-project JSONL)
     // -----------------------------------------------------------------------
+
+    // DELETED: Prompt store — content_hash, prompt_source_hash,
+    // insert_prompt_record, materialize_prompt_entries, create_prompt,
+    // create_prompt_full, find_prompt_by_name, upsert_managed_prompt,
+    // get_prompt, list_prompts, update_prompt, delete_prompt,
+    // resolve_prompts, set_agent_prompt_ids.
+    // Prompt data now lives exclusively in ideas.db.
+
+    /// Resolve prompt_ids — returns empty (prompts table is deleted).
+    pub async fn resolve_prompts(&self, _ids: &[String]) -> Result<Vec<serde_json::Value>> {
+        Ok(Vec::new())
+    }
+
 
     /// Create a task assigned to an agent.
     pub async fn create_task(
@@ -2496,32 +1930,6 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
     }
 }
 
-fn row_to_prompt(row: &rusqlite::Row) -> PromptRecord {
-    let tags_str: String = row.get("tags").unwrap_or_else(|_| "[]".to_string());
-    let tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
-    let tool_allow_str: String = row.get("tool_allow").unwrap_or_else(|_| "[]".to_string());
-    let tool_allow: Vec<String> = serde_json::from_str(&tool_allow_str).unwrap_or_default();
-    let tool_deny_str: String = row.get("tool_deny").unwrap_or_else(|_| "[]".to_string());
-    let tool_deny: Vec<String> = serde_json::from_str(&tool_deny_str).unwrap_or_default();
-    PromptRecord {
-        id: row.get("id").unwrap_or_default(),
-        content_hash: row.get("content_hash").unwrap_or_default(),
-        name: row.get("name").unwrap_or_default(),
-        content: row.get("content").unwrap_or_default(),
-        tags,
-        position: row.get("position").unwrap_or_else(|_| "system".to_string()),
-        scope: row.get("scope").unwrap_or_else(|_| "self".to_string()),
-        tool_allow,
-        tool_deny,
-        source_kind: row.get("source_kind").ok(),
-        source_ref: row.get("source_ref").ok(),
-        managed: row.get::<_, i64>("managed").unwrap_or(0) != 0,
-        source_hash: row.get("source_hash").ok(),
-        created_at: row.get("created_at").unwrap_or_default(),
-        updated_at: row.get("updated_at").unwrap_or_default(),
-    }
-}
-
 fn row_to_agent(row: &rusqlite::Row) -> Agent {
     let status_str: String = row.get("status").unwrap_or_default();
     let status = match status_str.as_str() {
@@ -2625,108 +2033,11 @@ mod tests {
 
         assert_eq!(agent.name, "shadow");
         assert_eq!(agent.system_prompt, "You are Shadow.");
-        assert_eq!(agent.prompt_ids.len(), 1);
         assert!(agent.parent_id.is_none()); // Root agent
         assert_eq!(agent.status, AgentStatus::Active);
 
         let fetched = reg.get(&agent.id).await.unwrap().unwrap();
         assert_eq!(fetched.id, agent.id);
-        assert_eq!(fetched.prompt_ids, agent.prompt_ids);
-        let prompt = reg
-            .get_prompt(&agent.prompt_ids[0])
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(prompt.name, "shadow-identity");
-        assert_eq!(prompt.content, "You are Shadow.");
-    }
-
-    #[tokio::test]
-    async fn update_prompts_refreshes_prompt_ids() {
-        let reg = test_registry().await;
-        let agent = reg
-            .spawn("assistant", None, "root", "Root agent.", None, None, &[])
-            .await
-            .unwrap();
-        let original_prompt_ids = agent.prompt_ids.clone();
-        let updated_prompts = vec![
-            aeqi_core::PromptEntry::primer("Shared primer".to_string()),
-            aeqi_core::PromptEntry::system("Root agent.".to_string()),
-        ];
-        let prompts_json = serde_json::to_string(&updated_prompts).unwrap();
-
-        reg.update_prompts(&agent.id, &prompts_json).await.unwrap();
-
-        let fetched = reg.get(&agent.id).await.unwrap().unwrap();
-        assert_eq!(fetched.prompts.len(), 2);
-        assert_eq!(fetched.prompts[0].content, "Shared primer");
-        assert_eq!(fetched.prompts[1].content, "Root agent.");
-        assert_eq!(fetched.prompt_ids.len(), 2);
-        assert_ne!(fetched.prompt_ids, original_prompt_ids);
-    }
-
-    #[tokio::test]
-    async fn upsert_managed_prompt_tracks_source_metadata() {
-        let reg = test_registry().await;
-        let tags = vec!["identity".to_string(), "company".to_string()];
-
-        let (prompt_id, status) = reg
-            .upsert_managed_prompt(
-                "company-identity",
-                "Initial content",
-                &tags,
-                "system",
-                "self",
-                &[],
-                &[],
-                "file",
-                "/tmp/company-identity.md",
-            )
-            .await
-            .unwrap();
-        assert_eq!(status, "created");
-
-        let prompt = reg.get_prompt(&prompt_id).await.unwrap().unwrap();
-        assert_eq!(prompt.source_kind.as_deref(), Some("file"));
-        assert_eq!(prompt.source_ref.as_deref(), Some("/tmp/company-identity.md"));
-        assert!(prompt.managed);
-        assert_eq!(prompt.position, "system");
-        assert_eq!(prompt.scope, "self");
-
-        let (_prompt_id, status) = reg
-            .upsert_managed_prompt(
-                "company-identity",
-                "Initial content",
-                &tags,
-                "system",
-                "self",
-                &[],
-                &[],
-                "file",
-                "/tmp/company-identity.md",
-            )
-            .await
-            .unwrap();
-        assert_eq!(status, "unchanged");
-
-        let (_prompt_id, status) = reg
-            .upsert_managed_prompt(
-                "company-identity",
-                "Updated content",
-                &tags,
-                "system",
-                "self",
-                &[],
-                &[],
-                "file",
-                "/tmp/company-identity.md",
-            )
-            .await
-            .unwrap();
-        assert_eq!(status, "updated");
-
-        let updated_prompt = reg.get_prompt(&prompt_id).await.unwrap().unwrap();
-        assert_eq!(updated_prompt.content, "Updated content");
     }
 
     #[tokio::test]

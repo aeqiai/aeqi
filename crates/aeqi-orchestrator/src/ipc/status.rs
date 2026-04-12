@@ -1,7 +1,6 @@
 //! Status, readiness, metrics, and other observability IPC handlers.
 
 use super::tenancy::is_allowed;
-const ACK_RETRY_AGE_SECS: u64 = 60;
 
 pub async fn handle_ping(
     _ctx: &super::CommandContext,
@@ -31,9 +30,6 @@ pub async fn handle_status(
         project_names
     };
     let worker_count = ctx.scheduler.config.max_workers;
-    let dispatch_health = ctx.dispatch_es.dispatch_health(ACK_RETRY_AGE_SECS).await;
-    let mail_count = dispatch_health.unread;
-    let trigger_count: u64 = 0; // Legacy trigger system removed
 
     let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
@@ -75,15 +71,6 @@ pub async fn handle_status(
         "projects": project_names,
         "project_count": project_names.len(),
         "max_workers": worker_count,
-        "triggers": trigger_count,
-        "pending_mail": mail_count,
-        "dispatch_health": {
-            "unread": dispatch_health.unread,
-            "awaiting_ack": dispatch_health.awaiting_ack,
-            "retrying_delivery": dispatch_health.retrying_delivery,
-            "overdue_ack": dispatch_health.overdue_ack,
-            "dead_letters": dispatch_health.dead_letters,
-        },
         "cost_today_usd": spent,
         "daily_budget_usd": budget,
         "budget_remaining_usd": remaining,
@@ -112,14 +99,12 @@ pub async fn handle_readiness(
                 .collect()
         })
         .unwrap_or_default();
-    let dispatch_health = ctx.dispatch_es.dispatch_health(ACK_RETRY_AGE_SECS).await;
     let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
     crate::daemon::readiness_response(
         &ctx.leader_agent_name,
         worker_limits,
-        dispatch_health,
         (spent, budget, remaining),
         readiness,
     )
@@ -399,62 +384,3 @@ pub async fn handle_pipelines(
     serde_json::json!({"ok": true, "pipelines": pipelines})
 }
 
-pub async fn handle_mail(
-    ctx: &super::CommandContext,
-    _request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let messages = ctx.dispatch_es.drain();
-    let msgs: Vec<serde_json::Value> = messages
-        .iter()
-        .map(|m| {
-            serde_json::json!({
-                "from": m.from,
-                "to": m.to,
-                "subject": m.kind.subject_tag(),
-                "body": m.kind.body_text(),
-            })
-        })
-        .collect();
-    serde_json::json!({"ok": true, "messages": msgs})
-}
-
-pub async fn handle_dispatches(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let recipient = request.get("recipient").and_then(|v| v.as_str());
-    let state = request.get("state").and_then(|v| v.as_str());
-    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-    let overdue_cutoff = chrono::Utc::now() - chrono::Duration::seconds(ACK_RETRY_AGE_SECS as i64);
-    let mut dispatches = ctx.dispatch_es.all().await;
-    if allowed.is_some() {
-        dispatches.retain(|d| is_allowed(allowed, &d.to) || is_allowed(allowed, &d.from));
-    }
-    if let Some(recipient) = recipient {
-        dispatches.retain(|d| d.to == recipient);
-    }
-    if let Some(state) = state {
-        dispatches.retain(|d| crate::daemon::dispatch_state(d, overdue_cutoff) == state);
-    }
-    dispatches.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-    dispatches.truncate(limit);
-    let items: Vec<serde_json::Value> = dispatches
-        .iter()
-        .map(|d| crate::daemon::dispatch_summary_json(d, overdue_cutoff))
-        .collect();
-    let health = ctx.dispatch_es.dispatch_health(ACK_RETRY_AGE_SECS).await;
-    serde_json::json!({
-        "ok": true,
-        "count": items.len(),
-        "dispatch_health": {
-            "unread": health.unread,
-            "awaiting_ack": health.awaiting_ack,
-            "retrying_delivery": health.retrying_delivery,
-            "overdue_ack": health.overdue_ack,
-            "dead_letters": health.dead_letters,
-        },
-        "dispatches": items,
-    })
-}

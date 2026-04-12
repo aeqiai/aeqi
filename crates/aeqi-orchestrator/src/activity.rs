@@ -124,12 +124,6 @@ pub enum Activity {
     },
     /// A persistent agent has been idle.
     AgentIdle { agent_id: String, idle_secs: u64 },
-    /// A dispatch was received.
-    DispatchReceived {
-        from_agent: String,
-        to_agent: String,
-        kind: String,
-    },
     /// A message was posted to a conversation channel.
     ChannelMessage {
         channel_name: String,
@@ -198,16 +192,6 @@ impl Activity {
                     serde_json::Value::Null,
                 )
             }
-            Self::DispatchReceived {
-                from_agent: _,
-                to_agent,
-                ..
-            } => (
-                "execution.dispatch".into(),
-                Some(to_agent.clone()),
-                None,
-                content,
-            ),
             _ => ("execution.other".into(), None, None, content),
         }
     }

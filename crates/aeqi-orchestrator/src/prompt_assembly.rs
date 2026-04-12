@@ -63,20 +63,8 @@ pub async fn assemble_prompts(
             None
         };
 
-        // --- Resolve entries: ideas.db or fallback to prompts table ---
-        let resolved_entries: Vec<PromptEntry> = if let Some(entries) = idea_entries {
-            entries
-        } else {
-            // Fallback: resolve via prompt_ids from the prompts table in agents.db.
-            registry
-                .resolve_prompts(&agent.prompt_ids)
-                .await
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|r| !r.content.is_empty())
-                .map(|r| r.to_prompt_entry())
-                .collect()
-        };
+        // --- Resolve entries from ideas.db ---
+        let resolved_entries: Vec<PromptEntry> = idea_entries.unwrap_or_default();
 
         for entry in &resolved_entries {
             // Scope check: descendants-scoped entries from ancestors, self-scoped only from self.
