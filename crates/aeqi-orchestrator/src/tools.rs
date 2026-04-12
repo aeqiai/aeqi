@@ -149,6 +149,7 @@ pub struct AgentsTool {
     agent_registry: Arc<AgentRegistry>,
     templates_dir: PathBuf,
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    activity_log: Arc<ActivityLog>,
 }
 
 impl AgentsTool {
@@ -157,12 +158,14 @@ impl AgentsTool {
         agent_registry: Arc<AgentRegistry>,
         templates_dir: PathBuf,
         event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+        activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
             agent_name,
             agent_registry,
             templates_dir,
             event_handler_store,
+            activity_log,
         }
     }
 
@@ -186,6 +189,14 @@ impl AgentsTool {
             .spawn_from_template(&content, Some(parent_id))
             .await?;
 
+        // Emit child_added for the parent.
+        let _ = self.activity_log.emit(
+            "child_added",
+            Some(parent_id),
+            None, None,
+            &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
+        ).await;
+
         Ok(ToolResult::success(format!(
             "Agent hired: {} (id: {}, template: {})",
             agent.name, agent.id, template
@@ -207,6 +218,16 @@ impl AgentsTool {
         self.agent_registry
             .set_status(&agent.id, crate::agent_registry::AgentStatus::Retired)
             .await?;
+
+        // Emit child_removed for the parent.
+        if let Some(ref parent_id) = agent.parent_id {
+            let _ = self.activity_log.emit(
+                "child_removed",
+                Some(parent_id),
+                None, None,
+                &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
+            ).await;
+        }
 
         Ok(ToolResult::success(format!(
             "Agent '{}' (id: {}) retired.",
@@ -1647,6 +1668,7 @@ pub fn build_orchestration_tools(
         agent_registry.clone(),
         templates_dir,
         Some(event_handler_store.clone()),
+        activity_log.clone(),
     );
 
     // 2. Quests tool (create/list/show/update/close/cancel)

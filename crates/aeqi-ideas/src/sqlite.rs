@@ -225,7 +225,19 @@ impl SqliteIdeas {
             return Ok(());
         }
 
-        conn.execute_batch("ALTER TABLE ideas RENAME TO ideas;")?;
+        let has_ideas: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if has_ideas {
+            // Both tables exist — ideas was already created, drop the old one.
+            conn.execute_batch("DROP TABLE IF EXISTS insights;")?;
+        } else {
+            // Only insights exists — rename it.
+            conn.execute_batch("ALTER TABLE insights RENAME TO ideas;")?;
+        }
 
         // Drop old FTS table and triggers (will be recreated by main init).
         conn.execute_batch(

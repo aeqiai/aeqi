@@ -639,7 +639,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             if let Ok(agents) = agent_reg.list_active().await {
                 for agent in &agents {
                     let existing = event_handler_store.list_for_agent(&agent.id).await.unwrap_or_default();
-                    if existing.len() < 10 {
+                    if existing.len() < 12 {
                         let _ = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
                             &event_handler_store,
                             &agent.id,

@@ -310,6 +310,18 @@ pub async fn create_default_lifecycle_events(
             "self",
             "A quest is blocked and needs external input. Clearly describe what you need — whether it's clarification from the user, approval for a risky action, or a dependency that must be resolved. Create a quest for your parent agent describing the blocker.",
         ),
+        (
+            "on_child_added",
+            "lifecycle:child_added",
+            "self",
+            "A new child agent was spawned under you. Brief them on current priorities. Share relevant ideas using ideas(action='store', agent='child_name'). Consider assigning an initial quest to get them started.",
+        ),
+        (
+            "on_child_removed",
+            "lifecycle:child_removed",
+            "self",
+            "A child agent was retired. Reassign any of their pending quests to other children or handle them yourself. Archive any knowledge that was unique to that agent by storing it as your own idea.",
+        ),
     ];
 
     for &(name, pattern, scope, content) in defaults {
@@ -329,7 +341,7 @@ pub async fn create_default_lifecycle_events(
             .await?;
     }
 
-    info!(agent_id = %agent_id, "created 10 default lifecycle events");
+    info!(agent_id = %agent_id, "created 12 default lifecycle events");
     Ok(())
 }
 

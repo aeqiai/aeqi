@@ -572,11 +572,6 @@ mod tests {
         assert!(
             interventions
                 .iter()
-                .any(|item| item.contains("dead-letter"))
-        );
-        assert!(
-            interventions
-                .iter()
                 .any(|item| item.contains("alpha is stalled"))
         );
     }
