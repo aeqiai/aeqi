@@ -55,7 +55,7 @@ pub async fn handle_chat(
 
 /// Returns `None` if the tenancy check failed (caller should write the error and continue).
 /// Returns `Some(json)` for the normal response.
-pub async fn handle_chat_full(
+pub async fn handle_session_message(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,

@@ -89,7 +89,7 @@ pub(crate) async fn cmd_chat(config_path: &Option<PathBuf>) -> Result<()> {
         let resp = daemon_ipc_request(
             config_path,
             &serde_json::json!({
-                "cmd": "chat_full",
+                "cmd": "session_message",
                 "message": input,
                 "session_id": session_id.clone(),
                 "sender": sender.clone(),

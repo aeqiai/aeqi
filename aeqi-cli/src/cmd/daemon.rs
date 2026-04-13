@@ -638,6 +638,49 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             info!(total_max_workers, "global scheduler initialized");
 
+            // Start Telegram polling now that session_manager is available.
+            if let Some(tg) = lead_telegram_bot {
+                match Channel::start(tg.as_ref()).await {
+                    Ok(mut rx) => {
+                        let tg_reply = tg.clone();
+                        let tg_sm = daemon.session_manager.clone();
+                        let tg_agent_reg = agent_reg.clone();
+                        let tg_provider = daemon.default_provider.clone();
+                        let tg_leader = leader_name.clone();
+                        let tg_debounce = tg_debounce_ms;
+                        let tg_default = tg_default_chat;
+                        let tg_routes_clone = tg_routes.clone();
+                        let tg_scheduler = shared_scheduler.clone();
+                        let tg_pending = pending_telegram_messages.clone();
+                        let tg_activity = daemon.activity_stream.clone();
+                        // Legacy message_router for fast-lane commands and intent matching.
+                        let tg_message_router = daemon.message_router.clone();
+                        tokio::spawn(async move {
+                            telegram_session_loop(
+                                &mut rx,
+                                tg_reply,
+                                tg_sm,
+                                tg_agent_reg,
+                                tg_provider,
+                                tg_leader,
+                                tg_debounce,
+                                tg_pending,
+                                tg_activity,
+                                tg_default,
+                                tg_routes_clone,
+                                tg_scheduler,
+                                tg_message_router,
+                            )
+                            .await;
+                        });
+                        info!("Telegram channel active (session-based routing)");
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "failed to start Telegram polling");
+                    }
+                }
+            }
+
             // SessionManager was already configured before Arc::new() above.
             daemon.run().await?;
         }
@@ -1068,4 +1111,402 @@ fn resolve_telegram_route(
 ) -> Option<TelegramChatRouteConfig> {
     let route = routes.get(&chat_id).cloned()?;
     Some(route)
+}
+
+/// Session-based Telegram message loop.
+///
+/// Routes incoming Telegram messages through the session_manager instead of the
+/// legacy MessageRouter. Each (agent_id, chat_id) pair gets a persistent session
+/// that accumulates conversation history.
+#[allow(clippy::too_many_arguments)]
+async fn telegram_session_loop(
+    rx: &mut tokio::sync::mpsc::Receiver<aeqi_core::traits::IncomingMessage>,
+    tg_reply: Arc<TelegramChannel>,
+    session_manager: Arc<SessionManager>,
+    agent_registry: Arc<aeqi_orchestrator::agent_registry::AgentRegistry>,
+    default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
+    leader_name: String,
+    debounce_ms: u64,
+    pending_telegram_messages: Arc<std::sync::Mutex<Vec<(i64, String)>>>,
+    activity_stream: Arc<aeqi_orchestrator::ActivityStream>,
+    default_chat_id: i64,
+    telegram_routes: Arc<HashMap<i64, TelegramChatRouteConfig>>,
+    shared_scheduler: Arc<std::sync::RwLock<Option<Arc<Scheduler>>>>,
+    message_router: Option<Arc<aeqi_orchestrator::MessageRouter>>,
+) {
+    struct BufferedMsg {
+        text: String,
+        sender: String,
+        message_id: i64,
+    }
+
+    // Proactive message drainer: delivers pending messages from daemon internals
+    // (morning brief, completion notifications) via Telegram.
+    {
+        let tg_deliver = tg_reply.clone();
+        let ptm = pending_telegram_messages.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                let messages: Vec<(i64, String)> = if let Ok(mut queue) = ptm.lock() {
+                    queue.drain(..).collect()
+                } else {
+                    Vec::new()
+                };
+                for (chat_id, text) in messages {
+                    let out = aeqi_core::traits::OutgoingMessage {
+                        channel: "telegram".to_string(),
+                        recipient: String::new(),
+                        text,
+                        metadata: serde_json::json!({ "chat_id": chat_id }),
+                    };
+                    if let Err(e) = tg_deliver.send(out).await {
+                        warn!(error = %e, "failed to deliver proactive telegram message");
+                    }
+                }
+            }
+        });
+    }
+
+    // Proactive completion notifier (non-user-initiated tasks).
+    if default_chat_id != 0 {
+        let tg_notify = tg_reply.clone();
+        let mut event_rx = activity_stream.subscribe();
+        tokio::spawn(async move {
+            loop {
+                match event_rx.recv().await {
+                    Ok(aeqi_orchestrator::Activity::QuestCompleted {
+                        quest_id,
+                        outcome,
+                        cost_usd,
+                        ..
+                    }) => {
+                        let summary = if outcome.len() > 80 {
+                            format!("{}...", &outcome[..77])
+                        } else {
+                            outcome
+                        };
+                        let text = format!(
+                            "\u{2713} Task {} completed: {} [${:.2}]",
+                            quest_id, summary, cost_usd
+                        );
+                        let out = aeqi_core::traits::OutgoingMessage {
+                            channel: "telegram".to_string(),
+                            recipient: String::new(),
+                            text,
+                            metadata: serde_json::json!({ "chat_id": default_chat_id }),
+                        };
+                        if let Err(e) = tg_notify.send(out).await {
+                            warn!(error = %e, "failed to send proactive completion notification");
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        warn!(missed = n, "proactive notifier lagged behind event stream");
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+    }
+
+    let debounce_window = std::time::Duration::from_millis(debounce_ms);
+    let mut chat_buffers: HashMap<i64, Vec<BufferedMsg>> = HashMap::new();
+    let mut chat_deadlines: HashMap<i64, tokio::time::Instant> = HashMap::new();
+
+    loop {
+        let next_flush = chat_deadlines.values().min().cloned();
+
+        tokio::select! {
+            biased;
+
+            msg = rx.recv() => {
+                let Some(msg) = msg else { break; };
+                let chat_id = msg.metadata.get("chat_id")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let message_id = msg.metadata.get("message_id")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+
+                chat_buffers.entry(chat_id).or_default().push(BufferedMsg {
+                    text: msg.text,
+                    sender: msg.sender,
+                    message_id,
+                });
+
+                let deadline = tokio::time::Instant::now() + debounce_window;
+                chat_deadlines.insert(chat_id, deadline);
+            }
+
+            _ = async {
+                match next_flush {
+                    Some(d) => tokio::time::sleep_until(d).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                let now = tokio::time::Instant::now();
+                let expired: Vec<i64> = chat_deadlines.iter()
+                    .filter(|(_, d)| **d <= now)
+                    .map(|(id, _)| *id)
+                    .collect();
+
+                for chat_id in expired {
+                    chat_deadlines.remove(&chat_id);
+                    let Some(messages) = chat_buffers.remove(&chat_id) else { continue; };
+                    if messages.is_empty() { continue; }
+
+                    let msg_count = messages.len();
+                    let last_message_id = messages.last().map(|m| m.message_id).unwrap_or(0);
+                    let _sender = messages.last().map(|m| m.sender.clone()).unwrap_or_default();
+
+                    if msg_count > 1 {
+                        info!(chat_id, count = msg_count, "coalesced messages");
+                    }
+
+                    let user_text = if messages.len() == 1 {
+                        messages.into_iter().next().unwrap().text
+                    } else {
+                        messages.iter().enumerate()
+                            .map(|(i, m)| format!("[{}]: {}", i + 1, m.text))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    };
+                    let message_id = last_message_id;
+                    let route = resolve_telegram_route(&telegram_routes, chat_id);
+                    let _project_hint = route.as_ref().and_then(|route| route.project.clone());
+
+                    // === Fast-Lane: /status, /help, /cost ===
+                    if user_text.starts_with("/status")
+                        || user_text.starts_with("/help")
+                        || user_text.starts_with("/cost")
+                    {
+                        let tg_fast = tg_reply.clone();
+                        let fast_text = user_text.clone();
+                        let fast_scheduler = shared_scheduler.read().ok().and_then(|g| g.clone());
+                        tokio::spawn(async move {
+                            let reply = if let Some(ref sched) = fast_scheduler {
+                                handle_fast_lane(&fast_text, sched).await
+                            } else {
+                                "Scheduler not yet initialized.".to_string()
+                            };
+                            let out = aeqi_core::traits::OutgoingMessage {
+                                channel: "telegram".to_string(),
+                                recipient: String::new(),
+                                text: reply,
+                                metadata: serde_json::json!({ "chat_id": chat_id }),
+                            };
+                            if let Err(e) = tg_fast.send(out).await {
+                                warn!(error = %e, "failed to send fast-lane reply");
+                            }
+                            if message_id > 0 {
+                                let _ = tg_fast.react(chat_id, message_id, "\u{26a1}").await;
+                            }
+                        });
+                        continue;
+                    }
+
+                    // === Quick intent check (legacy MessageRouter) ===
+                    // If the message_router recognizes a structured intent (create task,
+                    // close task, etc.), handle it without spawning a full session.
+                    if let Some(ref engine) = message_router {
+                        let chat_msg = aeqi_orchestrator::message_router::IncomingMessage {
+                            message: user_text.clone(),
+                            chat_id,
+                            sender: _sender.clone(),
+                            source: aeqi_orchestrator::message_router::MessageSource::Telegram { message_id },
+                            project_hint: _project_hint.clone(),
+                            channel_name: route.as_ref().and_then(|r| r.name.clone()),
+                            agent_id: None,
+                        };
+
+                        if let Some(response) = engine.handle_message(&chat_msg).await {
+                            let tg_intent = tg_reply.clone();
+                            let response_text = response.context.clone();
+                            tokio::spawn(async move {
+                                let out = aeqi_core::traits::OutgoingMessage {
+                                    channel: "telegram".to_string(),
+                                    recipient: String::new(),
+                                    text: response_text,
+                                    metadata: serde_json::json!({ "chat_id": chat_id }),
+                                };
+                                let _ = tg_intent.send(out).await;
+                                if message_id > 0 {
+                                    let _ = tg_intent.react(chat_id, message_id, "\u{2705}").await;
+                                }
+                            });
+                            continue;
+                        }
+                    }
+
+                    // === Session-based routing ===
+                    // Resolve the target agent. Use route config if available, otherwise
+                    // fall back to the leader agent.
+                    let agent_hint = _project_hint
+                        .clone()
+                        .unwrap_or_else(|| leader_name.clone());
+
+                    let agent = match agent_registry.resolve_by_hint(&agent_hint).await {
+                        Ok(Some(a)) => a,
+                        Ok(None) => {
+                            // Try leader agent as fallback.
+                            match agent_registry.get_active_by_name(&leader_name).await {
+                                Ok(Some(a)) => a,
+                                _ => {
+                                    warn!(agent = %agent_hint, "no agent found for telegram routing");
+                                    let out = aeqi_core::traits::OutgoingMessage {
+                                        channel: "telegram".to_string(),
+                                        recipient: String::new(),
+                                        text: format!("No agent '{}' found.", agent_hint),
+                                        metadata: serde_json::json!({ "chat_id": chat_id }),
+                                    };
+                                    let _ = tg_reply.send(out).await;
+                                    continue;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!(error = %e, "agent resolution failed");
+                            continue;
+                        }
+                    };
+
+                    let agent_id = agent.id.clone();
+
+                    // Build channel_key and look up or create a persistent session.
+                    let channel_key = format!("telegram:{}:{}", agent_id, chat_id);
+                    let session_id = match agent_registry
+                        .get_or_create_channel_session(&channel_key, &agent_id)
+                        .await
+                    {
+                        Ok(sid) => sid,
+                        Err(e) => {
+                            warn!(error = %e, "failed to resolve channel session");
+                            continue;
+                        }
+                    };
+
+                    // Route through session_manager.
+                    // If a session is already running, inject the message.
+                    // Otherwise, spawn a new interactive session (the prompt IS the first message).
+                    let tg2 = tg_reply.clone();
+                    let sm = session_manager.clone();
+                    let provider = default_provider.clone();
+
+                    tokio::spawn(async move {
+                        let _ = tg2.send_typing(chat_id).await;
+
+                        if sm.is_running(&session_id).await {
+                            // Session already alive — inject message and wait for response.
+                            match sm.send(&session_id, &user_text).await {
+                                Ok(response) => {
+                                    let out = aeqi_core::traits::OutgoingMessage {
+                                        channel: "telegram".to_string(),
+                                        recipient: String::new(),
+                                        text: response.text,
+                                        metadata: serde_json::json!({ "chat_id": chat_id }),
+                                    };
+                                    if let Err(e) = tg2.send(out).await {
+                                        warn!(error = %e, "failed to send telegram reply");
+                                    }
+                                    if message_id > 0 {
+                                        let _ = tg2.react(chat_id, message_id, "\u{1f44d}").await;
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!(error = %e, session_id = %session_id, "session send failed");
+                                    let out = aeqi_core::traits::OutgoingMessage {
+                                        channel: "telegram".to_string(),
+                                        recipient: String::new(),
+                                        text: format!("Error: {}", e),
+                                        metadata: serde_json::json!({ "chat_id": chat_id }),
+                                    };
+                                    let _ = tg2.send(out).await;
+                                }
+                            }
+                        } else {
+                            // No running session — spawn a new interactive session.
+                            // The user's message becomes the initial prompt.
+                            let Some(provider) = provider else {
+                                let out = aeqi_core::traits::OutgoingMessage {
+                                    channel: "telegram".to_string(),
+                                    recipient: String::new(),
+                                    text: "No provider configured.".to_string(),
+                                    metadata: serde_json::json!({ "chat_id": chat_id }),
+                                };
+                                let _ = tg2.send(out).await;
+                                return;
+                            };
+
+                            let opts = aeqi_orchestrator::session_manager::SpawnOptions::interactive()
+                                .with_session_id(session_id.clone())
+                                .with_name(format!("telegram:{}", chat_id));
+
+                            match sm.spawn_session(&agent_id, &user_text, provider, opts).await {
+                                Ok(spawned) => {
+                                    info!(
+                                        session_id = %spawned.session_id,
+                                        "spawned telegram session"
+                                    );
+                                    // Collect the response from the initial prompt via the stream.
+                                    let mut rx = spawned.stream_sender.subscribe();
+                                    let mut text = String::new();
+                                    loop {
+                                        match tokio::time::timeout(
+                                            std::time::Duration::from_secs(300),
+                                            rx.recv(),
+                                        )
+                                        .await
+                                        {
+                                            Ok(Ok(aeqi_core::ChatStreamEvent::TextDelta { text: delta })) => {
+                                                text.push_str(&delta);
+                                            }
+                                            Ok(Ok(aeqi_core::ChatStreamEvent::Complete { .. })) => {
+                                                break;
+                                            }
+                                            Ok(Ok(_)) => {
+                                                // StepStart, ToolComplete, etc. — skip.
+                                            }
+                                            Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n))) => {
+                                                warn!(lagged = n, "telegram stream subscriber lagged");
+                                            }
+                                            Ok(Err(_)) | Err(_) => {
+                                                // Channel closed or timeout.
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if !text.is_empty() {
+                                        let out = aeqi_core::traits::OutgoingMessage {
+                                            channel: "telegram".to_string(),
+                                            recipient: String::new(),
+                                            text,
+                                            metadata: serde_json::json!({ "chat_id": chat_id }),
+                                        };
+                                        if let Err(e) = tg2.send(out).await {
+                                            warn!(error = %e, "failed to send telegram reply");
+                                        }
+                                    }
+                                    if message_id > 0 {
+                                        let _ = tg2.react(chat_id, message_id, "\u{1f44d}").await;
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!(error = %e, "failed to spawn session for telegram");
+                                    let out = aeqi_core::traits::OutgoingMessage {
+                                        channel: "telegram".to_string(),
+                                        recipient: String::new(),
+                                        text: format!("Error: {}", e),
+                                        metadata: serde_json::json!({ "chat_id": chat_id }),
+                                    };
+                                    let _ = tg2.send(out).await;
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
 }

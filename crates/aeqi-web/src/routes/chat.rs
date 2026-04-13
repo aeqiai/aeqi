@@ -13,7 +13,7 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/chat", post(chat))
-        .route("/chat/full", post(chat_full))
+        .route("/chat/full", post(session_message))
         .route("/chat/poll/{quest_id}", get(chat_poll))
         .route("/chat/history", get(chat_history))
         .route("/chat/timeline", get(chat_timeline))
@@ -28,12 +28,12 @@ async fn chat(
     ipc_proxy(state, scope.as_ref(), "chat", body).await
 }
 
-async fn chat_full(
+async fn session_message(
     State(state): State<AppState>,
     scope: Scope,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "chat_full", body).await
+    ipc_proxy(state, scope.as_ref(), "session_message", body).await
 }
 
 async fn chat_poll(

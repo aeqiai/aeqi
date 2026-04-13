@@ -1112,8 +1112,8 @@ impl Daemon {
                     crate::ipc::chat::handle_post_notes(&ctx, &request, &allowed_companies).await
                 }
                 "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_companies).await,
-                "chat_full" => {
-                    match crate::ipc::chat::handle_chat_full(&ctx, &request, &allowed_companies)
+                "session_message" => {
+                    match crate::ipc::chat::handle_session_message(&ctx, &request, &allowed_companies)
                         .await
                     {
                         Some(resp) => resp,
