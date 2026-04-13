@@ -12,9 +12,9 @@ pub(crate) async fn cmd_audit(
     let (config, _) = load_config(config_path)?;
     let data_dir = config.data_dir();
 
-    // Open the AgentRegistry DB (which contains the unified events table).
+    // Open the AgentRegistry (which opens both aeqi.db and sessions.db).
     let agent_reg = aeqi_orchestrator::agent_registry::AgentRegistry::open(&data_dir)?;
-    let activity_log = aeqi_orchestrator::ActivityLog::new(agent_reg.db());
+    let activity_log = aeqi_orchestrator::ActivityLog::new(agent_reg.sessions_db());
 
     let filter = aeqi_orchestrator::activity_log::EventFilter {
         event_type: Some("decision".to_string()),

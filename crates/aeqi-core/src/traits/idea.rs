@@ -3,10 +3,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// An idea entry owned by an agent in the tree.
-/// Scoping is positional — determined by which agent_id owns the insight,
-/// not by an enum. Insight walks up the parent_id chain.
+/// Scoping is positional — determined by which agent_id owns the idea,
+/// not by an enum. Idea walks up the parent_id chain.
 ///
-/// Everything is an insight. Entries with `injection_mode` set are
+/// Everything is an idea. Entries with `injection_mode` set are
 /// deterministically injected into the agent's context (like prompts).
 /// Entries without it are recalled via semantic search.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,7 +15,7 @@ pub struct Idea {
     pub key: String,
     pub content: String,
     pub category: IdeaCategory,
-    /// The agent that owns this insight.
+    /// The agent that owns this idea.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub session_id: Option<String>,
@@ -114,9 +114,9 @@ pub struct IdeaQuery {
     pub top_k: usize,
     pub category: Option<IdeaCategory>,
     pub session_id: Option<String>,
-    /// Filter to a specific agent's insights.
+    /// Filter to a specific agent's ideas.
     pub agent_id: Option<String>,
-    /// Also include shared insights from sibling agents (same parent).
+    /// Also include shared ideas from sibling agents (same parent).
     /// Populated by the caller from AgentRegistry.get_children(parent_id).
     pub sibling_agent_ids: Vec<String>,
 }
@@ -138,7 +138,7 @@ impl IdeaQuery {
         self
     }
 
-    /// Include shared insights from sibling agents.
+    /// Include shared ideas from sibling agents.
     pub fn with_siblings(mut self, sibling_ids: Vec<String>) -> Self {
         self.sibling_agent_ids = sibling_ids;
         self
@@ -147,8 +147,8 @@ impl IdeaQuery {
 
 #[async_trait]
 pub trait IdeaStore: Send + Sync {
-    /// Store an insight owned by an agent.
-    /// agent_id = None stores a global/system insight.
+    /// Store an idea owned by an agent.
+    /// agent_id = None stores a global/system idea.
     async fn store(
         &self,
         key: &str,
@@ -157,12 +157,12 @@ pub trait IdeaStore: Send + Sync {
         agent_id: Option<&str>,
     ) -> anyhow::Result<String>;
 
-    /// Search insights, optionally filtered by agent_id.
+    /// Search ideas, optionally filtered by agent_id.
     async fn search(&self, query: &IdeaQuery) -> anyhow::Result<Vec<Idea>>;
 
     /// Hierarchical search: walk the agent tree from leaf to root.
     /// `ancestor_ids` = [self_id, parent_id, grandparent_id, ..., root_id].
-    /// Searches each agent's insights and merges by relevance score.
+    /// Searches each agent's ideas and merges by relevance score.
     async fn hierarchical_search(
         &self,
         query: &str,
@@ -178,7 +178,7 @@ pub trait IdeaStore: Send + Sync {
             }
         }
 
-        // Also search global insights (agent_id IS NULL).
+        // Also search global ideas (agent_id IS NULL).
         let mut q = IdeaQuery::new(query, top_k);
         q.agent_id = None;
         if let Ok(entries) = self.search(&q).await {
@@ -264,7 +264,7 @@ pub trait IdeaStore: Send + Sync {
         Ok(Vec::new())
     }
 
-    /// Store an insight graph edge. Default is no-op.
+    /// Store an idea graph edge. Default is no-op.
     async fn store_idea_edge(
         &self,
         _source_id: &str,

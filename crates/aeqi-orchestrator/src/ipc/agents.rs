@@ -26,7 +26,7 @@ pub async fn handle_agents_registry(
             let filtered_agents = if allowed.is_some() {
                 let company_ids: std::collections::HashSet<String> = agents
                     .iter()
-                    .filter(|a| a.template == "company" && is_allowed(allowed, &a.name))
+                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
                     .map(|a| a.id.clone())
                     .collect();
                 let mut allowed_ids = company_ids.clone();
@@ -58,10 +58,8 @@ pub async fn handle_agents_registry(
                     "id": a.id,
                     "name": a.name,
                     "display_name": a.display_name,
-                    "template": a.template,
                     "parent_id": a.parent_id,
                     "model": a.model,
-                    "capabilities": a.capabilities,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
                     "last_active": a.last_active.map(|dt| dt.to_rfc3339()),
@@ -71,11 +69,6 @@ pub async fn handle_agents_registry(
                     "avatar": a.avatar,
                     "faces": a.faces,
                     "session_id": a.session_id,
-                    "ideas": a.ideas,
-                    "idea_ids": a.idea_ids,
-                    // Backward compat aliases for old clients
-                    "prompts": a.ideas,
-                    "prompt_ids": a.idea_ids,
                 }));
             }
             serde_json::json!({"ok": true, "agents": items})
@@ -104,16 +97,10 @@ pub async fn handle_agent_children(
                     "id": a.id,
                     "name": a.name,
                     "display_name": a.display_name,
-                    "template": a.template,
                     "parent_id": a.parent_id,
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
-                    "ideas": a.ideas,
-                    "idea_ids": a.idea_ids,
-                    // Backward compat aliases for old clients
-                    "prompts": a.ideas,
-                    "prompt_ids": a.idea_ids,
                 }));
             }
             serde_json::json!({"ok": true, "children": items})
@@ -213,11 +200,6 @@ pub async fn handle_agent_info(
                 .map(|a| serde_json::json!({
                     "agent_name": a.name,
                     "agent_id": a.id,
-                    "ideas": a.ideas,
-                    "idea_ids": a.idea_ids,
-                    // Backward compat aliases
-                    "prompts": a.ideas,
-                    "prompt_ids": a.idea_ids,
                 }))
                 .collect();
 
@@ -226,20 +208,10 @@ pub async fn handle_agent_info(
                 "id": agent.id,
                 "name": agent.name,
                 "display_name": agent.display_name,
-                "template": agent.template,
-                "system_prompt": agent.system_prompt,
                 "parent_id": agent.parent_id,
                 "model": agent.model,
-                "capabilities": agent.capabilities,
                 "status": agent.status,
-                "ideas": agent.ideas,
-                "idea_ids": agent.idea_ids,
-                // Backward compat aliases
-                "prompts": agent.ideas,
-                "prompt_ids": agent.idea_ids,
                 "idea_chain": idea_chain,
-                // Backward compat alias
-                "prompt_chain": idea_chain,
             })
         }
         Ok(None) => {
@@ -394,7 +366,7 @@ pub async fn handle_approvals(
                     .unwrap_or_default();
                 let company_ids: std::collections::HashSet<String> = all_agents
                     .iter()
-                    .filter(|a| a.template == "company" && is_allowed(allowed, &a.name))
+                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
                     .map(|a| a.id.clone())
                     .collect();
                 let allowed_ids: std::collections::HashSet<String> = all_agents

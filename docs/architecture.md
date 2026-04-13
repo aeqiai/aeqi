@@ -96,7 +96,7 @@ All converge to `spawn_session`:
 
 13 `ChatStreamEvent` types forwarded to the frontend:
 
-TurnStart, TextDelta, ToolStart, ToolComplete, TurnComplete, Status, DelegateStart, DelegateComplete, MemoryActivity, Compacted, ToolProgress, Complete, Error.
+TurnStart, TextDelta, ToolStart, ToolComplete, TurnComplete, Status, DelegateStart, DelegateComplete, IdeaActivity, Compacted, ToolProgress, Complete, Error.
 
 ## Crates
 

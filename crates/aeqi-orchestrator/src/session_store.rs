@@ -1,8 +1,8 @@
 //! Persistent Session Store — SQLite-backed session history
 //! that survives daemon restarts.
 //!
-//! Uses a shared `Arc<Mutex<Connection>>` from AgentRegistry (agents.db)
-//! instead of opening a separate sessions.db file.
+//! Uses a shared connection pool from AgentRegistry (aeqi.db).
+//! Sessions will move to sessions.db in the template/state split.
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
@@ -32,7 +32,6 @@ pub struct Session {
     pub created_at: String,
     pub closed_at: Option<String>,
     pub parent_id: Option<String>,
-    #[serde(alias = "task_id")]
     pub quest_id: Option<String>,
     pub first_message: Option<String>,
 }
@@ -269,7 +268,6 @@ impl SessionStore {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS sessions (
                  id TEXT PRIMARY KEY,
-                 legacy_chat_id INTEGER,
                  agent_id TEXT,
                  session_type TEXT NOT NULL,
                  name TEXT NOT NULL,
@@ -281,6 +279,9 @@ impl SessionStore {
              CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);",
         )
         .context("failed to create sessions table")?;
+
+        // Legacy migration: add legacy_chat_id for existing DBs that still need backfill.
+        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN legacy_chat_id INTEGER;");
 
         // ── Phase A: Add parent_id and task_id to sessions ──
         let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN parent_id TEXT;");
@@ -895,7 +896,7 @@ impl SessionStore {
 
         let (sql, boxed_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match agent_id {
             Some(aid) => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message \
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message \
                  FROM sessions WHERE agent_id = ?1 ORDER BY created_at DESC LIMIT ?2"
                     .to_string(),
                 vec![
@@ -904,7 +905,7 @@ impl SessionStore {
                 ],
             ),
             None => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message \
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message \
                  FROM sessions ORDER BY created_at DESC LIMIT ?1"
                     .to_string(),
                 vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
@@ -969,7 +970,7 @@ impl SessionStore {
         let db = self.db.lock().await;
         let session = db
             .query_row(
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message
                  FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
@@ -995,7 +996,7 @@ impl SessionStore {
     pub async fn list_children(&self, parent_id: &str) -> Result<Vec<Session>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message
+            "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, quest_id, first_message
              FROM sessions WHERE parent_id = ?1 ORDER BY created_at DESC",
         )?;
         let rows = stmt

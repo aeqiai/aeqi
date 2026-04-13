@@ -4,7 +4,7 @@
 //! This replaces the hardcoded trigger listener and parts of the
 //! patrol loop. Events are the behavior primitive.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
@@ -174,11 +174,8 @@ impl EventMatcher {
             .await
             .insert(event.id.clone(), Utc::now());
 
-        // Build quest description from event content or referenced idea.
-        let description = event
-            .content
-            .clone()
-            .unwrap_or_else(|| format!("Event '{}' fired on pattern '{}'", event.name, event.pattern));
+        // Build quest description from event name and pattern.
+        let description = format!("Event '{}' fired on pattern '{}'", event.name, event.pattern);
 
         // Determine chain depth label.
         let depth = if let Some(qid) = quest_id {
@@ -196,6 +193,8 @@ impl EventMatcher {
             labels.push(format!("triggered_by_quest:{qid}"));
         }
 
+        let quest_idea_ids = event_idea_ids(event);
+
         // Create quest on the event's owning agent.
         match self
             .agent_registry
@@ -203,7 +202,7 @@ impl EventMatcher {
                 &event.agent_id,
                 &format!("[event:{}] {}", event.name, event.pattern),
                 &description,
-                &[],
+                &quest_idea_ids,
                 &labels,
             )
             .await
@@ -263,6 +262,22 @@ impl EventMatcher {
     }
 }
 
+fn event_idea_ids(event: &Event) -> Vec<String> {
+    let mut idea_ids = Vec::new();
+    let mut seen = HashSet::new();
+
+    for idea_id in &event.idea_ids {
+        if idea_id.is_empty() {
+            continue;
+        }
+        if seen.insert(idea_id.clone()) {
+            idea_ids.push(idea_id.clone());
+        }
+    }
+
+    idea_ids
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,7 +286,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let reg = Arc::new(AgentRegistry::open(dir.path()).unwrap());
         let ehs = Arc::new(EventHandlerStore::new(reg.db()));
-        let al = Arc::new(ActivityLog::new(reg.db()));
+        let al = Arc::new(ActivityLog::new(reg.sessions_db()));
         let matcher = EventMatcher::new(ehs.clone(), reg.clone(), al);
         (matcher, reg, ehs)
     }
@@ -279,19 +294,15 @@ mod tests {
     #[tokio::test]
     async fn self_scope_matches_own_agent() {
         let (matcher, reg, ehs) = setup().await;
-        let agent = reg.spawn("shadow", None, "t", "Test.", None, None, &[]).await.unwrap();
+        let agent = reg.spawn("shadow", None, None, None).await.unwrap();
 
         ehs.create(&crate::event_handler::NewEvent {
             agent_id: agent.id.clone(),
             name: "on-complete".into(),
             pattern: "lifecycle:quest_completed".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Review work".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 
@@ -309,22 +320,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn event_idea_refs_are_persisted_on_created_quest() {
+        let (matcher, reg, ehs) = setup().await;
+        let agent = reg.spawn("shadow", None, None, None).await.unwrap();
+
+        ehs.create(&crate::event_handler::NewEvent {
+            agent_id: agent.id.clone(),
+            name: "on-complete".into(),
+            pattern: "lifecycle:quest_completed".into(),
+            scope: "self".into(),
+            idea_ids: vec!["idea-one".into(), "idea-two".into()],
+            cooldown_secs: 0,
+            system: false,
+        }).await.unwrap();
+
+        matcher.match_activity(
+            "execution.quest_completed",
+            Some(&agent.id),
+            None,
+            &serde_json::json!({}),
+        ).await;
+
+        let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
+        let task = tasks
+            .iter()
+            .find(|task| task.name.contains("[event:on-complete]"))
+            .expect("event should have created a quest");
+        assert_eq!(task.idea_ids, vec!["idea-one".to_string(), "idea-two".to_string()]);
+    }
+
+    #[tokio::test]
     async fn self_scope_does_not_match_other_agent() {
         let (matcher, reg, ehs) = setup().await;
-        let agent_a = reg.spawn("shadow", None, "t", "A.", None, None, &[]).await.unwrap();
-        let agent_b = reg.spawn("cto", None, "t", "B.", None, None, &[]).await.unwrap();
+        let agent_a = reg.spawn("shadow", None, None, None).await.unwrap();
+        let agent_b = reg.spawn("cto", None, None, None).await.unwrap();
 
         ehs.create(&crate::event_handler::NewEvent {
             agent_id: agent_a.id.clone(),
             name: "on-complete".into(),
             pattern: "lifecycle:quest_completed".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Review".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 
@@ -343,20 +380,16 @@ mod tests {
     #[tokio::test]
     async fn children_scope_matches_child() {
         let (matcher, reg, ehs) = setup().await;
-        let parent = reg.spawn("cto", None, "t", "Parent.", None, None, &[]).await.unwrap();
-        let child = reg.spawn("impl", None, "t", "Child.", Some(&parent.id), None, &[]).await.unwrap();
+        let parent = reg.spawn("cto", None, None, None).await.unwrap();
+        let child = reg.spawn("impl", None, Some(&parent.id), None).await.unwrap();
 
         ehs.create(&crate::event_handler::NewEvent {
             agent_id: parent.id.clone(),
             name: "child-done".into(),
             pattern: "lifecycle:quest_completed".into(),
             scope: "children".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Review child work".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 
@@ -375,19 +408,15 @@ mod tests {
     #[tokio::test]
     async fn unmatched_pattern_does_not_fire() {
         let (matcher, reg, ehs) = setup().await;
-        let agent = reg.spawn("shadow", None, "t", "Test.", None, None, &[]).await.unwrap();
+        let agent = reg.spawn("shadow", None, None, None).await.unwrap();
 
         ehs.create(&crate::event_handler::NewEvent {
             agent_id: agent.id.clone(),
             name: "on-fail".into(),
             pattern: "lifecycle:quest_failed".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Handle failure".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 

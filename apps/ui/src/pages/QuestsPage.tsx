@@ -238,8 +238,8 @@ function QuestRow({ quest }: { quest: Quest }) {
         </div>
       )}
       <div className="q-row-spacer" />
-      {(quest.agent_id || quest.assignee) && (
-        <div className="q-row-assignee">{quest.agent_id || quest.assignee}</div>
+      {quest.agent_id && (
+        <div className="q-row-assignee">{quest.agent_id}</div>
       )}
       <div className="q-row-time">{timeAgo(quest.updated_at || quest.created_at)}</div>
     </div>
@@ -324,7 +324,7 @@ export default function QuestsPage() {
     const effectiveAgent = agentFilter || (selectedAgent ? selectedAgent.name : "");
     if (effectiveAgent) {
       result = result.filter(
-        (q) => q.assignee === effectiveAgent || q.agent_id === effectiveAgent,
+        (q) => q.agent_id === effectiveAgent,
       );
     }
 

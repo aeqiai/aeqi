@@ -1,6 +1,6 @@
 //! Obsidian vault export/import for the idea store.
 //!
-//! Each insight becomes a `.md` file with YAML frontmatter.
+//! Each idea becomes a `.md` file with YAML frontmatter.
 //! Graph edges become `[[wikilinks]]` — Obsidian's graph view
 //! renders the idea graph for free.
 //!
@@ -85,7 +85,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
     Ok(written)
 }
 
-/// Render a single insight as Obsidian-compatible markdown.
+/// Render a single idea as Obsidian-compatible markdown.
 fn render_markdown(
     entry: &Idea,
     edges: Option<&Vec<&IdeaEdge>>,

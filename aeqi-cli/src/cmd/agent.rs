@@ -73,7 +73,6 @@ pub(crate) async fn cmd_agent(
                 "  Model:   {}",
                 agent.model.as_deref().unwrap_or("(default)")
             );
-            println!("  Caps:    {:?}", agent.capabilities);
             Ok(())
         }
         crate::cli::AgentAction::Show { name } => {
@@ -92,14 +91,12 @@ pub(crate) async fn cmd_agent(
                 println!("  Status:   {}", a.status);
                 println!("  Parent:   {}", a.parent_id.as_deref().unwrap_or("(root)"));
                 println!("  Model:    {}", a.model.as_deref().unwrap_or("(default)"));
-                println!("  Caps:     {:?}", a.capabilities);
                 println!("  Sessions: {}", a.session_count);
                 println!("  Tokens:   {}", a.total_tokens);
                 println!("  Created:  {}", a.created_at);
                 if let Some(la) = &a.last_active {
                     println!("  Active:   {la}");
                 }
-                println!("\n--- System Prompt ---\n{}", a.system_prompt);
                 println!();
             }
             Ok(())

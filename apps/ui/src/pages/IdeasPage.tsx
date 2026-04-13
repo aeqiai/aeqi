@@ -37,7 +37,7 @@ interface GraphData {
 
 export default function IdeasPage() {
   const selectedAgent = useChatStore((s) => s.selectedAgent);
-  const [insights, setIdeas] = useState<IdeaEntry[]>([]);
+  const [ideas, setIdeas] = useState<IdeaEntry[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,11 +89,11 @@ export default function IdeasPage() {
   // Filter by category.
   const filtered =
     category === "all"
-      ? insights
-      : insights.filter((m) => m.category === category);
+      ? ideas
+      : ideas.filter((m) => m.category === category);
 
   // Stats.
-  const catCounts = insights.reduce<Record<string, number>>((acc, m) => {
+  const catCounts = ideas.reduce<Record<string, number>>((acc, m) => {
     acc[m.category] = (acc[m.category] || 0) + 1;
     return acc;
   }, {});
@@ -104,8 +104,8 @@ export default function IdeasPage() {
       setSelected(null);
       return;
     }
-    // Find full entry in insights list, or build from graph node.
-    const entry = insights.find((m) => m.id === node.id) || {
+    // Find full entry in ideas list, or build from graph node.
+    const entry = ideas.find((m) => m.id === node.id) || {
       id: node.id,
       key: node.key,
       content: node.content,
@@ -140,7 +140,7 @@ export default function IdeasPage() {
       {/* View toggle — hero removed, title in ContentTopBar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
         <span style={{ fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
-          {insights.length} ideas{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
+          {ideas.length} ideas{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
         </span>
         <div className="ideas-view-toggle">
           <button className={`view-btn ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>List</button>

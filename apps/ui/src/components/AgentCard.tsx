@@ -42,15 +42,6 @@ export default function AgentCard({ agent, compact = false }: AgentCardProps) {
         <StatusBadge status={agent.status} />
       </div>
 
-      {agent.capabilities && agent.capabilities.length > 0 && (
-        <div className="agent-expertise">
-          {agent.capabilities.map((cap) => (
-            <span key={cap} className="expertise-tag">
-              {cap}
-            </span>
-          ))}
-        </div>
-      )}
     </Link>
   );
 }

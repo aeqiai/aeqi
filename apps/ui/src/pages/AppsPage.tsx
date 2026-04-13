@@ -5,7 +5,7 @@ export default function AppsPage() {
     <div className="page-content">
       <EmptyState
         title="Apps"
-        description="Install and manage integrations and applications for your workspace."
+        description="Install and manage integrations and applications for your company."
       />
     </div>
   );

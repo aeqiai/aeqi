@@ -208,7 +208,6 @@ pub struct LifecycleEntry {
     /// The action taken.
     pub action: LifecycleAction,
     /// The idea ID affected.
-    #[serde(alias = "memory_id")]
     pub idea_id: String,
     /// When the action occurred.
     pub timestamp: DateTime<Utc>,

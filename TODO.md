@@ -8,14 +8,13 @@ Scheduler runs one loop. Activity table tracks costs and decisions.
 ## 1. API + CLI cleanup
 
 ### Web routes (aeqi-web)
-- Delete: /companies, /departments, /skills, /pipelines
-- Rename: /tasks --> /quests, /triggers --> /events, /insights --> /ideas
-- Keep: /agents, /quests, /events, /ideas, /sessions
+- Delete: /departments, /skills, /pipelines
+- Keep: /agents, /quests, /events, /ideas, /sessions, /companies
 
 ### CLI (aeqi-cli)
 - Replace --company/--project with --agent
 - Delete: skill, pipeline, team subcommands
-- Rename: task --> quest, trigger --> event, insight --> idea
+- Verify: quest, event, idea naming is consistent throughout
 
 ---
 
@@ -26,7 +25,7 @@ Three middleware layers should become ideas instead of code:
 - **GraphGuardrails** --> idea tool metadata from code graph analysis
 - **Clarification** --> idea instruction: "if the quest is unclear, respond with status=blocked"
 
-Keep as code: ContextCompression, ContextBudget, CostTracking, LoopDetection, MemoryRefresh, SafetyNet.
+Keep as code: ContextCompression, ContextBudget, CostTracking, LoopDetection, IdeaRefresh, SafetyNet.
 
 ---
 

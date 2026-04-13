@@ -47,36 +47,27 @@ pub async fn handle_create_event(
     }
 
     let scope = request_field(request, "scope").unwrap_or("self");
-    let idea_id = request_field(request, "idea_id").map(|s| s.to_string());
-    let content = request_field(request, "content").map(|s| s.to_string());
     let cooldown_secs = request
         .get("cooldown_secs")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    let max_budget_usd = request.get("max_budget_usd").and_then(|v| v.as_f64());
-    let webhook_secret = request_field(request, "webhook_secret").map(|s| s.to_string());
     let system = request
         .get("system")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let idea_ids: Vec<String> = request
-        .get("idea_ids")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-        .unwrap_or_default();
+    let idea_ids = match parse_required_idea_ids(request) {
+        Ok(ids) => ids,
+        Err(error) => return serde_json::json!({"ok": false, "error": error}),
+    };
 
     let new_event = NewEvent {
         agent_id: agent_id.to_string(),
         name: name.to_string(),
         pattern: pattern.to_string(),
         scope: scope.to_string(),
-        idea_id,
         idea_ids,
-        content,
         cooldown_secs,
-        max_budget_usd,
-        webhook_secret,
         system,
     };
 
@@ -101,27 +92,33 @@ pub async fn handle_update_event(
     }
 
     let enabled = request.get("enabled").and_then(|v| v.as_bool());
-    let content = request_field(request, "content");
     let pattern = request_field(request, "pattern");
     let scope = request_field(request, "scope");
     let cooldown_secs = request.get("cooldown_secs").and_then(|v| v.as_u64());
-    let idea_id = request_field(request, "idea_id");
-    let max_budget_usd = request.get("max_budget_usd").and_then(|v| v.as_f64());
+    let idea_ids = match parse_optional_idea_ids(request) {
+        Ok(ids) => ids,
+        Err(error) => return serde_json::json!({"ok": false, "error": error}),
+    };
 
     // Check if any field is provided at all.
     if enabled.is_none()
-        && content.is_none()
         && pattern.is_none()
         && scope.is_none()
         && cooldown_secs.is_none()
-        && idea_id.is_none()
-        && max_budget_usd.is_none()
+        && idea_ids.is_none()
     {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
     }
 
     match store
-        .update_fields(id, enabled, content, pattern, scope, cooldown_secs, idea_id, max_budget_usd)
+        .update_fields(
+            id,
+            enabled,
+            pattern,
+            scope,
+            cooldown_secs,
+            idea_ids.as_deref(),
+        )
         .await
     {
         Ok(()) => {
@@ -163,17 +160,68 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "name": e.name,
         "pattern": e.pattern,
         "scope": e.scope,
-        "idea_id": e.idea_id,
         "idea_ids": e.idea_ids,
-        "content": e.content,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,
-        "max_budget_usd": e.max_budget_usd,
-        "webhook_secret": e.webhook_secret,
         "last_fired": e.last_fired,
         "fire_count": e.fire_count,
         "total_cost_usd": e.total_cost_usd,
         "system": e.system,
         "created_at": e.created_at,
     })
+}
+
+fn parse_required_idea_ids(request: &serde_json::Value) -> Result<Vec<String>, String> {
+    match request.get("idea_ids") {
+        None => Ok(Vec::new()),
+        Some(value) => parse_idea_ids_array(value),
+    }
+}
+
+fn parse_optional_idea_ids(request: &serde_json::Value) -> Result<Option<Vec<String>>, String> {
+    match request.get("idea_ids") {
+        None => Ok(None),
+        Some(value) => parse_idea_ids_array(value).map(Some),
+    }
+}
+
+fn parse_idea_ids_array(value: &serde_json::Value) -> Result<Vec<String>, String> {
+    let Some(items) = value.as_array() else {
+        return Err("idea_ids must be an array of strings".to_string());
+    };
+
+    let mut ids = Vec::with_capacity(items.len());
+    for item in items {
+        let Some(id) = item.as_str() else {
+            return Err("idea_ids must be an array of strings".to_string());
+        };
+        ids.push(id.to_string());
+    }
+    Ok(ids)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_optional_idea_ids_distinguishes_omitted_from_empty() {
+        let omitted = serde_json::json!({});
+        assert_eq!(parse_optional_idea_ids(&omitted).unwrap(), None);
+
+        let empty = serde_json::json!({"idea_ids": []});
+        assert_eq!(parse_optional_idea_ids(&empty).unwrap(), Some(vec![]));
+
+        let populated = serde_json::json!({"idea_ids": ["i1", "i2"]});
+        assert_eq!(
+            parse_optional_idea_ids(&populated).unwrap(),
+            Some(vec!["i1".to_string(), "i2".to_string()])
+        );
+    }
+
+    #[test]
+    fn parse_optional_idea_ids_rejects_non_array_values() {
+        let invalid = serde_json::json!({"idea_ids": "not-an-array"});
+        assert!(parse_optional_idea_ids(&invalid).is_err());
+    }
 }

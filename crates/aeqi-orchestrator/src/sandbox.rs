@@ -151,6 +151,37 @@ impl QuestSandbox {
         })
     }
 
+    /// Reattach to an existing quest worktree (for quest retries/continuations).
+    /// The worktree and branch must already exist on disk.
+    pub fn open_existing(
+        quest_id: &str,
+        worktree_path: PathBuf,
+        repo_root: PathBuf,
+        enable_bwrap: bool,
+    ) -> Result<Self> {
+        if !worktree_path.exists() {
+            bail!(
+                "quest worktree does not exist: {}",
+                worktree_path.display()
+            );
+        }
+        let branch_name = format!("quest/{quest_id}");
+        info!(
+            quest_id,
+            worktree = %worktree_path.display(),
+            "reattached to existing quest sandbox"
+        );
+        Ok(Self {
+            quest_id: quest_id.to_string(),
+            worktree_path,
+            branch_name,
+            repo_root,
+            enable_bwrap,
+            extra_ro_binds: Vec::new(),
+            torn_down: AtomicBool::new(false),
+        })
+    }
+
     /// Build a `tokio::process::Command` that runs `inner_command` inside bwrap.
     ///
     /// The sandbox provides:

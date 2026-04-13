@@ -1,4 +1,5 @@
 import { clearSessionData } from "@/lib/session";
+import { getScopedCompany, type AppMode } from "@/lib/appMode";
 import { useUIStore } from "@/store/ui";
 
 // NOTE: HTTPS enforcement should be done at the reverse proxy layer (nginx/caddy),
@@ -42,7 +43,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const company = localStorage.getItem("aeqi_company");
+  const company = getScopedCompany();
   if (company && !path.startsWith("/auth/")) {
     headers["X-Company"] = company;
   }
@@ -83,7 +84,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Auth
   getAuthMode: () =>
-    request<{ mode: string; google_oauth: boolean; github_oauth: boolean; waitlist: boolean }>("/auth/mode"),
+    request<{ app_mode?: AppMode; mode: string; google_oauth: boolean; github_oauth: boolean; waitlist: boolean }>("/auth/mode"),
 
   login: (secret: string) =>
     request<{ ok: boolean; token: string }>("/auth/login", {
@@ -355,7 +356,6 @@ export const api = {
     company?: string | null;
     department?: string | null;
     channelName?: string | null;
-    chatId?: number;
     sender?: string;
   }) =>
     request<Record<string, unknown>>("/chat/full", {
@@ -365,21 +365,18 @@ export const api = {
         ...(params.company ? { company: params.company } : {}),
         ...(params.department ? { department: params.department } : {}),
         ...(params.channelName ? { channel_name: params.channelName } : {}),
-        ...(params.chatId ? { chat_id: params.chatId } : {}),
         ...(params.sender ? { sender: params.sender } : {}),
       }),
     }),
 
   // Chat -- typed thread timeline
   chatTimeline: (params?: {
-    chatId?: number;
     company?: string | null;
     department?: string | null;
     channelName?: string | null;
     limit?: number;
   }) => {
     const query = new URLSearchParams();
-    if (params?.chatId) query.set("chat_id", String(params.chatId));
     if (params?.company) query.set("company", params.company);
     if (params?.department) query.set("department", params.department);
     if (params?.channelName) query.set("channel_name", params.channelName);
@@ -423,7 +420,7 @@ export const api = {
   getActivityStreamForQuest: async (taskId: string, last = 50) => {
     const data = await request<Record<string, unknown>>(`/activity?last=${last}`);
     const raw = (data.entries || data.activity || []) as Array<Record<string, unknown>>;
-    const entries = raw.filter((e) => (e.quest_id || e.task_id) === taskId);
+    const entries = raw.filter((e) => e.quest_id === taskId);
     return { entries };
   },
 
@@ -476,12 +473,9 @@ export const api = {
   updateDirectiveStatus: (id: string, data: { status: string; quest_id?: string }) =>
     request<{ ok: boolean }>(`/directives/${id}/status`, { method: "POST", body: JSON.stringify(data) }),
 
-  // Triggers
-  getTriggers: () => request<Record<string, unknown>>("/triggers"),
-
   // Account API key (ak_)
   generateApiKey: () =>
-    request<{ ok: boolean; id: string; api_key: string }>("/account/api-key", { method: "POST" }),
+    request<{ ok: boolean; id: string; api_key: string; rotated: boolean }>("/account/api-key", { method: "POST" }),
 
   // Secret Keys (sk_)
   getKeys: () =>

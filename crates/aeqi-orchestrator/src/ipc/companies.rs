@@ -120,7 +120,7 @@ pub async fn handle_create_company(
         };
     match ctx.agent_registry.create_company(&record).await {
         Ok(()) => {
-            let identity_content = format!(
+            let _identity_content = format!(
                 "You are the lead agent for **{name}**.\n\n\
                  ## Role\n\n\
                  You coordinate all work for this company. You receive tasks, \
@@ -136,15 +136,7 @@ pub async fn handle_create_company(
 
             let agent = ctx
                 .agent_registry
-                .spawn(
-                    name,
-                    Some(name),
-                    "company",
-                    &identity_content,
-                    None,
-                    None,
-                    &[],
-                )
+                .spawn(name, Some(name), None, None)
                 .await;
             match &agent {
                 Ok(a) => {

@@ -162,10 +162,6 @@ pub fn quest_snapshot(quest: &aeqi_quests::Quest) -> serde_json::Value {
     })
 }
 
-/// Deprecated alias — use `quest_snapshot()` instead.
-pub fn task_snapshot(task: &aeqi_quests::Quest) -> serde_json::Value {
-    quest_snapshot(task)
-}
 
 pub fn merge_timeline_metadata(
     metadata: Option<&serde_json::Value>,
@@ -201,13 +197,6 @@ pub async fn find_quest_snapshot(
         .map(|t| quest_snapshot(&t))
 }
 
-/// Deprecated alias — use `find_quest_snapshot()` instead.
-pub async fn find_task_snapshot(
-    agent_registry: &Arc<AgentRegistry>,
-    quest_id: &str,
-) -> Option<serde_json::Value> {
-    find_quest_snapshot(agent_registry, quest_id).await
-}
 
 pub fn attach_chat_id(mut payload: serde_json::Value, chat_id: i64) -> serde_json::Value {
     payload["chat_id"] = serde_json::json!(chat_id);
@@ -414,6 +403,9 @@ impl Daemon {
             }
             _ => {}
         }
+
+        // Crash recovery: prune orphaned worktrees from crashed executions.
+        self.cleanup_orphaned_worktrees().await;
 
         info!("daemon started");
 
@@ -659,6 +651,49 @@ impl Daemon {
                 warn!(error = %e, "injection_mode migration failed");
             }
             _ => {}
+        }
+    }
+
+    /// Prune orphaned worktrees from crashed executions.
+    /// Scans the worktree directory, cross-references with open quests,
+    /// and removes worktrees that don't belong to any active quest.
+    async fn cleanup_orphaned_worktrees(&self) {
+        let worktree_base = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join(".aeqi")
+            .join("worktrees");
+
+        let entries = match std::fs::read_dir(&worktree_base) {
+            Ok(entries) => entries,
+            Err(_) => return, // Directory doesn't exist yet, nothing to clean.
+        };
+
+        let mut orphan_count = 0;
+        for entry in entries.flatten() {
+            let dir_name = entry.file_name().to_string_lossy().to_string();
+            // Check if this worktree belongs to an open quest.
+            let quest = self.agent_registry.get_task(&dir_name).await.ok().flatten();
+            let is_open = quest
+                .as_ref()
+                .is_some_and(|q| !matches!(q.status, aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled));
+
+            if !is_open {
+                // Orphan — remove worktree.
+                let path = entry.path();
+                if let Err(e) = std::fs::remove_dir_all(&path) {
+                    warn!(path = %path.display(), error = %e, "failed to remove orphaned worktree");
+                } else {
+                    orphan_count += 1;
+                }
+            }
+        }
+
+        if orphan_count > 0 {
+            info!(count = orphan_count, "cleaned up orphaned worktrees");
+            // Also prune git worktree references.
+            let _ = std::process::Command::new("git")
+                .args(["worktree", "prune"])
+                .output();
         }
     }
 

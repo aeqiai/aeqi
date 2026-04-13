@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import { api } from "@/lib/api";
+import { getScopedCompany } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "./RoundAvatar";
@@ -530,7 +531,6 @@ export default function AgentSessionView({
   const userAvatarUrl = user?.avatar_url || null;
 
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [showSessionList, setShowSessionList] = useState(false);
 
   // The active session comes from the URL
   const activeSessionId = urlSessionId;
@@ -563,7 +563,6 @@ export default function AgentSessionView({
   const [showAttachPicker, setShowAttachPicker] = useState<
     "prompt" | "quest" | null
   >(null);
-  const [attachSearch, setAttachSearch] = useState("");
   const [availablePrompts, setAvailablePrompts] = useState<
     { name: string; description: string; tags: string[] }[]
   >([]);
@@ -574,8 +573,6 @@ export default function AgentSessionView({
     { name: string; content: string; size: number }[]
   >([]);
   const [dragOver, setDragOver] = useState(false);
-  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
-  const [hoveredPrompt, setHoveredPrompt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
   const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
@@ -591,7 +588,7 @@ export default function AgentSessionView({
       api
         .getSkills()
         .then((data: Record<string, unknown>) => {
-          const items = (data?.skills || data?.prompts || []) as Array<Record<string, unknown>>;
+          const items = (data?.ideas || data?.skills || data?.prompts || []) as Array<Record<string, unknown>>;
           setAvailablePrompts(
             items.map((s) => ({
               name: (s.name as string) || "",
@@ -658,58 +655,13 @@ export default function AgentSessionView({
   }, []);
 
   const dragCounter = useRef(0);
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((_e: React.DragEvent) => {
     dragCounter.current -= 1;
     if (dragCounter.current <= 0) {
       dragCounter.current = 0;
       setDragOver(false);
     }
   }, []);
-
-  // Keyboard shortcuts: Cmd+P → idea picker, Cmd+Q → quest picker, Cmd+N → new session
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key === "n") {
-        e.preventDefault();
-        handleNewConversation();
-      } else if (e.key === "p") {
-        e.preventDefault();
-        setShowAttachPicker((prev) => (prev === "prompt" ? null : "prompt"));
-        setAttachSearch("");
-        setActiveTagFilters([]);
-      } else if (e.key === "q") {
-        e.preventDefault();
-        setShowAttachPicker((prev) => (prev === "quest" ? null : "quest"));
-        setAttachSearch("");
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Recent prompts (stored in localStorage)
-  const recentPromptNames = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("aeqi:recent-prompts") || "[]") as string[];
-    } catch { return []; }
-  }, [showAttachPicker]);
-
-  const trackRecentPrompt = useCallback((name: string) => {
-    try {
-      const recent = JSON.parse(localStorage.getItem("aeqi:recent-prompts") || "[]") as string[];
-      const updated = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
-      localStorage.setItem("aeqi:recent-prompts", JSON.stringify(updated));
-    } catch {}
-  }, []);
-
-  // All unique tags from available prompts
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    availablePrompts.forEach((p) => p.tags.forEach((t) => tags.add(t)));
-    return Array.from(tags).sort();
-  }, [availablePrompts]);
 
   // Load sessions for this agent
   useEffect(() => {
@@ -730,7 +682,6 @@ export default function AgentSessionView({
     setMessages([]);
     setLiveSegments([]);
     setSession(null);
-    setShowSessionList(false);
   }, [setSession]);
 
   // Switch to an existing session — force reload
@@ -740,10 +691,28 @@ export default function AgentSessionView({
       sessionIdRef.current = sid;
       setMessages([]);
       setSession(sid);
-      setShowSessionList(false);
     },
     [setSession],
   );
+
+  // Keyboard shortcuts: Cmd+P → idea picker, Cmd+Q → quest picker, Cmd+N → new session
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "n") {
+        e.preventDefault();
+        handleNewConversation();
+      } else if (e.key === "p") {
+        e.preventDefault();
+        setShowAttachPicker((prev) => (prev === "prompt" ? null : "prompt"));
+      } else if (e.key === "q") {
+        e.preventDefault();
+        setShowAttachPicker((prev) => (prev === "quest" ? null : "quest"));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleNewConversation]);
 
   // Process raw messages from API into our format
   const processRawMessages = useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
@@ -999,7 +968,7 @@ export default function AgentSessionView({
     }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const company = localStorage.getItem("aeqi_company") || "";
+    const company = getScopedCompany();
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/api/chat/stream?token=${token}&company=${encodeURIComponent(company)}`,
     );
@@ -1449,7 +1418,7 @@ export default function AgentSessionView({
             {/* Footer — attach actions left, send right */}
             <div className="asv-composer-footer">
               <div className="asv-attach-row">
-                <button className="asv-attach-btn" onClick={() => { setShowAttachPicker("prompt"); setActiveTagFilters([]); }} title="Attach idea (⌘P)">
+                <button className="asv-attach-btn" onClick={() => setShowAttachPicker("prompt")} title="Attach idea (⌘P)">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4" strokeLinecap="round" /></svg>
                 </button>
                 <button className="asv-attach-btn" onClick={() => setShowAttachPicker("quest")} title="Attach quest (⌘Q)">

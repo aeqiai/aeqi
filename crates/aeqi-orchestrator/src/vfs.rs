@@ -155,7 +155,7 @@ impl VfsTree {
         // Search companies (agents with "company" template)
         if let Ok(agents) = self.agent_registry.list(None, None).await {
             for a in &agents {
-                if a.template == "company" && a.name.to_lowercase().contains(&q) {
+                if a.parent_id.is_none() && a.name.to_lowercase().contains(&q) {
                     results.push(VfsSearchResult {
                         path: format!("/companies/{}", a.name),
                         name: a.name.clone(),
@@ -285,7 +285,7 @@ impl VfsTree {
         let mut nodes = Vec::new();
         if let Ok(agents) = self.agent_registry.list(None, None).await {
             for a in &agents {
-                if a.template == "company" {
+                if a.parent_id.is_none() {
                     nodes.push(dir_node(
                         &a.name,
                         &format!("/companies/{}", a.name),
@@ -439,15 +439,8 @@ impl VfsTree {
             && let Some(agent) = agents.iter().find(|a| a.name == *name)
         {
             content.push_str(&format!("**Status:** {}\n", agent.status));
-            content.push_str(&format!("**Template:** {}\n", agent.template));
             if let Some(ref model) = agent.model {
                 content.push_str(&format!("**Model:** {model}\n"));
-            }
-            if !agent.capabilities.is_empty() {
-                content.push_str("\n**Capabilities:**\n");
-                for cap in &agent.capabilities {
-                    content.push_str(&format!("- {cap}\n"));
-                }
             }
         }
 
@@ -474,9 +467,7 @@ impl VfsTree {
         {
             stats = serde_json::json!({
                 "status": agent.status.to_string(),
-                "template": agent.template,
                 "model": agent.model,
-                "capabilities": agent.capabilities,
                 "created_at": agent.created_at,
             });
         }
@@ -493,14 +484,12 @@ impl VfsTree {
         let info = if let Ok(agents) = self.agent_registry.list(None, None).await {
             agents
                 .iter()
-                .find(|a| a.name == *name && a.template == "company")
+                .find(|a| a.name == *name && a.parent_id.is_none())
                 .map(|a| {
                     serde_json::json!({
                         "name": a.name,
                         "status": a.status.to_string(),
-                        "template": a.template,
                         "model": a.model,
-                        "capabilities": a.capabilities,
                     })
                 })
                 .unwrap_or_else(|| serde_json::json!({"error": "Company not found"}))

@@ -88,8 +88,8 @@ export default function EventsPage() {
                   <span className="event-summary">
                     {event.summary || event.reasoning || event.description || "\u2014"}
                   </span>
-                  {(event.quest_id || event.task_id) && (
-                    <code className="event-quest-id">{event.quest_id || event.task_id}</code>
+                  {event.quest_id && (
+                    <code className="event-quest-id">{event.quest_id}</code>
                   )}
                 </div>
               ))}

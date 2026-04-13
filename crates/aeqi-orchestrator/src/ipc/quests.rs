@@ -36,7 +36,7 @@ pub async fn handle_quests(
                     .unwrap_or_default();
                 let company_ids: std::collections::HashSet<String> = all_agents
                     .iter()
-                    .filter(|a| a.template == "company" && is_allowed(allowed, &a.name))
+                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
                     .map(|a| a.id.clone())
                     .collect();
                 Some(

@@ -1,12 +1,10 @@
 //! Idea assembly — event-driven prompt construction.
 //!
 //! Walks the agent ancestor chain, collects ideas activated by
-//! `lifecycle:session_start` events, falls back to injection_mode ideas
-//! during migration, appends task prompts, groups by position, and
-//! returns an `AssembledPrompt`.
+//! `lifecycle:session_start` events, appends task prompts, groups by
+//! position, and returns an `AssembledPrompt`.
 //!
-//! Primary source: events referencing idea_ids (new path).
-//! Fallback: ideas with injection_mode IS NOT NULL (backward compat).
+//! Events reference ideas via `idea_ids`. No inline content or fallback paths.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -25,11 +23,9 @@ use crate::event_handler::EventHandlerStore;
 /// Within each level, entries are ordered as stored.
 /// Entries grouped by position (system, prepend, append) and concatenated.
 ///
-/// Two-phase idea collection:
-/// 1. **Events path** — `lifecycle:session_start` events on each ancestor
-///    contribute their referenced `idea_id` ideas.
-/// 2. **Fallback path** — ideas with `injection_mode IS NOT NULL` that were
-///    *not* already collected via events (backward compat during migration).
+/// Idea collection via events:
+/// `lifecycle:session_start` events on each ancestor contribute their
+/// referenced `idea_ids` ideas.
 pub async fn assemble_ideas(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -63,7 +59,6 @@ pub async fn assemble_ideas(
 
         // Collect idea_ids from events, respecting scope.
         let mut event_idea_ids: Vec<String> = Vec::new();
-        let mut event_inline_entries: Vec<PromptEntry> = Vec::new();
 
         for event in &session_start_events {
             // Scope check: "descendants" events from ancestors apply; "self" events only from self.
@@ -78,45 +73,18 @@ pub async fn assemble_ideas(
                 continue;
             }
 
-            // Collect referenced idea IDs (both single idea_id and idea_ids array).
-            if let Some(ref idea_id) = event.idea_id {
-                if !idea_id.is_empty() && !collected_idea_ids.contains(idea_id) {
-                    event_idea_ids.push(idea_id.clone());
-                    collected_idea_ids.insert(idea_id.clone());
-                }
-            }
+            // Collect referenced idea IDs from event.idea_ids.
             for idea_id in &event.idea_ids {
                 if !idea_id.is_empty() && !collected_idea_ids.contains(idea_id) {
                     event_idea_ids.push(idea_id.clone());
                     collected_idea_ids.insert(idea_id.clone());
                 }
             }
-
-            // Inline content from the event itself (when no ideas are referenced).
-            let has_idea_refs = event.idea_id.as_deref().is_some_and(|id| !id.is_empty())
-                || !event.idea_ids.is_empty();
-            if !has_idea_refs {
-                if let Some(ref content) = event.content {
-                    if !content.is_empty() {
-                        // Event scope maps to PromptScope.
-                        let scope = match event.scope.as_str() {
-                            "descendants" | "children" => PromptScope::Descendants,
-                            _ => PromptScope::SelfOnly,
-                        };
-                        event_inline_entries.push(PromptEntry {
-                            content: content.clone(),
-                            position: PromptPosition::System, // default position for event content
-                            scope,
-                            tools: None,
-                        });
-                    }
-                }
-            }
         }
 
         // Bulk-fetch ideas referenced by events.
-        if let Some(store) = idea_store {
-            if !event_idea_ids.is_empty() {
+        if let Some(store) = idea_store
+            && !event_idea_ids.is_empty() {
                 match store.get_by_ids(&event_idea_ids).await {
                     Ok(ideas) => {
                         for idea in ideas {
@@ -140,20 +108,6 @@ pub async fn assemble_ideas(
                     }
                 }
             }
-        }
-
-        // Apply inline event entries.
-        for entry in &event_inline_entries {
-            append_entry(
-                entry,
-                is_self,
-                &mut system_parts,
-                &mut prepend_parts,
-                &mut append_parts,
-                &mut allow_sets,
-                &mut deny_all,
-            );
-        }
 
         // No fallback. Events are the only activation mechanism.
         // injection_mode ideas are migrated to events on daemon startup.
@@ -246,7 +200,7 @@ mod tests {
     use aeqi_core::prompt::{PromptPosition, PromptScope};
 
     #[test]
-    fn empty_prompts_produce_empty_assembly() {
+    fn empty_ideas_produce_empty_assembly() {
         let result = AssembledPrompt::default();
         assert!(result.full_system_prompt().is_empty());
     }

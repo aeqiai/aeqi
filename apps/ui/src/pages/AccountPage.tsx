@@ -470,7 +470,10 @@ function ApiKeyTab() {
         setApiKey(data.api_key);
         localStorage.setItem("aeqi_api_key_display", data.api_key);
         if (data.api_key.startsWith("ak_")) {
-          setFeedback({ type: "success", msg: "API key generated." });
+          setFeedback({
+            type: "success",
+            msg: data.rotated ? "API key rotated. Previous key is now invalid." : "API key generated.",
+          });
         }
       }
     } catch (e: unknown) {
@@ -493,6 +496,9 @@ function ApiKeyTab() {
       <p className="account-field-desc">
         Your API key (<code>ak_</code>) identifies your account across all companies. Use it alongside a company secret key (<code>sk_</code>) for MCP and API access.
       </p>
+      <p className="account-field-desc">
+        Only one account API key is active at a time. Generating a new key rotates the previous one immediately, so save the new value now.
+      </p>
 
       {apiKey ? (
         <div className="account-field" style={{ marginTop: "var(--space-4)" }}>
@@ -508,8 +514,13 @@ function ApiKeyTab() {
             </button>
           </div>
           <p className="account-field-desc" style={{ marginTop: "var(--space-2)" }}>
-            Stable across all companies — stays the same when you rotate secret keys.
+            Active across all companies for your account until you rotate it.
           </p>
+          <div style={{ marginTop: "var(--space-3)" }}>
+            <button type="button" className="btn btn-secondary" onClick={handleGenerate} disabled={loading}>
+              {loading ? "Rotating..." : "Rotate API Key"}
+            </button>
+          </div>
         </div>
       ) : (
         <div style={{ marginTop: "var(--space-4)" }}>

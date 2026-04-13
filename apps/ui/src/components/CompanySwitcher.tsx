@@ -2,18 +2,18 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
 import BlockAvatar from "./BlockAvatar";
 
-export default function WorkspaceSwitcher() {
+export default function CompanySwitcher() {
   const activeCompany = useUIStore((s) => s.activeCompany);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const displayName = activeCompany || "aeqi";
+  const displayName = activeCompany || "Select company";
   const isOnCompanies = location.pathname === "/companies";
 
   return (
-    <div className="ws-switcher">
+    <div className="co-switcher">
       <div
-        className="ws-trigger"
+        className="co-trigger"
         role="button"
         tabIndex={0}
         aria-label={`Switch company, current: ${displayName}`}
@@ -25,14 +25,14 @@ export default function WorkspaceSwitcher() {
           }
         }}
       >
-        <span className="ws-brand">
+        <span className="co-brand">
           <BlockAvatar name={displayName} size={22} />
         </span>
-        <div className="ws-trigger-text">
-          <span className="ws-trigger-name">{displayName}</span>
+        <div className="co-trigger-text">
+          <span className="co-trigger-name">{displayName}</span>
         </div>
         <svg
-          className="ws-chevron-icon"
+          className="co-chevron-icon"
           width="12"
           height="12"
           viewBox="0 0 12 12"

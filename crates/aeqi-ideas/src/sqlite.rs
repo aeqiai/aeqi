@@ -401,7 +401,7 @@ impl SqliteIdeas {
 
     // ── Bulk queries for export ──
 
-    /// List all non-expired insights (unscored, no search ranking).
+    /// List all non-expired ideas (unscored, no search ranking).
     pub fn list_all(&self) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
@@ -439,46 +439,9 @@ impl SqliteIdeas {
         Ok(entries)
     }
 
-    /// List all idea graph edges.
-    pub fn list_all_edges(&self) -> Result<Vec<IdeaEdge>> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let mut stmt = conn.prepare(
-            "SELECT source_id, target_id, relation, strength, created_at
-             FROM memory_edges",
-        )?;
-        let edges = stmt
-            .query_map([], |row| {
-                let source_id: String = row.get(0)?;
-                let target_id: String = row.get(1)?;
-                let relation_str: String = row.get(2)?;
-                let strength: f32 = row.get(3)?;
-                let created_str: String = row.get(4)?;
-                Ok((source_id, target_id, relation_str, strength, created_str))
-            })?
-            .filter_map(|r| r.ok())
-            .filter_map(
-                |(source_id, target_id, relation_str, strength, created_str)| {
-                    let relation =
-                        serde_json::from_value(serde_json::Value::String(relation_str)).ok()?;
-                    let created_at = DateTime::parse_from_rfc3339(&created_str)
-                        .ok()?
-                        .with_timezone(&Utc);
-                    Some(IdeaEdge {
-                        source_id,
-                        target_id,
-                        relation,
-                        strength,
-                        created_at,
-                    })
-                },
-            )
-            .collect();
-        Ok(edges)
-    }
-
     // ── TTL and prefix queries ──
 
-    /// Search insights by key prefix (exact prefix match, not FTS5).
+    /// Search ideas by key prefix (exact prefix match, not FTS5).
     /// Filters out expired entries. Returns newest first.
     pub fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
@@ -520,7 +483,7 @@ impl SqliteIdeas {
         Ok(entries)
     }
 
-    /// Delete expired insights and their embeddings.
+    /// Delete expired ideas and their embeddings.
     /// Returns the number of entries cleaned up.
     pub fn cleanup_expired(&self) -> Result<usize> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
@@ -548,13 +511,13 @@ impl SqliteIdeas {
             .ok();
         }
 
-        // Delete the expired insights.
+        // Delete the expired ideas.
         conn.execute(
             "DELETE FROM ideas WHERE expires_at IS NOT NULL AND expires_at <= ?1",
             rusqlite::params![now],
         )?;
 
-        debug!(count, "cleaned up expired insights");
+        debug!(count, "cleaned up expired ideas");
         Ok(count)
     }
 
@@ -1467,16 +1430,16 @@ impl IdeaStore for SqliteIdeas {
 mod tests {
     use super::*;
 
-    fn test_insights() -> (SqliteIdeas, tempfile::TempDir) {
+    fn test_ideas() -> (SqliteIdeas, tempfile::TempDir) {
         let dir = tempfile::TempDir::new().unwrap();
         let db_path = dir.path().join("test.db");
-        let insights = SqliteIdeas::open(&db_path, 30.0).unwrap();
-        (insights, dir)
+        let ideas = SqliteIdeas::open(&db_path, 30.0).unwrap();
+        (ideas, dir)
     }
 
     #[tokio::test]
     async fn test_store_and_search() {
-        let (mem, _dir) = test_insights();
+        let (mem, _dir) = test_ideas();
 
         mem.store(
             "login-flow",
@@ -1518,7 +1481,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_scoped_memory() {
-        let (mem, _dir) = test_insights();
+        let (mem, _dir) = test_ideas();
 
         mem.store(
             "shared-fact",
@@ -1563,7 +1526,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_filtered_memory() {
-        let (mem, _dir) = test_insights();
+        let (mem, _dir) = test_ideas();
 
         mem.store(
             "strategic-pref",
@@ -1645,7 +1608,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_removes_embedding() {
-        let (mem, _dir) = test_insights();
+        let (mem, _dir) = test_ideas();
 
         let id = mem
             .store("key", "content", IdeaCategory::Fact, None)

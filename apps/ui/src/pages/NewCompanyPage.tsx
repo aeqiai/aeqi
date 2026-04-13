@@ -6,7 +6,7 @@ import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
 import "@/styles/welcome.css";
 
-export default function NewWorkspacePage() {
+export default function NewCompanyPage() {
   const navigate = useNavigate();
   const setActiveCompany = useUIStore((s) => s.setActiveCompany);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
@@ -38,14 +38,14 @@ export default function NewWorkspacePage() {
   };
 
   return (
-    <div className="new-ws-page">
-      <div className="new-ws-container new-ws-animate">
-        <a className="new-ws-back" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+    <div className="new-co-page">
+      <div className="new-co-container new-co-animate">
+        <a className="new-co-back" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 3L4.5 7l4 4" /></svg>
           Back
         </a>
 
-        <div className="new-ws-hero">
+        <div className="new-co-hero">
           {/* Avatar + Name inline */}
           <input
             ref={fileRef}
@@ -61,20 +61,20 @@ export default function NewWorkspacePage() {
               e.target.value = "";
             }}
           />
-          <div className="new-ws-identity">
-            <div className="new-ws-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
+          <div className="new-co-identity">
+            <div className="new-co-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
               {imageUrl ? (
-                <img src={imageUrl} alt="" className="new-ws-avatar-img" />
+                <img src={imageUrl} alt="" className="new-co-avatar-img" />
               ) : (
                 <BlockAvatar name={name || "W"} size={56} />
               )}
-              <span className="new-ws-avatar-overlay">
+              <span className="new-co-avatar-overlay">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" /></svg>
               </span>
             </div>
-            <div className="new-ws-identity-fields">
+            <div className="new-co-identity-fields">
               <input
-                className="new-ws-name-input"
+                className="new-co-name-input"
                 placeholder="Company name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -82,7 +82,7 @@ export default function NewWorkspacePage() {
                 autoFocus
               />
               <input
-                className="new-ws-tagline-input"
+                className="new-co-tagline-input"
                 placeholder="Add a tagline..."
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
@@ -92,19 +92,19 @@ export default function NewWorkspacePage() {
           </div>
         </div>
 
-        {error && <div className="new-ws-error">{error}</div>}
+        {error && <div className="new-co-error">{error}</div>}
 
         <button
-          className="new-ws-submit"
+          className="new-co-submit"
           onClick={handleCreate}
           disabled={!name.trim() || creating}
         >
           {creating ? "Creating..." : (
-            <>Create company <kbd className="new-ws-kbd">↵</kbd></>
+            <>Create company <kbd className="new-co-kbd">↵</kbd></>
           )}
         </button>
 
-        <p className="new-ws-hint">
+        <p className="new-co-hint">
           You can change the name, logo, and tagline anytime from your company settings.
         </p>
       </div>

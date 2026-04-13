@@ -250,10 +250,13 @@ pub(crate) async fn cmd_doctor(
                 }
             }
 
-            // Check ideas DB (with legacy fallback).
+            // Check ideas in aeqi.db (with legacy fallback).
+            let aeqi_path = config.data_dir().join("aeqi.db");
             let ideas_path = config.data_dir().join("ideas.db");
             let legacy_path = config.data_dir().join("insights.db");
-            let mem_path = if ideas_path.exists() {
+            let mem_path = if aeqi_path.exists() {
+                aeqi_path
+            } else if ideas_path.exists() {
                 ideas_path
             } else {
                 legacy_path.clone()
@@ -261,7 +264,7 @@ pub(crate) async fn cmd_doctor(
             let label = if mem_path == legacy_path && legacy_path.exists() {
                 "Ideas DB (legacy insights.db)"
             } else {
-                "Ideas DB"
+                "Ideas DB (aeqi.db)"
             };
             println!(
                 "[{}] {}: {}",

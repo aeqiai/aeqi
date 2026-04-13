@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 
 interface PaletteItem {
   id: string;
@@ -16,6 +17,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const appMode = useAuthStore((s) => s.appMode);
 
   const go = useCallback((path: string) => { navigate(path); onClose(); }, [navigate, onClose]);
 
@@ -26,11 +28,19 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     const buildItems = async () => {
       const navItems: PaletteItem[] = [
         { id: "nav-dashboard", label: "Dashboard", hint: "Overview", section: "Navigate", action: () => go("/") },
+        { id: "nav-companies", label: "Companies", hint: "Select a company", section: "Navigate", action: () => go("/companies") },
+        { id: "nav-company", label: "Company", hint: "Active company settings", section: "Navigate", action: () => go("/company") },
         { id: "nav-quests", label: "Quests", hint: "View all quests", section: "Navigate", action: () => go("/quests") },
         { id: "nav-sessions", label: "Sessions", hint: "Agent sessions", section: "Navigate", action: () => go("/sessions") },
         { id: "nav-events", label: "Events", hint: "Event stream", section: "Navigate", action: () => go("/events") },
         { id: "nav-ideas", label: "Ideas", hint: "Agent knowledge", section: "Navigate", action: () => go("/ideas") },
-        { id: "nav-settings", label: "Settings", hint: "Configuration", section: "Navigate", action: () => go("/settings") },
+        {
+          id: "nav-settings",
+          label: appMode === "platform" ? "Settings" : "Company",
+          hint: appMode === "platform" ? "Configuration" : "Active company settings",
+          section: "Navigate",
+          action: () => go(appMode === "platform" ? "/settings" : "/company"),
+        },
       ];
 
       try {
@@ -73,7 +83,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go]);
+  }, [open, go, appMode]);
 
   const filtered = query
     ? items.filter((item) =>

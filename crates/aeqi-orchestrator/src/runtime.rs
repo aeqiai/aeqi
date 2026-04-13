@@ -320,7 +320,6 @@ impl RuntimeOutcomeContract {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeSession {
     pub session_id: String,
-    #[serde(alias = "task_id")]
     pub quest_id: String,
     pub worker_id: String,
     pub project: String,

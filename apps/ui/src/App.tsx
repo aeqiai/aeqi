@@ -8,7 +8,8 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import WelcomePage from "@/pages/WelcomePage";
-import NewWorkspacePage from "@/pages/NewWorkspacePage";
+import RuntimeHomePage from "@/pages/RuntimeHomePage";
+import NewCompanyPage from "@/pages/NewCompanyPage";
 import AgentsPage from "@/pages/AgentsPage";
 import EventsPage from "@/pages/EventsPage";
 import QuestsPage from "@/pages/QuestsPage";
@@ -58,26 +59,55 @@ export default function App() {
         path="/*"
         element={
           <ProtectedRoute>
-            <AppLayout />
+            <ModeAwareShell />
           </ProtectedRoute>
         }
       >
-        <Route index element={<WelcomePage />} />
-        <Route path="new" element={<NewWorkspacePage />} />
+        <Route index element={<ModeAwareHome />} />
+        <Route path="new" element={<NewCompanyPage />} />
         <Route path="agents" element={<AgentsPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="ideas" element={<IdeasPage />} />
+        <Route path="workspace" element={<LegacyWorkspaceRoute />} />
         <Route path="company" element={<CompanyPage />} />
         <Route path="companies" element={<EntitiesPage />} />
-        <Route path="treasury" element={<TreasuryPage />} />
-        <Route path="drive" element={<DrivePage />} />
-        <Route path="apps" element={<AppsPage />} />
-        <Route path="market" element={<MarketPage />} />
+        <Route path="treasury" element={<PlatformOnlyRoute><TreasuryPage /></PlatformOnlyRoute>} />
+        <Route path="drive" element={<PlatformOnlyRoute><DrivePage /></PlatformOnlyRoute>} />
+        <Route path="apps" element={<PlatformOnlyRoute><AppsPage /></PlatformOnlyRoute>} />
+        <Route path="market" element={<PlatformOnlyRoute><MarketPage /></PlatformOnlyRoute>} />
         <Route path="sessions" element={<SessionsPage />} />
-        <Route path="account" element={<AccountPage />} />
-        <Route path="settings" element={<Navigate to="/account" replace />} />
+        <Route path="account" element={<ModeAwareAccountRoute />} />
+        <Route path="settings" element={<ModeAwareSettingsRoute />} />
       </Route>
     </Routes>
   );
+}
+
+function ModeAwareShell() {
+  return <AppLayout />;
+}
+
+function ModeAwareHome() {
+  const appMode = useAuthStore((s) => s.appMode);
+  return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
+}
+
+function LegacyWorkspaceRoute() {
+  return <Navigate to="/company" replace />;
+}
+
+function ModeAwareAccountRoute() {
+  const appMode = useAuthStore((s) => s.appMode);
+  return appMode === "platform" ? <AccountPage /> : <Navigate to="/company" replace />;
+}
+
+function ModeAwareSettingsRoute() {
+  const appMode = useAuthStore((s) => s.appMode);
+  return <Navigate to={appMode === "platform" ? "/account" : "/company"} replace />;
+}
+
+function PlatformOnlyRoute({ children }: { children: React.ReactNode }) {
+  const appMode = useAuthStore((s) => s.appMode);
+  return appMode === "platform" ? <>{children}</> : <Navigate to="/company" replace />;
 }

@@ -28,7 +28,7 @@ export default function CheckpointTimeline({ checkpoints }: CheckpointTimelinePr
           </div>
           <div className="checkpoint-content">
             <div className="checkpoint-header">
-              <span className="checkpoint-worker">{cp.agent_name || cp.worker}</span>
+              <span className="checkpoint-worker">{cp.agent_name}</span>
             </div>
             {cp.progress && (
               <p className="checkpoint-summary">{cp.progress}</p>

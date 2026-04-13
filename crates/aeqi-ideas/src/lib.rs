@@ -4,7 +4,7 @@
 //! ([`VectorStore`]) using Reciprocal Rank Fusion and MMR reranking ([`hybrid`]).
 //! Text chunking ([`chunker`]) splits documents into overlapping segments for indexing.
 //!
-//! Used by agent workers for long-term insight recall during task execution.
+//! Used by agent workers for long-term idea recall during task execution.
 
 pub mod chunker;
 pub mod debounce;

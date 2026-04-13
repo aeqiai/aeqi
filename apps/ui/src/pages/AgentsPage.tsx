@@ -26,7 +26,7 @@ export default function AgentsPage() {
       !search ||
       a.name?.toLowerCase().includes(search.toLowerCase()) ||
       a.display_name?.toLowerCase().includes(search.toLowerCase()) ||
-      a.template?.toLowerCase().includes(search.toLowerCase()),
+      a.model?.toLowerCase().includes(search.toLowerCase()),
   );
 
   const activeCount = agents.filter(
@@ -119,7 +119,7 @@ function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
       </div>
       <div className="ap-card-name">{label}</div>
       <div className="ap-card-meta">
-        <span className="ap-card-template">{agent.template || "custom"}</span>
+        <span className="ap-card-template">{agent.status}</span>
         {agent.model && (
           <span className="ap-card-model">{agent.model.split("/").pop()}</span>
         )}

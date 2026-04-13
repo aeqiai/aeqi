@@ -25,16 +25,10 @@ pub struct Event {
     pub pattern: String,
     /// Scope: "self", "children", "descendants"
     pub scope: String,
-    /// Reference to an idea to run (optional — can use inline content instead).
-    pub idea_id: Option<String>,
-    /// References to multiple ideas (JSON array of idea ID strings).
+    /// References to ideas to run (JSON array of idea ID strings).
     pub idea_ids: Vec<String>,
-    /// Inline instruction (used if idea_id is None).
-    pub content: Option<String>,
     pub enabled: bool,
     pub cooldown_secs: u64,
-    pub max_budget_usd: Option<f64>,
-    pub webhook_secret: Option<String>,
     pub last_fired: Option<DateTime<Utc>>,
     pub fire_count: u64,
     pub total_cost_usd: f64,
@@ -49,17 +43,13 @@ pub struct NewEvent {
     pub name: String,
     pub pattern: String,
     pub scope: String,
-    pub idea_id: Option<String>,
-    /// References to multiple ideas (JSON array of idea ID strings).
+    /// References to ideas to run (JSON array of idea ID strings).
     pub idea_ids: Vec<String>,
-    pub content: Option<String>,
     pub cooldown_secs: u64,
-    pub max_budget_usd: Option<f64>,
-    pub webhook_secret: Option<String>,
     pub system: bool,
 }
 
-/// SQLite-backed activity log. Shares the agents.db connection pool.
+/// SQLite-backed event handler store. Shares the aeqi.db connection pool.
 pub struct EventHandlerStore {
     db: Arc<ConnectionPool>,
 }
@@ -88,12 +78,11 @@ impl EventHandlerStore {
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_id, idea_ids, content, enabled, cooldown_secs, max_budget_usd, webhook_secret, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10, ?11, ?12, ?13)",
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, enabled, cooldown_secs, system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, ?9)",
                 params![
                     id, e.agent_id, e.name, e.pattern, e.scope,
-                    e.idea_id, idea_ids_json, e.content, e.cooldown_secs as i64,
-                    e.max_budget_usd, e.webhook_secret,
+                    idea_ids_json, e.cooldown_secs as i64,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
                 ],
@@ -192,12 +181,10 @@ impl EventHandlerStore {
         &self,
         id: &str,
         enabled: Option<bool>,
-        content: Option<&str>,
         pattern: Option<&str>,
         scope: Option<&str>,
         cooldown_secs: Option<u64>,
-        idea_id: Option<&str>,
-        max_budget_usd: Option<f64>,
+        idea_ids: Option<&[String]>,
     ) -> Result<()> {
         let db = self.db.lock().await;
 
@@ -226,10 +213,6 @@ impl EventHandlerStore {
             sets.push("enabled = ?");
             values.push(Box::new(if enabled { 1i64 } else { 0i64 }));
         }
-        if let Some(content) = content {
-            sets.push("content = ?");
-            values.push(Box::new(content.to_string()));
-        }
         if let Some(pattern) = pattern {
             sets.push("pattern = ?");
             values.push(Box::new(pattern.to_string()));
@@ -242,13 +225,11 @@ impl EventHandlerStore {
             sets.push("cooldown_secs = ?");
             values.push(Box::new(cooldown_secs as i64));
         }
-        if let Some(idea_id) = idea_id {
-            sets.push("idea_id = ?");
-            values.push(Box::new(idea_id.to_string()));
-        }
-        if let Some(max_budget_usd) = max_budget_usd {
-            sets.push("max_budget_usd = ?");
-            values.push(Box::new(max_budget_usd));
+        if let Some(idea_ids) = idea_ids {
+            // Explicit update semantics: replace the full array, including clearing it.
+            let json = serde_json::to_string(idea_ids).unwrap_or_else(|_| "[]".to_string());
+            sets.push("idea_ids = ?");
+            values.push(Box::new(json));
         }
 
         if sets.is_empty() {
@@ -293,12 +274,8 @@ impl EventHandlerStore {
                 name: "on_session_start".to_string(),
                 pattern: "lifecycle:session_start".to_string(),
                 scope: "self".to_string(),
-                idea_id: None,
                 idea_ids: idea_ids.to_vec(),
-                content: None,
                 cooldown_secs: 0,
-                max_budget_usd: None,
-                webhook_secret: None,
                 system: false,
             })
             .await?;
@@ -400,104 +377,129 @@ impl EventHandlerStore {
 }
 
 /// Create default lifecycle events for a newly spawned agent.
+/// Each event gets a seed idea with instructions for that lifecycle phase.
+/// Ideas are created in the shared aeqi.db via the same connection pool.
 pub async fn create_default_lifecycle_events(
     store: &EventHandlerStore,
     agent_id: &str,
 ) -> anyhow::Result<()> {
-    let defaults: &[(&str, &str, &str, &str)] = &[
+    // (event_name, pattern, scope, idea_key, idea_content)
+    let defaults: &[(&str, &str, &str, &str, &str)] = &[
         (
             "on_quest_received",
             "lifecycle:quest_received",
             "self",
-            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools (shell, file read/write, ideas) to complete the work. When finished, call quests(action='close', quest_id='<id>', result='<summary>') with a summary of what you accomplished.",
+            "lifecycle:quest-received",
+            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools to complete the work. When finished, close the quest with a summary.",
         ),
         (
             "on_quest_completed",
             "lifecycle:quest_completed",
             "self",
-            "You completed a quest. Reflect on what you learned. Store any reusable knowledge using ideas(action='store', key='<key>', content='<insight>'). Key facts, procedures, and preferences should be preserved for future work.",
+            "lifecycle:quest-completed",
+            "You completed a quest. Reflect on what you learned. Store any reusable knowledge as ideas. Key facts, procedures, and preferences should be preserved for future work.",
         ),
         (
             "on_quest_failed",
             "lifecycle:quest_failed",
             "self",
-            "A quest failed. Analyze the root cause. If the failure is recoverable and retry count is under 3, create a refined quest with lessons learned using quests(action='create', subject='<subject>'). If the failure is terminal or retries exhausted, store the failure analysis using ideas(action='store') and notify your parent by creating a quest describing the blocker.",
+            "lifecycle:quest-failed",
+            "A quest failed. Analyze the root cause. If recoverable and retry count is under 3, create a refined quest with lessons learned. If terminal, store the failure analysis as an idea and notify your parent.",
         ),
         (
             "on_child_completed",
             "lifecycle:quest_completed",
             "children",
-            "A child agent completed a quest. Review the outcome. If there are dependent quests waiting on this result, they will be unblocked automatically. Store any cross-cutting insights as ideas.",
+            "lifecycle:child-completed",
+            "A child agent completed a quest. Review the outcome. Dependent quests will be unblocked automatically. Store any cross-cutting insights as ideas.",
         ),
         (
             "on_child_failed",
             "lifecycle:quest_failed",
             "children",
-            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child via quests(action='create'), or (3) handle the work yourself. Consider the failure reason before deciding.",
+            "lifecycle:child-failed",
+            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child, or (3) handle the work yourself.",
         ),
         (
             "on_idea_received",
             "lifecycle:idea_received",
             "self",
+            "lifecycle:idea-received",
             "New knowledge has been shared with you. Acknowledge it and integrate it into your working context. This may change how you approach future quests.",
         ),
         (
             "on_budget_exceeded",
             "lifecycle:budget_exceeded",
             "self",
-            "Your cost budget has been exceeded. Immediately checkpoint any in-progress work. Do not start new tool calls. Report the situation to your parent by creating a quest describing what was completed and what remains.",
+            "lifecycle:budget-exceeded",
+            "Your cost budget has been exceeded. Immediately checkpoint any in-progress work. Do not start new tool calls. Report the situation to your parent.",
         ),
         (
             "on_session_start",
             "lifecycle:session_start",
             "self",
-            "A session is starting. This is your moment to establish context, recall relevant ideas, and prepare for the work ahead.",
+            "lifecycle:session-start",
+            "A session is starting. Establish context, recall relevant ideas, and prepare for the work ahead.",
         ),
         (
             "on_session_end",
             "lifecycle:session_end",
             "self",
-            "A session is ending. Reflect on what happened. Store key learnings as ideas using ideas(action='store'). Consolidate important facts, procedures, and preferences for future sessions.",
+            "lifecycle:session-end",
+            "A session is ending. Reflect on what happened. Store key learnings as ideas. Consolidate important facts, procedures, and preferences for future sessions.",
         ),
         (
             "on_quest_blocked",
             "lifecycle:quest_blocked",
             "self",
-            "A quest is blocked and needs external input. Clearly describe what you need — whether it's clarification from the user, approval for a risky action, or a dependency that must be resolved. Create a quest for your parent agent describing the blocker.",
+            "lifecycle:quest-blocked",
+            "A quest is blocked and needs external input. Clearly describe what you need — clarification, approval, or a dependency that must be resolved. Create a quest for your parent describing the blocker.",
         ),
         (
             "on_child_added",
             "lifecycle:child_added",
             "self",
-            "A new child agent was spawned under you. Brief them on current priorities. Share relevant ideas using ideas(action='store', agent='child_name'). Consider assigning an initial quest to get them started.",
+            "lifecycle:child-added",
+            "A new child agent was spawned under you. Brief them on current priorities. Share relevant ideas. Consider assigning an initial quest to get them started.",
         ),
         (
             "on_child_removed",
             "lifecycle:child_removed",
             "self",
-            "A child agent was retired. Reassign any of their pending quests to other children or handle them yourself. Archive any knowledge that was unique to that agent by storing it as your own idea.",
+            "lifecycle:child-removed",
+            "A child agent was retired. Reassign any of their pending quests to other children or handle them yourself. Archive any knowledge unique to that agent.",
         ),
     ];
 
-    for &(name, pattern, scope, content) in defaults {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    for &(name, pattern, scope, idea_key, idea_content) in defaults {
+        // Create the seed idea.
+        let idea_id = uuid::Uuid::new_v4().to_string();
+        {
+            let db = store.db.lock().await;
+            let _ = db.execute(
+                "INSERT OR IGNORE INTO ideas (id, key, content, category, scope, agent_id, created_at)
+                 VALUES (?1, ?2, ?3, 'procedure', 'domain', ?4, ?5)",
+                rusqlite::params![idea_id, idea_key, idea_content, agent_id, now],
+            );
+        }
+
+        // Create the event referencing the idea.
         store
             .create(&NewEvent {
                 agent_id: agent_id.to_string(),
                 name: name.to_string(),
                 pattern: pattern.to_string(),
                 scope: scope.to_string(),
-                idea_id: None,
-                idea_ids: Vec::new(),
-                content: Some(content.to_string()),
+                idea_ids: vec![idea_id],
                 cooldown_secs: 0,
-                max_budget_usd: None,
-                webhook_secret: None,
                 system: true,
             })
             .await?;
     }
 
-    info!(agent_id = %agent_id, "created 12 default lifecycle events");
+    info!(agent_id = %agent_id, "created 12 default lifecycle events with seed ideas");
     Ok(())
 }
 
@@ -588,12 +590,8 @@ pub async fn migrate_injection_mode_to_events(
                         name: "on_session_start".to_string(),
                         pattern: "lifecycle:session_start".to_string(),
                         scope: scope.to_string(),
-                        idea_id: None,
                         idea_ids: idea_ids.clone(),
-                        content: None,
                         cooldown_secs: 0,
-                        max_budget_usd: None,
-                        webhook_secret: None,
                         system: true,
                     })
                     .await;
@@ -658,13 +656,9 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         name: row.get("name").unwrap_or_default(),
         pattern: row.get("pattern").unwrap_or_default(),
         scope: row.get("scope").unwrap_or_else(|_| "self".to_string()),
-        idea_id: row.get("idea_id").ok().flatten(),
         idea_ids,
-        content: row.get("content").ok().flatten(),
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
-        max_budget_usd: row.get("max_budget_usd").ok().flatten(),
-        webhook_secret: row.get("webhook_secret").ok().flatten(),
         last_fired,
         fire_count: row.get::<_, i64>("fire_count").unwrap_or(0) as u64,
         total_cost_usd: row.get("total_cost_usd").unwrap_or(0.0),
@@ -686,9 +680,9 @@ mod tests {
              CREATE TABLE events (
                  id TEXT PRIMARY KEY, agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
                  name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
-                 idea_id TEXT, idea_ids TEXT NOT NULL DEFAULT '[]', content TEXT, enabled INTEGER NOT NULL DEFAULT 1,
-                 cooldown_secs INTEGER NOT NULL DEFAULT 0, max_budget_usd REAL,
-                 webhook_secret TEXT, last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
+                 idea_ids TEXT NOT NULL DEFAULT '[]', enabled INTEGER NOT NULL DEFAULT 1,
+                 cooldown_secs INTEGER NOT NULL DEFAULT 0,
+                 last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
                  total_cost_usd REAL NOT NULL DEFAULT 0.0, system INTEGER NOT NULL DEFAULT 0,
                  created_at TEXT NOT NULL, UNIQUE(agent_id, name)
              );",
@@ -706,12 +700,8 @@ mod tests {
             name: "morning-brief".into(),
             pattern: "schedule:0 9 * * *".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Run morning brief".into()),
             cooldown_secs: 300,
-            max_budget_usd: Some(1.0),
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 
@@ -731,12 +721,8 @@ mod tests {
             name: "on-quest-received".into(),
             pattern: "lifecycle:quest_received".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: Some("Start working".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: true,
         }).await.unwrap();
 
@@ -752,12 +738,8 @@ mod tests {
             name: "test".into(),
             pattern: "lifecycle:test".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: Vec::new(),
-            content: None,
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: false,
         }).await.unwrap();
 
@@ -776,14 +758,12 @@ mod tests {
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "sched1".into(),
             pattern: "schedule:0 9 * * *".into(), scope: "self".into(),
-            idea_id: None, idea_ids: Vec::new(), content: None, cooldown_secs: 0,
-            max_budget_usd: None, webhook_secret: None, system: false,
+            idea_ids: Vec::new(), cooldown_secs: 0, system: false,
         }).await.unwrap();
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "lifecycle1".into(),
             pattern: "lifecycle:quest_received".into(), scope: "self".into(),
-            idea_id: None, idea_ids: Vec::new(), content: None, cooldown_secs: 0,
-            max_budget_usd: None, webhook_secret: None, system: false,
+            idea_ids: Vec::new(), cooldown_secs: 0, system: false,
         }).await.unwrap();
 
         let schedules = store.list_by_pattern_prefix("schedule:").await.unwrap();
@@ -792,6 +772,68 @@ mod tests {
 
         let lifecycle = store.list_by_pattern_prefix("lifecycle:").await.unwrap();
         assert_eq!(lifecycle.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn update_fields_replaces_idea_ids_and_respects_omission() {
+        let store = test_store().await;
+        let event = store.create(&NewEvent {
+            agent_id: "a1".into(),
+            name: "update-me".into(),
+            pattern: "lifecycle:update_me".into(),
+            scope: "self".into(),
+            idea_ids: vec!["keep-a".into(), "keep-b".into()],
+            cooldown_secs: 0,
+            system: false,
+        }).await.unwrap();
+
+        // Update with no idea_ids change — idea_ids should remain.
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap_err(); // no fields to update
+
+        let after_omitted = store.get(&event.id).await.unwrap().unwrap();
+        assert_eq!(after_omitted.idea_ids, vec!["keep-a".to_string(), "keep-b".to_string()]);
+
+        let replacement = vec!["new-a".to_string(), "new-b".to_string()];
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                Some(&replacement),
+            )
+            .await
+            .unwrap();
+
+        let after_replace = store.get(&event.id).await.unwrap().unwrap();
+        assert_eq!(after_replace.idea_ids, replacement);
+
+        let cleared: Vec<String> = Vec::new();
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                Some(&cleared),
+            )
+            .await
+            .unwrap();
+
+        let after_clear = store.get(&event.id).await.unwrap().unwrap();
+        assert!(after_clear.idea_ids.is_empty());
     }
 
     // -- Migration tests --
@@ -892,12 +934,8 @@ mod tests {
             name: "on_session_start".into(),
             pattern: "lifecycle:session_start".into(),
             scope: "self".into(),
-            idea_id: None,
             idea_ids: vec!["existing-id".into()],
-            content: Some("Existing content".into()),
             cooldown_secs: 0,
-            max_budget_usd: None,
-            webhook_secret: None,
             system: true,
         }).await.unwrap();
 

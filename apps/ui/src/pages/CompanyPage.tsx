@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import PageTabs, { useActiveTab } from "@/components/PageTabs";
+import { useAuthStore } from "@/store/auth";
+import { useUIStore } from "@/store/ui";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -71,7 +73,8 @@ function CopyButton({ text }: { text: string }) {
 
 export default function CompanyPage() {
   const activeTab = useActiveTab(TABS, "overview");
-  const company = localStorage.getItem("aeqi_company") || "";
+  const appMode = useAuthStore((s) => s.appMode);
+  const company = useUIStore((s) => s.activeCompany);
 
   const [keys, setKeys] = useState<SecretKey[]>([]);
   const [newKey, setNewKey] = useState<NewSecretKey | null>(null);
@@ -133,7 +136,10 @@ export default function CompanyPage() {
           <>
             <p className="account-field-desc" style={{ marginBottom: "var(--space-4)" }}>
               {company ? (
-                <>Active company: <strong>{company}</strong></>
+                <>
+                  Active company: <strong>{company}</strong>
+                  {appMode === "platform" ? "" : ". This company lives directly in the runtime."}
+                </>
               ) : (
                 "No company selected. Select one from the sidebar."
               )}
@@ -144,8 +150,22 @@ export default function CompanyPage() {
         {activeTab === "api-keys" && (
           <>
             <p className="account-field-desc">
-              Secret keys authenticate access to <strong>{company}</strong>'s runtime.
-              You'll also need your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>ak_</code>) to identify yourself.
+              {company ? (
+                <>
+                  Secret keys authenticate access to <strong>{company}</strong>'s runtime.
+                  {appMode === "platform" ? (
+                    <>
+                      {" "}You'll also need your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>ak_</code>) to identify yourself.
+                    </>
+                  ) : (
+                    <>
+                      {" "}In self-hosted mode, these keys are the company-level runtime credentials.
+                    </>
+                  )}
+                </>
+              ) : (
+                "Select a company to manage runtime keys."
+              )}
             </p>
 
             {/* New key display — shown once after creation */}
@@ -163,9 +183,11 @@ export default function CompanyPage() {
                   <code className="key-new-code">export AEQI_SECRET_KEY={newKey.secret_key}</code>
                   <CopyButton text={`export AEQI_SECRET_KEY=${newKey.secret_key}`} />
                 </div>
-                <p className="account-field-desc" style={{ marginTop: "var(--space-2)", fontSize: "0.78rem" }}>
-                  Pair this with your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>AEQI_API_KEY</code>).
-                </p>
+                {appMode === "platform" && (
+                  <p className="account-field-desc" style={{ marginTop: "var(--space-2)", fontSize: "0.78rem" }}>
+                    Pair this with your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>AEQI_API_KEY</code>).
+                  </p>
+                )}
                 <button type="button" className="btn btn-ghost key-new-dismiss" onClick={() => setNewKey(null)}>
                   I've saved this key
                 </button>

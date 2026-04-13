@@ -99,7 +99,7 @@ export default function DashboardHome() {
             <circle cx="24" cy="20" r="8" />
             <path d="M12 40c0-6.6 5.4-12 12-12s12 5.4 12 12" />
           </svg>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "rgba(0,0,0,0.85)", margin: "16px 0 6px" }}>Welcome to your workspace</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: "rgba(0,0,0,0.85)", margin: "16px 0 6px" }}>Welcome to your company</h2>
           <p style={{ fontSize: 13, color: "rgba(0,0,0,0.35)", margin: "0 0 24px", maxWidth: 340, marginLeft: "auto", marginRight: "auto" }}>
             Hire your first agent to get started. Agents research, code, review, and operate autonomously.
           </p>
@@ -145,7 +145,7 @@ export default function DashboardHome() {
           <div className="dash-quest-list">
             {activeQuests.map((q: any) => (
               <div key={q.id} className="dash-quest-row">
-                <span className="dash-quest-agent">{q.agent_id || q.assignee || q.agent || "\u2014"}</span>
+                <span className="dash-quest-agent">{q.agent_id || "\u2014"}</span>
                 <span className="dash-quest-subject">{q.subject}</span>
                 {runtimeLabel(q.runtime) && <span className="dash-quest-phase">{runtimeLabel(q.runtime)}</span>}
                 <span className="dash-quest-time">{timeAgo(q.started_at || q.updated_at)}</span>

@@ -282,11 +282,14 @@ pub async fn handle_idea_profile(
     let aeqi_data_dir = std::env::var("HOME")
         .map(|h| PathBuf::from(h).join(".aeqi"))
         .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    // Prefer `ideas.db`; fall back to legacy `insights.db`.
+    // Prefer `aeqi.db`; fall back to legacy `ideas.db` / `insights.db`.
     let db_path = {
+        let aeqi_path = aeqi_data_dir.join("aeqi.db");
         let ideas_path = aeqi_data_dir.join("ideas.db");
         let legacy_path = aeqi_data_dir.join("insights.db");
-        if ideas_path.exists() {
+        if aeqi_path.exists() {
+            aeqi_path
+        } else if ideas_path.exists() {
             ideas_path
         } else {
             legacy_path
@@ -302,7 +305,7 @@ pub async fn handle_idea_profile(
                 categories.iter().map(|c| format!("LOWER('{c}')")).collect();
             let sql = format!(
                 "SELECT id, key, content, category, scope, created_at \
-                 FROM insights \
+                 FROM ideas \
                  WHERE LOWER(category) IN ({}) \
                  ORDER BY created_at DESC \
                  LIMIT 20",
@@ -361,11 +364,14 @@ pub async fn handle_idea_graph(
     let aeqi_data_dir = std::env::var("HOME")
         .map(|h| PathBuf::from(h).join(".aeqi"))
         .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    // Prefer `ideas.db`; fall back to legacy `insights.db`.
+    // Prefer `aeqi.db`; fall back to legacy `ideas.db` / `insights.db`.
     let db_path = {
+        let aeqi_path = aeqi_data_dir.join("aeqi.db");
         let ideas_path = aeqi_data_dir.join("ideas.db");
         let legacy_path = aeqi_data_dir.join("insights.db");
-        if ideas_path.exists() {
+        if aeqi_path.exists() {
+            aeqi_path
+        } else if ideas_path.exists() {
             ideas_path
         } else {
             legacy_path
@@ -378,7 +384,7 @@ pub async fn handle_idea_graph(
     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
         let sql = format!(
             "SELECT id, key, content, category, created_at \
-             FROM insights \
+             FROM ideas \
              ORDER BY created_at DESC \
              LIMIT {limit}"
         );

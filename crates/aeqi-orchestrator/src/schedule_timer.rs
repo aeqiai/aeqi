@@ -3,6 +3,7 @@
 //! Replaces the patrol loop's trigger checking with a dedicated timer
 //! that sleeps until the next schedule is due.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use chrono::Utc;
 use tracing::{info, warn};
@@ -76,16 +77,14 @@ impl ScheduleTimer {
             return;
         }
 
-        let description = event
-            .content
-            .clone()
-            .unwrap_or_else(|| format!("Scheduled event: {}", event.name));
+        let description = format!("Scheduled event: {}", event.name);
 
         let labels = vec![
             format!("event:{}", event.name),
             format!("event_id:{}", event.id),
             "chain_depth:0".to_string(),
         ];
+        let quest_idea_ids = event_idea_ids(event);
 
         match self
             .agent_registry
@@ -93,7 +92,7 @@ impl ScheduleTimer {
                 &event.agent_id,
                 &format!("[schedule:{}] {}", event.pattern, event.name),
                 &description,
-                &[],
+                &quest_idea_ids,
                 &labels,
             )
             .await
@@ -128,6 +127,22 @@ impl ScheduleTimer {
             }
         }
     }
+}
+
+fn event_idea_ids(event: &crate::event_handler::Event) -> Vec<String> {
+    let mut idea_ids = Vec::new();
+    let mut seen = HashSet::new();
+
+    for idea_id in &event.idea_ids {
+        if idea_id.is_empty() {
+            continue;
+        }
+        if seen.insert(idea_id.clone()) {
+            idea_ids.push(idea_id.clone());
+        }
+    }
+
+    idea_ids
 }
 
 /// Check if a schedule expression is due to fire.
@@ -259,6 +274,35 @@ mod tests {
     fn parse_interval_seconds_minimum_60() {
         let d = parse_interval("5s").unwrap();
         assert_eq!(d.num_seconds(), 60); // Min 60s enforced
+    }
+
+    #[tokio::test]
+    async fn schedule_event_idea_refs_are_persisted_on_created_quest() {
+        let dir = tempfile::tempdir().unwrap();
+        let reg = Arc::new(AgentRegistry::open(dir.path()).unwrap());
+        let ehs = Arc::new(EventHandlerStore::new(reg.db()));
+        let al = Arc::new(ActivityLog::new(reg.sessions_db()));
+        let timer = ScheduleTimer::new(ehs.clone(), reg.clone(), al);
+        let agent = reg.spawn("shadow", None, None, None).await.unwrap();
+
+        let event = ehs.create(&crate::event_handler::NewEvent {
+            agent_id: agent.id.clone(),
+            name: "daily-review".into(),
+            pattern: "schedule:every 1h".into(),
+            scope: "self".into(),
+            idea_ids: vec!["idea-one".into(), "idea-two".into()],
+            cooldown_secs: 0,
+            system: false,
+        }).await.unwrap();
+
+        timer.fire_schedule(&event).await;
+
+        let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
+        let task = tasks
+            .iter()
+            .find(|task| task.name.contains("[schedule:schedule:every 1h]"))
+            .expect("schedule should have created a quest");
+        assert_eq!(task.idea_ids, vec!["idea-one".to_string(), "idea-two".to_string()]);
     }
 
     #[test]

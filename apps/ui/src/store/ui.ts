@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getScopedCompany } from "@/lib/appMode";
 
 export type LayoutMode = "focus" | "split" | "stack";
 
@@ -44,9 +45,13 @@ export const useUIStore = create<UIState>((set) => ({
   closeLayoutPicker: () => set({ layoutPickerOpen: false }),
   drawerOpen: localStorage.getItem("aeqi_drawer_open") !== "false",
   drawerMode: "context",
-  activeCompany: localStorage.getItem("aeqi_company") || "",
+  activeCompany: getScopedCompany(),
   setActiveCompany: (name) => {
-    localStorage.setItem("aeqi_company", name);
+    if (name) {
+      localStorage.setItem("aeqi_company", name);
+    } else {
+      localStorage.removeItem("aeqi_company");
+    }
     set({ activeCompany: name });
   },
   toggleDrawer: () =>

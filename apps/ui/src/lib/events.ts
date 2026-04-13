@@ -34,7 +34,7 @@ export function checkpointsToTimeline(checkpoints: Checkpoint[], questId: string
     type: "quest_checkpoint" as const,
     timestamp: cp.timestamp,
     summary: cp.progress,
-    agent: cp.agent_name || cp.worker,
+    agent: cp.agent_name,
     questId,
     checkpoint: cp,
   }));
@@ -56,7 +56,7 @@ export function activityToTimeline(entries: ActivityEntry[]): TimelineItem[] {
       timestamp: e.timestamp,
       summary: e.summary,
       agent: e.agent,
-      questId: e.quest_id || e.task_id,
+      questId: e.quest_id,
       activityEntry: e,
     };
   });

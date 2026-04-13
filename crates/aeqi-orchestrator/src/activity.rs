@@ -21,7 +21,6 @@ use crate::runtime::{RuntimeExecution, RuntimeSession};
 pub enum Activity {
     /// Worker has begun executing a quest.
     QuestStarted {
-        #[serde(alias = "task_id")]
         quest_id: String,
         agent: String,
         project: String,
@@ -30,7 +29,6 @@ pub enum Activity {
     },
     /// Periodic progress update during execution.
     Progress {
-        #[serde(alias = "task_id")]
         quest_id: String,
         steps: u32,
         cost_usd: f64,
@@ -38,13 +36,11 @@ pub enum Activity {
     },
     /// A tool call has started.
     ToolCallStarted {
-        #[serde(alias = "task_id")]
         quest_id: String,
         tool_name: String,
     },
     /// A tool call has completed.
     ToolCallCompleted {
-        #[serde(alias = "task_id")]
         quest_id: String,
         tool_name: String,
         success: bool,
@@ -52,7 +48,6 @@ pub enum Activity {
     },
     /// A checkpoint was captured during execution.
     CheckpointCreated {
-        #[serde(alias = "task_id")]
         quest_id: String,
         message: String,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -60,7 +55,6 @@ pub enum Activity {
     },
     /// Quest completed successfully.
     QuestCompleted {
-        #[serde(alias = "task_id")]
         quest_id: String,
         outcome: String,
         confidence: f32,
@@ -72,7 +66,6 @@ pub enum Activity {
     },
     /// Quest failed.
     QuestFailed {
-        #[serde(alias = "task_id")]
         quest_id: String,
         reason: String,
         artifacts_preserved: bool,
@@ -81,14 +74,12 @@ pub enum Activity {
     },
     /// An approval is required before the worker can continue.
     ApprovalRequired {
-        #[serde(alias = "task_id")]
         quest_id: String,
         pattern: String,
         description: String,
     },
     /// The worker needs clarification before continuing.
     ClarificationNeeded {
-        #[serde(alias = "task_id")]
         quest_id: String,
         question: String,
         options: Vec<String>,
@@ -98,7 +89,6 @@ pub enum Activity {
     /// Real-time chat stream event from the agent loop.
     /// Used by CLI TUI and WebSocket chat clients for token-by-token rendering.
     ChatStream {
-        #[serde(alias = "task_id")]
         quest_id: String,
         chat_id: i64,
         event: ChatStreamEvent,

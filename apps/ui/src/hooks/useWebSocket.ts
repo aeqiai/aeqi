@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { getScopedCompany } from "@/lib/appMode";
+import { useAuthStore } from "@/store/auth";
+import { useUIStore } from "@/store/ui";
 
 export interface RuntimeStepRecord {
   id: string;
@@ -68,6 +71,8 @@ export interface WorkerEvent {
 export function useWebSocket() {
   const [events, setEvents] = useState<WorkerEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const appMode = useAuthStore((s) => s.appMode);
+  const activeCompany = useUIStore((s) => s.activeCompany);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,7 +81,7 @@ export function useWebSocket() {
     if (!token) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const company = localStorage.getItem("aeqi_company") || "";
+    const company = getScopedCompany();
     const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?token=${token}&company=${encodeURIComponent(company)}`);
     wsRef.current = ws;
 
@@ -110,7 +115,7 @@ export function useWebSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [connect]);
+  }, [connect, appMode, activeCompany]);
 
   const clearEvents = useCallback(() => setEvents([]), []);
 

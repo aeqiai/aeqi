@@ -20,7 +20,7 @@ const GithubIcon = () => (
 
 const POINTS = [
   "Agents that write code, review PRs, and ship autonomously",
-  "Companies as persistent workspaces with shared memory",
+  "Companies as persistent systems with shared memory",
   "Real-time sessions — chat with agents as they work",
   "Knowledge that compounds across every task",
 ];

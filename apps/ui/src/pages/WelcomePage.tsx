@@ -25,7 +25,7 @@ const PRIMARY_ITEMS = [
 ];
 
 const SECONDARY_ITEMS = [
-  { key: "insights", name: "Ideas", route: "/ideas" },
+  { key: "ideas", name: "Ideas", route: "/ideas" },
   { key: "company", name: "Company", route: "/company" },
   { key: "drive", name: "Drive", route: "/drive" },
   { key: "apps", name: "Apps", route: "/apps" },
@@ -77,7 +77,7 @@ export default function WelcomePage() {
 
   return (
     <div className="welcome">
-      <div className="welcome-inner new-ws-animate">
+      <div className="welcome-inner new-co-animate">
         {/* Identity — same pattern as /new */}
         <input
           ref={fileRef}
@@ -98,20 +98,20 @@ export default function WelcomePage() {
           }}
         />
         <div className="welcome-identity">
-          <div className="new-ws-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
+          <div className="new-co-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="new-ws-avatar-img" />
+              <img src={avatarUrl} alt="" className="new-co-avatar-img" />
             ) : (
               <BlockAvatar name={displayName} size={56} />
             )}
-            <span className="new-ws-avatar-overlay">
+            <span className="new-co-avatar-overlay">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" /></svg>
             </span>
           </div>
           <div className="welcome-identity-text">
             {editingName ? (
               <input
-                className="new-ws-name-input"
+                className="new-co-name-input"
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onBlur={saveName}
@@ -132,7 +132,7 @@ export default function WelcomePage() {
             )}
             {editingTagline ? (
               <input
-                className="new-ws-tagline-input"
+                className="new-co-tagline-input"
                 value={taglineDraft}
                 onChange={(e) => setTaglineDraft(e.target.value)}
                 onBlur={saveTagline}
@@ -198,7 +198,7 @@ export default function WelcomePage() {
         </div>
 
         {/* New company */}
-        <button className="welcome-new-ws" onClick={() => navigate("/new")}>
+        <button className="welcome-new-co" onClick={() => navigate("/new")}>
           + New company
         </button>
 

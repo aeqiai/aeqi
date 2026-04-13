@@ -86,7 +86,6 @@ pub struct IdeaProvenance {
     /// Agent that produced this idea (e.g. "engineer", "trader").
     pub agent: Option<String>,
     /// Quest ID that triggered the extraction.
-    #[serde(alias = "task_id")]
     pub quest_id: Option<String>,
     /// Whether the originating task outcome was verified.
     pub verified: bool,

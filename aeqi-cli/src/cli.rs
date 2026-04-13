@@ -20,12 +20,12 @@ pub enum Commands {
     },
     /// Initialize AEQI in the current directory.
     Init,
-    /// Bootstrap a ready-to-run AEQI workspace.
+    /// Bootstrap a ready-to-run AEQI company.
     Setup {
         /// Default runtime preset (for example: openrouter_agent, anthropic_agent, ollama_agent).
         #[arg(long, default_value = "openrouter_agent")]
         runtime: String,
-        /// Install a per-user daemon service after bootstrapping the workspace.
+        /// Install a per-user daemon service after bootstrapping the company.
         #[arg(long)]
         service: bool,
         /// Overwrite starter files that already exist.

@@ -44,7 +44,7 @@ pub async fn check_agent_access(
     for _ in 0..10 {
         match registry.get(&current_id).await {
             Ok(Some(agent)) => {
-                if agent.template == "company" {
+                if agent.parent_id.is_none() {
                     return allowed.iter().any(|c| c == &agent.name);
                 }
                 match agent.parent_id {
@@ -68,7 +68,7 @@ pub async fn allowed_agent_ids(
     let all_agents = registry.list(None, None).await.unwrap_or_default();
     let company_ids: std::collections::HashSet<String> = all_agents
         .iter()
-        .filter(|a| a.template == "company" && allowed.iter().any(|c| c == &a.name))
+        .filter(|a| a.parent_id.is_none() && allowed.iter().any(|c| c == &a.name))
         .map(|a| a.id.clone())
         .collect();
     // Iteratively expand to include all descendants.

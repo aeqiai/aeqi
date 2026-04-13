@@ -303,15 +303,19 @@ pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> 
 }
 
 pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
-    // Prefer `ideas.db`; fall back to legacy `insights.db` for existing installs.
+    // Ideas live in aeqi.db (shared with agents, quests, events).
+    // Fall back to legacy ideas.db / insights.db for existing installs.
+    let aeqi_path = config.data_dir().join("aeqi.db");
     let ideas_path = config.data_dir().join("ideas.db");
     let legacy_path = config.data_dir().join("insights.db");
-    let db_path = if ideas_path.exists() {
+    let db_path = if aeqi_path.exists() {
+        aeqi_path
+    } else if ideas_path.exists() {
         ideas_path
     } else if legacy_path.exists() {
         legacy_path
     } else {
-        ideas_path
+        aeqi_path
     };
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();

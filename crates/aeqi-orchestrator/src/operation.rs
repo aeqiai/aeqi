@@ -19,7 +19,6 @@ pub struct Operation {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationTask {
-    #[serde(alias = "task_id")]
     pub quest_id: QuestId,
     pub project: String,
     pub closed: bool,

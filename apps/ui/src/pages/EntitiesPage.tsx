@@ -22,11 +22,11 @@ interface CompanyApiItem {
 }
 
 function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
-  const roots = agents.filter((a) => !a.parent_id && a.project);
-  const projectNames = [...new Set(roots.map((a) => a.project!).filter(Boolean))];
-  return projectNames.map((name) => ({
+  const roots = agents.filter((a) => !a.parent_id);
+  const agentNames = [...new Set(roots.map((a) => a.name).filter(Boolean))];
+  return agentNames.map((name) => ({
     name,
-    agentCount: agents.filter((a) => a.project === name).length,
+    agentCount: agents.filter((a) => a.name === name).length,
   }));
 }
 
@@ -64,21 +64,27 @@ export default function EntitiesPage() {
       })
       .catch(() => {
         setEntities(deriveEntitiesFromAgents(agents));
-        setError("Could not load entities from server. Showing local data.");
+        setError("Could not load companies from the server. Showing local data.");
       })
       .finally(() => setLoading(false));
   }, [agents]);
 
+  useEffect(() => {
+    const handler = () => navigate("/new");
+    window.addEventListener("aeqi:create", handler);
+    return () => window.removeEventListener("aeqi:create", handler);
+  }, [navigate]);
+
   const selectEntity = (name: string) => {
     setActiveCompany(name);
-    navigate("/");
+    navigate("/company");
   };
 
   return (
     <div style={{ padding: 24, maxWidth: 560 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <h2 style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 600, margin: 0 }}>
-          Your entities
+          Companies
         </h2>
         <button
           onClick={() => navigate("/new")}
@@ -93,7 +99,7 @@ export default function EntitiesPage() {
             cursor: "pointer",
           }}
         >
-          New entity
+          New company
         </button>
       </div>
 
@@ -115,11 +121,11 @@ export default function EntitiesPage() {
 
       {loading ? (
         <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0", textAlign: "center" }}>
-          Loading entities...
+          Loading companies...
         </div>
       ) : entities.length === 0 ? (
         <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0", textAlign: "center" }}>
-          No entities yet. Create your first company to get started.
+          No companies yet. Create your first company to get started.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

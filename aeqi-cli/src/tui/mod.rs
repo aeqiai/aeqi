@@ -721,11 +721,7 @@ fn spawn_direct_agent(
     let tools = build_tools(&cwd);
 
     // Build system prompt from agent record.
-    let system_prompt = if let Some(a) = agent_record {
-        format!("# Persona\n\n{}", a.system_prompt)
-    } else {
-        "You are a helpful AI agent.".to_string()
-    };
+    let system_prompt = "You are a helpful AI agent.".to_string();
 
     // Agent config.
     let model = agent_record

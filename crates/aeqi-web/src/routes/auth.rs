@@ -125,6 +125,7 @@ async fn auth_mode_handler(State(state): State<AppState>) -> Response {
         AuthMode::Accounts => "accounts",
     };
     Json(serde_json::json!({
+        "app_mode": "runtime",
         "mode": mode,
         "google_oauth": state.auth_config.google_oauth_enabled(),
         "github_oauth": state.auth_config.github_oauth_enabled(),

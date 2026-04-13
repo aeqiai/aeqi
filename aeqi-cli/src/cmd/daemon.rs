@@ -111,15 +111,14 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     }
                 };
 
-            // Create the unified ActivityLog sharing the AgentRegistry DB.
-            let activity_log = Arc::new(ActivityLog::new(agent_reg.db()));
-            info!("activity log initialized (unified)");
+            // Create the unified ActivityLog using the sessions DB (journal).
+            let activity_log = Arc::new(ActivityLog::new(agent_reg.sessions_db()));
+            info!("activity log initialized (sessions.db)");
 
-            // Create the SessionStore sharing the AgentRegistry DB (tables
-            // already created by AgentRegistry::open -> SessionStore::create_tables).
+            // Create the SessionStore using the sessions DB (journal).
             let session_store: Option<Arc<SessionStore>> = {
-                let ss = Arc::new(SessionStore::new(agent_reg.db()));
-                info!("session store initialized (unified)");
+                let ss = Arc::new(SessionStore::new(agent_reg.sessions_db()));
+                info!("session store initialized (sessions.db)");
                 Some(ss)
             };
 
@@ -319,11 +318,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                             .spawn(
                                 &project_cfg.name,
                                 None,
-                                "company",
-                                &format!("Agent for {} repository", project_cfg.name),
-                                None, // parent_id — top-level
+                                None,
                                 project_cfg.model.as_deref(),
-                                &[],
                             )
                             .await
                         {
@@ -413,11 +409,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                             .spawn(
                                 &agent_cfg.name,
                                 None,
-                                "advisor",
-                                &format!("Advisor agent: {}", agent_cfg.name),
                                 None,
                                 agent_cfg.model.as_deref(),
-                                &[],
                             )
                             .await
                         {

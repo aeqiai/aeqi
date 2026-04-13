@@ -448,8 +448,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let reg = Arc::new(crate::agent_registry::AgentRegistry::open(dir.path()).unwrap());
         // Create a target agent.
-        reg.spawn("researcher", None, "test", "Test researcher.", None, None, &[]).await.unwrap();
-        reg.spawn("leader", None, "test", "Test leader.", None, None, &[]).await.unwrap();
+        reg.spawn("researcher", None, None, None).await.unwrap();
+        reg.spawn("leader", None, None, None).await.unwrap();
         let es = test_activity_log().await;
         let mut tool = DelegateTool::new(es, "caller".to_string());
         tool.agent_registry = Some(reg.clone());

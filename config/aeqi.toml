@@ -25,7 +25,7 @@ autonomy = "supervised"
 workspace_only = true
 max_cost_per_day_usd = 10.0
 
-[memory]
+[ideas]
 backend = "sqlite"
 embedding_dimensions = 1536
 temporal_decay_halflife_days = 30

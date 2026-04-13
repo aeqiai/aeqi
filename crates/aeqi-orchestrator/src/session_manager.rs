@@ -417,19 +417,62 @@ impl SessionManager {
             }
         };
 
-        // 3.5. Create session sandbox (git worktree) if configured.
+        // 3.5. Create or reuse quest sandbox (git worktree).
         //
-        // Uses a UUID for the sandbox ID since the DB session_id isn't assigned yet.
-        // The sandbox creates a git worktree as an ephemeral workspace. Shell
-        // commands run inside bubblewrap with no network. File tools are scoped
-        // to the worktree via their workspace path.
+        // If executing a quest that already has a worktree, reattach to it.
+        // Otherwise create a new worktree. The quest owns the worktree —
+        // it persists across session retries until the quest completes.
+        // Interactive sessions (no quest) get ephemeral worktrees.
         let sandbox: Option<Arc<QuestSandbox>> = if let Some(ref sandbox_cfg) = self.sandbox_config
         {
-            let sandbox_id = uuid::Uuid::new_v4().to_string();
-            match QuestSandbox::create(&sandbox_id, sandbox_cfg).await {
-                Ok(sb) => Some(Arc::new(sb)),
+            // Determine sandbox identity: quest_id if available, otherwise ephemeral UUID.
+            let sandbox_id = opts
+                .quest_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+            // Check if quest already has a worktree we can reuse.
+            let existing_worktree = if let Some(ref qid) = opts.quest_id {
+                agent_registry
+                    .get_task(qid)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|q| q.worktree_path.clone())
+                    .map(PathBuf::from)
+                    .filter(|p| p.exists())
+            } else {
+                None
+            };
+
+            let sb_result = if let Some(existing_path) = existing_worktree {
+                QuestSandbox::open_existing(
+                    &sandbox_id,
+                    existing_path,
+                    sandbox_cfg.repo_root.clone(),
+                    sandbox_cfg.enable_bwrap,
+                )
+            } else {
+                QuestSandbox::create(&sandbox_id, sandbox_cfg).await
+            };
+
+            match sb_result {
+                Ok(sb) => {
+                    // Save worktree path back to quest if this is a new worktree.
+                    if let Some(ref qid) = opts.quest_id {
+                        let wt_path = sb.worktree_path.to_string_lossy().to_string();
+                        let branch = sb.branch_name.clone();
+                        let _ = agent_registry.update_task(qid, |q| {
+                            if q.worktree_path.is_none() {
+                                q.worktree_path = Some(wt_path);
+                                q.worktree_branch = Some(branch);
+                            }
+                        }).await;
+                    }
+                    Some(Arc::new(sb))
+                }
                 Err(e) => {
-                    warn!(error = %e, "failed to create session sandbox — falling back to unsandboxed");
+                    warn!(error = %e, "failed to create quest sandbox — falling back to unsandboxed");
                     None
                 }
             }

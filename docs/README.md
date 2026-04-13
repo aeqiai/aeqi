@@ -9,3 +9,5 @@
 - `ui-design.md` -- operator UI principles and information architecture
 - `vision.md` -- product north star and design principles
 - `roadmap.md` -- phases from current state to long-term product
+- `category-winning-plan.md` -- what AEQI must do to credibly become a category-leading unopinionated runtime
+- `runtime-platform-separation.md` -- the clean product, UI, and API boundary between the open-source runtime and the hosted SaaS

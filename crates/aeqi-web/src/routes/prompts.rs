@@ -92,7 +92,7 @@ async fn search_ideas(
     ipc_proxy(state, scope.as_ref(), "search_ideas", params).await
 }
 
-/// Seed ideas + agents into a tenant's workspace.
+/// Seed ideas + agents into a tenant's company.
 async fn seed_ideas(
     State(state): State<AppState>,
     scope: Scope,

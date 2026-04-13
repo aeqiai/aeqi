@@ -13,6 +13,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   "/treasury": { title: "Treasury" },
   "/apps": { title: "Apps" },
   "/market": { title: "Market" },
+  "/sessions": { title: "Sessions" },
   "/account": { title: "Account" },
 };
 

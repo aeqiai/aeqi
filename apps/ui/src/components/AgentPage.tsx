@@ -172,16 +172,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   </span>
                 </div>
               )}
-              {agent?.capabilities && agent.capabilities.length > 0 && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">Capabilities</span>
-                  <span className="agent-settings-value">
-                    {agent.capabilities.map((cap) => (
-                      <span key={cap} className="agent-settings-cap">{cap}</span>
-                    ))}
-                  </span>
-                </div>
-              )}
               <div className="agent-settings-field">
                 <span className="agent-settings-label">ID</span>
                 <span className="agent-settings-value agent-settings-mono">{agent?.id || agentId}</span>

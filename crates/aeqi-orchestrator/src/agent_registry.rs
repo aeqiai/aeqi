@@ -8,7 +8,7 @@
 //! - Spawn = create a child agent
 //! - Delegate = parent→child or sibling→sibling message passing
 //! - Memory = walk parent_id chain (self → parent → grandparent → root)
-//! - Identity = per-agent (system_prompt, model, capabilities)
+//! - Identity = per-agent (ideas/events, model)
 //!
 //! Persistent agents are NOT running processes — they are identities that get
 //! loaded into fresh sessions on demand. Their "persistence" comes from:
@@ -27,19 +27,8 @@ use tracing::{debug, info};
 
 /// A persistent agent identity — one record = one node in the agent tree.
 ///
-/// Created from a template with YAML frontmatter:
-/// ```text
-/// ---
-/// name: shadow
-/// display_name: "Shadow — Your Dark Butler"
-/// model: anthropic/claude-sonnet-4.6
-/// capabilities: [spawn_agents]
-/// ---
-///
-/// You are Shadow, the user's personal assistant...
-/// ```
-///
-/// Frontmatter → DB columns (searchable). Body → system_prompt field.
+/// Identity, personality, and capabilities are expressed through ideas
+/// referenced via events — not static struct fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     /// Stable UUID — the true identity. Used for memory scoping, delegation, everything.
@@ -48,17 +37,10 @@ pub struct Agent {
     pub name: String,
     /// Display name shown in UI.
     pub display_name: Option<String>,
-    /// Template file this agent was created from (e.g., "shadow", "analyst").
-    pub template: String,
-    /// The full system prompt — the agent's identity, personality, role, instructions.
-    pub system_prompt: String,
     /// Parent agent UUID. None = root agent (the user's workspace).
     pub parent_id: Option<String>,
     /// Preferred model. None = inherit from parent.
     pub model: Option<String>,
-    /// Capabilities beyond normal tools.
-    /// "spawn_agents" = can create child agents.
-    pub capabilities: Vec<String>,
     /// Agent status.
     pub status: AgentStatus,
     pub created_at: DateTime<Utc>,
@@ -87,17 +69,11 @@ pub struct Agent {
     #[serde(default)]
     pub execution_mode: Option<String>,
     /// Quest ID prefix (e.g., "sg" for sigil). None = derived from name.
-    #[serde(default, alias = "task_prefix")]
+    #[serde(default)]
     pub quest_prefix: Option<String>,
     /// Worker timeout in seconds. None = inherit from parent or use global default.
     #[serde(default)]
     pub worker_timeout_secs: Option<u64>,
-    /// Ordered idea entries — replaces system_prompt, primers, skills.
-    #[serde(default, alias = "prompts")]
-    pub ideas: Vec<aeqi_core::PromptEntry>,
-    /// References to ideas in the idea store (by UUID).
-    #[serde(default, alias = "prompt_ids")]
-    pub idea_ids: Vec<String>,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -110,8 +86,6 @@ pub struct AgentTemplateFrontmatter {
     pub name: Option<String>,
     pub display_name: Option<String>,
     pub model: Option<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
     /// Parent agent name — resolved to parent_id at spawn time.
     pub parent: Option<String>,
     #[serde(default)]
@@ -149,7 +123,7 @@ pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String)
     }
 }
 
-// PromptRecord — DELETED. Prompt data lives exclusively in ideas.db now.
+// PromptRecord — DELETED. All knowledge/instructions are ideas now.
 
 /// Lifecycle status of an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -245,14 +219,25 @@ impl ConnectionPool {
 }
 
 /// SQLite-backed registry — the single source of truth for the agent tree.
+///
+/// Two databases:
+/// - `aeqi.db` (template — portable, copy = clone company): agents, events, ideas, quest_sequences
+/// - `sessions.db` (journal — per-instance, ephemeral): sessions, messages, activity, runs, quests
 pub struct AgentRegistry {
     db: Arc<ConnectionPool>,
+    sessions_db: Arc<ConnectionPool>,
 }
 
 impl AgentRegistry {
     /// Open or create the registry database.
     pub fn open(data_dir: &Path) -> Result<Self> {
-        let db_path = data_dir.join("agents.db");
+        // Migration: rename legacy agents.db → aeqi.db.
+        let legacy_path = data_dir.join("agents.db");
+        let db_path = data_dir.join("aeqi.db");
+        if legacy_path.exists() && !db_path.exists() {
+            std::fs::rename(&legacy_path, &db_path)?;
+            tracing::info!("migrated agents.db → aeqi.db");
+        }
         let conn = Connection::open(&db_path)?;
 
         conn.execute_batch(
@@ -264,11 +249,8 @@ impl AgentRegistry {
                  id TEXT PRIMARY KEY,
                  name TEXT NOT NULL,
                  display_name TEXT,
-                 template TEXT NOT NULL DEFAULT '',
-                 system_prompt TEXT NOT NULL DEFAULT '',
                  parent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
                  model TEXT,
-                 capabilities TEXT NOT NULL DEFAULT '[]',
                  status TEXT NOT NULL DEFAULT 'active',
                  created_at TEXT NOT NULL,
                  last_active TEXT,
@@ -284,43 +266,21 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
              CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
 
-             CREATE TABLE IF NOT EXISTS budget_policies (
-                 id TEXT PRIMARY KEY,
-                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-                 window TEXT NOT NULL,
-                 amount_usd REAL NOT NULL,
-                 warn_pct REAL DEFAULT 0.8,
-                 hard_stop INTEGER DEFAULT 1,
-                 paused INTEGER DEFAULT 0,
-                 created_at TEXT NOT NULL
-             );
-
-             -- Legacy prompts table purged; prompt data lives in ideas.db now.
+             -- Legacy tables purged.
              DROP TABLE IF EXISTS prompts;
-
-             CREATE TABLE IF NOT EXISTS approvals (
-                 id TEXT PRIMARY KEY,
-                 agent_id TEXT NOT NULL,
-                 task_id TEXT,
-                 request_type TEXT NOT NULL,
-                 payload_json TEXT NOT NULL,
-                 status TEXT NOT NULL DEFAULT 'pending',
-                 decided_by TEXT,
-                 decision_note TEXT,
-                 created_at TEXT NOT NULL,
-                 decided_at TEXT
-             );",
+             DROP TABLE IF EXISTS budget_policies;
+             DROP TABLE IF EXISTS approvals;
+             DROP TABLE IF EXISTS sandboxes;
+             DROP TABLE IF EXISTS companies;",
         )?;
 
-        // Idempotent migration: add agent OS columns.
+        // Idempotent migration: add agent columns for existing DBs.
         let agent_columns = [
             ("workdir", "TEXT"),
             ("budget_usd", "REAL"),
             ("execution_mode", "TEXT"),
-            ("task_prefix", "TEXT"),
+            ("quest_prefix", "TEXT"),
             ("worker_timeout_secs", "INTEGER"),
-            ("prompts", "TEXT DEFAULT '[]'"),
-            ("prompt_ids", "TEXT DEFAULT '[]'"),
         ];
         for (col, typ) in &agent_columns {
             let has_col: bool = conn
@@ -333,37 +293,9 @@ impl AgentRegistry {
             }
         }
 
-        // Create unified tasks table (replaces per-project JSONL TaskBoards).
+        // Quest sequences table (ID generation config — stays in aeqi.db).
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS quests (
-                 id TEXT PRIMARY KEY,
-                 subject TEXT NOT NULL,
-                 description TEXT NOT NULL DEFAULT '',
-                 status TEXT NOT NULL DEFAULT 'pending',
-                 priority TEXT NOT NULL DEFAULT 'normal',
-                 assignee TEXT,
-                 agent_id TEXT REFERENCES agents(id),
-                 skill TEXT,
-                 labels TEXT NOT NULL DEFAULT '[]',
-                 retry_count INTEGER NOT NULL DEFAULT 0,
-                 checkpoints TEXT NOT NULL DEFAULT '[]',
-                 metadata TEXT NOT NULL DEFAULT '{}',
-                 depends_on TEXT NOT NULL DEFAULT '[]',
-                 blocks TEXT NOT NULL DEFAULT '[]',
-                 acceptance_criteria TEXT,
-                 locked_by TEXT,
-                 locked_at TEXT,
-                 created_at TEXT NOT NULL,
-                 updated_at TEXT,
-                 closed_at TEXT,
-                 closed_reason TEXT
-             );
-             CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
-             CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_quests_assignee ON quests(assignee);
-             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);
-
-             CREATE TABLE IF NOT EXISTS quest_sequences (
+            "CREATE TABLE IF NOT EXISTS quest_sequences (
                  prefix TEXT PRIMARY KEY,
                  next_seq INTEGER NOT NULL DEFAULT 1
              );",
@@ -377,12 +309,9 @@ impl AgentRegistry {
                  name TEXT NOT NULL,
                  pattern TEXT NOT NULL,
                  scope TEXT NOT NULL DEFAULT 'self',
-                 idea_id TEXT,
-                 content TEXT,
+                 idea_ids TEXT NOT NULL DEFAULT '[]',
                  enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
-                 max_budget_usd REAL,
-                 webhook_secret TEXT,
                  last_fired TEXT,
                  fire_count INTEGER NOT NULL DEFAULT 0,
                  total_cost_usd REAL NOT NULL DEFAULT 0.0,
@@ -395,87 +324,122 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
         )?;
 
-        // Idempotent migration: add idea_ids column to events table (multi-idea support).
-        let has_idea_ids: bool = conn
+        // Ideas table — created here so seed ideas work even if SqliteIdeas hasn't opened yet.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS ideas (
+                 id TEXT PRIMARY KEY,
+                 key TEXT NOT NULL,
+                 content TEXT NOT NULL,
+                 category TEXT NOT NULL DEFAULT 'fact',
+                 scope TEXT NOT NULL DEFAULT 'domain',
+                 agent_id TEXT,
+                 session_id TEXT,
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT
+             );
+             CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
+             CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
+             CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
+             CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
+        )?;
+
+        // Idempotent migrations for existing databases.
+        // Events: add idea_ids if missing (legacy DBs had idea_id singular + content).
+        let has_event_idea_ids: bool = conn
             .prepare("PRAGMA table_info(events)")?
             .query_map([], |row| row.get::<_, String>(1))?
             .filter_map(|r| r.ok())
             .any(|col| col == "idea_ids");
-        if !has_idea_ids {
+        if !has_event_idea_ids {
             conn.execute_batch("ALTER TABLE events ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';")?;
         }
 
-        // Idempotent migration: add prompts column to tasks table.
-        let has_task_prompts: bool = conn
-            .prepare("PRAGMA table_info(quests)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "prompts");
-        if !has_task_prompts {
-            conn.execute_batch("ALTER TABLE quests ADD COLUMN prompts TEXT DEFAULT '[]';")?;
-        }
-
-        // Idempotent migration: add outcome column (JSON-serialized QuestOutcomeRecord).
-        let has_outcome: bool = conn
-            .prepare("PRAGMA table_info(quests)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "outcome");
-        if !has_outcome {
-            conn.execute_batch("ALTER TABLE quests ADD COLUMN outcome TEXT;")?;
-        }
-
-        // Create companies table (identity + config, separate from agent tree).
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS companies (
-                 name TEXT PRIMARY KEY,
-                 display_name TEXT,
-                 prefix TEXT NOT NULL,
-                 tagline TEXT,
-                 logo_url TEXT,
-                 primer TEXT,
-                 repo TEXT,
-                 model TEXT,
-                 max_workers INTEGER NOT NULL DEFAULT 2,
-                 execution_mode TEXT NOT NULL DEFAULT 'agent',
-                 worker_timeout_secs INTEGER NOT NULL DEFAULT 1800,
-                 worktree_root TEXT,
-                 max_steps INTEGER DEFAULT 25,
-                 max_budget_usd REAL,
-                 max_cost_per_day_usd REAL,
-                 source TEXT NOT NULL DEFAULT 'api',
-                 agent_id TEXT,
-                 created_at TEXT NOT NULL,
-                 updated_at TEXT NOT NULL
-             );",
-        )?;
-
-        // Purge legacy tables — these are replaced by the four primitives.
+        // Purge legacy tables.
         conn.execute_batch(
             "DROP TABLE IF EXISTS events_fts;
              DROP TABLE IF EXISTS triggers;",
         )?;
 
-        // Create activity table (audit log, cost tracking).
-        crate::activity_log::ActivityLog::create_tables(&conn)?;
+        // Close the aeqi.db migration connection and open a pool.
+        drop(conn);
+        let pool = ConnectionPool::open(&db_path, 4)?;
+        info!(path = %db_path.display(), pool_size = 4, "aeqi.db opened");
 
-        // Create session/conversation tables (unified session store).
-        crate::session_store::SessionStore::create_tables(&conn)?;
+        // ── sessions.db — journal database (per-instance, ephemeral) ──
+        let sessions_path = data_dir.join("sessions.db");
+        let sconn = Connection::open(&sessions_path)?;
+        sconn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;
+             PRAGMA foreign_keys = ON;",
+        )?;
 
-        // Create runs table (execution tracking).
-        conn.execute_batch(
+        // Quests table (live work state — lives in sessions.db).
+        sconn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS quests (
+                 id TEXT PRIMARY KEY,
+                 subject TEXT NOT NULL,
+                 description TEXT NOT NULL DEFAULT '',
+                 status TEXT NOT NULL DEFAULT 'pending',
+                 priority TEXT NOT NULL DEFAULT 'normal',
+                 agent_id TEXT,
+                 idea_ids TEXT NOT NULL DEFAULT '[]',
+                 labels TEXT NOT NULL DEFAULT '[]',
+                 retry_count INTEGER NOT NULL DEFAULT 0,
+                 checkpoints TEXT NOT NULL DEFAULT '[]',
+                 metadata TEXT NOT NULL DEFAULT '{}',
+                 depends_on TEXT NOT NULL DEFAULT '[]',
+                 acceptance_criteria TEXT,
+                 outcome TEXT,
+                 worktree_branch TEXT,
+                 worktree_path TEXT,
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT,
+                 closed_at TEXT,
+                 closed_reason TEXT
+             );
+             CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
+             CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);",
+        )?;
+
+        // Quests: add columns for existing sessions.db.
+        for (col, typ) in &[
+            ("outcome", "TEXT"),
+            ("worktree_branch", "TEXT"),
+            ("worktree_path", "TEXT"),
+            ("idea_ids", "TEXT NOT NULL DEFAULT '[]'"),
+        ] {
+            let has: bool = sconn
+                .prepare("PRAGMA table_info(quests)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .any(|c| c == *col);
+            if !has {
+                sconn.execute_batch(&format!("ALTER TABLE quests ADD COLUMN {col} {typ};"))?;
+            }
+        }
+
+        // Activity table (audit log, cost tracking — in sessions.db).
+        crate::activity_log::ActivityLog::create_tables(&sconn)?;
+
+        // Session/conversation tables (unified session store — in sessions.db).
+        crate::session_store::SessionStore::create_tables(&sconn)?;
+
+        // Runs table — execution tracking (in sessions.db).
+        sconn.execute_batch(
             "CREATE TABLE IF NOT EXISTS runs (
                  id TEXT PRIMARY KEY,
                  session_id TEXT,
                  quest_id TEXT,
                  agent_id TEXT,
                  model TEXT,
-                 phase TEXT NOT NULL DEFAULT 'implement',
                  status TEXT NOT NULL DEFAULT 'created',
                  started_at TEXT,
                  finished_at TEXT,
                  cost_usd REAL NOT NULL DEFAULT 0,
                  tokens_used INTEGER NOT NULL DEFAULT 0,
+                 turns INTEGER NOT NULL DEFAULT 0,
                  outcome TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id);
@@ -484,71 +448,129 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);",
         )?;
 
-        // Create sandboxes table (worktree isolation tracking).
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS sandboxes (
-                 id TEXT PRIMARY KEY,
-                 quest_id TEXT NOT NULL,
-                 agent_id TEXT NOT NULL,
-                 repo_root TEXT NOT NULL,
-                 worktree_path TEXT NOT NULL,
-                 branch_name TEXT NOT NULL,
-                 enable_bwrap INTEGER NOT NULL DEFAULT 1,
-                 status TEXT NOT NULL DEFAULT 'active',
-                 created_at TEXT NOT NULL
-             );
-             CREATE INDEX IF NOT EXISTS idx_sandboxes_quest ON sandboxes(quest_id);
-             CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status);",
-        )?;
+        // ── Migration: move data from aeqi.db → sessions.db if needed ──
+        Self::migrate_tables_to_sessions(&db_path, &sessions_path)?;
 
-        // Idempotent migration: add worktree columns to quests table.
-        let has_worktree_branch: bool = conn
-            .prepare("PRAGMA table_info(quests)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "worktree_branch");
-        if !has_worktree_branch {
-            conn.execute_batch("ALTER TABLE quests ADD COLUMN worktree_branch TEXT;")?;
-        }
+        // Close the sessions.db migration connection and open a pool.
+        drop(sconn);
+        let sessions_pool = ConnectionPool::open(&sessions_path, 4)?;
+        info!(path = %sessions_path.display(), pool_size = 4, "sessions.db opened");
 
-        let has_worktree_path: bool = conn
-            .prepare("PRAGMA table_info(quests)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "worktree_path");
-        if !has_worktree_path {
-            conn.execute_batch("ALTER TABLE quests ADD COLUMN worktree_path TEXT;")?;
-        }
-
-        // Idempotent migration: add idea_ids column to quests table.
-        let has_idea_ids: bool = conn
-            .prepare("PRAGMA table_info(quests)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "idea_ids");
-        if !has_idea_ids {
-            conn.execute_batch(
-                "ALTER TABLE quests ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';",
-            )?;
-        }
-
-        // Backfill: populate prompts from system_prompt for existing agents.
-        conn.execute_batch(
-            "UPDATE agents SET prompts = json_array(json_object(
-                'content', system_prompt,
-                'position', 'system',
-                'scope', 'self'
-             ))
-             WHERE (prompts IS NULL OR prompts = '[]') AND system_prompt != '';",
-        )?;
-
-        // Close the migration connection and open a pool.
-        drop(conn);
-        let pool = ConnectionPool::open(&db_path, 4)?;
-        info!(path = %db_path.display(), pool_size = 4, "agent registry opened");
         Ok(Self {
             db: Arc::new(pool),
+            sessions_db: Arc::new(sessions_pool),
         })
+    }
+
+    /// Migrate tables from aeqi.db to sessions.db if they exist in the old location.
+    ///
+    /// Detects quests, activity, sessions, session_messages, session_summaries,
+    /// runs tables in aeqi.db and copies their data to sessions.db, then drops
+    /// them from aeqi.db.
+    fn migrate_tables_to_sessions(aeqi_path: &Path, sessions_path: &Path) -> Result<()> {
+        let src = Connection::open(aeqi_path)?;
+        src.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;",
+        )?;
+
+        // Check if quests table exists in aeqi.db (our canary for needing migration).
+        let has_quests: bool = src
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='quests'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+
+        if !has_quests {
+            return Ok(());
+        }
+
+        info!("migrating journal tables from aeqi.db → sessions.db");
+
+        // Attach sessions.db to the aeqi.db connection for cross-db INSERT.
+        src.execute_batch(&format!(
+            "ATTACH DATABASE '{}' AS sdb;",
+            sessions_path.display()
+        ))?;
+
+        // Tables to migrate: (table_name).
+        let tables = ["quests", "activity", "sessions", "session_messages", "session_summaries", "messages_fts", "runs"];
+
+        for table in &tables {
+            let exists: bool = src
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                    params![table],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+
+            if !exists {
+                continue;
+            }
+
+            // Check if target table in sessions.db already has data (skip if so).
+            let target_exists: bool = src
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM sdb.sqlite_master WHERE type='table' AND name='{table}'"),
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+                > 0;
+
+            if target_exists {
+                let target_count: i64 = src
+                    .query_row(
+                        &format!("SELECT COUNT(*) FROM sdb.{table}"),
+                        [],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+
+                if target_count > 0 {
+                    // Target already has data — just drop from source.
+                    info!(table = %table, "sessions.db already has data, dropping from aeqi.db");
+                    let _ = src.execute_batch(&format!("DROP TABLE IF EXISTS main.{table};"));
+                    continue;
+                }
+            }
+
+            // Copy data from aeqi.db → sessions.db.
+            let count: i64 = src
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM main.{table}"),
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+
+            if count > 0 && target_exists {
+                // FTS tables can't be INSERT INTO ... SELECT'd easily, skip data copy for them.
+                if *table == "messages_fts" {
+                    info!(table = %table, "skipping FTS data migration (will be rebuilt)");
+                } else {
+                    let _ = src.execute_batch(&format!(
+                        "INSERT OR IGNORE INTO sdb.{table} SELECT * FROM main.{table};"
+                    ));
+                    info!(table = %table, rows = count, "migrated to sessions.db");
+                }
+            }
+
+            // Drop from aeqi.db.
+            let _ = src.execute_batch(&format!("DROP TABLE IF EXISTS main.{table};"));
+        }
+
+        // Also drop activity_fts from aeqi.db if present.
+        let _ = src.execute_batch("DROP TABLE IF EXISTS main.activity_fts;");
+
+        src.execute_batch("DETACH DATABASE sdb;")?;
+        info!("journal table migration complete");
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -561,8 +583,7 @@ impl AgentRegistry {
         template_content: &str,
         parent_id: Option<&str>,
     ) -> Result<Agent> {
-        let (fm, system_prompt) = parse_agent_template(template_content);
-        let template_name = fm.name.clone().unwrap_or_else(|| "custom".to_string());
+        let (fm, _system_prompt) = parse_agent_template(template_content);
         let name = fm
             .name
             .unwrap_or_else(|| format!("agent-{}", &uuid::Uuid::new_v4().to_string()[..8]));
@@ -581,11 +602,8 @@ impl AgentRegistry {
             .spawn(
                 &name,
                 fm.display_name.as_deref(),
-                &template_name,
-                &system_prompt,
                 resolved_parent.as_deref(),
                 fm.model.as_deref(),
-                &fm.capabilities,
             )
             .await?;
 
@@ -628,12 +646,8 @@ impl AgentRegistry {
                         name: t.name.clone(),
                         pattern,
                         scope: "self".into(),
-                        idea_id: None,
                         idea_ids: Vec::new(),
-                        content: Some(format!("Run skill: {}", t.skill)),
                         cooldown_secs: t.cooldown_secs.unwrap_or(300),
-                        max_budget_usd: t.max_budget_usd,
-                        webhook_secret: None,
                         system: false,
                     })
                     .await;
@@ -654,31 +668,19 @@ impl AgentRegistry {
         &self,
         name: &str,
         display_name: Option<&str>,
-        template: &str,
-        system_prompt: &str,
         parent_id: Option<&str>,
         model: Option<&str>,
-        capabilities: &[String],
     ) -> Result<Agent> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
-        let caps_json = serde_json::to_string(capabilities)?;
         let session_id = uuid::Uuid::new_v4().to_string();
-        let ideas = if system_prompt.is_empty() {
-            Vec::new()
-        } else {
-            vec![aeqi_core::PromptEntry::system(system_prompt)]
-        };
 
         let agent = Agent {
             id: id.clone(),
             name: name.to_string(),
             display_name: display_name.map(|s| s.to_string()),
-            template: template.to_string(),
-            system_prompt: system_prompt.to_string(),
             parent_id: parent_id.map(|s| s.to_string()),
             model: model.map(|s| s.to_string()),
-            capabilities: capabilities.to_vec(),
             status: AgentStatus::Active,
             created_at: now,
             last_active: None,
@@ -694,31 +696,21 @@ impl AgentRegistry {
             execution_mode: None,
             quest_prefix: None,
             worker_timeout_secs: None,
-            ideas,
-            idea_ids: Vec::new(),
         };
 
         let db = self.db.lock().await;
-        let ideas_json =
-            serde_json::to_string(&agent.ideas).unwrap_or_else(|_| "[]".to_string());
-        let idea_ids_json = "[]".to_string();
         db.execute(
-            "INSERT INTO agents (id, name, display_name, template, system_prompt, parent_id, model, capabilities, status, created_at, session_id, prompts, prompt_ids)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT INTO agents (id, name, display_name, parent_id, model, status, created_at, session_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 agent.id,
                 agent.name,
                 agent.display_name,
-                agent.template,
-                agent.system_prompt,
                 agent.parent_id,
                 agent.model,
-                caps_json,
                 agent.status.to_string(),
                 agent.created_at.to_rfc3339(),
                 session_id,
-                ideas_json,
-                idea_ids_json,
             ],
         )?;
 
@@ -1003,19 +995,6 @@ impl AgentRegistry {
         Ok(())
     }
 
-    /// Update the system prompt for an agent.
-    pub async fn update_system_prompt(&self, id: &str, system_prompt: &str) -> Result<()> {
-        let db = self.db.lock().await;
-        let updated = db.execute(
-            "UPDATE agents SET system_prompt = ?1 WHERE id = ?2",
-            params![system_prompt, id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("agent '{id}' not found");
-        }
-        Ok(())
-    }
-
     /// Update operational fields on an agent.
     pub async fn update_agent_ops(
         &self,
@@ -1027,9 +1006,8 @@ impl AgentRegistry {
         worker_timeout_secs: Option<u64>,
     ) -> Result<()> {
         let db = self.db.lock().await;
-        // DB column is still `task_prefix` for backward compat; Rust field is `quest_prefix`.
         let updated = db.execute(
-            "UPDATE agents SET workdir = ?1, budget_usd = ?2, execution_mode = ?3, task_prefix = ?4, worker_timeout_secs = ?5 WHERE id = ?6",
+            "UPDATE agents SET workdir = ?1, budget_usd = ?2, execution_mode = ?3, quest_prefix = ?4, worker_timeout_secs = ?5 WHERE id = ?6",
             params![
                 workdir,
                 budget_usd,
@@ -1308,11 +1286,11 @@ impl AgentRegistry {
             }
         });
 
-        let db = self.db.lock().await;
+        let sdb = self.sessions_db.lock().await;
 
         // Rate limit: reject if agent has exceeded daily quest creation limit.
         let max_daily_tasks: u32 = 50;
-        let today_count: u32 = db.query_row(
+        let today_count: u32 = sdb.query_row(
             "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
             params![agent_id],
             |row| row.get(0),
@@ -1320,8 +1298,10 @@ impl AgentRegistry {
         if today_count >= max_daily_tasks {
             anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
         }
+        drop(sdb);
 
-        // Get and increment sequence for this prefix.
+        // Get and increment sequence for this prefix (quest_sequences lives in aeqi.db).
+        let db = self.db.lock().await;
         db.execute(
             "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
             params![prefix],
@@ -1331,6 +1311,7 @@ impl AgentRegistry {
             params![prefix],
             |row| row.get(0),
         )?;
+        drop(db);
 
         let quest_id = format!("{prefix}-{seq:03}");
         let now = chrono::Utc::now();
@@ -1360,7 +1341,8 @@ impl AgentRegistry {
             worktree_path: None,
         };
 
-        db.execute(
+        let sdb = self.sessions_db.lock().await;
+        sdb.execute(
             "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7)",
             params![
@@ -1403,23 +1385,25 @@ impl AgentRegistry {
             }
         });
 
-        let db = self.db.lock().await;
-
         // Rate limit: reject if agent has exceeded daily quest creation limit.
-        let max_daily_tasks: u32 = 50;
-        let today_count: u32 = db.query_row(
-            "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
-            params![agent_id],
-            |row| row.get(0),
-        )?;
-        if today_count >= max_daily_tasks {
-            anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
+        {
+            let sdb = self.sessions_db.lock().await;
+            let max_daily_tasks: u32 = 50;
+            let today_count: u32 = sdb.query_row(
+                "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
+                params![agent_id],
+                |row| row.get(0),
+            )?;
+            if today_count >= max_daily_tasks {
+                anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
+            }
         }
 
         // If parent is specified, create a child ID; otherwise create a root ID.
         let quest_id = if let Some(pid) = parent_id {
-            // Find next child sequence for this parent.
-            let child_count: u32 = db.query_row(
+            // Find next child sequence for this parent (quests in sessions.db).
+            let sdb = self.sessions_db.lock().await;
+            let child_count: u32 = sdb.query_row(
                 "SELECT COUNT(*) FROM quests WHERE id LIKE ?1",
                 params![format!("{pid}.%")],
                 |row| row.get(0),
@@ -1427,7 +1411,8 @@ impl AgentRegistry {
             let parent_quest_id = aeqi_quests::QuestId(pid.to_string());
             parent_quest_id.child(child_count + 1).0
         } else {
-            // Root-level: get and increment sequence for this prefix.
+            // Root-level: get and increment sequence for this prefix (quest_sequences in aeqi.db).
+            let db = self.db.lock().await;
             db.execute(
                 "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
                 params![prefix],
@@ -1456,7 +1441,8 @@ impl AgentRegistry {
         quest.labels = labels.to_vec();
         quest.created_at = now;
 
-        db.execute(
+        let sdb = self.sessions_db.lock().await;
+        sdb.execute(
             "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, depends_on, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
             params![
@@ -1481,7 +1467,7 @@ impl AgentRegistry {
         &self,
         subject: &str,
     ) -> Result<Option<aeqi_quests::Quest>> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let task = db
             .query_row(
                 "SELECT * FROM quests WHERE subject = ?1 AND status IN ('pending', 'in_progress') LIMIT 1",
@@ -1494,7 +1480,7 @@ impl AgentRegistry {
 
     /// Get all pending tasks that are ready to run (no unmet dependencies).
     pub async fn ready_tasks(&self) -> Result<Vec<aeqi_quests::Quest>> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let mut stmt = db.prepare(
             "SELECT * FROM quests WHERE status = 'pending' ORDER BY
              CASE priority
@@ -1537,7 +1523,7 @@ impl AgentRegistry {
 
     /// Get a quest by ID.
     pub async fn get_task(&self, quest_id: &str) -> Result<Option<aeqi_quests::Quest>> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let quest = db
             .query_row(
                 "SELECT * FROM quests WHERE id = ?1",
@@ -1556,7 +1542,7 @@ impl AgentRegistry {
     ) -> Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
         let status_str = status.to_string();
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
 
         let closed_at = if matches!(
             status,
@@ -1577,7 +1563,7 @@ impl AgentRegistry {
     /// Reset quests stuck in `in_progress` from a previous daemon run.
     /// These quests had workers that were killed by a crash/restart.
     pub async fn reset_stale_in_progress(&self) -> Result<usize> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let count = db.execute(
             "UPDATE quests SET status = 'pending', retry_count = retry_count + 1 WHERE status = 'in_progress'",
             [],
@@ -1591,7 +1577,7 @@ impl AgentRegistry {
         quest_id: &str,
         f: F,
     ) -> Result<aeqi_quests::Quest> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let mut quest = db
             .query_row(
                 "SELECT * FROM quests WHERE id = ?1",
@@ -1651,7 +1637,7 @@ impl AgentRegistry {
         status: Option<&str>,
         agent_id: Option<&str>,
     ) -> Result<Vec<aeqi_quests::Quest>> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let mut sql = "SELECT * FROM quests WHERE 1=1".to_string();
         let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -1680,7 +1666,7 @@ impl AgentRegistry {
     /// Returns all quests whose ID starts with `{prefix}.` but does NOT contain
     /// a further dot (i.e., direct children only, not grandchildren).
     pub async fn list_tasks_by_prefix(&self, prefix: &str) -> Result<Vec<aeqi_quests::Quest>> {
-        let db = self.db.lock().await;
+        let db = self.sessions_db.lock().await;
         let like_pattern = format!("{prefix}.%");
         let mut stmt = db.prepare("SELECT * FROM quests WHERE id LIKE ?1 ORDER BY id ASC")?;
         let tasks: Vec<aeqi_quests::Quest> = stmt
@@ -1692,9 +1678,54 @@ impl AgentRegistry {
         Ok(tasks)
     }
 
-    /// Expose the connection pool for shared use (e.g., by ActivityLog, SessionStore).
+    // -- Execution runs -------------------------------------------------------
+
+    /// Create a new execution run record. Returns the run ID.
+    pub async fn create_run(
+        &self,
+        session_id: Option<&str>,
+        quest_id: Option<&str>,
+        agent_id: &str,
+        model: Option<&str>,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let db = self.sessions_db.lock().await;
+        db.execute(
+            "INSERT INTO runs (id, session_id, quest_id, agent_id, model, status, started_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'running', ?6)",
+            rusqlite::params![id, session_id, quest_id, agent_id, model, now],
+        )?;
+        Ok(id)
+    }
+
+    /// Complete an execution run with outcome and cost.
+    pub async fn complete_run(
+        &self,
+        run_id: &str,
+        status: &str,
+        cost_usd: f64,
+        turns: u32,
+        outcome: Option<&str>,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let db = self.sessions_db.lock().await;
+        db.execute(
+            "UPDATE runs SET status = ?1, cost_usd = ?2, turns = ?3, outcome = ?4, finished_at = ?5
+             WHERE id = ?6",
+            rusqlite::params![status, cost_usd, turns as i64, outcome, now, run_id],
+        )?;
+        Ok(())
+    }
+
+    /// Expose the template connection pool (aeqi.db: agents, events, ideas, quest_sequences).
     pub fn db(&self) -> Arc<ConnectionPool> {
         self.db.clone()
+    }
+
+    /// Expose the journal connection pool (sessions.db: sessions, activity, runs, quests).
+    pub fn sessions_db(&self) -> Arc<ConnectionPool> {
+        self.sessions_db.clone()
     }
 
     // -- Company CRUD ---------------------------------------------------------
@@ -1943,31 +1974,12 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         _ => AgentStatus::Active,
     };
 
-    let caps_str: String = row.get("capabilities").unwrap_or_else(|_| "[]".to_string());
-    let capabilities: Vec<String> = serde_json::from_str(&caps_str).unwrap_or_default();
-
-    let ideas: Vec<aeqi_core::PromptEntry> = row
-        .get::<_, String>("prompts")
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default();
-
-    // Derive system_prompt from ideas[0] (canonical source).
-    // Fall back to the DB column for agents that predate the ideas[] migration.
-    let system_prompt = ideas
-        .first()
-        .map(|p| p.content.clone())
-        .unwrap_or_else(|| row.get("system_prompt").unwrap_or_default());
-
     Agent {
         id: row.get("id").unwrap_or_default(),
         name: row.get("name").unwrap_or_default(),
         display_name: row.get("display_name").ok(),
-        template: row.get("template").unwrap_or_default(),
-        system_prompt,
         parent_id: row.get("parent_id").ok(),
         model: row.get("model").ok(),
-        capabilities,
         status,
         created_at: row
             .get::<_, String>("created_at")
@@ -1993,17 +2005,11 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         workdir: row.get("workdir").ok(),
         budget_usd: row.get("budget_usd").ok(),
         execution_mode: row.get("execution_mode").ok(),
-        quest_prefix: row.get("task_prefix").ok(), // DB column is still `task_prefix`
+        quest_prefix: row.get("quest_prefix").ok(),
         worker_timeout_secs: row
             .get::<_, i64>("worker_timeout_secs")
             .ok()
             .map(|v| v as u64),
-        ideas,
-        idea_ids: row
-            .get::<_, String>("prompt_ids")
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default(),
     }
 }
 
@@ -2024,20 +2030,13 @@ mod tests {
     async fn spawn_and_get() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn(
-                "shadow",
-                Some("Shadow"),
-                "shadow",
-                "You are Shadow.",
-                None,
+            .spawn("shadow", Some("Shadow"), None,
                 Some("claude-sonnet-4.6"),
-                &["spawn_agents".into()],
             )
             .await
             .unwrap();
 
         assert_eq!(agent.name, "shadow");
-        assert_eq!(agent.system_prompt, "You are Shadow.");
         assert!(agent.parent_id.is_none()); // Root agent
         assert_eq!(agent.status, AgentStatus::Active);
 
@@ -2049,30 +2048,18 @@ mod tests {
     async fn parent_child_relationship() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("assistant", None, "root", "Root agent.", None, None, &[])
+            .spawn("assistant", None, None, None)
             .await
             .unwrap();
         let child = reg
-            .spawn(
-                "engineering",
+            .spawn("engineering", None, Some(&root.id),
                 None,
-                "team",
-                "Engineering team.",
-                Some(&root.id),
-                None,
-                &[],
             )
             .await
             .unwrap();
         let grandchild = reg
-            .spawn(
-                "backend",
+            .spawn("backend", None, Some(&child.id),
                 None,
-                "team",
-                "Backend team.",
-                Some(&child.id),
-                None,
-                &[],
             )
             .await
             .unwrap();
@@ -2101,11 +2088,11 @@ mod tests {
     async fn get_root() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("assistant", None, "root", "Root.", None, None, &[])
+            .spawn("assistant", None, None, None)
             .await
             .unwrap();
         let _child = reg
-            .spawn("worker", None, "t", "Worker.", Some(&root.id), None, &[])
+            .spawn("worker", None, Some(&root.id), None)
             .await
             .unwrap();
 
@@ -2117,19 +2104,19 @@ mod tests {
     async fn subtree() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("root", None, "t", "R.", None, None, &[])
+            .spawn("root", None, None, None)
             .await
             .unwrap();
         let a = reg
-            .spawn("a", None, "t", "A.", Some(&root.id), None, &[])
+            .spawn("a", None, Some(&root.id), None)
             .await
             .unwrap();
         let _b = reg
-            .spawn("b", None, "t", "B.", Some(&root.id), None, &[])
+            .spawn("b", None, Some(&root.id), None)
             .await
             .unwrap();
         let _c = reg
-            .spawn("c", None, "t", "C.", Some(&a.id), None, &[])
+            .spawn("c", None, Some(&a.id), None)
             .await
             .unwrap();
 
@@ -2141,11 +2128,11 @@ mod tests {
     async fn move_agent_prevents_cycles() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("root", None, "t", "R.", None, None, &[])
+            .spawn("root", None, None, None)
             .await
             .unwrap();
         let child = reg
-            .spawn("child", None, "t", "C.", Some(&root.id), None, &[])
+            .spawn("child", None, Some(&root.id), None)
             .await
             .unwrap();
 
@@ -2158,7 +2145,7 @@ mod tests {
     async fn record_session_updates_stats() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("test", None, "t", "T.", None, None, &[])
+            .spawn("test", None, None, None)
             .await
             .unwrap();
 
@@ -2177,7 +2164,6 @@ mod tests {
 name: shadow
 display_name: "Shadow — Your Dark Butler"
 model: anthropic/claude-sonnet-4.6
-capabilities: [spawn_agents]
 ---
 
 You are Shadow, the user's personal assistant."#;
@@ -2194,7 +2180,7 @@ You are Shadow, the user's personal assistant."#;
     async fn spawn_from_template_with_parent() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("root", None, "t", "R.", None, None, &[])
+            .spawn("root", None, None, None)
             .await
             .unwrap();
         let template = r#"---
@@ -2211,38 +2197,9 @@ You are a worker agent."#;
     }
 
     #[tokio::test]
-    async fn budget_walks_ancestor_chain() {
-        let reg = test_registry().await;
-        let root = reg
-            .spawn("root", None, "t", "R.", None, None, &[])
-            .await
-            .unwrap();
-        let child = reg
-            .spawn("child", None, "t", "C.", Some(&root.id), None, &[])
-            .await
-            .unwrap();
-
-        // Set budget on root.
-        reg.create_budget_policy(&root.id, "daily", 10.0)
-            .await
-            .unwrap();
-
-        // Child inherits it.
-        let budget = reg.check_budget(&child.id).await.unwrap();
-        assert_eq!(budget, Some(10.0));
-
-        // Tighter budget on child takes precedence.
-        reg.create_budget_policy(&child.id, "daily", 5.0)
-            .await
-            .unwrap();
-        let budget = reg.check_budget(&child.id).await.unwrap();
-        assert_eq!(budget, Some(5.0));
-    }
-
-    #[tokio::test]
     async fn get_by_name_found_and_missing() {
         let reg = test_registry().await;
-        reg.spawn("shadow", None, "shadow", "You are Shadow.", None, None, &[])
+        reg.spawn("shadow", None, None, None)
             .await
             .unwrap();
 
@@ -2258,7 +2215,7 @@ You are a worker agent."#;
     async fn get_active_by_name_returns_none_for_retired() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("worker", None, "t", "W.", None, None, &[])
+            .spawn("worker", None, None, None)
             .await
             .unwrap();
 
@@ -2280,7 +2237,7 @@ You are a worker agent."#;
     async fn resolve_by_hint_name_uuid_partial() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("analyst", None, "t", "Analyst.", None, None, &[])
+            .spawn("analyst", None, None, None)
             .await
             .unwrap();
 
@@ -2303,15 +2260,15 @@ You are a worker agent."#;
     async fn list_with_parent_and_status_filters() {
         let reg = test_registry().await;
         let root = reg
-            .spawn("root", None, "t", "R.", None, None, &[])
+            .spawn("root", None, None, None)
             .await
             .unwrap();
         let child_a = reg
-            .spawn("a", None, "t", "A.", Some(&root.id), None, &[])
+            .spawn("a", None, Some(&root.id), None)
             .await
             .unwrap();
         let _child_b = reg
-            .spawn("b", None, "t", "B.", Some(&root.id), None, &[])
+            .spawn("b", None, Some(&root.id), None)
             .await
             .unwrap();
 
@@ -2351,19 +2308,19 @@ You are a worker agent."#;
     async fn list_active_excludes_paused_and_retired() {
         let reg = test_registry().await;
         let a = reg
-            .spawn("active1", None, "t", "A1.", None, None, &[])
+            .spawn("active1", None, None, None)
             .await
             .unwrap();
         let b = reg
-            .spawn("paused1", None, "t", "P1.", None, None, &[])
+            .spawn("paused1", None, None, None)
             .await
             .unwrap();
         let c = reg
-            .spawn("retired1", None, "t", "R1.", None, None, &[])
+            .spawn("retired1", None, None, None)
             .await
             .unwrap();
         let _d = reg
-            .spawn("active2", None, "t", "A2.", None, None, &[])
+            .spawn("active2", None, None, None)
             .await
             .unwrap();
 
@@ -2390,7 +2347,7 @@ You are a worker agent."#;
     async fn set_status_transitions() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("lifecycle", None, "t", "L.", None, None, &[])
+            .spawn("lifecycle", None, None, None)
             .await
             .unwrap();
 
@@ -2417,60 +2374,10 @@ You are a worker agent."#;
     }
 
     #[tokio::test]
-    async fn update_company_fields() {
-        let reg = test_registry().await;
-        let company = CompanyRecord {
-            name: "acme".to_string(),
-            display_name: Some("Acme Corp".to_string()),
-            prefix: "ac".to_string(),
-            tagline: Some("We do things".to_string()),
-            logo_url: None,
-            primer: None,
-            repo: None,
-            model: None,
-            max_workers: 2,
-            execution_mode: "agent".to_string(),
-            worker_timeout_secs: 1800,
-            worktree_root: None,
-            max_steps: None,
-            max_budget_usd: None,
-            max_cost_per_day_usd: None,
-            source: "api".to_string(),
-            agent_id: None,
-            created_at: chrono::Utc::now().to_rfc3339(),
-            updated_at: chrono::Utc::now().to_rfc3339(),
-        };
-        reg.create_company(&company).await.unwrap();
-
-        // Full update.
-        reg.update_company(
-            "acme",
-            Some("Acme Inc"),
-            Some("Better things"),
-            Some("https://logo.png"),
-        )
-        .await
-        .unwrap();
-        let updated = reg.get_company("acme").await.unwrap().unwrap();
-        assert_eq!(updated.display_name.as_deref(), Some("Acme Inc"));
-        assert_eq!(updated.tagline.as_deref(), Some("Better things"));
-        assert_eq!(updated.logo_url.as_deref(), Some("https://logo.png"));
-
-        // Partial update — only tagline, display_name and logo_url stay.
-        reg.update_company("acme", None, Some("Even better"), None)
-            .await
-            .unwrap();
-        let partial = reg.get_company("acme").await.unwrap().unwrap();
-        assert_eq!(partial.display_name.as_deref(), Some("Acme Inc"));
-        assert_eq!(partial.tagline.as_deref(), Some("Even better"));
-        assert_eq!(partial.logo_url.as_deref(), Some("https://logo.png"));
-    }
-
-    #[tokio::test]
     async fn create_get_list_tasks() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("tasker", None, "t", "T.", None, None, &[])
+            .spawn("tasker", None, None, None)
             .await
             .unwrap();
 

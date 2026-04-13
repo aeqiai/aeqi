@@ -88,7 +88,9 @@ pub async fn handle_seed_ideas(
             let name = agent_val["name"].as_str().unwrap_or("");
             let display_name = agent_val["display_name"].as_str();
             let model = agent_val["model"].as_str();
-            let template = agent_val["template"].as_str().unwrap_or("seeded");
+
+
+            let _template = agent_val["template"].as_str().unwrap_or("seeded");
 
             if name.is_empty() {
                 agent_results.push(serde_json::json!({"name": name, "status": "skipped"}));
@@ -101,17 +103,9 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            // Find the identity idea for this agent (match by template name).
-            let system_prompt = ideas
-                .and_then(|ideas| {
-                    ideas.iter().find(|i| i["name"].as_str() == Some(template))
-                })
-                .and_then(|i| i["content"].as_str())
-                .unwrap_or("You are a helpful AI agent.");
-
             match ctx
                 .agent_registry
-                .spawn(name, display_name, template, system_prompt, None, model, &[])
+                .spawn(name, display_name, None, model)
                 .await
             {
                 Ok(agent) => {
@@ -119,13 +113,12 @@ pub async fn handle_seed_ideas(
                     let _ = idea_store.reassign_agent(name, &agent.id).await;
 
                     // Wire on_session_start event with the agent's ideas.
-                    if let Some(idea_ids) = agent_idea_ids.remove(name) {
-                        if let Some(ref ehs) = ctx.event_handler_store {
+                    if let Some(idea_ids) = agent_idea_ids.remove(name)
+                        && let Some(ref ehs) = ctx.event_handler_store {
                             let _ = ehs
                                 .update_on_session_start_ideas(&agent.id, &idea_ids)
                                 .await;
                         }
-                    }
 
                     agent_results.push(serde_json::json!({
                         "name": name,

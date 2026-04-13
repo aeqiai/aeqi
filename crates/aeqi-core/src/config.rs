@@ -15,7 +15,7 @@ pub struct AEQIConfig {
     pub runtime_presets: HashMap<String, RuntimePresetConfig>,
     #[serde(default)]
     pub security: SecurityConfig,
-    #[serde(default, alias = "memory")]
+    #[serde(default)]
     pub ideas: IdeaConfig,
     #[serde(default)]
     pub channels: ChannelsConfig,
@@ -26,7 +26,7 @@ pub struct AEQIConfig {
     #[serde(default)]
     pub shared_primer: Option<String>,
     /// Agent spawn configs = repos, tasks, knowledge, budget.
-    #[serde(default, alias = "companies")]
+    #[serde(default)]
     pub agent_spawns: Vec<AgentSpawnConfig>,
     /// Agents = personalities (equal peers).
     #[serde(default)]
@@ -1594,7 +1594,7 @@ mod tests {
 [aeqi]
 name = "test"
 
-[[companies]]
+[[agent_spawns]]
 name = "test-domain"
 prefix = "td"
 repo = "/tmp/test"
@@ -1617,7 +1617,7 @@ name = "test"
 [web]
 ui_dist_dir = "${AEQI_UI_DIST_TEST}"
 
-[[companies]]
+[[agent_spawns]]
 name = "test-domain"
 prefix = "td"
 repo = "/tmp/test"
@@ -1659,12 +1659,12 @@ name = "alice"
 prefix = "al"
 role = "orchestrator"
 
-[[companies]]
+[[agent_spawns]]
 name = "alpha"
 prefix = "al"
 repo = "/tmp/alpha"
 
-[[companies]]
+[[agent_spawns]]
 name = "beta"
 prefix = "bt"
 repo = "/tmp/beta"
@@ -1680,12 +1680,12 @@ repo = "/tmp/beta"
 [aeqi]
 name = "test"
 
-[[companies]]
+[[agent_spawns]]
 name = "alpha"
 prefix = "ab"
 repo = "/tmp/alpha"
 
-[[companies]]
+[[agent_spawns]]
 name = "beta"
 prefix = "ab"
 repo = "/tmp/beta"
@@ -1706,7 +1706,7 @@ repo = "/tmp/beta"
 [aeqi]
 name = "test"
 
-[memory]
+[ideas]
 vector_weight = 0.9
 keyword_weight = 0.9
 "#;
@@ -1724,7 +1724,7 @@ keyword_weight = 0.9
 [aeqi]
 name = "test"
 
-[memory]
+[ideas]
 chunk_size_tokens = 100
 chunk_overlap_tokens = 150
 "#;
@@ -1764,7 +1764,7 @@ role = "advisor"
 voice = "vocal"
 expertise = ["project-a"]
 
-[[companies]]
+[[agent_spawns]]
 name = "project-a"
 prefix = "as"
 repo = "/home/user/backend"
@@ -2011,7 +2011,7 @@ name = "leader"
 prefix = "ld"
 role = "orchestrator"
 
-[[companies]]
+[[agent_spawns]]
 name = "aeqi"
 prefix = "sg"
 repo = "/tmp/aeqi"
@@ -2053,7 +2053,7 @@ name = "leader"
 prefix = "ld"
 role = "orchestrator"
 
-[[companies]]
+[[agent_spawns]]
 name = "aeqi"
 prefix = "sg"
 repo = "/tmp/aeqi"

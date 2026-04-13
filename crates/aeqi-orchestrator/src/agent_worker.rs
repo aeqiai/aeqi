@@ -1413,13 +1413,13 @@ impl AgentWorker {
 
         let reflection_prompt = format!(
             "You are a memory extraction system. Analyze this conversation and extract ONLY \
-             genuinely important insights worth remembering long-term. Output NOTHING if the \
+             genuinely important ideas worth remembering long-term. Output NOTHING if the \
              conversation is trivial.\n\n\
              For each idea, output exactly one line in this format:\n\
-             SCOPE CATEGORY: key-slug | The insight content\n\n\
+             SCOPE CATEGORY: key-slug | The idea content\n\n\
              Scopes (choose the most appropriate):\n\
              - DOMAIN: Technical facts about this specific project/codebase\n\
-             - SYSTEM: Insights about the user (preferences, decisions, patterns that span projects)\n\
+             - SYSTEM: Ideas about the user (preferences, decisions, patterns that span projects)\n\
              - SELF: Your own observations, reflections, learnings as an agent\n\n\
              Categories:\n\
              - FACT: Factual information (technical details, architecture decisions, numbers)\n\
@@ -1427,8 +1427,8 @@ impl AgentWorker {
              - PREFERENCE: User preferences, opinions, behavioral patterns\n\
              - CONTEXT: Decisions made, strategic shifts, project state changes\n\n\
              Rules:\n\
-             - Maximum 5 insights per conversation\n\
-             - Each insight must be self-contained\n\
+             - Maximum 5 ideas per conversation\n\
+             - Each idea must be self-contained\n\
              - key-slug: 2-4 lowercase hyphenated words\n\
              - Content: one concise sentence\n\
              - If nothing is worth remembering, output exactly: NONE\n\n\

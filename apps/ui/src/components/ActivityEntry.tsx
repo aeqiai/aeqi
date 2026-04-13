@@ -76,7 +76,9 @@ export default function ActivityEntryComponent({
           >
             {formatDecisionType(entry.decision_type)}
           </span>
-          <span className="activity-project">{entry.company}</span>
+          {(entry.metadata as any)?.company && (
+            <span className="activity-project">{(entry.metadata as any).company}</span>
+          )}
         </div>
         <span className="activity-timestamp">
           {formatTimestamp(entry.timestamp)}
@@ -89,8 +91,8 @@ export default function ActivityEntryComponent({
         {entry.agent && (
           <span className="activity-agent">{entry.agent}</span>
         )}
-        {(entry.quest_id || entry.task_id) && (
-          <code className="activity-quest-id">{entry.quest_id || entry.task_id}</code>
+        {entry.quest_id && (
+          <code className="activity-quest-id">{entry.quest_id}</code>
         )}
       </div>
     </div>

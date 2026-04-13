@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
+import type { AppMode } from "@/lib/appMode";
 import { useUIStore } from "@/store/ui";
 import { clearSessionData } from "@/lib/session";
 
@@ -24,6 +25,7 @@ interface User {
 
 interface AuthState {
   token: string | null;
+  appMode: AppMode | null;
   authMode: AuthMode;
   googleOAuth: boolean;
   githubOAuth: boolean;
@@ -53,6 +55,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("aeqi_token"),
+  appMode: (localStorage.getItem("aeqi_app_mode") as AppMode) || null,
   authMode: (localStorage.getItem("aeqi_auth_mode") as AuthMode) || null,
   googleOAuth: false,
   githubOAuth: false,
@@ -69,8 +72,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const resp = await api.getAuthMode();
       const mode = (resp.mode || "secret") as AuthMode;
+      const appMode = (resp.app_mode || "runtime") as AppMode;
+      localStorage.setItem("aeqi_app_mode", appMode);
       localStorage.setItem("aeqi_auth_mode", mode || "secret");
-      set({ authMode: mode, googleOAuth: resp.google_oauth, githubOAuth: resp.github_oauth, waitlist: resp.waitlist, authModeLoaded: true });
+      set({
+        appMode,
+        authMode: mode,
+        googleOAuth: resp.google_oauth,
+        githubOAuth: resp.github_oauth,
+        waitlist: resp.waitlist,
+        authModeLoaded: true,
+      });
 
       if (mode === "none" && !get().token) {
         try {
@@ -85,7 +97,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
     } catch {
-      set({ authMode: "secret", authModeLoaded: true });
+      localStorage.setItem("aeqi_app_mode", "runtime");
+      set({ appMode: "runtime", authMode: "secret", authModeLoaded: true });
     }
   },
 
@@ -281,9 +294,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     clearSessionData();
+    localStorage.removeItem("aeqi_app_mode");
     localStorage.removeItem("aeqi_auth_mode");
     useUIStore.getState().setActiveCompany("");
-    set({ token: null, user: null, pendingEmail: null, pending2faEmail: null, authMode: null, authModeLoaded: false });
+    set({ token: null, user: null, pendingEmail: null, pending2faEmail: null, appMode: null, authMode: null, authModeLoaded: false });
   },
 
   isAuthenticated: () => {

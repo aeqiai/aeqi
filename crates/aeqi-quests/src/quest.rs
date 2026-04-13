@@ -128,7 +128,6 @@ impl fmt::Display for Priority {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Checkpoint {
     pub timestamp: DateTime<Utc>,
-    #[serde(alias = "worker")]
     pub agent_name: String,
     pub progress: String,
     pub cost_usd: f64,
@@ -160,7 +159,6 @@ impl QuestOutcomeRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Quest {
     pub id: QuestId,
-    #[serde(alias = "subject")]
     pub name: String,
     #[serde(default)]
     pub description: String,

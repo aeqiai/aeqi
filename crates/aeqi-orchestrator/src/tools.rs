@@ -260,12 +260,11 @@ impl AgentsTool {
         let mut output = String::new();
         for agent in &agents {
             output.push_str(&format!(
-                "- {} (id: {}, display: {}, status: {}, template: {})\n",
+                "- {} (id: {}, display: {}, status: {})\n",
                 agent.name,
                 agent.id,
                 agent.display_name.as_deref().unwrap_or("-"),
                 agent.status,
-                agent.template,
             ));
         }
         Ok(ToolResult::success(output))
@@ -302,7 +301,6 @@ impl AgentsTool {
                     "display_name": agent.display_name,
                     "model": agent.model,
                     "status": format!("{}", agent.status),
-                    "capabilities": agent.capabilities,
                     "created_at": agent.created_at.to_rfc3339(),
                 }),
             );
@@ -1044,7 +1042,6 @@ impl Tool for EventsTool {
                     .get("name")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("'name' is required"))?;
-                let max_budget_usd = args.get("max_budget_usd").and_then(|v| v.as_f64());
                 let cooldown_secs = args
                     .get("cooldown_secs")
                     .and_then(|v| v.as_u64())
@@ -1071,8 +1068,10 @@ impl Tool for EventsTool {
                     });
                 };
 
-                let content = args.get("content").and_then(|v| v.as_str()).map(String::from)
-                    .or_else(|| args.get("skill").and_then(|v| v.as_str()).map(String::from));
+                let idea_ids: Vec<String> = args.get("idea_ids")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
 
                 match self
                     .event_handler_store
@@ -1081,12 +1080,8 @@ impl Tool for EventsTool {
                         name: name.to_string(),
                         pattern: pattern.clone(),
                         scope,
-                        idea_id: None,
-                        idea_ids: Vec::new(),
-                        content,
+                        idea_ids,
                         cooldown_secs,
-                        max_budget_usd,
-                        webhook_secret: None,
                         system: false,
                     })
                     .await

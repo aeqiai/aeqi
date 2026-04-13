@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 /// A Hook pins a task to a worker. Workers discover their work via hooks on startup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Hook {
-    #[serde(alias = "task_id")]
     pub quest_id: QuestId,
     pub subject: String,
     pub assigned_at: DateTime<Utc>,

@@ -15,7 +15,6 @@ use tracing::{debug, warn};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentCheckpoint {
     /// Quest ID this checkpoint is associated with.
-    #[serde(alias = "task_id")]
     pub quest_id: Option<String>,
     /// Name of the worker that was working.
     pub worker_name: Option<String>,

@@ -7,12 +7,6 @@ export interface Agent {
   parent_id?: string | null;
   status: string;
   model?: string;
-  ideas?: Record<string, string>;
-  /** @deprecated Use ideas instead. Kept for backward compat with old data. */
-  prompts?: Record<string, string>;
-  capabilities?: string[];
-  project?: string;
-  template?: string;
   session_id?: string;
   color?: string;
   avatar?: string;
@@ -23,11 +17,8 @@ export interface Agent {
   budget_usd?: number;
   execution_mode?: string;
   workdir?: string;
-  quest_prefix?: string;
   worker_timeout_secs?: number;
   idea_ids?: string[];
-  /** @deprecated Use idea_ids instead. Kept for backward compat with old data. */
-  prompt_ids?: string[];
 }
 
 export interface AgentRef {
@@ -40,8 +31,6 @@ export interface AgentRef {
 export interface Checkpoint {
   timestamp: string;
   agent_name: string;
-  /** @deprecated Use agent_name instead. Kept for backward compat with old data. */
-  worker?: string;
   progress: string;
   cost_usd: number;
   steps_used: number;
@@ -63,40 +52,32 @@ export interface Quest {
   description: string;
   status: QuestStatus;
   priority: QuestPriority;
-  /** @deprecated Use agent_id instead. Kept for backward compat with old data. */
-  assignee?: string;
   agent_id?: string;
-  skill?: string;
+  idea_ids?: string[];
   labels: string[];
   cost_usd: number;
   created_at: string;
   updated_at?: string;
   closed_at?: string;
-  /** @deprecated Use outcome.summary instead. Kept for backward compat with old data. */
-  closed_reason?: string;
   checkpoints?: Checkpoint[];
   depends_on?: string[];
-  /** @deprecated Removed in v2 (inverse of depends_on, redundant). */
-  blocks?: string[];
   acceptance_criteria?: string;
   retry_count?: number;
-  /** @deprecated Removed in v2 (scheduler handles concurrency). */
-  locked_by?: string;
-  /** @deprecated Removed in v2 (scheduler handles concurrency). */
-  locked_at?: string;
   outcome?: QuestOutcome;
+  worktree_branch?: string;
+  worktree_path?: string;
   metadata?: Record<string, unknown>;
   runtime?: QuestRuntime;
 }
 
-export interface Event {
-  id: string | number;
+export interface ActivityEvent {
+  id: string;
   timestamp: string;
   event_type: string;
-  agent?: string;
-  summary: string;
+  agent_id?: string;
+  session_id?: string;
   quest_id?: string;
-  metadata?: Record<string, unknown>;
+  content?: Record<string, unknown>;
 }
 
 export interface Idea {
@@ -113,13 +94,10 @@ export interface ActivityEntry {
   id: number;
   timestamp: string;
   created_at?: string;
-  company: string;
   decision_type: string;
   summary: string;
   agent?: string;
   quest_id?: string;
-  /** @deprecated Use quest_id instead. Kept for backward compat with old data. */
-  task_id?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -133,15 +111,13 @@ export interface DaemonStatus {
 export interface DashboardStats {
   active_workers: number;
   total_cost_today: number;
-  tasks_completed_24h: number;
+  quests_completed_24h: number;
   recent_activity: ActivityEntry[];
   active_agents: Agent[];
 }
 
 export interface ThreadEvent {
   id: number;
-  /** @deprecated Use session_id instead. Kept for backward compat with old data. */
-  chat_id?: number | string;
   session_id?: string;
   event_type: string;
   role: string;
@@ -152,27 +128,5 @@ export interface ThreadEvent {
 }
 
 export interface ChatThreadState {
-  /** @deprecated Use sessionId instead. */
-  chatId?: number;
   sessionId?: string;
-}
-
-export type TriggerType =
-  | { Schedule: { expr: string } }
-  | { Once: { at: string } }
-  | { Event: { pattern: string; cooldown_secs: number } }
-  | { Webhook: { public_id: string } };
-
-export interface Trigger {
-  id: string;
-  agent_id: string;
-  name: string;
-  trigger_type: TriggerType;
-  skill: string;
-  enabled: boolean;
-  max_budget_usd?: number;
-  created_at: string;
-  last_fired?: string;
-  fire_count: number;
-  total_cost_usd: number;
 }

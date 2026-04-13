@@ -205,10 +205,10 @@ function IdeasSection({ agentName }: { agentName: string }) {
                 onClick={() => setExpandedId(isExpanded ? null : id)}
                 style={{ cursor: content.length > 120 ? "pointer" : "default" }}
               >
-                <span className="ctx-insight-key">
-                  {item.key || item.title || "insight"}
+                <span className="ctx-idea-key">
+                  {item.key || item.title || "idea"}
                 </span>
-                <span className="ctx-insight-content">
+                <span className="ctx-idea-content">
                   {isExpanded ? content : preview}
                 </span>
               </div>

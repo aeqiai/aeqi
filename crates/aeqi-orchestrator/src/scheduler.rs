@@ -23,7 +23,7 @@
 //! └── spawn()    → tokio::spawn worker for each ready task
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -528,9 +528,10 @@ impl Scheduler {
         );
 
         // Assemble prompts from ancestor chain + task.
-        // Event-driven: events define which ideas activate at session start.
+        // Quest-level idea_ids are resolved into task prompts first, then
+        // merged with ancestor/event-driven prompt assembly.
         let event_store = crate::event_handler::EventHandlerStore::new(self.agent_registry.db());
-        let task_prompts: Vec<aeqi_core::PromptEntry> = Vec::new();
+        let task_prompts = resolve_task_prompts(self.idea_store.as_ref(), &task.idea_ids).await;
         let assembled = crate::idea_assembly::assemble_ideas(
             &self.agent_registry,
             self.idea_store.as_ref(),
@@ -607,11 +608,7 @@ impl Scheduler {
         // Inject tools for persistent agents.
         if let crate::agent_worker::WorkerExecution::Agent { ref mut tools, .. } = worker.execution
         {
-            // Events management tool.
-            if agent
-                .capabilities
-                .iter()
-                .any(|c| c == "events" || c == "events_manage" || c == "manage_triggers")
+            // Events management tool — always available for persistent agents.
             {
                 let ehs = Arc::new(crate::event_handler::EventHandlerStore::new(self.agent_registry.db()));
                 tools.push(Arc::new(crate::tools::EventsTool::new(
@@ -709,6 +706,12 @@ impl Scheduler {
         let session_manager = self.session_manager.clone();
 
         let handle = tokio::spawn(async move {
+            // Create a run record for this execution.
+            let run_id = registry
+                .create_run(None, Some(&quest_id), &agent_id_clone, None)
+                .await
+                .ok();
+
             let result = worker.execute().await;
 
             // The on_complete callback already updated task status in AgentRegistry.
@@ -743,6 +746,13 @@ impl Scheduler {
                     ("error", 0.0, 0)
                 }
             };
+
+            // Complete the run record.
+            if let Some(ref rid) = run_id {
+                let _ = registry
+                    .complete_run(rid, outcome_status, cost_usd, steps, None)
+                    .await;
+            }
 
             // Record task completion in unified activity log.
             let _ = spawn_activity_log
@@ -903,10 +913,105 @@ impl Scheduler {
 // Helpers
 // ---------------------------------------------------------------------------
 
+async fn resolve_task_prompts(
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    idea_ids: &[String],
+) -> Vec<aeqi_core::PromptEntry> {
+    let Some(store) = idea_store else {
+        if !idea_ids.is_empty() {
+            warn!(
+                idea_count = idea_ids.len(),
+                "quest has idea_ids but no idea store is configured"
+            );
+        }
+        return Vec::new();
+    };
+
+    let ordered_ids = ordered_unique_idea_ids(idea_ids);
+    if ordered_ids.is_empty() {
+        return Vec::new();
+    }
+
+    match store.get_by_ids(&ordered_ids).await {
+        Ok(ideas) => {
+            let mut by_id: HashMap<String, aeqi_core::traits::Idea> = ideas
+                .into_iter()
+                .map(|idea| (idea.id.clone(), idea))
+                .collect();
+
+            ordered_ids
+                .into_iter()
+                .filter_map(|idea_id| by_id.remove(&idea_id).map(|idea| idea.to_prompt_entry()))
+                .collect()
+        }
+        Err(e) => {
+            warn!(error = %e, idea_count = ordered_ids.len(), "failed to resolve quest idea_ids");
+            Vec::new()
+        }
+    }
+}
+
+fn ordered_unique_idea_ids(idea_ids: &[String]) -> Vec<String> {
+    let mut ordered = Vec::new();
+    let mut seen = HashSet::new();
+
+    for idea_id in idea_ids {
+        if idea_id.is_empty() {
+            continue;
+        }
+        if seen.insert(idea_id.clone()) {
+            ordered.push(idea_id.clone());
+        }
+    }
+
+    ordered
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use std::sync::Arc;
+    use aeqi_core::traits::{Idea, IdeaCategory, IdeaQuery};
+
+    struct MockIdeaStore {
+        ideas: Vec<Idea>,
+    }
+
+    #[async_trait]
+    impl IdeaStore for MockIdeaStore {
+        async fn store(
+            &self,
+            _key: &str,
+            _content: &str,
+            _category: IdeaCategory,
+            _agent_id: Option<&str>,
+        ) -> anyhow::Result<String> {
+            anyhow::bail!("not implemented")
+        }
+
+        async fn search(&self, _query: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+
+        async fn delete(&self, _id: &str) -> anyhow::Result<()> {
+            anyhow::bail!("not implemented")
+        }
+
+        fn name(&self) -> &str {
+            "mock"
+        }
+
+        async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {
+            Ok(ids
+                .iter()
+                .rev()
+                .filter_map(|wanted| self.ideas.iter().find(|idea| idea.id == *wanted).cloned())
+                .collect())
+        }
+    }
 
     #[tokio::test]
     async fn scheduler_config_defaults() {
@@ -915,5 +1020,48 @@ mod tests {
         assert_eq!(config.default_timeout_secs, 3600);
         assert_eq!(config.worker_max_budget_usd, 5.0);
         assert!((config.daily_budget_usd - 50.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn resolve_ideas_loads_quest_ideas_in_input_order() {
+        let store: Arc<dyn IdeaStore> = Arc::new(MockIdeaStore {
+            ideas: vec![
+                Idea::recalled(
+                    "idea-a".to_string(),
+                    "alpha".to_string(),
+                    "Alpha content".to_string(),
+                    IdeaCategory::Procedure,
+                    Some("agent-a".to_string()),
+                    Utc::now(),
+                    None,
+                    1.0,
+                ),
+                Idea::recalled(
+                    "idea-b".to_string(),
+                    "beta".to_string(),
+                    "Beta content".to_string(),
+                    IdeaCategory::Fact,
+                    Some("agent-a".to_string()),
+                    Utc::now(),
+                    None,
+                    1.0,
+                ),
+            ],
+        });
+
+        let prompts = resolve_task_prompts(
+            Some(&store),
+            &vec![
+                "idea-b".to_string(),
+                "idea-a".to_string(),
+                "idea-b".to_string(),
+                "".to_string(),
+            ],
+        )
+        .await;
+
+        assert_eq!(prompts.len(), 2);
+        assert_eq!(prompts[0].content, "Beta content");
+        assert_eq!(prompts[1].content, "Alpha content");
     }
 }

@@ -223,7 +223,7 @@ export default function ActivityView({
 
   // Find quests assigned to this agent
   const agentQuests = (quests as unknown as Quest[]).filter((q) => {
-    const assignee = (q.agent_id || q.assignee || "").toLowerCase();
+    const assignee = (q.agent_id || "").toLowerCase();
     return (
       assignee.includes(agentName.toLowerCase()) ||
       assignee === agentId.toLowerCase()

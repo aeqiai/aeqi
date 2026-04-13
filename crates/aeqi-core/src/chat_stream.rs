@@ -57,7 +57,6 @@ pub enum ChatStreamEvent {
     },
 
     /// Idea was recalled or stored.
-    #[serde(alias = "MemoryActivity")]
     IdeaActivity {
         action: String, // "recalled" or "stored"
         key: String,
