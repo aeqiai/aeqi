@@ -1421,24 +1421,6 @@
 .channels-header .agent-settings-heading {
   margin: 0;
 }
-.channels-add-btn {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 6px 14px;
-  background: var(--text-primary);
-  color: var(--bg);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.channels-add-btn:hover {
-  opacity: 0.85;
-}
-.channels-add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .channels-empty {
   font-size: 13px;
   color: var(--text-muted);

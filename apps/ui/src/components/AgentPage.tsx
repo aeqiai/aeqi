@@ -191,7 +191,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               <h3 className="agent-settings-heading">Connected Channels</h3>
               {!showAddForm && (
                 <button
-                  className="channels-add-btn"
+                  className="btn"
                   onClick={() => { setShowAddForm(true); setChannelError(null); }}
                 >
                   Add Channel
@@ -226,7 +226,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   ))}
                 </div>
                 <button
-                  className="channel-disconnect-btn"
+                  className="btn channel-disconnect-btn"
                   onClick={() => handleDeleteChannel(ch.id)}
                 >
                   Disconnect
@@ -278,14 +278,14 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
                 <div className="channel-form-actions">
                   <button
-                    className="channels-add-btn"
+                    className="btn btn-primary"
                     onClick={handleAddChannel}
                     disabled={channelSaving}
                   >
                     {channelSaving ? "Connecting..." : "Connect"}
                   </button>
                   <button
-                    className="channel-cancel-btn"
+                    className="btn"
                     onClick={() => { setShowAddForm(false); setChannelError(null); }}
                   >
                     Cancel
