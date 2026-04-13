@@ -27,9 +27,8 @@ temporal_decay_halflife_days = 30
 [repos]
 my-project = "/path/to/your/project"
 
-# System team — the orchestrator
+# System team settings
 [team]
-leader = "leader"
 router_cooldown_secs = 60
 max_background_cost_usd = 0.50
 

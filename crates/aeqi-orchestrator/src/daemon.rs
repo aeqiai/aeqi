@@ -209,6 +209,7 @@ struct IpcContext {
     metrics: Arc<AEQIMetrics>,
     activity_log: Arc<ActivityLog>,
     session_store: Option<Arc<SessionStore>>,
+    idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
     daily_budget_usd: f64,
     project_budgets: std::collections::HashMap<String, f64>,
     prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
@@ -250,6 +251,8 @@ pub struct Daemon {
     pub prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
     /// Event handler store (the fourth primitive).
     pub event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    /// Shared idea store.
+    pub idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
 }
 
 impl Daemon {
@@ -289,6 +292,7 @@ impl Daemon {
             scheduler,
             prompt_loader: None,
             event_handler_store: None,
+            idea_store: None,
         }
     }
 
@@ -565,6 +569,7 @@ impl Daemon {
                     metrics: self.metrics.clone(),
                     activity_log: self.activity_log.clone(),
                     session_store: self.session_store.clone(),
+                    idea_store: self.idea_store.clone(),
                     daily_budget_usd: self.daily_budget_usd,
                     project_budgets: self.project_budgets.clone(),
                     prompt_loader: self.prompt_loader.clone(),
@@ -998,6 +1003,7 @@ impl Daemon {
                 session_store: ipc_ctx.session_store.clone(),
                 event_handler_store: ipc_ctx.event_handler_store.clone(),
                 agent_registry: agent_registry.clone(),
+                idea_store: ipc_ctx.idea_store.clone(),
                 message_router: message_router.clone(),
                 activity_buffer: activity_buffer.clone(),
                 default_provider: default_provider.clone(),

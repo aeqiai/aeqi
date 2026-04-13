@@ -37,6 +37,7 @@ pub struct CommandContext {
     pub session_store: Option<Arc<SessionStore>>,
     pub event_handler_store: Option<Arc<EventHandlerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
+    pub idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub activity_buffer: Arc<Mutex<ActivityBuffer>>,
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,

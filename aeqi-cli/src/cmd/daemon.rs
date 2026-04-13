@@ -495,6 +495,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
             println!("Events: {event_count} enabled");
             daemon.event_handler_store = Some(event_handler_store);
+            daemon.idea_store = shared_idea_store.clone();
 
             daemon.set_readiness_context(
                 config.agent_spawns.len(),

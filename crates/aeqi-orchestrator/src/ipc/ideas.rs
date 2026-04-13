@@ -13,12 +13,7 @@ pub async fn handle_list_ideas(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let idea_store = ctx
-        .message_router
-        .as_ref()
-        .and_then(|mr| mr.idea_store.as_ref());
-
-    let Some(idea_store) = idea_store else {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
@@ -43,12 +38,7 @@ pub async fn handle_store_idea(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let idea_store = ctx
-        .message_router
-        .as_ref()
-        .and_then(|mr| mr.idea_store.as_ref());
-
-    let Some(idea_store) = idea_store else {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
@@ -80,12 +70,7 @@ pub async fn handle_delete_idea(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let idea_store = ctx
-        .message_router
-        .as_ref()
-        .and_then(|mr| mr.idea_store.as_ref());
-
-    let Some(idea_store) = idea_store else {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
@@ -105,12 +90,7 @@ pub async fn handle_update_idea(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let idea_store = ctx
-        .message_router
-        .as_ref()
-        .and_then(|mr| mr.idea_store.as_ref());
-
-    let Some(idea_store) = idea_store else {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
@@ -140,12 +120,7 @@ pub async fn handle_search_ideas(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let idea_store = ctx
-        .message_router
-        .as_ref()
-        .and_then(|mr| mr.idea_store.as_ref());
-
-    let Some(idea_store) = idea_store else {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
