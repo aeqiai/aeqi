@@ -1043,7 +1043,7 @@ impl MessageRouter {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no idea store available"))?;
         let id = mem
-            .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
+            .store(key, content, "fact", None)
             .await?;
         Ok(id)
     }

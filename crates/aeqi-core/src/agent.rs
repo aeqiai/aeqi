@@ -5,7 +5,7 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::traits::{
-    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore, IdeaCategory,
+    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore,
     LoopAction, Message, MessageContent, Observer, Provider, Role, StopReason, Tool, ToolResult,
     ToolSpec, Usage,
 };
@@ -2347,7 +2347,7 @@ impl Agent {
                 .store(
                     SESSION_MEMORY_KEY,
                     &summary,
-                    IdeaCategory::Context,
+                    "context",
                     agent_id.as_deref(),
                 )
                 .await
@@ -3242,13 +3242,7 @@ impl Agent {
                 continue;
             };
 
-            let category = match cat_str.trim().to_uppercase().as_str() {
-                "FACT" => IdeaCategory::Fact,
-                "PROCEDURE" => IdeaCategory::Procedure,
-                "PREFERENCE" => IdeaCategory::Preference,
-                "CONTEXT" => IdeaCategory::Context,
-                _ => continue,
-            };
+            let category = cat_str.trim().to_lowercase();
 
             let key = key.trim();
             let content = content.trim();
@@ -3257,7 +3251,7 @@ impl Agent {
             }
 
             match mem
-                .store(key, content, category, self.config.agent_id.as_deref())
+                .store(key, content, &category, self.config.agent_id.as_deref())
                 .await
             {
                 Ok(id) => {

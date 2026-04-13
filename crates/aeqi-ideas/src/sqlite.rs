@@ -1,5 +1,5 @@
 use crate::graph::{IdeaEdge, IdeaRelation};
-use aeqi_core::traits::{Embedder, IdeaStore, IdeaCategory, Idea, IdeaQuery};
+use aeqi_core::traits::{Embedder, IdeaStore, Idea, IdeaQuery};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -425,13 +425,11 @@ impl SqliteIdeas {
             .filter_map(|r| r.ok())
             .filter_map(
                 |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let category: IdeaCategory =
-                        serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, category, agent_id, created_at, session_id, 1.0,
+                        id, key, content, cat_str, agent_id, created_at, session_id, 1.0,
                     ))
                 },
             )
@@ -469,13 +467,11 @@ impl SqliteIdeas {
             .filter_map(|r| r.ok())
             .filter_map(
                 |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let category: IdeaCategory =
-                        serde_json::from_value(serde_json::Value::String(cat_str)).ok()?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, category, agent_id, created_at, session_id, 1.0,
+                        id, key, content, cat_str, agent_id, created_at, session_id, 1.0,
                     ))
                 },
             )
@@ -726,17 +722,6 @@ impl SqliteIdeas {
         .unwrap_or_default()
     }
 
-    fn parse_category(s: &str) -> IdeaCategory {
-        match s {
-            "fact" => IdeaCategory::Fact,
-            "procedure" => IdeaCategory::Procedure,
-            "preference" => IdeaCategory::Preference,
-            "context" => IdeaCategory::Context,
-            "evergreen" => IdeaCategory::Evergreen,
-            _ => IdeaCategory::Fact,
-        }
-    }
-
     /// Check if a memory with the same key was stored within the given time window.
     pub fn has_recent_key(&self, key: &str, hours: u32) -> bool {
         let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
@@ -782,10 +767,8 @@ impl SqliteIdeas {
     }
 
     fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
-        let category = Self::parse_category(&row.cat_str);
-
         if let Some(ref q_cat) = query.category
-            && &category != q_cat
+            && row.cat_str != *q_cat
         {
             return None;
         }
@@ -800,14 +783,14 @@ impl SqliteIdeas {
             .ok()?
             .with_timezone(&Utc);
 
-        let decay = if category == IdeaCategory::Evergreen {
+        let decay = if row.cat_str == "evergreen" {
             1.0
         } else {
             self.decay_factor(&created_at)
         };
 
         Some(Idea::recalled(
-            row.id, row.key, row.content, category, row.agent_id, created_at, row.session_id, score * decay,
+            row.id, row.key, row.content, row.cat_str, row.agent_id, created_at, row.session_id, score * decay,
         ))
     }
 
@@ -952,7 +935,7 @@ impl IdeaStore for SqliteIdeas {
         &self,
         key: &str,
         content: &str,
-        category: IdeaCategory,
+        category: &str,
         agent_id: Option<&str>,
     ) -> Result<String> {
         // Dedup by exact content within 24h
@@ -969,9 +952,7 @@ impl IdeaStore for SqliteIdeas {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
-        let cat = serde_json::to_string(&category)?
-            .trim_matches('"')
-            .to_string();
+        let cat = category;
 
         {
             let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
@@ -1242,7 +1223,7 @@ impl IdeaStore for SqliteIdeas {
         id: &str,
         key: Option<&str>,
         content: Option<&str>,
-        category: Option<IdeaCategory>,
+        category: Option<&str>,
     ) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
@@ -1258,15 +1239,7 @@ impl IdeaStore for SqliteIdeas {
                 rusqlite::params![content, now, id],
             )?;
         }
-        if let Some(category) = category {
-            let cat_str = match category {
-                IdeaCategory::Fact => "fact",
-                IdeaCategory::Procedure => "procedure",
-                IdeaCategory::Preference => "preference",
-                IdeaCategory::Context => "context",
-                IdeaCategory::Evergreen => "evergreen",
-                IdeaCategory::Config => "config",
-            };
+        if let Some(cat_str) = category {
             conn.execute(
                 "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
                 rusqlite::params![cat_str, now, id],
@@ -1279,7 +1252,7 @@ impl IdeaStore for SqliteIdeas {
         &self,
         key: &str,
         content: &str,
-        category: IdeaCategory,
+        category: &str,
         agent_id: Option<&str>,
         ttl_secs: Option<u64>,
     ) -> Result<String> {
@@ -1364,10 +1337,7 @@ impl IdeaStore for SqliteIdeas {
                     id: row.get(0)?,
                     key: row.get(1)?,
                     content: row.get(2)?,
-                    category: {
-                        let s: String = row.get(3)?;
-                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(IdeaCategory::Evergreen)
-                    },
+                    category: row.get(3)?,
                     agent_id: row.get(4)?,
                     created_at: {
                         let s: String = row.get(5)?;
@@ -1403,10 +1373,7 @@ impl IdeaStore for SqliteIdeas {
                     id: row.get(0)?,
                     key: row.get(1)?,
                     content: row.get(2)?,
-                    category: {
-                        let s: String = row.get(3)?;
-                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(IdeaCategory::Evergreen)
-                    },
+                    category: row.get(3)?,
                     agent_id: Some(agent_id.clone()),
                     created_at: {
                         let s: String = row.get(5)?;
@@ -1445,7 +1412,7 @@ mod tests {
         mem.store(
             "login-flow",
             "The login uses JWT tokens with 24h expiry",
-            IdeaCategory::Fact,
+            "fact",
             None,
         )
         .await
@@ -1453,7 +1420,7 @@ mod tests {
         mem.store(
             "deploy-process",
             "Deploy by merging to dev branch, auto-deploys",
-            IdeaCategory::Procedure,
+            "procedure",
             None,
         )
         .await
@@ -1461,7 +1428,7 @@ mod tests {
         mem.store(
             "db-config",
             "PostgreSQL on port 5432 with TimescaleDB",
-            IdeaCategory::Fact,
+            "fact",
             None,
         )
         .await
@@ -1487,7 +1454,7 @@ mod tests {
         mem.store(
             "shared-fact",
             "The API runs on port 8080",
-            IdeaCategory::Fact,
+            "fact",
             None,
         )
         .await
@@ -1495,7 +1462,7 @@ mod tests {
         mem.store(
             "guardian-note",
             "Risk tolerance is low for this user",
-            IdeaCategory::Preference,
+            "preference",
             Some("guardian-001"),
         )
         .await
@@ -1503,7 +1470,7 @@ mod tests {
         mem.store(
             "librarian-note",
             "User prefers detailed explanations",
-            IdeaCategory::Preference,
+            "preference",
             Some("librarian-001"),
         )
         .await
@@ -1532,7 +1499,7 @@ mod tests {
         mem.store(
             "strategic-pref",
             "Always prefer Rust over Python for new services",
-            IdeaCategory::Preference,
+            "preference",
             Some("root-agent"),
         )
         .await
@@ -1540,7 +1507,7 @@ mod tests {
         mem.store(
             "domain-fact",
             "The trading engine uses 50us tick",
-            IdeaCategory::Fact,
+            "fact",
             None,
         )
         .await
@@ -1593,7 +1560,7 @@ mod tests {
         mem.store(
             "new-fact",
             "New data with agent",
-            IdeaCategory::Fact,
+            "fact",
             Some("agent-1"),
         )
         .await
@@ -1612,7 +1579,7 @@ mod tests {
         let (mem, _dir) = test_ideas();
 
         let id = mem
-            .store("key", "content", IdeaCategory::Fact, None)
+            .store("key", "content", "fact", None)
             .await
             .unwrap();
 
@@ -1673,7 +1640,7 @@ mod tests {
             .store(
                 "key-1",
                 "identical content for embedding",
-                IdeaCategory::Fact,
+                "fact",
                 None,
             )
             .await
@@ -1727,14 +1694,14 @@ mod tests {
 
         // Store two memories with different content — both should call embedder.
         let _id1 = mem
-            .store("key-1", "first unique content", IdeaCategory::Fact, None)
+            .store("key-1", "first unique content", "fact", None)
             .await
             .unwrap();
         let _id2 = mem
             .store(
                 "key-2",
                 "second unique content",
-                IdeaCategory::Fact,
+                "fact",
                 None,
             )
             .await

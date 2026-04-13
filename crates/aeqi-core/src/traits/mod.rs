@@ -7,7 +7,7 @@ pub mod tool;
 
 pub use channel::{Channel, IncomingMessage, OutgoingMessage};
 pub use embedder::Embedder;
-pub use idea::{IdeaStore, IdeaCategory, Idea, IdeaQuery};
+pub use idea::{IdeaStore, Idea, IdeaQuery};
 pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,
     PrometheusObserver,

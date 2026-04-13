@@ -771,14 +771,7 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                let category = match w.category.as_str() {
-                    "fact" => aeqi_core::traits::IdeaCategory::Fact,
-                    "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
-                    "preference" => aeqi_core::traits::IdeaCategory::Preference,
-                    "context" => aeqi_core::traits::IdeaCategory::Context,
-                    _ => aeqi_core::traits::IdeaCategory::Fact,
-                };
-                match mem.store(&w.key, &w.content, category, None).await {
+                match mem.store(&w.key, &w.content, &w.category, None).await {
                     Ok(id) => debug!(
                         project = %w.project,
                         id = %id,

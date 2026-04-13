@@ -185,7 +185,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "id": {"type": "string", "description": "Idea ID to delete (for delete)"},
                     "key": {"type": "string", "description": "Short slug key (for store)"},
                     "content": {"type": "string", "description": "The knowledge to store (for store)"},
-                    "category": {"type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "default": "fact"},
+                    "category": {"type": "string", "default": "fact", "description": "Idea category (free-form string). Common categories: fact, procedure, preference, context, evergreen, config"},
                     "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
                     "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
                     "query": {"type": "string", "description": "Natural language search query (for search)"},

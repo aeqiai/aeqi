@@ -22,7 +22,7 @@
 
 use crate::graph::IdeaEdge;
 use crate::sqlite::SqliteIdeas;
-use aeqi_core::traits::{IdeaCategory, Idea};
+use aeqi_core::traits::Idea;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -144,7 +144,7 @@ pub struct ParsedIdea {
     pub id: Option<String>,
     pub key: String,
     pub content: String,
-    pub category: IdeaCategory,
+    pub category: String,
     pub agent_id: Option<String>,
     pub relations: Vec<ParsedRelation>,
 }
@@ -179,7 +179,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
             .store(
                 &mem.key,
                 &mem.content,
-                mem.category.clone(),
+                &mem.category,
                 mem.agent_id.as_deref(),
             )
             .await
@@ -247,20 +247,24 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
 fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
     let mut results = Vec::new();
 
-    for cat_name in &["fact", "procedure", "preference", "context", "evergreen"] {
-        let cat_dir = vault_dir.join(cat_name);
-        if !cat_dir.is_dir() {
-            continue;
-        }
-        for entry in std::fs::read_dir(&cat_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+    // Scan all subdirectories (each subdirectory name is treated as a category).
+    if vault_dir.is_dir() {
+        for dir_entry in std::fs::read_dir(vault_dir)? {
+            let dir_entry = dir_entry?;
+            let cat_dir = dir_entry.path();
+            if !cat_dir.is_dir() {
                 continue;
             }
-            match parse_idea_file(&path) {
-                Ok(mem) => results.push(mem),
-                Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
+            for entry in std::fs::read_dir(&cat_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                    continue;
+                }
+                match parse_idea_file(&path) {
+                    Ok(mem) => results.push(mem),
+                    Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
+                }
             }
         }
     }
@@ -307,8 +311,7 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
             .to_string()
     });
     let category = extract_field(&frontmatter, "category")
-        .and_then(|c| parse_category(&c))
-        .unwrap_or(IdeaCategory::Fact);
+        .unwrap_or_else(|| "fact".to_string());
     let agent_id = extract_field(&frontmatter, "agent_id").filter(|s| s != "null" && !s.is_empty());
 
     // Split body into content and relations.
@@ -326,30 +329,12 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-fn category_dir(cat: &IdeaCategory) -> &'static str {
-    match cat {
-        IdeaCategory::Fact => "fact",
-        IdeaCategory::Procedure => "procedure",
-        IdeaCategory::Preference => "preference",
-        IdeaCategory::Context => "context",
-        IdeaCategory::Evergreen => "evergreen",
-        IdeaCategory::Config => "config",
-    }
+fn category_dir(cat: &str) -> &str {
+    cat
 }
 
-fn category_str(cat: &IdeaCategory) -> &'static str {
-    category_dir(cat)
-}
-
-fn parse_category(s: &str) -> Option<IdeaCategory> {
-    match s.trim().to_lowercase().as_str() {
-        "fact" => Some(IdeaCategory::Fact),
-        "procedure" => Some(IdeaCategory::Procedure),
-        "preference" => Some(IdeaCategory::Preference),
-        "context" => Some(IdeaCategory::Context),
-        "evergreen" => Some(IdeaCategory::Evergreen),
-        _ => None,
-    }
+fn category_str(cat: &str) -> &str {
+    cat
 }
 
 fn sanitize_filename(key: &str) -> String {
@@ -502,7 +487,7 @@ mod tests {
             "abc-123".to_string(),
             "test-key".to_string(),
             "Some test content".to_string(),
-            IdeaCategory::Fact,
+            "fact".to_string(),
             None,
             chrono::Utc::now(),
             None,
@@ -533,7 +518,7 @@ mod tests {
             .store(
                 "auth-system",
                 "JWT with 24h expiry",
-                IdeaCategory::Fact,
+                "fact",
                 None,
             )
             .await
@@ -542,7 +527,7 @@ mod tests {
             .store(
                 "deploy-process",
                 "Merge to main, auto-deploy",
-                IdeaCategory::Procedure,
+                "procedure",
                 None,
             )
             .await
@@ -551,7 +536,7 @@ mod tests {
             .store(
                 "code-style",
                 "Use snake_case everywhere",
-                IdeaCategory::Preference,
+                "preference",
                 Some("eng-001"),
             )
             .await

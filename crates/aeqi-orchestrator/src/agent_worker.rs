@@ -1,5 +1,5 @@
 use aeqi_core::traits::{
-    ChatRequest, Event, IdeaStore, IdeaCategory, LogObserver, LoopAction, Message, MessageContent,
+    ChatRequest, Event, IdeaStore, LogObserver, LoopAction, Message, MessageContent,
     Observer, Provider, Role, Tool,
 };
 use aeqi_core::{Agent, AgentConfig, AssembledPrompt};
@@ -1493,13 +1493,7 @@ impl AgentWorker {
                 continue;
             };
 
-            let category = match cat_str.trim().to_uppercase().as_str() {
-                "FACT" => IdeaCategory::Fact,
-                "PROCEDURE" => IdeaCategory::Procedure,
-                "PREFERENCE" => IdeaCategory::Preference,
-                "CONTEXT" => IdeaCategory::Context,
-                _ => continue,
-            };
+            let category = cat_str.trim().to_lowercase();
 
             let key = key.trim();
             let content = content.trim();
@@ -1562,7 +1556,7 @@ impl AgentWorker {
                 _ => None,
             };
 
-            match mem.store(key, content, category, agent_id_for_store).await {
+            match mem.store(key, content, &category, agent_id_for_store).await {
                 Ok(id) if !id.is_empty() => {
                     debug!(worker = %worker_name, id = %id, key = %key, "idea stored");
 

@@ -14,7 +14,7 @@ pub struct Idea {
     pub id: String,
     pub key: String,
     pub content: String,
-    pub category: IdeaCategory,
+    pub category: String,
     /// The agent that owns this idea.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -75,7 +75,7 @@ impl Idea {
         id: String,
         key: String,
         content: String,
-        category: IdeaCategory,
+        category: String,
         agent_id: Option<String>,
         created_at: DateTime<Utc>,
         session_id: Option<String>,
@@ -98,22 +98,11 @@ impl Idea {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum IdeaCategory {
-    Fact,
-    Procedure,
-    Preference,
-    Context,
-    Evergreen,
-    Config,
-}
-
 #[derive(Debug, Clone)]
 pub struct IdeaQuery {
     pub text: String,
     pub top_k: usize,
-    pub category: Option<IdeaCategory>,
+    pub category: Option<String>,
     pub session_id: Option<String>,
     /// Filter to a specific agent's ideas.
     pub agent_id: Option<String>,
@@ -154,7 +143,7 @@ pub trait IdeaStore: Send + Sync {
         &self,
         key: &str,
         content: &str,
-        category: IdeaCategory,
+        category: &str,
         agent_id: Option<&str>,
     ) -> anyhow::Result<String>;
 
@@ -203,7 +192,7 @@ pub trait IdeaStore: Send + Sync {
         &self,
         key: &str,
         content: &str,
-        category: IdeaCategory,
+        category: &str,
         agent_id: Option<&str>,
         _ttl_secs: Option<u64>,
     ) -> anyhow::Result<String> {
@@ -228,7 +217,7 @@ pub trait IdeaStore: Send + Sync {
         id: &str,
         key: Option<&str>,
         content: Option<&str>,
-        category: Option<IdeaCategory>,
+        category: Option<&str>,
     ) -> anyhow::Result<()> {
         let _ = (id, key, content, category);
         anyhow::bail!("update not supported by this store")

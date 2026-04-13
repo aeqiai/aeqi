@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
-use aeqi_core::traits::{IdeaStore, IdeaCategory, IdeaQuery};
+use aeqi_core::traits::{IdeaStore, IdeaQuery};
 
 // ---------------------------------------------------------------------------
 // Helper: format quest detail
@@ -494,13 +494,7 @@ impl IdeasTool {
             .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
-        let category = match args.get("category").and_then(|v| v.as_str()) {
-            Some("procedure") => IdeaCategory::Procedure,
-            Some("preference") => IdeaCategory::Preference,
-            Some("context") => IdeaCategory::Context,
-            Some("evergreen") => IdeaCategory::Evergreen,
-            _ => IdeaCategory::Fact,
-        };
+        let category = args.get("category").and_then(|v| v.as_str()).unwrap_or("fact");
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
         match self.memory.store(key, content, category, agent_id).await {

@@ -3,7 +3,7 @@
 //! Stores ideas via `store()`, spawns agents, and creates `on_session_start`
 //! events referencing the ideas directly. No injection_mode involved.
 
-use aeqi_core::traits::IdeaCategory;
+
 
 /// Seed ideas into a tenant's idea store + spawn agents + wire events.
 /// Called by the platform after company provisioning.
@@ -54,13 +54,7 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            let category = match idea_val["category"].as_str() {
-                Some("procedure") => IdeaCategory::Procedure,
-                Some("preference") => IdeaCategory::Preference,
-                Some("context") => IdeaCategory::Context,
-                Some("evergreen") => IdeaCategory::Evergreen,
-                _ => IdeaCategory::Fact,
-            };
+            let category = idea_val["category"].as_str().unwrap_or("fact");
             let agent_id = idea_val["agent_id"].as_str();
 
             match idea_store.store(name, content, category, agent_id).await {

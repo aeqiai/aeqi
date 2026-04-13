@@ -50,13 +50,7 @@ pub async fn handle_store_idea(
         return serde_json::json!({"ok": false, "error": "key and content are required"});
     }
 
-    let category = match request_field(request, "category").unwrap_or("fact") {
-        "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
-        "preference" => aeqi_core::traits::IdeaCategory::Preference,
-        "context" => aeqi_core::traits::IdeaCategory::Context,
-        "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
-        _ => aeqi_core::traits::IdeaCategory::Fact,
-    };
+    let category = request_field(request, "category").unwrap_or("fact");
 
     let agent_id = request_field(request, "agent_id");
 
@@ -102,13 +96,7 @@ pub async fn handle_update_idea(
 
     let key = request_field(request, "key");
     let content = request_field(request, "content");
-    let category = request_field(request, "category").map(|c| match c {
-        "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
-        "preference" => aeqi_core::traits::IdeaCategory::Preference,
-        "context" => aeqi_core::traits::IdeaCategory::Context,
-        "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
-        _ => aeqi_core::traits::IdeaCategory::Fact,
-    });
+    let category = request_field(request, "category");
 
     match idea_store.update(id, key, content, category).await {
         Ok(()) => serde_json::json!({"ok": true}),
@@ -138,13 +126,7 @@ pub async fn handle_search_ideas(
     }
 
     if let Some(cat_str) = request_field(request, "category") {
-        query.category = Some(match cat_str {
-            "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
-            "preference" => aeqi_core::traits::IdeaCategory::Preference,
-            "context" => aeqi_core::traits::IdeaCategory::Context,
-            "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
-            _ => aeqi_core::traits::IdeaCategory::Fact,
-        });
+        query.category = Some(cat_str.to_string());
     }
 
     match idea_store.search(&query).await {
@@ -196,45 +178,41 @@ pub async fn handle_ideas_search(
         return serde_json::json!({"ok": true, "ideas": [], "count": 0});
     }
 
-    if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.idea_store.as_ref() {
-            let mut mq = aeqi_core::traits::IdeaQuery::new(query, limit);
-            match scope {
-                "entity" => {
-                    if let Some(aid) = agent_id_param {
-                        mq = mq.with_agent(aid);
-                    }
-                }
-                "system" => {}
-                _ => {
-                    if let Some(aid) = agent_id_param {
-                        mq = mq.with_agent(aid);
-                    }
+    if let Some(ref mem) = ctx.idea_store {
+        let mut mq = aeqi_core::traits::IdeaQuery::new(query, limit);
+        match scope {
+            "entity" => {
+                if let Some(aid) = agent_id_param {
+                    mq = mq.with_agent(aid);
                 }
             }
-            match mem.search(&mq).await {
-                Ok(entries) => {
-                    let rows: Vec<serde_json::Value> = entries
-                        .iter()
-                        .map(|e| {
-                            serde_json::json!({
-                                "id": e.id,
-                                "key": e.key,
-                                "content": e.content,
-                                "category": format!("{:?}", e.category),
-                                "agent_id": e.agent_id,
-                                "created_at": e.created_at.to_rfc3339(),
-                            })
+            "system" => {}
+            _ => {
+                if let Some(aid) = agent_id_param {
+                    mq = mq.with_agent(aid);
+                }
+            }
+        }
+        match mem.search(&mq).await {
+            Ok(entries) => {
+                let rows: Vec<serde_json::Value> = entries
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "id": e.id,
+                            "key": e.key,
+                            "content": e.content,
+                            "category": e.category,
+                            "agent_id": e.agent_id,
+                            "created_at": e.created_at.to_rfc3339(),
                         })
-                        .collect();
-                    serde_json::json!({"ok": true, "ideas": rows, "count": rows.len()})
-                }
-                Err(e) => {
-                    serde_json::json!({"ok": false, "error": format!("search failed: {e}")})
-                }
+                    })
+                    .collect();
+                serde_json::json!({"ok": true, "ideas": rows, "count": rows.len()})
             }
-        } else {
-            serde_json::json!({"ok": true, "ideas": [], "count": 0})
+            Err(e) => {
+                serde_json::json!({"ok": false, "error": format!("search failed: {e}")})
+            }
         }
     } else {
         serde_json::json!({"ok": true, "ideas": []})
@@ -465,38 +443,30 @@ pub async fn handle_idea_prefix(
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let prefix = request.get("prefix").and_then(|v| v.as_str()).unwrap_or("");
-    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
 
-    if prefix.is_empty() {
-        return serde_json::json!({"ok": false, "error": "prefix required"});
-    }
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
 
-    if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.idea_store.as_ref() {
-            match mem.search_by_prefix(prefix, limit) {
-                Ok(entries) => {
-                    let ideas: Vec<serde_json::Value> = entries
-                        .iter()
-                        .map(|e| {
-                            serde_json::json!({
-                                "id": e.id,
-                                "key": e.key,
-                                "content": e.content,
-                                "category": e.category,
-                                "agent_id": e.agent_id,
-                                "created_at": e.created_at.to_rfc3339(),
-                            })
-                        })
-                        .collect();
-                    serde_json::json!({"ok": true, "ideas": ideas, "count": ideas.len()})
-                }
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-            }
-        } else {
-            serde_json::json!({"ok": false, "error": "no idea store available"})
+    match idea_store.search_by_prefix(prefix, limit) {
+        Ok(entries) => {
+            let ideas: Vec<serde_json::Value> = entries
+                .iter()
+                .map(|e| {
+                    serde_json::json!({
+                        "id": e.id,
+                        "key": e.key,
+                        "content": e.content,
+                        "category": e.category,
+                        "agent_id": e.agent_id,
+                        "created_at": e.created_at.to_rfc3339(),
+                    })
+                })
+                .collect();
+            serde_json::json!({"ok": true, "ideas": ideas, "count": ideas.len()})
         }
-    } else {
-        serde_json::json!({"ok": false, "error": "chat engine not initialized"})
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
 
@@ -545,9 +515,7 @@ pub async fn handle_channel_knowledge(
 
     let mut items: Vec<serde_json::Value> = Vec::new();
 
-    if let Some(ref engine) = ctx.message_router
-        && let Some(mem) = engine.idea_store.as_ref()
-    {
+    if let Some(ref mem) = ctx.idea_store {
         let q = if query.is_empty() { project } else { query };
         let mq = aeqi_core::traits::IdeaQuery::new(q, limit);
         if let Ok(results) = mem.search(&mq).await {
@@ -556,7 +524,7 @@ pub async fn handle_channel_knowledge(
                     "id": entry.id,
                     "key": entry.key,
                     "content": entry.content,
-                    "category": format!("{:?}", entry.category).to_lowercase(),
+                    "category": entry.category,
                     "agent_id": entry.agent_id,
                     "source": "ideas",
                     "created_at": entry.created_at.to_rfc3339(),
@@ -596,33 +564,22 @@ pub async fn handle_knowledge_store(
         return serde_json::json!({"ok": false, "error": "project, key, and content required"});
     }
 
-    if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.idea_store.as_ref() {
-            let cat = match category {
-                "procedure" => aeqi_core::traits::IdeaCategory::Procedure,
-                "preference" => aeqi_core::traits::IdeaCategory::Preference,
-                "context" => aeqi_core::traits::IdeaCategory::Context,
-                "evergreen" => aeqi_core::traits::IdeaCategory::Evergreen,
-                _ => aeqi_core::traits::IdeaCategory::Fact,
-            };
-            let raw_agent_id = request.get("agent_id").and_then(|v| v.as_str());
-            let agent_id = match scope {
-                "system" => None,
-                _ => raw_agent_id,
-            };
-            let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
-            match mem
-                .store_with_ttl(key, content, cat, agent_id, ttl_secs)
-                .await
-            {
-                Ok(id) => serde_json::json!({"ok": true, "id": id}),
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-            }
-        } else {
-            serde_json::json!({"ok": false, "error": format!("no idea store available: {project}")})
+    if let Some(ref mem) = ctx.idea_store {
+        let raw_agent_id = request.get("agent_id").and_then(|v| v.as_str());
+        let agent_id = match scope {
+            "system" => None,
+            _ => raw_agent_id,
+        };
+        let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
+        match mem
+            .store_with_ttl(key, content, category, agent_id, ttl_secs)
+            .await
+        {
+            Ok(id) => serde_json::json!({"ok": true, "id": id}),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
     } else {
-        serde_json::json!({"ok": false, "error": "chat engine not initialized"})
+        serde_json::json!({"ok": false, "error": "idea store not available"})
     }
 }
 
@@ -641,16 +598,12 @@ pub async fn handle_knowledge_delete(
         return serde_json::json!({"ok": false, "error": "project and id required"});
     }
 
-    if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.idea_store.as_ref() {
-            match mem.delete(id).await {
-                Ok(_) => serde_json::json!({"ok": true}),
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-            }
-        } else {
-            serde_json::json!({"ok": false, "error": "no idea store available"})
+    if let Some(ref mem) = ctx.idea_store {
+        match mem.delete(id).await {
+            Ok(_) => serde_json::json!({"ok": true}),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
     } else {
-        serde_json::json!({"ok": false, "error": "chat engine not initialized"})
+        serde_json::json!({"ok": false, "error": "idea store not available"})
     }
 }

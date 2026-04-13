@@ -53,7 +53,7 @@ pub(crate) async fn cmd_remember(
     let memory = open_ideas(&config)?;
 
     let id = memory
-        .store(key, content, aeqi_core::traits::IdeaCategory::Fact, None)
+        .store(key, content, "fact", None)
         .await?;
     let scope = project_name.unwrap_or("global");
     println!("Stored memory {id} [{scope}] {key}");
