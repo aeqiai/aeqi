@@ -1489,13 +1489,43 @@
 .channel-form-field .agent-settings-label {
   width: 120px;
 }
-.channel-form-select,
+.channel-type-picker {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  width: fit-content;
+}
+.channel-type-option {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  background: var(--bg-base);
+  color: var(--text-muted);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.channel-type-option:last-child {
+  border-right: none;
+}
+.channel-type-option:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.channel-type-option.active {
+  background: var(--text-primary);
+  color: var(--bg);
+}
 .channel-form-input {
   flex: 1;
   font-size: 13px;
-  font-family: var(--font-mono);
-  padding: 7px 10px;
-  background: var(--bg-surface);
+  font-family: var(--font-sans);
+  padding: 8px 12px;
+  background: var(--bg-base);
   color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

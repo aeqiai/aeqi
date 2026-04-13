@@ -239,21 +239,21 @@ export default function AgentPage({ agentId }: { agentId: string }) {
             <div className="agent-settings-section">
               <h3 className="agent-settings-heading">Add Channel</h3>
               <div className="channel-form">
-                <div className="channel-form-field">
-                  <label className="agent-settings-label">Type</label>
-                  <select
-                    className="channel-form-select"
-                    value={newChannelType}
-                    onChange={(e) => {
-                      setNewChannelType(e.target.value);
-                      setNewChannelFields({});
-                      setChannelError(null);
-                    }}
-                  >
-                    {CHANNEL_TYPES.map((ct) => (
-                      <option key={ct.value} value={ct.value}>{ct.label}</option>
-                    ))}
-                  </select>
+                <div className="channel-type-picker">
+                  {CHANNEL_TYPES.map((ct) => (
+                    <button
+                      key={ct.value}
+                      type="button"
+                      className={`channel-type-option ${newChannelType === ct.value ? "active" : ""}`}
+                      onClick={() => {
+                        setNewChannelType(ct.value);
+                        setNewChannelFields({});
+                        setChannelError(null);
+                      }}
+                    >
+                      {ct.label}
+                    </button>
+                  ))}
                 </div>
 
                 {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
