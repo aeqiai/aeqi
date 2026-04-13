@@ -11,10 +11,6 @@ pub(crate) async fn cmd_status(config_path: &Option<PathBuf>) -> Result<()> {
 
     println!("AEQI: {}\n", config.aeqi.name);
 
-    // Show system team.
-    println!("AEQI Team: leader={}", config.leader());
-    println!();
-
     // Show agents.
     if !config.agents.is_empty() {
         println!("Agents:");
@@ -24,22 +20,16 @@ pub(crate) async fn cmd_status(config_path: &Option<PathBuf>) -> Result<()> {
             } else {
                 agent_cfg.expertise.join(", ")
             };
-            let leader_marker = if config.leader() == agent_cfg.name {
-                " [AEQI LEADER]"
-            } else {
-                ""
-            };
             let org_hint = format_agent_org_hint(&config, &agent_cfg.name);
             let runtime = config.runtime_for_agent(&agent_cfg.name);
             println!(
-                "  {} [{}] role={:?} voice={:?} runtime={} model={}{} expertise=[{}]{}",
+                "  {} [{}] role={:?} voice={:?} runtime={} model={} expertise=[{}]{}",
                 agent_cfg.name,
                 agent_cfg.prefix,
                 agent_cfg.role,
                 agent_cfg.voice,
                 runtime.provider,
                 config.model_for_agent(&agent_cfg.name),
-                leader_marker,
                 expertise,
                 org_hint,
             );

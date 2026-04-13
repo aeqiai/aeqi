@@ -184,7 +184,7 @@ pub struct MessageRouter {
     pub council_advisors: Arc<Vec<aeqi_core::config::PeerAgentConfig>>,
     /// If false, only explicit `/council` requests fan out to advisors.
     pub auto_council_enabled: bool,
-    pub leader_name: String,
+    pub default_agent_name: String,
     /// Default project/agent to route messages to when no project_hint is given.
     pub default_project: String,
     pub pending_tasks: Arc<Mutex<HashMap<String, PendingTask>>>,
@@ -260,7 +260,7 @@ impl MessageRouter {
 
         let _ = self
             .conversations
-            .record_with_source(chat_id, &self.leader_name, text, Some(source_tag))
+            .record_with_source(chat_id, "assistant", text, Some(source_tag))
             .await;
     }
 

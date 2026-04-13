@@ -43,7 +43,6 @@ pub struct CommandContext {
     pub default_model: String,
     pub session_manager: Arc<SessionManager>,
     pub scheduler: Arc<Scheduler>,
-    pub leader_agent_name: String,
     pub daily_budget_usd: f64,
     pub project_budgets: std::collections::HashMap<String, f64>,
     pub prompt_loader: Option<Arc<PromptLoader>>,

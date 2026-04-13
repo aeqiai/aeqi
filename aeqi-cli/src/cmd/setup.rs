@@ -214,7 +214,6 @@ backend = \"sqlite\"\n\
 temporal_decay_halflife_days = 30\n\
 \n\
 [team]\n\
-leader = \"leader\"\n\
 router_cooldown_secs = 60\n\
 max_background_cost_usd = 0.5\n\
 \n\
@@ -312,7 +311,6 @@ max_workers = 1\n\
 # name = \"aeqi\"\n\
 # prefix = \"sg\"\n\
 # repo = \"/absolute/path/to/repo\"\n\
-# team.leader = \"leader\"\n\
 # runtime = \"{runtime}\"\n",
         render_provider_block(provider, default_model),
     )

@@ -13,7 +13,6 @@ use crate::helpers::{
 struct DaemonMonitor {
     online: bool,
     ready: Option<bool>,
-    leader_agent: Option<String>,
     registered_owner_count: Option<u64>,
     configured_projects: Option<u64>,
     configured_advisors: Option<u64>,
@@ -157,10 +156,6 @@ async fn load_daemon_monitor(config_path: &Option<PathBuf>) -> DaemonMonitor {
     DaemonMonitor {
         online: true,
         ready: response.get("ready").and_then(serde_json::Value::as_bool),
-        leader_agent: response
-            .get("leader_agent")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string),
         registered_owner_count: json_u64(&response, "registered_owner_count"),
         configured_projects: json_u64(&response, "configured_projects"),
         configured_advisors: json_u64(&response, "configured_advisors"),
@@ -403,9 +398,6 @@ fn render_monitor_report(report: &MonitorReport) {
                 "BLOCKED"
             }
         );
-        if let Some(leader) = &report.daemon.leader_agent {
-            println!("  leader: {leader}");
-        }
         if let Some(count) = report.daemon.registered_owner_count {
             let configured_projects = report.daemon.configured_projects.unwrap_or(0);
             let configured_advisors = report.daemon.configured_advisors.unwrap_or(0);

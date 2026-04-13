@@ -103,7 +103,6 @@ pub async fn handle_readiness(
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
     crate::daemon::readiness_response(
-        &ctx.leader_agent_name,
         worker_limits,
         (spent, budget, remaining),
         readiness,

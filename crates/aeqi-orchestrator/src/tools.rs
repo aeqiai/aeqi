@@ -931,7 +931,7 @@ impl QuestsTool {
         let reason = args
             .get("reason")
             .and_then(|v| v.as_str())
-            .unwrap_or("Cancelled by leader agent");
+            .unwrap_or("Cancelled by agent");
 
         let reason_owned = reason.to_string();
         match self
@@ -1647,7 +1647,7 @@ impl Tool for CodeTool {
 // ===================================================================
 
 pub fn build_orchestration_tools(
-    leader_name: String,
+    agent_name: String,
     activity_log: Arc<ActivityLog>,
     api_key: Option<String>,
     memory: Option<Arc<dyn IdeaStore>>,
@@ -1660,7 +1660,7 @@ pub fn build_orchestration_tools(
 
     // 1. Agents tool (hire/retire/list/self)
     let agents_tool = AgentsTool::new(
-        leader_name.clone(),
+        agent_name.clone(),
         agent_registry.clone(),
         templates_dir,
         Some(event_handler_store.clone()),
@@ -1668,10 +1668,10 @@ pub fn build_orchestration_tools(
     );
 
     // 2. Quests tool (create/list/show/update/close/cancel)
-    let quests_tool = QuestsTool::new(agent_registry.clone(), leader_name.clone(), activity_log.clone());
+    let quests_tool = QuestsTool::new(agent_registry.clone(), agent_name.clone(), activity_log.clone());
 
     // 3. Events tool (create/list/enable/disable/delete)
-    let events_tool = EventsTool::new(event_handler_store, leader_name);
+    let events_tool = EventsTool::new(event_handler_store, agent_name);
 
     // 4. Code tool (search/graph/transcript/usage)
     let code_tool = CodeTool::new(graph_db_path, session_store, api_key);

@@ -209,7 +209,6 @@ struct IpcContext {
     metrics: Arc<AEQIMetrics>,
     activity_log: Arc<ActivityLog>,
     session_store: Option<Arc<SessionStore>>,
-    leader_agent_name: String,
     daily_budget_usd: f64,
     project_budgets: std::collections::HashMap<String, f64>,
     prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
@@ -222,7 +221,6 @@ pub struct Daemon {
     pub metrics: Arc<AEQIMetrics>,
     pub activity_log: Arc<ActivityLog>,
     pub session_store: Option<Arc<SessionStore>>,
-    pub leader_agent_name: String,
     pub shared_primer: Option<String>,
     pub project_primer: Option<String>,
     pub patrol_interval_secs: u64,
@@ -265,7 +263,6 @@ impl Daemon {
             metrics,
             activity_log,
             session_store: None,
-            leader_agent_name: String::new(),
             shared_primer: None,
             project_primer: None,
             patrol_interval_secs: 30,
@@ -568,7 +565,6 @@ impl Daemon {
                     metrics: self.metrics.clone(),
                     activity_log: self.activity_log.clone(),
                     session_store: self.session_store.clone(),
-                    leader_agent_name: self.leader_agent_name.clone(),
                     daily_budget_usd: self.daily_budget_usd,
                     project_budgets: self.project_budgets.clone(),
                     prompt_loader: self.prompt_loader.clone(),
@@ -1008,7 +1004,6 @@ impl Daemon {
                 default_model: default_model.clone(),
                 session_manager: session_manager.clone(),
                 scheduler: scheduler.clone(),
-                leader_agent_name: ipc_ctx.leader_agent_name.clone(),
                 daily_budget_usd: ipc_ctx.daily_budget_usd,
                 project_budgets: ipc_ctx.project_budgets.clone(),
                 prompt_loader: ipc_ctx.prompt_loader.clone(),
@@ -1969,7 +1964,6 @@ impl Daemon {
 }
 
 pub fn readiness_response(
-    leader_agent_name: &str,
     mut worker_limits: Vec<(String, u32)>,
     budget_status: (f64, f64, f64),
     readiness: &ReadinessContext,
@@ -1977,15 +1971,11 @@ pub fn readiness_response(
     let (spent, budget, remaining) = budget_status;
     worker_limits.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let managed_owners: Vec<(String, u32)> = worker_limits
-        .into_iter()
-        .filter(|(name, _)| name != leader_agent_name)
-        .collect();
-    let registered_owners: Vec<String> = managed_owners
+    let registered_owners: Vec<String> = worker_limits
         .iter()
         .map(|(name, _)| name.clone())
         .collect();
-    let max_workers: u32 = managed_owners.iter().map(|(_, workers)| *workers).sum();
+    let max_workers: u32 = worker_limits.iter().map(|(_, workers)| *workers).sum();
 
     let mut blocking_reasons = Vec::new();
     if readiness.configured_projects + readiness.configured_advisors == 0 {
@@ -2019,11 +2009,10 @@ pub fn readiness_response(
     serde_json::json!({
         "ok": true,
         "ready": blocking_reasons.is_empty(),
-        "leader_agent": leader_agent_name,
         "configured_projects": readiness.configured_projects,
         "configured_advisors": readiness.configured_advisors,
         "registered_owners": registered_owners,
-        "registered_owner_count": managed_owners.len(),
+        "registered_owner_count": registered_owners.len(),
         "max_workers": max_workers,
         "cost_today_usd": spent,
         "daily_budget_usd": budget,
@@ -2045,8 +2034,7 @@ mod tests {
     #[test]
     fn readiness_blocks_when_owner_registration_is_incomplete() {
         let response = readiness_response(
-            "leader",
-            vec![("leader".to_string(), 1), ("alpha".to_string(), 2)],
+            vec![("alpha".to_string(), 2)],
             (2.5, 50.0, 47.5),
             &ReadinessContext {
                 configured_projects: 2,
@@ -2072,8 +2060,7 @@ mod tests {
     #[test]
     fn readiness_blocks_when_budget_is_exhausted() {
         let response = readiness_response(
-            "leader",
-            vec![("leader".to_string(), 1), ("alpha".to_string(), 2)],
+            vec![("alpha".to_string(), 2)],
             (50.0, 50.0, 0.0),
             &ReadinessContext {
                 configured_projects: 1,

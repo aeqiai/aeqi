@@ -11,7 +11,6 @@ pub(crate) async fn cmd_team(
 
     // Show system team.
     println!("AEQI Team");
-    println!("  leader: {}", config.leader());
     println!("  cooldown: {}s", config.team.router_cooldown_secs);
     println!("  max_bg_cost: ${:.2}", config.team.max_background_cost_usd);
     println!();
@@ -38,9 +37,8 @@ pub(crate) async fn cmd_team(
     for project_cfg in projects {
         let org_hint = format_project_org_hint(&config, &project_cfg.name);
         println!(
-            "  {} → leader={}{}",
+            "  {}{}",
             project_cfg.name,
-            config.leader(),
             org_hint,
         );
     }

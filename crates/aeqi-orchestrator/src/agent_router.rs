@@ -1,5 +1,5 @@
 //! Agent Router — classifies incoming messages to determine which peer agents
-//! should be consulted alongside the leader agent.
+//! should be consulted for a given request.
 //!
 //! Uses a cheap Gemini Flash call (~$0.001, ~100ms) to classify message intent,
 //! then maps to relevant advisor agents.
@@ -14,7 +14,7 @@ use tracing::{info, warn};
 /// Classification result from the router.
 #[derive(Debug, Clone)]
 pub struct RouteDecision {
-    /// Names of advisor agents to invoke (empty = leader-only).
+    /// Names of advisor agents to invoke (empty = no advisors needed).
     pub advisors: Vec<String>,
     /// Classification category for logging.
     pub category: String,
@@ -182,7 +182,7 @@ Use empty array for "casual" messages. Only include advisors whose expertise is 
                 }
             },
             Err(e) => {
-                warn!(error = %e, "classifier request failed, defaulting to leader-only");
+                warn!(error = %e, "classifier request failed, defaulting to no advisors");
                 ClassifierOutput {
                     category: "casual".to_string(),
                     advisors: Vec::new(),

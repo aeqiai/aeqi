@@ -1,7 +1,6 @@
 use aeqi_core::SecretStore;
 use aeqi_core::traits::Channel;
 use aeqi_gates::TelegramChannel;
-use aeqi_orchestrator::tools::build_orchestration_tools;
 use aeqi_orchestrator::{
     AEQIMetrics, AgentRouter, CompanyRecord, Daemon, ActivityLog, Scheduler, SchedulerConfig,
     SessionManager, SessionStore,
@@ -14,7 +13,7 @@ use tracing::{info, warn};
 
 use crate::cli::DaemonAction;
 use crate::helpers::{
-    build_project_tools, build_provider_for_project, build_provider_for_runtime, build_tools,
+    build_provider_for_project, build_provider_for_runtime, build_tools,
     daemon_ipc_request,
     get_api_key, load_config,
     load_config_with_agents, open_ideas, pid_file_path,
@@ -49,10 +48,10 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let _data_dir = config.data_dir();
             let activity_stream = Arc::new(aeqi_orchestrator::ActivityStream::new());
             let daily_budget_usd = config.security.max_cost_per_day_usd;
-            let leader_name = config
-                .leader_agent()
+            let root_agent_name = config
+                .root_agent()
                 .map(|a| a.name.clone())
-                .unwrap_or_else(|| "leader".to_string());
+                .unwrap_or_default();
 
             let background_automation_enabled = config.orchestrator.background_automation_enabled;
             let advisor_agents = config.advisor_agents();
@@ -74,7 +73,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 config.team.router_cooldown_secs,
             )));
 
-            // Pre-create task notify so the completion listener and leader agent project share it.
+            // Pre-create task notify so the completion listener and root agent project share it.
             let fa_task_notify: Arc<tokio::sync::Notify> = Arc::new(tokio::sync::Notify::new());
 
             // Open a single insights DB for the entire daemon.
@@ -128,40 +127,13 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     agent_router: agent_router.clone(),
                     council_advisors: council_advisors.clone(),
                     auto_council_enabled,
-                    leader_name: leader_name.clone(),
+                    default_agent_name: root_agent_name.clone(),
                     default_project: sm_default_project.clone(),
                     pending_tasks: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
                     task_notify: fa_task_notify.clone(),
                     idea_store: shared_idea_store.clone(),
                 })
             });
-
-            // Register the leader agent — build orchestration tools for it.
-            // Optional — daemon runs fine without a leader agent configured.
-            if let Some(leader_cfg) = config.leader_agent().cloned() {
-                let fa_workdir = leader_cfg
-                    .default_repo
-                    .as_ref()
-                    .map(|r| config.resolve_repo(r))
-                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-
-                let mut fa_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> =
-                    build_project_tools(&fa_workdir, None);
-                let fa_memory: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
-                    shared_idea_store.clone();
-                let orch_tools = build_orchestration_tools(
-                    leader_name.clone(),
-                    activity_log.clone(),
-                    get_api_key(&config).ok(),
-                    fa_memory,
-                    None, // graph DB resolved per-session, not at daemon init
-                    None, // session_store
-                    agent_reg.clone(),
-                );
-                fa_tools.extend(orch_tools);
-            } else {
-                warn!("no leader agent configured — daemon will run without one");
-            }
 
             println!("AEQI daemon starting...");
             println!("Press Ctrl+C to stop.\n");
@@ -275,7 +247,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .await;
             }
 
-            // Also register advisor + leader agents the same way.
+            // Also register advisor agents the same way.
             for agent_cfg in &advisor_agents {
                 let agent_workdir = agent_cfg
                     .default_repo
@@ -462,7 +434,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), activity_log);
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
-            daemon.leader_agent_name = leader_name.clone();
             // Primers are now seeded via ideas.db — prompt store import removed.
             // Still set in-memory primers for backward compat during migration.
             daemon.shared_primer = config.shared_primer.clone();

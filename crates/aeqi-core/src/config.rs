@@ -31,7 +31,7 @@ pub struct AEQIConfig {
     /// Agents = personalities (equal peers).
     #[serde(default)]
     pub agents: Vec<PeerAgentConfig>,
-    /// System-level team settings (leader, router, background cost).
+    /// System-level team settings (router, background cost).
     #[serde(default)]
     pub team: TeamConfig,
     /// Context budget limits for worker system prompts.
@@ -414,13 +414,10 @@ fn default_agent_max_workers() -> u32 {
     1
 }
 
-/// System-level team settings — manages the overarching orchestrator.
-/// This is the "system team" that coordinates across all projects.
+/// System-level team settings — coordinates across all projects.
+/// All agents are equal peers; the agent tree (parent_id) provides hierarchy.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamConfig {
-    /// Name of the team leader (system-level orchestrator).
-    #[serde(default = "default_leader")]
-    pub leader: String,
     /// Cooldown in seconds before same advisor can be re-invoked.
     #[serde(default = "default_router_cooldown")]
     pub router_cooldown_secs: u64,
@@ -432,15 +429,10 @@ pub struct TeamConfig {
 impl Default for TeamConfig {
     fn default() -> Self {
         Self {
-            leader: "leader".to_string(),
             router_cooldown_secs: 60,
             max_background_cost_usd: 0.50,
         }
     }
-}
-
-fn default_leader() -> String {
-    "leader".to_string()
 }
 fn default_router_cooldown() -> u64 {
     60
@@ -560,7 +552,7 @@ pub struct OrchestratorConfig {
     /// Global kill switch for daemon-side background automation.
     #[serde(default = "default_background_automation_enabled")]
     pub background_automation_enabled: bool,
-    /// Max resolution attempts at the project level before escalating to leader.
+    /// Max resolution attempts at the project level before escalating to parent.
     #[serde(default = "default_max_resolution_attempts")]
     pub max_resolution_attempts: u32,
     /// Max task retries (handoff/failure) before auto-cancel.
@@ -1217,10 +1209,11 @@ impl AEQIConfig {
         PathBuf::from(&self.aeqi.data_dir)
     }
 
-    /// Get the team leader agent config (point-of-contact).
-    pub fn leader_agent(&self) -> Option<&PeerAgentConfig> {
-        self.agent(&self.team.leader)
-            .or_else(|| self.agents.iter().find(|a| a.role == "orchestrator"))
+    /// Get the root agent — the first orchestrator-role agent, or the first agent.
+    /// With no leader concept, hierarchy comes from the agent tree (parent_id).
+    pub fn root_agent(&self) -> Option<&PeerAgentConfig> {
+        self.agents.iter().find(|a| a.role == "orchestrator")
+            .or_else(|| self.agents.first())
     }
 
     /// Get all agents with a specific role string.
@@ -1250,32 +1243,10 @@ impl AEQIConfig {
             .collect()
     }
 
-    /// Get the system team leader agent name.
-    pub fn leader(&self) -> &str {
-        &self.team.leader
-    }
-
-    /// Validate that all team references point to defined agents.
-    /// Skips validation if no agents are defined (they may be discovered from disk later).
+    /// Validate team settings.
+    /// All agents are equal peers; no special leader to validate.
     pub fn validate_teams(&self) -> Vec<String> {
-        let mut errors = Vec::new();
-        let agent_names: std::collections::HashSet<&str> =
-            self.agents.iter().map(|a| a.name.as_str()).collect();
-
-        // Skip team validation if no agents defined yet (they'll be discovered from disk).
-        if agent_names.is_empty() {
-            return errors;
-        }
-
-        // Validate system team leader.
-        if !agent_names.contains(self.team.leader.as_str()) {
-            errors.push(format!(
-                "system team leader '{}' is not a defined agent",
-                self.team.leader
-            ));
-        }
-
-        errors
+        Vec::new()
     }
 
     /// Validate config for logical errors that serde can't catch.
@@ -1651,9 +1622,6 @@ repo = "/tmp/test"
 [aeqi]
 name = "test"
 
-[team]
-leader = "alice"
-
 [[agents]]
 name = "alice"
 prefix = "al"
@@ -1746,9 +1714,6 @@ name = "test"
 aeqi = "/home/user/aeqi"
 backend = "/home/user/backend"
 
-[team]
-leader = "alpha"
-
 [[agents]]
 name = "alpha"
 prefix = "fa"
@@ -1774,10 +1739,9 @@ repo = "/home/user/backend"
         assert_eq!(config.agents[0].name, "alpha");
         assert_eq!(config.agents[0].role, "orchestrator".to_string());
         assert_eq!(config.agents[1].role, "advisor".to_string());
-        assert_eq!(config.team.leader, "alpha");
         assert_eq!(config.repos.len(), 2);
-        let leader = config.leader_agent().unwrap();
-        assert_eq!(leader.name, "alpha");
+        let root = config.root_agent().unwrap();
+        assert_eq!(root.name, "alpha");
         let advisors = config.advisor_agents();
         assert_eq!(advisors.len(), 1);
         assert_eq!(advisors[0].name, "beta");
@@ -1829,13 +1793,10 @@ project = "aeqi"
     }
 
     #[test]
-    fn test_team_leader_field() {
+    fn test_root_agent_is_first_orchestrator() {
         let toml = r#"
 [aeqi]
 name = "test"
-
-[team]
-leader = "alpha"
 
 [[agents]]
 name = "alpha"
@@ -1843,7 +1804,7 @@ prefix = "au"
 role = "orchestrator"
 "#;
         let config = AEQIConfig::parse(toml).unwrap();
-        assert_eq!(config.leader(), "alpha");
+        assert_eq!(config.root_agent().unwrap().name, "alpha");
     }
 
     #[test]

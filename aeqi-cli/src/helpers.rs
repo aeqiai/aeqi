@@ -190,9 +190,9 @@ pub(crate) fn build_provider_for_runtime(
 
 pub(crate) fn one_shot_agent_name(config: &AEQIConfig, _project_name: Option<&str>) -> String {
     config
-        .leader_agent()
+        .root_agent()
         .map(|agent| agent.name.clone())
-        .unwrap_or_else(|| config.leader().to_string())
+        .unwrap_or_default()
 }
 
 pub(crate) fn build_provider_for_one_shot(
@@ -303,20 +303,8 @@ pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> 
 }
 
 pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
-    // Ideas live in aeqi.db (shared with agents, quests, events).
-    // Fall back to legacy ideas.db / insights.db for existing installs.
-    let aeqi_path = config.data_dir().join("aeqi.db");
-    let ideas_path = config.data_dir().join("ideas.db");
-    let legacy_path = config.data_dir().join("insights.db");
-    let db_path = if aeqi_path.exists() {
-        aeqi_path
-    } else if ideas_path.exists() {
-        ideas_path
-    } else if legacy_path.exists() {
-        legacy_path
-    } else {
-        aeqi_path
-    };
+    // Ideas live in aeqi.db — the single source of truth.
+    let db_path = config.data_dir().join("aeqi.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
@@ -466,10 +454,10 @@ pub(crate) fn load_system_prompt_from_dir(dir: &std::path::Path) -> String {
     }
 }
 
-/// Append org context (team leader info) to a system prompt string.
+/// Append org context to a system prompt string.
 pub(crate) fn augment_prompt_with_org_context(config: &AEQIConfig, prompt: &str) -> String {
-    let leader = config.leader();
-    let section = format!("# Team Context\n\nSystem leader: {leader}");
+    let name = &config.aeqi.name;
+    let section = format!("# Team Context\n\nSystem: {name}");
     if prompt.is_empty() || prompt == "You are a helpful AI agent." {
         section
     } else {
