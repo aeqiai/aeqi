@@ -106,6 +106,7 @@ pub enum IdeaCategory {
     Preference,
     Context,
     Evergreen,
+    Config,
 }
 
 #[derive(Debug, Clone)]

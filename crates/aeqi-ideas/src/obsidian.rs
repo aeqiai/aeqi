@@ -333,6 +333,7 @@ fn category_dir(cat: &IdeaCategory) -> &'static str {
         IdeaCategory::Preference => "preference",
         IdeaCategory::Context => "context",
         IdeaCategory::Evergreen => "evergreen",
+        IdeaCategory::Config => "config",
     }
 }
 

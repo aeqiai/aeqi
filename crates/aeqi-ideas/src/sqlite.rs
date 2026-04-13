@@ -1265,6 +1265,7 @@ impl IdeaStore for SqliteIdeas {
                 IdeaCategory::Preference => "preference",
                 IdeaCategory::Context => "context",
                 IdeaCategory::Evergreen => "evergreen",
+                IdeaCategory::Config => "config",
             };
             conn.execute(
                 "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",

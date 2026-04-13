@@ -19,14 +19,15 @@ pub async fn handle_list_ideas(
 
     let agent_id = request_field(request, "agent_id");
 
-    let mut query = aeqi_core::traits::IdeaQuery::new("", 1000);
-    if let Some(agent_id) = agent_id {
-        query = query.with_agent(agent_id);
-    }
-
-    match idea_store.search(&query).await {
+    // Use prefix search with empty prefix to list all ideas.
+    match idea_store.search_by_prefix("", 1000) {
         Ok(ideas) => {
-            let items: Vec<serde_json::Value> = ideas.iter().map(idea_to_json).collect();
+            let filtered: Vec<_> = if let Some(aid) = agent_id {
+                ideas.into_iter().filter(|i| i.agent_id.as_deref() == Some(aid)).collect()
+            } else {
+                ideas
+            };
+            let items: Vec<serde_json::Value> = filtered.iter().map(idea_to_json).collect();
             serde_json::json!({"ok": true, "ideas": items})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
