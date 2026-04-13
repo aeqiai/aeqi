@@ -53,8 +53,9 @@ impl EventMatcher {
             "execution.quest_failed" => "lifecycle:quest_failed",
             "quest.delegated" => "lifecycle:quest_received",
             "budget_exceeded" => "lifecycle:budget_exceeded",
-            "session_start" => "lifecycle:session_start",
-            "session_end" => "lifecycle:session_end",
+            // session_start and session_end are handled by idea_assembly for prompt
+            // construction — they should NOT create quests via the event matcher.
+            "session_start" | "session_end" => return,
             "execution.blocked" => "lifecycle:quest_blocked",
             "idea_received" => "lifecycle:idea_received",
             "child_added" => "lifecycle:child_added",
