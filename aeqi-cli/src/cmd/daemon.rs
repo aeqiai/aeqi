@@ -153,6 +153,33 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Wire Telegram if configured (single SecretStore open for all bot tokens).
             let mut advisor_bots: HashMap<String, Arc<TelegramChannel>> = HashMap::new();
+            let mut lead_telegram_bot: Option<Arc<TelegramChannel>> = None;
+            let tg_debounce_ms = config
+                .channels
+                .telegram
+                .as_ref()
+                .map(|c| c.debounce_window_ms)
+                .unwrap_or(3000);
+            let tg_default_chat: i64 = config
+                .channels
+                .telegram
+                .as_ref()
+                .and_then(|c| c.main_chat_id.or_else(|| c.allowed_chats.first().copied()))
+                .unwrap_or(0);
+            let tg_routes: Arc<HashMap<i64, TelegramChatRouteConfig>> = Arc::new(
+                config
+                    .channels
+                    .telegram
+                    .as_ref()
+                    .map(|c| {
+                        c.routes
+                            .iter()
+                            .cloned()
+                            .map(|route| (route.chat_id, route))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            );
             if let Some(ref tg_config) = config.channels.telegram {
                 let secret_store_path = config
                     .security
@@ -179,7 +206,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                             }
                         }
 
-                        // Load lead bot and start polling.
+                        // Load lead bot (polling deferred until session_manager is ready).
                         match secret_store.get(&tg_config.token_secret) {
                             Ok(token) if !token.is_empty() => {
                                 let tg = Arc::new(TelegramChannel::new(
@@ -190,60 +217,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                     "telegram".to_string(),
                                     tg.clone() as Arc<dyn aeqi_core::traits::Channel>,
                                 );
-
-                                // Start polling and route incoming messages through the shared chat engine.
-                                match Channel::start(tg.as_ref()).await {
-                                    Ok(mut rx) => {
-                                        let tg_reply = tg.clone();
-                                        match message_router.clone() {
-                                            Some(engine) => {
-                                                let advisor_bots_outer = advisor_bots.clone();
-                                                let debounce_ms = tg_config.debounce_window_ms;
-                                                let ptm = pending_telegram_messages.clone();
-                                                let eb = activity_stream.clone();
-                                                let default_chat = tg_config
-                                                    .main_chat_id
-                                                    .or_else(|| {
-                                                        tg_config.allowed_chats.first().copied()
-                                                    })
-                                                    .unwrap_or(0);
-                                                let telegram_routes = Arc::new(
-                                                    tg_config
-                                                        .routes
-                                                        .iter()
-                                                        .cloned()
-                                                        .map(|route| (route.chat_id, route))
-                                                        .collect(),
-                                                );
-                                                let tg_scheduler = shared_scheduler.clone();
-                                                tokio::spawn(async move {
-                                                    telegram_message_loop(
-                                                        &mut rx,
-                                                        engine,
-                                                        tg_reply,
-                                                        advisor_bots_outer,
-                                                        debounce_ms,
-                                                        ptm,
-                                                        eb,
-                                                        default_chat,
-                                                        telegram_routes,
-                                                        tg_scheduler,
-                                                    )
-                                                    .await;
-                                                });
-                                                info!("Telegram channel active");
-                                            }
-                                            None => {
-                                                warn!(
-                                                    "chat engine not initialized; telegram polling disabled"
-                                                );
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        warn!(error = %e, "failed to start Telegram polling")
-                                    }
-                                }
+                                lead_telegram_bot = Some(tg);
+                                info!("Telegram lead bot loaded (polling deferred until session_manager ready)");
                             }
                             _ => {
                                 info!("Telegram token not found in secret store, skipping");

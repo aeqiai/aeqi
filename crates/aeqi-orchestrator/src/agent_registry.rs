@@ -448,6 +448,18 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);",
         )?;
 
+        // Channel sessions table — maps channel_key (e.g. "telegram:agent_id:chat_id")
+        // to a persistent session_id for session-based channel routing.
+        sconn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS channel_sessions (
+                 channel_key TEXT PRIMARY KEY,
+                 session_id TEXT NOT NULL,
+                 agent_id TEXT NOT NULL,
+                 created_at TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_channel_sessions_agent ON channel_sessions(agent_id);",
+        )?;
+
         // ── Migration: move data from aeqi.db → sessions.db if needed ──
         Self::migrate_tables_to_sessions(&db_path, &sessions_path)?;
 
@@ -1726,6 +1738,64 @@ impl AgentRegistry {
     /// Expose the journal connection pool (sessions.db: sessions, activity, runs, quests).
     pub fn sessions_db(&self) -> Arc<ConnectionPool> {
         self.sessions_db.clone()
+    }
+
+    // -- Channel Sessions CRUD -----------------------------------------------
+
+    /// Look up or create a channel session for a given channel_key.
+    ///
+    /// channel_key is a stable identifier like "telegram:{agent_id}:{chat_id}".
+    /// Returns the session_id (existing or newly created).
+    pub async fn get_or_create_channel_session(
+        &self,
+        channel_key: &str,
+        agent_id: &str,
+    ) -> Result<String> {
+        let db = self.sessions_db.lock().await;
+
+        // Try to find existing.
+        let existing: Option<String> = db
+            .query_row(
+                "SELECT session_id FROM channel_sessions WHERE channel_key = ?1",
+                params![channel_key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(session_id) = existing {
+            return Ok(session_id);
+        }
+
+        // Create a new session_id.
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        db.execute(
+            "INSERT INTO channel_sessions (channel_key, session_id, agent_id, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![channel_key, session_id, agent_id, now],
+        )?;
+
+        debug!(channel_key, session_id = %session_id, "created channel session");
+        Ok(session_id)
+    }
+
+    /// List all channel sessions for a given agent.
+    /// Returns (channel_key, session_id) pairs.
+    pub async fn list_channel_sessions(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<(String, String)>> {
+        let db = self.sessions_db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT channel_key, session_id FROM channel_sessions WHERE agent_id = ?1 ORDER BY created_at",
+        )?;
+        let rows = stmt
+            .query_map(params![agent_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     // -- Company CRUD ---------------------------------------------------------
