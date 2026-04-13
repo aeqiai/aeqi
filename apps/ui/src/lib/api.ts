@@ -290,6 +290,22 @@ export const api = {
     return request<Record<string, unknown>>(`/ideas${qs ? `?${qs}` : ""}`);
   },
 
+  // Agent Channels (stored as ideas with key prefix "channel:")
+  getAgentChannels: (agentId: string) =>
+    request<Record<string, unknown>>(`/ideas?agent_id=${encodeURIComponent(agentId)}`),
+  createAgentChannel: (params: { agent_id: string; channel_type: string; config: Record<string, string> }) =>
+    request<Record<string, unknown>>("/ideas", {
+      method: "POST",
+      body: JSON.stringify({
+        key: `channel:${params.channel_type}`,
+        content: JSON.stringify(params.config),
+        category: "fact",
+        agent_id: params.agent_id,
+      }),
+    }),
+  deleteAgentChannel: (id: string) =>
+    request<Record<string, unknown>>(`/ideas/${id}`, { method: "DELETE" }),
+
   // Idea graph & profile
   getIdeaGraph: (params?: { company?: string; limit?: number }) => {
     const q = new URLSearchParams();

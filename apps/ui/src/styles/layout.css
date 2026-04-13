@@ -1407,6 +1407,146 @@
   color: var(--text-secondary);
 }
 
+/* ── Channels Tab ── */
+.agent-page-channels {
+  padding: 24px 28px;
+  max-width: 600px;
+}
+.channels-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.channels-header .agent-settings-heading {
+  margin: 0;
+}
+.channels-add-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  background: var(--text-primary);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.channels-add-btn:hover {
+  opacity: 0.85;
+}
+.channels-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.channels-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 16px 0;
+}
+.channel-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.channel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.channel-card-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+.channel-card-status {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+.channel-card-status.connected {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+}
+.channel-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.channel-disconnect-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.channel-disconnect-btn:hover {
+  color: var(--destructive, #e55);
+  border-color: var(--destructive, #e55);
+}
+.channel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.channel-form-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.channel-form-field .agent-settings-label {
+  width: 120px;
+}
+.channel-form-select,
+.channel-form-input {
+  flex: 1;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  padding: 7px 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.channel-form-select:focus,
+.channel-form-input:focus {
+  border-color: var(--text-muted);
+}
+.channel-form-error {
+  font-size: 12px;
+  color: var(--destructive, #e55);
+}
+.channel-form-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+.channel-cancel-btn {
+  font-size: 12px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.channel-cancel-btn:hover {
+  color: var(--text-primary);
+}
+
 .content-scroll {
   flex: 1;
   overflow-y: auto;

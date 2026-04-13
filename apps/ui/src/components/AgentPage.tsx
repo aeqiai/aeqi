@@ -1,13 +1,44 @@
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
+import { api } from "@/lib/api";
 import PageTabs, { useActiveTab } from "./PageTabs";
 import AgentSessionView from "./AgentSessionView";
 import RoundAvatar from "./RoundAvatar";
 
 const TABS = [
   { id: "chat", label: "Chat" },
+  { id: "channels", label: "Channels" },
   { id: "settings", label: "Settings" },
 ];
+
+interface ChannelEntry {
+  id: string;
+  key: string;
+  content: string;
+  channel_type: string;
+  config: Record<string, string>;
+}
+
+const CHANNEL_TYPES = [
+  { value: "telegram", label: "Telegram" },
+  { value: "whatsapp", label: "WhatsApp" },
+] as const;
+
+const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?: string }[]> = {
+  telegram: [
+    { label: "Bot Token", placeholder: "Paste token from @BotFather", type: "password" },
+  ],
+  whatsapp: [
+    { label: "Account SID", placeholder: "Twilio Account SID" },
+    { label: "Auth Token", placeholder: "Twilio Auth Token", type: "password" },
+    { label: "Phone Number", placeholder: "+1234567890" },
+  ],
+};
+
+function fieldKey(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, "_");
+}
 
 function timeAgo(iso?: string): string {
   if (!iso) return "—";
@@ -38,6 +69,91 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     ? agents.find((a) => a.id === agent.parent_id)
     : null;
 
+  // -- Channels state --
+  const [channels, setChannels] = useState<ChannelEntry[]>([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newChannelType, setNewChannelType] = useState<string>("telegram");
+  const [newChannelFields, setNewChannelFields] = useState<Record<string, string>>({});
+  const [channelSaving, setChannelSaving] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
+
+  const resolvedAgentId = agent?.id || agentId;
+
+  const loadChannels = useCallback(async () => {
+    setChannelsLoading(true);
+    try {
+      const data = await api.getAgentChannels(resolvedAgentId);
+      const ideas = (data.ideas || []) as Array<Record<string, unknown>>;
+      const parsed: ChannelEntry[] = ideas
+        .filter((i) => typeof i.key === "string" && (i.key as string).startsWith("channel:"))
+        .map((i) => {
+          const key = i.key as string;
+          const channelType = key.replace("channel:", "");
+          let config: Record<string, string> = {};
+          try {
+            config = JSON.parse(i.content as string);
+          } catch {
+            config = { raw: i.content as string };
+          }
+          return {
+            id: i.id as string,
+            key,
+            content: i.content as string,
+            channel_type: channelType,
+            config,
+          };
+        });
+      setChannels(parsed);
+    } catch {
+      setChannels([]);
+    } finally {
+      setChannelsLoading(false);
+    }
+  }, [resolvedAgentId]);
+
+  useEffect(() => {
+    if (activeTab === "channels") {
+      loadChannels();
+    }
+  }, [activeTab, loadChannels]);
+
+  const handleAddChannel = async () => {
+    setChannelError(null);
+    const fields = CHANNEL_FIELDS[newChannelType] || [];
+    for (const f of fields) {
+      const k = fieldKey(f.label);
+      if (!newChannelFields[k]?.trim()) {
+        setChannelError(`${f.label} is required`);
+        return;
+      }
+    }
+    setChannelSaving(true);
+    try {
+      await api.createAgentChannel({
+        agent_id: resolvedAgentId,
+        channel_type: newChannelType,
+        config: newChannelFields,
+      });
+      setShowAddForm(false);
+      setNewChannelFields({});
+      await loadChannels();
+    } catch (e) {
+      setChannelError(e instanceof Error ? e.message : "Failed to connect channel");
+    } finally {
+      setChannelSaving(false);
+    }
+  };
+
+  const handleDeleteChannel = async (id: string) => {
+    try {
+      await api.deleteAgentChannel(id);
+      await loadChannels();
+    } catch {
+      // Silently fail — the channel list will refresh on next load.
+    }
+  };
+
   return (
     <>
       {/* Breadcrumb header */}
@@ -65,6 +181,119 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       {activeTab === "chat" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
+        </div>
+      )}
+
+      {activeTab === "channels" && (
+        <div className="agent-page-channels">
+          <div className="agent-settings-section">
+            <div className="channels-header">
+              <h3 className="agent-settings-heading">Connected Channels</h3>
+              {!showAddForm && (
+                <button
+                  className="channels-add-btn"
+                  onClick={() => { setShowAddForm(true); setChannelError(null); }}
+                >
+                  Add Channel
+                </button>
+              )}
+            </div>
+
+            {channelsLoading && <div className="channels-empty">Loading...</div>}
+
+            {!channelsLoading && channels.length === 0 && !showAddForm && (
+              <div className="channels-empty">
+                No channels connected. Add a Telegram bot or WhatsApp number to enable messaging.
+              </div>
+            )}
+
+            {channels.map((ch) => (
+              <div key={ch.id} className="channel-card">
+                <div className="channel-card-header">
+                  <span className="channel-card-type">{ch.channel_type}</span>
+                  <span className="channel-card-status connected">Connected</span>
+                </div>
+                <div className="channel-card-details">
+                  {Object.entries(ch.config).map(([k, v]) => (
+                    <div key={k} className="agent-settings-field">
+                      <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
+                      <span className="agent-settings-value agent-settings-mono">
+                        {k.includes("token") || k.includes("auth") || k.includes("sid")
+                          ? `${String(v).slice(0, 8)}...`
+                          : v}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="channel-disconnect-btn"
+                  onClick={() => handleDeleteChannel(ch.id)}
+                >
+                  Disconnect
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {showAddForm && (
+            <div className="agent-settings-section">
+              <h3 className="agent-settings-heading">Add Channel</h3>
+              <div className="channel-form">
+                <div className="channel-form-field">
+                  <label className="agent-settings-label">Type</label>
+                  <select
+                    className="channel-form-select"
+                    value={newChannelType}
+                    onChange={(e) => {
+                      setNewChannelType(e.target.value);
+                      setNewChannelFields({});
+                      setChannelError(null);
+                    }}
+                  >
+                    {CHANNEL_TYPES.map((ct) => (
+                      <option key={ct.value} value={ct.value}>{ct.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
+                  const k = fieldKey(f.label);
+                  return (
+                    <div key={k} className="channel-form-field">
+                      <label className="agent-settings-label">{f.label}</label>
+                      <input
+                        className="channel-form-input"
+                        type={f.type || "text"}
+                        placeholder={f.placeholder}
+                        value={newChannelFields[k] || ""}
+                        onChange={(e) =>
+                          setNewChannelFields((prev) => ({ ...prev, [k]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  );
+                })}
+
+                {channelError && <div className="channel-form-error">{channelError}</div>}
+
+                <div className="channel-form-actions">
+                  <button
+                    className="channels-add-btn"
+                    onClick={handleAddChannel}
+                    disabled={channelSaving}
+                  >
+                    {channelSaving ? "Connecting..." : "Connect"}
+                  </button>
+                  <button
+                    className="channel-cancel-btn"
+                    onClick={() => { setShowAddForm(false); setChannelError(null); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
