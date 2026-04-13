@@ -11,10 +11,10 @@ interface PromptEntry {
   tools?: { allow?: string[]; deny?: string[] };
 }
 
-interface PromptChainNode {
+interface IdeaChainNode {
   agent_name: string;
   agent_id: string;
-  prompts: PromptEntry[];
+  ideas: PromptEntry[];
 }
 
 function positionBadge(pos: string) {
@@ -41,13 +41,13 @@ function scopeBadge(scope: string) {
   );
 }
 
-// --- Prompts Section ---
+// --- Ideas Section (agent-attached ideas injected into context) ---
 
 function PromptsSection({ agentName }: { agentName: string }) {
   const agents = useDaemonStore((s) => s.agents);
   const [expanded, setExpanded] = useState(false);
 
-  const chain: PromptChainNode[] = useMemo(() => {
+  const chain: IdeaChainNode[] = useMemo(() => {
     const byName = new Map<string, Agent>();
     const byId = new Map<string, Agent>();
     for (const a of agents) {
@@ -69,12 +69,12 @@ function PromptsSection({ agentName }: { agentName: string }) {
     return ancestors.map((a) => ({
       agent_name: a.name,
       agent_id: a.id,
-      prompts: (a as any).prompts || [],
+      ideas: (a as any).ideas || (a as any).prompts || [],
     }));
   }, [agents, agentName]);
 
-  const totalPrompts = chain.reduce(
-    (sum, node) => sum + node.prompts.length,
+  const totalIdeas = chain.reduce(
+    (sum, node) => sum + node.ideas.length,
     0,
   );
 
@@ -85,8 +85,8 @@ function PromptsSection({ agentName }: { agentName: string }) {
         onClick={() => setExpanded((p) => !p)}
       >
         <span>
-          {chain.length} agent{chain.length !== 1 ? "s" : ""}, {totalPrompts}{" "}
-          prompt{totalPrompts !== 1 ? "s" : ""}
+          {chain.length} agent{chain.length !== 1 ? "s" : ""}, {totalIdeas}{" "}
+          idea{totalIdeas !== 1 ? "s" : ""}
         </span>
         <svg
           width="12"
@@ -108,7 +108,7 @@ function PromptsSection({ agentName }: { agentName: string }) {
       {expanded && (
         <div className="ctx-prompt-chain">
           {chain.length === 0 ? (
-            <div className="ctx-empty-state">No prompts configured</div>
+            <div className="ctx-empty-state">No ideas configured</div>
           ) : (
             chain.map((node) => (
               <div key={node.agent_id} className="ctx-prompt-node">
@@ -118,10 +118,10 @@ function PromptsSection({ agentName }: { agentName: string }) {
                     {node.agent_name}
                   </span>
                 </div>
-                {node.prompts.length === 0 ? (
-                  <div className="ctx-prompt-empty">no prompts</div>
+                {node.ideas.length === 0 ? (
+                  <div className="ctx-prompt-empty">no ideas</div>
                 ) : (
-                  node.prompts.map((entry, i) => (
+                  node.ideas.map((entry, i) => (
                     <div key={i} className="ctx-prompt-entry">
                       <div className="ctx-prompt-meta">
                         {positionBadge(entry.position)}
@@ -156,8 +156,8 @@ function IdeasSection({ agentName }: { agentName: string }) {
   const fetchIdeas = useCallback(
     (query: string) => {
       api
-        .getMemories({ query: query || agentName, limit: 20 })
-        .then((d: any) => setIdeas(d.memories || d.items || []))
+        .getIdeas({ query: query || agentName, limit: 20 })
+        .then((d: any) => setIdeas(d.ideas || d.items || []))
         .catch(() => setIdeas([]));
     },
     [agentName],

@@ -250,11 +250,23 @@ pub(crate) async fn cmd_doctor(
                 }
             }
 
-            // Check insights DB.
-            let mem_path = config.data_dir().join("insights.db");
+            // Check ideas DB (with legacy fallback).
+            let ideas_path = config.data_dir().join("ideas.db");
+            let legacy_path = config.data_dir().join("insights.db");
+            let mem_path = if ideas_path.exists() {
+                ideas_path
+            } else {
+                legacy_path.clone()
+            };
+            let label = if mem_path == legacy_path && legacy_path.exists() {
+                "Ideas DB (legacy insights.db)"
+            } else {
+                "Ideas DB"
+            };
             println!(
-                "[{}] Insights DB: {}",
+                "[{}] {}: {}",
                 if mem_path.exists() { "OK" } else { "INFO" },
+                label,
                 mem_path.display()
             );
 

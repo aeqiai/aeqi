@@ -18,8 +18,7 @@ use aeqi_providers::{AnthropicProvider, OllamaProvider, OpenRouterEmbedder, Open
 use aeqi_quests::QuestBoard;
 use aeqi_tools::{
     ExecutePlanTool, FileEditTool, FileReadTool, FileWriteTool, GitWorktreeTool, GlobTool,
-    GrepTool, ListDirTool, PorkbunTool, QuestCloseTool, QuestCreateTool, QuestDepTool,
-    QuestReadyTool, QuestShowTool, QuestUpdateTool, SecretsTool, ShellTool,
+    GrepTool, ListDirTool, PorkbunTool, SecretsTool, ShellTool,
 };
 
 use std::path::{Path, PathBuf};
@@ -250,11 +249,9 @@ pub(crate) fn build_tools(workdir: &Path) -> Vec<Arc<dyn Tool>> {
     tools
 }
 
-/// Build the full tool set for a project: basic tools + quests + git worktree.
+/// Build the full tool set for a project: basic tools + git worktree.
 pub(crate) fn build_project_tools(
     workdir: &Path,
-    quests_dir: &Path,
-    prefix: &str,
     worktree_root: Option<&PathBuf>,
 ) -> Vec<Arc<dyn Tool>> {
     let mut tools: Vec<Arc<dyn Tool>> = vec![
@@ -266,26 +263,6 @@ pub(crate) fn build_project_tools(
         Arc::new(GrepTool::new(workdir.to_path_buf())),
         Arc::new(GlobTool::new(workdir.to_path_buf())),
     ];
-
-    // Add quest tools (each gets its own store instance).
-    if let Ok(t) = QuestCreateTool::new(quests_dir.to_path_buf(), prefix.to_string()) {
-        tools.push(Arc::new(t));
-    }
-    if let Ok(t) = QuestReadyTool::new(quests_dir.to_path_buf()) {
-        tools.push(Arc::new(t));
-    }
-    if let Ok(t) = QuestUpdateTool::new(quests_dir.to_path_buf()) {
-        tools.push(Arc::new(t));
-    }
-    if let Ok(t) = QuestCloseTool::new(quests_dir.to_path_buf()) {
-        tools.push(Arc::new(t));
-    }
-    if let Ok(t) = QuestShowTool::new(quests_dir.to_path_buf()) {
-        tools.push(Arc::new(t));
-    }
-    if let Ok(t) = QuestDepTool::new(quests_dir.to_path_buf()) {
-        tools.push(Arc::new(t));
-    }
 
     // Add git worktree tool.
     let wt_root = worktree_root
@@ -326,11 +303,20 @@ pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> 
 }
 
 pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
-    let db_path = config.data_dir().join("insights.db");
+    // Prefer `ideas.db`; fall back to legacy `insights.db` for existing installs.
+    let ideas_path = config.data_dir().join("ideas.db");
+    let legacy_path = config.data_dir().join("insights.db");
+    let db_path = if ideas_path.exists() {
+        ideas_path
+    } else if legacy_path.exists() {
+        legacy_path
+    } else {
+        ideas_path
+    };
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
-    let halflife = config.memory.temporal_decay_halflife_days;
+    let halflife = config.ideas.temporal_decay_halflife_days;
     let mem = SqliteIdeas::open(&db_path, halflife)?;
 
     let api_key = get_api_key(config).ok();
@@ -342,22 +328,22 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
 
     let has_key = api_key.is_some();
     if let (Some(key), Some(model)) = (api_key, embedding_model) {
-        tracing::info!(model = %model, "memory embedder initialized");
+        tracing::info!(model = %model, "idea embedder initialized");
         let embedder = Arc::new(OpenRouterEmbedder::new(
             key,
             model,
-            config.memory.embedding_dimensions,
+            config.ideas.embedding_dimensions,
         ));
         mem.with_embedder(
             embedder,
-            config.memory.embedding_dimensions,
-            config.memory.vector_weight,
-            config.memory.keyword_weight,
-            config.memory.mmr_lambda,
+            config.ideas.embedding_dimensions,
+            config.ideas.vector_weight,
+            config.ideas.keyword_weight,
+            config.ideas.mmr_lambda,
         )
     } else {
         if !has_key {
-            tracing::warn!("memory initialized WITHOUT embeddings (no API key)");
+            tracing::warn!("idea store initialized WITHOUT embeddings (no API key)");
         } else {
             tracing::warn!("memory initialized WITHOUT embeddings (no embedding model configured)");
         }

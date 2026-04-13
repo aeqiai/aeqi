@@ -58,7 +58,7 @@ pub struct AgentWorker {
     pub assembled_prompt: Option<AssembledPrompt>,
     pub activity_log: Arc<ActivityLog>,
     /// Snapshot of the assigned task, populated at assign() time.
-    pub task_snapshot: Option<aeqi_quests::Quest>,
+    pub quest_snapshot: Option<aeqi_quests::Quest>,
     /// Called once at the end of execute() with the final status and optional outcome record.
     #[allow(clippy::type_complexity)]
     pub on_complete: Option<Box<dyn FnOnce(QuestStatus, Option<QuestOutcomeRecord>) + Send + Sync>>,
@@ -115,7 +115,7 @@ impl AgentWorker {
             system_prompt,
             assembled_prompt: None,
             activity_log,
-            task_snapshot: None,
+            quest_snapshot: None,
             on_complete: None,
             idea_store: None,
             reflect_provider: None,
@@ -156,7 +156,7 @@ impl AgentWorker {
             system_prompt,
             assembled_prompt: None,
             activity_log,
-            task_snapshot: None,
+            quest_snapshot: None,
             on_complete: None,
             idea_store: None,
             reflect_provider: None,
@@ -289,7 +289,7 @@ impl AgentWorker {
     /// Assign a quest to this worker (set hook and snapshot the full quest).
     pub fn assign(&mut self, quest: &Quest) {
         self.hook = Some(Hook::new(quest.id.clone(), quest.name.clone()));
-        self.task_snapshot = Some(quest.clone());
+        self.quest_snapshot = Some(quest.clone());
         self.state = WorkerState::Hooked;
     }
 
@@ -402,7 +402,7 @@ impl AgentWorker {
                 session.finish(&runtime_outcome);
                 // Fire on_complete for this early exit path.
                 if let Some(cb) = self.on_complete.take() {
-                    let outcome_record = Self::build_task_outcome_record(&runtime_outcome);
+                    let outcome_record = Self::build_quest_outcome_record(&runtime_outcome);
                     cb(QuestStatus::Done, Some(outcome_record));
                 }
                 return Ok((
@@ -427,7 +427,7 @@ impl AgentWorker {
         runtime_session.mark_phase(RuntimePhase::Prime, "Loaded task hook and worker identity");
 
         // Extract parent_session_id from task labels (set by dispatch consumption).
-        let parent_session_id = self.task_snapshot.as_ref().and_then(|t| {
+        let parent_session_id = self.quest_snapshot.as_ref().and_then(|t| {
             t.labels
                 .iter()
                 .find_map(|l| l.strip_prefix("parent_session_id:"))
@@ -452,7 +452,7 @@ impl AgentWorker {
 
         // Build WorkerContext for middleware chain.
         let task_description_for_ctx = self
-            .task_snapshot
+            .quest_snapshot
             .as_ref()
             .map(|t| t.description.clone())
             .unwrap_or_else(|| hook.subject.clone());
@@ -515,7 +515,7 @@ impl AgentWorker {
                     // Fire on_complete for this early exit path.
                     if let Some(cb) = self.on_complete.take() {
                         let outcome_record =
-                            Self::build_task_outcome_record(&runtime_execution.outcome);
+                            Self::build_quest_outcome_record(&runtime_execution.outcome);
                         cb(QuestStatus::Pending, Some(outcome_record));
                     }
                     return Ok((outcome, runtime_execution, 0.0, 0));
@@ -549,9 +549,9 @@ impl AgentWorker {
         // The scheduler already marks in_progress before spawning — no need to do it here.
 
         // Use the task snapshot populated at assign() time.
-        let task_snapshot = self.task_snapshot.clone();
+        let quest_snapshot = self.quest_snapshot.clone();
 
-        let mut task_context = match task_snapshot.as_ref() {
+        let mut task_context = match quest_snapshot.as_ref() {
             Some(b) => {
                 let mut ctx = format!("## Task: {}\n\n", b.name);
                 if !b.description.is_empty() {
@@ -582,7 +582,7 @@ impl AgentWorker {
             None => format!("Task: {}", hook.subject),
         };
         // Layer 3: Quest tree context — parent, siblings, and children.
-        if let Some(ref task) = task_snapshot
+        if let Some(ref task) = quest_snapshot
             && let Some(ref registry) = self.agent_registry
         {
             let tree_ctx = build_quest_tree_context(task, registry).await;
@@ -591,7 +591,7 @@ impl AgentWorker {
             }
         }
 
-        if let Some(task) = task_snapshot.as_ref() {
+        if let Some(task) = quest_snapshot.as_ref() {
             let resume_brief = self.build_resume_brief(task).await;
             if !resume_brief.is_empty() {
                 task_context.push_str(&resume_brief);
@@ -939,7 +939,7 @@ impl AgentWorker {
                 .await;
                 // Check if this handoff would exceed max retries.
                 let current_retry = self
-                    .task_snapshot
+                    .quest_snapshot
                     .as_ref()
                     .map(|t| t.retry_count)
                     .unwrap_or(0);
@@ -983,7 +983,7 @@ impl AgentWorker {
                     };
                     if !fa_model.is_empty() {
                         let (task_desc, _task_labels) = self
-                            .task_snapshot
+                            .quest_snapshot
                             .as_ref()
                             .map(|t| (t.description.clone(), t.labels.clone()))
                             .unwrap_or_default();
@@ -1045,7 +1045,7 @@ impl AgentWorker {
 
                 // Determine auto-cancel from task snapshot retry_count.
                 let current_retry = self
-                    .task_snapshot
+                    .quest_snapshot
                     .as_ref()
                     .map(|t| t.retry_count)
                     .unwrap_or(0);
@@ -1161,7 +1161,7 @@ impl AgentWorker {
         // Fire the on_complete callback with the final status and outcome record.
         if let Some(cb) = self.on_complete.take() {
             let final_record = if final_task_status == QuestStatus::Done {
-                Some(Self::build_task_outcome_record(&runtime_execution.outcome))
+                Some(Self::build_quest_outcome_record(&runtime_execution.outcome))
             } else {
                 None
             };
@@ -1194,7 +1194,7 @@ impl AgentWorker {
         match serde_json::to_value(runtime) {
             Ok(value) => {
                 self.persist_runtime_value(quest_id, value).await;
-                self.persist_task_outcome(quest_id, &runtime.outcome).await;
+                self.persist_quest_outcome(quest_id, &runtime.outcome).await;
             }
             Err(error) => warn!(
                 worker = %self.name,
@@ -1216,26 +1216,26 @@ impl AgentWorker {
     }
 
     /// Build a QuestOutcomeRecord from a RuntimeOutcome (used by on_complete callback).
-    fn build_task_outcome_record(outcome: &RuntimeOutcome) -> QuestOutcomeRecord {
+    fn build_quest_outcome_record(outcome: &RuntimeOutcome) -> QuestOutcomeRecord {
         QuestOutcomeRecord {
-            kind: Self::task_outcome_kind(outcome),
+            kind: Self::quest_outcome_kind(outcome),
             summary: outcome.summary.clone(),
             reason: outcome.reason.clone(),
             next_action: outcome.next_action.clone(),
         }
     }
 
-    async fn persist_task_outcome(&self, quest_id: &str, outcome: &RuntimeOutcome) {
+    async fn persist_quest_outcome(&self, quest_id: &str, outcome: &RuntimeOutcome) {
         // The outcome record now flows through the on_complete callback.
         debug!(
             worker = %self.name,
             task = %quest_id,
-            kind = ?Self::task_outcome_kind(outcome),
+            kind = ?Self::quest_outcome_kind(outcome),
             "quest outcome persist skipped (delivered via on_complete callback)"
         );
     }
 
-    fn task_outcome_kind(outcome: &RuntimeOutcome) -> QuestOutcomeKind {
+    fn quest_outcome_kind(outcome: &RuntimeOutcome) -> QuestOutcomeKind {
         match outcome.status {
             crate::runtime::RuntimeOutcomeStatus::Done => QuestOutcomeKind::Done,
             crate::runtime::RuntimeOutcomeStatus::Blocked => QuestOutcomeKind::Blocked,
@@ -1458,7 +1458,7 @@ impl AgentWorker {
     }
 
     async fn store_routed_ideas_static(worker_name: &str, text: &str, mem: &Arc<dyn IdeaStore>) {
-        use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarMemory};
+        use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarIdea};
 
         let dedup = DedupPipeline::default();
 
@@ -1511,9 +1511,9 @@ impl AgentWorker {
             let should_store_action = async {
                 let query = aeqi_core::traits::IdeaQuery::new(key, 5);
                 let existing = mem.search(&query).await.unwrap_or_default();
-                let similar: Vec<SimilarMemory> = existing
+                let similar: Vec<SimilarIdea> = existing
                     .iter()
-                    .map(|e| SimilarMemory {
+                    .map(|e| SimilarIdea {
                         id: e.id.clone(),
                         key: e.key.clone(),
                         content: e.content.clone(),

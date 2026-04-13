@@ -81,7 +81,7 @@ pub async fn handle_quests(
                         "created_at": quest.created_at.to_rfc3339(),
                         "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
                         "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
-                        "outcome": quest.task_outcome(),
+                        "outcome": quest.quest_outcome(),
                         "runtime": quest.runtime(),
                     })
                 })
@@ -275,7 +275,7 @@ pub async fn handle_get_quest(
                 "created_at": quest.created_at.to_rfc3339(),
                 "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
                 "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
-                "outcome": quest.task_outcome(),
+                "outcome": quest.quest_outcome(),
                 "runtime": quest.runtime(),
                 "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
                 "acceptance_criteria": quest.acceptance_criteria,
@@ -423,7 +423,7 @@ pub async fn handle_close_quest(
         .update_task(quest_id, |quest| {
             quest.status = aeqi_quests::QuestStatus::Done;
             quest.closed_at = Some(chrono::Utc::now());
-            quest.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+            quest.set_quest_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                 aeqi_quests::QuestOutcomeKind::Done,
                 reason,
             ));
@@ -435,7 +435,7 @@ pub async fn handle_close_quest(
             "quest": {
                 "id": quest.id.0,
                 "status": quest.status.to_string(),
-                "outcome": quest.task_outcome(),
+                "outcome": quest.quest_outcome(),
                 "runtime": quest.runtime(),
             }
         }),

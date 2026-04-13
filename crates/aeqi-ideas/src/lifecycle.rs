@@ -1,6 +1,6 @@
-//! Memory lifecycle management — pruning, compaction, and auditing.
+//! Idea lifecycle management — pruning, compaction, and auditing.
 //!
-//! Memories are not permanent. Cold, stale entries are archived after 90 days
+//! Ideas are not permanent. Cold, stale entries are archived after 90 days
 //! of low access; similar low-value entries are compacted weekly into
 //! consolidated records.  Every lifecycle action is audit-logged for
 //! reconstructibility.
@@ -15,16 +15,16 @@ use tracing::debug;
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
-/// Configuration for memory lifecycle operations.
+/// Configuration for idea lifecycle operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LifecycleConfig {
-    /// Memories older than this (in days) with low hotness are eligible for pruning.
+    /// Ideas older than this (in days) with low hotness are eligible for pruning.
     pub prune_threshold_days: u32,
-    /// Hotness below this value makes a memory eligible for pruning.
+    /// Hotness below this value makes an idea eligible for pruning.
     pub prune_hotness_threshold: f32,
     /// Interval in days between compaction runs.
     pub compact_interval_days: u32,
-    /// Whether to archive pruned memories (true) or hard-delete them.
+    /// Whether to archive pruned ideas (true) or hard-delete them.
     pub archive_enabled: bool,
 }
 
@@ -39,38 +39,41 @@ impl Default for LifecycleConfig {
     }
 }
 
-// ── Memory Age Snapshot ────────────────────────────────────────────────────
+// ── Idea Age Snapshot ─────────────────────────────────────────────────────
 
-/// A snapshot of a memory's age and access metadata, used by the lifecycle
+/// A snapshot of an idea's age and access metadata, used by the lifecycle
 /// manager to decide on pruning and compaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryAge {
-    /// Memory ID.
+pub struct IdeaAge {
+    /// Idea ID.
     pub id: String,
     /// Current hotness score (from [`HotnessScorer`]).
     pub hotness: f32,
     /// Age in days since creation.
     pub age_days: u32,
-    /// Total number of times this memory has been accessed.
+    /// Total number of times this idea has been accessed.
     pub access_count: u32,
 }
+
+/// Backward-compat alias.
+pub type MemoryAge = IdeaAge;
 
 // ── Prune Result ───────────────────────────────────────────────────────────
 
 /// Result of a prune operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PruneResult {
-    /// IDs of memories that were archived (or would be archived).
+    /// IDs of ideas that were archived (or would be archived).
     pub archived: Vec<String>,
-    /// Number of memories that were kept.
+    /// Number of ideas that were kept.
     pub kept: usize,
-    /// Total number of memories scanned.
+    /// Total number of ideas scanned.
     pub total_scanned: usize,
 }
 
 // ── Lifecycle Manager ──────────────────────────────────────────────────────
 
-/// Manages memory lifecycle: identifies prunable and compactable memories.
+/// Manages idea lifecycle: identifies prunable and compactable ideas.
 pub struct LifecycleManager {
     /// Configuration for thresholds and intervals.
     pub config: LifecycleConfig,
@@ -89,12 +92,12 @@ impl LifecycleManager {
         Self { config }
     }
 
-    /// Identify memories eligible for pruning.
+    /// Identify ideas eligible for pruning.
     ///
-    /// A memory is prunable when:
+    /// An idea is prunable when:
     /// - hotness < `prune_hotness_threshold` AND
     /// - age > `prune_threshold_days`
-    pub fn identify_prunable(&self, memories: &[MemoryAge]) -> Vec<String> {
+    pub fn identify_prunable(&self, memories: &[IdeaAge]) -> Vec<String> {
         memories
             .iter()
             .filter(|m| {
@@ -105,19 +108,19 @@ impl LifecycleManager {
             .collect()
     }
 
-    /// Identify groups of memories that can be compacted (merged).
+    /// Identify groups of ideas that can be compacted (merged).
     ///
-    /// Compaction heuristic: low-hotness memories (hotness < 0.1) that share
+    /// Compaction heuristic: low-hotness ideas (hotness < 0.1) that share
     /// more than 50% of their significant words (from their IDs) are grouped
     /// together.  Returns groups of 2+ for merging.
-    pub fn identify_compactable(&self, memories: &[MemoryAge]) -> Vec<Vec<String>> {
-        let low_hotness: Vec<&MemoryAge> = memories.iter().filter(|m| m.hotness < 0.1).collect();
+    pub fn identify_compactable(&self, memories: &[IdeaAge]) -> Vec<Vec<String>> {
+        let low_hotness: Vec<&IdeaAge> = memories.iter().filter(|m| m.hotness < 0.1).collect();
 
         if low_hotness.len() < 2 {
             return Vec::new();
         }
 
-        // Tokenize each memory ID into words.
+        // Tokenize each idea ID into words.
         let word_sets: Vec<HashSet<String>> =
             low_hotness.iter().map(|m| tokenize_id(&m.id)).collect();
 
@@ -160,7 +163,7 @@ impl LifecycleManager {
     }
 
     /// Run the prune pipeline and return the result.
-    pub fn prune(&self, memories: &[MemoryAge]) -> PruneResult {
+    pub fn prune(&self, memories: &[IdeaAge]) -> PruneResult {
         let archived = self.identify_prunable(memories);
         let kept = memories.len() - archived.len();
         PruneResult {
@@ -185,43 +188,44 @@ impl LifecycleManager {
     }
 }
 
-// ── Audit Types ────────────────────────────────────────────────────────────
+// ── Lifecycle Types ────────────────────────────────────────────────────────
 
-/// Action taken on a memory during lifecycle management.
+/// Action taken on an idea during lifecycle management.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LifecycleAction {
-    /// Memory was archived (soft-delete, still queryable).
+    /// Idea was archived (soft-delete, still queryable).
     Archived,
-    /// Memory was compacted (merged into another).
+    /// Idea was compacted (merged into another).
     Compacted,
-    /// Memory was permanently deleted.
+    /// Idea was permanently deleted.
     Deleted,
 }
 
-/// An audit entry recording a lifecycle action on a memory.
+/// A log entry recording a lifecycle action on an idea.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditEntry {
+pub struct LifecycleEntry {
     /// The action taken.
     pub action: LifecycleAction,
-    /// The memory ID affected.
-    pub memory_id: String,
+    /// The idea ID affected.
+    #[serde(alias = "memory_id")]
+    pub idea_id: String,
     /// When the action occurred.
     pub timestamp: DateTime<Utc>,
     /// Human-readable reason for the action.
     pub reason: String,
 }
 
-impl AuditEntry {
-    /// Create a new audit entry timestamped to now.
+impl LifecycleEntry {
+    /// Create a new lifecycle entry timestamped to now.
     pub fn new(
         action: LifecycleAction,
-        memory_id: impl Into<String>,
+        idea_id: impl Into<String>,
         reason: impl Into<String>,
     ) -> Self {
         Self {
             action,
-            memory_id: memory_id.into(),
+            idea_id: idea_id.into(),
             timestamp: Utc::now(),
             reason: reason.into(),
         }
@@ -230,7 +234,7 @@ impl AuditEntry {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/// Tokenize a memory ID into significant words (lowercase, length >= 3).
+/// Tokenize an idea ID into significant words (lowercase, length >= 3).
 fn tokenize_id(id: &str) -> HashSet<String> {
     id.split(|c: char| !c.is_alphanumeric())
         .map(|w| w.to_lowercase())
@@ -257,8 +261,8 @@ mod tests {
     use super::*;
     use chrono::Duration;
 
-    fn mem(id: &str, hotness: f32, age_days: u32, access_count: u32) -> MemoryAge {
-        MemoryAge {
+    fn mem(id: &str, hotness: f32, age_days: u32, access_count: u32) -> IdeaAge {
+        IdeaAge {
             id: id.to_string(),
             hotness,
             age_days,
@@ -350,7 +354,7 @@ mod tests {
         ];
 
         let groups = mgr.identify_compactable(&memories);
-        assert!(groups.is_empty(), "hot memories should not be compacted");
+        assert!(groups.is_empty(), "hot ideas should not be compacted");
     }
 
     #[test]
@@ -380,14 +384,14 @@ mod tests {
     }
 
     #[test]
-    fn audit_entry_creation() {
-        let entry = AuditEntry::new(
+    fn lifecycle_entry_creation() {
+        let entry = LifecycleEntry::new(
             LifecycleAction::Archived,
             "mem-42",
             "hotness 0.02 < 0.05 and age 120 > 90 days",
         );
         assert_eq!(entry.action, LifecycleAction::Archived);
-        assert_eq!(entry.memory_id, "mem-42");
+        assert_eq!(entry.idea_id, "mem-42");
         assert!(entry.reason.contains("hotness"));
         let age = Utc::now() - entry.timestamp;
         assert!(age.num_seconds() < 5);

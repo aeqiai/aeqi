@@ -15,8 +15,10 @@ pub fn routes() -> Router<AppState> {
         .route("/status", get(status))
         .route("/dashboard", get(dashboard))
         .route("/cost", get(cost))
-        .route("/audit", get(audit))
-        .route("/worker/events", get(worker_events))
+        .route("/activity", get(activity))
+        .route("/activity/events", get(activity_events))
+        // Keep old path for backward compat with existing clients.
+        .route("/worker/events", get(activity_events))
         .route("/notes", get(notes).post(post_note_entry))
         .route("/expertise", get(expertise))
         .route("/skills", get(skills))
@@ -36,10 +38,10 @@ async fn dashboard(State(state): State<AppState>, scope: Scope) -> Response {
         Some(s) => serde_json::json!({"allowed_companies": s.companies}),
         None => serde_json::json!({}),
     };
-    let mut audit_params = serde_json::json!({"last": 10});
+    let mut activity_params = serde_json::json!({"last": 10});
     if let Some(obj) = scope_params.as_object() {
         for (k, v) in obj {
-            audit_params[k] = v.clone();
+            activity_params[k] = v.clone();
         }
     }
     let status = state
@@ -47,13 +49,13 @@ async fn dashboard(State(state): State<AppState>, scope: Scope) -> Response {
         .cmd_with("status", scope_params.clone())
         .await
         .ok();
-    let audit = state.ipc.cmd_with("audit", audit_params).await.ok();
+    let activity = state.ipc.cmd_with("activity", activity_params).await.ok();
     let cost = state.ipc.cmd_with("cost", scope_params).await.ok();
 
     Json(serde_json::json!({
         "ok": true,
         "status": status,
-        "recent_audit": audit.as_ref().and_then(|a| a.get("events")),
+        "recent_activity": activity.as_ref().and_then(|a| a.get("events")),
         "cost": cost,
     }))
     .into_response()
@@ -64,15 +66,15 @@ async fn cost(State(state): State<AppState>, scope: Scope) -> Response {
 }
 
 #[derive(Deserialize, Default)]
-struct AuditQuery {
+struct ActivityQuery {
     project: Option<String>,
     last: Option<u32>,
 }
 
-async fn audit(
+async fn activity(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<AuditQuery>,
+    Query(q): Query<ActivityQuery>,
 ) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
@@ -81,18 +83,18 @@ async fn audit(
     if let Some(last) = q.last {
         params["last"] = serde_json::json!(last);
     }
-    ipc_proxy(state, scope.as_ref(), "audit", params).await
+    ipc_proxy(state, scope.as_ref(), "activity", params).await
 }
 
 #[derive(Deserialize, Default)]
-struct WorkerEventsQuery {
+struct ActivityEventsQuery {
     cursor: Option<u64>,
 }
 
-async fn worker_events(
+async fn activity_events(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<WorkerEventsQuery>,
+    Query(q): Query<ActivityEventsQuery>,
 ) -> Response {
     let mut params = serde_json::json!({});
     if let Some(cursor) = q.cursor {

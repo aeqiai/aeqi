@@ -27,7 +27,7 @@ fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
     if let Some(ref agent_id) = quest.agent_id {
         out.push_str(&format!("Agent: {}\n", agent_id));
     }
-    if let Some(outcome) = quest.task_outcome() {
+    if let Some(outcome) = quest.quest_outcome() {
         out.push_str(&format!("Outcome: {}\n", outcome.kind));
         out.push_str(&format!("Outcome summary: {}\n", outcome.summary));
         if let Some(reason) = outcome.reason {
@@ -909,7 +909,7 @@ impl QuestsTool {
             .agent_registry
             .update_task(quest_id, |q| {
                 q.status = aeqi_quests::QuestStatus::Done;
-                q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                q.set_quest_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                     aeqi_quests::QuestOutcomeKind::Done,
                     &result_owned,
                 ));
@@ -940,7 +940,7 @@ impl QuestsTool {
             .agent_registry
             .update_task(quest_id, |q| {
                 q.status = aeqi_quests::QuestStatus::Cancelled;
-                q.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                q.set_quest_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                     aeqi_quests::QuestOutcomeKind::Cancelled,
                     &reason_owned,
                 ));
@@ -1082,6 +1082,7 @@ impl Tool for EventsTool {
                         pattern: pattern.clone(),
                         scope,
                         idea_id: None,
+                        idea_ids: Vec::new(),
                         content,
                         cooldown_secs,
                         max_budget_usd,
@@ -1687,9 +1688,11 @@ pub fn build_orchestration_tools(
         Arc::new(code_tool),
     ];
 
-    // 5. Ideas tool (store/search/delete) — only if memory backend available
+    // 5. Ideas tool (store/search/delete)
     if let Some(mem) = memory {
         tools.push(Arc::new(IdeasTool::new(mem, activity_log)));
+    } else {
+        tracing::warn!("ideas tool unavailable: no memory backend configured");
     }
 
     // 6. Web tool (fetch/search)

@@ -12,16 +12,16 @@
 //!       + 0.10 × graph_boost
 //! ```
 //!
-//! Post-scoring filters remove superseded memories ([`ContradictionFilter`])
+//! Post-scoring filters remove superseded ideas ([`ContradictionFilter`])
 //! and support time-travel queries ([`TemporalFilter`]).
 //!
 //! These types are pure computation — they don't touch SQLite or the network.
-//! Integration with the actual memory stores happens upstream.
+//! Integration with the actual idea stores happens upstream.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::graph::{MemoryEdge, MemoryRelation};
+use crate::graph::{IdeaEdge, IdeaRelation};
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +176,7 @@ impl ContradictionFilter {
     ///
     /// For each `Supersedes` edge `(source → target)`, if `source` is in the
     /// result set, `target` is removed.
-    pub fn filter(results: &mut Vec<RetrievalResult>, edges: &[MemoryEdge]) {
+    pub fn filter(results: &mut Vec<RetrievalResult>, edges: &[IdeaEdge]) {
         if edges.is_empty() {
             return;
         }
@@ -189,7 +189,7 @@ impl ContradictionFilter {
         // present in results and the edge is Supersedes.
         let superseded: std::collections::HashSet<&str> = edges
             .iter()
-            .filter(|e| e.relation == MemoryRelation::Supersedes)
+            .filter(|e| e.relation == IdeaRelation::Supersedes)
             .filter(|e| result_ids.contains(e.source_id.as_str()))
             .map(|e| e.target_id.as_str())
             .collect();
@@ -224,7 +224,7 @@ impl TemporalFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::MemoryEdge;
+    use crate::graph::IdeaEdge;
     use chrono::Duration;
 
     // ── Helpers ─────────────────────────────────────────────────────────
@@ -382,10 +382,10 @@ mod tests {
             make_result("old-mem", Some(Utc::now() - Duration::days(30))),
         ];
 
-        let edges = vec![MemoryEdge::new(
+        let edges = vec![IdeaEdge::new(
             "new-mem",
             "old-mem",
-            MemoryRelation::Supersedes,
+            IdeaRelation::Supersedes,
             0.9,
         )];
 
@@ -402,10 +402,10 @@ mod tests {
         ];
 
         // Edge exists but is RelatedTo, not Supersedes.
-        let edges = vec![MemoryEdge::new(
+        let edges = vec![IdeaEdge::new(
             "mem-a",
             "mem-b",
-            MemoryRelation::RelatedTo,
+            IdeaRelation::RelatedTo,
             0.7,
         )];
 
@@ -437,10 +437,10 @@ mod tests {
         ];
 
         // Supersedes edge from a memory NOT in the result set.
-        let edges = vec![MemoryEdge::new(
+        let edges = vec![IdeaEdge::new(
             "mem-external",
             "mem-b",
-            MemoryRelation::Supersedes,
+            IdeaRelation::Supersedes,
             0.9,
         )];
 
@@ -462,8 +462,8 @@ mod tests {
         ];
 
         let edges = vec![
-            MemoryEdge::new("newest", "older", MemoryRelation::Supersedes, 0.9),
-            MemoryEdge::new("newest", "oldest", MemoryRelation::Supersedes, 0.8),
+            IdeaEdge::new("newest", "older", IdeaRelation::Supersedes, 0.9),
+            IdeaEdge::new("newest", "oldest", IdeaRelation::Supersedes, 0.8),
         ];
 
         ContradictionFilter::filter(&mut results, &edges);

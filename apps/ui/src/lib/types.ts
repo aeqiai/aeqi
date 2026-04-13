@@ -7,6 +7,8 @@ export interface Agent {
   parent_id?: string | null;
   status: string;
   model?: string;
+  ideas?: Record<string, string>;
+  /** @deprecated Use ideas instead. Kept for backward compat with old data. */
   prompts?: Record<string, string>;
   capabilities?: string[];
   project?: string;
@@ -23,6 +25,8 @@ export interface Agent {
   workdir?: string;
   quest_prefix?: string;
   worker_timeout_secs?: number;
+  idea_ids?: string[];
+  /** @deprecated Use idea_ids instead. Kept for backward compat with old data. */
   prompt_ids?: string[];
 }
 
@@ -35,7 +39,9 @@ export interface AgentRef {
 
 export interface Checkpoint {
   timestamp: string;
-  worker: string;
+  agent_name: string;
+  /** @deprecated Use agent_name instead. Kept for backward compat with old data. */
+  worker?: string;
   progress: string;
   cost_usd: number;
   steps_used: number;
@@ -103,7 +109,7 @@ export interface Idea {
   created_at: string;
 }
 
-export interface AuditEntry {
+export interface ActivityEntry {
   id: number;
   timestamp: string;
   created_at?: string;
@@ -128,7 +134,7 @@ export interface DashboardStats {
   active_workers: number;
   total_cost_today: number;
   tasks_completed_24h: number;
-  recent_activity: AuditEntry[];
+  recent_activity: ActivityEntry[];
   active_agents: Agent[];
 }
 

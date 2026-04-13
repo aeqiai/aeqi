@@ -3,10 +3,10 @@ use std::collections::HashMap;
 /// Hybrid search result merging BM25 keyword scores with vector similarity.
 /// Applies temporal decay and MMR re-ranking.
 ///
-/// A scored memory result from any source.
+/// A scored idea result from any source.
 #[derive(Debug, Clone)]
 pub struct ScoredResult {
-    pub memory_id: String,
+    pub idea_id: String,
     pub keyword_score: f64,
     pub vector_score: f64,
     pub combined_score: f64,
@@ -15,8 +15,8 @@ pub struct ScoredResult {
 /// Merge keyword (BM25) results with vector similarity results.
 /// `keyword_weight` + `vector_weight` should sum to 1.0.
 pub fn merge_scores(
-    keyword_results: &[(String, f64)], // (memory_id, bm25_score)
-    vector_results: &[(String, f64)],  // (memory_id, cosine_similarity)
+    keyword_results: &[(String, f64)], // (idea_id, bm25_score)
+    vector_results: &[(String, f64)],  // (idea_id, cosine_similarity)
     keyword_weight: f64,
     vector_weight: f64,
 ) -> Vec<ScoredResult> {
@@ -34,7 +34,7 @@ pub fn merge_scores(
         scores
             .entry(id.clone())
             .or_insert_with(|| ScoredResult {
-                memory_id: id.clone(),
+                idea_id: id.clone(),
                 keyword_score: 0.0,
                 vector_score: 0.0,
                 combined_score: 0.0,
@@ -47,7 +47,7 @@ pub fn merge_scores(
         scores
             .entry(id.clone())
             .or_insert_with(|| ScoredResult {
-                memory_id: id.clone(),
+                idea_id: id.clone(),
                 keyword_score: 0.0,
                 vector_score: 0.0,
                 combined_score: 0.0,
@@ -82,7 +82,7 @@ pub fn apply_decay(score: f64, decay_factor: f64) -> f64 {
 /// Balances relevance against diversity by penalizing results similar to already-selected ones.
 ///
 /// `lambda`: 0.0 = maximize diversity, 1.0 = maximize relevance.
-/// `similarity_fn`: returns similarity between two memory IDs.
+/// `similarity_fn`: returns similarity between two idea IDs.
 pub fn mmr_rerank<F>(
     candidates: &[ScoredResult],
     top_k: usize,
@@ -109,7 +109,7 @@ where
             // Max similarity to already-selected items.
             let max_sim = selected
                 .iter()
-                .map(|s| similarity_fn(&candidate.memory_id, &s.memory_id))
+                .map(|s| similarity_fn(&candidate.idea_id, &s.idea_id))
                 .fold(0.0f64, f64::max);
 
             let mmr = lambda * relevance - (1.0 - lambda) * max_sim;
@@ -142,26 +142,26 @@ mod tests {
         let merged = merge_scores(&kw, &vec_results, 0.4, 0.6);
         assert!(!merged.is_empty());
         // mem-1 should be top (appears in both).
-        assert_eq!(merged[0].memory_id, "mem-1");
+        assert_eq!(merged[0].idea_id, "mem-1");
     }
 
     #[test]
     fn test_mmr_diversifies() {
         let candidates = vec![
             ScoredResult {
-                memory_id: "a".to_string(),
+                idea_id: "a".to_string(),
                 keyword_score: 0.9,
                 vector_score: 0.9,
                 combined_score: 0.9,
             },
             ScoredResult {
-                memory_id: "b".to_string(),
+                idea_id: "b".to_string(),
                 keyword_score: 0.85,
                 vector_score: 0.85,
                 combined_score: 0.85,
             },
             ScoredResult {
-                memory_id: "c".to_string(),
+                idea_id: "c".to_string(),
                 keyword_score: 0.5,
                 vector_score: 0.5,
                 combined_score: 0.5,
@@ -179,8 +179,8 @@ mod tests {
         let reranked = mmr_rerank(&candidates, 2, 0.7, sim);
         assert_eq!(reranked.len(), 2);
         // First should be "a" (highest relevance).
-        assert_eq!(reranked[0].memory_id, "a");
+        assert_eq!(reranked[0].idea_id, "a");
         // Second should be "c" (diverse), not "b" (too similar to "a").
-        assert_eq!(reranked[1].memory_id, "c");
+        assert_eq!(reranked[1].idea_id, "c");
     }
 }

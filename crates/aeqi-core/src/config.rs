@@ -15,8 +15,8 @@ pub struct AEQIConfig {
     pub runtime_presets: HashMap<String, RuntimePresetConfig>,
     #[serde(default)]
     pub security: SecurityConfig,
-    #[serde(default)]
-    pub memory: MemoryConfig,
+    #[serde(default, alias = "memory")]
+    pub ideas: IdeaConfig,
     #[serde(default)]
     pub channels: ChannelsConfig,
     /// Global repo pool — all agents can access all repos.
@@ -195,8 +195,8 @@ fn default_max_cost() -> f64 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryConfig {
-    #[serde(default = "default_memory_backend")]
+pub struct IdeaConfig {
+    #[serde(default = "default_idea_backend")]
     pub backend: String,
     #[serde(default = "default_embedding_dims")]
     pub embedding_dimensions: usize,
@@ -214,7 +214,10 @@ pub struct MemoryConfig {
     pub chunk_overlap_tokens: usize,
 }
 
-impl Default for MemoryConfig {
+/// Backward-compat alias for code that still uses the old name.
+pub type MemoryConfig = IdeaConfig;
+
+impl Default for IdeaConfig {
     fn default() -> Self {
         Self {
             backend: "sqlite".to_string(),
@@ -229,7 +232,7 @@ impl Default for MemoryConfig {
     }
 }
 
-fn default_memory_backend() -> String {
+fn default_idea_backend() -> String {
     "sqlite".to_string()
 }
 fn default_embedding_dims() -> usize {
@@ -1377,18 +1380,18 @@ impl AEQIConfig {
             }
         }
 
-        // Memory weights.
-        let weight_sum = self.memory.vector_weight + self.memory.keyword_weight;
+        // Idea store weights.
+        let weight_sum = self.ideas.vector_weight + self.ideas.keyword_weight;
         if (weight_sum - 1.0).abs() > 0.01 {
             errors.push(format!(
-                "memory weights sum to {weight_sum:.2} (expected ~1.0): vector={}, keyword={}",
-                self.memory.vector_weight, self.memory.keyword_weight
+                "idea weights sum to {weight_sum:.2} (expected ~1.0): vector={}, keyword={}",
+                self.ideas.vector_weight, self.ideas.keyword_weight
             ));
         }
-        if self.memory.chunk_overlap_tokens >= self.memory.chunk_size_tokens {
+        if self.ideas.chunk_overlap_tokens >= self.ideas.chunk_size_tokens {
             errors.push(format!(
                 "chunk_overlap_tokens ({}) >= chunk_size_tokens ({})",
-                self.memory.chunk_overlap_tokens, self.memory.chunk_size_tokens
+                self.ideas.chunk_overlap_tokens, self.ideas.chunk_size_tokens
             ));
         }
 

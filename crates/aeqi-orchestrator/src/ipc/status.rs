@@ -227,7 +227,7 @@ pub async fn handle_cost(
     })
 }
 
-pub async fn handle_audit(
+pub async fn handle_activity(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,

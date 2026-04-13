@@ -1,7 +1,7 @@
-//! Memory graph primitives: edges, relations, provenance, and hotness scoring.
+//! Idea graph primitives: edges, relations, provenance, and hotness scoring.
 //!
-//! These are the building blocks for the memory graph described in AEQI v4
-//! Layer 5 (Learn). Memories become graph nodes; relationships between them
+//! These are the building blocks for the idea graph described in AEQI v4
+//! Layer 5 (Learn). Ideas become graph nodes; relationships between them
 //! are typed, directed edges with strength weights.
 
 use chrono::{DateTime, Utc};
@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 
 // ── Relations ───────────────────────────────────────────────────────────────
 
-/// Typed relationship between two memory nodes.
+/// Typed relationship between two idea nodes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MemoryRelation {
+pub enum IdeaRelation {
     /// Source was caused by target (causal chain).
     CausedBy,
     /// Source contradicts target (conflict).
@@ -27,7 +27,7 @@ pub enum MemoryRelation {
     RelatedTo,
 }
 
-impl std::fmt::Display for MemoryRelation {
+impl std::fmt::Display for IdeaRelation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::CausedBy => write!(f, "caused_by"),
@@ -42,29 +42,29 @@ impl std::fmt::Display for MemoryRelation {
 
 // ── Edges ───────────────────────────────────────────────────────────────────
 
-/// A directed edge in the memory graph.
+/// A directed edge in the idea graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryEdge {
-    /// Source memory node ID.
+pub struct IdeaEdge {
+    /// Source idea node ID.
     pub source_id: String,
-    /// Target memory node ID.
+    /// Target idea node ID.
     pub target_id: String,
     /// Type of relationship.
-    pub relation: MemoryRelation,
+    pub relation: IdeaRelation,
     /// Edge strength in `[0.0, 1.0]`.
     pub strength: f32,
     /// When this edge was created.
     pub created_at: DateTime<Utc>,
 }
 
-impl MemoryEdge {
+impl IdeaEdge {
     /// Create a new edge with the given relation and strength.
     ///
     /// Strength is clamped to `[0.0, 1.0]`.
     pub fn new(
         source_id: impl Into<String>,
         target_id: impl Into<String>,
-        relation: MemoryRelation,
+        relation: IdeaRelation,
         strength: f32,
     ) -> Self {
         Self {
@@ -79,11 +79,11 @@ impl MemoryEdge {
 
 // ── Provenance ──────────────────────────────────────────────────────────────
 
-/// Tracks where a memory came from: which agent, which task, and whether
+/// Tracks where an idea came from: which agent, which task, and whether
 /// the outcome was verified by the verification pipeline.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct MemoryProvenance {
-    /// Agent that produced this memory (e.g. "engineer", "trader").
+pub struct IdeaProvenance {
+    /// Agent that produced this idea (e.g. "engineer", "trader").
     pub agent: Option<String>,
     /// Quest ID that triggered the extraction.
     #[serde(alias = "task_id")]
@@ -94,8 +94,8 @@ pub struct MemoryProvenance {
 
 // ── Hotness Scoring ─────────────────────────────────────────────────────────
 
-/// Computes a "hotness" score for a memory based on access frequency and
-/// recency.  Hot memories surface higher in retrieval; cold memories drift
+/// Computes a "hotness" score for an idea based on access frequency and
+/// recency.  Hot ideas surface higher in retrieval; cold ideas drift
 /// toward archival.
 ///
 /// ```text
@@ -122,7 +122,7 @@ impl HotnessScorer {
         }
     }
 
-    /// Compute the hotness score for a memory.
+    /// Compute the hotness score for an idea.
     pub fn compute(&self, access_count: u32, last_accessed: DateTime<Utc>) -> f32 {
         let freq = self.frequency_score(access_count);
         let rec = self.recency_score(last_accessed);
@@ -130,7 +130,7 @@ impl HotnessScorer {
     }
 
     /// `sigmoid(ln(1 + access_count))` — saturates toward 1.0 for heavily-
-    /// accessed memories.
+    /// accessed ideas.
     fn frequency_score(&self, access_count: u32) -> f32 {
         let x = ((1 + access_count) as f64).ln();
         sigmoid(x) as f32
@@ -148,17 +148,26 @@ fn sigmoid(x: f64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
-/// Apply rapid decay to a hotness score when a memory is contradicted.
-/// Multiplies by 0.3 so the superseded memory sinks fast.
+/// Apply rapid decay to a hotness score when an idea is contradicted.
+/// Multiplies by 0.3 so the superseded idea sinks fast.
 pub fn on_contradiction(hotness: &mut f32) {
     *hotness *= 0.3;
 }
 
-/// Record a memory access: bump counter and refresh timestamp.
+/// Record an idea access: bump counter and refresh timestamp.
 pub fn on_access(access_count: &mut u32, last_accessed: &mut DateTime<Utc>) {
     *access_count = access_count.saturating_add(1);
     *last_accessed = Utc::now();
 }
+
+// ── Backward-compat aliases ────────────────────────────────────────────────
+
+/// Alias kept so downstream code using the old name still compiles.
+pub type MemoryRelation = IdeaRelation;
+/// Alias kept so downstream code using the old name still compiles.
+pub type MemoryEdge = IdeaEdge;
+/// Alias kept so downstream code using the old name still compiles.
+pub type MemoryProvenance = IdeaProvenance;
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -239,34 +248,34 @@ mod tests {
 
     #[test]
     fn memory_edge_creation() {
-        let edge = MemoryEdge::new("src-1", "tgt-2", MemoryRelation::Supersedes, 0.9);
+        let edge = IdeaEdge::new("src-1", "tgt-2", IdeaRelation::Supersedes, 0.9);
         assert_eq!(edge.source_id, "src-1");
         assert_eq!(edge.target_id, "tgt-2");
-        assert_eq!(edge.relation, MemoryRelation::Supersedes);
+        assert_eq!(edge.relation, IdeaRelation::Supersedes);
         assert!((edge.strength - 0.9).abs() < f32::EPSILON);
     }
 
     #[test]
     fn relation_display() {
-        assert_eq!(MemoryRelation::CausedBy.to_string(), "caused_by");
-        assert_eq!(MemoryRelation::Contradicts.to_string(), "contradicts");
-        assert_eq!(MemoryRelation::Supports.to_string(), "supports");
-        assert_eq!(MemoryRelation::DerivedFrom.to_string(), "derived_from");
-        assert_eq!(MemoryRelation::Supersedes.to_string(), "supersedes");
-        assert_eq!(MemoryRelation::RelatedTo.to_string(), "related_to");
+        assert_eq!(IdeaRelation::CausedBy.to_string(), "caused_by");
+        assert_eq!(IdeaRelation::Contradicts.to_string(), "contradicts");
+        assert_eq!(IdeaRelation::Supports.to_string(), "supports");
+        assert_eq!(IdeaRelation::DerivedFrom.to_string(), "derived_from");
+        assert_eq!(IdeaRelation::Supersedes.to_string(), "supersedes");
+        assert_eq!(IdeaRelation::RelatedTo.to_string(), "related_to");
     }
 
     #[test]
     fn edge_strength_clamped() {
-        let edge = MemoryEdge::new("a", "b", MemoryRelation::RelatedTo, 1.5);
+        let edge = IdeaEdge::new("a", "b", IdeaRelation::RelatedTo, 1.5);
         assert!((edge.strength - 1.0).abs() < f32::EPSILON);
-        let edge2 = MemoryEdge::new("a", "b", MemoryRelation::RelatedTo, -0.5);
+        let edge2 = IdeaEdge::new("a", "b", IdeaRelation::RelatedTo, -0.5);
         assert!(edge2.strength.abs() < f32::EPSILON);
     }
 
     #[test]
     fn provenance_defaults() {
-        let p = MemoryProvenance::default();
+        let p = IdeaProvenance::default();
         assert!(p.agent.is_none());
         assert!(p.quest_id.is_none());
         assert!(!p.verified);

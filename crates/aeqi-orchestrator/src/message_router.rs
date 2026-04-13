@@ -689,7 +689,7 @@ impl MessageRouter {
             let conversations = self.conversations.clone();
             let agent_router = self.agent_router.clone();
             let council_advisors = self.council_advisors.clone();
-            let task_id_for_spawn = quest_id.clone();
+            let quest_id_for_spawn = quest_id.clone();
             let project_name = scoped_project.clone();
             let clean_text_for_spawn = clean_text.clone();
             let conv_context_for_spawn = conv_context_for_advisors.clone();
@@ -704,7 +704,7 @@ impl MessageRouter {
                     conversations,
                     agent_router,
                     council_advisors,
-                    task_id_for_spawn,
+                    quest_id_for_spawn,
                     project_name,
                     clean_text_for_spawn,
                     is_council,
@@ -1156,7 +1156,7 @@ impl MessageRouter {
                     .update_task(&quest_id, |task| {
                         task.status = aeqi_quests::QuestStatus::Done;
                         task.closed_at = Some(chrono::Utc::now());
-                        task.set_task_outcome(&aeqi_quests::QuestOutcomeRecord::new(
+                        task.set_quest_outcome(&aeqi_quests::QuestOutcomeRecord::new(
                             aeqi_quests::QuestOutcomeKind::Done,
                             "closed via chat",
                         ));

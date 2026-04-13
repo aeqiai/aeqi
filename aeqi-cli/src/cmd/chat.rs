@@ -120,7 +120,7 @@ pub(crate) async fn cmd_chat(config_path: &Option<PathBuf>) -> Result<()> {
                         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                         if let Ok(poll) = daemon_ipc_request(
                             config_path,
-                            &serde_json::json!({"cmd": "chat_poll", "task_id": handle}),
+                            &serde_json::json!({"cmd": "chat_poll", "quest_id": handle}),
                         )
                         .await
                             && poll.get("completed").and_then(|v| v.as_bool()) == Some(true)

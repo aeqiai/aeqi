@@ -574,8 +574,8 @@ pub struct SessionInput {
     pub content: String,
     /// Session prompts to add (loaded once from files, appended to system prompt).
     pub session_prompts: Vec<String>,
-    /// Step prompts to add (re-read from disk each step).
-    pub step_prompts: Vec<StepPromptSpec>,
+    /// Step ideas to add (re-read from disk each step).
+    pub step_ideas: Vec<StepIdeaSpec>,
     /// Quest ID to attach to this session.
     pub quest_id: Option<String>,
 }
@@ -589,12 +589,12 @@ impl SessionInput {
     }
 }
 
-/// A step-level prompt injected before each API call.
+/// A step-level idea injected before each API call.
 ///
 /// Content is snapshotted at session start to prevent mid-flight drift.
 /// Shell expansion (`allow_shell`) runs once at snapshot time.
 #[derive(Debug, Clone)]
-pub struct StepPromptSpec {
+pub struct StepIdeaSpec {
     /// Path to the source `.md` file (retained for diagnostics only).
     pub path: PathBuf,
     /// Whether to expand `!`backtick`` shell commands.
@@ -612,9 +612,9 @@ pub struct Agent {
     tools: Vec<Arc<dyn Tool>>,
     observer: Arc<dyn Observer>,
     system_prompt: String,
-    /// Step-level prompts re-read from disk before each API call. Mutable at
-    /// runtime — messages can amend step prompts mid-session.
-    step_prompts: Mutex<Vec<StepPromptSpec>>,
+    /// Step-level ideas re-read from disk before each API call. Mutable at
+    /// runtime — messages can amend step ideas mid-session.
+    step_ideas: Mutex<Vec<StepIdeaSpec>>,
     memory: Option<Arc<dyn IdeaStore>>,
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
     /// Receiver for notifications from background agents. Drained between steps.
@@ -641,7 +641,7 @@ impl Agent {
             tools,
             observer,
             system_prompt,
-            step_prompts: Mutex::new(Vec::new()),
+            step_ideas: Mutex::new(Vec::new()),
             memory: None,
             chat_stream: None,
             notification_rx: None,
@@ -675,9 +675,9 @@ impl Agent {
         self
     }
 
-    /// Attach step-level prompts that are re-read from disk before each API call.
-    pub fn with_step_prompts(mut self, specs: Vec<StepPromptSpec>) -> Self {
-        self.step_prompts = Mutex::new(specs);
+    /// Attach step-level ideas that are re-read from disk before each API call.
+    pub fn with_step_ideas(mut self, specs: Vec<StepIdeaSpec>) -> Self {
+        self.step_ideas = Mutex::new(specs);
         self
     }
 
@@ -871,7 +871,7 @@ impl Agent {
                 active_model.clone()
             };
 
-            // Build request. Single lock on step_prompts, clone messages once.
+            // Build request. Single lock on step_ideas, clone messages once.
             let step_ctx = self.build_step_context().await;
             let mut request_messages = messages.clone();
             if !step_ctx.is_empty() {
@@ -1188,11 +1188,11 @@ impl Agent {
                                             "session prompt amendments received"
                                         );
                                     }
-                                    if !input.step_prompts.is_empty() {
-                                        self.step_prompts
+                                    if !input.step_ideas.is_empty() {
+                                        self.step_ideas
                                             .lock()
                                             .await
-                                            .extend(input.step_prompts.clone());
+                                            .extend(input.step_ideas.clone());
                                     }
 
                                     messages.push(Message {
@@ -1345,9 +1345,9 @@ impl Agent {
                             duration_ms,
                         });
 
-                        // Emit DelegateComplete for aeqi_delegate so the frontend
-                        // can show the subagent outcome and duration.
-                        if name == "agents_delegate" {
+                        // Emit DelegateComplete for agents(action=delegate) so the
+                        // frontend can show the subagent outcome and duration.
+                        if name == "agents" {
                             let worker = input_args
                                 .get("to")
                                 .and_then(|v| v.as_str())
@@ -1572,7 +1572,7 @@ impl Agent {
                             .map(|e| e.key.as_str())
                             .collect::<Vec<_>>()
                             .join(", ");
-                        self.emit(crate::chat_stream::ChatStreamEvent::MemoryActivity {
+                        self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
                             action: "recalled".into(),
                             key: format!("{} insights", all_entries.len()),
                             preview,
@@ -1805,13 +1805,13 @@ impl Agent {
 
     /// Build step context from snapshotted prompt content.
     ///
-    /// Content is read from the `StepPromptSpec.content` field, which is
+    /// Content is read from the `StepIdeaSpec.content` field, which is
     /// populated at session start. This prevents mid-flight prompt drift
     /// when files are edited during a running session.
     async fn build_step_context(&self) -> String {
-        let step_prompts = self.step_prompts.lock().await;
+        let step_ideas = self.step_ideas.lock().await;
         let mut parts: Vec<String> = Vec::new();
-        for spec in step_prompts.iter() {
+        for spec in step_ideas.iter() {
             // Use snapshotted content if available, otherwise read from disk (legacy).
             let body = if let Some(ref cached) = spec.content {
                 cached.clone()
@@ -1975,9 +1975,9 @@ impl Agent {
                                 halt_reason = Some((reason, parts));
                             }
                             LoopAction::Inject(_) | LoopAction::Continue => {
-                                // Emit DelegateStart for aeqi_delegate calls so the
-                                // frontend can track subagent activity.
-                                if name == "agents_delegate" {
+                                // Emit DelegateStart for agents(action=delegate) calls so
+                                // the frontend can track subagent activity.
+                                if name == "agents" {
                                     let worker = arguments
                                         .get("to")
                                         .and_then(|v| v.as_str())

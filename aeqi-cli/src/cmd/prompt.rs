@@ -90,12 +90,9 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             // Build provider.
             let provider = build_provider_for_project(&config, &company)?;
             let workdir = PathBuf::from(&project_cfg.repo);
-            let tasks_dir = project_dir.join(".tasks");
             let worktree_root = project_cfg.worktree_root.as_ref().map(PathBuf::from);
             let all_tools = build_project_tools(
                 &workdir,
-                &tasks_dir,
-                &project_cfg.prefix,
                 worktree_root.as_ref(),
             );
 

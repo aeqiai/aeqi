@@ -34,6 +34,7 @@ pub struct Session {
     pub parent_id: Option<String>,
     #[serde(alias = "task_id")]
     pub quest_id: Option<String>,
+    pub first_message: Option<String>,
 }
 
 /// A single typed thread event in a session timeline.
@@ -296,6 +297,9 @@ impl SessionStore {
         );
         let _ =
             conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);");
+
+        // ── Phase 5: Add first_message column for meaningful session names ──
+        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN first_message TEXT;");
 
         // ── Backfill session_id into session_messages from sessions.legacy_chat_id ──
         let _ = conn.execute_batch(
@@ -795,6 +799,15 @@ impl SessionStore {
             params![session_id, role, content, now, source, event_type, metadata_text],
         )
         .context("failed to insert session message by session_id")?;
+
+        // Populate first_message on sessions table when this is the first user message.
+        if role == "user" && !content.is_empty() {
+            let _ = db.execute(
+                "UPDATE sessions SET first_message = ?1 WHERE id = ?2 AND first_message IS NULL",
+                params![&content[..content.len().min(200)], session_id],
+            );
+        }
+
         Ok(())
     }
 
@@ -882,7 +895,7 @@ impl SessionStore {
 
         let (sql, boxed_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match agent_id {
             Some(aid) => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id \
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message \
                  FROM sessions WHERE agent_id = ?1 ORDER BY created_at DESC LIMIT ?2"
                     .to_string(),
                 vec![
@@ -891,7 +904,7 @@ impl SessionStore {
                 ],
             ),
             None => (
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id \
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message \
                  FROM sessions ORDER BY created_at DESC LIMIT ?1"
                     .to_string(),
                 vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
@@ -913,6 +926,7 @@ impl SessionStore {
                     closed_at: row.get(6)?,
                     parent_id: row.get(7)?,
                     quest_id: row.get(8)?,
+                    first_message: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -955,7 +969,7 @@ impl SessionStore {
         let db = self.db.lock().await;
         let session = db
             .query_row(
-                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id
+                "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message
                  FROM sessions WHERE id = ?1",
                 params![session_id],
                 |row| {
@@ -969,6 +983,7 @@ impl SessionStore {
                         closed_at: row.get(6)?,
                         parent_id: row.get(7)?,
                         quest_id: row.get(8)?,
+                        first_message: row.get(9)?,
                     })
                 },
             )
@@ -980,7 +995,7 @@ impl SessionStore {
     pub async fn list_children(&self, parent_id: &str) -> Result<Vec<Session>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id
+            "SELECT id, agent_id, session_type, name, status, created_at, closed_at, parent_id, COALESCE(quest_id, task_id) as quest_id, first_message
              FROM sessions WHERE parent_id = ?1 ORDER BY created_at DESC",
         )?;
         let rows = stmt
@@ -995,6 +1010,7 @@ impl SessionStore {
                     closed_at: row.get(6)?,
                     parent_id: row.get(7)?,
                     quest_id: row.get(8)?,
+                    first_message: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;

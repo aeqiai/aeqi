@@ -267,7 +267,7 @@ impl QuestBoard {
         let quest = self.update(id, |b| {
             b.status = QuestStatus::Done;
             b.closed_at = Some(chrono::Utc::now());
-            b.set_task_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, reason));
+            b.set_quest_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, reason));
         })?;
 
         self.cascade_parent_close(&quest.id);
@@ -359,7 +359,7 @@ impl QuestBoard {
             if let Err(e) = self.update(&parent_id.0, |b| {
                 b.status = outcome_status;
                 b.closed_at = Some(chrono::Utc::now());
-                b.set_task_outcome(&QuestOutcomeRecord::new(outcome_kind, reason.clone()));
+                b.set_quest_outcome(&QuestOutcomeRecord::new(outcome_kind, reason.clone()));
             }) {
                 debug!(parent = %parent_id, error = %e, "failed to auto-close parent quest");
                 return;
@@ -376,7 +376,7 @@ impl QuestBoard {
         self.update(id, |b| {
             b.status = QuestStatus::Cancelled;
             b.closed_at = Some(chrono::Utc::now());
-            b.set_task_outcome(&QuestOutcomeRecord::new(
+            b.set_quest_outcome(&QuestOutcomeRecord::new(
                 QuestOutcomeKind::Cancelled,
                 reason,
             ));

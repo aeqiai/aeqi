@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook for mcp__aeqi__aeqi_remember: nudge delegation after plan storage.
+# PostToolUse hook for mcp__aeqi__ideas (action=store): nudge delegation after plan storage.
 # When a plan is stored to memory, suggest delegating before implementing.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,4 +18,4 @@ QUEST_ID=$(echo "$KEY" | sed 's/quest:\([^:]*\):plan/\1/')
 PROJECT=$(printf '%s' "$CLAUDE_TOOL_INPUT" | jq -r '.project // empty' 2>/dev/null) || true
 
 log_hook "nudge-delegation" "plan-stored" "quest=$QUEST_ID"
-echo "Plan stored. Before implementing, consider: aeqi_delegate(agent='reviewer', project='$PROJECT', task_id='$QUEST_ID', prompt='Review this plan for correctness and completeness.')"
+echo "Plan stored. Before implementing, consider: agents(action='delegate', agent='reviewer', project='$PROJECT', quest_id='$QUEST_ID', prompt='Review this plan for correctness and completeness.')"

@@ -2,7 +2,7 @@
 //!
 //! Each insight becomes a `.md` file with YAML frontmatter.
 //! Graph edges become `[[wikilinks]]` — Obsidian's graph view
-//! renders the memory graph for free.
+//! renders the idea graph for free.
 //!
 //! ## Vault layout
 //!
@@ -20,7 +20,7 @@
 //!     ...
 //! ```
 
-use crate::graph::MemoryEdge;
+use crate::graph::IdeaEdge;
 use crate::sqlite::SqliteIdeas;
 use aeqi_core::traits::{IdeaCategory, Idea};
 use anyhow::{Context, Result};
@@ -51,7 +51,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
     let edges = store.fetch_edges_for_set(&all_ids).unwrap_or_default();
 
     // Group edges by source/target ID for quick lookup.
-    let mut edges_by_id: HashMap<&str, Vec<&MemoryEdge>> = HashMap::new();
+    let mut edges_by_id: HashMap<&str, Vec<&IdeaEdge>> = HashMap::new();
     for edge in &edges {
         edges_by_id
             .entry(edge.source_id.as_str())
@@ -77,7 +77,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
         let md = render_markdown(entry, entry_edges, &id_to_key);
 
         std::fs::write(&path, md).with_context(|| format!("failed to write {}", path.display()))?;
-        debug!(key = %entry.key, path = %path.display(), "exported memory");
+        debug!(key = %entry.key, path = %path.display(), "exported idea");
         written += 1;
     }
 
@@ -88,7 +88,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
 /// Render a single insight as Obsidian-compatible markdown.
 fn render_markdown(
     entry: &Idea,
-    edges: Option<&Vec<&MemoryEdge>>,
+    edges: Option<&Vec<&IdeaEdge>>,
     id_to_key: &HashMap<&str, &str>,
 ) -> String {
     let cat = category_str(&entry.category);
@@ -138,9 +138,9 @@ fn render_markdown(
 
 // ── Import ─────────────────────────────────────────────────────────────────
 
-/// A parsed Obsidian memory file ready for ingestion.
+/// A parsed Obsidian idea file ready for ingestion.
 #[derive(Debug)]
-pub struct ParsedMemory {
+pub struct ParsedIdea {
     pub id: Option<String>,
     pub key: String,
     pub content: String,
@@ -164,7 +164,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
 
     let parsed = scan_vault(vault_dir)?;
     if parsed.is_empty() {
-        info!("no memory files found in vault");
+        info!("no idea files found in vault");
         return Ok((0, 0));
     }
 
@@ -243,8 +243,8 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
     Ok((imported, skipped))
 }
 
-/// Scan an Obsidian vault directory for memory markdown files.
-fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedMemory>> {
+/// Scan an Obsidian vault directory for idea markdown files.
+fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
     let mut results = Vec::new();
 
     for cat_name in &["fact", "procedure", "preference", "context", "evergreen"] {
@@ -258,7 +258,7 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedMemory>> {
             if path.extension().and_then(|e| e.to_str()) != Some("md") {
                 continue;
             }
-            match parse_memory_file(&path) {
+            match parse_idea_file(&path) {
                 Ok(mem) => results.push(mem),
                 Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
             }
@@ -280,7 +280,7 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedMemory>> {
             }) {
                 continue;
             }
-            match parse_memory_file(&path) {
+            match parse_idea_file(&path) {
                 Ok(mem) => results.push(mem),
                 Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
             }
@@ -290,8 +290,8 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedMemory>> {
     Ok(results)
 }
 
-/// Parse a single Obsidian markdown file into a `ParsedMemory`.
-fn parse_memory_file(path: &Path) -> Result<ParsedMemory> {
+/// Parse a single Obsidian markdown file into a `ParsedIdea`.
+fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
     let raw =
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
 
@@ -314,7 +314,7 @@ fn parse_memory_file(path: &Path) -> Result<ParsedMemory> {
     // Split body into content and relations.
     let (content, relations) = split_relations(&body);
 
-    Ok(ParsedMemory {
+    Ok(ParsedIdea {
         id,
         key,
         content: content.trim().to_string(),

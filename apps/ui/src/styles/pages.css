@@ -2984,10 +2984,10 @@
 }
 
 /* ============================================
-   MEMORY
+   IDEAS
    ============================================ */
 
-.memory-entry {
+.idea-entry {
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -2996,11 +2996,11 @@
   transition: border-color var(--transition-fast);
 }
 
-.memory-entry:hover {
+.idea-entry:hover {
   border-color: var(--border-hover);
 }
 
-.memory-header {
+.idea-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3008,19 +3008,19 @@
   gap: var(--space-2);
 }
 
-.memory-key {
+.idea-key {
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--accent);
 }
 
-.memory-tags {
+.idea-tags {
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
 }
 
-.memory-category {
+.idea-category {
   font-size: var(--font-size-2xs);
   font-weight: 500;
   text-transform: uppercase;
@@ -3030,7 +3030,7 @@
   background: var(--bg-elevated);
 }
 
-.memory-scope {
+.idea-scope {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   padding: 1px 6px;
@@ -3038,26 +3038,26 @@
   background: var(--bg-elevated);
 }
 
-.memory-content {
+.idea-content {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: var(--space-2);
 }
 
-.memory-meta {
+.idea-meta {
   display: flex;
   gap: var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
 
-.memory-entry.selected {
+.idea-entry.selected {
   border-color: var(--accent);
   background: var(--bg-surface);
 }
 
-.memory-entry {
+.idea-entry {
   cursor: pointer;
 }
 
@@ -3314,13 +3314,13 @@
 
 /* Graph container */
 
-.memory-graph-container {
+.idea-graph-container {
   position: relative;
   height: 100%;
   min-height: 400px;
 }
 
-.memory-graph-canvas {
+.idea-graph-canvas {
   width: 100%;
   height: 100%;
   border-radius: var(--radius-lg);
@@ -3355,7 +3355,7 @@
   border-radius: 50%;
 }
 
-.memory-list {
+.idea-list {
   display: flex;
   flex-direction: column;
 }
@@ -4357,7 +4357,7 @@
 .dash-cost-company { color: var(--text-secondary); }
 .dash-cost-amount { font-family: var(--font-mono); color: var(--text-secondary); }
 
-.dash-audit-row {
+.dash-activity-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -4366,9 +4366,9 @@
   font-size: var(--font-size-xs);
 }
 
-.dash-audit-row:last-child { border-bottom: none; }
+.dash-activity-row:last-child { border-bottom: none; }
 
-.dash-audit-time {
+.dash-activity-time {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
@@ -4376,7 +4376,7 @@
   min-width: 32px;
 }
 
-.dash-audit-agent {
+.dash-activity-agent {
   color: var(--text-secondary);
   font-weight: 500;
   flex-shrink: 0;
@@ -4384,7 +4384,7 @@
   font-family: var(--font-mono);
 }
 
-.dash-audit-summary {
+.dash-activity-summary {
   flex: 1;
   color: var(--text-muted);
   overflow: hidden;
@@ -4531,6 +4531,172 @@
   cursor: not-allowed;
 }
 
+
+/* ── API Keys ───────────────────────────────────────── */
+
+.key-create-form {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: var(--space-4) 0;
+}
+
+.key-name-input {
+  max-width: 320px;
+}
+
+.key-new-banner {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent, #3b82f6);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-4) 0;
+}
+
+.key-new-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 550;
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+}
+
+.key-new-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+}
+
+.key-new-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.key-new-value {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.82rem;
+  background: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  user-select: all;
+  word-break: break-all;
+}
+
+.key-new-usage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.key-new-code {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.78rem;
+  background: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  white-space: pre;
+  flex: 1;
+}
+
+.key-new-dismiss {
+  margin-top: var(--space-3);
+  font-size: 0.82rem;
+}
+
+.key-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.key-copy-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.key-list {
+  margin-top: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.key-list-header {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-elevated);
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.key-list-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.key-list-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.key-list-prefix {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.key-list-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.key-revoke-btn {
+  font-size: 0.78rem;
+}
+
+.btn-danger-text {
+  color: var(--error, #ef4444);
+}
+.btn-danger-text:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.key-empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-top: var(--space-4);
+}
+
+.key-link {
+  color: var(--accent, #3b82f6);
+  text-decoration: none;
+}
+.key-link:hover {
+  text-decoration: underline;
+}
 
 /* ── Onboarding celebration animations ──────────────── */
 @keyframes draw-circle {

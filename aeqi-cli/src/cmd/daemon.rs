@@ -18,7 +18,7 @@ use crate::cli::DaemonAction;
 use crate::helpers::{
     build_project_tools, build_provider_for_project, build_provider_for_runtime, build_tools,
     daemon_ipc_request,
-    find_agent_dir, get_api_key, handle_fast_lane, load_config,
+    get_api_key, handle_fast_lane, load_config,
     load_config_with_agents, open_ideas, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
@@ -260,11 +260,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Register the leader agent — build orchestration tools for it.
             // Optional — daemon runs fine without a leader agent configured.
             if let Some(leader_cfg) = config.leader_agent().cloned() {
-                let fa_agent_dir = find_agent_dir(&leader_name)
-                    .unwrap_or_else(|_| PathBuf::from("agents/aurelia"));
-                let fa_tasks_dir = fa_agent_dir.join(".tasks");
-                std::fs::create_dir_all(&fa_tasks_dir).ok();
-                let fa_prefix = leader_cfg.prefix.clone();
                 let fa_workdir = leader_cfg
                     .default_repo
                     .as_ref()
@@ -272,7 +267,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
                 let mut fa_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> =
-                    build_project_tools(&fa_workdir, &fa_tasks_dir, &fa_prefix, None);
+                    build_project_tools(&fa_workdir, None);
                 let fa_memory: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
                     shared_idea_store.clone();
                 let orch_tools = build_orchestration_tools(
@@ -616,6 +611,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Set up event handler store (the fourth primitive).
             let event_handler_store = Arc::new(aeqi_orchestrator::EventHandlerStore::new(agent_reg.db()));
+
+            // Wire event store into session manager for event-driven idea assembly.
+            if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {
+                sm.set_event_store(event_handler_store.clone());
+            }
 
             // Seed default lifecycle events for existing agents that have none.
             // create_default_lifecycle_events is idempotent — only runs if 0 events exist.

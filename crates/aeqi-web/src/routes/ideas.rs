@@ -12,22 +12,22 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/memories", get(memories))
-        .route("/memory/profile", get(memory_profile))
-        .route("/memory/graph", get(memory_graph))
+        .route("/ideas/recall", get(ideas))
+        .route("/ideas/profile", get(idea_profile))
+        .route("/ideas/graph", get(idea_graph))
 }
 
 #[derive(Deserialize, Default)]
-struct MemoriesQuery {
+struct IdeasQuery {
     project: Option<String>,
     query: Option<String>,
     limit: Option<u64>,
 }
 
-async fn memories(
+async fn ideas(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<MemoriesQuery>,
+    Query(q): Query<IdeasQuery>,
 ) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
@@ -39,36 +39,36 @@ async fn memories(
     if let Some(limit) = q.limit {
         params["limit"] = serde_json::json!(limit);
     }
-    ipc_proxy(state, scope.as_ref(), "memories", params).await
+    ipc_proxy(state, scope.as_ref(), "ideas", params).await
 }
 
 #[derive(Deserialize, Default)]
-struct MemoryProfileQuery {
+struct IdeaProfileQuery {
     project: Option<String>,
 }
 
-async fn memory_profile(
+async fn idea_profile(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<MemoryProfileQuery>,
+    Query(q): Query<IdeaProfileQuery>,
 ) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
         params["project"] = serde_json::json!(project);
     }
-    ipc_proxy(state, scope.as_ref(), "memory_profile", params).await
+    ipc_proxy(state, scope.as_ref(), "idea_profile", params).await
 }
 
 #[derive(Deserialize, Default)]
-struct MemoryGraphQuery {
+struct IdeaGraphQuery {
     project: Option<String>,
     limit: Option<u64>,
 }
 
-async fn memory_graph(
+async fn idea_graph(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<MemoryGraphQuery>,
+    Query(q): Query<IdeaGraphQuery>,
 ) -> Response {
     let mut params = serde_json::json!({});
     if let Some(project) = &q.project {
@@ -77,5 +77,5 @@ async fn memory_graph(
     if let Some(limit) = q.limit {
         params["limit"] = serde_json::json!(limit);
     }
-    ipc_proxy(state, scope.as_ref(), "memory_graph", params).await
+    ipc_proxy(state, scope.as_ref(), "idea_graph", params).await
 }

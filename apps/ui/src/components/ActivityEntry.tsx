@@ -1,7 +1,7 @@
-import type { AuditEntry as AuditEntryType } from "@/lib/types";
+import type { ActivityEntry as ActivityEntryType } from "@/lib/types";
 
-interface AuditEntryProps {
-  entry: AuditEntryType;
+interface ActivityEntryProps {
+  entry: ActivityEntryType;
   compact?: boolean;
 }
 
@@ -35,38 +35,38 @@ function formatDecisionType(type: string): string {
   return type.replace(/_/g, " ");
 }
 
-export default function AuditEntryComponent({
+export default function ActivityEntryComponent({
   entry,
   compact = false,
-}: AuditEntryProps) {
+}: ActivityEntryProps) {
   if (compact) {
     return (
-      <div className="audit-entry-compact">
-        <div className="audit-entry-compact-header">
+      <div className="activity-entry-compact">
+        <div className="activity-entry-compact-header">
           <span
-            className="audit-type-dot"
+            className="activity-type-dot"
             style={{
               backgroundColor:
                 DECISION_TYPE_COLORS[entry.decision_type] ||
                 "var(--text-secondary)",
             }}
           />
-          <span className="audit-timestamp-compact">
+          <span className="activity-timestamp-compact">
             {formatTimestamp(entry.timestamp)}
           </span>
         </div>
-        <p className="audit-summary-compact">{entry.summary}</p>
+        <p className="activity-summary-compact">{entry.summary}</p>
       </div>
     );
   }
 
   return (
-    <div className="audit-entry">
-      <div className="audit-entry-header">
-        <div className="audit-entry-left">
-          <span className="audit-entry-id">#{entry.id}</span>
+    <div className="activity-entry">
+      <div className="activity-entry-header">
+        <div className="activity-entry-left">
+          <span className="activity-entry-id">#{entry.id}</span>
           <span
-            className="audit-type-badge"
+            className="activity-type-badge"
             style={{
               color:
                 DECISION_TYPE_COLORS[entry.decision_type] ||
@@ -76,21 +76,21 @@ export default function AuditEntryComponent({
           >
             {formatDecisionType(entry.decision_type)}
           </span>
-          <span className="audit-project">{entry.company}</span>
+          <span className="activity-project">{entry.company}</span>
         </div>
-        <span className="audit-timestamp">
+        <span className="activity-timestamp">
           {formatTimestamp(entry.timestamp)}
         </span>
       </div>
 
-      <p className="audit-summary">{entry.summary}</p>
+      <p className="activity-summary">{entry.summary}</p>
 
-      <div className="audit-entry-footer">
+      <div className="activity-entry-footer">
         {entry.agent && (
-          <span className="audit-agent">{entry.agent}</span>
+          <span className="activity-agent">{entry.agent}</span>
         )}
         {(entry.quest_id || entry.task_id) && (
-          <code className="audit-quest-id">{entry.quest_id || entry.task_id}</code>
+          <code className="activity-quest-id">{entry.quest_id || entry.task_id}</code>
         )}
       </div>
     </div>

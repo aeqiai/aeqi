@@ -92,12 +92,12 @@ pub struct Agent {
     /// Worker timeout in seconds. None = inherit from parent or use global default.
     #[serde(default)]
     pub worker_timeout_secs: Option<u64>,
-    /// Ordered prompt entries — replaces system_prompt, primers, skills.
-    #[serde(default)]
-    pub prompts: Vec<aeqi_core::PromptEntry>,
-    /// References to prompts in the prompt store (by UUID).
-    #[serde(default)]
-    pub prompt_ids: Vec<String>,
+    /// Ordered idea entries — replaces system_prompt, primers, skills.
+    #[serde(default, alias = "prompts")]
+    pub ideas: Vec<aeqi_core::PromptEntry>,
+    /// References to ideas in the idea store (by UUID).
+    #[serde(default, alias = "prompt_ids")]
+    pub idea_ids: Vec<String>,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -395,6 +395,16 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
         )?;
 
+        // Idempotent migration: add idea_ids column to events table (multi-idea support).
+        let has_idea_ids: bool = conn
+            .prepare("PRAGMA table_info(events)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == "idea_ids");
+        if !has_idea_ids {
+            conn.execute_batch("ALTER TABLE events ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';")?;
+        }
+
         // Idempotent migration: add prompts column to tasks table.
         let has_task_prompts: bool = conn
             .prepare("PRAGMA table_info(quests)")?
@@ -619,6 +629,7 @@ impl AgentRegistry {
                         pattern,
                         scope: "self".into(),
                         idea_id: None,
+                        idea_ids: Vec::new(),
                         content: Some(format!("Run skill: {}", t.skill)),
                         cooldown_secs: t.cooldown_secs.unwrap_or(300),
                         max_budget_usd: t.max_budget_usd,
@@ -653,7 +664,7 @@ impl AgentRegistry {
         let now = Utc::now();
         let caps_json = serde_json::to_string(capabilities)?;
         let session_id = uuid::Uuid::new_v4().to_string();
-        let prompts = if system_prompt.is_empty() {
+        let ideas = if system_prompt.is_empty() {
             Vec::new()
         } else {
             vec![aeqi_core::PromptEntry::system(system_prompt)]
@@ -683,14 +694,14 @@ impl AgentRegistry {
             execution_mode: None,
             quest_prefix: None,
             worker_timeout_secs: None,
-            prompts,
-            prompt_ids: Vec::new(),
+            ideas,
+            idea_ids: Vec::new(),
         };
 
         let db = self.db.lock().await;
-        let prompts_json =
-            serde_json::to_string(&agent.prompts).unwrap_or_else(|_| "[]".to_string());
-        let prompt_ids_json = "[]".to_string();
+        let ideas_json =
+            serde_json::to_string(&agent.ideas).unwrap_or_else(|_| "[]".to_string());
+        let idea_ids_json = "[]".to_string();
         db.execute(
             "INSERT INTO agents (id, name, display_name, template, system_prompt, parent_id, model, capabilities, status, created_at, session_id, prompts, prompt_ids)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
@@ -706,8 +717,8 @@ impl AgentRegistry {
                 agent.status.to_string(),
                 agent.created_at.to_rfc3339(),
                 session_id,
-                prompts_json,
-                prompt_ids_json,
+                ideas_json,
+                idea_ids_json,
             ],
         )?;
 
@@ -1268,8 +1279,8 @@ impl AgentRegistry {
     // resolve_prompts, set_agent_prompt_ids.
     // Prompt data now lives exclusively in ideas.db.
 
-    /// Resolve prompt_ids — returns empty (prompts table is deleted).
-    pub async fn resolve_prompts(&self, _ids: &[String]) -> Result<Vec<serde_json::Value>> {
+    /// Resolve idea_ids — returns empty (prompts table is deleted).
+    pub async fn resolve_ideas(&self, _ids: &[String]) -> Result<Vec<serde_json::Value>> {
         Ok(Vec::new())
     }
 
@@ -1321,14 +1332,14 @@ impl AgentRegistry {
             |row| row.get(0),
         )?;
 
-        let task_id = format!("{prefix}-{seq:03}");
+        let quest_id = format!("{prefix}-{seq:03}");
         let now = chrono::Utc::now();
         let labels_json = serde_json::to_string(labels)?;
 
         let idea_ids_json = serde_json::to_string(idea_ids)?;
 
-        let task = aeqi_quests::Quest {
-            id: aeqi_quests::QuestId(task_id.clone()),
+        let quest = aeqi_quests::Quest {
+            id: aeqi_quests::QuestId(quest_id.clone()),
             name: subject.to_string(),
             description: description.to_string(),
             status: aeqi_quests::QuestStatus::Pending,
@@ -1353,7 +1364,7 @@ impl AgentRegistry {
             "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7)",
             params![
-                task_id,
+                quest_id,
                 subject,
                 description,
                 agent_id,
@@ -1363,8 +1374,8 @@ impl AgentRegistry {
             ],
         )?;
 
-        info!(task = %task_id, agent = %agent.name, subject = %subject, "quest created");
-        Ok(task)
+        info!(quest = %quest_id, agent = %agent.name, subject = %subject, "quest created");
+        Ok(quest)
     }
 
     /// Create a task with v2 features: depends_on, parent (child task) support.
@@ -1406,7 +1417,7 @@ impl AgentRegistry {
         }
 
         // If parent is specified, create a child ID; otherwise create a root ID.
-        let task_id = if let Some(pid) = parent_id {
+        let quest_id = if let Some(pid) = parent_id {
             // Find next child sequence for this parent.
             let child_count: u32 = db.query_row(
                 "SELECT COUNT(*) FROM quests WHERE id LIKE ?1",
@@ -1434,22 +1445,22 @@ impl AgentRegistry {
         let deps_json = serde_json::to_string(depends_on)?;
         let idea_ids_json = serde_json::to_string(idea_ids)?;
 
-        let mut task = aeqi_quests::Quest::with_agent(
-            aeqi_quests::QuestId(task_id.clone()),
+        let mut quest = aeqi_quests::Quest::with_agent(
+            aeqi_quests::QuestId(quest_id.clone()),
             subject,
             Some(agent_id),
         );
-        task.description = description.to_string();
-        task.depends_on = depends_on.to_vec();
-        task.idea_ids = idea_ids.to_vec();
-        task.labels = labels.to_vec();
-        task.created_at = now;
+        quest.description = description.to_string();
+        quest.depends_on = depends_on.to_vec();
+        quest.idea_ids = idea_ids.to_vec();
+        quest.labels = labels.to_vec();
+        quest.created_at = now;
 
         db.execute(
             "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, depends_on, created_at)
              VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
             params![
-                task_id,
+                quest_id,
                 subject,
                 description,
                 agent_id,
@@ -1460,8 +1471,8 @@ impl AgentRegistry {
             ],
         )?;
 
-        info!(task = %task_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "quest created (v2)");
-        Ok(task)
+        info!(quest = %quest_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "quest created (v2)");
+        Ok(quest)
     }
 
     /// Find an open (Pending or InProgress) quest by exact subject match.
@@ -1524,23 +1535,23 @@ impl AgentRegistry {
         Ok(ready)
     }
 
-    /// Get a task by ID.
-    pub async fn get_task(&self, task_id: &str) -> Result<Option<aeqi_quests::Quest>> {
+    /// Get a quest by ID.
+    pub async fn get_task(&self, quest_id: &str) -> Result<Option<aeqi_quests::Quest>> {
         let db = self.db.lock().await;
-        let task = db
+        let quest = db
             .query_row(
                 "SELECT * FROM quests WHERE id = ?1",
-                params![task_id],
+                params![quest_id],
                 |row| Ok(row_to_task(row)),
             )
             .optional()?;
-        Ok(task)
+        Ok(quest)
     }
 
-    /// Update a task's status.
+    /// Update a quest's status.
     pub async fn update_task_status(
         &self,
-        task_id: &str,
+        quest_id: &str,
         status: aeqi_quests::QuestStatus,
     ) -> Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
@@ -1558,7 +1569,7 @@ impl AgentRegistry {
 
         db.execute(
             "UPDATE quests SET status = ?1, updated_at = ?2, closed_at = COALESCE(?3, closed_at) WHERE id = ?4",
-            params![status_str, now, closed_at, task_id],
+            params![status_str, now, closed_at, quest_id],
         )?;
         Ok(())
     }
@@ -1574,31 +1585,31 @@ impl AgentRegistry {
         Ok(count)
     }
 
-    /// Update a task using a closure (mirrors QuestBoard API).
+    /// Update a quest using a closure (mirrors QuestBoard API).
     pub async fn update_task<F: FnOnce(&mut aeqi_quests::Quest)>(
         &self,
-        task_id: &str,
+        quest_id: &str,
         f: F,
     ) -> Result<aeqi_quests::Quest> {
         let db = self.db.lock().await;
-        let mut task = db
+        let mut quest = db
             .query_row(
                 "SELECT * FROM quests WHERE id = ?1",
-                params![task_id],
+                params![quest_id],
                 |row| Ok(row_to_task(row)),
             )
             .optional()?
-            .ok_or_else(|| anyhow::anyhow!("quest not found: {task_id}"))?;
+            .ok_or_else(|| anyhow::anyhow!("quest not found: {quest_id}"))?;
 
-        f(&mut task);
+        f(&mut quest);
 
         let now = chrono::Utc::now().to_rfc3339();
-        let labels_json = serde_json::to_string(&task.labels).unwrap_or_default();
-        let checkpoints_json = serde_json::to_string(&task.checkpoints).unwrap_or_default();
-        let deps_json = serde_json::to_string(&task.depends_on).unwrap_or_default();
-        let idea_ids_json = serde_json::to_string(&task.idea_ids).unwrap_or_default();
-        let metadata_json = serde_json::to_string(&task.metadata).unwrap_or_default();
-        let outcome_json = task
+        let labels_json = serde_json::to_string(&quest.labels).unwrap_or_default();
+        let checkpoints_json = serde_json::to_string(&quest.checkpoints).unwrap_or_default();
+        let deps_json = serde_json::to_string(&quest.depends_on).unwrap_or_default();
+        let idea_ids_json = serde_json::to_string(&quest.idea_ids).unwrap_or_default();
+        let metadata_json = serde_json::to_string(&quest.metadata).unwrap_or_default();
+        let outcome_json = quest
             .outcome
             .as_ref()
             .and_then(|o| serde_json::to_string(o).ok());
@@ -1612,26 +1623,26 @@ impl AgentRegistry {
                 updated_at = ?13, closed_at = ?14, outcome = ?15
              WHERE id = ?16",
             params![
-                task.name,
-                task.description,
-                task.status.to_string(),
-                task.priority.to_string(),
-                task.agent_id,
+                quest.name,
+                quest.description,
+                quest.status.to_string(),
+                quest.priority.to_string(),
+                quest.agent_id,
                 idea_ids_json,
                 labels_json,
-                task.retry_count,
+                quest.retry_count,
                 checkpoints_json,
                 metadata_json,
                 deps_json,
-                task.acceptance_criteria,
+                quest.acceptance_criteria,
                 now,
-                task.closed_at.map(|d| d.to_rfc3339()),
+                quest.closed_at.map(|d| d.to_rfc3339()),
                 outcome_json,
-                task.id.0,
+                quest.id.0,
             ],
         )?;
 
-        Ok(task)
+        Ok(quest)
     }
 
     /// List all tasks, optionally filtered by status and/or agent.
@@ -1935,15 +1946,15 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
     let caps_str: String = row.get("capabilities").unwrap_or_else(|_| "[]".to_string());
     let capabilities: Vec<String> = serde_json::from_str(&caps_str).unwrap_or_default();
 
-    let prompts: Vec<aeqi_core::PromptEntry> = row
+    let ideas: Vec<aeqi_core::PromptEntry> = row
         .get::<_, String>("prompts")
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default();
 
-    // Derive system_prompt from prompts[0] (canonical source).
-    // Fall back to the DB column for agents that predate the prompts[] migration.
-    let system_prompt = prompts
+    // Derive system_prompt from ideas[0] (canonical source).
+    // Fall back to the DB column for agents that predate the ideas[] migration.
+    let system_prompt = ideas
         .first()
         .map(|p| p.content.clone())
         .unwrap_or_else(|| row.get("system_prompt").unwrap_or_default());
@@ -1987,8 +1998,8 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .get::<_, i64>("worker_timeout_secs")
             .ok()
             .map(|v| v as u64),
-        prompts,
-        prompt_ids: row
+        ideas,
+        idea_ids: row
             .get::<_, String>("prompt_ids")
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())

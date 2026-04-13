@@ -164,11 +164,11 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   <span className="agent-settings-value agent-settings-mono">{agent.workdir}</span>
                 </div>
               )}
-              {agent?.prompt_ids && agent.prompt_ids.length > 0 && (
+              {agent?.idea_ids && agent.idea_ids.length > 0 && (
                 <div className="agent-settings-field">
-                  <span className="agent-settings-label">Prompts</span>
+                  <span className="agent-settings-label">Ideas</span>
                   <span className="agent-settings-value agent-settings-mono">
-                    {agent.prompt_ids.join(", ")}
+                    {agent.idea_ids.join(", ")}
                   </span>
                 </div>
               )}

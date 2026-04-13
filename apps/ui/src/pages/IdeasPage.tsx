@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DataState } from "@/components/ui";
-import MemoryGraph, { type GraphNode, type GraphEdge } from "@/components/MemoryGraph";
+import IdeaGraph, { type GraphNode, type GraphEdge } from "@/components/IdeaGraph";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useChatStore } from "@/store/chat";
@@ -19,7 +19,7 @@ const CATEGORIES = ["all", "fact", "procedure", "preference", "context", "evergr
 
 type ViewMode = "list" | "graph";
 
-interface MemoryEntry {
+interface IdeaEntry {
   id: string;
   key: string;
   content: string;
@@ -37,13 +37,13 @@ interface GraphData {
 
 export default function IdeasPage() {
   const selectedAgent = useChatStore((s) => s.selectedAgent);
-  const [insights, setIdeas] = useState<MemoryEntry[]>([]);
+  const [insights, setIdeas] = useState<IdeaEntry[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("list");
   const [category, setCategory] = useState<string>("all");
-  const [selected, setSelected] = useState<MemoryEntry | null>(null);
+  const [selected, setSelected] = useState<IdeaEntry | null>(null);
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
   const [graphLoading, setGraphLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -58,13 +58,13 @@ export default function IdeasPage() {
   useEffect(() => {
     setLoading(true);
     api
-      .getMemories({
+      .getIdeas({
         query: debouncedSearch || undefined,
         company: selectedAgent?.name || undefined,
         limit: 200,
       })
       .then((d) => {
-        setIdeas((d.memories || []) as MemoryEntry[]);
+        setIdeas((d.ideas || []) as IdeaEntry[]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -75,7 +75,7 @@ export default function IdeasPage() {
     if (view !== "graph") return;
     setGraphLoading(true);
     api
-      .getMemoryGraph({
+      .getIdeaGraph({
         company: selectedAgent?.name || undefined,
         limit: 100,
       })
@@ -140,7 +140,7 @@ export default function IdeasPage() {
       {/* View toggle — hero removed, title in ContentTopBar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
         <span style={{ fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
-          {insights.length} memories{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
+          {insights.length} ideas{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
         </span>
         <div className="ideas-view-toggle">
           <button className={`view-btn ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>List</button>
@@ -195,21 +195,21 @@ export default function IdeasPage() {
               emptyDescription="Ideas are knowledge and identity stored by agents across sessions."
               loadingText="Searching..."
             >
-              <div className="memory-list">
+              <div className="idea-list">
                 {filtered.map((m) => (
                   <div
                     key={m.id}
-                    className={`memory-entry ${selected?.id === m.id ? "selected" : ""}`}
+                    className={`idea-entry ${selected?.id === m.id ? "selected" : ""}`}
                     style={{
                       borderLeft: `3px solid ${CATEGORY_COLORS[m.category] || "var(--text-muted)"}`,
                     }}
                     onClick={() => setSelected(selected?.id === m.id ? null : m)}
                   >
-                    <div className="memory-header">
-                      <code className="memory-key">{m.key}</code>
-                      <div className="memory-tags">
+                    <div className="idea-header">
+                      <code className="idea-key">{m.key}</code>
+                      <div className="idea-tags">
                         <span
-                          className="memory-category"
+                          className="idea-category"
                           style={{
                             color:
                               CATEGORY_COLORS[m.category] || "var(--text-muted)",
@@ -219,12 +219,12 @@ export default function IdeasPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="memory-content">
+                    <div className="idea-content">
                       {m.content.length > 200
                         ? m.content.slice(0, 200) + "..."
                         : m.content}
                     </div>
-                    <div className="memory-meta">
+                    <div className="idea-meta">
                       {m.agent_id && <span>Agent: {m.agent_id}</span>}
                       <span>{timeAgo(m.created_at)}</span>
                       {m.score != null && m.score < 1 && (
@@ -240,11 +240,11 @@ export default function IdeasPage() {
               loading={graphLoading}
               empty={graphData.nodes.length === 0}
               emptyTitle="No graph data"
-              emptyDescription="Store some memories to see the knowledge graph."
+              emptyDescription="Store some ideas to see the knowledge graph."
               loadingText="Loading graph..."
             >
-              <div className="memory-graph-container">
-                <MemoryGraph
+              <div className="idea-graph-container">
+                <IdeaGraph
                   nodes={graphData.nodes}
                   edges={graphData.edges}
                   selectedId={selected?.id}
@@ -282,7 +282,7 @@ export default function IdeasPage() {
             </div>
 
             <span
-              className="memory-category"
+              className="idea-category"
               style={{
                 color:
                   CATEGORY_COLORS[selected.category] || "var(--text-muted)",

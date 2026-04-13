@@ -6,7 +6,6 @@ description = "Built-in tools for shell, file, git, quest, and agent delegation"
 
 [dependencies]
 aeqi-core = { workspace = true }
-aeqi-quests = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

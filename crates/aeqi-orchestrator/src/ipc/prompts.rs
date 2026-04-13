@@ -1,6 +1,11 @@
-//! Idea seeding IPC handler (legacy prompt handlers removed).
+//! Idea seeding IPC handler.
+//!
+//! Stores ideas via `store()`, spawns agents, and creates `on_session_start`
+//! events referencing the ideas directly. No injection_mode involved.
 
-/// Seed ideas into a tenant's idea store + spawn agents.
+use aeqi_core::traits::IdeaCategory;
+
+/// Seed ideas into a tenant's idea store + spawn agents + wire events.
 /// Called by the platform after company provisioning.
 ///
 /// Request shape:
@@ -8,9 +13,8 @@
 /// {
 ///   "cmd": "seed_ideas",
 ///   "ideas": [
-///     { "name": "...", "content": "...", "tags": [...],
-///       "injection_mode": "system", "inheritance": "self",
-///       "tool_allow": [], "tool_deny": [] }
+///     { "name": "...", "content": "...", "agent_id": "agent-name",
+///       "category": "evergreen", "tool_allow": [], "tool_deny": [] }
 ///   ],
 ///   "agents": [
 ///     { "name": "shadow", "template": "shadow-identity",
@@ -36,6 +40,9 @@ pub async fn handle_seed_ideas(
     };
 
     let mut idea_results = Vec::new();
+    // Track ideas per agent for event wiring.
+    let mut agent_idea_ids: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
 
     // Phase 1: Store ideas.
     if let Some(ideas) = ideas {
@@ -47,35 +54,24 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            let injection_mode = idea_val["injection_mode"].as_str().unwrap_or("system");
-            let inheritance = idea_val["inheritance"].as_str().unwrap_or("self");
-
-            let tool_allow: Vec<String> = idea_val["tool_allow"]
-                .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                .unwrap_or_default();
-            let tool_deny: Vec<String> = idea_val["tool_deny"]
-                .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                .unwrap_or_default();
-
-            // Determine agent_id — if this idea is tied to an agent, use the agent's name.
-            // We'll resolve to actual agent UUIDs after agent spawning.
+            let category = match idea_val["category"].as_str() {
+                Some("procedure") => IdeaCategory::Procedure,
+                Some("preference") => IdeaCategory::Preference,
+                Some("context") => IdeaCategory::Context,
+                Some("evergreen") => IdeaCategory::Evergreen,
+                _ => IdeaCategory::Fact,
+            };
             let agent_id = idea_val["agent_id"].as_str();
 
-            match idea_store
-                .store_prompt(
-                    name,
-                    content,
-                    agent_id,
-                    injection_mode,
-                    inheritance,
-                    &tool_allow,
-                    &tool_deny,
-                )
-                .await
-            {
+            match idea_store.store(name, content, category, agent_id).await {
                 Ok(id) => {
+                    // Track this idea for event wiring.
+                    if let Some(agent) = agent_id {
+                        agent_idea_ids
+                            .entry(agent.to_string())
+                            .or_default()
+                            .push(id.clone());
+                    }
                     idea_results.push(serde_json::json!({"name": name, "id": id, "status": "created"}));
                 }
                 Err(e) => {
@@ -119,9 +115,17 @@ pub async fn handle_seed_ideas(
                 .await
             {
                 Ok(agent) => {
-                    // Reconcile: update ideas that reference this agent by name
-                    // to use the actual UUID now that the agent exists.
+                    // Reassign ideas that reference this agent by name to use UUID.
                     let _ = idea_store.reassign_agent(name, &agent.id).await;
+
+                    // Wire on_session_start event with the agent's ideas.
+                    if let Some(idea_ids) = agent_idea_ids.remove(name) {
+                        if let Some(ref ehs) = ctx.event_handler_store {
+                            let _ = ehs
+                                .update_on_session_start_ideas(&agent.id, &idea_ids)
+                                .await;
+                        }
+                    }
 
                     agent_results.push(serde_json::json!({
                         "name": name,

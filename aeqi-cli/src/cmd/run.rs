@@ -32,17 +32,11 @@ pub(crate) async fn cmd_run(
         .map(|r| PathBuf::from(&r.repo))
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     let tools = if let Some(rn) = project_name {
-        let project_dir = find_project_dir(rn)?;
-        let tasks_dir = project_dir.join(".tasks");
-        let prefix = config
-            .company(rn)
-            .map(|r| r.prefix.as_str())
-            .unwrap_or("sg");
         let worktree_root = config
             .company(rn)
             .and_then(|r| r.worktree_root.as_ref())
             .map(PathBuf::from);
-        build_project_tools(&workdir, &tasks_dir, prefix, worktree_root.as_ref())
+        build_project_tools(&workdir, worktree_root.as_ref())
     } else {
         build_tools(&workdir)
     };

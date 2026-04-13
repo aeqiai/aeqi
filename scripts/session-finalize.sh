@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stop hook: runs when Claude Code session ends.
 # Posts memory signals for the next session to pick up:
-# - remember-nudge: if work was done without aeqi_remember
+# - remember-nudge: if work was done without ideas(action='store')
 # - primer-update-nudge: if many files were edited (primer may be stale)
 # Cleans up session state.
 
@@ -43,7 +43,7 @@ if [ -f "$EDITS_LOG" ] && [ -s "$EDITS_LOG" ]; then
     if [ -x "$AEQI_BIN" ]; then
         AEQI_DIR="$(dirname "$SCRIPT_DIR")"
         INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"hook","version":"0.2"}}}'
-        IDX_CALL="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"aeqi_graph\",\"arguments\":{\"action\":\"incremental\",\"project\":\"$PROJECT\"}}}"
+        IDX_CALL="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"code\",\"arguments\":{\"action\":\"incremental\",\"project\":\"$PROJECT\"}}}"
         cd "$AEQI_DIR" && printf '%s\n%s\n' "$INIT" "$IDX_CALL" | "$AEQI_BIN" mcp >/dev/null 2>&1 || true
         log_hook "session-finalize" "graph-reindex" "project=$PROJECT"
     fi

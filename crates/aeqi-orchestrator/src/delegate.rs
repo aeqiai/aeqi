@@ -366,7 +366,7 @@ impl Tool for DelegateTool {
 
     fn spec(&self) -> ToolSpec {
         ToolSpec {
-            name: "agents_delegate".to_string(),
+            name: "agents".to_string(),
             description: "Delegate work to subagents or named agents. \
                 Routes based on the 'to' parameter: \
                 'subagent' spawns an ephemeral sub-agent, \
@@ -416,7 +416,7 @@ impl Tool for DelegateTool {
     }
 
     fn name(&self) -> &str {
-        "agents_delegate"
+        "agents"
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
@@ -472,7 +472,7 @@ mod tests {
     async fn test_spec_has_required_fields() {
         let tool = make_tool().await;
         let spec = tool.spec();
-        assert_eq!(spec.name, "agents_delegate");
+        assert_eq!(spec.name, "agents");
         let required = spec.input_schema["required"].as_array().unwrap();
         assert!(required.contains(&serde_json::json!("to")));
         assert!(required.contains(&serde_json::json!("prompt")));
@@ -481,7 +481,7 @@ mod tests {
     #[tokio::test]
     async fn test_name() {
         let tool = make_tool().await;
-        assert_eq!(tool.name(), "agents_delegate");
+        assert_eq!(tool.name(), "agents");
     }
 
     #[tokio::test]

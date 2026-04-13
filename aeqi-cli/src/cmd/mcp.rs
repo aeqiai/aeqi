@@ -38,11 +38,10 @@ struct ToolDef {
 }
 
 fn ipc_request_sync(
-    data_dir: &std::path::Path,
+    sock_path: &std::path::Path,
     request: &serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let sock_path = data_dir.join("rm.sock");
-    let stream = std::os::unix::net::UnixStream::connect(&sock_path)?;
+    let stream = std::os::unix::net::UnixStream::connect(sock_path)?;
     let mut writer = io::BufWriter::new(&stream);
     let mut reader = io::BufReader::new(&stream);
 
@@ -57,6 +56,95 @@ fn ipc_request_sync(
     Ok(response)
 }
 
+/// Validate keys against the platform and return the runtime socket path.
+/// secret_key (sk_) is required, api_key (ak_) is optional for analytics.
+fn validate_api_key(secret_key: &str, api_key: Option<&str>, platform_url: &str) -> Result<PathBuf> {
+    let url = format!("{platform_url}/api/mcp/validate");
+    let client = std::net::TcpStream::connect(
+        url.trim_start_matches("http://")
+            .trim_start_matches("https://")
+            .split('/')
+            .next()
+            .unwrap_or("127.0.0.1:8443"),
+    )?;
+
+    // Build HTTP request manually to avoid async dependency.
+    let host = url
+        .trim_start_matches("http://")
+        .trim_start_matches("https://")
+        .split('/')
+        .next()
+        .unwrap_or("127.0.0.1:8443");
+    let api_key_header = match api_key {
+        Some(ak) => format!("X-Api-Key: {ak}\r\n"),
+        None => String::new(),
+    };
+    let request = format!(
+        "POST /api/mcp/validate HTTP/1.1\r\n\
+         Host: {host}\r\n\
+         Authorization: Bearer {secret_key}\r\n\
+         {api_key_header}\
+         Content-Length: 0\r\n\
+         Connection: close\r\n\
+         \r\n"
+    );
+
+    let mut writer = io::BufWriter::new(&client);
+    let mut reader = io::BufReader::new(&client);
+    writer.write_all(request.as_bytes())?;
+    writer.flush()?;
+
+    // Read HTTP response.
+    let mut response = String::new();
+    loop {
+        let mut line = String::new();
+        if reader.read_line(&mut line)? == 0 {
+            break;
+        }
+        response.push_str(&line);
+    }
+
+    // Parse: skip headers, find JSON body after blank line.
+    let body = response
+        .split("\r\n\r\n")
+        .nth(1)
+        .unwrap_or(&response);
+
+    // Handle chunked transfer encoding — extract the JSON from chunks.
+    let json_body = if body.contains('{') {
+        let start = body.find('{').unwrap_or(0);
+        let end = body.rfind('}').map(|i| i + 1).unwrap_or(body.len());
+        &body[start..end]
+    } else {
+        body
+    };
+
+    let parsed: serde_json::Value = serde_json::from_str(json_body)
+        .map_err(|e| anyhow::anyhow!("platform returned invalid JSON: {e}\nbody: {json_body}"))?;
+
+    if !parsed.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let error = parsed
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown error");
+        return Err(anyhow::anyhow!("API key validation failed: {error}"));
+    }
+
+    let socket = parsed
+        .get("runtime")
+        .and_then(|r| r.get("socket"))
+        .and_then(|s| s.as_str())
+        .ok_or_else(|| anyhow::anyhow!("platform did not return a runtime socket path"))?;
+
+    let company = parsed
+        .get("company")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    eprintln!("[aeqi-mcp] authenticated as company '{company}'");
+
+    Ok(PathBuf::from(socket))
+}
+
 /// Discover prompts in a directory, tagged with source.
 fn discover_prompts(dir: &std::path::Path, source: &str) -> Vec<(Prompt, String)> {
     Prompt::discover(dir)
@@ -68,14 +156,24 @@ fn discover_prompts(dir: &std::path::Path, source: &str) -> Vec<(Prompt, String)
 
 pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     let (config, config_file) = load_config(config_path)?;
-    let data_dir = config.data_dir();
     let base_dir = config_file
         .parent()
         .and_then(|p| p.parent())
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
+    // Resolve IPC socket: secret key auth (company runtime) or local daemon fallback.
+    let sock_path = if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
+        let api_key = std::env::var("AEQI_API_KEY").ok();
+        let platform_url = std::env::var("AEQI_PLATFORM_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
+        validate_api_key(&secret_key, api_key.as_deref(), &platform_url)?
+    } else {
+        config.data_dir().join("rm.sock")
+    };
+
     let tools = vec![
+        // ── Discovery ──────────────────────────────────────────────
         ToolDef {
             name: "aeqi_projects".to_string(),
             description: "List all AEQI projects with repo paths, prefixes, and teams. Use to discover project names and match working directories.".to_string(),
@@ -104,37 +202,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 }
             }),
         },
-        ToolDef {
-            name: "ideas_recall".to_string(),
-            description: "Search memory for relevant knowledge. Searches within a project's memory by default, or across all projects with scope 'system'.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "project": {"type": "string", "description": "Project to search"},
-                    "query": {"type": "string", "description": "Natural language query"},
-                    "limit": {"type": "integer", "description": "Max results", "default": 5},
-                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
-                    "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity', filters to that agent's memories"}
-                },
-                "required": ["project", "query"]
-            }),
-        },
-        ToolDef {
-            name: "ideas_store".to_string(),
-            description: "Store knowledge in memory for future recall.".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "project": {"type": "string", "description": "Project this belongs to"},
-                    "key": {"type": "string", "description": "Short slug key"},
-                    "content": {"type": "string", "description": "The knowledge to store"},
-                    "category": {"type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "default": "fact"},
-                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
-                    "agent_id": {"type": "string", "description": "Agent ID (required when scope is 'entity')"}
-                },
-                "required": ["project", "key", "content"]
-            }),
-        },
+        // ── Operations ─────────────────────────────────────────────
         ToolDef {
             name: "aeqi_status".to_string(),
             description: "Live status: active workers, budget, costs, pending tasks.".to_string(),
@@ -147,21 +215,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
         ToolDef {
             name: "notes".to_string(),
-            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, plans, and findings, use ideas_store instead.".to_string(),
+            description: "Resource claims and ephemeral signals. Use claim/release for exclusive file locks during editing. For storing knowledge, use ideas(action='store') instead.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
                         "enum": ["read", "post", "get", "query", "claim", "release", "delete"],
-                        "description": "read: list all entries. post: create entry. get: lookup by key. query: filter by tags. claim: exclusive resource lock. release: drop claim. delete: remove entry."
+                        "description": "read: list entries. post: create. get: by key. query: by tags. claim: exclusive lock. release: drop lock. delete: remove."
                     },
                     "project": {"type": "string"},
                     "key": {"type": "string", "description": "Entry key (post/get/delete)"},
                     "resource": {"type": "string", "description": "Resource to claim/release (e.g. file path)"},
                     "content": {"type": "string", "description": "Entry content (post/claim)"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for filtering (post/query)"},
-                    "prefix": {"type": "string", "description": "Filter entries by key prefix (read/query). E.g. 'task:abc' returns all task:abc:* entries."},
+                    "prefix": {"type": "string", "description": "Filter entries by key prefix (read/query)."},
                     "durability": {"type": "string", "enum": ["transient", "durable"], "description": "TTL class (default: transient=24h, durable=7d)"},
                     "since": {"type": "string", "description": "ISO 8601 timestamp — only return entries created after this (read/query)"},
                     "cross_project": {"type": "boolean", "description": "Search across all projects (read/query)"},
@@ -171,45 +239,118 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "required": ["action", "project"]
             }),
         },
+        // ── Ideas (unified: store | search | delete) ───────────────
         ToolDef {
-            name: "quests_create".to_string(),
-            description: "Create a quest in a AEQI project for the team to execute. Supports agent assignment, dependency tracking, and parent-child hierarchies. Prefix subject with 'claim:' for atomic resource locking.".to_string(),
+            name: "ideas".to_string(),
+            description: "Store, search, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["store", "search", "delete"],
+                        "description": "store: save knowledge (needs key, content). search: find memories (needs query). delete: remove a memory (needs id)."
+                    },
+                    "project": {"type": "string", "description": "Project to scope memories to"},
+                    "id": {"type": "string", "description": "Idea ID to delete (for delete)"},
+                    "key": {"type": "string", "description": "Short slug key (for store)"},
+                    "content": {"type": "string", "description": "The knowledge to store (for store)"},
+                    "category": {"type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "default": "fact"},
+                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
+                    "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
+                    "query": {"type": "string", "description": "Natural language search query (for search)"},
+                    "limit": {"type": "integer", "description": "Max results (for search, default: 5)"}
+                },
+                "required": ["action", "project"]
+            }),
+        },
+        // ── Quests (unified: create | list | show | update | close | cancel) ──
+        ToolDef {
+            name: "quests".to_string(),
+            description: "Manage quests: create, list, show details, update status/priority, close with result, or cancel.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "list", "show", "update", "close", "cancel"],
+                        "description": "create: new quest (needs subject). list: show quests (optional status, agent). show: details (needs quest_id). update: change status/priority (needs quest_id). close: complete (needs quest_id, result). cancel: abort (needs quest_id)."
+                    },
                     "project": {"type": "string"},
-                    "subject": {"type": "string", "description": "Short quest subject. Prefix with 'claim:' for atomic resource locking."},
-                    "description": {"type": "string", "description": "Detailed description (optional)"},
-                    "agent": {"type": "string", "description": "Agent name to assign the quest to (optional, defaults to project default agent)"},
-                    "skill": {"type": "string", "description": "Skill/prompt to load for execution"},
-                    "labels": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization"},
+                    "quest_id": {"type": "string", "description": "Quest ID (for show/update/close/cancel)"},
+                    "subject": {"type": "string", "description": "Quest subject (for create). Prefix with 'claim:' for atomic resource locking."},
+                    "description": {"type": "string", "description": "Quest description (for create)"},
+                    "agent": {"type": "string", "description": "Agent name (for create, list)"},
+                    "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
+                    "labels": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization (for create)"},
                     "depends_on": {
                         "oneOf": [
-                            {"type": "string", "description": "Single quest ID this quest depends on"},
-                            {"type": "array", "items": {"type": "string"}, "description": "Quest IDs this quest depends on"}
+                            {"type": "string", "description": "Single quest ID"},
+                            {"type": "array", "items": {"type": "string"}, "description": "Quest IDs"}
                         ],
-                        "description": "Quest ID(s) that must complete before this quest can start"
+                        "description": "Quest ID(s) that must complete first (for create)"
                     },
-                    "parent": {"type": "string", "description": "Parent quest ID — makes this a child quest (e.g. 'sg-001' creates 'sg-001.1')"}
+                    "parent": {"type": "string", "description": "Parent quest ID — makes this a child quest (for create)"},
+                    "status": {"type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)"},
+                    "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)"},
+                    "result": {"type": "string", "description": "Completion result (for close)"},
+                    "reason": {"type": "string", "description": "Cancellation reason (for cancel)"}
                 },
-                "required": ["project", "subject"]
+                "required": ["action", "project"]
             }),
         },
+        // ── Agents (unified: hire | retire | list | delegate) ──────
         ToolDef {
-            name: "quests_close".to_string(),
-            description: "Close/complete a quest by ID.".to_string(),
+            name: "agents".to_string(),
+            description: "Manage agents: hire from template, retire, list, or delegate work. delegate assembles a structured prompt for Claude Code subagent dispatch.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "quest_id": {"type": "string"},
-                    "reason": {"type": "string", "description": "Completion reason or summary of what was accomplished"}
+                    "action": {
+                        "type": "string",
+                        "enum": ["hire", "retire", "list", "delegate"],
+                        "description": "hire: spawn from template (needs template). retire: deactivate (needs agent). list: show agents (optional status). delegate: assemble subagent prompt (needs agent, project)."
+                    },
+                    "project": {"type": "string", "description": "Project name"},
+                    "template": {"type": "string", "description": "Template name, e.g. 'shadow', 'analyst' (for hire)"},
+                    "agent": {"type": "string", "description": "Agent name or ID (for retire, delegate)"},
+                    "status": {"type": "string", "enum": ["active", "paused", "retired", "all"], "description": "Filter by status (for list, default: active)"},
+                    "quest_id": {"type": "string", "description": "Quest ID for notes context (for delegate)"},
+                    "prompt": {"type": "string", "description": "Additional instructions (for delegate)"}
                 },
-                "required": ["quest_id"]
+                "required": ["action"]
             }),
         },
+        // ── Events (new: create | list | enable | disable | delete) ──
         ToolDef {
-            name: "ideas_graph".to_string(),
-            description: "Query the code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes, list communities or processes.".to_string(),
+            name: "events".to_string(),
+            description: "Manage event handlers for agents. Events automate recurring quests on a schedule or in response to lifecycle events.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "list", "enable", "disable", "delete"],
+                        "description": "create: new handler (needs name, pattern or schedule). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id)."
+                    },
+                    "agent": {"type": "string", "description": "Agent name or ID"},
+                    "name": {"type": "string", "description": "Event handler name (for create)"},
+                    "pattern": {"type": "string", "description": "Full pattern (e.g. 'schedule:0 9 * * *', 'lifecycle:quest_completed')"},
+                    "schedule": {"type": "string", "description": "Cron expression — shorthand for pattern 'schedule:<expr>'"},
+                    "event_pattern": {"type": "string", "description": "Lifecycle event — shorthand for pattern 'lifecycle:<event>'"},
+                    "scope": {"type": "string", "enum": ["self", "children", "descendants"], "description": "Event scope (default: 'self')"},
+                    "content": {"type": "string", "description": "Instruction to run when event fires"},
+                    "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
+                    "max_budget_usd": {"type": "number", "description": "Max budget per execution in USD"},
+                    "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"}
+                },
+                "required": ["action"]
+            }),
+        },
+        // ── Code (unified graph intelligence) ──────────────────────
+        ToolDef {
+            name: "code".to_string(),
+            description: "Code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes, list communities or processes.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -223,20 +364,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "community_id": {"type": "string", "description": "Community ID (for synthesize action)"}
                 },
                 "required": ["action", "project"]
-            }),
-        },
-        ToolDef {
-            name: "agents_delegate".to_string(),
-            description: "Legacy: delegate work to an AEQI agent. Loads the agent template, gathers quest context from notes, and returns a structured prompt ready to pass to a Claude Code subagent. Prefer quests_create with agent param (v2 approach).".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "agent": {"type": "string", "description": "Agent name (e.g. 'researcher', 'reviewer', 'architect')"},
-                    "quest_id": {"type": "string", "description": "Quest ID for notes context (e.g. 'sg-010')"},
-                    "project": {"type": "string", "description": "Project name"},
-                    "prompt": {"type": "string", "description": "Additional instructions for the agent"}
-                },
-                "required": ["agent", "project"]
             }),
         },
     ];
@@ -271,7 +398,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 result: Some(serde_json::json!({
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "aeqi", "version": "4.0.0"}
+                    "serverInfo": {"name": "aeqi", "version": "5.0.0"}
                 })),
                 error: None,
             },
@@ -291,7 +418,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 let args = request.params.get("arguments").cloned().unwrap_or_default();
 
                 let result = match tool_name {
-                    // ── Discovery ──
+                    // ── Discovery ──────────────────────────────────
                     "aeqi_projects" => {
                         let projects: Vec<serde_json::Value> = config
                             .agent_spawns
@@ -307,11 +434,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         Ok(serde_json::json!({"ok": true, "projects": projects}))
                     }
 
-                    // ── Primer ──
                     "aeqi_primer" => {
                         let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
 
-                        // Config is the source of truth for primers.
                         let project_primer = if project == "shared" {
                             config.shared_primer.clone().unwrap_or_default()
                         } else {
@@ -351,7 +476,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                     }
 
-                    // ── Prompts (unified: identities, skills, workflows, knowledge) ──
                     "aeqi_prompts" => {
                         let action = args
                             .get("action")
@@ -360,7 +484,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         let tag_filter = args.get("tags").and_then(|v| v.as_str());
                         let name_filter = args.get("name").and_then(|v| v.as_str());
 
-                        // Discover from both skills/ and agents/ directories.
                         let mut all_prompts: Vec<(Prompt, String)> = Vec::new();
                         let project_dirs: Vec<(String, std::path::PathBuf)> =
                             std::fs::read_dir(base_dir.join("projects"))
@@ -377,7 +500,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 })
                                 .collect();
 
-                        // Shared + per-project skills and agents.
                         for subdir in &["skills", "agents"] {
                             all_prompts.extend(discover_prompts(
                                 &base_dir.join("projects/shared").join(subdir),
@@ -424,77 +546,16 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         }
                     }
 
-                    // ── Memory ──
-                    "ideas_recall" | "aeqi_recall" => {
-                        let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
-                        let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-                        let scope = args
-                            .get("scope")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("domain");
-                        let agent_id = args.get("agent_id").and_then(|v| v.as_str());
-                        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
-
-                        let agent_key = agent_id.unwrap_or("");
-                        let cache_key =
-                            format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
-
-                        let cached_hit = recall_cache.get(&cache_key).and_then(|(ts, val)| {
-                            if ts.elapsed().as_secs() < RECALL_CACHE_TTL_SECS {
-                                Some(val.clone())
-                            } else {
-                                None
-                            }
-                        });
-
-                        if let Some(val) = cached_hit {
-                            Ok(val)
-                        } else {
-                            recall_cache.remove(&cache_key);
-                            let mut ipc = serde_json::json!({
-                                "cmd": "memories",
-                                "project": project,
-                                "query": query,
-                                "scope": scope,
-                                "limit": limit,
-                            });
-                            if let Some(aid) = agent_id {
-                                ipc["agent_id"] = serde_json::json!(aid);
-                            }
-                            let r = ipc_request_sync(&data_dir, &ipc);
-                            if let Ok(ref val) = r {
-                                recall_cache.insert(cache_key, (Instant::now(), val.clone()));
-                            }
-                            r
-                        }
-                    }
-                    "ideas_store" | "aeqi_remember" => {
-                        let mut ipc = args.clone();
-                        ipc["cmd"] = serde_json::json!("knowledge_store");
-                        if ipc
-                            .get("scope")
-                            .and_then(|v| v.as_str())
-                            .is_none_or(|s| s.is_empty())
-                        {
-                            ipc["scope"] = serde_json::json!("domain");
-                        }
-                        // Invalidate recall cache for this project — new memories change results.
-                        if let Some(project) = args.get("project").and_then(|v| v.as_str()) {
-                            let prefix = format!("{project}\0");
-                            recall_cache.retain(|k, _| !k.starts_with(&prefix));
-                        }
-                        ipc_request_sync(&data_dir, &ipc)
-                    }
-
-                    // ── Operations ──
+                    // ── Operations ─────────────────────────────────
                     "aeqi_status" => {
                         let mut ipc = serde_json::json!({"cmd": "status"});
                         if let Some(p) = args.get("project").and_then(|v| v.as_str()) {
                             ipc["project"] = serde_json::json!(p);
                         }
-                        ipc_request_sync(&data_dir, &ipc)
+                        ipc_request_sync(&sock_path, &ipc)
                     }
-                    "notes" | "aeqi_notes" => {
+
+                    "notes" => {
                         let action = args
                             .get("action")
                             .and_then(|v| v.as_str())
@@ -507,7 +568,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if ipc.get("durability").and_then(|v| v.as_str()).is_none() {
                                     ipc["durability"] = serde_json::json!("durable");
                                 }
-                                ipc_request_sync(&data_dir, &ipc)
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             "get" => {
                                 let ipc = serde_json::json!({
@@ -515,7 +576,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
                                     "key": args.get("key").and_then(|v| v.as_str()).unwrap_or(""),
                                 });
-                                ipc_request_sync(&data_dir, &ipc)
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             "claim" => {
                                 let ipc = serde_json::json!({
@@ -525,7 +586,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "content": args.get("content").and_then(|v| v.as_str()).unwrap_or(""),
                                     "agent": "worker",
                                 });
-                                ipc_request_sync(&data_dir, &ipc)
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             "release" => {
                                 let ipc = serde_json::json!({
@@ -535,7 +596,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "agent": "worker",
                                     "force": args.get("force").and_then(|v| v.as_bool()).unwrap_or(false),
                                 });
-                                ipc_request_sync(&data_dir, &ipc)
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             "delete" => {
                                 let ipc = serde_json::json!({
@@ -543,7 +604,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
                                     "key": args.get("key").and_then(|v| v.as_str()).unwrap_or(""),
                                 });
-                                ipc_request_sync(&data_dir, &ipc)
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             _ => {
                                 let prefix_filter = args.get("prefix").and_then(|v| v.as_str());
@@ -563,7 +624,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(cross) = args.get("cross_project") {
                                     ipc["cross_project"] = cross.clone();
                                 }
-                                let result = ipc_request_sync(&data_dir, &ipc);
+                                let result = ipc_request_sync(&sock_path, &ipc);
                                 if let Some(pf) = prefix_filter {
                                     result.map(|mut v| {
                                         if let Some(entries) =
@@ -583,188 +644,547 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             }
                         }
                     }
-                    "agents_delegate" | "aeqi_delegate" => {
-                        let agent_name = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
-                        let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
-                        let task_id = args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
-                        let extra_prompt =
-                            args.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
 
-                        // 1. Load agent template — try DB via IPC first, fall back to .md files
-                        let agent_template = {
-                            let mut found = String::new();
-
-                            // Try DB lookup via IPC (agent_info command)
-                            if let Ok(resp) = ipc_request_sync(
-                                &data_dir,
-                                &serde_json::json!({
-                                    "cmd": "agent_info",
-                                    "name": agent_name,
-                                }),
-                            ) && resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false)
-                                && let Some(sp) = resp.get("system_prompt").and_then(|v| v.as_str())
-                                && !sp.is_empty()
-                            {
-                                found = sp.to_string();
+                    // ── Ideas (unified) ────────────────────────────
+                    "ideas" => {
+                        let action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("search");
+                        match action {
+                            "store" => {
+                                let mut ipc = args.clone();
+                                ipc["cmd"] = serde_json::json!("knowledge_store");
+                                if ipc
+                                    .get("scope")
+                                    .and_then(|v| v.as_str())
+                                    .is_none_or(|s| s.is_empty())
+                                {
+                                    ipc["scope"] = serde_json::json!("domain");
+                                }
+                                // Invalidate recall cache — new memories change results.
+                                if let Some(project) =
+                                    args.get("project").and_then(|v| v.as_str())
+                                {
+                                    let prefix = format!("{project}\0");
+                                    recall_cache.retain(|k, _| !k.starts_with(&prefix));
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
                             }
+                            "search" => {
+                                let project = args
+                                    .get("project")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let query =
+                                    args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                                let scope = args
+                                    .get("scope")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("domain");
+                                let agent_id = args.get("agent_id").and_then(|v| v.as_str());
+                                let limit =
+                                    args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
-                            // Fall back to .md files on disk
-                            if found.is_empty() {
-                                for dir in &[
-                                    base_dir.join("projects").join(project).join("agents"),
-                                    base_dir.join("projects/shared/agents"),
-                                ] {
-                                    let path = dir.join(format!("{agent_name}.md"));
-                                    if path.exists()
-                                        && let Ok(content) = std::fs::read_to_string(&path)
+                                let agent_key = agent_id.unwrap_or("");
+                                let cache_key =
+                                    format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
+
+                                let cached_hit =
+                                    recall_cache.get(&cache_key).and_then(|(ts, val)| {
+                                        if ts.elapsed().as_secs() < RECALL_CACHE_TTL_SECS {
+                                            Some(val.clone())
+                                        } else {
+                                            None
+                                        }
+                                    });
+
+                                if let Some(val) = cached_hit {
+                                    Ok(val)
+                                } else {
+                                    recall_cache.remove(&cache_key);
+                                    let mut ipc = serde_json::json!({
+                                        "cmd": "memories",
+                                        "project": project,
+                                        "query": query,
+                                        "scope": scope,
+                                        "limit": limit,
+                                    });
+                                    if let Some(aid) = agent_id {
+                                        ipc["agent_id"] = serde_json::json!(aid);
+                                    }
+                                    let r = ipc_request_sync(&sock_path, &ipc);
+                                    if let Ok(ref val) = r {
+                                        recall_cache
+                                            .insert(cache_key, (Instant::now(), val.clone()));
+                                    }
+                                    r
+                                }
+                            }
+                            "delete" => {
+                                let id =
+                                    args.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                                let project = args
+                                    .get("project")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                // Invalidate recall cache.
+                                let prefix = format!("{project}\0");
+                                recall_cache.retain(|k, _| !k.starts_with(&prefix));
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "knowledge_delete",
+                                        "id": id,
+                                        "project": project,
+                                    }),
+                                )
+                            }
+                            _ => Err(anyhow::anyhow!(
+                                "unknown ideas action: {action}. Use: store, search, delete"
+                            )),
+                        }
+                    }
+
+                    // ── Quests (unified) ───────────────────────────
+                    "quests" => {
+                        let action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("list");
+                        match action {
+                            "create" => {
+                                let mut ipc = args.clone();
+                                ipc["cmd"] = serde_json::json!("create_quest");
+                                // Normalize depends_on: string → array
+                                if let Some(dep) = ipc.get("depends_on").cloned()
+                                    && dep.is_string()
+                                {
+                                    ipc["depends_on"] =
+                                        serde_json::json!([dep.as_str().unwrap_or("")]);
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "list" => {
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "quests",
+                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                });
+                                if let Some(status) = args.get("status") {
+                                    ipc["status"] = status.clone();
+                                }
+                                if let Some(agent) = args.get("agent") {
+                                    ipc["agent"] = agent.clone();
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "show" => {
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "get_quest",
+                                        "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+                                        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                    }),
+                                )
+                            }
+                            "update" => {
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "update_quest",
+                                    "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                });
+                                if let Some(status) = args.get("status") {
+                                    ipc["status"] = status.clone();
+                                }
+                                if let Some(priority) = args.get("priority") {
+                                    ipc["priority"] = priority.clone();
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "close" => {
+                                let project = args
+                                    .get("project")
+                                    .and_then(|v| v.as_str())
+                                    .or_else(|| {
+                                        args.get("quest_id")
+                                            .and_then(|v| v.as_str())
+                                            .and_then(|id| id.split('-').next())
+                                    })
+                                    .unwrap_or("");
+                                let quest_id = args
+                                    .get("quest_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let mut ipc = args.clone();
+                                ipc["cmd"] = serde_json::json!("close_quest");
+                                let mut result = ipc_request_sync(&sock_path, &ipc);
+
+                                // Enrich: check if review was posted for this quest
+                                if let Ok(ref mut val) = result
+                                    && !quest_id.is_empty()
+                                {
+                                    let review_key = format!("quest:{quest_id}:review");
+                                    let bb_req = serde_json::json!({
+                                        "cmd": "notes",
+                                        "project": project,
+                                        "prefix": &review_key,
+                                        "limit": 1
+                                    });
+                                    let has_review = ipc_request_sync(&sock_path, &bb_req)
+                                        .ok()
+                                        .and_then(|r| {
+                                            r.get("entries")?.as_array().map(|a| !a.is_empty())
+                                        })
+                                        .unwrap_or(false);
+
+                                    if !has_review {
+                                        val["review_warning"] = serde_json::json!(format!(
+                                            "No review posted for {quest_id}. For significant changes, delegate: agents(action='delegate', agent='reviewer', project='{project}', quest_id='{quest_id}')"
+                                        ));
+                                    }
+                                }
+
+                                result
+                            }
+                            "cancel" => {
+                                let quest_id = args
+                                    .get("quest_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let reason = args
+                                    .get("reason")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Cancelled");
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "update_quest",
+                                        "quest_id": quest_id,
+                                        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                        "status": "cancelled",
+                                        "reason": reason,
+                                    }),
+                                )
+                            }
+                            _ => Err(anyhow::anyhow!(
+                                "unknown quests action: {action}. Use: create, list, show, update, close, cancel"
+                            )),
+                        }
+                    }
+
+                    // ── Agents (unified) ───────────────────────────
+                    "agents" => {
+                        let action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("list");
+                        match action {
+                            "hire" => {
+                                let template = args
+                                    .get("template")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "agent_spawn",
+                                    "template": template,
+                                });
+                                if let Some(parent) =
+                                    args.get("parent_id").and_then(|v| v.as_str())
+                                {
+                                    ipc["parent_id"] = serde_json::json!(parent);
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "retire" => {
+                                let agent_hint = args
+                                    .get("agent")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "agent_set_status",
+                                        "name": agent_hint,
+                                        "status": "retired",
+                                    }),
+                                )
+                            }
+                            "list" => {
+                                let mut ipc = serde_json::json!({"cmd": "agents_registry"});
+                                if let Some(status) = args.get("status").and_then(|v| v.as_str())
+                                {
+                                    ipc["status"] = serde_json::json!(status);
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "delegate" => {
+                                let agent_name = args
+                                    .get("agent")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let project = args
+                                    .get("project")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let quest_id = args
+                                    .get("quest_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let extra_prompt = args
+                                    .get("prompt")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+
+                                // 1. Load agent template — try DB via IPC first, fall back to .md files
+                                let agent_template = {
+                                    let mut found = String::new();
+
+                                    if let Ok(resp) = ipc_request_sync(
+                                        &sock_path,
+                                        &serde_json::json!({
+                                            "cmd": "agent_info",
+                                            "name": agent_name,
+                                        }),
+                                    ) && resp
+                                        .get("ok")
+                                        .and_then(|v| v.as_bool())
+                                        .unwrap_or(false)
+                                        && let Some(sp) =
+                                            resp.get("system_prompt").and_then(|v| v.as_str())
+                                        && !sp.is_empty()
                                     {
-                                        found = content;
-                                        break;
+                                        found = sp.to_string();
+                                    }
+
+                                    if found.is_empty() {
+                                        for dir in &[
+                                            base_dir
+                                                .join("projects")
+                                                .join(project)
+                                                .join("agents"),
+                                            base_dir.join("projects/shared/agents"),
+                                        ] {
+                                            let path = dir.join(format!("{agent_name}.md"));
+                                            if path.exists()
+                                                && let Ok(content) =
+                                                    std::fs::read_to_string(&path)
+                                            {
+                                                found = content;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if found.is_empty() {
+                                        return Err(anyhow::anyhow!(
+                                            "agent '{agent_name}' not found"
+                                        ));
+                                    }
+                                    found
+                                };
+
+                                // 2. Gather notes context for the quest
+                                let mut bb_context = String::new();
+                                if !quest_id.is_empty() {
+                                    let bb_req = serde_json::json!({
+                                        "cmd": "notes",
+                                        "project": project,
+                                        "prefix": format!("quest:{quest_id}"),
+                                        "limit": 10
+                                    });
+                                    if let Ok(bb_resp) = ipc_request_sync(&sock_path, &bb_req)
+                                        && let Some(entries) =
+                                            bb_resp.get("entries").and_then(|e| e.as_array())
+                                    {
+                                        for entry in entries {
+                                            let key = entry
+                                                .get("key")
+                                                .and_then(|k| k.as_str())
+                                                .unwrap_or("");
+                                            let content = entry
+                                                .get("content")
+                                                .and_then(|c| c.as_str())
+                                                .unwrap_or("");
+                                            if !content.is_empty() {
+                                                bb_context.push_str(&format!(
+                                                    "\n## {key}\n{content}\n"
+                                                ));
+                                            }
+                                        }
                                     }
                                 }
-                            }
 
-                            if found.is_empty() {
-                                return Err(anyhow::anyhow!("agent '{agent_name}' not found"));
-                            }
-                            found
-                        };
-
-                        // 2. Gather notes context for the quest
-                        let mut bb_context = String::new();
-                        if !task_id.is_empty() {
-                            let bb_req = serde_json::json!({
-                                "cmd": "notes",
-                                "project": project,
-                                "prefix": format!("quest:{task_id}"),
-                                "limit": 10
-                            });
-                            if let Ok(bb_resp) = ipc_request_sync(&data_dir, &bb_req)
-                                && let Some(entries) =
-                                    bb_resp.get("entries").and_then(|e| e.as_array())
-                            {
-                                for entry in entries {
-                                    let key =
-                                        entry.get("key").and_then(|k| k.as_str()).unwrap_or("");
-                                    let content =
-                                        entry.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                                    if !content.is_empty() {
-                                        bb_context.push_str(&format!("\n## {key}\n{content}\n"));
-                                    }
+                                // 3. Assemble the delegation prompt
+                                let mut prompt = String::new();
+                                prompt.push_str(&agent_template);
+                                prompt.push_str("\n\n---\n\n");
+                                prompt.push_str(&format!(
+                                    "# Delegation Context\n\nProject: {project}\n"
+                                ));
+                                if !quest_id.is_empty() {
+                                    prompt.push_str(&format!("Quest: {quest_id}\n"));
                                 }
+                                if !bb_context.is_empty() {
+                                    prompt.push_str(&format!(
+                                        "\n# Notes Context\n{bb_context}\n"
+                                    ));
+                                }
+                                if !extra_prompt.is_empty() {
+                                    prompt
+                                        .push_str(&format!("\n# Instructions\n{extra_prompt}\n"));
+                                }
+                                prompt.push_str(&format!(
+                                    "\nWhen done, post your results to notes:\n\
+                                     notes(action='post', project='{project}', key='quest:{quest_id}:{agent_name}', content='<your findings>')\n"
+                                ));
+
+                                Ok(serde_json::json!({
+                                    "ok": true,
+                                    "agent": agent_name,
+                                    "project": project,
+                                    "quest_id": quest_id,
+                                    "prompt": prompt,
+                                    "usage": "Pass the 'prompt' field to a Claude Code Agent subagent. The agent will read notes context and post results back."
+                                }))
                             }
+                            _ => Err(anyhow::anyhow!(
+                                "unknown agents action: {action}. Use: hire, retire, list, delegate"
+                            )),
                         }
-
-                        // 3. Assemble the delegation prompt
-                        let mut prompt = String::new();
-                        prompt.push_str(&agent_template);
-                        prompt.push_str("\n\n---\n\n");
-                        prompt.push_str(&format!("# Delegation Context\n\nProject: {project}\n"));
-                        if !task_id.is_empty() {
-                            prompt.push_str(&format!("Quest: {task_id}\n"));
-                        }
-                        if !bb_context.is_empty() {
-                            prompt.push_str(&format!("\n# Notes Context\n{bb_context}\n"));
-                        }
-                        if !extra_prompt.is_empty() {
-                            prompt.push_str(&format!("\n# Instructions\n{extra_prompt}\n"));
-                        }
-                        prompt.push_str(&format!(
-                            "\nWhen done, post your results to notes:\n\
-                             notes(action='post', project='{project}', key='quest:{task_id}:{agent_name}', content='<your findings>')\n"
-                        ));
-
-                        Ok(serde_json::json!({
-                            "ok": true,
-                            "agent": agent_name,
-                            "project": project,
-                            "quest_id": task_id,
-                            "prompt": prompt,
-                            "usage": "Pass the 'prompt' field to a Claude Code Agent subagent. The agent will read notes context and post results back."
-                        }))
                     }
 
-                    "quests_create" | "aeqi_create_quest" => {
-                        let mut ipc = args.clone();
-                        ipc["cmd"] = serde_json::json!("create_quest");
-                        // Normalize depends_on: string → array
-                        if let Some(dep) = ipc.get("depends_on").cloned()
-                            && dep.is_string()
-                        {
-                            ipc["depends_on"] = serde_json::json!([dep.as_str().unwrap_or("")]);
+                    // ── Events (new) ───────────────────────────────
+                    "events" => {
+                        let action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("list");
+                        match action {
+                            "create" => {
+                                let agent = args
+                                    .get("agent")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let name = args
+                                    .get("name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let scope = args
+                                    .get("scope")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("self");
+
+                                // Build pattern from shorthand or explicit
+                                let pattern = if let Some(schedule) =
+                                    args.get("schedule").and_then(|v| v.as_str())
+                                {
+                                    format!("schedule:{schedule}")
+                                } else if let Some(event) =
+                                    args.get("event_pattern").and_then(|v| v.as_str())
+                                {
+                                    format!("lifecycle:{event}")
+                                } else {
+                                    args.get("pattern")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_string()
+                                };
+
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "create_event",
+                                    "agent": agent,
+                                    "name": name,
+                                    "pattern": pattern,
+                                    "scope": scope,
+                                });
+                                if let Some(content) = args.get("content") {
+                                    ipc["content"] = content.clone();
+                                }
+                                if let Some(cooldown) = args.get("cooldown_secs") {
+                                    ipc["cooldown_secs"] = cooldown.clone();
+                                }
+                                if let Some(budget) = args.get("max_budget_usd") {
+                                    ipc["max_budget_usd"] = budget.clone();
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "list" => {
+                                let mut ipc = serde_json::json!({"cmd": "list_events"});
+                                if let Some(agent) = args.get("agent") {
+                                    ipc["agent"] = agent.clone();
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "enable" | "disable" => {
+                                let event_id = args
+                                    .get("event_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "update_event",
+                                        "event_id": event_id,
+                                        "enabled": action == "enable",
+                                    }),
+                                )
+                            }
+                            "delete" => {
+                                let event_id = args
+                                    .get("event_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "delete_event",
+                                        "event_id": event_id,
+                                    }),
+                                )
+                            }
+                            _ => Err(anyhow::anyhow!(
+                                "unknown events action: {action}. Use: create, list, enable, disable, delete"
+                            )),
                         }
-                        ipc_request_sync(&data_dir, &ipc)
                     }
-                    "quests_close" | "aeqi_close_quest" => {
+
+                    // ── Code (graph intelligence) ──────────────────
+                    "code" => {
                         let project = args
                             .get("project")
                             .and_then(|v| v.as_str())
-                            .or_else(|| {
-                                args.get("quest_id")
-                                    .and_then(|v| v.as_str())
-                                    .and_then(|id| id.split('-').next())
-                            })
                             .unwrap_or("");
-                        let quest_id = args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
-                        let mut ipc = args.clone();
-                        ipc["cmd"] = serde_json::json!("close_quest");
-                        let mut result = ipc_request_sync(&data_dir, &ipc);
-
-                        // Enrich: check if review was posted for this quest
-                        if let Ok(ref mut val) = result
-                            && !quest_id.is_empty()
-                        {
-                            let review_key = format!("quest:{quest_id}:review");
-                            let bb_req = serde_json::json!({
-                                "cmd": "notes",
-                                "project": project,
-                                "prefix": &review_key,
-                                "limit": 1
-                            });
-                            let has_review = ipc_request_sync(&data_dir, &bb_req)
-                                .ok()
-                                .and_then(|r| r.get("entries")?.as_array().map(|a| !a.is_empty()))
-                                .unwrap_or(false);
-
-                            if !has_review {
-                                val["review_warning"] = serde_json::json!(format!(
-                                    "No review posted for {quest_id}. For significant changes, delegate: agents_delegate(agent='reviewer', project='{project}', quest_id='{quest_id}')"
-                                ));
-                            }
-                        }
-
-                        result
-                    }
-
-                    "ideas_graph" | "aeqi_graph" => {
-                        let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let action = args
                             .get("action")
                             .and_then(|v| v.as_str())
                             .unwrap_or("stats");
 
                         // Find project repo path from config
-                        let repo_path =
-                            config
-                                .agent_spawns
-                                .iter()
-                                .find(|p| p.name == project)
-                                .map(|p| {
-                                    let r = p.repo.replace(
-                                        '~',
-                                        &dirs::home_dir().unwrap_or_default().to_string_lossy(),
-                                    );
-                                    std::path::PathBuf::from(r)
-                                });
+                        let repo_path = config
+                            .agent_spawns
+                            .iter()
+                            .find(|p| p.name == project)
+                            .map(|p| {
+                                let r = p.repo.replace(
+                                    '~',
+                                    &dirs::home_dir()
+                                        .unwrap_or_default()
+                                        .to_string_lossy(),
+                                );
+                                std::path::PathBuf::from(r)
+                            });
 
-                        let graph_dir = data_dir.join("codegraph");
+                        let graph_dir = config.data_dir().join("codegraph");
                         std::fs::create_dir_all(&graph_dir).ok();
                         let db_path = graph_dir.join(format!("{project}.db"));
 
                         match action {
                             "index" => {
                                 let repo = repo_path.ok_or_else(|| {
-                                    anyhow::anyhow!("project '{project}' not found in config")
+                                    anyhow::anyhow!(
+                                        "project '{project}' not found in config"
+                                    )
                                 })?;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let indexer = aeqi_graph::Indexer::new();
@@ -782,9 +1202,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "search" => {
-                                let query =
-                                    args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-                                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10)
+                                let query = args
+                                    .get("query")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let limit = args
+                                    .get("limit")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(10)
                                     as usize;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let results = store.search_nodes(query, limit)?;
@@ -795,8 +1220,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "context" => {
-                                let node_id =
-                                    args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+                                let node_id = args
+                                    .get("node_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let ctx = store.context(node_id)?;
                                 Ok(serde_json::json!({
@@ -810,10 +1237,15 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "impact" => {
-                                let node_id =
-                                    args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
-                                let depth =
-                                    args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
+                                let node_id = args
+                                    .get("node_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let depth = args
+                                    .get("depth")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(3)
+                                    as u32;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let entries = store.impact(&[node_id], depth)?;
                                 let affected: Vec<serde_json::Value> = entries
@@ -833,8 +1265,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "file" => {
-                                let file_path =
-                                    args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+                                let file_path = args
+                                    .get("file_path")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let nodes = store.nodes_in_file(file_path)?;
                                 Ok(serde_json::json!({
@@ -847,7 +1281,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             "stats" => {
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let stats = store.stats()?;
-                                let indexed_at = store.get_meta("indexed_at")?.unwrap_or_default();
+                                let indexed_at =
+                                    store.get_meta("indexed_at")?.unwrap_or_default();
                                 Ok(serde_json::json!({
                                     "ok": true,
                                     "project": project,
@@ -861,8 +1296,11 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 let repo = repo_path.ok_or_else(|| {
                                     anyhow::anyhow!("project '{project}' not found")
                                 })?;
-                                let depth =
-                                    args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
+                                let depth = args
+                                    .get("depth")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(3)
+                                    as u32;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let indexer = aeqi_graph::Indexer::new();
                                 let impact = indexer.diff_impact(&repo, &store, depth)?;
@@ -881,8 +1319,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "file_summary" => {
-                                let file_path =
-                                    args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+                                let file_path = args
+                                    .get("file_path")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let summary = store.file_summary(file_path)?;
                                 Ok(serde_json::json!({
@@ -914,7 +1354,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
 
-                                // Read existing nodes and edges from the graph DB (no re-index)
                                 let all_nodes: Vec<aeqi_graph::CodeNode> = {
                                     let mut stmt = store.conn().prepare(
                                         "SELECT id, label, name, file_path, start_line, end_line, language, is_exported, signature, doc_comment, community_id FROM code_nodes"
@@ -964,7 +1403,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .collect()
                                 };
 
-                                // Find the community
                                 let communities =
                                     aeqi_graph::detect_communities(&all_nodes, &all_edges, 3);
                                 let community = if community_id.is_empty() {
@@ -985,12 +1423,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                             "content": synthesized.content,
                                         }))
                                     }
-                                    None => {
-                                        Err(anyhow::anyhow!("community '{community_id}' not found"))
-                                    }
+                                    None => Err(anyhow::anyhow!(
+                                        "community '{community_id}' not found"
+                                    )),
                                 }
                             }
-                            _ => Err(anyhow::anyhow!("unknown aeqi_graph action: {action}")),
+                            _ => Err(anyhow::anyhow!(
+                                "unknown code action: {action}"
+                            )),
                         }
                     }
 

@@ -1,9 +1,9 @@
-use crate::graph::{MemoryEdge, MemoryRelation};
+use crate::graph::{IdeaEdge, IdeaRelation};
 use aeqi_core::traits::{Embedder, IdeaStore, IdeaCategory, Idea, IdeaQuery};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -118,7 +118,7 @@ impl SqliteIdeas {
             )?;
         }
 
-        // Memory graph edges table.
+        // Idea graph edges table (SQL table name kept as `memory_edges` for DB compat).
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS memory_edges (
                 source_id TEXT NOT NULL,
@@ -313,7 +313,7 @@ impl SqliteIdeas {
         Ok(())
     }
 
-    /// Migrate: add content_hash column to memory_embeddings for embedding cache.
+    /// Migrate: add content_hash column to embeddings table for embedding cache.
     ///
     /// This enables skipping expensive embedding API calls when the same content
     /// has already been embedded — we look up by SHA256 hash instead.
@@ -439,8 +439,8 @@ impl SqliteIdeas {
         Ok(entries)
     }
 
-    /// List all memory graph edges.
-    pub fn list_all_edges(&self) -> Result<Vec<MemoryEdge>> {
+    /// List all idea graph edges.
+    pub fn list_all_edges(&self) -> Result<Vec<IdeaEdge>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let mut stmt = conn.prepare(
             "SELECT source_id, target_id, relation, strength, created_at
@@ -463,7 +463,7 @@ impl SqliteIdeas {
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(MemoryEdge {
+                    Some(IdeaEdge {
                         source_id,
                         target_id,
                         relation,
@@ -848,14 +848,14 @@ impl SqliteIdeas {
         ))
     }
 
-    // ── Memory graph edge operations ──
+    // ── Idea graph edge operations ──
 
     /// Store a memory edge (upsert on conflict).
-    pub fn store_edge(&self, edge: &MemoryEdge) -> Result<()> {
+    pub fn store_edge(&self, edge: &IdeaEdge) -> Result<()> {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("memory lock poisoned in store_edge: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("lock poisoned in store_edge: {e}"))?;
         let relation_str = serde_json::to_value(edge.relation)?
             .as_str()
             .unwrap_or("related_to")
@@ -878,24 +878,24 @@ impl SqliteIdeas {
             target = %edge.target_id,
             relation = %relation_str,
             strength = edge.strength,
-            "stored memory edge"
+            "stored idea edge"
         );
         Ok(())
     }
 
-    /// Fetch all edges where this memory is source or target.
-    pub fn fetch_edges(&self, memory_id: &str) -> Result<Vec<MemoryEdge>> {
+    /// Fetch all edges where this idea is source or target.
+    pub fn fetch_edges(&self, idea_id: &str) -> Result<Vec<IdeaEdge>> {
         let conn = self
             .conn
             .lock()
-            .map_err(|e| anyhow::anyhow!("memory lock poisoned in fetch_edges: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("lock poisoned in fetch_edges: {e}"))?;
         let mut stmt = conn.prepare(
             "SELECT source_id, target_id, relation, strength, created_at
              FROM memory_edges
              WHERE source_id = ?1 OR target_id = ?1",
         )?;
         let edges = stmt
-            .query_map(rusqlite::params![memory_id], |row| {
+            .query_map(rusqlite::params![idea_id], |row| {
                 let source_id: String = row.get(0)?;
                 let target_id: String = row.get(1)?;
                 let relation_str: String = row.get(2)?;
@@ -906,12 +906,12 @@ impl SqliteIdeas {
             .filter_map(|r| r.ok())
             .filter_map(
                 |(source_id, target_id, relation_str, strength, created_str)| {
-                    let relation: MemoryRelation =
+                    let relation: IdeaRelation =
                         serde_json::from_value(serde_json::Value::String(relation_str)).ok()?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .ok()?
                         .with_timezone(&Utc);
-                    Some(MemoryEdge {
+                    Some(IdeaEdge {
                         source_id,
                         target_id,
                         relation,
@@ -925,7 +925,7 @@ impl SqliteIdeas {
     }
 
     /// Fetch all edges where any of the given IDs is involved.
-    pub fn fetch_edges_for_set(&self, ids: &[String]) -> Result<Vec<MemoryEdge>> {
+    pub fn fetch_edges_for_set(&self, ids: &[String]) -> Result<Vec<IdeaEdge>> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -941,9 +941,9 @@ impl SqliteIdeas {
         Ok(all_edges)
     }
 
-    /// Compute graph boost for a memory based on supporting edges in a result set.
-    pub fn compute_graph_boost(&self, memory_id: &str, result_ids: &[String]) -> f32 {
-        let edges = match self.fetch_edges(memory_id) {
+    /// Compute graph boost for an idea based on supporting edges in a result set.
+    pub fn compute_graph_boost(&self, idea_id: &str, result_ids: &[String]) -> f32 {
+        let edges = match self.fetch_edges(idea_id) {
             Ok(e) => e,
             Err(_) => return 0.0,
         };
@@ -953,7 +953,7 @@ impl SqliteIdeas {
 
         let mut boost: f32 = 0.0;
         for edge in &edges {
-            let other = if edge.source_id == memory_id {
+            let other = if edge.source_id == idea_id {
                 &edge.target_id
             } else {
                 &edge.source_id
@@ -962,18 +962,18 @@ impl SqliteIdeas {
                 continue;
             }
             match edge.relation {
-                MemoryRelation::Supports | MemoryRelation::RelatedTo => {
+                IdeaRelation::Supports | IdeaRelation::RelatedTo => {
                     boost += edge.strength * 0.5;
                 }
-                MemoryRelation::DerivedFrom | MemoryRelation::CausedBy => {
+                IdeaRelation::DerivedFrom | IdeaRelation::CausedBy => {
                     boost += edge.strength * 0.3;
                 }
-                MemoryRelation::Contradicts => {
+                IdeaRelation::Contradicts => {
                     boost -= edge.strength * 0.3;
                 }
-                MemoryRelation::Supersedes => {
+                IdeaRelation::Supersedes => {
                     // Source supersedes target — boost the source.
-                    if edge.source_id == memory_id {
+                    if edge.source_id == idea_id {
                         boost += edge.strength * 0.4;
                     }
                 }
@@ -1159,8 +1159,8 @@ impl IdeaStore for SqliteIdeas {
         let missing_ids: Vec<String> = merged
             .iter()
             .take(query.top_k * 2)
-            .filter(|r| !bm25_map.contains_key(&r.memory_id))
-            .map(|r| r.memory_id.clone())
+            .filter(|r| !bm25_map.contains_key(&r.idea_id))
+            .map(|r| r.idea_id.clone())
             .collect();
 
         let extra_rows: HashMap<String, MemRow> = if !missing_ids.is_empty() {
@@ -1177,7 +1177,7 @@ impl IdeaStore for SqliteIdeas {
         let mut scored: Vec<(ScoredResult, Idea)> = Vec::new();
         for sr in merged.into_iter().take(query.top_k * 2) {
             let row_ref = bm25_map
-                .get(&sr.memory_id)
+                .get(&sr.idea_id)
                 .map(|r| MemRow {
                     id: r.id.clone(),
                     key: r.key.clone(),
@@ -1188,7 +1188,7 @@ impl IdeaStore for SqliteIdeas {
                     session_id: r.session_id.clone(),
                 })
                 .or_else(|| {
-                    extra_rows.get(&sr.memory_id).map(|r| MemRow {
+                    extra_rows.get(&sr.idea_id).map(|r| MemRow {
                         id: r.id.clone(),
                         key: r.key.clone(),
                         content: r.content.clone(),
@@ -1231,17 +1231,17 @@ impl IdeaStore for SqliteIdeas {
             },
         );
 
-        // Phase 8: apply graph boost from memory edges.
+        // Phase 8: apply graph boost from idea edges.
         let entry_map: HashMap<String, Idea> =
             scored.into_iter().map(|(_, e)| (e.id.clone(), e)).collect();
 
-        let result_ids: Vec<String> = reranked.iter().map(|r| r.memory_id.clone()).collect();
+        let result_ids: Vec<String> = reranked.iter().map(|r| r.idea_id.clone()).collect();
 
         let mut result: Vec<Idea> = reranked
             .into_iter()
             .filter_map(|r| {
-                let mut entry = entry_map.get(&r.memory_id)?.clone();
-                // Compute graph boost from memory edges.
+                let mut entry = entry_map.get(&r.idea_id)?.clone();
+                // Compute graph boost from idea edges.
                 let graph_boost = self.compute_graph_boost(&entry.id, &result_ids);
                 if graph_boost > 0.0 {
                     // Apply 10% graph weight to the score.
@@ -1368,64 +1368,32 @@ impl IdeaStore for SqliteIdeas {
         relation: &str,
         strength: f32,
     ) -> Result<()> {
-        let relation_enum: MemoryRelation =
+        let relation_enum: IdeaRelation =
             serde_json::from_value(serde_json::Value::String(relation.to_string()))
-                .unwrap_or(MemoryRelation::RelatedTo);
-        let edge = MemoryEdge::new(source_id, target_id, relation_enum, strength);
+                .unwrap_or(IdeaRelation::RelatedTo);
+        let edge = IdeaEdge::new(source_id, target_id, relation_enum, strength);
         self.store_edge(&edge)
     }
 
-    async fn store_prompt(
-        &self,
-        key: &str,
-        content: &str,
-        agent_id: Option<&str>,
-        injection_mode: &str,
-        inheritance: &str,
-        tool_allow: &[String],
-        tool_deny: &[String],
-    ) -> Result<String> {
-        let content_hash = Self::content_hash(content);
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+    // store_prompt, get_prompts, get_prompts_for_chain — REMOVED.
+    // Ideas are activated through events, not injection_mode.
 
-        // Dedup by content_hash — reuse existing insight if content is identical.
-        let existing_id: Option<String> = conn
-            .query_row(
-                "SELECT id FROM ideas WHERE content_hash = ?1",
-                rusqlite::params![content_hash],
-                |row| row.get(0),
-            )
-            .optional()?;
-
-        if let Some(id) = existing_id {
-            debug!(id = %id, key = %key, "prompt deduped by content_hash");
-            return Ok(id);
+    async fn get_by_ids(&self, ids: &[String]) -> Result<Vec<Idea>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
         }
-
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = Utc::now().to_rfc3339();
-        let tool_allow_json = serde_json::to_string(tool_allow)?;
-        let tool_deny_json = serde_json::to_string(tool_deny)?;
-
-        conn.execute(
-            "INSERT INTO ideas (id, key, content, category, agent_id, injection_mode, inheritance, tool_allow, tool_deny, content_hash, created_at)
-             VALUES (?1, ?2, ?3, 'evergreen', ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            rusqlite::params![id, key, content, agent_id, injection_mode, inheritance, tool_allow_json, tool_deny_json, content_hash, now],
-        )?;
-
-        debug!(id = %id, key = %key, injection_mode = %injection_mode, "prompt idea stored");
-        Ok(id)
-    }
-
-    async fn get_prompts(&self, agent_id: &str) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let mut stmt = conn.prepare(
+        let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+        let sql = format!(
             "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
-             FROM ideas WHERE agent_id = ?1 AND injection_mode IS NOT NULL
-             ORDER BY created_at ASC",
-        )?;
-        let entries = stmt
-            .query_map(rusqlite::params![agent_id], |row| {
+             FROM ideas WHERE id IN ({})",
+            placeholders.join(", ")
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
+        let entries: Vec<Idea> = stmt
+            .query_map(params.as_slice(), |row| {
                 let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                 let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
                 Ok(Idea {
@@ -1454,16 +1422,44 @@ impl IdeaStore for SqliteIdeas {
         Ok(entries)
     }
 
-    async fn get_prompts_for_chain(&self, ancestor_ids: &[String]) -> Result<Vec<Idea>> {
-        if ancestor_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut all = Vec::new();
-        for agent_id in ancestor_ids {
-            let entries = self.get_prompts(agent_id).await?;
-            all.extend(entries);
-        }
-        Ok(all)
+    async fn get_injection_ideas(&self) -> Result<Vec<(String, String, Idea)>> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+        let mut stmt = conn.prepare(
+            "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+             FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
+             ORDER BY agent_id, created_at ASC",
+        )?;
+        let entries: Vec<(String, String, Idea)> = stmt
+            .query_map([], |row| {
+                let agent_id: String = row.get(4)?;
+                let injection_mode: String = row.get::<_, Option<String>>(7)?.unwrap_or_default();
+                let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
+                let idea = Idea {
+                    id: row.get(0)?,
+                    key: row.get(1)?,
+                    content: row.get(2)?,
+                    category: {
+                        let s: String = row.get(3)?;
+                        serde_json::from_value(serde_json::Value::String(s)).unwrap_or(IdeaCategory::Evergreen)
+                    },
+                    agent_id: Some(agent_id.clone()),
+                    created_at: {
+                        let s: String = row.get(5)?;
+                        DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
+                    },
+                    session_id: row.get(6)?,
+                    score: 1.0,
+                    injection_mode: Some(injection_mode.clone()),
+                    inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                };
+                Ok((agent_id, injection_mode, idea))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(entries)
     }
 }
 

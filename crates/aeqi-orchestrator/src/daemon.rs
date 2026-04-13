@@ -152,14 +152,19 @@ pub fn resolve_web_chat_id(
     agency_chat_id()
 }
 
-pub fn task_snapshot(task: &aeqi_quests::Quest) -> serde_json::Value {
+pub fn quest_snapshot(quest: &aeqi_quests::Quest) -> serde_json::Value {
     serde_json::json!({
-        "id": task.id.0,
-        "subject": task.name,
-        "status": task.status.to_string(),
-        "runtime": task.runtime(),
-        "outcome": task.task_outcome(),
+        "id": quest.id.0,
+        "subject": quest.name,
+        "status": quest.status.to_string(),
+        "runtime": quest.runtime(),
+        "outcome": quest.quest_outcome(),
     })
+}
+
+/// Deprecated alias — use `quest_snapshot()` instead.
+pub fn task_snapshot(task: &aeqi_quests::Quest) -> serde_json::Value {
+    quest_snapshot(task)
 }
 
 pub fn merge_timeline_metadata(
@@ -184,7 +189,7 @@ pub fn merge_timeline_metadata(
     }
 }
 
-pub async fn find_task_snapshot(
+pub async fn find_quest_snapshot(
     agent_registry: &Arc<AgentRegistry>,
     quest_id: &str,
 ) -> Option<serde_json::Value> {
@@ -193,7 +198,15 @@ pub async fn find_task_snapshot(
         .await
         .ok()
         .flatten()
-        .map(|t| task_snapshot(&t))
+        .map(|t| quest_snapshot(&t))
+}
+
+/// Deprecated alias — use `find_quest_snapshot()` instead.
+pub async fn find_task_snapshot(
+    agent_registry: &Arc<AgentRegistry>,
+    quest_id: &str,
+) -> Option<serde_json::Value> {
+    find_quest_snapshot(agent_registry, quest_id).await
 }
 
 pub fn attach_chat_id(mut payload: serde_json::Value, chat_id: i64) -> serde_json::Value {
@@ -387,6 +400,9 @@ impl Daemon {
         self.spawn_schedule_timer();
         self.spawn_ipc_listener();
         self.load_persisted_state().await;
+
+        // Migrate injection_mode ideas to event-based activation.
+        self.run_injection_mode_migration().await;
 
         // Crash recovery: reset stale in_progress quests from previous run.
         match self.agent_registry.reset_stale_in_progress().await {
@@ -609,6 +625,41 @@ impl Daemon {
     /// Load persisted state from disk.
     async fn load_persisted_state(&self) {
         // Cost entries and events are stored in ActivityLog (SQLite) — no load needed.
+    }
+
+    /// Migrate injection_mode ideas to event-based activation (idempotent).
+    ///
+    /// Runs once at daemon startup. For each agent with injection_mode ideas,
+    /// creates or updates an `on_session_start` event referencing those idea IDs.
+    async fn run_injection_mode_migration(&self) {
+        let event_store = match self.event_handler_store.as_ref() {
+            Some(s) => s,
+            None => return,
+        };
+
+        let idea_store = match self
+            .message_router
+            .as_ref()
+            .and_then(|mr| mr.idea_store.as_ref())
+        {
+            Some(s) => s,
+            None => return,
+        };
+
+        match crate::event_handler::migrate_injection_mode_to_events(
+            idea_store.as_ref(),
+            event_store,
+        )
+        .await
+        {
+            Ok(count) if count > 0 => {
+                info!(count, "migrated injection_mode ideas to event-based activation");
+            }
+            Err(e) => {
+                warn!(error = %e, "injection_mode migration failed");
+            }
+            _ => {}
+        }
     }
 
     /// Run one patrol iteration: config reload, persistence, metrics, pruning.
@@ -969,8 +1020,8 @@ impl Daemon {
                     crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await
                 }
                 "cost" => crate::ipc::status::handle_cost(&ctx, &request, &allowed_companies).await,
-                "audit" => {
-                    crate::ipc::status::handle_audit(&ctx, &request, &allowed_companies).await
+                "activity" | "audit" => {
+                    crate::ipc::status::handle_activity(&ctx, &request, &allowed_companies).await
                 }
                 "expertise" => {
                     crate::ipc::status::handle_expertise(&ctx, &request, &allowed_companies).await
@@ -1813,35 +1864,36 @@ impl Daemon {
                     }
                 }
 
-                "memories" => {
-                    crate::ipc::memory::handle_memories(&ctx, &request, &allowed_companies).await
+                // Canonical idea commands.
+                "ideas" | "memories" => {
+                    crate::ipc::ideas::handle_ideas_search(&ctx, &request, &allowed_companies).await
                 }
-                "memory_profile" => {
-                    crate::ipc::memory::handle_memory_profile(&ctx, &request, &allowed_companies)
+                "idea_profile" | "memory_profile" => {
+                    crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_companies)
                         .await
                 }
-                "memory_graph" => {
-                    crate::ipc::memory::handle_memory_graph(&ctx, &request, &allowed_companies)
+                "idea_graph" | "memory_graph" => {
+                    crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_companies)
                         .await
                 }
-                "memory_prefix" => {
-                    crate::ipc::memory::handle_memory_prefix(&ctx, &request, &allowed_companies)
+                "idea_prefix" | "memory_prefix" => {
+                    crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_companies)
                         .await
                 }
                 "company_knowledge" => {
-                    crate::ipc::memory::handle_company_knowledge(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_company_knowledge(&ctx, &request, &allowed_companies)
                         .await
                 }
                 "channel_knowledge" => {
-                    crate::ipc::memory::handle_channel_knowledge(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_channel_knowledge(&ctx, &request, &allowed_companies)
                         .await
                 }
                 "knowledge_store" => {
-                    crate::ipc::memory::handle_knowledge_store(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_companies)
                         .await
                 }
                 "knowledge_delete" => {
-                    crate::ipc::memory::handle_knowledge_delete(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_companies)
                         .await
                 }
 

@@ -20,7 +20,22 @@ fi
 
 AEQI_DIR="$(dirname "$SCRIPT_DIR")"
 EVENT="${1:-startup}"
-SOCK="${AEQI_DATA_DIR:-$HOME/.aeqi}/rm.sock"
+
+# If authenticated via secret key, resolve socket from platform.
+# Otherwise fall back to local daemon socket.
+if [ -n "${AEQI_SECRET_KEY:-}" ]; then
+    PLATFORM_URL="${AEQI_PLATFORM_URL:-http://127.0.0.1:8443}"
+    VALIDATE_RESP=$(curl -s -X POST "$PLATFORM_URL/api/mcp/validate" \
+        -H "Authorization: Bearer $AEQI_SECRET_KEY" 2>/dev/null) || true
+    RUNTIME_SOCK=$(printf '%s' "$VALIDATE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('runtime',{}).get('socket',''))" 2>/dev/null) || true
+    if [ -n "$RUNTIME_SOCK" ] && [ -S "$RUNTIME_SOCK" ]; then
+        SOCK="$RUNTIME_SOCK"
+    else
+        SOCK="${AEQI_DATA_DIR:-$HOME/.aeqi}/rm.sock"
+    fi
+else
+    SOCK="${AEQI_DATA_DIR:-$HOME/.aeqi}/rm.sock"
+fi
 
 # --- Detect project from $PWD ---
 PROJECT=$(detect_project)
@@ -82,7 +97,7 @@ emit_graph_status() {
     local db_path="$graph_dir/${proj}.db"
 
     if [ ! -f "$db_path" ]; then
-        echo "# Graph: not indexed. Run aeqi_graph(action='index', project='$proj') to build."
+        echo "# Graph: not indexed. Run code(action='index', project='$proj') to build."
         return
     fi
 
@@ -110,7 +125,7 @@ emit_graph_status() {
             # Auto-index if stale and binary available
             if [ -x "$AEQI_BIN" ]; then
                 local INIT_CALL='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"hook","version":"0.2"}}}'
-                local INDEX_CALL="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"aeqi_graph\",\"arguments\":{\"action\":\"incremental\",\"project\":\"$proj\"}}}"
+                local INDEX_CALL="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"code\",\"arguments\":{\"action\":\"incremental\",\"project\":\"$proj\"}}}"
                 local idx_resp
                 idx_resp=$(cd "$AEQI_DIR" && printf '%s\n%s\n' "$INIT_CALL" "$INDEX_CALL" | "$AEQI_BIN" mcp 2>/dev/null | tail -1) || true
                 if [ -n "$idx_resp" ]; then
@@ -122,7 +137,7 @@ emit_graph_status() {
                     return
                 fi
             fi
-            echo "# Graph: STALE (indexed at ${indexed_commit:-?}, HEAD is ${head_commit}). Run aeqi_graph(action='index', project='$proj')."
+            echo "# Graph: STALE (indexed at ${indexed_commit:-?}, HEAD is ${head_commit}). Run code(action='index', project='$proj')."
         else
             echo "# Graph: ${node_count:-?} nodes, ${edge_count:-?} edges (current)"
         fi
@@ -160,7 +175,7 @@ emit_graph_status "${PROJECT:-aeqi}"
 INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"hook","version":"0.2"}}}'
 SHARED_CALL='{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"aeqi_primer","arguments":{"project":"shared"}}}'
 
-AGENTS_CALL='{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"aeqi_agents","arguments":{"action":"list"}}}'
+AGENTS_CALL='{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"agents","arguments":{"action":"list"}}}'
 
 if [ -n "$PROJECT" ] && [ "$PROJECT" != "shared" ]; then
     PROJECT_CALL="{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"aeqi_primer\",\"arguments\":{\"project\":\"$PROJECT\"}}}"
@@ -201,15 +216,15 @@ fi
 # Quick Reference (always)
 cat <<'QREF'
 ## Quick Reference — MCP Tool Names
-  mcp__aeqi__aeqi_recall, mcp__aeqi__aeqi_remember, mcp__aeqi__aeqi_primer
-  mcp__aeqi__aeqi_prompts, mcp__aeqi__aeqi_agents, mcp__aeqi__aeqi_notes
-  mcp__aeqi__aeqi_create_task, mcp__aeqi__aeqi_close_task, mcp__aeqi__aeqi_status
+  mcp__aeqi__ideas, mcp__aeqi__quests, mcp__aeqi__agents, mcp__aeqi__events
+  mcp__aeqi__code, mcp__aeqi__notes, mcp__aeqi__aeqi_primer
+  mcp__aeqi__aeqi_prompts, mcp__aeqi__aeqi_status, mcp__aeqi__aeqi_projects
 
 ## Workflow — Memory is the coordination surface
-  Knowledge/plans/findings → aeqi_remember (persistent, searchable via FTS5+vector)
-  Prior context → aeqi_recall (hybrid search with temporal decay)
-  File locks → aeqi_notes claim/release (ephemeral resource claims)
-  Tasks are "quests" → aeqi_create_task / aeqi_close_task
+  Knowledge/plans/findings → ideas(action='store') (persistent, searchable via FTS5+vector)
+  Prior context → ideas(action='search') (hybrid search with temporal decay)
+  File locks → notes(action='claim/release') (ephemeral resource claims)
+  Task management → quests(action='create/list/show/update/close/cancel')
 QREF
 
 # Skills list (id=4) — workflow skills first, then by phase

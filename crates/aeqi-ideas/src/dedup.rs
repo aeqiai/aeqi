@@ -1,7 +1,7 @@
-//! Memory deduplication pipeline.
+//! Idea deduplication pipeline.
 //!
-//! Before storing a new memory, the pipeline checks for similar existing
-//! memories and decides: **Skip** (near-duplicate), **Create** (novel),
+//! Before storing a new idea, the pipeline checks for similar existing
+//! ideas and decides: **Skip** (near-duplicate), **Create** (novel),
 //! **Merge** (enhances existing), or **Supersede** (contradicts existing).
 //!
 //! This is the heuristic fast-path; a future LLM judgment layer can refine
@@ -11,21 +11,21 @@ use serde::{Deserialize, Serialize};
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-/// Action the pipeline recommends for a candidate memory.
+/// Action the pipeline recommends for a candidate idea.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DedupAction {
     /// Candidate is a near-duplicate — discard it.
     Skip,
-    /// Candidate is novel enough — store as a new memory.
+    /// Candidate is novel enough — store as a new idea.
     Create,
-    /// Candidate should be merged into an existing memory (by id).
+    /// Candidate should be merged into an existing idea (by id).
     Merge(String),
-    /// Candidate supersedes (contradicts) an existing memory (by id).
+    /// Candidate supersedes (contradicts) an existing idea (by id).
     Supersede(String),
 }
 
-/// A candidate memory about to be stored.
+/// A candidate idea about to be stored.
 #[derive(Debug, Clone)]
 pub struct DedupCandidate {
     /// Semantic key (e.g. "auth/jwt-rotation").
@@ -36,10 +36,10 @@ pub struct DedupCandidate {
     pub embedding: Option<Vec<f32>>,
 }
 
-/// An existing memory that may be similar to the candidate.
+/// An existing idea that may be similar to the candidate.
 #[derive(Debug, Clone)]
-pub struct SimilarMemory {
-    /// Memory ID in the store.
+pub struct SimilarIdea {
+    /// Idea ID in the store.
     pub id: String,
     /// Semantic key.
     pub key: String,
@@ -49,12 +49,15 @@ pub struct SimilarMemory {
     pub similarity: f32,
 }
 
+/// Backward-compat alias.
+pub type SimilarMemory = SimilarIdea;
+
 // ── Pipeline ────────────────────────────────────────────────────────────────
 
-/// Deduplication pipeline that decides whether a candidate memory should be
-/// created, merged, skipped, or used to supersede an existing memory.
+/// Deduplication pipeline that decides whether a candidate idea should be
+/// created, merged, skipped, or used to supersede an existing idea.
 pub struct DedupPipeline {
-    /// Minimum similarity to consider two memories related (default 0.85).
+    /// Minimum similarity to consider two ideas related (default 0.85).
     pub similarity_threshold: f32,
 }
 
@@ -74,28 +77,28 @@ impl DedupPipeline {
         }
     }
 
-    /// Filter existing memories to those above the similarity threshold.
+    /// Filter existing ideas to those above the similarity threshold.
     pub fn find_similar<'a>(
         &self,
         _candidate: &DedupCandidate,
-        existing: &'a [SimilarMemory],
-    ) -> Vec<&'a SimilarMemory> {
+        existing: &'a [SimilarIdea],
+    ) -> Vec<&'a SimilarIdea> {
         existing
             .iter()
             .filter(|m| m.similarity >= self.similarity_threshold)
             .collect()
     }
 
-    /// Decide what to do with a candidate given a set of similar memories.
+    /// Decide what to do with a candidate given a set of similar ideas.
     ///
     /// Decision logic (evaluated in order):
-    /// 1. No similar memories → **Create**
+    /// 1. No similar ideas → **Create**
     /// 2. Similarity > 0.95 → **Skip** (near-duplicate)
     /// 3. Contradiction detected → **Supersede** the top match
     /// 4. Same key and similarity 0.85–0.95 → **Merge** with top match
     /// 5. Otherwise → **Create** (novel enough)
-    pub fn decide(&self, candidate: &DedupCandidate, similar: &[SimilarMemory]) -> DedupAction {
-        let above_threshold: Vec<&SimilarMemory> = similar
+    pub fn decide(&self, candidate: &DedupCandidate, similar: &[SimilarIdea]) -> DedupAction {
+        let above_threshold: Vec<&SimilarIdea> = similar
             .iter()
             .filter(|m| m.similarity >= self.similarity_threshold)
             .collect();
@@ -237,8 +240,8 @@ mod tests {
         }
     }
 
-    fn similar(id: &str, key: &str, content: &str, similarity: f32) -> SimilarMemory {
-        SimilarMemory {
+    fn similar(id: &str, key: &str, content: &str, similarity: f32) -> SimilarIdea {
+        SimilarIdea {
             id: id.to_string(),
             key: key.to_string(),
             content: content.to_string(),

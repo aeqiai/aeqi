@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Edit/Write: require aeqi_recall before first edit.
+# PreToolUse hook for Edit/Write: require ideas(action='search') before first edit.
 #
 # Enforcement strategy: recall is required ONCE per project per session.
 # After that, edits flow freely. The gate re-closes on:
@@ -39,14 +39,14 @@ AEQI_BIN="/home/claudedev/aeqi/target/release/aeqi"
 [ -x "$AEQI_BIN" ] || AEQI_BIN="/home/claudedev/aeqi/target/debug/aeqi"
 if [ ! -x "$AEQI_BIN" ]; then
     log_hook "check-recall" "allow" "binary-missing"
-    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"aeqi_recall skipped: aeqi binary not found"}}'
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ideas search skipped: aeqi binary not found"}}'
     exit 0
 fi
 
 SOCK="${AEQI_DATA_DIR:-$HOME/.aeqi}/rm.sock"
 if [ ! -S "$SOCK" ]; then
     log_hook "check-recall" "allow" "daemon-down"
-    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"aeqi_recall skipped: daemon not running"}}'
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ideas search skipped: daemon not running"}}'
     exit 0
 fi
 
@@ -60,7 +60,7 @@ fi
 # --- Gate must exist (recall was called this session) ---
 if [ ! -f "$GATE" ]; then
     PROJ="${TARGET_PROJECT:-aeqi}"
-    HINT="aeqi_recall(project='$PROJ', query='context for current work')"
+    HINT="ideas(action='search', project='$PROJ', query='context for current work')"
     EXTRA=""
     GRAPH_DB="${AEQI_DATA_DIR:-$HOME/.aeqi}/codegraph/${PROJ}.db"
     if [ -f "$GRAPH_DB" ]; then
@@ -80,7 +80,7 @@ fi
 # --- Project must match (context must be relevant) ---
 GATE_PROJECT=$(cat "$GATE" 2>/dev/null)
 if [ -n "$TARGET_PROJECT" ] && [ -n "$GATE_PROJECT" ] && [ "$TARGET_PROJECT" != "$GATE_PROJECT" ]; then
-    HINT="aeqi_recall(project='$TARGET_PROJECT', query='context for current work')"
+    HINT="ideas(action='search', project='$TARGET_PROJECT', query='context for current work')"
     log_hook "check-recall" "deny" "project-switch: $GATE_PROJECT->$TARGET_PROJECT"
     echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Project switch: recalled '$GATE_PROJECT' but editing '$TARGET_PROJECT'. Call $HINT to load context.\"}}"
     exit 0

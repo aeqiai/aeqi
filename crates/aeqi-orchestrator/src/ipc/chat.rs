@@ -3,7 +3,7 @@
 use super::request_field;
 use super::tenancy::{check_agent_access, is_allowed};
 use crate::daemon::{
-    attach_chat_id, find_task_snapshot, merge_timeline_metadata, resolve_web_chat_id,
+    attach_chat_id, find_quest_snapshot, merge_timeline_metadata, resolve_web_chat_id,
 };
 use crate::message_router::{IncomingMessage, MessageSource};
 
@@ -267,7 +267,7 @@ pub async fn handle_chat_timeline(
                                 .or_else(|| metadata.get("task_id"))
                                 .and_then(|value| value.as_str())
                             {
-                                find_task_snapshot(&ctx.agent_registry, quest_id).await
+                                find_quest_snapshot(&ctx.agent_registry, quest_id).await
                             } else {
                                 None
                             }

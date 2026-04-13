@@ -8,6 +8,7 @@ import PageTabs, { useActiveTab } from "@/components/PageTabs";
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
+  { id: "api", label: "API" },
   { id: "invites", label: "Invites" },
   { id: "preferences", label: "Preferences" },
 ];
@@ -399,6 +400,8 @@ export default function AccountPage() {
           </>
         )}
 
+        {activeTab === "api" && <ApiKeyTab />}
+
         {activeTab === "invites" && (
           <>
             <p className="account-field-desc account-invites-desc">Share invite codes with friends. Each code is single-use. New users get 3 codes of their own.</p>
@@ -440,6 +443,92 @@ export default function AccountPage() {
             </label>
           </>
         )}
+      </div>
+    </>
+  );
+}
+
+// ── API Key Tab (account-level ak_ key) ──────────────
+
+function ApiKeyTab() {
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("aeqi_api_key_display");
+    if (stored) setApiKey(stored);
+  }, []);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const data = await api.generateApiKey();
+      if (data.api_key) {
+        setApiKey(data.api_key);
+        localStorage.setItem("aeqi_api_key_display", data.api_key);
+        if (data.api_key.startsWith("ak_")) {
+          setFeedback({ type: "success", msg: "API key generated." });
+        }
+      }
+    } catch (e: unknown) {
+      setFeedback({ type: "error", msg: e instanceof Error ? e.message : "Failed to generate API key." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = () => {
+    if (!apiKey) return;
+    navigator.clipboard.writeText(apiKey).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <>
+      <p className="account-field-desc">
+        Your API key (<code>ak_</code>) identifies your account across all companies. Use it alongside a company secret key (<code>sk_</code>) for MCP and API access.
+      </p>
+
+      {apiKey ? (
+        <div className="account-field" style={{ marginTop: "var(--space-4)" }}>
+          <label className="account-field-label">API Key</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <code className="key-new-value">{apiKey}</code>
+            <button type="button" className="key-copy-btn" onClick={copy} title="Copy">
+              {copied ? (
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--success, #22c55e)" strokeWidth="2" strokeLinecap="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5.5" /></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="5" y="5" width="9" height="9" rx="1.5" /><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" /></svg>
+              )}
+            </button>
+          </div>
+          <p className="account-field-desc" style={{ marginTop: "var(--space-2)" }}>
+            Stable across all companies — stays the same when you rotate secret keys.
+          </p>
+        </div>
+      ) : (
+        <div style={{ marginTop: "var(--space-4)" }}>
+          <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
+            {loading ? "Generating..." : "Generate API Key"}
+          </button>
+        </div>
+      )}
+
+      {feedback && (
+        <div className={`account-feedback account-feedback-${feedback.type}`} role="status">
+          {feedback.msg}
+        </div>
+      )}
+
+      <div style={{ marginTop: "var(--space-6)" }}>
+        <p className="account-field-desc">
+          To create secret keys for a specific company, go to <a href="/company?tab=api-keys" className="key-link">Company &rarr; API Keys</a>.
+        </p>
       </div>
     </>
   );

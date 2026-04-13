@@ -1052,7 +1052,6 @@ export default function AgentSessionView({
             setLiveSegments([...segments]);
             break;
           }
-          case "ToolCall":
           case "ToolStart": {
             const name =
               event.name || event.tool_name || event.tool_use_id || "tool";
@@ -1100,6 +1099,7 @@ export default function AgentSessionView({
             setLiveSegments([...segments]);
             break;
           }
+          case "IdeaActivity":
           case "MemoryActivity": {
             const label = event.action === "stored"
               ? `Stored: ${event.key || "idea"}`

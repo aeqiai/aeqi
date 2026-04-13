@@ -78,7 +78,7 @@ impl ContextBudget {
                 out.push_str(&format!(
                     "### Attempt {} (by {}, {} steps, ${:.4})\n{}\n\n",
                     i + 1,
-                    cp.worker,
+                    cp.agent_name,
                     cp.steps_used,
                     cp.cost_usd,
                     cp.progress
@@ -96,7 +96,7 @@ impl ContextBudget {
                 };
                 out.push_str(&format!(
                     "- {} ({} steps, ${:.4}): {}\n",
-                    cp.worker, cp.steps_used, cp.cost_usd, line
+                    cp.agent_name, cp.steps_used, cp.cost_usd, line
                 ));
             }
             out.push('\n');
@@ -105,7 +105,7 @@ impl ContextBudget {
                 out.push_str(&format!(
                     "### Attempt {} (by {}, {} steps, ${:.4})\n{}\n\n",
                     split + i + 1,
-                    cp.worker,
+                    cp.agent_name,
                     cp.steps_used,
                     cp.cost_usd,
                     cp.progress
@@ -152,7 +152,7 @@ mod tests {
         let budget = ContextBudget::default();
         let cps = vec![aeqi_quests::Checkpoint {
             timestamp: chrono::Utc::now(),
-            worker: "s1".into(),
+            agent_name: "s1".into(),
             progress: "did thing 1".into(),
             cost_usd: 0.05,
             steps_used: 3,
@@ -170,7 +170,7 @@ mod tests {
         let cps: Vec<_> = (0..10)
             .map(|i| aeqi_quests::Checkpoint {
                 timestamp: chrono::Utc::now(),
-                worker: format!("s{i}"),
+                agent_name: format!("s{i}"),
                 progress: format!("progress for attempt {i}"),
                 cost_usd: 0.01 * i as f64,
                 steps_used: i as u32,

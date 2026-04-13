@@ -22,6 +22,7 @@ use aeqi_core::traits::{IdeaStore, Provider};
 use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
 use crate::activity::ActivityStream;
+use crate::event_handler::EventHandlerStore;
 use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
 use crate::prompt_loader::PromptLoader;
@@ -255,6 +256,8 @@ pub struct SessionManager {
     sandbox_config: Option<SandboxConfig>,
     /// Unified prompt file loader.
     prompt_loader: Option<Arc<PromptLoader>>,
+    /// Event handler store for event-driven idea assembly.
+    event_store: Option<Arc<EventHandlerStore>>,
 }
 
 impl SessionManager {
@@ -272,6 +275,7 @@ impl SessionManager {
             default_project: String::new(),
             sandbox_config: None,
             prompt_loader: None,
+            event_store: None,
         }
     }
 
@@ -316,6 +320,11 @@ impl SessionManager {
     /// Set the unified prompt loader.
     pub fn set_prompt_loader(&mut self, loader: Arc<PromptLoader>) {
         self.prompt_loader = Some(loader);
+    }
+
+    /// Set the event handler store for event-driven idea assembly.
+    pub fn set_event_store(&mut self, store: Arc<EventHandlerStore>) {
+        self.event_store = Some(store);
     }
 
     /// Spawn a new agent session — the universal executor.
@@ -366,10 +375,15 @@ impl SessionManager {
         };
 
         // 2. Assemble prompts from ancestor chain + extra session prompts.
-        //    prompt_ids are resolved inside assemble_prompts; no system_prompt fallback needed.
+        //    Event-driven: events define which ideas activate at session start.
+        //    Falls back to injection_mode ideas during migration.
+        let event_store = self
+            .event_store
+            .clone()
+            .unwrap_or_else(|| Arc::new(EventHandlerStore::new(agent_registry.db())));
         let mut system_prompt = if let Some(ref id) = agent_uuid {
             let assembled =
-                crate::prompt_assembly::assemble_prompts(agent_registry, self.idea_store.as_ref(), id, &opts.extra_prompts)
+                crate::idea_assembly::assemble_ideas(agent_registry, self.idea_store.as_ref(), &event_store, id, &opts.extra_prompts)
                     .await;
             let full = assembled.full_system_prompt();
             // Safety net: if assembly returned empty, use a sensible default.
@@ -509,7 +523,7 @@ impl SessionManager {
 
         // 5c. Apply session prompts — resolve from DB first, disk fallback.
         let mut session_prompt_parts: Vec<String> = Vec::new();
-        let mut step_prompt_specs: Vec<aeqi_core::StepPromptSpec> = Vec::new();
+        let mut step_idea_specs: Vec<aeqi_core::StepIdeaSpec> = Vec::new();
 
         for prompt_name in &opts.skills {
 
@@ -523,7 +537,7 @@ impl SessionManager {
                     } else {
                         p.body.clone()
                     };
-                    step_prompt_specs.push(aeqi_core::StepPromptSpec {
+                    step_idea_specs.push(aeqi_core::StepIdeaSpec {
                         path: path.clone(),
                         allow_shell: p.allow_shell,
                         name: p.name.clone(),
@@ -571,7 +585,7 @@ impl SessionManager {
         let mut agent =
             aeqi_core::Agent::new(agent_config, provider, tools, observer, system_prompt)
                 .with_chat_stream(stream_sender.clone())
-                .with_step_prompts(step_prompt_specs);
+                .with_step_ideas(step_idea_specs);
 
         if let Some(ref mem) = memory_for_agent {
             agent = agent.with_memory(mem.clone());

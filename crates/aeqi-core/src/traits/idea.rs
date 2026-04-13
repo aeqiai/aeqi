@@ -235,39 +235,15 @@ pub trait IdeaStore: Send + Sync {
 
     fn name(&self) -> &str;
 
-    /// Store a prompt-type insight (deterministically injected into agent context).
-    /// This is the unified API for what was previously stored in the prompts table.
-    #[allow(clippy::too_many_arguments)]
-    async fn store_prompt(
-        &self,
-        key: &str,
-        content: &str,
-        agent_id: Option<&str>,
-        _injection_mode: &str,
-        _inheritance: &str,
-        _tool_allow: &[String],
-        _tool_deny: &[String],
-    ) -> anyhow::Result<String> {
-        // Default implementation: fall back to store() — subclasses override.
-        self.store(key, content, IdeaCategory::Evergreen, agent_id)
-            .await
-    }
+    // store_prompt, get_prompts, get_prompts_for_chain — REMOVED.
+    // Ideas are activated through events, not injection_mode.
+    // See: idea_assembly.rs, event_handler.rs
 
-    /// Retrieve all prompt-type insights for an agent (injection_mode IS NOT NULL).
-    /// Returns entries ordered for prompt assembly.
-    async fn get_prompts(
-        &self,
-        _agent_id: &str,
-    ) -> anyhow::Result<Vec<Idea>> {
-        Ok(Vec::new())
-    }
-
-    /// Retrieve prompt-type insights for an agent and all its ancestors.
-    /// Used by prompt_assembly to build the full system prompt.
-    async fn get_prompts_for_chain(
-        &self,
-        _ancestor_ids: &[String],
-    ) -> anyhow::Result<Vec<Idea>> {
+    /// Retrieve ideas by their IDs (bulk fetch).
+    /// Used by event-based idea assembly to fetch ideas referenced by events.
+    async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {
+        // Default implementation: return empty. Subclasses override with actual DB query.
+        let _ = ids;
         Ok(Vec::new())
     }
 
@@ -279,6 +255,13 @@ pub trait IdeaStore: Send + Sync {
         _new_agent_id: &str,
     ) -> anyhow::Result<u64> {
         Ok(0)
+    }
+
+    /// Retrieve all ideas with injection_mode IS NOT NULL across all agents.
+    /// Returns tuples of (agent_id, injection_mode, Idea).
+    /// Used by the migration from injection_mode to event-based activation.
+    async fn get_injection_ideas(&self) -> anyhow::Result<Vec<(String, String, Idea)>> {
+        Ok(Vec::new())
     }
 
     /// Store an insight graph edge. Default is no-op.

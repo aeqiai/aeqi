@@ -109,7 +109,7 @@ export default function AgentsPage() {
 function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   const isActive = agent.status === "active" || agent.status === "running";
   const label = agent.display_name || agent.name;
-  const promptCount = (agent as any).prompt_ids?.length || (agent as any).prompts?.length || 0;
+  const ideaCount = (agent as any).idea_ids?.length || (agent as any).ideas?.length || 0;
 
   return (
     <div className="ap-card" onClick={onClick}>
@@ -125,8 +125,8 @@ function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
         )}
       </div>
       <div className="ap-card-footer">
-        {promptCount > 0 && (
-          <span className="ap-card-tag">{promptCount} prompt{promptCount !== 1 ? "s" : ""}</span>
+        {ideaCount > 0 && (
+          <span className="ap-card-tag">{ideaCount} idea{ideaCount !== 1 ? "s" : ""}</span>
         )}
         {agent.created_at && (
           <span className="ap-card-time">{timeAgo(agent.created_at)}</span>

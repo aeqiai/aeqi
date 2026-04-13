@@ -60,12 +60,19 @@ pub async fn handle_create_event(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    let idea_ids: Vec<String> = request
+        .get("idea_ids")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
     let new_event = NewEvent {
         agent_id: agent_id.to_string(),
         name: name.to_string(),
         pattern: pattern.to_string(),
         scope: scope.to_string(),
         idea_id,
+        idea_ids,
         content,
         cooldown_secs,
         max_budget_usd,
@@ -157,6 +164,7 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "pattern": e.pattern,
         "scope": e.scope,
         "idea_id": e.idea_id,
+        "idea_ids": e.idea_ids,
         "content": e.content,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,

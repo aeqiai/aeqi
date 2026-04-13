@@ -7,8 +7,11 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
+
+use aeqi_core::traits::IdeaStore;
 
 use crate::agent_registry::ConnectionPool;
 
@@ -24,6 +27,8 @@ pub struct Event {
     pub scope: String,
     /// Reference to an idea to run (optional — can use inline content instead).
     pub idea_id: Option<String>,
+    /// References to multiple ideas (JSON array of idea ID strings).
+    pub idea_ids: Vec<String>,
     /// Inline instruction (used if idea_id is None).
     pub content: Option<String>,
     pub enabled: bool,
@@ -45,6 +50,8 @@ pub struct NewEvent {
     pub pattern: String,
     pub scope: String,
     pub idea_id: Option<String>,
+    /// References to multiple ideas (JSON array of idea ID strings).
+    pub idea_ids: Vec<String>,
     pub content: Option<String>,
     pub cooldown_secs: u64,
     pub max_budget_usd: Option<f64>,
@@ -77,14 +84,15 @@ impl EventHandlerStore {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
+        let idea_ids_json = serde_json::to_string(&e.idea_ids).unwrap_or_else(|_| "[]".to_string());
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_id, content, enabled, cooldown_secs, max_budget_usd, webhook_secret, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11, ?12)",
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_id, idea_ids, content, enabled, cooldown_secs, max_budget_usd, webhook_secret, system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     id, e.agent_id, e.name, e.pattern, e.scope,
-                    e.idea_id, e.content, e.cooldown_secs as i64,
+                    e.idea_id, idea_ids_json, e.content, e.cooldown_secs as i64,
                     e.max_budget_usd, e.webhook_secret,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
@@ -257,6 +265,58 @@ impl EventHandlerStore {
         Ok(())
     }
 
+    /// Set idea_ids on an agent's `on_session_start` event.
+    /// Creates the event if it doesn't exist yet.
+    pub async fn update_on_session_start_ideas(
+        &self,
+        agent_id: &str,
+        idea_ids: &[String],
+    ) -> Result<()> {
+        let events = self.list_for_agent(agent_id).await?;
+        let existing = events
+            .iter()
+            .find(|e| e.name == "on_session_start" && e.pattern.contains("session_start"));
+
+        if let Some(ev) = existing {
+            // Merge new idea_ids with existing ones (no duplicates).
+            let mut merged: Vec<String> = ev.idea_ids.clone();
+            for id in idea_ids {
+                if !merged.contains(id) {
+                    merged.push(id.clone());
+                }
+            }
+            self.update_idea_ids(&ev.id, &merged).await
+        } else {
+            // Create the event.
+            self.create(&NewEvent {
+                agent_id: agent_id.to_string(),
+                name: "on_session_start".to_string(),
+                pattern: "lifecycle:session_start".to_string(),
+                scope: "self".to_string(),
+                idea_id: None,
+                idea_ids: idea_ids.to_vec(),
+                content: None,
+                cooldown_secs: 0,
+                max_budget_usd: None,
+                webhook_secret: None,
+                system: false,
+            })
+            .await?;
+            Ok(())
+        }
+    }
+
+    /// Update the idea_ids JSON array on an event.
+    pub async fn update_idea_ids(&self, id: &str, idea_ids: &[String]) -> Result<()> {
+        let json = serde_json::to_string(idea_ids).unwrap_or_else(|_| "[]".to_string());
+        let db = self.db.lock().await;
+        db.execute(
+            "UPDATE events SET idea_ids = ?1 WHERE id = ?2",
+            params![json, id],
+        )?;
+        Ok(())
+    }
+
     /// Enable or disable an event.
     pub async fn set_enabled(&self, id: &str, enabled: bool) -> Result<()> {
         let db = self.db.lock().await;
@@ -310,6 +370,23 @@ impl EventHandlerStore {
         Ok(())
     }
 
+    /// Get enabled events for a specific agent matching a lifecycle pattern.
+    pub async fn get_events_for_lifecycle(&self, agent_id: &str, pattern: &str) -> Vec<Event> {
+        let db = self.db.lock().await;
+        let like_pattern = format!("{pattern}%");
+        let result: Result<Vec<Event>> = (|| {
+            let mut stmt = db.prepare(
+                "SELECT * FROM events WHERE agent_id = ?1 AND enabled = 1 AND pattern LIKE ?2 ORDER BY name",
+            )?;
+            let events = stmt
+                .query_map(params![agent_id, like_pattern], |row| Ok(row_to_event(row)))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(events)
+        })();
+        result.unwrap_or_default()
+    }
+
     /// Count enabled events.
     pub async fn count_enabled(&self) -> Result<u64> {
         let db = self.db.lock().await;
@@ -332,19 +409,19 @@ pub async fn create_default_lifecycle_events(
             "on_quest_received",
             "lifecycle:quest_received",
             "self",
-            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools (shell, file read/write, ideas) to complete the work. When finished, call quests_close with a summary of what you accomplished.",
+            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools (shell, file read/write, ideas) to complete the work. When finished, call quests(action='close', quest_id='<id>', result='<summary>') with a summary of what you accomplished.",
         ),
         (
             "on_quest_completed",
             "lifecycle:quest_completed",
             "self",
-            "You completed a quest. Reflect on what you learned. Store any reusable knowledge as ideas using ideas_store. Key facts, procedures, and preferences should be preserved for future work.",
+            "You completed a quest. Reflect on what you learned. Store any reusable knowledge using ideas(action='store', key='<key>', content='<insight>'). Key facts, procedures, and preferences should be preserved for future work.",
         ),
         (
             "on_quest_failed",
             "lifecycle:quest_failed",
             "self",
-            "A quest failed. Analyze the root cause. If the failure is recoverable and retry count is under 3, create a refined quest with lessons learned using quests_create. If the failure is terminal or retries exhausted, store the failure analysis as an idea and notify your parent by creating a quest describing the blocker.",
+            "A quest failed. Analyze the root cause. If the failure is recoverable and retry count is under 3, create a refined quest with lessons learned using quests(action='create', subject='<subject>'). If the failure is terminal or retries exhausted, store the failure analysis using ideas(action='store') and notify your parent by creating a quest describing the blocker.",
         ),
         (
             "on_child_completed",
@@ -356,7 +433,7 @@ pub async fn create_default_lifecycle_events(
             "on_child_failed",
             "lifecycle:quest_failed",
             "children",
-            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child via quests_create, or (3) handle the work yourself. Consider the failure reason before deciding.",
+            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child via quests(action='create'), or (3) handle the work yourself. Consider the failure reason before deciding.",
         ),
         (
             "on_idea_received",
@@ -410,6 +487,7 @@ pub async fn create_default_lifecycle_events(
                 pattern: pattern.to_string(),
                 scope: scope.to_string(),
                 idea_id: None,
+                idea_ids: Vec::new(),
                 content: Some(content.to_string()),
                 cooldown_secs: 0,
                 max_budget_usd: None,
@@ -423,6 +501,144 @@ pub async fn create_default_lifecycle_events(
     Ok(())
 }
 
+/// Migrate injection_mode ideas to event-based activation.
+///
+/// For each agent that has ideas with `injection_mode IS NOT NULL`:
+/// 1. Find or create an `on_session_start` event for that agent
+/// 2. Collect all injection_mode idea IDs for that agent
+/// 3. Set the event's `idea_ids` to reference them (merging, not duplicating)
+/// 4. Preserve the `PromptPosition` info (system/prepend/append) from injection_mode
+///    and the scope from `inheritance` in the event's scope field
+///
+/// This is idempotent -- running it multiple times is safe.
+/// Returns the count of ideas migrated (linked to events).
+pub async fn migrate_injection_mode_to_events(
+    idea_store: &dyn IdeaStore,
+    event_store: &EventHandlerStore,
+) -> Result<usize> {
+    // Step 1: Fetch all injection_mode ideas, grouped by agent_id.
+    let injection_ideas = idea_store.get_injection_ideas().await?;
+    if injection_ideas.is_empty() {
+        info!("injection_mode migration: no ideas to migrate");
+        return Ok(0);
+    }
+
+    // Group by agent_id.
+    let mut by_agent: HashMap<String, Vec<(String, String, String)>> = HashMap::new();
+    for (agent_id, injection_mode, idea) in &injection_ideas {
+        by_agent
+            .entry(agent_id.clone())
+            .or_default()
+            .push((idea.id.clone(), injection_mode.clone(), idea.inheritance.clone()));
+    }
+
+    let mut total_migrated: usize = 0;
+
+    for (agent_id, ideas) in &by_agent {
+        let idea_ids: Vec<String> = ideas.iter().map(|(id, _, _)| id.clone()).collect();
+
+        // Determine the broadest scope from the ideas' inheritance fields.
+        // If any idea has "descendants", the event scope should be "descendants".
+        // Otherwise, "self".
+        let scope = if ideas.iter().any(|(_, _, inh)| inh == "descendants") {
+            "descendants"
+        } else {
+            "self"
+        };
+
+        // Check if an on_session_start event already exists for this agent.
+        let existing_events = event_store.list_for_agent(agent_id).await?;
+        let session_start_event = existing_events
+            .iter()
+            .find(|e| e.name == "on_session_start" && e.pattern == "lifecycle:session_start");
+
+        match session_start_event {
+            Some(event) => {
+                // Merge idea_ids: add new ones without duplicating existing.
+                let mut merged_ids = event.idea_ids.clone();
+                for id in &idea_ids {
+                    if !merged_ids.contains(id) {
+                        merged_ids.push(id.clone());
+                    }
+                }
+
+                // Only update if there are actually new IDs to add.
+                if merged_ids.len() != event.idea_ids.len() {
+                    event_store.update_idea_ids(&event.id, &merged_ids).await?;
+                    let new_count = merged_ids.len() - event.idea_ids.len();
+                    info!(
+                        agent_id = %agent_id,
+                        new_ideas = new_count,
+                        total_ideas = merged_ids.len(),
+                        "injection_mode migration: updated on_session_start event"
+                    );
+                    total_migrated += new_count;
+                } else {
+                    info!(
+                        agent_id = %agent_id,
+                        "injection_mode migration: on_session_start already has all idea_ids, skipping"
+                    );
+                }
+            }
+            None => {
+                // Create a new on_session_start event with these idea_ids.
+                let event = event_store
+                    .create(&NewEvent {
+                        agent_id: agent_id.clone(),
+                        name: "on_session_start".to_string(),
+                        pattern: "lifecycle:session_start".to_string(),
+                        scope: scope.to_string(),
+                        idea_id: None,
+                        idea_ids: idea_ids.clone(),
+                        content: None,
+                        cooldown_secs: 0,
+                        max_budget_usd: None,
+                        webhook_secret: None,
+                        system: true,
+                    })
+                    .await;
+
+                match event {
+                    Ok(ev) => {
+                        // The create uses INSERT OR IGNORE with UNIQUE(agent_id, name).
+                        // If it already existed (race or prior run), update idea_ids.
+                        if ev.idea_ids != idea_ids {
+                            let mut merged = ev.idea_ids.clone();
+                            for id in &idea_ids {
+                                if !merged.contains(id) {
+                                    merged.push(id.clone());
+                                }
+                            }
+                            event_store.update_idea_ids(&ev.id, &merged).await?;
+                        }
+                        info!(
+                            agent_id = %agent_id,
+                            ideas = idea_ids.len(),
+                            scope = scope,
+                            "injection_mode migration: created on_session_start event"
+                        );
+                        total_migrated += idea_ids.len();
+                    }
+                    Err(e) => {
+                        warn!(
+                            agent_id = %agent_id,
+                            error = %e,
+                            "injection_mode migration: failed to create on_session_start event"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    info!(
+        total_migrated = total_migrated,
+        agents = by_agent.len(),
+        "injection_mode migration complete"
+    );
+    Ok(total_migrated)
+}
+
 fn row_to_event(row: &rusqlite::Row) -> Event {
     let last_fired_str: Option<String> = row.get("last_fired").ok().flatten();
     let last_fired = last_fired_str
@@ -433,6 +649,9 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         .map(|d| d.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now());
 
+    let idea_ids_str: String = row.get("idea_ids").unwrap_or_else(|_| "[]".to_string());
+    let idea_ids: Vec<String> = serde_json::from_str(&idea_ids_str).unwrap_or_default();
+
     Event {
         id: row.get("id").unwrap_or_default(),
         agent_id: row.get("agent_id").unwrap_or_default(),
@@ -440,6 +659,7 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         pattern: row.get("pattern").unwrap_or_default(),
         scope: row.get("scope").unwrap_or_else(|_| "self".to_string()),
         idea_id: row.get("idea_id").ok().flatten(),
+        idea_ids,
         content: row.get("content").ok().flatten(),
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
@@ -466,7 +686,7 @@ mod tests {
              CREATE TABLE events (
                  id TEXT PRIMARY KEY, agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
                  name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
-                 idea_id TEXT, content TEXT, enabled INTEGER NOT NULL DEFAULT 1,
+                 idea_id TEXT, idea_ids TEXT NOT NULL DEFAULT '[]', content TEXT, enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0, max_budget_usd REAL,
                  webhook_secret TEXT, last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
                  total_cost_usd REAL NOT NULL DEFAULT 0.0, system INTEGER NOT NULL DEFAULT 0,
@@ -487,6 +707,7 @@ mod tests {
             pattern: "schedule:0 9 * * *".into(),
             scope: "self".into(),
             idea_id: None,
+            idea_ids: Vec::new(),
             content: Some("Run morning brief".into()),
             cooldown_secs: 300,
             max_budget_usd: Some(1.0),
@@ -511,6 +732,7 @@ mod tests {
             pattern: "lifecycle:quest_received".into(),
             scope: "self".into(),
             idea_id: None,
+            idea_ids: Vec::new(),
             content: Some("Start working".into()),
             cooldown_secs: 0,
             max_budget_usd: None,
@@ -531,6 +753,7 @@ mod tests {
             pattern: "lifecycle:test".into(),
             scope: "self".into(),
             idea_id: None,
+            idea_ids: Vec::new(),
             content: None,
             cooldown_secs: 0,
             max_budget_usd: None,
@@ -553,13 +776,13 @@ mod tests {
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "sched1".into(),
             pattern: "schedule:0 9 * * *".into(), scope: "self".into(),
-            idea_id: None, content: None, cooldown_secs: 0,
+            idea_id: None, idea_ids: Vec::new(), content: None, cooldown_secs: 0,
             max_budget_usd: None, webhook_secret: None, system: false,
         }).await.unwrap();
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "lifecycle1".into(),
             pattern: "lifecycle:quest_received".into(), scope: "self".into(),
-            idea_id: None, content: None, cooldown_secs: 0,
+            idea_id: None, idea_ids: Vec::new(), content: None, cooldown_secs: 0,
             max_budget_usd: None, webhook_secret: None, system: false,
         }).await.unwrap();
 
@@ -569,5 +792,161 @@ mod tests {
 
         let lifecycle = store.list_by_pattern_prefix("lifecycle:").await.unwrap();
         assert_eq!(lifecycle.len(), 1);
+    }
+
+    // -- Migration tests --
+
+    use aeqi_core::traits::{Idea, IdeaCategory, IdeaQuery};
+
+    /// Mock IdeaStore that returns canned injection ideas.
+    struct MockIdeaStore {
+        injection_ideas: Vec<(String, String, Idea)>,
+    }
+
+    #[async_trait::async_trait]
+    impl IdeaStore for MockIdeaStore {
+        async fn store(
+            &self, _key: &str, _content: &str, _category: IdeaCategory, _agent_id: Option<&str>,
+        ) -> anyhow::Result<String> {
+            Ok("mock-id".into())
+        }
+        async fn search(&self, _query: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+        async fn delete(&self, _id: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn name(&self) -> &str { "mock" }
+        async fn get_injection_ideas(&self) -> anyhow::Result<Vec<(String, String, Idea)>> {
+            Ok(self.injection_ideas.clone())
+        }
+    }
+
+    fn make_idea(id: &str, agent_id: &str, injection_mode: &str, inheritance: &str) -> Idea {
+        Idea {
+            id: id.into(),
+            key: format!("idea-{id}"),
+            content: format!("Content for {id}"),
+            category: IdeaCategory::Evergreen,
+            agent_id: Some(agent_id.into()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            injection_mode: Some(injection_mode.into()),
+            inheritance: inheritance.into(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn migrate_creates_event_for_injection_ideas() {
+        let event_store = test_store().await;
+        let idea1 = make_idea("i1", "a1", "system", "self");
+        let idea2 = make_idea("i2", "a1", "prepend", "self");
+        let idea_store = MockIdeaStore {
+            injection_ideas: vec![
+                ("a1".into(), "system".into(), idea1),
+                ("a1".into(), "prepend".into(), idea2),
+            ],
+        };
+
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count, 2);
+
+        let events = event_store.list_for_agent("a1").await.unwrap();
+        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        assert_eq!(session_event.pattern, "lifecycle:session_start");
+        assert_eq!(session_event.idea_ids.len(), 2);
+        assert!(session_event.idea_ids.contains(&"i1".to_string()));
+        assert!(session_event.idea_ids.contains(&"i2".to_string()));
+        assert!(session_event.system);
+    }
+
+    #[tokio::test]
+    async fn migrate_is_idempotent() {
+        let event_store = test_store().await;
+        let idea1 = make_idea("i1", "a1", "system", "self");
+        let idea_store = MockIdeaStore {
+            injection_ideas: vec![("a1".into(), "system".into(), idea1)],
+        };
+
+        // Run twice.
+        let count1 = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count1, 1);
+        let count2 = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count2, 0); // Already migrated, nothing new.
+
+        let events = event_store.list_for_agent("a1").await.unwrap();
+        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        assert_eq!(session_event.idea_ids.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn migrate_merges_with_existing_event() {
+        let event_store = test_store().await;
+
+        // Pre-create an on_session_start event with one idea already.
+        event_store.create(&NewEvent {
+            agent_id: "a1".into(),
+            name: "on_session_start".into(),
+            pattern: "lifecycle:session_start".into(),
+            scope: "self".into(),
+            idea_id: None,
+            idea_ids: vec!["existing-id".into()],
+            content: Some("Existing content".into()),
+            cooldown_secs: 0,
+            max_budget_usd: None,
+            webhook_secret: None,
+            system: true,
+        }).await.unwrap();
+
+        let idea1 = make_idea("new-id", "a1", "append", "self");
+        let idea_store = MockIdeaStore {
+            injection_ideas: vec![("a1".into(), "append".into(), idea1)],
+        };
+
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count, 1);
+
+        let events = event_store.list_for_agent("a1").await.unwrap();
+        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        assert_eq!(session_event.idea_ids.len(), 2);
+        assert!(session_event.idea_ids.contains(&"existing-id".to_string()));
+        assert!(session_event.idea_ids.contains(&"new-id".to_string()));
+    }
+
+    #[tokio::test]
+    async fn migrate_uses_descendants_scope_when_any_idea_has_it() {
+        let event_store = test_store().await;
+        let idea1 = make_idea("i1", "a1", "system", "self");
+        let idea2 = make_idea("i2", "a1", "prepend", "descendants");
+        let idea_store = MockIdeaStore {
+            injection_ideas: vec![
+                ("a1".into(), "system".into(), idea1),
+                ("a1".into(), "prepend".into(), idea2),
+            ],
+        };
+
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count, 2);
+
+        let events = event_store.list_for_agent("a1").await.unwrap();
+        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        assert_eq!(session_event.scope, "descendants");
+    }
+
+    #[tokio::test]
+    async fn migrate_noop_when_no_injection_ideas() {
+        let event_store = test_store().await;
+        let idea_store = MockIdeaStore {
+            injection_ideas: Vec::new(),
+        };
+
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        assert_eq!(count, 0);
+
+        let events = event_store.list_for_agent("a1").await.unwrap();
+        assert!(events.is_empty());
     }
 }

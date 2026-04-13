@@ -45,7 +45,7 @@ const RELATION_COLORS: Record<string, string> = {
   related_to: "#6b7280",
 };
 
-export default function MemoryGraph({ nodes, edges, onSelect, selectedId }: Props) {
+export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>(edges);
@@ -280,7 +280,7 @@ export default function MemoryGraph({ nodes, edges, onSelect, selectedId }: Prop
   return (
     <canvas
       ref={canvasRef}
-      className="memory-graph-canvas"
+      className="idea-graph-canvas"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}

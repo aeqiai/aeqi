@@ -528,10 +528,13 @@ impl Scheduler {
         );
 
         // Assemble prompts from ancestor chain + task.
+        // Event-driven: events define which ideas activate at session start.
+        let event_store = crate::event_handler::EventHandlerStore::new(self.agent_registry.db());
         let task_prompts: Vec<aeqi_core::PromptEntry> = Vec::new();
-        let assembled = crate::prompt_assembly::assemble_prompts(
+        let assembled = crate::idea_assembly::assemble_ideas(
             &self.agent_registry,
             self.idea_store.as_ref(),
+            &event_store,
             &agent_id,
             &task_prompts,
         )
@@ -685,7 +688,7 @@ impl Scheduler {
                 if let Some(record) = outcome {
                     let _ = registry
                         .update_task(&quest_id, |t| {
-                            t.set_task_outcome(&record);
+                            t.set_quest_outcome(&record);
                         })
                         .await;
                 }
@@ -711,7 +714,7 @@ impl Scheduler {
             // The on_complete callback already updated task status in AgentRegistry.
             // Here we handle cost recording, expertise, and event broadcasting.
             let (outcome_status, cost_usd, steps) = match result {
-                Ok((_task_outcome, runtime_exec, cost, steps)) => {
+                Ok((_quest_outcome, runtime_exec, cost, steps)) => {
                     // Record cost as an event in the unified ActivityLog.
                     let _ = spawn_activity_log
                         .emit(

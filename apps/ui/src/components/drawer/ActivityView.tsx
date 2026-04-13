@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
-import type { Quest, QuestPriority, QuestStatus, AuditEntry } from "@/lib/types";
+import type { Quest, QuestPriority, QuestStatus, ActivityEntry } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<QuestPriority, string> = {
   critical: "var(--error, #ef4444)",
@@ -175,7 +175,7 @@ function EventStream({ agentName }: { agentName: string }) {
   const wsConnected = useDaemonStore((s) => s.wsConnected);
 
   const agentEvents = events
-    .filter((e: AuditEntry) => {
+    .filter((e: ActivityEntry) => {
       const agent = (e.agent || "").toLowerCase();
       return agent.includes(agentName.toLowerCase());
     })

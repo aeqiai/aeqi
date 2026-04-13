@@ -37,7 +37,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         const [agentsData, questsData, ideasData] = await Promise.all([
           api.getAgents().catch(() => ({ agents: [] })),
           api.getTasks({}).catch(() => ({ tasks: [] })),
-          api.getMemories({ limit: 30 }).catch(() => ({ memories: [] })),
+          api.getIdeas({ limit: 30 }).catch(() => ({ ideas: [] })),
         ]);
 
         const rawAgents = (agentsData.agents || []) as Array<Record<string, unknown>>;
@@ -58,7 +58,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           action: () => go(`/quests`),
         }));
 
-        const rawIdeas = (ideasData.memories || []) as Array<Record<string, unknown>>;
+        const rawIdeas = (ideasData.ideas || []) as Array<Record<string, unknown>>;
         const ideaItems: PaletteItem[] = rawIdeas.slice(0, 15).map((m) => ({
           id: `idea-${m.id || m.key}`,
           label: (m.key || m.title || "Idea") as string,

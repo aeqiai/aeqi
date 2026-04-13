@@ -71,8 +71,11 @@ pub async fn handle_agents_registry(
                     "avatar": a.avatar,
                     "faces": a.faces,
                     "session_id": a.session_id,
-                    "prompts": a.prompts,
-                    "prompt_ids": a.prompt_ids,
+                    "ideas": a.ideas,
+                    "idea_ids": a.idea_ids,
+                    // Backward compat aliases for old clients
+                    "prompts": a.ideas,
+                    "prompt_ids": a.idea_ids,
                 }));
             }
             serde_json::json!({"ok": true, "agents": items})
@@ -106,8 +109,11 @@ pub async fn handle_agent_children(
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
-                    "prompts": a.prompts,
-                    "prompt_ids": a.prompt_ids,
+                    "ideas": a.ideas,
+                    "idea_ids": a.idea_ids,
+                    // Backward compat aliases for old clients
+                    "prompts": a.ideas,
+                    "prompt_ids": a.idea_ids,
                 }));
             }
             serde_json::json!({"ok": true, "children": items})
@@ -203,12 +209,15 @@ pub async fn handle_agent_info(
                 .get_ancestors(&agent.id)
                 .await
                 .unwrap_or_default();
-            let prompt_chain: Vec<serde_json::Value> = ancestors.iter().rev()
+            let idea_chain: Vec<serde_json::Value> = ancestors.iter().rev()
                 .map(|a| serde_json::json!({
                     "agent_name": a.name,
                     "agent_id": a.id,
-                    "prompts": a.prompts,
-                    "prompt_ids": a.prompt_ids,
+                    "ideas": a.ideas,
+                    "idea_ids": a.idea_ids,
+                    // Backward compat aliases
+                    "prompts": a.ideas,
+                    "prompt_ids": a.idea_ids,
                 }))
                 .collect();
 
@@ -223,9 +232,14 @@ pub async fn handle_agent_info(
                 "model": agent.model,
                 "capabilities": agent.capabilities,
                 "status": agent.status,
-                "prompts": agent.prompts,
-                "prompt_ids": agent.prompt_ids,
-                "prompt_chain": prompt_chain,
+                "ideas": agent.ideas,
+                "idea_ids": agent.idea_ids,
+                // Backward compat aliases
+                "prompts": agent.ideas,
+                "prompt_ids": agent.idea_ids,
+                "idea_chain": idea_chain,
+                // Backward compat alias
+                "prompt_chain": idea_chain,
             })
         }
         Ok(None) => {

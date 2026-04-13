@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook for mcp__aeqi__aeqi_recall: open the recall gate.
+# PostToolUse hook for mcp__aeqi__ideas (action=search): open the recall gate.
 # Writes the recalled project name to the gate file.
 # Any subsequent recall for a different project updates the gate.
 #

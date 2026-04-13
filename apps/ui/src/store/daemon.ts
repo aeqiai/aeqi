@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
-import type { Agent, AuditEntry } from "@/lib/types";
+import type { Agent, ActivityEntry } from "@/lib/types";
 
 interface WorkerEvent {
   id?: string | number;
@@ -15,7 +15,7 @@ interface DaemonState {
   cost: Record<string, unknown> | null;
   agents: Agent[];
   quests: Array<Record<string, unknown>>;
-  events: AuditEntry[];
+  events: ActivityEntry[];
   workerEvents: WorkerEvent[];
   wsConnected: boolean;
   loading: boolean;
@@ -88,9 +88,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchEvents: async () => {
     try {
-      const data = await api.getAudit({ last: 30 });
-      const raw = data?.entries || data?.audit || [];
-      set({ events: Array.isArray(raw) ? (raw as AuditEntry[]) : [] });
+      const data = await api.getActivityStream({ last: 30 });
+      const raw = data?.entries || data?.activity || [];
+      set({ events: Array.isArray(raw) ? (raw as ActivityEntry[]) : [] });
     } catch {}
   },
 

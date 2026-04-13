@@ -141,8 +141,8 @@ impl GuardrailsMiddleware {
             ToolPattern::allow("Read", "Read-only file access"),
             ToolPattern::allow("Glob", "File pattern matching"),
             ToolPattern::allow("Grep", "Content search"),
-            ToolPattern::allow("ideas_recall", "Memory search"),
-            ToolPattern::allow("ideas_graph", "Code graph query"),
+            ToolPattern::allow("ideas", "Memory search"),
+            ToolPattern::allow("code", "Code graph query"),
             ToolPattern::allow("aeqi_status", "Status check"),
             ToolPattern::allow("aeqi_prompts", "Prompt loading"),
             ToolPattern::allow("notes", "Notes read"),
@@ -454,10 +454,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ideas_recall_is_allow_tier() {
+    async fn ideas_is_allow_tier() {
         let mw = GuardrailsMiddleware::with_defaults();
         let call = ToolCall {
-            name: "ideas_recall".into(),
+            name: "ideas".into(),
             input: "query".into(),
         };
         assert_eq!(mw.classify(&call), PermissionTier::Allow);

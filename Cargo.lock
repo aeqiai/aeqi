@@ -218,7 +218,6 @@ name = "aeqi-tools"
 version = "0.5.0"
 dependencies = [
  "aeqi-core",
- "aeqi-quests",
  "anyhow",
  "async-trait",
  "reqwest",

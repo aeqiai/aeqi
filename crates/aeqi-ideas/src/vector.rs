@@ -49,7 +49,7 @@ pub struct VectorStore {
 /// A vector search result.
 #[derive(Debug, Clone)]
 pub struct VectorResult {
-    pub memory_id: String,
+    pub idea_id: String,
     pub similarity: f32,
 }
 
@@ -77,8 +77,8 @@ impl VectorStore {
         Ok(Self { conn, dimensions })
     }
 
-    /// Store an embedding for a memory ID.
-    pub fn store(&self, memory_id: &str, embedding: &[f32]) -> Result<()> {
+    /// Store an embedding for an idea ID.
+    pub fn store(&self, idea_id: &str, embedding: &[f32]) -> Result<()> {
         if embedding.len() != self.dimensions {
             anyhow::bail!(
                 "embedding dimensions mismatch: expected {}, got {}",
@@ -91,24 +91,24 @@ impl VectorStore {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         conn.execute(
             "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions) VALUES (?1, ?2, ?3)",
-            rusqlite::params![memory_id, bytes, self.dimensions as i64],
+            rusqlite::params![idea_id, bytes, self.dimensions as i64],
         )?;
-        debug!(memory_id = %memory_id, "embedding stored");
+        debug!(idea_id = %idea_id, "embedding stored");
         Ok(())
     }
 
     /// Delete an embedding.
-    pub fn delete(&self, memory_id: &str) -> Result<()> {
+    pub fn delete(&self, idea_id: &str) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         conn.execute(
             "DELETE FROM memory_embeddings WHERE memory_id = ?1",
-            rusqlite::params![memory_id],
+            rusqlite::params![idea_id],
         )?;
         Ok(())
     }
 
     /// Search for the top-k most similar embeddings to the query vector.
-    /// This is a brute-force scan — fine for <100K memories per project.
+    /// This is a brute-force scan — fine for <100K ideas per project.
     pub fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<VectorResult>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
@@ -116,16 +116,16 @@ impl VectorStore {
 
         let mut results: Vec<VectorResult> = stmt
             .query_map([], |row| {
-                let memory_id: String = row.get(0)?;
+                let idea_id: String = row.get(0)?;
                 let bytes: Vec<u8> = row.get(1)?;
-                Ok((memory_id, bytes))
+                Ok((idea_id, bytes))
             })?
             .filter_map(|r| r.ok())
-            .map(|(memory_id, bytes)| {
+            .map(|(idea_id, bytes)| {
                 let embedding = bytes_to_vec(&bytes);
                 let similarity = cosine_similarity(query, &embedding);
                 VectorResult {
-                    memory_id,
+                    idea_id,
                     similarity,
                 }
             })
@@ -180,7 +180,7 @@ mod tests {
 
         let results = store.search(&[1.0, 0.0, 0.0], 2).unwrap();
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].memory_id, "mem-1"); // Most similar.
-        assert_eq!(results[1].memory_id, "mem-3"); // Second most similar.
+        assert_eq!(results[0].idea_id, "mem-1"); // Most similar.
+        assert_eq!(results[1].idea_id, "mem-3"); // Second most similar.
     }
 }

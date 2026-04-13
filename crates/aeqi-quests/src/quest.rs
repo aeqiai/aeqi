@@ -123,12 +123,13 @@ impl fmt::Display for Priority {
 }
 
 /// A checkpoint recording incremental progress on a quest.
-/// Saved when a worker completes, blocks, or fails — so the next worker
+/// Saved when an agent completes, blocks, or fails — so the next agent
 /// can skip work that's already done.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Checkpoint {
     pub timestamp: DateTime<Utc>,
-    pub worker: String,
+    #[serde(alias = "worker")]
+    pub agent_name: String,
     pub progress: String,
     pub cost_usd: f64,
     pub steps_used: u32,
@@ -298,7 +299,7 @@ impl Quest {
         };
     }
 
-    pub fn task_outcome(&self) -> Option<QuestOutcomeRecord> {
+    pub fn quest_outcome(&self) -> Option<QuestOutcomeRecord> {
         // Primary: read from the outcome field.
         if let Some(ref outcome) = self.outcome {
             return Some(outcome.clone());
@@ -309,7 +310,12 @@ impl Quest {
             .and_then(|value| serde_json::from_value(value).ok())
     }
 
-    pub fn set_task_outcome(&mut self, record: &QuestOutcomeRecord) {
+    /// Deprecated alias — use `quest_outcome()` instead.
+    pub fn task_outcome(&self) -> Option<QuestOutcomeRecord> {
+        self.quest_outcome()
+    }
+
+    pub fn set_quest_outcome(&mut self, record: &QuestOutcomeRecord) {
         self.outcome = Some(record.clone());
         // Also write to legacy metadata for backward compat with JSONL stores.
         if let Ok(value) = serde_json::to_value(record) {
@@ -317,18 +323,23 @@ impl Quest {
         }
     }
 
+    /// Deprecated alias — use `set_quest_outcome()` instead.
+    pub fn set_task_outcome(&mut self, record: &QuestOutcomeRecord) {
+        self.set_quest_outcome(record);
+    }
+
     pub fn runtime(&self) -> Option<serde_json::Value> {
         self.aeqi_metadata("runtime").cloned()
     }
 
     pub fn outcome_summary(&self) -> Option<String> {
-        self.task_outcome()
+        self.quest_outcome()
             .map(|outcome| outcome.summary)
             .filter(|summary| !summary.trim().is_empty())
     }
 
     pub fn blocker_context(&self) -> Option<String> {
-        self.task_outcome().and_then(|outcome| {
+        self.quest_outcome().and_then(|outcome| {
             outcome
                 .reason
                 .filter(|reason| !reason.trim().is_empty())
@@ -504,12 +515,12 @@ mod tests {
             next_action: Some("await_operator_input".to_string()),
         };
 
-        quest.set_task_outcome(&outcome);
+        quest.set_quest_outcome(&outcome);
 
         // Reads from the outcome field.
         assert_eq!(quest.outcome, Some(outcome.clone()));
-        // task_outcome() accessor also works.
-        assert_eq!(quest.task_outcome(), Some(outcome));
+        // quest_outcome() accessor also works.
+        assert_eq!(quest.quest_outcome(), Some(outcome));
     }
 
     #[test]
@@ -526,7 +537,7 @@ mod tests {
         let mut quest = Quest::new(QuestId::from("t-001"), "Test");
         assert!(quest.outcome_summary().is_none());
 
-        quest.set_task_outcome(&QuestOutcomeRecord::new(
+        quest.set_quest_outcome(&QuestOutcomeRecord::new(
             QuestOutcomeKind::Done,
             "Implemented feature X",
         ));
@@ -539,7 +550,7 @@ mod tests {
     #[test]
     fn quest_outcome_summary_ignores_blank() {
         let mut quest = Quest::new(QuestId::from("t-001"), "Test");
-        quest.set_task_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, "  "));
+        quest.set_quest_outcome(&QuestOutcomeRecord::new(QuestOutcomeKind::Done, "  "));
         assert!(quest.outcome_summary().is_none());
     }
 
@@ -548,7 +559,7 @@ mod tests {
         let mut quest = Quest::new(QuestId::from("t-001"), "Test");
         let mut outcome = QuestOutcomeRecord::new(QuestOutcomeKind::Blocked, "Summary text");
         outcome.reason = Some("Specific reason".to_string());
-        quest.set_task_outcome(&outcome);
+        quest.set_quest_outcome(&outcome);
 
         assert_eq!(quest.blocker_context(), Some("Specific reason".to_string()));
     }
@@ -556,7 +567,7 @@ mod tests {
     #[test]
     fn quest_blocker_context_falls_back_to_summary() {
         let mut quest = Quest::new(QuestId::from("t-001"), "Test");
-        quest.set_task_outcome(&QuestOutcomeRecord::new(
+        quest.set_quest_outcome(&QuestOutcomeRecord::new(
             QuestOutcomeKind::Blocked,
             "Summary fallback",
         ));

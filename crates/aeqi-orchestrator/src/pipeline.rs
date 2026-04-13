@@ -65,7 +65,7 @@ impl Pipeline {
         let parent = store.create_with_agent(prefix, &parent_subject, None)?;
 
         // Create step tasks as children.
-        let mut step_task_ids: HashMap<String, QuestId> = HashMap::new();
+        let mut step_quest_ids: HashMap<String, QuestId> = HashMap::new();
 
         for step in &self.steps {
             let subject = self.interpolate(&step.title, vars);
@@ -77,15 +77,15 @@ impl Pipeline {
                 b.description = description;
             })?;
 
-            step_task_ids.insert(step.id.clone(), child.id.clone());
+            step_quest_ids.insert(step.id.clone(), child.id.clone());
         }
 
         // Wire up dependencies based on `needs`.
         for step in &self.steps {
-            if let Some(step_task_id) = step_task_ids.get(&step.id) {
+            if let Some(step_quest_id) = step_quest_ids.get(&step.id) {
                 for need in &step.needs {
-                    if let Some(dep_id) = step_task_ids.get(need) {
-                        store.add_dependency(&step_task_id.0, &dep_id.0)?;
+                    if let Some(dep_id) = step_quest_ids.get(need) {
+                        store.add_dependency(&step_quest_id.0, &dep_id.0)?;
                     }
                 }
             }

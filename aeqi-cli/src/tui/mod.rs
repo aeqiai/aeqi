@@ -203,7 +203,7 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             state.push_system(&format!("← {worker_name}: {outcome}"));
             render::print_message(stdout, state.messages.last().unwrap(), state, 80);
         }
-        ChatStreamEvent::MemoryActivity {
+        ChatStreamEvent::IdeaActivity {
             action,
             key,
             preview,

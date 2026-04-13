@@ -212,12 +212,12 @@ export const api = {
   // Status
   getStatus: () => request<Record<string, unknown>>("/status"),
 
-  // Worker events
-  getWorkerEvents: (params?: { cursor?: number }) => {
+  // Activity events
+  getActivityEvents: (params?: { cursor?: number }) => {
     const query = new URLSearchParams();
     if (params?.cursor != null) query.set("cursor", String(params.cursor));
     const qs = query.toString();
-    return request<Record<string, unknown>>(`/worker/events${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
   // Companies
@@ -247,13 +247,13 @@ export const api = {
   // Agents
   getAgents: () => request<Record<string, unknown>>("/agents/registry"),
 
-  // Audit
-  getAudit: (params?: { last?: number; company?: string }) => {
+  // Activity stream (daemon events)
+  getActivityStream: (params?: { last?: number; company?: string }) => {
     const query = new URLSearchParams();
     if (params?.last) query.set("last", String(params.last));
     if (params?.company) query.set("company", params.company);
     const qs = query.toString();
-    return request<Record<string, unknown>>(`/audit${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/activity${qs ? `?${qs}` : ""}`);
   },
 
   // Notes
@@ -279,30 +279,30 @@ export const api = {
   // Brief
   getBrief: () => request<Record<string, unknown>>("/brief"),
 
-  // Memories
-  getMemories: (params?: { company?: string; query?: string; limit?: number }) => {
+  // Ideas
+  getIdeas: (params?: { company?: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.company) q.set("company", params.company);
     if (params?.query) q.set("query", params.query);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
-    return request<Record<string, unknown>>(`/memories${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/ideas${qs ? `?${qs}` : ""}`);
   },
 
-  // Memory graph & profile
-  getMemoryGraph: (params?: { company?: string; limit?: number }) => {
+  // Idea graph & profile
+  getIdeaGraph: (params?: { company?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.company) q.set("company", params.company);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
-    return request<Record<string, unknown>>(`/memory/graph${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
   },
 
-  getMemoryProfile: (params?: { company?: string }) => {
+  getIdeaProfile: (params?: { company?: string }) => {
     const q = new URLSearchParams();
     if (params?.company) q.set("company", params.company);
     const qs = q.toString();
-    return request<Record<string, unknown>>(`/memory/profile${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
   // Skills
@@ -419,10 +419,10 @@ export const api = {
   // Single quest
   getQuest: (id: string) => request<Record<string, unknown>>(`/quests/${id}`),
 
-  // Audit filtered by quest (client-side filter)
-  getAuditForQuest: async (taskId: string, last = 50) => {
-    const data = await request<Record<string, unknown>>(`/audit?last=${last}`);
-    const raw = (data.entries || data.audit || []) as Array<Record<string, unknown>>;
+  // Activity stream filtered by quest (client-side filter)
+  getActivityStreamForQuest: async (taskId: string, last = 50) => {
+    const data = await request<Record<string, unknown>>(`/activity?last=${last}`);
+    const raw = (data.entries || data.activity || []) as Array<Record<string, unknown>>;
     const entries = raw.filter((e) => (e.quest_id || e.task_id) === taskId);
     return { entries };
   },
@@ -478,6 +478,23 @@ export const api = {
 
   // Triggers
   getTriggers: () => request<Record<string, unknown>>("/triggers"),
+
+  // Account API key (ak_)
+  generateApiKey: () =>
+    request<{ ok: boolean; id: string; api_key: string }>("/account/api-key", { method: "POST" }),
+
+  // Secret Keys (sk_)
+  getKeys: () =>
+    request<{ ok: boolean; keys: Array<{ id: string; prefix: string; company: string; name: string; created_at: string; last_used_at: string | null }> }>("/keys"),
+
+  createKey: (data: { company: string; name: string }) =>
+    request<{ ok: boolean; id: string; secret_key: string }>("/keys", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  revokeKey: (id: string) =>
+    request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
 
 };
 

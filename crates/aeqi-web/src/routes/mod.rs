@@ -6,7 +6,7 @@ mod dashboard;
 mod events;
 mod helpers;
 mod hosting;
-mod memory;
+mod ideas;
 mod prompts;
 mod quests;
 mod sessions;
@@ -30,7 +30,7 @@ pub fn api_routes() -> Router<AppState> {
         .merge(agents::routes())
         .merge(sessions::routes())
         .merge(chat::routes())
-        .merge(memory::routes())
+        .merge(ideas::routes())
         .merge(prompts::routes())
         .merge(events::routes())
         .merge(vfs::routes())
