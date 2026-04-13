@@ -779,6 +779,19 @@ impl AgentRegistry {
         self.get(hint).await
     }
 
+    /// Get the root agent (parent_id IS NULL, status = active).
+    /// In a single-company runtime, this is the company's primary agent.
+    pub async fn get_root_agent(&self) -> Result<Option<Agent>> {
+        let db = self.db.lock().await;
+        db.query_row(
+            "SELECT * FROM agents WHERE parent_id IS NULL AND status = 'active' LIMIT 1",
+            [],
+            |row| Ok(row_to_agent(row)),
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
     /// List all agents, optionally filtered by parent and/or status.
     pub async fn list(
         &self,
