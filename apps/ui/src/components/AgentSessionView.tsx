@@ -940,11 +940,9 @@ export default function AgentSessionView({
     setLiveSegments([]);
 
     api
-      .getSessionMessages({ session_id: activeSessionId, limit: 50 })
+      .getSessionMessages({ session_id: activeSessionId, limit: 1000 })
       .then((d: Record<string, unknown>) => {
         const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
-        // Only replace if we got messages — preserve local state if API returns empty
-        // (race condition: messages might not be persisted yet)
         if (loaded.length > 0) {
           setMessages(loaded);
         }
@@ -957,7 +955,7 @@ export default function AgentSessionView({
     if (!activeSessionId || streaming) return;
     const iv = setInterval(() => {
       api
-        .getSessionMessages({ session_id: activeSessionId, limit: 50 })
+        .getSessionMessages({ session_id: activeSessionId, limit: 1000 })
         .then((d: Record<string, unknown>) => {
           const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
           if (loaded.length > 0) {
