@@ -4,7 +4,7 @@
 //! Every event is an immutable row with a type, optional agent/session/quest
 //! foreign keys, and JSON content.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
@@ -344,7 +344,7 @@ impl ActivityLog {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .expect("midnight is always valid");
+            .context("midnight should always be valid")?;
         let today = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc);
         self.query_sum("cost", "$.cost_usd", Some(&today)).await
     }
@@ -354,7 +354,7 @@ impl ActivityLog {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .expect("midnight is always valid");
+            .context("midnight should always be valid")?;
         let today_str = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc).to_rfc3339();
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
@@ -380,7 +380,7 @@ impl ActivityLog {
         let today = chrono::Utc::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .expect("midnight is always valid");
+            .context("midnight should always be valid")?;
         let today_str = DateTime::<Utc>::from_naive_utc_and_offset(today, Utc).to_rfc3339();
         let db = self.db.lock().await;
         let result: f64 = db.query_row(

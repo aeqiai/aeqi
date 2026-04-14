@@ -36,6 +36,7 @@ pub struct AppState {
     pub accounts: Option<Arc<AccountStore>>,
     pub smtp: Option<SmtpConfig>,
     pub hosting: Arc<dyn aeqi_hosting::HostingProvider>,
+    pub twilio_auth_token: Option<String>,
 }
 
 /// Start the web server using settings from AEQIConfig.
@@ -81,9 +82,22 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         Arc::from(aeqi_hosting::from_config(&hosting_config)?);
     info!(mode = hosting.mode(), "hosting provider initialized");
 
+    // Generate a random ephemeral secret if none configured.
+    // This prevents the insecure "aeqi-dev" fallback from ever being used.
+    let auth_secret = web.auth_secret.clone().or_else(|| {
+        use rand::Rng;
+        let secret: String = rand::rng()
+            .sample_iter(&rand::distr::Alphanumeric)
+            .take(48)
+            .map(char::from)
+            .collect();
+        tracing::warn!("No auth_secret configured — generated ephemeral secret (tokens won't survive restarts)");
+        Some(secret)
+    });
+
     let state = AppState {
         ipc: ipc.clone(),
-        auth_secret: web.auth_secret.clone(),
+        auth_secret,
         auth_mode: web.auth.mode.clone(),
         auth_config: web.auth.clone(),
         agents_config: config.agents.clone(),
@@ -91,10 +105,11 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         accounts,
         smtp: web.auth.smtp.clone(),
         hosting,
+        twilio_auth_token: web.twilio_auth_token.clone(),
     };
 
     // Error if auth mode requires a secret but signing_secret resolves to the default.
-    if matches!(state.auth_mode, AuthMode::Secret) && auth::signing_secret(&state) == "aeqi-dev" {
+    if matches!(state.auth_mode, AuthMode::Secret) && state.auth_secret.as_deref() == Some("aeqi-ephemeral-fallback") {
         tracing::error!(
             "SECURITY: auth_mode is {:?} but no auth_secret configured — using insecure default. Set [web] auth_secret in aeqi.toml",
             state.auth_mode

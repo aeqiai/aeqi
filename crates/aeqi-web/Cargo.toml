@@ -17,6 +17,7 @@ tokio = { workspace = true }
 tower = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_urlencoded = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
@@ -31,6 +32,10 @@ mini-moka = { workspace = true }
 uuid = { workspace = true }
 rand = { workspace = true }
 bcrypt = { workspace = true }
+
+# Crypto (Twilio webhook signature verification)
+hmac = { workspace = true }
+sha1 = { workspace = true }
 
 # Optional: embedded UI assets
 rust-embed = { workspace = true, optional = true }

@@ -50,11 +50,15 @@ pub async fn handle_store_idea(
         return serde_json::json!({"ok": false, "error": "key and content are required"});
     }
 
-    let category = request_field(request, "category").unwrap_or("fact");
+    let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
+        tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+    } else {
+        vec![request_field(request, "category").unwrap_or("fact").to_string()]
+    };
 
     let agent_id = request_field(request, "agent_id");
 
-    match idea_store.store(key, content, category, agent_id).await {
+    match idea_store.store(key, content, &tags, agent_id).await {
         Ok(id) => serde_json::json!({"ok": true, "id": id}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -96,9 +100,11 @@ pub async fn handle_update_idea(
 
     let key = request_field(request, "key");
     let content = request_field(request, "content");
-    let category = request_field(request, "category");
+    let tags: Option<Vec<String>> = request.get("tags")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
 
-    match idea_store.update(id, key, content, category).await {
+    match idea_store.update(id, key, content, tags.as_deref()).await {
         Ok(()) => serde_json::json!({"ok": true}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -126,7 +132,13 @@ pub async fn handle_search_ideas(
     }
 
     if let Some(cat_str) = request_field(request, "category") {
-        query.category = Some(cat_str.to_string());
+        query.tags = vec![cat_str.to_string()];
+    }
+    if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
+        let parsed: Vec<String> = tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+        if !parsed.is_empty() {
+            query.tags = parsed;
+        }
     }
 
     match idea_store.search(&query).await {
@@ -143,7 +155,7 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
         "id": idea.id,
         "key": idea.key,
         "content": idea.content,
-        "category": idea.category,
+        "tags": idea.tags,
         "agent_id": idea.agent_id,
         "created_at": idea.created_at.to_rfc3339(),
         "session_id": idea.session_id,
@@ -202,7 +214,7 @@ pub async fn handle_ideas_search(
                             "id": e.id,
                             "key": e.key,
                             "content": e.content,
-                            "category": e.category,
+                            "tags": e.tags,
                             "agent_id": e.agent_id,
                             "created_at": e.created_at.to_rfc3339(),
                         })
@@ -458,7 +470,7 @@ pub async fn handle_idea_prefix(
                         "id": e.id,
                         "key": e.key,
                         "content": e.content,
-                        "category": e.category,
+                        "tags": e.tags,
                         "agent_id": e.agent_id,
                         "created_at": e.created_at.to_rfc3339(),
                     })
@@ -524,7 +536,7 @@ pub async fn handle_channel_knowledge(
                     "id": entry.id,
                     "key": entry.key,
                     "content": entry.content,
-                    "category": entry.category,
+                    "tags": entry.tags,
                     "agent_id": entry.agent_id,
                     "source": "ideas",
                     "created_at": entry.created_at.to_rfc3339(),
@@ -551,10 +563,11 @@ pub async fn handle_knowledge_store(
         .get("content")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let category = request
-        .get("category")
-        .and_then(|v| v.as_str())
-        .unwrap_or("fact");
+    let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
+        tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+    } else {
+        vec![request.get("category").and_then(|v| v.as_str()).unwrap_or("fact").to_string()]
+    };
     let scope = request
         .get("scope")
         .and_then(|v| v.as_str())
@@ -572,7 +585,7 @@ pub async fn handle_knowledge_store(
         };
         let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
         match mem
-            .store_with_ttl(key, content, category, agent_id, ttl_secs)
+            .store_with_ttl(key, content, &tags, agent_id, ttl_secs)
             .await
         {
             Ok(id) => serde_json::json!({"ok": true, "id": id}),

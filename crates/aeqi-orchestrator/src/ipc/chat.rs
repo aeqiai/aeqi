@@ -352,7 +352,7 @@ pub async fn handle_post_notes(
     } else if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {
             match mem
-                .store(key, content, "fact", None)
+                .store(key, content, &["fact".to_string()], None)
                 .await
             {
                 Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "key": key}}),

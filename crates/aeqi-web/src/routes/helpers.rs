@@ -59,3 +59,50 @@ pub(super) fn hosting_deny_if_scoped(scope: &Scope) -> Option<Response> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::UserScope;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn hosting_deny_if_scoped_returns_none_for_unscoped() {
+        let scope = Scope(None);
+        assert!(hosting_deny_if_scoped(&scope).is_none());
+    }
+
+    #[test]
+    fn hosting_deny_if_scoped_returns_forbidden_for_scoped() {
+        let scope = Scope(Some(UserScope {
+            companies: vec!["tenant-a".to_string()],
+        }));
+        let response = hosting_deny_if_scoped(&scope).expect("should return a response");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn hosting_deny_if_scoped_response_body_contains_error() {
+        let scope = Scope(Some(UserScope {
+            companies: vec!["tenant-a".to_string()],
+        }));
+        let response = hosting_deny_if_scoped(&scope).unwrap();
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["ok"], false);
+        assert_eq!(json["error"], "hosting requires operator access");
+    }
+
+    #[test]
+    fn hosting_deny_if_scoped_empty_companies_still_denied() {
+        // Even with an empty companies list, the scope is Some, so access is denied.
+        let scope = Scope(Some(UserScope {
+            companies: vec![],
+        }));
+        let response = hosting_deny_if_scoped(&scope);
+        assert!(response.is_some());
+        assert_eq!(response.unwrap().status(), StatusCode::FORBIDDEN);
+    }
+}

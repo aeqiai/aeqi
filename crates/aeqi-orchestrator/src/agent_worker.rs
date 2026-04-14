@@ -1002,7 +1002,7 @@ impl AgentWorker {
                         match provider.chat(&request).await {
                             Ok(response) if response.content.is_some() => {
                                 let analysis =
-                                    FailureAnalysis::parse(response.content.as_deref().unwrap());
+                                    FailureAnalysis::parse(response.content.as_deref().unwrap_or_default());
                                 info!(
                                     worker = %self.name,
                                     task = %hook.quest_id,
@@ -1556,7 +1556,7 @@ impl AgentWorker {
                 _ => None,
             };
 
-            match mem.store(key, content, &category, agent_id_for_store).await {
+            match mem.store(key, content, &[category.clone()], agent_id_for_store).await {
                 Ok(id) if !id.is_empty() => {
                     debug!(worker = %worker_name, id = %id, key = %key, "idea stored");
 

@@ -1,12 +1,12 @@
 use axum::{
-    Form, Json, Router,
+    Json, Router,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::post,
 };
 use serde::Deserialize;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::server::AppState;
 
@@ -32,15 +32,102 @@ struct TwilioWhatsAppWebhook {
     num_media: Option<String>,
 }
 
-/// WhatsApp/Twilio webhook — receives form-encoded messages from Twilio,
-/// parses From/To/Body, and routes through the session_manager via IPC.
+/// Validate a Twilio webhook request signature.
 ///
-/// Twilio signature verification is deferred — this handler trusts the
-/// incoming request for now.
+/// Algorithm (from Twilio docs):
+/// 1. Take the full URL of the request
+/// 2. Sort all POST parameters alphabetically by key
+/// 3. Append each key-value pair (no separators) to the URL
+/// 4. Sign with HMAC-SHA1 using the auth token as key
+/// 5. Base64 encode the result
+/// 6. Compare with X-Twilio-Signature header
+fn validate_twilio_signature(
+    auth_token: &str,
+    url: &str,
+    params: &[(String, String)],
+    signature: &str,
+) -> bool {
+    use base64::Engine;
+    use hmac::{Hmac, Mac};
+    use sha1::Sha1;
+
+    // Build the data string: URL + sorted key-value pairs appended directly.
+    let mut data = url.to_string();
+    let mut sorted_params: Vec<_> = params.iter().collect();
+    sorted_params.sort_by(|a, b| a.0.cmp(&b.0));
+    for (key, value) in sorted_params {
+        data.push_str(key);
+        data.push_str(value);
+    }
+
+    // Compute HMAC-SHA1.
+    let Ok(mut mac) = Hmac::<Sha1>::new_from_slice(auth_token.as_bytes()) else {
+        error!("failed to create HMAC-SHA1 instance");
+        return false;
+    };
+    mac.update(data.as_bytes());
+    let result = mac.finalize();
+    let expected = base64::engine::general_purpose::STANDARD.encode(result.into_bytes());
+
+    // Constant-time comparison to prevent timing attacks.
+    if expected.len() != signature.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (a, b) in expected.bytes().zip(signature.bytes()) {
+        diff |= a ^ b;
+    }
+    diff == 0
+}
+
+/// WhatsApp/Twilio webhook — receives form-encoded messages from Twilio,
+/// validates the X-Twilio-Signature header, parses From/To/Body, and routes
+/// through the session_manager via IPC.
 async fn whatsapp_handler(
     State(state): State<AppState>,
-    Form(payload): Form<TwilioWhatsAppWebhook>,
+    headers: axum::http::HeaderMap,
+    body: axum::body::Bytes,
 ) -> Response {
+    // --- Twilio signature verification ---
+    if let Some(auth_token) = state.twilio_auth_token.as_deref() {
+        let twilio_sig = headers
+            .get("x-twilio-signature")
+            .and_then(|v| v.to_str().ok());
+
+        let Some(twilio_sig) = twilio_sig else {
+            warn!("WhatsApp webhook rejected: missing X-Twilio-Signature header");
+            return (StatusCode::FORBIDDEN, "missing signature").into_response();
+        };
+
+        // Reconstruct the full webhook URL.
+        // Use auth.base_url from config (the externally-visible origin).
+        let base_url = state
+            .auth_config
+            .base_url
+            .as_deref()
+            .unwrap_or("http://localhost:8400");
+        let url = format!("{}/api/webhooks/whatsapp", base_url.trim_end_matches('/'));
+
+        // Parse the form body into key-value pairs for signature computation.
+        let params: Vec<(String, String)> =
+            serde_urlencoded::from_bytes(&body).unwrap_or_default();
+
+        if !validate_twilio_signature(auth_token, &url, &params, twilio_sig) {
+            warn!("WhatsApp webhook rejected: invalid Twilio signature");
+            return (StatusCode::FORBIDDEN, "invalid signature").into_response();
+        }
+    } else {
+        warn!("twilio_auth_token not configured — skipping webhook signature verification");
+    }
+
+    // Parse the form body into the typed payload.
+    let payload: TwilioWhatsAppWebhook = match serde_urlencoded::from_bytes(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            warn!(error = %e, "failed to parse WhatsApp webhook payload");
+            return (StatusCode::BAD_REQUEST, "invalid payload").into_response();
+        }
+    };
     // Validate required fields.
     if payload.body.is_empty() || payload.from.is_empty() {
         return (

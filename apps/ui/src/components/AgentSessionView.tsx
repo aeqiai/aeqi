@@ -64,18 +64,13 @@ function formatTime(ts: number): string {
 // ── Tool display helpers ──
 
 const TOOL_LABELS: Record<string, string> = {
-  // Consolidated tools
+  // Four primitives
   agents: "Agents",
   quests: "Quests",
   events: "Events",
   ideas: "Ideas",
+  // Code intelligence
   code: "Code",
-  // Prompts
-  prompts_list: "List prompts",
-  prompts_load: "Load prompt",
-  prompts_search: "Search prompts",
-  // Notes
-  notes: "Note",
   // Files
   read_file: "Read file",
   write_file: "Write file",
@@ -85,11 +80,8 @@ const TOOL_LABELS: Record<string, string> = {
   grep: "Search code",
   // System
   shell: "Run command",
-  execute_plan: "Execute plan",
   web_search: "Web search",
   web_fetch: "Fetch URL",
-  git_worktree: "Git worktree",
-  usage_stats: "Usage stats",
 };
 
 function toolLabel(name: string): string {
@@ -485,6 +477,7 @@ interface SessionInfo {
   agent_id?: string;
   agent_name?: string;
   name?: string;
+  session_type?: string;
   status: string;
   created_at: string;
   last_active?: string;
@@ -494,9 +487,16 @@ interface SessionInfo {
 
 /** Derive a short display label for a session */
 function sessionLabel(s: SessionInfo): string {
-  // Use explicit name if set
-  if (s.name && s.name !== s.id && !s.name.startsWith("session-")) return s.name;
-  // Derive from first message — take first ~5 words, clean up
+  if (s.name) {
+    // Strip transport prefix — the badge already shows TG/WA.
+    const stripped = s.name
+      .replace(/^Telegram DM:\s*/i, "")
+      .replace(/^Telegram Group\s*/i, "Group")
+      .replace(/^telegram:\s*/i, "")
+      .replace(/^whatsapp:\s*/i, "");
+    if (stripped && stripped !== s.id && !stripped.startsWith("session-")) return stripped;
+  }
+  // Derive from first message — first ~5 words.
   if (s.first_message) {
     const words = s.first_message.replace(/[\n\r]+/g, " ").trim().split(/\s+/).slice(0, 6);
     const label = words.join(" ");
@@ -899,6 +899,23 @@ export default function AgentSessionView({
       .catch(() => {});
   }, [activeSessionId, processRawMessages]);
 
+  // Poll for new messages on sessions not driven by local WebSocket (e.g. Telegram).
+  useEffect(() => {
+    if (!activeSessionId || streaming) return;
+    const iv = setInterval(() => {
+      api
+        .getSessionMessages({ session_id: activeSessionId, limit: 50 })
+        .then((d: Record<string, unknown>) => {
+          const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
+          if (loaded.length > 0) {
+            setMessages((prev) => (loaded.length !== prev.length ? loaded : prev));
+          }
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [activeSessionId, streaming, processRawMessages]);
+
   // Auto-scroll
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -1264,30 +1281,53 @@ export default function AgentSessionView({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
     >
-      {/* Session tabs */}
-      <div className="asv-session-tabs" role="tablist">
-        <button
-          className="asv-session-new-btn"
-          onClick={handleNewConversation}
-          title="New session (⌘N)"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
-          New
-        </button>
-        <div className="asv-session-tabs-divider" />
-        {sessions.map((s) => (
+      {/* Session sidebar */}
+      <div className="asv-sidebar">
+        <div className="asv-sidebar-header">
           <button
-            key={s.id}
-            role="tab"
-            aria-selected={s.id === activeSessionId}
-            className={`asv-session-tab${s.id === activeSessionId ? " active" : ""}`}
-            onClick={() => handleSelectSession(s.id)}
-            title={s.first_message || s.name || s.id}
+            className="asv-session-new-btn"
+            onClick={handleNewConversation}
+            title="New session (Cmd+N)"
           >
-            {sessionLabel(s)}
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+            New Chat
           </button>
-        ))}
+        </div>
+        <div className="asv-sidebar-list">
+          {sessions.length === 0 && (
+            <div className="asv-sidebar-empty">No sessions yet</div>
+          )}
+          {sessions.map((s) => {
+            const n = s.name?.toLowerCase() || "";
+            const transport = n.includes("telegram") ? "TG" : n.includes("whatsapp") ? "WA" : s.session_type === "web" ? "Web" : null;
+            return (
+              <div
+                key={s.id}
+                className={`asv-session-item${s.id === activeSessionId ? " active" : ""}`}
+                onClick={() => handleSelectSession(s.id)}
+              >
+                <div className="asv-session-item-top">
+                  <span className="asv-session-item-name">{sessionLabel(s)}</span>
+                  {transport && <span className="asv-session-item-transport">{transport}</span>}
+                </div>
+                {s.first_message && (
+                  <div className="asv-session-item-bottom">
+                    <span className="asv-session-item-preview">
+                      {s.first_message.slice(0, 40)}
+                    </span>
+                    <span className="asv-session-item-date">
+                      {s.created_at ? new Date(s.created_at).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Main chat area */}
+      <div className="asv-main">
 
       {/* Message transcript */}
       <div className="asv-messages">
@@ -1451,6 +1491,8 @@ export default function AgentSessionView({
           <kbd>Enter</kbd>&nbsp;send&ensp;<kbd>Shift+Enter</kbd>&nbsp;newline
         </div>
       </div>
+
+      </div>{/* /asv-main */}
     </div>
   );
 }

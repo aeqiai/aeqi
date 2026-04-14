@@ -763,6 +763,22 @@ async fn start_agent_telegram_gateway(
 
     info!(agent_id = %agent_id, "telegram gateway polling started");
 
+    // Register persistent gateways for all known channel_sessions.
+    // This ensures web-initiated messages on Telegram-bound sessions
+    // also deliver responses to Telegram.
+    if let Ok(channel_sessions) = agent_registry.list_channel_sessions(&agent_id).await {
+        for (channel_key, session_id, _created_at) in &channel_sessions {
+            if let Some(chat_id_str) = channel_key.split(':').nth(2) {
+                if let Ok(chat_id) = chat_id_str.parse::<i64>() {
+                    let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
+                        Arc::new(TelegramGateway::new(tg_channel.clone(), chat_id, &agent_id));
+                    gateway_manager.register_persistent(session_id, tg_gw).await;
+                    info!(session_id = %session_id, chat_id, "restored persistent telegram gateway");
+                }
+            }
+        }
+    }
+
     while let Some(msg) = rx.recv().await {
         let chat_id = msg
             .metadata
@@ -849,6 +865,9 @@ async fn start_agent_telegram_gateway(
             // Register TelegramGateway for this session (deduplicated by gateway_id).
             let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
                 Arc::new(TelegramGateway::new(tg.clone(), chat_id, &aid));
+
+            // Store as persistent so web-originated messages also deliver to Telegram.
+            gm.register_persistent(&session_id, tg_gw.clone()).await;
 
             if sm.is_running(&session_id).await {
                 // Session already alive — register gateway and inject message.

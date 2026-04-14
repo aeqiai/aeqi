@@ -22,8 +22,9 @@ struct MemRow {
     session_id: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct SqliteIdeas {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
     decay_halflife_days: f64,
     embedder: Option<Arc<dyn Embedder>>,
     embedding_dimensions: usize,
@@ -147,7 +148,7 @@ impl SqliteIdeas {
         Self::migrate_injection_columns(&conn)?;
 
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
             decay_halflife_days,
             embedder: None,
             embedding_dimensions: 1536,
@@ -155,6 +156,22 @@ impl SqliteIdeas {
             keyword_weight: 0.4,
             mmr_lambda: 0.7,
         })
+    }
+
+    /// Run a blocking closure on a cloned Arc<Mutex<Connection>> via spawn_blocking.
+    /// Prevents std::sync::Mutex from blocking the tokio runtime thread.
+    async fn blocking<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Connection) -> Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        let conn = self.conn.clone();
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+            f(&conn)
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
     }
 
     /// Configure vector embeddings and hybrid search.
@@ -429,7 +446,7 @@ impl SqliteIdeas {
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, cat_str, agent_id, created_at, session_id, 1.0,
+                        id, key, content, vec![cat_str], agent_id, created_at, session_id, 1.0,
                     ))
                 },
             )
@@ -471,7 +488,7 @@ impl SqliteIdeas {
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, cat_str, agent_id, created_at, session_id, 1.0,
+                        id, key, content, vec![cat_str], agent_id, created_at, session_id, 1.0,
                     ))
                 },
             )
@@ -767,8 +784,8 @@ impl SqliteIdeas {
     }
 
     fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
-        if let Some(ref q_cat) = query.category
-            && row.cat_str != *q_cat
+        if !query.tags.is_empty()
+            && !query.tags.iter().any(|t| t == &row.cat_str)
         {
             return None;
         }
@@ -790,7 +807,7 @@ impl SqliteIdeas {
         };
 
         Some(Idea::recalled(
-            row.id, row.key, row.content, row.cat_str, row.agent_id, created_at, row.session_id, score * decay,
+            row.id, row.key, row.content, vec![row.cat_str], row.agent_id, created_at, row.session_id, score * decay,
         ))
     }
 
@@ -927,140 +944,39 @@ impl SqliteIdeas {
         }
         boost.clamp(0.0, 1.0)
     }
-}
 
-#[async_trait]
-impl IdeaStore for SqliteIdeas {
-    async fn store(
+    /// Synchronous search implementation. Called from spawn_blocking.
+    fn search_sync(
         &self,
-        key: &str,
-        content: &str,
-        category: &str,
-        agent_id: Option<&str>,
-    ) -> Result<String> {
-        // Dedup by exact content within 24h
-        if self.has_recent_duplicate(content, 24) {
-            debug!(key = %key, "skipping duplicate memory (exact content match within 24h)");
-            return Ok(String::new());
-        }
-        // Dedup by key within 24h — prevents cron workers from storing the same
-        // fact under the same key with slightly different values each run.
-        if self.has_recent_key(key, 24) {
-            debug!(key = %key, "skipping duplicate memory (same key within 24h)");
-            return Ok(String::new());
-        }
+        query: &IdeaQuery,
+        query_embedding: Option<Vec<f32>>,
+    ) -> Result<Vec<Idea>> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = Utc::now().to_rfc3339();
-        let cat = category;
-
-        {
-            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-            conn.execute(
-                "INSERT INTO ideas (id, key, content, category, agent_id, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                rusqlite::params![id, key, content, cat, agent_id, now],
-            )?;
-        }
-
-        debug!(id = %id, key = %key, agent_id = ?agent_id, "memory stored");
-
-        if let Some(ref embedder) = self.embedder {
-            let hash = Self::content_hash(content);
-
-            // Check if we already have an embedding for this content hash.
-            let cached_embedding = {
-                match self.conn.lock() {
-                    Ok(conn) => Self::lookup_embedding_by_hash(&conn, &hash),
-                    Err(_) => None,
-                }
-            };
-
-            if let Some(existing_bytes) = cached_embedding {
-                // Cache hit — reuse the existing embedding without calling the API.
-                debug!(id = %id, hash = %hash, "embedding cache hit — reusing existing embedding");
-                match self.conn.lock() {
-                    Ok(conn) => {
-                        if let Err(e) = conn.execute(
-                            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
-                            rusqlite::params![id, existing_bytes, self.embedding_dimensions as i64, hash],
-                        ) {
-                            warn!(id = %id, "failed to store cached embedding: {e}");
-                        }
-                    }
-                    Err(e) => warn!("lock failed for embedding store: {e}"),
-                }
-            } else {
-                // Cache miss — call the embedder API and store with hash.
-                match embedder.embed(content).await {
-                    Ok(embedding) => {
-                        let bytes = vec_to_bytes(&embedding);
-                        match self.conn.lock() {
-                            Ok(conn) => {
-                                if let Err(e) = conn.execute(
-                                    "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
-                                    rusqlite::params![id, bytes, self.embedding_dimensions as i64, hash],
-                                ) {
-                                    warn!(id = %id, "failed to store embedding: {e}");
-                                } else {
-                                    debug!(id = %id, hash = %hash, "embedding stored (cache miss)");
-                                }
-                            }
-                            Err(e) => warn!("lock failed for embedding store: {e}"),
-                        }
-                    }
-                    Err(e) => warn!(id = %id, "embedding failed: {e}"),
-                }
-            }
-        }
-
-        Ok(id)
-    }
-
-    async fn search(&self, query: &IdeaQuery) -> Result<Vec<Idea>> {
-        // Phase 1: embed query text if embedder present (async, no lock).
-        let query_embedding: Option<Vec<f32>> = if let Some(ref embedder) = self.embedder {
-            match embedder.embed(&query.text).await {
-                Ok(emb) => Some(emb),
-                Err(e) => {
-                    warn!("query embedding failed, falling back to BM25: {e}");
-                    None
-                }
-            }
+        let bm25_limit = if query_embedding.is_some() {
+            query.top_k * 3
         } else {
-            None
+            query.top_k
+        };
+        let bm25_rows = Self::bm25_search(&conn, query, bm25_limit)?;
+
+        let vector_scores = if let Some(ref qvec) = query_embedding {
+            Self::vector_search_scoped(&conn, qvec, query.top_k * 3, query)
+        } else {
+            vec![]
         };
 
-        // Phase 2: lock and run all sync DB queries.
-        let (bm25_rows, vector_scores) = {
-            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-
-            let bm25_limit = if query_embedding.is_some() {
-                query.top_k * 3
-            } else {
-                query.top_k
-            };
-            let bm25 = Self::bm25_search(&conn, query, bm25_limit)?;
-
-            let vec_scores = if let Some(ref qvec) = query_embedding {
-                Self::vector_search_scoped(&conn, qvec, query.top_k * 3, query)
-            } else {
-                vec![]
-            };
-
-            (bm25, vec_scores)
-        };
-
-        // Phase 3: if no vector results, use BM25 path with graph boost.
+        // BM25-only path with graph boost.
         if vector_scores.is_empty() {
+            // Drop conn before calling methods that re-lock.
+            drop(conn);
             let mut entries: Vec<Idea> = bm25_rows
                 .into_iter()
                 .filter_map(|(row, bm25_score)| {
-                    let raw = -bm25_score; // BM25 from FTS5 is negative, negate to get positive score.
+                    let raw = -bm25_score;
                     self.row_to_entry(row, raw, query)
                 })
                 .collect();
-            // Apply graph boost.
             let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
             for entry in &mut entries {
                 let boost = self.compute_graph_boost(&entry.id, &ids);
@@ -1076,8 +992,7 @@ impl IdeaStore for SqliteIdeas {
             return Ok(entries);
         }
 
-        // Phase 4: hybrid merge.
-        // Normalize BM25 scores (negate FTS5 scores which are negative).
+        // Hybrid merge.
         let kw_pairs: Vec<(String, f64)> = bm25_rows
             .iter()
             .map(|(row, bm25)| (row.id.clone(), -bm25))
@@ -1094,7 +1009,6 @@ impl IdeaStore for SqliteIdeas {
             self.vector_weight,
         );
 
-        // Phase 5: fetch any IDs that appear in vector results but not BM25.
         let bm25_map: HashMap<String, &MemRow> = bm25_rows
             .iter()
             .map(|(row, _)| (row.id.clone(), row))
@@ -1108,7 +1022,6 @@ impl IdeaStore for SqliteIdeas {
             .collect();
 
         let extra_rows: HashMap<String, MemRow> = if !missing_ids.is_empty() {
-            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             Self::fetch_by_ids(&conn, &missing_ids)
                 .into_iter()
                 .map(|row| (row.id.clone(), row))
@@ -1117,7 +1030,7 @@ impl IdeaStore for SqliteIdeas {
             HashMap::new()
         };
 
-        // Phase 6: build Idea for each merged result, applying temporal decay.
+        // Build Idea for each merged result, applying temporal decay.
         let mut scored: Vec<(ScoredResult, Idea)> = Vec::new();
         for sr in merged.into_iter().take(query.top_k * 2) {
             let row_ref = bm25_map
@@ -1156,14 +1069,12 @@ impl IdeaStore for SqliteIdeas {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // Phase 7: MMR rerank using embedding similarity between candidates.
+        // MMR rerank using embedding similarity.
         let candidate_ids: Vec<String> = scored.iter().map(|(_, e)| e.id.clone()).collect();
-        let embedding_cache = {
-            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-            Self::load_embeddings_for_ids(&conn, &candidate_ids)
-        };
+        let embedding_cache = Self::load_embeddings_for_ids(&conn, &candidate_ids);
 
-        let scored_results: Vec<ScoredResult> = scored.iter().map(|(sr, _)| sr.clone()).collect();
+        let scored_results: Vec<ScoredResult> =
+            scored.iter().map(|(sr, _)| sr.clone()).collect();
 
         let reranked = mmr_rerank(
             &scored_results,
@@ -1175,7 +1086,10 @@ impl IdeaStore for SqliteIdeas {
             },
         );
 
-        // Phase 8: apply graph boost from idea edges.
+        // Drop conn before calling compute_graph_boost which re-locks.
+        drop(conn);
+
+        // Apply graph boost from idea edges.
         let entry_map: HashMap<String, Idea> =
             scored.into_iter().map(|(_, e)| (e.id.clone(), e)).collect();
 
@@ -1185,10 +1099,8 @@ impl IdeaStore for SqliteIdeas {
             .into_iter()
             .filter_map(|r| {
                 let mut entry = entry_map.get(&r.idea_id)?.clone();
-                // Compute graph boost from idea edges.
                 let graph_boost = self.compute_graph_boost(&entry.id, &result_ids);
                 if graph_boost > 0.0 {
-                    // Apply 10% graph weight to the score.
                     entry.score = entry.score * 0.9 + (graph_boost as f64) * 0.1;
                     debug!(id = %entry.id, key = %entry.key, graph_boost, "graph boost applied");
                 } else {
@@ -1198,7 +1110,6 @@ impl IdeaStore for SqliteIdeas {
             })
             .collect();
 
-        // Re-sort after graph boost adjustment.
         result.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -1207,15 +1118,142 @@ impl IdeaStore for SqliteIdeas {
 
         Ok(result)
     }
+}
+
+#[async_trait]
+impl IdeaStore for SqliteIdeas {
+    async fn store(
+        &self,
+        key: &str,
+        content: &str,
+        tags: &[String],
+        agent_id: Option<&str>,
+    ) -> Result<String> {
+        // Dedup + insert in spawn_blocking to avoid blocking tokio.
+        let key_owned = key.to_string();
+        let content_owned = content.to_string();
+        let cat_owned = tags.first().map(|s| s.as_str()).unwrap_or("untagged").to_string();
+        let agent_id_owned = agent_id.map(|s| s.to_string());
+        let this = self.clone();
+
+        let id = tokio::task::spawn_blocking(move || -> Result<String> {
+            if this.has_recent_duplicate(&content_owned, 24) {
+                debug!(key = %key_owned, "skipping duplicate memory (exact content match within 24h)");
+                return Ok(String::new());
+            }
+            if this.has_recent_key(&key_owned, 24) {
+                debug!(key = %key_owned, "skipping duplicate memory (same key within 24h)");
+                return Ok(String::new());
+            }
+
+            let id = uuid::Uuid::new_v4().to_string();
+            let now = Utc::now().to_rfc3339();
+
+            let conn = this.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
+            conn.execute(
+                "INSERT INTO ideas (id, key, content, category, agent_id, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![id, key_owned, content_owned, cat_owned, agent_id_owned, now],
+            )?;
+
+            debug!(id = %id, key = %key_owned, agent_id = ?agent_id_owned, "memory stored");
+            Ok(id)
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))??;
+
+        if id.is_empty() {
+            return Ok(id);
+        }
+
+        // Embedding phase: async embed, then sync store.
+        if let Some(ref embedder) = self.embedder {
+            let hash = Self::content_hash(content);
+
+            // Check cache in spawn_blocking.
+            let cached = {
+                let conn = self.conn.clone();
+                let hash_c = hash.clone();
+                tokio::task::spawn_blocking(move || {
+                    let conn = conn.lock().ok()?;
+                    Self::lookup_embedding_by_hash(&conn, &hash_c)
+                })
+                .await
+                .ok()
+                .flatten()
+            };
+
+            let embed_bytes = if let Some(existing_bytes) = cached {
+                debug!(id = %id, hash = %hash, "embedding cache hit — reusing existing embedding");
+                Some(existing_bytes)
+            } else {
+                match embedder.embed(content).await {
+                    Ok(embedding) => {
+                        debug!(id = %id, hash = %hash, "embedding stored (cache miss)");
+                        Some(vec_to_bytes(&embedding))
+                    }
+                    Err(e) => {
+                        warn!(id = %id, "embedding failed: {e}");
+                        None
+                    }
+                }
+            };
+
+            if let Some(bytes) = embed_bytes {
+                let conn = self.conn.clone();
+                let id = id.clone();
+                let dims = self.embedding_dimensions;
+                let _ = tokio::task::spawn_blocking(move || {
+                    if let Ok(conn) = conn.lock() {
+                        if let Err(e) = conn.execute(
+                            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
+                            rusqlite::params![id, bytes, dims as i64, hash],
+                        ) {
+                            warn!(id = %id, "failed to store embedding: {e}");
+                        }
+                    }
+                })
+                .await;
+            }
+        }
+
+        Ok(id)
+    }
+
+    async fn search(&self, query: &IdeaQuery) -> Result<Vec<Idea>> {
+        // Phase 1: embed query text if embedder present (async, no lock).
+        let query_embedding: Option<Vec<f32>> = if let Some(ref embedder) = self.embedder {
+            match embedder.embed(&query.text).await {
+                Ok(emb) => Some(emb),
+                Err(e) => {
+                    warn!("query embedding failed, falling back to BM25: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // Phase 2+: all DB and computation work runs in spawn_blocking
+        // to avoid blocking the tokio runtime with std::sync::Mutex.
+        let this = self.clone();
+        let query = query.clone();
+        tokio::task::spawn_blocking(move || this.search_sync(&query, query_embedding))
+            .await
+            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
+    }
 
     async fn delete(&self, id: &str) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        conn.execute("DELETE FROM ideas WHERE id = ?1", rusqlite::params![id])?;
-        conn.execute(
-            "DELETE FROM memory_embeddings WHERE memory_id = ?1",
-            rusqlite::params![id],
-        )?;
-        Ok(())
+        let id = id.to_string();
+        self.blocking(move |conn| {
+            conn.execute("DELETE FROM ideas WHERE id = ?1", rusqlite::params![id])?;
+            conn.execute(
+                "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                rusqlite::params![id],
+            )?;
+            Ok(())
+        })
+        .await
     }
 
     async fn update(
@@ -1223,51 +1261,61 @@ impl IdeaStore for SqliteIdeas {
         id: &str,
         key: Option<&str>,
         content: Option<&str>,
-        category: Option<&str>,
+        tags: Option<&[String]>,
     ) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let now = Utc::now().to_rfc3339();
-        if let Some(key) = key {
-            conn.execute(
-                "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
-                rusqlite::params![key, now, id],
-            )?;
-        }
-        if let Some(content) = content {
-            conn.execute(
-                "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
-                rusqlite::params![content, now, id],
-            )?;
-        }
-        if let Some(cat_str) = category {
-            conn.execute(
-                "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
-                rusqlite::params![cat_str, now, id],
-            )?;
-        }
-        Ok(())
+        let id = id.to_string();
+        let key = key.map(|s| s.to_string());
+        let content = content.map(|s| s.to_string());
+        let cat_from_tags = tags.map(|t| t.first().map(|s| s.as_str()).unwrap_or("untagged").to_string());
+        self.blocking(move |conn| {
+            let now = Utc::now().to_rfc3339();
+            if let Some(key) = key {
+                conn.execute(
+                    "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![key, now, id],
+                )?;
+            }
+            if let Some(content) = content {
+                conn.execute(
+                    "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![content, now, id],
+                )?;
+            }
+            if let Some(cat_str) = cat_from_tags {
+                conn.execute(
+                    "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![cat_str, now, id],
+                )?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     async fn store_with_ttl(
         &self,
         key: &str,
         content: &str,
-        category: &str,
+        tags: &[String],
         agent_id: Option<&str>,
         ttl_secs: Option<u64>,
     ) -> Result<String> {
-        let id = self.store(key, content, category, agent_id).await?;
+        let id = self.store(key, content, tags, agent_id).await?;
         if id.is_empty() {
             return Ok(id);
         }
         if let Some(ttl) = ttl_secs {
-            let expires = Utc::now() + chrono::Duration::seconds(ttl as i64);
-            let expires_str = expires.to_rfc3339();
-            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-            conn.execute(
-                "UPDATE ideas SET expires_at = ?1 WHERE id = ?2",
-                rusqlite::params![expires_str, id],
-            )?;
+            let id_c = id.clone();
+            self.blocking(move |conn| {
+                let expires = Utc::now() + chrono::Duration::seconds(ttl as i64);
+                let expires_str = expires.to_rfc3339();
+                conn.execute(
+                    "UPDATE ideas SET expires_at = ?1 WHERE id = ?2",
+                    rusqlite::params![expires_str, id_c],
+                )?;
+                Ok(())
+            })
+            .await?;
         }
         Ok(id)
     }
@@ -1290,12 +1338,16 @@ impl IdeaStore for SqliteIdeas {
         old_agent_id: &str,
         new_agent_id: &str,
     ) -> Result<u64> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let updated = conn.execute(
-            "UPDATE ideas SET agent_id = ?1 WHERE agent_id = ?2",
-            rusqlite::params![new_agent_id, old_agent_id],
-        )?;
-        Ok(updated as u64)
+        let old = old_agent_id.to_string();
+        let new = new_agent_id.to_string();
+        self.blocking(move |conn| {
+            let updated = conn.execute(
+                "UPDATE ideas SET agent_id = ?1 WHERE agent_id = ?2",
+                rusqlite::params![new, old],
+            )?;
+            Ok(updated as u64)
+        })
+        .await
     }
 
     async fn store_idea_edge(
@@ -1309,7 +1361,10 @@ impl IdeaStore for SqliteIdeas {
             serde_json::from_value(serde_json::Value::String(relation.to_string()))
                 .unwrap_or(IdeaRelation::RelatedTo);
         let edge = IdeaEdge::new(source_id, target_id, relation_enum, strength);
-        self.store_edge(&edge)
+        let this = self.clone();
+        tokio::task::spawn_blocking(move || this.store_edge(&edge))
+            .await
+            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
     }
 
     // store_prompt, get_prompts, get_prompts_for_chain — REMOVED.
@@ -1319,78 +1374,85 @@ impl IdeaStore for SqliteIdeas {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
-        let sql = format!(
-            "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
-             FROM ideas WHERE id IN ({})",
-            placeholders.join(", ")
-        );
-        let mut stmt = conn.prepare(&sql)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
-        let entries: Vec<Idea> = stmt
-            .query_map(params.as_slice(), |row| {
-                let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
-                let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
-                Ok(Idea {
-                    id: row.get(0)?,
-                    key: row.get(1)?,
-                    content: row.get(2)?,
-                    category: row.get(3)?,
-                    agent_id: row.get(4)?,
-                    created_at: {
-                        let s: String = row.get(5)?;
-                        DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
-                    },
-                    session_id: row.get(6)?,
-                    score: 1.0,
-                    injection_mode: row.get(7)?,
-                    inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
-                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(entries)
+        let ids = ids.to_vec();
+        self.blocking(move |conn| {
+            let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            let sql = format!(
+                "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                 FROM ideas WHERE id IN ({})",
+                placeholders.join(", ")
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let params: Vec<&dyn rusqlite::types::ToSql> =
+                ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
+            let entries: Vec<Idea> = stmt
+                .query_map(params.as_slice(), |row| {
+                    let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
+                    let cat: String = row.get(3)?;
+                    Ok(Idea {
+                        id: row.get(0)?,
+                        key: row.get(1)?,
+                        content: row.get(2)?,
+                        tags: vec![cat],
+                        agent_id: row.get(4)?,
+                        created_at: {
+                            let s: String = row.get(5)?;
+                            DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
+                        },
+                        session_id: row.get(6)?,
+                        score: 1.0,
+                        injection_mode: row.get(7)?,
+                        inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(entries)
+        })
+        .await
     }
 
     async fn get_injection_ideas(&self) -> Result<Vec<(String, String, Idea)>> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-        let mut stmt = conn.prepare(
-            "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
-             FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
-             ORDER BY agent_id, created_at ASC",
-        )?;
-        let entries: Vec<(String, String, Idea)> = stmt
-            .query_map([], |row| {
-                let agent_id: String = row.get(4)?;
-                let injection_mode: String = row.get::<_, Option<String>>(7)?.unwrap_or_default();
-                let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
-                let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
-                let idea = Idea {
-                    id: row.get(0)?,
-                    key: row.get(1)?,
-                    content: row.get(2)?,
-                    category: row.get(3)?,
-                    agent_id: Some(agent_id.clone()),
-                    created_at: {
-                        let s: String = row.get(5)?;
-                        DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
-                    },
-                    session_id: row.get(6)?,
-                    score: 1.0,
-                    injection_mode: Some(injection_mode.clone()),
-                    inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
-                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
-                };
-                Ok((agent_id, injection_mode, idea))
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(entries)
+        self.blocking(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                 FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
+                 ORDER BY agent_id, created_at ASC",
+            )?;
+            let entries: Vec<(String, String, Idea)> = stmt
+                .query_map([], |row| {
+                    let agent_id: String = row.get(4)?;
+                    let injection_mode: String = row.get::<_, Option<String>>(7)?.unwrap_or_default();
+                    let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
+                    let cat: String = row.get(3)?;
+                    let idea = Idea {
+                        id: row.get(0)?,
+                        key: row.get(1)?,
+                        content: row.get(2)?,
+                        tags: vec![cat],
+                        agent_id: Some(agent_id.clone()),
+                        created_at: {
+                            let s: String = row.get(5)?;
+                            DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
+                        },
+                        session_id: row.get(6)?,
+                        score: 1.0,
+                        injection_mode: Some(injection_mode.clone()),
+                        inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                    };
+                    Ok((agent_id, injection_mode, idea))
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(entries)
+        })
+        .await
     }
 }
 
@@ -1412,7 +1474,7 @@ mod tests {
         mem.store(
             "login-flow",
             "The login uses JWT tokens with 24h expiry",
-            "fact",
+            &["fact".to_string()],
             None,
         )
         .await
@@ -1420,7 +1482,7 @@ mod tests {
         mem.store(
             "deploy-process",
             "Deploy by merging to dev branch, auto-deploys",
-            "procedure",
+            &["procedure".to_string()],
             None,
         )
         .await
@@ -1428,7 +1490,7 @@ mod tests {
         mem.store(
             "db-config",
             "PostgreSQL on port 5432 with TimescaleDB",
-            "fact",
+            &["fact".to_string()],
             None,
         )
         .await
@@ -1454,7 +1516,7 @@ mod tests {
         mem.store(
             "shared-fact",
             "The API runs on port 8080",
-            "fact",
+            &["fact".to_string()],
             None,
         )
         .await
@@ -1462,7 +1524,7 @@ mod tests {
         mem.store(
             "guardian-note",
             "Risk tolerance is low for this user",
-            "preference",
+            &["preference".to_string()],
             Some("guardian-001"),
         )
         .await
@@ -1470,7 +1532,7 @@ mod tests {
         mem.store(
             "librarian-note",
             "User prefers detailed explanations",
-            "preference",
+            &["preference".to_string()],
             Some("librarian-001"),
         )
         .await
@@ -1499,7 +1561,7 @@ mod tests {
         mem.store(
             "strategic-pref",
             "Always prefer Rust over Python for new services",
-            "preference",
+            &["preference".to_string()],
             Some("root-agent"),
         )
         .await
@@ -1507,7 +1569,7 @@ mod tests {
         mem.store(
             "domain-fact",
             "The trading engine uses 50us tick",
-            "fact",
+            &["fact".to_string()],
             None,
         )
         .await
@@ -1560,7 +1622,7 @@ mod tests {
         mem.store(
             "new-fact",
             "New data with agent",
-            "fact",
+            &["fact".to_string()],
             Some("agent-1"),
         )
         .await
@@ -1579,7 +1641,7 @@ mod tests {
         let (mem, _dir) = test_ideas();
 
         let id = mem
-            .store("key", "content", "fact", None)
+            .store("key", "content", &["fact".to_string()], None)
             .await
             .unwrap();
 
@@ -1640,7 +1702,7 @@ mod tests {
             .store(
                 "key-1",
                 "identical content for embedding",
-                "fact",
+                &["fact".to_string()],
                 None,
             )
             .await
@@ -1694,14 +1756,14 @@ mod tests {
 
         // Store two memories with different content — both should call embedder.
         let _id1 = mem
-            .store("key-1", "first unique content", "fact", None)
+            .store("key-1", "first unique content", &["fact".to_string()], None)
             .await
             .unwrap();
         let _id2 = mem
             .store(
                 "key-2",
                 "second unique content",
-                "fact",
+                &["fact".to_string()],
                 None,
             )
             .await

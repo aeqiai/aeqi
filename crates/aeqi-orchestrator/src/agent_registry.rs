@@ -170,6 +170,26 @@ pub struct CompanyRecord {
 
 /// A lightweight SQLite connection pool.
 ///
+/// A single execution record tracked in the `runs` table.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RunRecord {
+    pub id: String,
+    pub session_id: Option<String>,
+    pub quest_id: Option<String>,
+    pub agent_id: Option<String>,
+    pub model: Option<String>,
+    pub status: String,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub cost_usd: f64,
+    pub tokens_used: i64,
+    pub turns: i64,
+    pub outcome: Option<String>,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub duration_ms: Option<i64>,
+}
+
 /// Maintains N connections to the same database, distributing lock contention
 /// across them. All connections share WAL mode + busy_timeout settings.
 /// Round-robins via atomic counter.
@@ -243,7 +263,14 @@ impl AgentRegistry {
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;
              PRAGMA busy_timeout = 5000;
-             PRAGMA foreign_keys = ON;
+             PRAGMA foreign_keys = ON;",
+        )?;
+
+        // Schema versioning via PRAGMA user_version.
+        let schema_version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        tracing::debug!(schema_version, db = "aeqi.db", "schema version");
+
+        conn.execute_batch("
 
              CREATE TABLE IF NOT EXISTS agents (
                  id TEXT PRIMARY KEY,
@@ -335,13 +362,26 @@ impl AgentRegistry {
                  agent_id TEXT,
                  session_id TEXT,
                  created_at TEXT NOT NULL,
-                 updated_at TEXT
+                 updated_at TEXT,
+                 tags TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
              CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
              CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
              CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
         )?;
+
+        // Ideas: add tags column if missing (migrating from single category to multi-tag).
+        {
+            let has_tags: bool = conn
+                .prepare("PRAGMA table_info(ideas)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .any(|c| c == "tags");
+            if !has_tags {
+                conn.execute_batch("ALTER TABLE ideas ADD COLUMN tags TEXT;")?;
+            }
+        }
 
         // Idempotent migrations for existing databases.
         // Events: add idea_ids if missing (legacy DBs had idea_id singular + content).
@@ -360,6 +400,13 @@ impl AgentRegistry {
              DROP TABLE IF EXISTS triggers;",
         )?;
 
+        // Stamp current schema version.
+        const AEQI_SCHEMA_VERSION: i32 = 1;
+        if schema_version < AEQI_SCHEMA_VERSION {
+            conn.execute_batch(&format!("PRAGMA user_version = {AEQI_SCHEMA_VERSION};"))?;
+            tracing::info!(from = schema_version, to = AEQI_SCHEMA_VERSION, "aeqi.db schema upgraded");
+        }
+
         // Close the aeqi.db migration connection and open a pool.
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
@@ -373,6 +420,7 @@ impl AgentRegistry {
              PRAGMA busy_timeout = 5000;
              PRAGMA foreign_keys = ON;",
         )?;
+        let sessions_schema_version: i32 = sconn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
 
         // Quests table (live work state — lives in sessions.db).
         sconn.execute_batch(
@@ -448,6 +496,22 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);",
         )?;
 
+        // Runs: add columns for detailed execution tracking.
+        for (col, typ) in &[
+            ("prompt_tokens", "INTEGER NOT NULL DEFAULT 0"),
+            ("completion_tokens", "INTEGER NOT NULL DEFAULT 0"),
+            ("duration_ms", "INTEGER"),
+        ] {
+            let has: bool = sconn
+                .prepare("PRAGMA table_info(runs)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .any(|c| c == *col);
+            if !has {
+                sconn.execute_batch(&format!("ALTER TABLE runs ADD COLUMN {col} {typ};"))?;
+            }
+        }
+
         // Channel sessions table — maps channel_key (e.g. "telegram:agent_id:chat_id")
         // to a persistent session_id for session-based channel routing.
         sconn.execute_batch(
@@ -462,6 +526,13 @@ impl AgentRegistry {
 
         // ── Migration: move data from aeqi.db → sessions.db if needed ──
         Self::migrate_tables_to_sessions(&db_path, &sessions_path)?;
+
+        // Stamp sessions.db schema version.
+        const SESSIONS_SCHEMA_VERSION: i32 = 1;
+        if sessions_schema_version < SESSIONS_SCHEMA_VERSION {
+            sconn.execute_batch(&format!("PRAGMA user_version = {SESSIONS_SCHEMA_VERSION};"))?;
+            tracing::info!(from = sessions_schema_version, to = SESSIONS_SCHEMA_VERSION, "sessions.db schema upgraded");
+        }
 
         // Close the sessions.db migration connection and open a pool.
         drop(sconn);
@@ -1743,6 +1814,85 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Complete a run with full execution metrics.
+    pub async fn complete_run_full(
+        &self,
+        run_id: &str,
+        status: &str,
+        cost_usd: f64,
+        turns: u32,
+        outcome: Option<&str>,
+        prompt_tokens: u32,
+        completion_tokens: u32,
+        duration_ms: Option<u64>,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let tokens_used = prompt_tokens + completion_tokens;
+        let db = self.sessions_db.lock().await;
+        db.execute(
+            "UPDATE runs SET status = ?1, cost_usd = ?2, turns = ?3, outcome = ?4,
+             finished_at = ?5, tokens_used = ?6, prompt_tokens = ?7,
+             completion_tokens = ?8, duration_ms = ?9
+             WHERE id = ?10",
+            rusqlite::params![
+                status, cost_usd, turns as i64, outcome, now,
+                tokens_used as i64, prompt_tokens as i64, completion_tokens as i64,
+                duration_ms.map(|d| d as i64), run_id,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// List recent execution runs, optionally filtered by agent or session.
+    pub async fn list_runs(
+        &self,
+        agent_id: Option<&str>,
+        session_id: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RunRecord>> {
+        let db = self.sessions_db.lock().await;
+        let mut sql = String::from(
+            "SELECT id, session_id, quest_id, agent_id, model, status,
+                    started_at, finished_at, cost_usd, tokens_used, turns, outcome,
+                    prompt_tokens, completion_tokens, duration_ms
+             FROM runs WHERE 1=1",
+        );
+        let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        if let Some(aid) = agent_id {
+            sql.push_str(&format!(" AND agent_id = ?{}", params_vec.len() + 1));
+            params_vec.push(Box::new(aid.to_string()));
+        }
+        if let Some(sid) = session_id {
+            sql.push_str(&format!(" AND session_id = ?{}", params_vec.len() + 1));
+            params_vec.push(Box::new(sid.to_string()));
+        }
+        sql.push_str(&format!(" ORDER BY started_at DESC LIMIT ?{}", params_vec.len() + 1));
+        params_vec.push(Box::new(limit as i64));
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = db.prepare(&sql)?;
+        let rows = stmt.query_map(param_refs.as_slice(), |row| {
+            Ok(RunRecord {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                quest_id: row.get(2)?,
+                agent_id: row.get(3)?,
+                model: row.get(4)?,
+                status: row.get(5)?,
+                started_at: row.get(6)?,
+                finished_at: row.get(7)?,
+                cost_usd: row.get(8)?,
+                tokens_used: row.get(9)?,
+                turns: row.get(10)?,
+                outcome: row.get(11)?,
+                prompt_tokens: row.get::<_, i64>(12).unwrap_or(0),
+                completion_tokens: row.get::<_, i64>(13).unwrap_or(0),
+                duration_ms: row.get(14).ok(),
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
     /// Expose the template connection pool (aeqi.db: agents, events, ideas, quest_sequences).
     pub fn db(&self) -> Arc<ConnectionPool> {
         self.db.clone()
@@ -1813,6 +1963,99 @@ impl AgentRegistry {
             .filter_map(|r| r.ok())
             .collect();
         Ok(rows)
+    }
+
+    /// Look up channel_key for a given session_id (reverse lookup).
+    pub async fn get_channel_key_for_session(&self, session_id: &str) -> Result<Option<String>> {
+        let db = self.sessions_db.lock().await;
+        let key: Option<String> = db
+            .query_row(
+                "SELECT channel_key FROM channel_sessions WHERE session_id = ?1",
+                params![session_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(key)
+    }
+
+    // -- Cross-DB orphan cleanup ----------------------------------------------
+
+    /// Clean up orphaned records in sessions.db for agents that no longer exist in aeqi.db.
+    pub async fn cleanup_orphaned_sessions(&self) -> Result<usize> {
+        let known_ids: std::collections::HashSet<String> = {
+            let db = self.db.lock().await;
+            let mut stmt = db.prepare("SELECT id FROM agents")?;
+            stmt.query_map([], |row| row.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let sdb = self.sessions_db.lock().await;
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut total_affected = 0usize;
+
+        // 1. Close orphaned sessions (active sessions with agent_ids not in aeqi.db).
+        {
+            let mut stmt = sdb.prepare(
+                "SELECT DISTINCT agent_id FROM sessions WHERE agent_id IS NOT NULL AND status = 'active'",
+            )?;
+            let orphan_agent_ids: Vec<String> = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .filter(|id| !known_ids.contains(id))
+                .collect();
+            for agent_id in &orphan_agent_ids {
+                let closed = sdb.execute(
+                    "UPDATE sessions SET status = 'closed', closed_at = ?1
+                     WHERE agent_id = ?2 AND status = 'active'",
+                    params![now, agent_id],
+                )?;
+                if closed > 0 {
+                    info!(agent_id = %agent_id, sessions = closed, "closed orphaned sessions");
+                    total_affected += closed;
+                }
+            }
+        }
+
+        // 2. Prune old messages from sessions closed > 30 days ago.
+        {
+            let cutoff = (chrono::Utc::now() - chrono::Duration::days(30)).to_rfc3339();
+            let deleted = sdb.execute(
+                "DELETE FROM session_messages WHERE session_id IN (
+                     SELECT id FROM sessions WHERE status = 'closed' AND closed_at < ?1
+                 )",
+                params![cutoff],
+            )?;
+            if deleted > 0 {
+                info!(messages = deleted, "pruned old messages from sessions closed > 30 days ago");
+                total_affected += deleted;
+            }
+        }
+
+        // 3. Remove channel_sessions for non-existent agents.
+        {
+            let mut stmt = sdb.prepare("SELECT DISTINCT agent_id FROM channel_sessions")?;
+            let orphan_channel_agents: Vec<String> = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .filter(|id| !known_ids.contains(id))
+                .collect();
+            for agent_id in &orphan_channel_agents {
+                let deleted = sdb.execute(
+                    "DELETE FROM channel_sessions WHERE agent_id = ?1",
+                    params![agent_id],
+                )?;
+                if deleted > 0 {
+                    info!(agent_id = %agent_id, count = deleted, "removed orphaned channel_sessions");
+                    total_affected += deleted;
+                }
+            }
+        }
+
+        if total_affected > 0 {
+            info!(total = total_affected, "cross-database orphan cleanup complete");
+        }
+        Ok(total_affected)
     }
 
     // -- Company CRUD ---------------------------------------------------------

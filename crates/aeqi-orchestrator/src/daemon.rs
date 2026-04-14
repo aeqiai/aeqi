@@ -304,7 +304,7 @@ impl Daemon {
         self.background_automation_enabled = enabled;
     }
 
-    // Event firing handled by EventMatcher. Delegation handled by direct session spawning.
+    // Scheduled events create quests via schedule_timer. Delegation via direct session spawning.
 
     /// Start the session tracker in a dedicated tokio::spawn.
     /// Returns the shutdown Notify so it can be stopped later.
@@ -412,6 +412,11 @@ impl Daemon {
         // Crash recovery: prune orphaned worktrees from crashed executions.
         self.cleanup_orphaned_worktrees().await;
 
+        // Cross-DB orphan cleanup: close sessions for deleted agents.
+        if let Err(e) = self.agent_registry.cleanup_orphaned_sessions().await {
+            warn!(error = %e, "orphan cleanup failed");
+        }
+
         info!("daemon started");
 
         self.run_patrol_loop().await;
@@ -504,41 +509,10 @@ impl Daemon {
         }
     }
 
-    /// Spawn the EventMatcher — subscribes to activity stream and fires event handlers.
+    /// Event matcher — no-op. Lifecycle events are context injection only.
+    /// Scheduled events create quests via schedule_timer, not here.
     fn spawn_event_matcher(&self) {
-        let Some(ref ehs) = self.event_handler_store else {
-            return;
-        };
-        let matcher = Arc::new(crate::event_matcher::EventMatcher::new(
-            ehs.clone(),
-            self.agent_registry.clone(),
-            self.activity_log.clone(),
-        ));
-        let mut rx = self.activity_log.subscribe();
-
-        tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Ok(event_json) => {
-                        let event_type = event_json
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        let agent_id = event_json.get("agent_id").and_then(|v| v.as_str());
-                        let quest_id = event_json.get("quest_id").and_then(|v| v.as_str());
-
-                        matcher
-                            .match_activity(event_type, agent_id, quest_id, &event_json)
-                            .await;
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!(skipped = n, "event matcher lagged");
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
-                }
-            }
-        });
-        info!("event matcher spawned");
+        // No-op. All event-driven quest creation is in schedule_timer.rs.
     }
 
     /// Spawn the ScheduleTimer — fires schedule-type events at precise times.
@@ -567,8 +541,20 @@ impl Daemon {
         if let Some(parent) = sock_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
+        // Set restrictive permissions on the socket directory.
+        #[cfg(unix)]
+        if let Some(parent) = sock_path.parent() {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700));
+        }
         match tokio::net::UnixListener::bind(sock_path) {
             Ok(listener) => {
+                // Restrict socket to owner only.
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(sock_path, std::fs::Permissions::from_mode(0o600));
+                }
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
                     activity_log: self.activity_log.clone(),
@@ -589,6 +575,7 @@ impl Daemon {
                 let session_manager = self.session_manager.clone();
                 let activity_stream = self.activity_stream.clone();
                 let scheduler = self.scheduler.clone();
+                let gateway_manager = self.gateway_manager.clone();
                 info!(path = %sock_path.display(), "IPC socket listening");
                 tokio::spawn(async move {
                     Self::socket_accept_loop(
@@ -604,6 +591,7 @@ impl Daemon {
                         session_manager,
                         activity_stream,
                         scheduler,
+                        gateway_manager,
                     )
                     .await;
                 });
@@ -775,7 +763,7 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                match mem.store(&w.key, &w.content, &w.category, None).await {
+                match mem.store(&w.key, &w.content, &[w.category.clone()], None).await {
                     Ok(id) => debug!(
                         project = %w.project,
                         id = %id,
@@ -871,6 +859,7 @@ impl Daemon {
         session_manager: Arc<SessionManager>,
         activity_stream: Arc<ActivityStream>,
         scheduler: Arc<Scheduler>,
+        gateway_manager: Arc<GatewayManager>,
     ) {
         loop {
             if !running.load(std::sync::atomic::Ordering::SeqCst) {
@@ -888,6 +877,7 @@ impl Daemon {
                     let session_manager = session_manager.clone();
                     let activity_stream = activity_stream.clone();
                     let scheduler = scheduler.clone();
+                    let gateway_manager = gateway_manager.clone();
                     tokio::spawn(async move {
                         if let Err(e) = Self::handle_socket_connection(
                             stream,
@@ -901,6 +891,7 @@ impl Daemon {
                             session_manager,
                             activity_stream,
                             scheduler,
+                            gateway_manager,
                         )
                         .await
                         {
@@ -931,6 +922,7 @@ impl Daemon {
         session_manager: Arc<SessionManager>,
         _activity_stream: Arc<ActivityStream>,
         scheduler: Arc<Scheduler>,
+        gateway_manager: Arc<GatewayManager>,
     ) -> Result<()> {
         const MAX_IPC_LINE_BYTES: usize = 10 * 1024 * 1024; // 10 MB
         let (reader, mut writer) = stream.into_split();
@@ -1431,6 +1423,12 @@ impl Daemon {
                         if !resolved_session_id.is_empty()
                             && session_manager.is_running(&resolved_session_id).await
                         {
+                            // Activate persistent gateways (e.g. Telegram) for this session.
+                            if let Some(stream_sender) = session_manager.get_stream_sender(&resolved_session_id).await {
+                                gateway_manager
+                                    .activate_persistent(&resolved_session_id, &stream_sender)
+                                    .await;
+                            }
                             if stream_mode {
                                 match session_manager
                                     .send_streaming(&resolved_session_id, message)
@@ -1703,6 +1701,12 @@ impl Daemon {
                             {
                                 Ok(spawned) => {
                                     let session_id = spawned.session_id.clone();
+
+                                    // Activate persistent gateways (e.g. Telegram) so
+                                    // web-originated responses also deliver there.
+                                    gateway_manager
+                                        .activate_persistent(&session_id, &spawned.stream_sender)
+                                        .await;
 
                                     let mut rx = spawned.stream_sender.subscribe();
                                     let mut step_text = String::new();

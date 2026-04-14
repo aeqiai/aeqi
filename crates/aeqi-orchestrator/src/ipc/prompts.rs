@@ -54,10 +54,10 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            let category = idea_val["category"].as_str().unwrap_or("fact");
+            let tags = vec![idea_val["category"].as_str().unwrap_or("fact").to_string()];
             let agent_id = idea_val["agent_id"].as_str();
 
-            match idea_store.store(name, content, category, agent_id).await {
+            match idea_store.store(name, content, &tags, agent_id).await {
                 Ok(id) => {
                     // Track this idea for event wiring.
                     if let Some(agent) = agent_id {

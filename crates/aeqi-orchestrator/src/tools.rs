@@ -494,10 +494,10 @@ impl IdeasTool {
             .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
-        let category = args.get("category").and_then(|v| v.as_str()).unwrap_or("fact");
+        let tags = vec![args.get("category").and_then(|v| v.as_str()).unwrap_or("fact").to_string()];
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
-        match self.memory.store(key, content, category, agent_id).await {
+        match self.memory.store(key, content, &tags, agent_id).await {
             Ok(id) => {
                 // Emit idea_received so lifecycle events can fire.
                 if let Some(aid) = agent_id {

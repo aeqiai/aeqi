@@ -241,9 +241,9 @@ impl SpawnOptions {
         } else if self.quest_id.is_some() {
             "task"
         } else if !self.auto_close {
-            "perpetual"
+            "interactive"
         } else {
-            "session"
+            "async"
         }
     }
 }
@@ -667,6 +667,17 @@ impl SessionManager {
         let session_type_str = opts.session_type_str();
 
         let session_id = if let Some(existing_id) = opts.session_id.clone() {
+            // Pre-assigned session_id (e.g. from channel_sessions). Ensure a
+            // `sessions` table record exists so the UI can list it.
+            if let Some(ref ss) = self.session_store {
+                if ss.get_session(&existing_id).await.ok().flatten().is_none() {
+                    let aid = agent_uuid.as_deref().unwrap_or("");
+                    let display_name = opts.name.as_deref().unwrap_or(&agent_name);
+                    let _ = ss.create_session_with_id(
+                        &existing_id, aid, session_type_str, display_name, parent_id, quest_id,
+                    ).await;
+                }
+            }
             existing_id
         } else if let Some(ref ss) = self.session_store {
             let aid = agent_uuid.as_deref().unwrap_or("");

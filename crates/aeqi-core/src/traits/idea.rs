@@ -14,7 +14,9 @@ pub struct Idea {
     pub id: String,
     pub key: String,
     pub content: String,
-    pub category: String,
+    /// Tags classify the idea. Free-form strings. No "primary" concept.
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// The agent that owns this idea.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -75,7 +77,7 @@ impl Idea {
         id: String,
         key: String,
         content: String,
-        category: String,
+        tags: Vec<String>,
         agent_id: Option<String>,
         created_at: DateTime<Utc>,
         session_id: Option<String>,
@@ -85,7 +87,7 @@ impl Idea {
             id,
             key,
             content,
-            category,
+            tags,
             agent_id,
             created_at,
             session_id,
@@ -102,12 +104,12 @@ impl Idea {
 pub struct IdeaQuery {
     pub text: String,
     pub top_k: usize,
-    pub category: Option<String>,
+    /// Filter: idea must have at least one of these tags (OR match).
+    pub tags: Vec<String>,
     pub session_id: Option<String>,
     /// Filter to a specific agent's ideas.
     pub agent_id: Option<String>,
     /// Also include shared ideas from sibling agents (same parent).
-    /// Populated by the caller from AgentRegistry.get_children(parent_id).
     pub sibling_agent_ids: Vec<String>,
 }
 
@@ -116,7 +118,7 @@ impl IdeaQuery {
         Self {
             text: text.into(),
             top_k,
-            category: None,
+            tags: Vec::new(),
             session_id: None,
             agent_id: None,
             sibling_agent_ids: Vec::new(),
@@ -139,11 +141,12 @@ impl IdeaQuery {
 pub trait IdeaStore: Send + Sync {
     /// Store an idea owned by an agent.
     /// agent_id = None stores a global/system idea.
+    /// tags = classification labels (e.g. ["fact", "engineering"]).
     async fn store(
         &self,
         key: &str,
         content: &str,
-        category: &str,
+        tags: &[String],
         agent_id: Option<&str>,
     ) -> anyhow::Result<String>;
 
@@ -192,11 +195,11 @@ pub trait IdeaStore: Send + Sync {
         &self,
         key: &str,
         content: &str,
-        category: &str,
+        tags: &[String],
         agent_id: Option<&str>,
         _ttl_secs: Option<u64>,
     ) -> anyhow::Result<String> {
-        self.store(key, content, category, agent_id).await
+        self.store(key, content, tags, agent_id).await
     }
 
     /// Search by key prefix (exact prefix match, not FTS). Default returns empty.
@@ -217,9 +220,9 @@ pub trait IdeaStore: Send + Sync {
         id: &str,
         key: Option<&str>,
         content: Option<&str>,
-        category: Option<&str>,
+        tags: Option<&[String]>,
     ) -> anyhow::Result<()> {
-        let _ = (id, key, content, category);
+        let _ = (id, key, content, tags);
         anyhow::bail!("update not supported by this store")
     }
 

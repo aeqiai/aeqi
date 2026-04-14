@@ -185,7 +185,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "id": {"type": "string", "description": "Idea ID to delete (for delete)"},
                     "key": {"type": "string", "description": "Short slug key (for store)"},
                     "content": {"type": "string", "description": "The knowledge to store (for store)"},
-                    "category": {"type": "string", "default": "fact", "description": "Idea category (free-form string). Common categories: fact, procedure, preference, context, evergreen, config"},
+                    "category": {"type": "string", "default": "fact", "description": "Primary tag / category (free-form). Common: fact, procedure, preference, context, evergreen, config"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Multiple tags for the idea. If omitted, defaults to [category]."},
                     "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
                     "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
                     "query": {"type": "string", "description": "Natural language search query (for search)"},
@@ -368,6 +369,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .is_none_or(|s| s.is_empty())
                                 {
                                     ipc["scope"] = serde_json::json!("domain");
+                                }
+                                // Auto-scope to AEQI_AGENT_ID if not specified.
+                                if ipc.get("agent_id").and_then(|v| v.as_str()).is_none() {
+                                    if let Some(ref aid) = agent_id {
+                                        ipc["agent_id"] = serde_json::json!(aid);
+                                    }
                                 }
                                 // Invalidate recall cache — new memories change results.
                                 if let Some(project) =

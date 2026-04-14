@@ -57,8 +57,9 @@ if $BUILD_RUNTIME; then
     cargo build --release -p aeqi 2>&1 | tail -3
 
     # Stage binary for platform (tenant sandboxes/hosts use this copy).
+    # Requires sudo if platform binary is owned by root.
     if [ -d "$PLATFORM_ROOT/runtime/bin" ]; then
-        cp "$AEQI_ROOT/target/release/aeqi" "$PLATFORM_ROOT/runtime/bin/aeqi"
+        sudo cp "$AEQI_ROOT/target/release/aeqi" "$PLATFORM_ROOT/runtime/bin/aeqi"
         echo "  -> staged binary to $PLATFORM_ROOT/runtime/bin/aeqi"
     fi
 

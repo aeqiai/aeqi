@@ -1060,6 +1060,25 @@ impl SessionStore {
         Ok(id)
     }
 
+    /// Create a session with a pre-assigned ID (e.g. from channel_sessions).
+    pub async fn create_session_with_id(
+        &self,
+        id: &str,
+        agent_id: &str,
+        session_type: &str,
+        name: &str,
+        parent_id: Option<&str>,
+        quest_id: Option<&str>,
+    ) -> Result<String> {
+        let db = self.db.lock().await;
+        db.execute(
+            "INSERT OR IGNORE INTO sessions (id, agent_id, session_type, name, status, parent_id, quest_id)
+             VALUES (?1, ?2, ?3, ?4, 'active', ?5, ?6)",
+            params![id, agent_id, session_type, name, parent_id, quest_id],
+        )?;
+        Ok(id.to_string())
+    }
+
     /// Close a session by setting status to 'closed'.
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let db = self.db.lock().await;

@@ -986,7 +986,7 @@ mod tests {
             &self,
             _key: &str,
             _content: &str,
-            _category: &str,
+            _tags: &[String],
             _agent_id: Option<&str>,
         ) -> anyhow::Result<String> {
             anyhow::bail!("not implemented")
@@ -1030,7 +1030,7 @@ mod tests {
                     "idea-a".to_string(),
                     "alpha".to_string(),
                     "Alpha content".to_string(),
-                    "procedure".to_string(),
+                    vec!["procedure".to_string()],
                     Some("agent-a".to_string()),
                     Utc::now(),
                     None,
@@ -1040,7 +1040,7 @@ mod tests {
                     "idea-b".to_string(),
                     "beta".to_string(),
                     "Beta content".to_string(),
-                    "fact".to_string(),
+                    vec!["fact".to_string()],
                     Some("agent-a".to_string()),
                     Utc::now(),
                     None,

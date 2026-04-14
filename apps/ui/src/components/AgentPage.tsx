@@ -416,6 +416,19 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
       {activeTab === "settings" && (
         <div className="agent-page-settings">
+          {/* Model */}
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Model</h3>
+            <div className="agent-settings-grid">
+              <div className="agent-settings-field">
+                <span className="agent-settings-label">Current model</span>
+                <span className="agent-settings-value agent-settings-mono">
+                  {agent?.model || "inherited from config"}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Usage & Budget */}
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Usage</h3>

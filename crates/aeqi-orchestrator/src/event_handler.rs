@@ -848,7 +848,7 @@ mod tests {
     #[async_trait::async_trait]
     impl IdeaStore for MockIdeaStore {
         async fn store(
-            &self, _key: &str, _content: &str, _category: &str, _agent_id: Option<&str>,
+            &self, _key: &str, _content: &str, _tags: &[String], _agent_id: Option<&str>,
         ) -> anyhow::Result<String> {
             Ok("mock-id".into())
         }
@@ -869,7 +869,7 @@ mod tests {
             id: id.into(),
             key: format!("idea-{id}"),
             content: format!("Content for {id}"),
-            category: "evergreen".to_string(),
+            tags: vec!["evergreen".to_string()],
             agent_id: Some(agent_id.into()),
             created_at: Utc::now(),
             session_id: None,

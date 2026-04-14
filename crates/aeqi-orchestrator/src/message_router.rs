@@ -1043,7 +1043,7 @@ impl MessageRouter {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no idea store available"))?;
         let id = mem
-            .store(key, content, "fact", None)
+            .store(key, content, &["fact".to_string()], None)
             .await?;
         Ok(id)
     }

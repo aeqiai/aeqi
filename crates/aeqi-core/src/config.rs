@@ -709,6 +709,10 @@ pub struct WebConfig {
     pub ws_poll_interval_secs: u64,
     #[serde(default)]
     pub auth: AuthConfig,
+    /// Twilio auth token for webhook signature verification.
+    /// Required if receiving WhatsApp messages via Twilio webhooks.
+    #[serde(default)]
+    pub twilio_auth_token: Option<String>,
 }
 
 impl Default for WebConfig {
@@ -721,6 +725,7 @@ impl Default for WebConfig {
             auth_secret: None,
             ws_poll_interval_secs: default_ws_poll_interval(),
             auth: AuthConfig::default(),
+            twilio_auth_token: None,
         }
     }
 }

@@ -20,6 +20,9 @@ pub struct GatewayManager {
     dispatchers: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     /// Session store for recording messages.
     session_store: Option<Arc<SessionStore>>,
+    /// Persistent gateways: auto-registered when a session starts streaming.
+    /// Keyed by session_id. These survive across session restarts.
+    persistent: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
 }
 
 impl GatewayManager {
@@ -28,6 +31,7 @@ impl GatewayManager {
             registrations: Mutex::new(HashMap::new()),
             dispatchers: Mutex::new(HashMap::new()),
             session_store: None,
+            persistent: Mutex::new(HashMap::new()),
         }
     }
 
@@ -43,6 +47,43 @@ impl GatewayManager {
         stream_sender: &ChatStreamSender,
     ) -> tokio::sync::broadcast::Receiver<ChatStreamEvent> {
         stream_sender.subscribe()
+    }
+
+    /// Register a persistent gateway for a session. It will be auto-registered
+    /// whenever the session's dispatcher starts (including from the web path).
+    pub async fn register_persistent(
+        &self,
+        session_id: &str,
+        gateway: Arc<dyn SessionGateway>,
+    ) {
+        let gw_id = gateway.gateway_id().to_string();
+        let mut persistent = self.persistent.lock().await;
+        let entry = persistent.entry(session_id.to_string()).or_default();
+        if !entry.iter().any(|g| g.gateway_id() == gw_id) {
+            entry.push(gateway);
+            info!(session_id = %session_id, gateway_id = %gw_id, "persistent gateway stored");
+        }
+    }
+
+    /// Activate persistent gateways for a session using the given stream sender.
+    /// Call this when a session starts from a non-gateway source (e.g. web UI)
+    /// to ensure responses also deliver to persistent channels (e.g. Telegram).
+    pub async fn activate_persistent(
+        &self,
+        session_id: &str,
+        stream_sender: &ChatStreamSender,
+    ) {
+        let persistent = self.persistent.lock().await;
+        let Some(pgws) = persistent.get(session_id) else {
+            return;
+        };
+        let gws: Vec<Arc<dyn SessionGateway>> = pgws.clone();
+        drop(persistent);
+
+        for gw in gws {
+            let rx = stream_sender.subscribe();
+            self.register_with_rx(session_id, gw, rx).await;
+        }
     }
 
     /// Register a gateway for a session. Starts the dispatcher if not already running.
@@ -76,6 +117,20 @@ impl GatewayManager {
         }
 
         entry.push(gateway);
+
+        // Also pull in any persistent gateways for this session.
+        {
+            let persistent = self.persistent.lock().await;
+            if let Some(pgws) = persistent.get(session_id) {
+                for pgw in pgws {
+                    if !entry.iter().any(|g| g.gateway_id() == pgw.gateway_id()) {
+                        entry.push(pgw.clone());
+                        info!(session_id = %session_id, gateway_id = %pgw.gateway_id(), "persistent gateway activated");
+                    }
+                }
+            }
+        }
+
         let gateways = Arc::new(Mutex::new(entry.clone()));
         drop(regs);
 

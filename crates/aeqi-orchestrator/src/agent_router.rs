@@ -50,7 +50,7 @@ impl AgentRouter {
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(5))
                 .build()
-                .expect("failed to build reqwest client"),
+                .unwrap_or_else(|_| reqwest::Client::new()),
             last_invoked: HashMap::new(),
             cooldown_secs,
             model: "google/gemini-2.0-flash-001".to_string(),

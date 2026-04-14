@@ -1854,26 +1854,41 @@ impl Agent {
     async fn inject_initial_memory(&self, messages: &mut [Message], prompt: &str) {
         let Some(ref mem) = self.memory else { return };
 
+        // Search for relevant ideas using the user's prompt as query.
+        // Limit to 10 results — the hybrid search already ranks by relevance.
         let all_entries = mem
-            .hierarchical_search(prompt, &self.config.ancestor_ids, 5)
+            .hierarchical_search(prompt, &self.config.ancestor_ids, 10)
             .await
             .unwrap_or_default();
 
-        if !all_entries.is_empty() {
-            let ctx = all_entries
-                .iter()
-                .map(|e| format!("{}: {}", e.key, e.content))
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            if let Some(msg) = messages.first_mut()
-                && let MessageContent::Text(t) = &mut msg.content
-            {
-                *t = format!("{t}\n\n# Recalled Memory\n{ctx}");
-            }
-
-            debug!(agent = %self.config.name, count = all_entries.len(), "memory context injected");
+        if all_entries.is_empty() {
+            return;
         }
+
+        // Group by category for clearer context injection.
+        let mut by_cat: std::collections::BTreeMap<&str, Vec<&crate::traits::Idea>> =
+            std::collections::BTreeMap::new();
+        for entry in &all_entries {
+            let tag = entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged");
+            by_cat.entry(tag).or_default().push(entry);
+        }
+
+        let mut ctx = String::new();
+        for (cat, entries) in &by_cat {
+            ctx.push_str(&format!("## {cat}\n"));
+            for e in entries {
+                ctx.push_str(&format!("- **{}**: {}\n", e.key, e.content));
+            }
+            ctx.push('\n');
+        }
+
+        if let Some(msg) = messages.first_mut()
+            && let MessageContent::Text(t) = &mut msg.content
+        {
+            *t = format!("{t}\n\n# Recalled Knowledge\n{ctx}");
+        }
+
+        debug!(agent = %self.config.name, count = all_entries.len(), "memory context injected");
     }
 
     // -----------------------------------------------------------------------
@@ -2347,7 +2362,7 @@ impl Agent {
                 .store(
                     SESSION_MEMORY_KEY,
                     &summary,
-                    "context",
+                    &["context".to_string()],
                     agent_id.as_deref(),
                 )
                 .await
@@ -3242,7 +3257,7 @@ impl Agent {
                 continue;
             };
 
-            let category = cat_str.trim().to_lowercase();
+            let tags = vec![cat_str.trim().to_lowercase()];
 
             let key = key.trim();
             let content = content.trim();
@@ -3251,7 +3266,7 @@ impl Agent {
             }
 
             match mem
-                .store(key, content, &category, self.config.agent_id.as_deref())
+                .store(key, content, &tags, self.config.agent_id.as_deref())
                 .await
             {
                 Ok(id) => {

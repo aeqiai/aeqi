@@ -108,14 +108,13 @@ impl DedupPipeline {
         }
 
         // Sort by similarity descending to find the top match.
-        let top = above_threshold
-            .iter()
-            .max_by(|a, b| {
-                a.similarity
-                    .partial_cmp(&b.similarity)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .unwrap(); // safe: above_threshold is non-empty
+        let Some(top) = above_threshold.iter().max_by(|a, b| {
+            a.similarity
+                .partial_cmp(&b.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) else {
+            return DedupAction::Create;
+        };
 
         // Near-duplicate: skip.
         if top.similarity > 0.95 {

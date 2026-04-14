@@ -832,8 +832,15 @@
 
 .asv {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
+  overflow: hidden;
+}
+.asv-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 .asv--dragover {
@@ -885,181 +892,126 @@
   margin-left: 4px;
 }
 
-/* ── Session tabs ── */
-.asv-session-tabs {
+/* ── Session sidebar (left column) ── */
+.asv-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
   display: flex;
-  align-items: stretch;
-  gap: 0;
-  padding: 0 16px;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (max-width: 768px) {
+  .asv-sidebar {
+    display: none;
+  }
+}
+.asv-sidebar-header {
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.asv-session-tabs::-webkit-scrollbar {
-  display: none;
-}
-.asv-session-tab {
-  padding: 8px 14px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 450;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  border-bottom: 1.5px solid transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: color 0.12s, border-color 0.12s;
-  margin-bottom: -1px;
-}
-.asv-session-tab:hover {
-  color: var(--text-secondary);
-}
-.asv-session-tab.active {
-  color: var(--text-primary);
-  font-weight: 500;
-  border-bottom-color: var(--text-primary);
-}
-/* New session button */
 .asv-session-new-btn {
   display: flex;
   align-items: center;
   gap: 5px;
+  width: 100%;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   background: none;
-  border: none;
+  border: 1px solid var(--border);
   cursor: pointer;
-  padding: 7px 12px;
+  padding: 6px 10px;
   border-radius: 6px;
-  flex-shrink: 0;
-  transition: color 0.1s, background 0.1s;
-  white-space: nowrap;
+  transition: color 0.1s, background 0.1s, border-color 0.1s;
 }
 .asv-session-new-btn:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+  border-color: var(--text-muted);
 }
-.asv-session-tabs-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  flex-shrink: 0;
-  align-self: center;
-  margin: 0 4px;
-}
-.asv-session-toggle,
-.asv-new-session {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.12s;
-  position: relative;
-}
-.asv-session-toggle:hover,
-.asv-session-toggle--open,
-.asv-new-session:hover {
-  color: var(--text-primary);
-  border-color: var(--border);
-  background: var(--bg-surface);
-}
-.asv-session-count {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  font-size: 9px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  min-width: 14px;
-  height: 14px;
-  line-height: 14px;
-  text-align: center;
-  background: var(--text-primary);
-  color: var(--bg-base);
-  border-radius: 7px;
-  padding: 0 3px;
-}
-
-/* ── Session list ── */
-.asv-session-list {
-  border-bottom: 1px solid var(--border);
-  max-height: 320px;
+.asv-sidebar-list {
+  flex: 1;
   overflow-y: auto;
-  background: var(--bg-base);
-  flex-shrink: 0;
-}
-.asv-session-empty {
-  padding: 24px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
+  scrollbar-width: thin;
 }
 .asv-session-item {
-  padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
   cursor: pointer;
+  border-bottom: 1px solid var(--border-faint, rgba(0,0,0,.04));
   transition: background 0.1s;
-  border-bottom: 1px solid var(--border);
 }
-.asv-session-item:last-child { border-bottom: none; }
 .asv-session-item:hover {
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
 }
 .asv-session-item.active {
-  background: var(--bg-elevated);
-  box-shadow: inset 2px 0 0 var(--text-primary);
+  background: var(--bg-surface);
 }
 .asv-session-item-top {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
-.asv-session-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  opacity: 0.25;
-  flex-shrink: 0;
-}
-.asv-session-dot.live {
-  background: var(--success);
-  opacity: 1;
-}
-.asv-session-item-preview {
+.asv-session-item-name {
+  font-family: var(--font-sans);
   font-size: 12px;
-  color: var(--text-primary);
   font-weight: 450;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.asv-session-item.active .asv-session-item-name {
+  font-weight: 550;
+}
+.asv-session-item-transport {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .asv-session-item-bottom {
   display: flex;
-  gap: 8px;
-  margin-top: 3px;
-  padding-left: 13px;
+  align-items: center;
+  gap: 6px;
+}
+.asv-session-item-preview {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 .asv-session-item-date {
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  flex-shrink: 0;
 }
-.asv-session-item-count {
-  font-size: 10px;
+.asv-sidebar-empty {
+  padding: 20px 12px;
+  font-size: 12px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  text-align: center;
 }
+/* (old session toggle/list styles removed — replaced by asv-sidebar) */
 
 /* ── Messages area ── */
 .asv-messages {
