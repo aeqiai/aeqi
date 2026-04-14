@@ -1559,6 +1559,88 @@
   color: var(--text-primary);
 }
 
+/* ── Channel Chat Management ── */
+.channel-chats-section {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+.channel-chats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.channel-chats-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.channel-whitelist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.channel-whitelist-toggle input[type="checkbox"] {
+  accent-color: var(--text-primary);
+  cursor: pointer;
+}
+.channel-whitelist-label {
+  user-select: none;
+}
+.channel-chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.channel-chat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.channel-chat-id {
+  font-size: 12px;
+  min-width: 120px;
+}
+.channel-chat-label {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+}
+.channel-chat-allow {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.channel-chat-allow input[type="checkbox"] {
+  accent-color: var(--success, #22c55e);
+  cursor: pointer;
+}
+.channel-chat-allow-all {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--success, #22c55e);
+  font-weight: 500;
+}
+
 .content-scroll {
   flex: 1;
   overflow-y: auto;

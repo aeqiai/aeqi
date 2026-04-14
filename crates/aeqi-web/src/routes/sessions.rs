@@ -17,6 +17,7 @@ pub fn routes() -> Router<AppState> {
         .route("/sessions/{id}/messages", get(session_messages))
         .route("/sessions/{id}/children", get(session_children))
         .route("/session/send", post(session_send))
+        .route("/channel-sessions", get(channel_sessions))
 }
 
 #[derive(Deserialize, Default)]
@@ -99,4 +100,21 @@ async fn session_send(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "session_send", body).await
+}
+
+#[derive(Deserialize, Default)]
+struct ChannelSessionsQuery {
+    agent_id: Option<String>,
+}
+
+async fn channel_sessions(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<ChannelSessionsQuery>,
+) -> Response {
+    let mut params = serde_json::json!({});
+    if let Some(agent_id) = &q.agent_id {
+        params["agent_id"] = serde_json::Value::String(agent_id.clone());
+    }
+    ipc_proxy(state, scope.as_ref(), "list_channel_sessions", params).await
 }

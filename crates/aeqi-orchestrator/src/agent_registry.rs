@@ -1793,18 +1793,22 @@ impl AgentRegistry {
     }
 
     /// List all channel sessions for a given agent.
-    /// Returns (channel_key, session_id) pairs.
+    /// Returns (channel_key, session_id, created_at) tuples.
     pub async fn list_channel_sessions(
         &self,
         agent_id: &str,
-    ) -> Result<Vec<(String, String)>> {
+    ) -> Result<Vec<(String, String, String)>> {
         let db = self.sessions_db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT channel_key, session_id FROM channel_sessions WHERE agent_id = ?1 ORDER BY created_at",
+            "SELECT channel_key, session_id, created_at FROM channel_sessions WHERE agent_id = ?1 ORDER BY created_at",
         )?;
         let rows = stmt
             .query_map(params![agent_id], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();

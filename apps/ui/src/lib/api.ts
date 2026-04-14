@@ -305,6 +305,13 @@ export const api = {
     }),
   deleteAgentChannel: (id: string) =>
     request<Record<string, unknown>>(`/ideas/${id}`, { method: "DELETE" }),
+  getChannelSessions: (agentId: string) =>
+    request<Record<string, unknown>>(`/channel-sessions?agent_id=${encodeURIComponent(agentId)}`),
+  updateIdea: (id: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/ideas/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 
   // Idea graph & profile
   getIdeaGraph: (params?: { company?: string; limit?: number }) => {

@@ -1230,6 +1230,10 @@ impl Daemon {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)
                         .await
                 }
+                "list_channel_sessions" => {
+                    crate::ipc::sessions::handle_list_channel_sessions(&ctx, &request, &allowed_companies)
+                        .await
+                }
                 "sessions" => {
                     crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_companies).await
                 }

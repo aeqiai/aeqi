@@ -130,6 +130,50 @@ pub async fn handle_close_session(
     })
 }
 
+pub async fn handle_list_channel_sessions(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let hint = request_field(request, "agent_id").unwrap_or("");
+    if hint.is_empty() {
+        return serde_json::json!({"ok": false, "error": "agent_id is required"});
+    }
+    let resolved_id = if hint.len() == 36 && hint.contains('-') {
+        hint.to_string()
+    } else {
+        match ctx.agent_registry.resolve_by_hint(hint).await {
+            Ok(Some(agent)) => agent.id,
+            _ => hint.to_string(),
+        }
+    };
+    if !check_agent_access(&ctx.agent_registry, allowed, &resolved_id).await {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+    match ctx.agent_registry.list_channel_sessions(&resolved_id).await {
+        Ok(rows) => {
+            let sessions: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(channel_key, session_id, created_at)| {
+                    // channel_key format: "transport:agent_id:chat_id"
+                    let parts: Vec<&str> = channel_key.splitn(3, ':').collect();
+                    let transport = parts.first().copied().unwrap_or("unknown");
+                    let chat_id = parts.get(2).copied().unwrap_or("");
+                    serde_json::json!({
+                        "channel_key": channel_key,
+                        "session_id": session_id,
+                        "chat_id": chat_id,
+                        "transport": transport,
+                        "created_at": created_at,
+                    })
+                })
+                .collect();
+            serde_json::json!({"ok": true, "sessions": sessions})
+        }
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 /// Returns `None` if the tenancy check failed (caller should write the error and continue).
 /// Returns `Some(json)` for the normal response.
 pub async fn handle_session_messages(

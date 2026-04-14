@@ -17,7 +17,15 @@ interface ChannelEntry {
   key: string;
   content: string;
   channel_type: string;
-  config: Record<string, string>;
+  config: Record<string, unknown>;
+}
+
+interface ChannelSession {
+  channel_key: string;
+  session_id: string;
+  chat_id: string;
+  transport: string;
+  created_at: string;
 }
 
 const CHANNEL_TYPES = [
@@ -77,6 +85,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
   const [newChannelFields, setNewChannelFields] = useState<Record<string, string>>({});
   const [channelSaving, setChannelSaving] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [channelSessions, setChannelSessions] = useState<ChannelSession[]>([]);
 
   const resolvedAgentId = agent?.id || agentId;
 
@@ -112,11 +121,22 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     }
   }, [resolvedAgentId]);
 
+  const loadChannelSessions = useCallback(async () => {
+    try {
+      const data = await api.getChannelSessions(resolvedAgentId);
+      const sessions = (data.sessions || []) as ChannelSession[];
+      setChannelSessions(sessions);
+    } catch {
+      setChannelSessions([]);
+    }
+  }, [resolvedAgentId]);
+
   useEffect(() => {
     if (activeTab === "channels") {
       loadChannels();
+      loadChannelSessions();
     }
-  }, [activeTab, loadChannels]);
+  }, [activeTab, loadChannels, loadChannelSessions]);
 
   const handleAddChannel = async () => {
     setChannelError(null);
@@ -152,6 +172,26 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     } catch {
       // Silently fail — the channel list will refresh on next load.
     }
+  };
+
+  const updateAllowedChats = async (channel: ChannelEntry, allowedChats: number[]) => {
+    const config = { ...channel.config, allowed_chats: allowedChats };
+    try {
+      await api.updateIdea(channel.id, { content: JSON.stringify(config) });
+      await loadChannels();
+    } catch {
+      // Silently fail.
+    }
+  };
+
+  const getChannelAllowedChats = (ch: ChannelEntry): number[] => {
+    const ac = ch.config.allowed_chats;
+    if (Array.isArray(ac)) return ac.map(Number).filter((n) => !isNaN(n));
+    return [];
+  };
+
+  const isWhitelistMode = (ch: ChannelEntry): boolean => {
+    return getChannelAllowedChats(ch).length > 0;
   };
 
   return (
@@ -207,32 +247,107 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               </div>
             )}
 
-            {channels.map((ch) => (
-              <div key={ch.id} className="channel-card">
-                <div className="channel-card-header">
-                  <span className="channel-card-type">{ch.channel_type}</span>
-                  <span className="channel-card-status connected">Connected</span>
-                </div>
-                <div className="channel-card-details">
-                  {Object.entries(ch.config).map(([k, v]) => (
-                    <div key={k} className="agent-settings-field">
-                      <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
-                      <span className="agent-settings-value agent-settings-mono">
-                        {k.includes("token") || k.includes("auth") || k.includes("sid")
-                          ? `${String(v).slice(0, 8)}...`
-                          : v}
-                      </span>
+            {channels.map((ch) => {
+              const sessionsForChannel = channelSessions.filter(
+                (s) => s.transport === ch.channel_type,
+              );
+              const allowedChats = getChannelAllowedChats(ch);
+              const whitelist = isWhitelistMode(ch);
+
+              return (
+                <div key={ch.id} className="channel-card">
+                  <div className="channel-card-header">
+                    <span className="channel-card-type">{ch.channel_type}</span>
+                    <span className="channel-card-status connected">Connected</span>
+                  </div>
+                  <div className="channel-card-details">
+                    {Object.entries(ch.config)
+                      .filter(([k]) => k !== "allowed_chats")
+                      .map(([k, v]) => (
+                        <div key={k} className="agent-settings-field">
+                          <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
+                          <span className="agent-settings-value agent-settings-mono">
+                            {k.includes("token") || k.includes("auth") || k.includes("sid")
+                              ? `${String(v).slice(0, 8)}...`
+                              : String(v)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+
+                  {sessionsForChannel.length > 0 && (
+                    <div className="channel-chats-section">
+                      <div className="channel-chats-header">
+                        <span className="channel-chats-title">Active Chats</span>
+                        <label className="channel-whitelist-toggle">
+                          <input
+                            type="checkbox"
+                            checked={whitelist}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                // Turn ON: whitelist all current chats
+                                const allIds = sessionsForChannel.map((s) =>
+                                  Number(s.chat_id),
+                                ).filter((n) => !isNaN(n));
+                                updateAllowedChats(ch, allIds);
+                              } else {
+                                // Turn OFF: clear allowed_chats
+                                updateAllowedChats(ch, []);
+                              }
+                            }}
+                          />
+                          <span className="channel-whitelist-label">
+                            Whitelist mode
+                          </span>
+                        </label>
+                      </div>
+                      <div className="channel-chats-list">
+                        {sessionsForChannel.map((s) => {
+                          const chatNum = Number(s.chat_id);
+                          const isGroup = !isNaN(chatNum) && chatNum < 0;
+                          const isAllowed = allowedChats.includes(chatNum);
+                          return (
+                            <div key={s.channel_key} className="channel-chat-row">
+                              <span className="channel-chat-id agent-settings-mono">
+                                {s.chat_id}
+                              </span>
+                              <span className="channel-chat-label">
+                                {isGroup ? "Group" : "DM"}
+                              </span>
+                              {whitelist && (
+                                <label className="channel-chat-allow">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAllowed}
+                                    onChange={(e) => {
+                                      const next = e.target.checked
+                                        ? [...allowedChats, chatNum]
+                                        : allowedChats.filter((id) => id !== chatNum);
+                                      updateAllowedChats(ch, next);
+                                    }}
+                                  />
+                                  Allow
+                                </label>
+                              )}
+                              {!whitelist && (
+                                <span className="channel-chat-allow-all">Allowed</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
+                  )}
+
+                  <button
+                    className="btn channel-disconnect-btn"
+                    onClick={() => handleDeleteChannel(ch.id)}
+                  >
+                    Disconnect
+                  </button>
                 </div>
-                <button
-                  className="btn channel-disconnect-btn"
-                  onClick={() => handleDeleteChannel(ch.id)}
-                >
-                  Disconnect
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {showAddForm && (
