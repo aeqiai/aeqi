@@ -7,14 +7,19 @@ use aeqi_core::chat_stream::ChatStreamSender;
 use aeqi_core::traits::{CompletedResponse, DeliveryMode, SessionGateway};
 use aeqi_core::ChatStreamEvent;
 
+use crate::session_store::SessionStore;
+
 /// Manages output gateways for sessions.
 /// Each session can have multiple gateways. The dispatcher fans out
-/// agent responses to all registered gateways.
+/// agent responses to all registered gateways AND records them in
+/// the session store (single point of recording).
 pub struct GatewayManager {
     /// Per-session registered gateways.
     registrations: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
     /// Active dispatcher tasks per session.
     dispatchers: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
+    /// Session store for recording messages.
+    session_store: Option<Arc<SessionStore>>,
 }
 
 impl GatewayManager {
@@ -22,7 +27,13 @@ impl GatewayManager {
         Self {
             registrations: Mutex::new(HashMap::new()),
             dispatchers: Mutex::new(HashMap::new()),
+            session_store: None,
         }
+    }
+
+    pub fn with_session_store(mut self, ss: Arc<SessionStore>) -> Self {
+        self.session_store = Some(ss);
+        self
     }
 
     /// Pre-subscribe to a stream sender BEFORE spawning a session.
@@ -73,8 +84,9 @@ impl GatewayManager {
         if !dispatchers.contains_key(session_id) {
             let sid = session_id.to_string();
             let gw_clone = gateways.clone();
+            let ss = self.session_store.clone();
             let handle = tokio::spawn(async move {
-                dispatch_loop(sid, rx, gw_clone).await;
+                dispatch_loop(sid, rx, gw_clone, ss).await;
             });
             dispatchers.insert(session_id.to_string(), handle);
         }
@@ -103,6 +115,7 @@ async fn dispatch_loop(
     session_id: String,
     mut rx: tokio::sync::broadcast::Receiver<ChatStreamEvent>,
     gateways: Arc<Mutex<Vec<Arc<dyn SessionGateway>>>>,
+    session_store: Option<Arc<SessionStore>>,
 ) {
     let mut accumulated_text = String::new();
 
@@ -139,6 +152,15 @@ async fn dispatch_loop(
                         ..
                     } => {
                         if !accumulated_text.is_empty() {
+                            // Record the assistant response ONCE before delivering to gateways.
+                            if let Some(ref ss) = session_store {
+                                let _ = ss.record_event_by_session(
+                                    &session_id, "message", "assistant",
+                                    &accumulated_text, Some("agent"),
+                                    None,
+                                ).await;
+                            }
+
                             let response = CompletedResponse {
                                 text: accumulated_text.clone(),
                                 iterations: *iterations,

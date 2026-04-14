@@ -434,6 +434,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), activity_log);
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
+            if let Some(ref ss) = session_store {
+                daemon.gateway_manager = Arc::new(GatewayManager::new().with_session_store(ss.clone()));
+            }
             // Primers are now seeded via ideas.db — prompt store import removed.
             // Still set in-memory primers for backward compat during migration.
             daemon.shared_primer = config.shared_primer.clone();

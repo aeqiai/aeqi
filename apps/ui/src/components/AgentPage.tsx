@@ -89,8 +89,8 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
   const resolvedAgentId = agent?.id || agentId;
 
-  const loadChannels = useCallback(async () => {
-    setChannelsLoading(true);
+  const loadChannels = useCallback(async (showLoading = true) => {
+    if (showLoading) setChannelsLoading(true);
     try {
       const data = await api.getAgentChannels(resolvedAgentId);
       const ideas = (data.ideas || []) as Array<Record<string, unknown>>;
@@ -175,13 +175,15 @@ export default function AgentPage({ agentId }: { agentId: string }) {
   };
 
   const updateAllowedChats = async (channel: ChannelEntry, allowedChats: number[]) => {
-    const config = { ...channel.config, allowed_chats: allowedChats };
-    try {
-      await api.updateIdea(channel.id, { content: JSON.stringify(config) });
-      await loadChannels();
-    } catch {
-      // Silently fail.
-    }
+    const newConfig = { ...channel.config, allowed_chats: allowedChats };
+    // Optimistic update — change local state immediately, no loading flicker.
+    setChannels((prev) =>
+      prev.map((ch) =>
+        ch.id === channel.id ? { ...ch, config: newConfig } : ch,
+      ),
+    );
+    // Fire and forget — optimistic state is already set.
+    api.updateIdea(channel.id, { content: JSON.stringify(newConfig) }).catch(() => {});
   };
 
   const getChannelAllowedChats = (ch: ChannelEntry): number[] => {
