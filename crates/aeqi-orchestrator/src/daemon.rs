@@ -8,6 +8,7 @@ use tracing::{debug, info, warn};
 use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
 use crate::activity::{ActivityStream, Activity};
+use crate::gateway_manager::GatewayManager;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
 use crate::progress_tracker::ProgressTracker;
@@ -253,6 +254,8 @@ pub struct Daemon {
     pub event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
     /// Shared idea store.
     pub idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
+    /// Gateway manager for session output delivery.
+    pub gateway_manager: Arc<GatewayManager>,
 }
 
 impl Daemon {
@@ -293,6 +296,7 @@ impl Daemon {
             prompt_loader: None,
             event_handler_store: None,
             idea_store: None,
+            gateway_manager: Arc::new(GatewayManager::new()),
         }
     }
 

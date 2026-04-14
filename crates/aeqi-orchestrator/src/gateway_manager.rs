@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
+use aeqi_core::chat_stream::ChatStreamSender;
 use aeqi_core::traits::{CompletedResponse, DeliveryMode, SessionGateway};
 use aeqi_core::ChatStreamEvent;
 
@@ -29,7 +30,7 @@ impl GatewayManager {
         &self,
         session_id: &str,
         gateway: Arc<dyn SessionGateway>,
-        stream_sender: &tokio::sync::broadcast::Sender<ChatStreamEvent>,
+        stream_sender: &ChatStreamSender,
     ) {
         let gw_id = gateway.gateway_id().to_string();
         let gw_type = gateway.gateway_type().to_string();

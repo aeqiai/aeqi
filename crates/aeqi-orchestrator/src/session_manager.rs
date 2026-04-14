@@ -959,6 +959,16 @@ impl SessionManager {
         let sessions = self.sessions.lock().await;
         sessions.get(session_id).is_some_and(|s| s.is_alive())
     }
+
+    /// Get the broadcast stream sender for a running session.
+    /// Returns None if the session doesn't exist or is no longer alive.
+    pub async fn get_stream_sender(&self, session_id: &str) -> Option<ChatStreamSender> {
+        let sessions = self.sessions.lock().await;
+        sessions
+            .get(session_id)
+            .filter(|s| s.is_alive())
+            .map(|s| s.stream_sender.clone())
+    }
 }
 
 impl Default for SessionManager {
