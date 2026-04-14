@@ -25,12 +25,33 @@ impl GatewayManager {
         }
     }
 
+    /// Pre-subscribe to a stream sender BEFORE spawning a session.
+    /// This avoids the race condition where events are emitted before the gateway registers.
+    pub fn pre_subscribe(
+        &self,
+        stream_sender: &ChatStreamSender,
+    ) -> tokio::sync::broadcast::Receiver<ChatStreamEvent> {
+        stream_sender.subscribe()
+    }
+
     /// Register a gateway for a session. Starts the dispatcher if not already running.
+    /// Pass a pre-subscribed receiver to avoid missing early events.
     pub async fn register(
         &self,
         session_id: &str,
         gateway: Arc<dyn SessionGateway>,
         stream_sender: &ChatStreamSender,
+    ) {
+        self.register_with_rx(session_id, gateway, stream_sender.subscribe()).await;
+    }
+
+    /// Register a gateway with a pre-created broadcast receiver.
+    /// Use this when you subscribed before spawning to avoid race conditions.
+    pub async fn register_with_rx(
+        &self,
+        session_id: &str,
+        gateway: Arc<dyn SessionGateway>,
+        rx: tokio::sync::broadcast::Receiver<ChatStreamEvent>,
     ) {
         let gw_id = gateway.gateway_id().to_string();
         let gw_type = gateway.gateway_type().to_string();
@@ -50,7 +71,6 @@ impl GatewayManager {
         // Ensure dispatcher is running for this session
         let mut dispatchers = self.dispatchers.lock().await;
         if !dispatchers.contains_key(session_id) {
-            let rx = stream_sender.subscribe();
             let sid = session_id.to_string();
             let gw_clone = gateways.clone();
             let handle = tokio::spawn(async move {

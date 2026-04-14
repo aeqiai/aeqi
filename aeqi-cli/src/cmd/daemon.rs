@@ -895,8 +895,9 @@ async fn start_agent_telegram_gateway(
                             agent_id = %aid,
                             "spawned telegram session"
                         );
-                        // Register gateway — dispatcher delivers the response to Telegram.
-                        gm.register(&session_id, tg_gw, &spawned.stream_sender).await;
+                        // Pre-subscribe before registering to avoid missing early events.
+                        let pre_rx = spawned.stream_sender.subscribe();
+                        gm.register_with_rx(&session_id, tg_gw, pre_rx).await;
                     }
                     Err(e) => {
                         warn!(error = %e, "failed to spawn session for telegram");
