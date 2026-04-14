@@ -1154,6 +1154,29 @@ impl Agent {
                                 continue;
                             }
                         }
+                        // Empty response after tool result = model glitch. Nudge to continue.
+                        if response.content.as_deref().unwrap_or("").trim().is_empty()
+                            && response.tool_calls.is_empty()
+                            && messages.last().is_some_and(|m| m.role == Role::Tool)
+                            && output_recovery_count < 2
+                        {
+                            output_recovery_count += 1;
+                            warn!(
+                                agent = %self.config.name,
+                                attempt = output_recovery_count,
+                                "empty response after tool result — nudging model to continue"
+                            );
+                            messages.push(Message {
+                                role: Role::User,
+                                content: MessageContent::text(
+                                    "You called a tool but gave an empty response. \
+                                     Please analyze the tool result and respond to the user."
+                                ),
+                            });
+                            transition = LoopTransition::AfterTurnContinue;
+                            continue;
+                        }
+
                         // Accept the stop — or wait for next message in perpetual mode.
                         if self.config.session_type == SessionType::Perpetual
                             && let Some(ref rx) = self.input_rx
