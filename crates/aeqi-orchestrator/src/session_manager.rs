@@ -984,6 +984,19 @@ impl SessionManager {
         sessions.get(session_id).is_some_and(|s| s.is_alive())
     }
 
+    /// Cancel a running session's current execution.
+    pub async fn cancel_session(&self, session_id: &str) -> bool {
+        let sessions = self.sessions.lock().await;
+        if let Some(session) = sessions.get(session_id) {
+            session
+                .cancel_token
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Get the broadcast stream sender for a running session.
     /// Returns None if the session doesn't exist or is no longer alive.
     pub async fn get_stream_sender(&self, session_id: &str) -> Option<ChatStreamSender> {

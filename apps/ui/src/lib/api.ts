@@ -466,6 +466,8 @@ export const api = {
     request<{ ok: boolean }>("/prompts", { method: "POST", body: JSON.stringify(data) }),
   closeSession: (sessionId: string) =>
     request<{ ok: boolean }>(`/sessions/${sessionId}/close`, { method: "POST" }),
+  cancelSession: (sessionId: string) =>
+    request<{ ok: boolean; cancelled: boolean }>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
 
   // Session children (spawned work)
   getSessionChildren: (sessionId: string) =>

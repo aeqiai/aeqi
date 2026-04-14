@@ -1286,6 +1286,16 @@ impl Daemon {
                     }
                 }
 
+                "session_cancel" => {
+                    let session_id = request_field(&request, "session_id").unwrap_or("");
+                    if session_id.is_empty() {
+                        serde_json::json!({"ok": false, "error": "session_id required"})
+                    } else {
+                        let cancelled = session_manager.cancel_session(session_id).await;
+                        serde_json::json!({"ok": true, "cancelled": cancelled})
+                    }
+                }
+
                 // session_send stays inline — it writes directly to `writer` for streaming.
                 "session_send" => {
                     let message = request_field(&request, "message").unwrap_or("");

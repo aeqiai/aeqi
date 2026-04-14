@@ -1468,22 +1468,34 @@ export default function AgentSessionView({
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" /></svg>
                 </button>
               </div>
-              <button
-                className={`asv-send ${input.trim() ? "ready" : ""} ${streaming && !input.trim() ? "busy" : ""}`}
-                onClick={handleSend}
-                disabled={!input.trim()}
-              >
-                {streaming && !input.trim() ? (
-                  <svg className="asv-send-spinner" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="8" cy="8" r="6" strokeDasharray="28" strokeDashoffset="8" strokeLinecap="round" />
+              {streaming && !input.trim() ? (
+                <button
+                  className="asv-send busy"
+                  onClick={() => {
+                    const sid = sessionIdRef.current;
+                    if (sid) api.cancelSession(sid).catch(() => {});
+                    wsRef.current?.close();
+                    setStreaming(false);
+                  }}
+                  title="Stop execution"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="3" y="3" width="10" height="10" rx="2" />
                   </svg>
-                ) : (
+                  <span className="asv-send-label">Stop</span>
+                </button>
+              ) : (
+                <button
+                  className={`asv-send ${input.trim() ? "ready" : ""}`}
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                )}
-                <span className="asv-send-label">Send</span>
-              </button>
+                  <span className="asv-send-label">Send</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

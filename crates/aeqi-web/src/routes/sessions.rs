@@ -14,6 +14,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/sessions", get(sessions).post(create_session))
         .route("/sessions/{id}/close", post(close_session))
+        .route("/sessions/{id}/cancel", post(cancel_session))
         .route("/sessions/{id}/messages", get(session_messages))
         .route("/sessions/{id}/children", get(session_children))
         .route("/session/send", post(session_send))
@@ -54,6 +55,20 @@ async fn close_session(
         state,
         scope.as_ref(),
         "close_session",
+        serde_json::json!({"session_id": id}),
+    )
+    .await
+}
+
+async fn cancel_session(
+    State(state): State<AppState>,
+    scope: Scope,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "session_cancel",
         serde_json::json!({"session_id": id}),
     )
     .await
