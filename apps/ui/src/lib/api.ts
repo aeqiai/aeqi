@@ -468,6 +468,11 @@ export const api = {
     request<{ ok: boolean }>(`/sessions/${sessionId}/close`, { method: "POST" }),
   cancelSession: (sessionId: string) =>
     request<{ ok: boolean; cancelled: boolean }>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
+  forkSession: (sessionId: string, messageId: number) =>
+    request<{ ok: boolean; session_id: string }>(`/sessions/${sessionId}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ message_id: messageId }),
+    }),
 
   // Session children (spawned work)
   getSessionChildren: (sessionId: string) =>

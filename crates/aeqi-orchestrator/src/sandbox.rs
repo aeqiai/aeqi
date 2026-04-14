@@ -326,6 +326,48 @@ impl QuestSandbox {
         })
     }
 
+    /// Auto-commit if there are uncommitted changes. Returns the commit hash or None.
+    /// Called at end of each execution turn to snapshot progress.
+    pub async fn auto_commit(&self, turn: u32) -> Option<String> {
+        if self.torn_down.load(Ordering::Relaxed) {
+            return None;
+        }
+
+        // Check for changes.
+        let status = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(&self.worktree_path)
+            .output()
+            .await
+            .ok()?;
+
+        if String::from_utf8_lossy(&status.stdout).trim().is_empty() {
+            return None; // Nothing to commit.
+        }
+
+        match self
+            .commit_changes(
+                &format!("turn {turn}: auto-commit"),
+                "aeqi-agent",
+            )
+            .await
+        {
+            Ok(hash) => {
+                info!(
+                    quest_id = %self.quest_id,
+                    turn,
+                    commit = %hash,
+                    "auto-committed turn changes"
+                );
+                Some(hash)
+            }
+            Err(e) => {
+                warn!(quest_id = %self.quest_id, turn, error = %e, "auto-commit failed");
+                None
+            }
+        }
+    }
+
     /// Commit all changes in the worktree with the given message.
     /// Returns the commit hash.
     pub async fn commit_changes(&self, message: &str, author: &str) -> Result<String> {

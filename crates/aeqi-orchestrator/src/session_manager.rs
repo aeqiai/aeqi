@@ -984,6 +984,16 @@ impl SessionManager {
         sessions.get(session_id).is_some_and(|s| s.is_alive())
     }
 
+    /// Auto-commit changes in a session's quest worktree after a turn completes.
+    pub async fn auto_commit(&self, session_id: &str, turn: u32) {
+        let sessions = self.sessions.lock().await;
+        if let Some(session) = sessions.get(session_id)
+            && let Some(ref sb) = session.sandbox
+        {
+            sb.auto_commit(turn).await;
+        }
+    }
+
     /// Cancel a running session's current execution.
     pub async fn cancel_session(&self, session_id: &str) -> bool {
         let sessions = self.sessions.lock().await;

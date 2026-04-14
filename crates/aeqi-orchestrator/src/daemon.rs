@@ -1286,6 +1286,21 @@ impl Daemon {
                     }
                 }
 
+                "session_fork" => {
+                    let session_id = request_field(&request, "session_id").unwrap_or("");
+                    let message_id = request.get("message_id").and_then(|v| v.as_i64()).unwrap_or(0);
+                    if session_id.is_empty() || message_id == 0 {
+                        serde_json::json!({"ok": false, "error": "session_id and message_id required"})
+                    } else if let Some(ref ss) = ipc_ctx.session_store {
+                        match ss.fork_session(session_id, message_id).await {
+                            Ok(new_id) => serde_json::json!({"ok": true, "session_id": new_id}),
+                            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                        }
+                    } else {
+                        serde_json::json!({"ok": false, "error": "session store not available"})
+                    }
+                }
+
                 "session_cancel" => {
                     let session_id = request_field(&request, "session_id").unwrap_or("");
                     if session_id.is_empty() {
@@ -1531,6 +1546,8 @@ impl Daemon {
                                                             prompt_tokens = *pt;
                                                             completion_tokens = *ct;
                                                             iterations = *it;
+                                                            // Auto-commit worktree changes at end of turn.
+                                                            session_manager.auto_commit(&resolved_session_id, *it).await;
                                                             break;
                                                         }
                                                         _ => {}
@@ -1847,6 +1864,8 @@ impl Daemon {
                                                         prompt_tokens = *pt;
                                                         completion_tokens = *ct;
                                                         iterations = *it;
+                                                        // Auto-commit worktree changes at end of turn.
+                                                        session_manager.auto_commit(&session_id, *it).await;
                                                         break;
                                                     }
                                                     _ => {}

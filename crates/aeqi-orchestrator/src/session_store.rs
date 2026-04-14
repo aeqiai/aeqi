@@ -1207,6 +1207,43 @@ impl SessionStore {
     /// If a sender with the same (transport, transport_id) exists, updates
     /// `last_seen_at` and returns the existing record. Otherwise creates a
     /// new sender with a fresh UUID.
+    /// Fork a session: create a new session with messages copied up to (and including) the given message ID.
+    pub async fn fork_session(
+        &self,
+        source_session_id: &str,
+        up_to_message_id: i64,
+    ) -> Result<String> {
+        let db = self.db.lock().await;
+
+        // Get the source session info.
+        let (agent_id, name): (String, String) = db.query_row(
+            "SELECT agent_id, name FROM sessions WHERE id = ?1",
+            params![source_session_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        // Create the new session.
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let forked_name = format!("{name} (fork)");
+        db.execute(
+            "INSERT INTO sessions (id, agent_id, session_type, name, status, parent_id)
+             VALUES (?1, ?2, 'interactive', ?3, 'active', ?4)",
+            params![new_id, agent_id, forked_name, source_session_id],
+        )?;
+
+        // Copy messages up to the given message ID.
+        db.execute(
+            "INSERT INTO session_messages (session_id, role, content, timestamp, source, event_type, metadata, sender_id, transport)
+             SELECT ?1, role, content, timestamp, source, event_type, metadata, sender_id, transport
+             FROM session_messages
+             WHERE session_id = ?2 AND id <= ?3
+             ORDER BY id ASC",
+            params![new_id, source_session_id, up_to_message_id],
+        )?;
+
+        Ok(new_id)
+    }
+
     #[allow(clippy::type_complexity)]
     pub async fn resolve_sender(
         &self,
