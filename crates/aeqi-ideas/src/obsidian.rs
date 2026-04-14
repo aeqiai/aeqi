@@ -65,7 +65,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
 
     let mut written = 0;
     for entry in &entries {
-        let cat_dir = category_dir(&entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
+        let cat_dir = category_dir(entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
         let dir = vault_dir.join(cat_dir);
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("failed to create dir: {}", dir.display()))?;
@@ -91,7 +91,7 @@ fn render_markdown(
     edges: Option<&Vec<&IdeaEdge>>,
     id_to_key: &HashMap<&str, &str>,
 ) -> String {
-    let cat = category_str(&entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
+    let cat = category_str(entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
     let agent = entry
         .agent_id
         .as_deref()
@@ -179,7 +179,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
             .store(
                 &mem.key,
                 &mem.content,
-                &[mem.category.clone()],
+                std::slice::from_ref(&mem.category),
                 mem.agent_id.as_deref(),
             )
             .await

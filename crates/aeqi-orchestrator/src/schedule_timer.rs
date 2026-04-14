@@ -128,18 +128,6 @@ impl ScheduleTimer {
     }
 }
 
-#[cfg(test)]
-fn event_idea_ids(event: &crate::event_handler::Event) -> Vec<String> {
-    let mut idea_ids = Vec::new();
-    let mut seen = HashSet::new();
-    for idea_id in &event.idea_ids {
-        if !idea_id.is_empty() && seen.insert(idea_id.clone()) {
-            idea_ids.push(idea_id.clone());
-        }
-    }
-    idea_ids
-}
-
 // ── Schedule parsing ─────────────────────────────────────────────────
 
 fn is_schedule_due(expr: &str, last_fired: Option<&chrono::DateTime<Utc>>) -> bool {
@@ -214,7 +202,7 @@ impl CronField {
         match self {
             CronField::Any => true,
             CronField::Exact(v) => value == *v,
-            CronField::Step(s) => *s > 0 && value % *s == 0,
+            CronField::Step(s) => *s > 0 && value.is_multiple_of(*s),
         }
     }
 }
@@ -323,7 +311,7 @@ mod tests {
             system: false,
             created_at: Utc::now(),
         };
-        let ids = event_idea_ids(&event);
+        let ids = crate::event_matcher::event_idea_ids(&event);
         assert_eq!(ids, vec!["a".to_string(), "b".to_string()]);
     }
 }

@@ -1207,6 +1207,7 @@ impl SessionStore {
     /// If a sender with the same (transport, transport_id) exists, updates
     /// `last_seen_at` and returns the existing record. Otherwise creates a
     /// new sender with a fresh UUID.
+    #[allow(clippy::type_complexity)]
     pub async fn resolve_sender(
         &self,
         transport: &str,

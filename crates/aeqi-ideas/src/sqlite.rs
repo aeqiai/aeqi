@@ -1204,14 +1204,13 @@ impl IdeaStore for SqliteIdeas {
                 let id = id.clone();
                 let dims = self.embedding_dimensions;
                 let _ = tokio::task::spawn_blocking(move || {
-                    if let Ok(conn) = conn.lock() {
-                        if let Err(e) = conn.execute(
+                    if let Ok(conn) = conn.lock()
+                        && let Err(e) = conn.execute(
                             "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
                             rusqlite::params![id, bytes, dims as i64, hash],
                         ) {
                             warn!(id = %id, "failed to store embedding: {e}");
                         }
-                    }
                 })
                 .await;
             }

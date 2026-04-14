@@ -239,11 +239,10 @@ pub async fn handle_session_messages(
                         if let Some(ref meta) = e.metadata {
                             obj["metadata"] = meta.clone();
                         }
-                        if let Some(ref sid) = e.sender_id {
-                            if let Some(sender_json) = sender_map.get(sid) {
+                        if let Some(ref sid) = e.sender_id
+                            && let Some(sender_json) = sender_map.get(sid) {
                                 obj["sender"] = sender_json.clone();
                             }
-                        }
                         obj
                     })
                     .collect();

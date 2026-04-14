@@ -372,11 +372,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     ipc["scope"] = serde_json::json!("domain");
                                 }
                                 // Auto-scope to AEQI_AGENT_ID if not specified.
-                                if ipc.get("agent_id").and_then(|v| v.as_str()).is_none() {
-                                    if let Some(ref aid) = agent_id {
+                                if ipc.get("agent_id").and_then(|v| v.as_str()).is_none()
+                                    && let Some(ref aid) = agent_id {
                                         ipc["agent_id"] = serde_json::json!(aid);
                                     }
-                                }
                                 // Invalidate recall cache — new memories change results.
                                 if let Some(project) =
                                     args.get("project").and_then(|v| v.as_str())

@@ -473,17 +473,15 @@ impl SessionManager {
                 let mut cfg = sandbox_cfg.clone();
                 if let Some(ref qid) = opts.quest_id {
                     let quest_id = aeqi_quests::QuestId(qid.clone());
-                    if let Some(parent_id) = quest_id.parent() {
-                        if let Ok(Some(parent_quest)) = agent_registry.get_task(&parent_id.0).await {
-                            if let Some(ref parent_branch) = parent_quest.worktree_branch {
+                    if let Some(parent_id) = quest_id.parent()
+                        && let Ok(Some(parent_quest)) = agent_registry.get_task(&parent_id.0).await
+                            && let Some(ref parent_branch) = parent_quest.worktree_branch {
                                 cfg.base_ref = parent_branch.clone();
                                 tracing::info!(
                                     quest = %qid, parent = %parent_id.0,
                                     base = %parent_branch, "forking from parent quest branch"
                                 );
                             }
-                        }
-                    }
                 }
                 QuestSandbox::create(&sandbox_id, &cfg).await
             };
@@ -685,15 +683,14 @@ impl SessionManager {
         let session_id = if let Some(existing_id) = opts.session_id.clone() {
             // Pre-assigned session_id (e.g. from channel_sessions). Ensure a
             // `sessions` table record exists so the UI can list it.
-            if let Some(ref ss) = self.session_store {
-                if ss.get_session(&existing_id).await.ok().flatten().is_none() {
+            if let Some(ref ss) = self.session_store
+                && ss.get_session(&existing_id).await.ok().flatten().is_none() {
                     let aid = agent_uuid.as_deref().unwrap_or("");
                     let display_name = opts.name.as_deref().unwrap_or(&agent_name);
                     let _ = ss.create_session_with_id(
                         &existing_id, aid, session_type_str, display_name, parent_id, quest_id,
                     ).await;
                 }
-            }
             existing_id
         } else if let Some(ref ss) = self.session_store {
             let aid = agent_uuid.as_deref().unwrap_or("");

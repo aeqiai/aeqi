@@ -765,7 +765,7 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                match mem.store(&w.key, &w.content, &[w.category.clone()], None).await {
+                match mem.store(&w.key, &w.content, std::slice::from_ref(&w.category), None).await {
                     Ok(id) => debug!(
                         project = %w.project,
                         id = %id,

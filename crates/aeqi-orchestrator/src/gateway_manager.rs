@@ -25,6 +25,12 @@ pub struct GatewayManager {
     persistent: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
 }
 
+impl Default for GatewayManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GatewayManager {
     pub fn new() -> Self {
         Self {

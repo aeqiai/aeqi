@@ -573,8 +573,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Legacy fallback: if [channels.telegram] is configured in aeqi.toml,
             // start a single gateway bound to the root agent.
-            if tg_gateway_count == 0 {
-                if let Some(ref tg_config) = config.channels.telegram {
+            if tg_gateway_count == 0
+                && let Some(ref tg_config) = config.channels.telegram {
                     let secret_store_path = config
                         .security
                         .secret_store
@@ -631,7 +631,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                         }
                     }
                 }
-            }
             daemon.run().await?;
         }
 
@@ -737,6 +736,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 /// Starts a poller for the given TelegramChannel, routes incoming messages
 /// through the session_manager bound to the specified agent_id. Each
 /// (agent_id, chat_id) pair gets a persistent session.
+#[allow(clippy::too_many_arguments)]
 async fn start_agent_telegram_gateway(
     agent_id: String,
     allowed_chats: Vec<i64>,
@@ -768,14 +768,13 @@ async fn start_agent_telegram_gateway(
     // also deliver responses to Telegram.
     if let Ok(channel_sessions) = agent_registry.list_channel_sessions(&agent_id).await {
         for (channel_key, session_id, _created_at) in &channel_sessions {
-            if let Some(chat_id_str) = channel_key.split(':').nth(2) {
-                if let Ok(chat_id) = chat_id_str.parse::<i64>() {
+            if let Some(chat_id_str) = channel_key.split(':').nth(2)
+                && let Ok(chat_id) = chat_id_str.parse::<i64>() {
                     let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
                         Arc::new(TelegramGateway::new(tg_channel.clone(), chat_id, &agent_id));
                     gateway_manager.register_persistent(session_id, tg_gw).await;
                     info!(session_id = %session_id, chat_id, "restored persistent telegram gateway");
                 }
-            }
         }
     }
 

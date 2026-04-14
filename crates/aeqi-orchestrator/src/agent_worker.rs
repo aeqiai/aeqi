@@ -1556,7 +1556,7 @@ impl AgentWorker {
                 _ => None,
             };
 
-            match mem.store(key, content, &[category.clone()], agent_id_for_store).await {
+            match mem.store(key, content, std::slice::from_ref(&category), agent_id_for_store).await {
                 Ok(id) if !id.is_empty() => {
                     debug!(worker = %worker_name, id = %id, key = %key, "idea stored");
 
