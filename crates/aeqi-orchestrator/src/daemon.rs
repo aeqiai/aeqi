@@ -515,7 +515,7 @@ impl Daemon {
         // No-op. All event-driven quest creation is in schedule_timer.rs.
     }
 
-    /// Spawn the ScheduleTimer — fires schedule-type events at precise times.
+    /// Spawn the ScheduleTimer — fires schedule-type events by spawning sessions.
     fn spawn_schedule_timer(&self) {
         let Some(ref ehs) = self.event_handler_store else {
             return;
@@ -524,6 +524,8 @@ impl Daemon {
             ehs.clone(),
             self.agent_registry.clone(),
             self.activity_log.clone(),
+            self.session_manager.clone(),
+            self.default_provider.clone(),
         );
         let shutdown = self.shutdown_notify.clone();
         tokio::spawn(async move {

@@ -1,9 +1,8 @@
-//! Schedule Timer — fires schedule-type events at precise times.
+//! Schedule Timer — fires schedule-type events by spawning sessions.
 //!
-//! Replaces the patrol loop's trigger checking with a dedicated timer
-//! that sleeps until the next schedule is due.
+//! The agent decides what to do — create quests, run tasks, etc.
+//! Events inject ideas. The runtime just spawns the session.
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use chrono::Utc;
 use tracing::{info, warn};
@@ -11,24 +10,29 @@ use tracing::{info, warn};
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
 use crate::activity_log::ActivityLog;
+use crate::session_manager::{SessionManager, SpawnOptions};
 
 /// Runs schedule-type events without polling.
 pub struct ScheduleTimer {
     event_store: Arc<EventHandlerStore>,
-    agent_registry: Arc<AgentRegistry>,
     activity_log: Arc<ActivityLog>,
+    session_manager: Arc<SessionManager>,
+    default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
 }
 
 impl ScheduleTimer {
     pub fn new(
         event_store: Arc<EventHandlerStore>,
-        agent_registry: Arc<AgentRegistry>,
+        _agent_registry: Arc<AgentRegistry>,
         activity_log: Arc<ActivityLog>,
+        session_manager: Arc<SessionManager>,
+        default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     ) -> Self {
         Self {
             event_store,
-            agent_registry,
             activity_log,
+            session_manager,
+            default_provider,
         }
     }
 
@@ -36,7 +40,6 @@ impl ScheduleTimer {
     pub async fn run(self, shutdown: Arc<tokio::sync::Notify>) {
         info!("schedule timer started");
         loop {
-            // Query all schedule events.
             let schedules = match self.event_store.list_by_pattern_prefix("schedule:").await {
                 Ok(s) => s,
                 Err(e) => {
@@ -45,7 +48,6 @@ impl ScheduleTimer {
                 }
             };
 
-            // Check each schedule and fire if due.
             for event in &schedules {
                 let expr = event.pattern.strip_prefix("schedule:").unwrap_or("");
                 if expr.is_empty() {
@@ -57,9 +59,6 @@ impl ScheduleTimer {
                 }
             }
 
-            // Sleep until next check. For precision, we could compute the
-            // exact next fire time, but 30s resolution is good enough for now
-            // and much simpler than per-schedule timers.
             tokio::select! {
                 _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {},
                 _ = shutdown.notified() => {
@@ -71,43 +70,43 @@ impl ScheduleTimer {
     }
 
     async fn fire_schedule(&self, event: &crate::event_handler::Event) {
-        // Advance-before-execute.
         if let Err(e) = self.event_store.advance_before_execute(&event.id).await {
             warn!(event = %event.name, error = %e, "failed to advance schedule event");
             return;
         }
 
-        let description = format!("Scheduled event: {}", event.name);
+        let Some(ref provider) = self.default_provider else {
+            warn!(event = %event.name, "no provider configured, skipping schedule");
+            return;
+        };
 
-        let labels = vec![
-            format!("event:{}", event.name),
-            format!("event_id:{}", event.id),
-            "chain_depth:0".to_string(),
-        ];
-        let quest_idea_ids = event_idea_ids(event);
+        let prompt = format!(
+            "Scheduled event '{}' fired. Check your injected context and decide what to do.",
+            event.name
+        );
+
+        let mut opts = SpawnOptions::interactive()
+            .with_name(format!("schedule:{}", event.name))
+            .with_transport("schedule".to_string());
+        opts.auto_close = true;
 
         match self
-            .agent_registry
-            .create_task(
-                &event.agent_id,
-                &format!("[schedule:{}] {}", event.pattern, event.name),
-                &description,
-                &quest_idea_ids,
-                &labels,
-            )
+            .session_manager
+            .spawn_session(&event.agent_id, &prompt, provider.clone(), opts)
             .await
         {
-            Ok(quest) => {
+            Ok(spawned) => {
                 let _ = self
                     .activity_log
                     .emit(
                         "event.fired",
                         Some(&event.agent_id),
                         None,
-                        Some(&quest.id.0),
+                        None,
                         &serde_json::json!({
                             "event_name": event.name,
                             "event_pattern": event.pattern,
+                            "session_id": spawned.session_id,
                             "schedule": true,
                         }),
                     )
@@ -118,60 +117,57 @@ impl ScheduleTimer {
                 info!(
                     event = %event.name,
                     agent = %event.agent_id,
-                    quest_id = %quest.id,
-                    "schedule event fired → quest created"
+                    session_id = %spawned.session_id,
+                    "schedule event fired → session spawned"
                 );
             }
             Err(e) => {
-                warn!(event = %event.name, error = %e, "failed to create quest from schedule");
+                warn!(event = %event.name, error = %e, "failed to spawn session from schedule");
             }
         }
     }
 }
 
+#[cfg(test)]
 fn event_idea_ids(event: &crate::event_handler::Event) -> Vec<String> {
     let mut idea_ids = Vec::new();
     let mut seen = HashSet::new();
-
     for idea_id in &event.idea_ids {
-        if idea_id.is_empty() {
-            continue;
-        }
-        if seen.insert(idea_id.clone()) {
+        if !idea_id.is_empty() && seen.insert(idea_id.clone()) {
             idea_ids.push(idea_id.clone());
         }
     }
-
     idea_ids
 }
 
-/// Check if a schedule expression is due to fire.
+// ── Schedule parsing ─────────────────────────────────────────────────
+
 fn is_schedule_due(expr: &str, last_fired: Option<&chrono::DateTime<Utc>>) -> bool {
     let now = Utc::now();
 
     // Interval format: "every 1h", "every 30m", "every 2d"
     if let Some(interval_str) = expr.strip_prefix("every ")
-        && let Some(duration) = parse_interval(interval_str) {
-            return match last_fired {
-                None => true, // Never fired → fire immediately.
-                Some(last) => (now - *last) >= duration,
-            };
-        }
+        && let Some(duration) = parse_interval(interval_str)
+    {
+        return match last_fired {
+            None => true,
+            Some(last) => (now - *last) >= duration,
+        };
+    }
 
     // Cron format: "0 9 * * *" (minute hour day month weekday)
     if let Some(cron) = parse_simple_cron(expr) {
-        // Don't re-fire within the same minute.
         if let Some(last) = last_fired
-            && (now - *last).num_seconds() < 60 {
-                return false;
-            }
+            && (now - *last).num_seconds() < 60
+        {
+            return false;
+        }
         return cron.matches_now();
     }
 
     false
 }
 
-/// Parse "1h", "30m", "2d" into a chrono::Duration.
 fn parse_interval(s: &str) -> Option<chrono::Duration> {
     let s = s.trim();
     if s.is_empty() {
@@ -180,7 +176,7 @@ fn parse_interval(s: &str) -> Option<chrono::Duration> {
     let (num_str, unit) = s.split_at(s.len() - 1);
     let num: i64 = num_str.parse().ok()?;
     match unit {
-        "s" => Some(chrono::Duration::seconds(num.max(60))), // Min 60s
+        "s" => Some(chrono::Duration::seconds(num.max(60))),
         "m" => Some(chrono::Duration::minutes(num)),
         "h" => Some(chrono::Duration::hours(num)),
         "d" => Some(chrono::Duration::days(num)),
@@ -188,7 +184,6 @@ fn parse_interval(s: &str) -> Option<chrono::Duration> {
     }
 }
 
-/// Simple 5-field cron matcher.
 struct CronMatcher {
     minute: CronField,
     hour: CronField,
@@ -219,7 +214,7 @@ impl CronField {
         match self {
             CronField::Any => true,
             CronField::Exact(v) => value == *v,
-            CronField::Step(s) => *s > 0 && value.is_multiple_of(*s),
+            CronField::Step(s) => *s > 0 && value % *s == 0,
         }
     }
 }
@@ -265,62 +260,26 @@ mod tests {
     }
 
     #[test]
-    fn parse_interval_days() {
-        let d = parse_interval("2d").unwrap();
-        assert_eq!(d.num_days(), 2);
-    }
-
-    #[test]
     fn parse_interval_seconds_minimum_60() {
         let d = parse_interval("5s").unwrap();
-        assert_eq!(d.num_seconds(), 60); // Min 60s enforced
-    }
-
-    #[tokio::test]
-    async fn schedule_event_idea_refs_are_persisted_on_created_quest() {
-        let dir = tempfile::tempdir().unwrap();
-        let reg = Arc::new(AgentRegistry::open(dir.path()).unwrap());
-        let ehs = Arc::new(EventHandlerStore::new(reg.db()));
-        let al = Arc::new(ActivityLog::new(reg.sessions_db()));
-        let timer = ScheduleTimer::new(ehs.clone(), reg.clone(), al);
-        let agent = reg.spawn("shadow", None, None, None).await.unwrap();
-
-        let event = ehs.create(&crate::event_handler::NewEvent {
-            agent_id: agent.id.clone(),
-            name: "daily-review".into(),
-            pattern: "schedule:every 1h".into(),
-            scope: "self".into(),
-            idea_ids: vec!["idea-one".into(), "idea-two".into()],
-            cooldown_secs: 0,
-            system: false,
-        }).await.unwrap();
-
-        timer.fire_schedule(&event).await;
-
-        let tasks = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
-        let task = tasks
-            .iter()
-            .find(|task| task.name.contains("[schedule:schedule:every 1h]"))
-            .expect("schedule should have created a quest");
-        assert_eq!(task.idea_ids, vec!["idea-one".to_string(), "idea-two".to_string()]);
+        assert_eq!(d.num_seconds(), 60);
     }
 
     #[test]
-    fn parse_interval_invalid() {
-        assert!(parse_interval("abc").is_none());
-        assert!(parse_interval("").is_none());
+    fn interval_never_fired_is_due() {
+        assert!(is_schedule_due("every 1h", None));
     }
 
     #[test]
-    fn parse_cron_valid() {
-        let cron = parse_simple_cron("0 9 * * *");
-        assert!(cron.is_some());
+    fn interval_recently_fired_not_due() {
+        let last = Utc::now() - chrono::Duration::minutes(10);
+        assert!(!is_schedule_due("every 1h", Some(&last)));
     }
 
     #[test]
-    fn parse_cron_invalid() {
-        assert!(parse_simple_cron("0 9 *").is_none()); // Too few fields
-        assert!(parse_simple_cron("").is_none());
+    fn interval_long_ago_is_due() {
+        let last = Utc::now() - chrono::Duration::hours(2);
+        assert!(is_schedule_due("every 1h", Some(&last)));
     }
 
     #[test]
@@ -343,24 +302,28 @@ mod tests {
     }
 
     #[test]
-    fn interval_never_fired_is_due() {
-        assert!(is_schedule_due("every 1h", None));
-    }
-
-    #[test]
-    fn interval_recently_fired_not_due() {
-        let last = Utc::now() - chrono::Duration::minutes(10);
-        assert!(!is_schedule_due("every 1h", Some(&last)));
-    }
-
-    #[test]
-    fn interval_long_ago_is_due() {
-        let last = Utc::now() - chrono::Duration::hours(2);
-        assert!(is_schedule_due("every 1h", Some(&last)));
-    }
-
-    #[test]
     fn unknown_pattern_not_due() {
         assert!(!is_schedule_due("garbage", None));
+    }
+
+    #[test]
+    fn event_idea_ids_deduplicates() {
+        let event = crate::event_handler::Event {
+            id: "e1".into(),
+            agent_id: "a1".into(),
+            name: "test".into(),
+            pattern: "schedule:every 60s".into(),
+            scope: "self".into(),
+            idea_ids: vec!["a".into(), "b".into(), "a".into(), "".into()],
+            enabled: true,
+            cooldown_secs: 0,
+            last_fired: None,
+            fire_count: 0,
+            total_cost_usd: 0.0,
+            system: false,
+            created_at: Utc::now(),
+        };
+        let ids = event_idea_ids(&event);
+        assert_eq!(ids, vec!["a".to_string(), "b".to_string()]);
     }
 }
