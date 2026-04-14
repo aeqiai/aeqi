@@ -400,6 +400,11 @@ pub async fn handle_close_quest(
         .get("reason")
         .and_then(|v| v.as_str())
         .unwrap_or("closed via web");
+    // "merge" (default), "commit" (keep branch), "discard" (throw away changes)
+    let finalize = request
+        .get("finalize")
+        .and_then(|v| v.as_str())
+        .unwrap_or("merge");
 
     if quest_id.is_empty() {
         return serde_json::json!({"ok": false, "error": "quest_id is required"});
@@ -418,6 +423,74 @@ pub async fn handle_close_quest(
         }
     }
 
+    // Fetch quest before closing to get worktree info.
+    let quest_before = ctx.agent_registry.get_task(quest_id).await.ok().flatten();
+    let worktree_path = quest_before.as_ref().and_then(|q| q.worktree_path.clone());
+    let worktree_branch = quest_before.as_ref().and_then(|q| q.worktree_branch.clone());
+
+    // Finalize worktree if quest has one.
+    let mut merge_result: Option<serde_json::Value> = None;
+    if let (Some(wt_path), Some(_branch)) = (&worktree_path, &worktree_branch) {
+        let wt = std::path::Path::new(wt_path);
+        if wt.exists() {
+            // Resolve repo root from the worktree.
+            let repo_root_output = tokio::process::Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .current_dir(wt)
+                .output()
+                .await;
+            let repo_root = repo_root_output
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_default();
+
+            if !repo_root.is_empty() {
+                let sandbox = crate::sandbox::QuestSandbox::open_existing(
+                    quest_id,
+                    wt.to_path_buf(),
+                    std::path::PathBuf::from(&repo_root),
+                    false,
+                );
+
+                if let Ok(sb) = sandbox {
+                    // Extract diff before finalizing.
+                    let diff = sb.extract_diff().await.ok();
+
+                    let action = match finalize {
+                        "commit" => crate::sandbox::FinalizeAction::CommitOnly {
+                            message: format!("quest {quest_id}: {reason}"),
+                        },
+                        "discard" => crate::sandbox::FinalizeAction::Discard,
+                        _ => crate::sandbox::FinalizeAction::CommitAndMerge {
+                            message: format!("quest {quest_id}: {reason}"),
+                            target_branch: "main".to_string(),
+                        },
+                    };
+
+                    match sb.finalize(action).await {
+                        Ok(commit_hash) => {
+                            merge_result = Some(serde_json::json!({
+                                "finalized": finalize,
+                                "commit": commit_hash,
+                                "diff": diff.as_ref().map(|d| serde_json::json!({
+                                    "files_changed": d.files_changed,
+                                    "insertions": d.insertions,
+                                    "deletions": d.deletions,
+                                })),
+                            }));
+                        }
+                        Err(e) => {
+                            merge_result = Some(serde_json::json!({
+                                "finalized": false,
+                                "error": e.to_string(),
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     match ctx
         .agent_registry
         .update_task(quest_id, |quest| {
@@ -427,18 +500,29 @@ pub async fn handle_close_quest(
                 aeqi_quests::QuestOutcomeKind::Done,
                 reason,
             ));
+            // Clear worktree fields after finalization.
+            if merge_result.is_some() {
+                quest.worktree_path = None;
+                quest.worktree_branch = None;
+            }
         })
         .await
     {
-        Ok(quest) => serde_json::json!({
-            "ok": true,
-            "quest": {
-                "id": quest.id.0,
-                "status": quest.status.to_string(),
-                "outcome": quest.quest_outcome(),
-                "runtime": quest.runtime(),
+        Ok(quest) => {
+            let mut result = serde_json::json!({
+                "ok": true,
+                "quest": {
+                    "id": quest.id.0,
+                    "status": quest.status.to_string(),
+                    "outcome": quest.quest_outcome(),
+                    "runtime": quest.runtime(),
+                }
+            });
+            if let Some(mr) = merge_result {
+                result["worktree"] = mr;
             }
-        }),
+            result
+        }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }

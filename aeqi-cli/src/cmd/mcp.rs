@@ -225,7 +225,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "status": {"type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)"},
                     "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)"},
                     "result": {"type": "string", "description": "Completion result (for close)"},
-                    "reason": {"type": "string", "description": "Cancellation reason (for cancel)"}
+                    "reason": {"type": "string", "description": "Cancellation reason (for cancel)"},
+                    "finalize": {"type": "string", "enum": ["merge", "commit", "discard"], "description": "What to do with the quest's worktree on close. merge (default): commit + merge to main. commit: commit but keep branch. discard: throw away changes."}
                 },
                 "required": ["action", "project"]
             }),
