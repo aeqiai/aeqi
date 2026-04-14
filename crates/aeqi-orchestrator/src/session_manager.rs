@@ -469,7 +469,23 @@ impl SessionManager {
                     sandbox_cfg.enable_bwrap,
                 )
             } else {
-                QuestSandbox::create(&sandbox_id, sandbox_cfg).await
+                // For child quests, fork from parent quest's branch instead of HEAD.
+                let mut cfg = sandbox_cfg.clone();
+                if let Some(ref qid) = opts.quest_id {
+                    let quest_id = aeqi_quests::QuestId(qid.clone());
+                    if let Some(parent_id) = quest_id.parent() {
+                        if let Ok(Some(parent_quest)) = agent_registry.get_task(&parent_id.0).await {
+                            if let Some(ref parent_branch) = parent_quest.worktree_branch {
+                                cfg.base_ref = parent_branch.clone();
+                                tracing::info!(
+                                    quest = %qid, parent = %parent_id.0,
+                                    base = %parent_branch, "forking from parent quest branch"
+                                );
+                            }
+                        }
+                    }
+                }
+                QuestSandbox::create(&sandbox_id, &cfg).await
             };
 
             match sb_result {
