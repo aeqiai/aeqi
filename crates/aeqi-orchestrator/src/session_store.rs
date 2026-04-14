@@ -418,6 +418,20 @@ impl SessionStore {
         )
         .context("failed to create session_traces table")?;
 
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS session_gateways (
+                 id           TEXT PRIMARY KEY,
+                 session_id   TEXT NOT NULL,
+                 gateway_type TEXT NOT NULL,
+                 config       TEXT NOT NULL DEFAULT '{}',
+                 status       TEXT NOT NULL DEFAULT 'active',
+                 created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                 updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+             );
+             CREATE INDEX IF NOT EXISTS idx_sg_session ON session_gateways(session_id);",
+        )
+        .context("failed to create session_gateways table")?;
+
         // ── Add sender_id and transport columns to session_messages ──
         let _ = conn.execute_batch(
             "ALTER TABLE session_messages ADD COLUMN sender_id TEXT;",

@@ -1672,8 +1672,12 @@ impl Daemon {
                                 .unwrap_or_default();
 
                             let mut spawn_opts =
-                                crate::session_manager::SpawnOptions::interactive();
+                                crate::session_manager::SpawnOptions::interactive()
+                                    .with_transport("web".to_string());
                             spawn_opts.extra_prompts = extra_prompts;
+                            if let Some(ref sid) = web_sender_id {
+                                spawn_opts = spawn_opts.with_sender_id(sid.clone());
+                            }
                             if let Some(ref sid) = store_session_id {
                                 spawn_opts = spawn_opts
                                     .with_session_id(sid.clone())

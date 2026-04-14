@@ -11,5 +11,5 @@ pub mod whatsapp;
 
 pub use discord::DiscordChannel;
 pub use slack::SlackChannel;
-pub use telegram::TelegramChannel;
+pub use telegram::{TelegramChannel, TelegramGateway};
 pub use whatsapp::WhatsAppChannel;

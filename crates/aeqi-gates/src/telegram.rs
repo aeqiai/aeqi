@@ -1,4 +1,6 @@
-use aeqi_core::traits::{Channel, IncomingMessage, OutgoingMessage};
+use std::sync::Arc;
+
+use aeqi_core::traits::{Channel, CompletedResponse, DeliveryMode, IncomingMessage, OutgoingMessage, SessionGateway};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -302,5 +304,54 @@ impl Channel for TelegramChannel {
     async fn stop(&self) -> Result<()> {
         let _ = self.shutdown.send(true);
         Ok(())
+    }
+}
+
+/// Telegram output gateway — delivers batched responses to a Telegram chat.
+pub struct TelegramGateway {
+    id: String,
+    channel: Arc<TelegramChannel>,
+    chat_id: i64,
+}
+
+impl TelegramGateway {
+    pub fn new(channel: Arc<TelegramChannel>, chat_id: i64, agent_id: &str) -> Self {
+        Self {
+            id: format!("telegram:{}:{}", agent_id, chat_id),
+            channel,
+            chat_id,
+        }
+    }
+}
+
+#[async_trait]
+impl SessionGateway for TelegramGateway {
+    fn gateway_type(&self) -> &str {
+        "telegram"
+    }
+
+    fn delivery_mode(&self) -> DeliveryMode {
+        DeliveryMode::Batched
+    }
+
+    fn gateway_id(&self) -> &str {
+        &self.id
+    }
+
+    async fn deliver_response(
+        &self,
+        _session_id: &str,
+        response: &CompletedResponse,
+    ) -> anyhow::Result<()> {
+        if response.text.is_empty() {
+            return Ok(());
+        }
+        let out = OutgoingMessage {
+            channel: "telegram".to_string(),
+            recipient: String::new(),
+            text: response.text.clone(),
+            metadata: serde_json::json!({ "chat_id": self.chat_id }),
+        };
+        self.channel.send(out).await
     }
 }

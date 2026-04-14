@@ -1,5 +1,6 @@
 pub mod channel;
 pub mod embedder;
+pub mod gateway;
 pub mod idea;
 pub mod observer;
 pub mod provider;
@@ -7,6 +8,7 @@ pub mod tool;
 
 pub use channel::{Channel, IncomingMessage, OutgoingMessage};
 pub use embedder::Embedder;
+pub use gateway::{CompletedResponse, DeliveryMode, SessionGateway};
 pub use idea::{IdeaStore, Idea, IdeaQuery};
 pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,
