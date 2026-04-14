@@ -1331,14 +1331,26 @@ impl Daemon {
                         let session_store = ipc_ctx.session_store.clone();
                         let request_started = std::time::Instant::now();
 
+                        // Resolve web sender identity (anonymous — no auth context yet).
+                        let web_sender_id: Option<String> = if let Some(ref cs) = session_store {
+                            cs.resolve_sender(
+                                "web", "anonymous", "Web User", None, None, None,
+                            ).await.ok().map(|s| s.id)
+                        } else {
+                            None
+                        };
+
                         // Resolve store_session_id: use explicit session_id_hint, or find/create one.
                         let store_session_id: Option<String> = if let Some(ref sid) =
                             session_id_hint
                         {
-                            // Verify session exists; record user message.
+                            // Verify session exists; record user message with sender identity.
                             if let Some(ref cs) = session_store {
                                 let _ = cs
-                                    .record_by_session(sid, "user", message, Some("web"))
+                                    .record_event_by_session_with_sender(
+                                        sid, "message", "user", message, Some("web"),
+                                        None, web_sender_id.as_deref(), Some("web"),
+                                    )
                                     .await;
                             }
                             Some(sid.clone())
@@ -1377,7 +1389,10 @@ impl Daemon {
                             };
                             if let Some(ref sid) = usid {
                                 let _ = cs
-                                    .record_by_session(sid, "user", message, Some("web"))
+                                    .record_event_by_session_with_sender(
+                                        sid, "message", "user", message, Some("web"),
+                                        None, web_sender_id.as_deref(), Some("web"),
+                                    )
                                     .await;
                             }
                             usid
@@ -1392,6 +1407,17 @@ impl Daemon {
 
                         // resolved_session_id reuses store_session_id (already resolved above).
                         let resolved_session_id = store_session_id.clone().unwrap_or_default();
+
+                        // Resolve agent sender for identity-aware response recording.
+                        let agent_sender_id: Option<String> = if let Some(ref cs) = session_store {
+                            let agent_uuid = agent_id_direct.as_deref()
+                                .unwrap_or(&agent_hint);
+                            cs.resolve_sender(
+                                "agent", agent_uuid, &agent_hint, None, None, None,
+                            ).await.ok().map(|s| s.id)
+                        } else {
+                            None
+                        };
 
                         // Check if session is already running in memory.
                         if !resolved_session_id.is_empty()
@@ -1464,8 +1490,9 @@ impl Daemon {
                                                         aeqi_core::ChatStreamEvent::StepComplete { .. } => {
                                                             if !text.is_empty()
                                                                 && let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
-                                                                    let _ = cs.record_by_session(
-                                                                        usid, "assistant", &text, Some("web"),
+                                                                    let _ = cs.record_event_by_session_with_sender(
+                                                                        usid, "message", "assistant", &text, Some("web"),
+                                                                        None, agent_sender_id.as_deref(), Some("web"),
                                                                     ).await;
                                                                     text.clear();
                                                                 }
@@ -1478,8 +1505,9 @@ impl Daemon {
                                                         } => {
                                                             if !text.is_empty()
                                                                 && let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
-                                                                    let _ = cs.record_by_session(
-                                                                        usid, "assistant", &text, Some("web"),
+                                                                    let _ = cs.record_event_by_session_with_sender(
+                                                                        usid, "message", "assistant", &text, Some("web"),
+                                                                        None, agent_sender_id.as_deref(), Some("web"),
                                                                     ).await;
                                                                 }
                                                             prompt_tokens = *pt;
@@ -1570,11 +1598,10 @@ impl Daemon {
                                         if let Some(ref cs) = session_store {
                                             if let Some(ref usid) = store_session_id {
                                                 let _ = cs
-                                                    .record_by_session(
-                                                        usid,
-                                                        "assistant",
-                                                        &resp.text,
-                                                        Some("web"),
+                                                    .record_event_by_session_with_sender(
+                                                        usid, "message", "assistant",
+                                                        &resp.text, Some("web"),
+                                                        None, agent_sender_id.as_deref(), Some("web"),
                                                     )
                                                     .await;
                                             } else {
@@ -1758,11 +1785,10 @@ impl Daemon {
                                                                 (&session_store, &store_session_id)
                                                             {
                                                                 let _ = cs
-                                                                    .record_by_session(
-                                                                        usid,
-                                                                        "assistant",
-                                                                        &step_text,
-                                                                        Some("web"),
+                                                                    .record_event_by_session_with_sender(
+                                                                        usid, "message", "assistant",
+                                                                        &step_text, Some("web"),
+                                                                        None, agent_sender_id.as_deref(), Some("web"),
                                                                     )
                                                                     .await;
                                                             }
@@ -1781,11 +1807,10 @@ impl Daemon {
                                                                 (&session_store, &store_session_id)
                                                             {
                                                                 let _ = cs
-                                                                    .record_by_session(
-                                                                        usid,
-                                                                        "assistant",
-                                                                        &step_text,
-                                                                        Some("web"),
+                                                                    .record_event_by_session_with_sender(
+                                                                        usid, "message", "assistant",
+                                                                        &step_text, Some("web"),
+                                                                        None, agent_sender_id.as_deref(), Some("web"),
                                                                     )
                                                                     .await;
                                                             }

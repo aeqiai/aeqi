@@ -555,6 +555,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 ar,
                                 provider,
                                 tg_channel,
+                                daemon.session_store.clone(),
                             ));
                             tg_gateway_count += 1;
                             info!(agent_id = %agent_id, "started agent telegram gateway from idea");
@@ -608,6 +609,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                         ar,
                                         provider,
                                         tg_channel,
+                                        daemon.session_store.clone(),
                                     ));
                                     info!(
                                         agent_id = %root_agent_id,
@@ -737,6 +739,7 @@ async fn start_agent_telegram_gateway(
     agent_registry: Arc<aeqi_orchestrator::agent_registry::AgentRegistry>,
     default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     tg_channel: Arc<TelegramChannel>,
+    session_store: Option<Arc<SessionStore>>,
 ) {
     let mut rx = match Channel::start(tg_channel.as_ref()).await {
         Ok(rx) => rx,
@@ -744,6 +747,12 @@ async fn start_agent_telegram_gateway(
             warn!(agent_id = %agent_id, error = %e, "failed to start telegram poller");
             return;
         }
+    };
+
+    // Resolve agent name for sender identity.
+    let agent_name = match agent_registry.get(&agent_id).await {
+        Ok(Some(agent)) => agent.name,
+        _ => agent_id.clone(),
     };
 
     info!(agent_id = %agent_id, "telegram gateway polling started");
@@ -773,6 +782,13 @@ async fn start_agent_telegram_gateway(
             continue;
         }
 
+        let sender_name = msg.sender.clone();
+        let telegram_user_id = msg
+            .metadata
+            .get("from_id")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+
         // Get or create session for this (agent, chat) pair.
         let channel_key = format!("telegram:{}:{}", agent_id, chat_id);
         let session_id = match agent_registry
@@ -791,14 +807,65 @@ async fn start_agent_telegram_gateway(
         let sm = session_manager.clone();
         let provider = default_provider.clone();
         let aid = agent_id.clone();
+        let session_store_clone = session_store.clone();
+        let agent_name_clone = agent_name.clone();
 
         tokio::spawn(async move {
             let _ = tg.send_typing(chat_id).await;
+
+            // Resolve the Telegram user sender identity.
+            let user_sender_id = if let Some(ref ss) = session_store_clone {
+                let sender = ss.resolve_sender(
+                    "telegram",
+                    &telegram_user_id.to_string(),
+                    &sender_name,
+                    None,
+                    None,
+                    Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
+                ).await.ok();
+
+                // Record the user's inbound message with sender identity.
+                if let Some(ref s) = sender {
+                    let _ = ss.record_message(
+                        &session_id,
+                        &s.id,
+                        "telegram",
+                        "user",
+                        &user_text,
+                        Some(&serde_json::json!({"chat_id": chat_id, "message_id": message_id})),
+                    ).await;
+                }
+                sender.map(|s| s.id)
+            } else {
+                None
+            };
 
             if sm.is_running(&session_id).await {
                 // Session already alive -- inject message and wait for response.
                 match sm.send(&session_id, &user_text).await {
                     Ok(response) => {
+                        // Record the agent's response with sender identity.
+                        if let Some(ref ss) = session_store_clone {
+                            let agent_sender = ss.resolve_sender(
+                                "agent",
+                                &aid,
+                                &agent_name_clone,
+                                None,
+                                None,
+                                None,
+                            ).await.ok();
+                            if let Some(ref s) = agent_sender {
+                                let _ = ss.record_message(
+                                    &session_id,
+                                    &s.id,
+                                    "telegram",
+                                    "assistant",
+                                    &response.text,
+                                    None,
+                                ).await;
+                            }
+                        }
+
                         let out = aeqi_core::traits::OutgoingMessage {
                             channel: "telegram".to_string(),
                             recipient: String::new(),
@@ -836,9 +903,17 @@ async fn start_agent_telegram_gateway(
                     return;
                 };
 
-                let opts = aeqi_orchestrator::session_manager::SpawnOptions::interactive()
+                let mut opts = aeqi_orchestrator::session_manager::SpawnOptions::interactive()
                     .with_session_id(session_id.clone())
-                    .with_name(format!("telegram:{}", chat_id));
+                    .with_name(format!("telegram:{}", chat_id))
+                    .with_transport("telegram".to_string());
+                // Pass sender_id so spawn_session records the initial prompt with identity.
+                if let Some(ref sid) = user_sender_id {
+                    opts = opts.with_sender_id(sid.clone());
+                }
+                // The initial prompt is already recorded above with sender identity,
+                // so skip the default recording in spawn_session.
+                opts = opts.without_initial_prompt_record();
 
                 match sm.spawn_session(&aid, &user_text, provider, opts).await {
                     Ok(spawned) => {
@@ -883,7 +958,29 @@ async fn start_agent_telegram_gateway(
                             }
                         }
 
+                        // Record agent response with sender identity.
                         if !text.is_empty() {
+                            if let Some(ref ss) = session_store_clone {
+                                let agent_sender = ss.resolve_sender(
+                                    "agent",
+                                    &aid,
+                                    &agent_name_clone,
+                                    None,
+                                    None,
+                                    None,
+                                ).await.ok();
+                                if let Some(ref s) = agent_sender {
+                                    let _ = ss.record_message(
+                                        &session_id,
+                                        &s.id,
+                                        "telegram",
+                                        "assistant",
+                                        &text,
+                                        None,
+                                    ).await;
+                                }
+                            }
+
                             let out = aeqi_core::traits::OutgoingMessage {
                                 channel: "telegram".to_string(),
                                 recipient: String::new(),

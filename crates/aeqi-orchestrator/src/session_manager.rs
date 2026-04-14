@@ -220,6 +220,16 @@ impl SpawnOptions {
         self
     }
 
+    pub fn with_sender_id(mut self, id: impl Into<String>) -> Self {
+        self.sender_id = Some(id.into());
+        self
+    }
+
+    pub fn with_transport(mut self, transport: impl Into<String>) -> Self {
+        self.transport = Some(transport.into());
+        self
+    }
+
     pub fn with_extra_prompts(mut self, prompts: Vec<aeqi_core::PromptEntry>) -> Self {
         self.extra_prompts.extend(prompts);
         self
@@ -693,14 +703,25 @@ impl SessionManager {
         let is_interactive_spawn = is_interactive;
         let al_clone = activity_log.clone();
         let agent_id_clone = agent_uuid.clone().unwrap_or_default();
+        let agent_name_clone = agent_name.clone();
+        let spawn_transport = opts.transport.clone();
 
         let join_handle = tokio::spawn(async move {
             let result = agent.run(&prompt_owned).await;
             // On completion, record result and close session (unless Interactive — those
             // stay open until explicitly closed).
             if !is_interactive_spawn && let (Some(ss), Ok(r)) = (&ss_clone, &result) {
+                // Resolve agent sender for identity-aware recording.
+                let agent_sender = ss.resolve_sender(
+                    "agent", &agent_id_clone, &agent_name_clone, None, None, None,
+                ).await.ok();
+                let sender_id = agent_sender.as_ref().map(|s| s.id.as_str());
+                let transport = spawn_transport.as_deref().unwrap_or("internal");
                 let _ = ss
-                    .record_by_session(&sid_clone, "assistant", &r.text, Some("session"))
+                    .record_event_by_session_with_sender(
+                        &sid_clone, "message", "assistant", &r.text,
+                        Some("session"), None, sender_id, Some(transport),
+                    )
                     .await;
                 let _ = ss.close_session(&sid_clone).await;
             }
