@@ -47,6 +47,32 @@ pub struct ThreadEvent {
     pub timestamp: DateTime<Utc>,
     pub source: Option<String>,
     pub metadata: Option<serde_json::Value>,
+    pub sender_id: Option<String>,
+    pub transport: Option<String>,
+}
+
+/// A sender identity — who sent a message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sender {
+    pub id: String,
+    pub transport: String,
+    pub transport_id: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub account_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// An execution trace entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionTrace {
+    pub id: i64,
+    pub session_id: String,
+    pub trace_type: String,
+    pub agent_id: Option<String>,
+    pub content: String,
+    pub created_at: String,
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Persistent session store backed by SQLite.
@@ -359,6 +385,47 @@ impl SessionStore {
             }
         }
 
+        // ── Senders table (identity registry — who sent a message) ──
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS senders (
+                 id           TEXT PRIMARY KEY,
+                 transport    TEXT NOT NULL,
+                 transport_id TEXT NOT NULL,
+                 display_name TEXT NOT NULL,
+                 avatar_url   TEXT,
+                 account_id   TEXT,
+                 metadata     TEXT,
+                 created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                 last_seen_at TEXT,
+                 UNIQUE(transport, transport_id)
+             );
+             CREATE INDEX IF NOT EXISTS idx_sender_transport ON senders(transport, transport_id);",
+        )
+        .context("failed to create senders table")?;
+
+        // ── Session traces (execution events, separate from messages) ──
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS session_traces (
+                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                 session_id TEXT NOT NULL,
+                 trace_type TEXT NOT NULL,
+                 agent_id   TEXT,
+                 content    TEXT NOT NULL DEFAULT '',
+                 created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                 metadata   TEXT
+             );
+             CREATE INDEX IF NOT EXISTS idx_st_session ON session_traces(session_id);",
+        )
+        .context("failed to create session_traces table")?;
+
+        // ── Add sender_id and transport columns to session_messages ──
+        let _ = conn.execute_batch(
+            "ALTER TABLE session_messages ADD COLUMN sender_id TEXT;",
+        );
+        let _ = conn.execute_batch(
+            "ALTER TABLE session_messages ADD COLUMN transport TEXT DEFAULT 'unknown';",
+        );
+
         debug!("session store tables created");
 
         Ok(())
@@ -608,6 +675,8 @@ impl SessionStore {
                     source: row.get(6)?,
                     metadata: metadata_text
                         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok()),
+                    sender_id: None,
+                    transport: None,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -782,6 +851,9 @@ impl SessionStore {
     }
 
     /// Record a typed event by session UUID — inserts directly into session_messages with session_id.
+    ///
+    /// Accepts optional `sender_id` and `transport` for the new identity model.
+    /// When not provided, the columns remain NULL / default.
     pub async fn record_event_by_session(
         &self,
         session_id: &str,
@@ -791,13 +863,31 @@ impl SessionStore {
         source: Option<&str>,
         metadata: Option<&serde_json::Value>,
     ) -> Result<()> {
+        self.record_event_by_session_with_sender(
+            session_id, event_type, role, content, source, metadata, None, None,
+        )
+        .await
+    }
+
+    /// Record a typed event with sender identity.
+    pub async fn record_event_by_session_with_sender(
+        &self,
+        session_id: &str,
+        event_type: &str,
+        role: &str,
+        content: &str,
+        source: Option<&str>,
+        metadata: Option<&serde_json::Value>,
+        sender_id: Option<&str>,
+        transport: Option<&str>,
+    ) -> Result<()> {
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
         let metadata_text = metadata.map(serde_json::Value::to_string);
         db.execute(
-            "INSERT INTO session_messages (session_id, role, content, timestamp, source, event_type, metadata) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![session_id, role, content, now, source, event_type, metadata_text],
+            "INSERT INTO session_messages (session_id, role, content, timestamp, source, event_type, metadata, sender_id, transport) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![session_id, role, content, now, source, event_type, metadata_text, sender_id, transport],
         )
         .context("failed to insert session message by session_id")?;
 
@@ -854,7 +944,7 @@ impl SessionStore {
     ) -> Result<Vec<ThreadEvent>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, session_id, event_type, role, content, timestamp, source, metadata \
+            "SELECT id, session_id, event_type, role, content, timestamp, source, metadata, sender_id, transport \
              FROM session_messages \
              WHERE session_id = ?1 AND summarized = 0 \
              ORDER BY id DESC LIMIT ?2",
@@ -877,6 +967,8 @@ impl SessionStore {
                     source: row.get(6)?,
                     metadata: metadata_text
                         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok()),
+                    sender_id: row.get(8)?,
+                    transport: row.get(9)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1073,6 +1165,204 @@ impl SessionStore {
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(results)
+    }
+
+    // ── Sender identity methods ──
+
+    /// Resolve or create a sender identity.
+    ///
+    /// If a sender with the same (transport, transport_id) exists, updates
+    /// `last_seen_at` and returns the existing record. Otherwise creates a
+    /// new sender with a fresh UUID.
+    pub async fn resolve_sender(
+        &self,
+        transport: &str,
+        transport_id: &str,
+        display_name: &str,
+        avatar_url: Option<&str>,
+        account_id: Option<&str>,
+        metadata: Option<&serde_json::Value>,
+    ) -> Result<Sender> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+
+        // Try to find existing sender.
+        let existing: Option<(String, String, Option<String>, Option<String>, Option<String>)> = db
+            .query_row(
+                "SELECT id, display_name, avatar_url, account_id, metadata \
+                 FROM senders WHERE transport = ?1 AND transport_id = ?2",
+                params![transport, transport_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                    ))
+                },
+            )
+            .optional()?;
+
+        if let Some((id, _existing_name, existing_avatar, existing_account, existing_meta)) =
+            existing
+        {
+            // Update last_seen_at (and display_name if it changed).
+            db.execute(
+                "UPDATE senders SET last_seen_at = ?1, display_name = ?2 WHERE id = ?3",
+                params![now, display_name, id],
+            )?;
+            return Ok(Sender {
+                id,
+                transport: transport.to_string(),
+                transport_id: transport_id.to_string(),
+                display_name: display_name.to_string(),
+                avatar_url: avatar_url
+                    .map(|s| s.to_string())
+                    .or(existing_avatar),
+                account_id: account_id
+                    .map(|s| s.to_string())
+                    .or(existing_account),
+                metadata: metadata.cloned().or_else(|| {
+                    existing_meta.and_then(|raw| serde_json::from_str(&raw).ok())
+                }),
+            });
+        }
+
+        // Create new sender.
+        let id = uuid::Uuid::new_v4().to_string();
+        let metadata_text = metadata.map(serde_json::Value::to_string);
+        db.execute(
+            "INSERT INTO senders (id, transport, transport_id, display_name, avatar_url, account_id, metadata, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![id, transport, transport_id, display_name, avatar_url, account_id, metadata_text, now],
+        ).context("failed to insert sender")?;
+
+        Ok(Sender {
+            id,
+            transport: transport.to_string(),
+            transport_id: transport_id.to_string(),
+            display_name: display_name.to_string(),
+            avatar_url: avatar_url.map(|s| s.to_string()),
+            account_id: account_id.map(|s| s.to_string()),
+            metadata: metadata.cloned(),
+        })
+    }
+
+    /// Record a message with sender identity.
+    ///
+    /// Inserts into session_messages with sender_id and transport columns.
+    /// The `role` is inferred: if no explicit role is provided, we default
+    /// to "user" (callers can override for assistant messages).
+    pub async fn record_message(
+        &self,
+        session_id: &str,
+        sender_id: &str,
+        transport: &str,
+        role: &str,
+        content: &str,
+        metadata: Option<&serde_json::Value>,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let metadata_text = metadata.map(serde_json::Value::to_string);
+        db.execute(
+            "INSERT INTO session_messages (session_id, role, content, timestamp, event_type, metadata, sender_id, transport) \
+             VALUES (?1, ?2, ?3, ?4, 'message', ?5, ?6, ?7)",
+            params![session_id, role, content, now, metadata_text, sender_id, transport],
+        )
+        .context("failed to insert message with sender")?;
+        let id = db.last_insert_rowid();
+
+        // Populate first_message on sessions table when this is the first user message.
+        if role == "user" && !content.is_empty() {
+            let _ = db.execute(
+                "UPDATE sessions SET first_message = ?1 WHERE id = ?2 AND first_message IS NULL",
+                params![&content[..content.len().min(200)], session_id],
+            );
+        }
+
+        Ok(id)
+    }
+
+    /// Record an execution trace.
+    ///
+    /// Traces are separate from messages — they represent execution events
+    /// like tool calls, delegation starts, errors, etc.
+    pub async fn record_trace(
+        &self,
+        session_id: &str,
+        trace_type: &str,
+        agent_id: Option<&str>,
+        content: &str,
+        metadata: Option<&serde_json::Value>,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let metadata_text = metadata.map(serde_json::Value::to_string);
+        db.execute(
+            "INSERT INTO session_traces (session_id, trace_type, agent_id, content, created_at, metadata) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![session_id, trace_type, agent_id, content, now, metadata_text],
+        )
+        .context("failed to insert session trace")?;
+        Ok(db.last_insert_rowid())
+    }
+
+    /// Get a sender by ID.
+    pub async fn get_sender(&self, sender_id: &str) -> Result<Option<Sender>> {
+        let db = self.db.lock().await;
+        db.query_row(
+            "SELECT id, transport, transport_id, display_name, avatar_url, account_id, metadata \
+             FROM senders WHERE id = ?1",
+            params![sender_id],
+            |row| {
+                let metadata_text: Option<String> = row.get(6)?;
+                Ok(Sender {
+                    id: row.get(0)?,
+                    transport: row.get(1)?,
+                    transport_id: row.get(2)?,
+                    display_name: row.get(3)?,
+                    avatar_url: row.get(4)?,
+                    account_id: row.get(5)?,
+                    metadata: metadata_text
+                        .and_then(|raw| serde_json::from_str(&raw).ok()),
+                })
+            },
+        )
+        .optional()
+        .context("failed to query sender")
+    }
+
+    /// Get traces for a session.
+    pub async fn traces_by_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionTrace>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, session_id, trace_type, agent_id, content, created_at, metadata \
+             FROM session_traces WHERE session_id = ?1 ORDER BY id DESC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id, limit as i64], |row| {
+                let metadata_text: Option<String> = row.get(6)?;
+                Ok(SessionTrace {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    trace_type: row.get(2)?,
+                    agent_id: row.get(3)?,
+                    content: row.get(4)?,
+                    created_at: row.get(5)?,
+                    metadata: metadata_text
+                        .and_then(|raw| serde_json::from_str(&raw).ok()),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut traces = rows;
+        traces.reverse();
+        Ok(traces)
     }
 }
 
@@ -1429,5 +1719,194 @@ mod tests {
         assert_ne!(project, named);
         assert_ne!(project, agency);
         assert_ne!(named, agency);
+    }
+
+    // ── Sender + trace tests ──
+
+    #[tokio::test]
+    async fn test_resolve_sender_creates_new() {
+        let store = test_store().await;
+
+        let sender = store
+            .resolve_sender("telegram", "12345", "Alice", None, None, None)
+            .await
+            .unwrap();
+
+        assert!(!sender.id.is_empty());
+        assert_eq!(sender.transport, "telegram");
+        assert_eq!(sender.transport_id, "12345");
+        assert_eq!(sender.display_name, "Alice");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_sender_returns_existing() {
+        let store = test_store().await;
+
+        let s1 = store
+            .resolve_sender("telegram", "12345", "Alice", None, None, None)
+            .await
+            .unwrap();
+        let s2 = store
+            .resolve_sender("telegram", "12345", "Alice Updated", None, None, None)
+            .await
+            .unwrap();
+
+        // Same sender — same ID.
+        assert_eq!(s1.id, s2.id);
+        // Display name updated.
+        assert_eq!(s2.display_name, "Alice Updated");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_sender_different_transports() {
+        let store = test_store().await;
+
+        let s1 = store
+            .resolve_sender("telegram", "12345", "Alice", None, None, None)
+            .await
+            .unwrap();
+        let s2 = store
+            .resolve_sender("web", "12345", "Alice", None, None, None)
+            .await
+            .unwrap();
+
+        // Different transport = different sender.
+        assert_ne!(s1.id, s2.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_sender() {
+        let store = test_store().await;
+
+        let sender = store
+            .resolve_sender("web", "user@example.com", "Bob", Some("https://avatar.url"), None, None)
+            .await
+            .unwrap();
+
+        let fetched = store.get_sender(&sender.id).await.unwrap().unwrap();
+        assert_eq!(fetched.id, sender.id);
+        assert_eq!(fetched.display_name, "Bob");
+        assert_eq!(fetched.avatar_url.as_deref(), Some("https://avatar.url"));
+    }
+
+    #[tokio::test]
+    async fn test_record_message_with_sender() {
+        let store = test_store().await;
+
+        let session_id = store
+            .create_session("agent-1", "web", "sender-test", None, None)
+            .await
+            .unwrap();
+
+        let sender = store
+            .resolve_sender("web", "user@example.com", "Bob", None, None, None)
+            .await
+            .unwrap();
+
+        let msg_id = store
+            .record_message(&session_id, &sender.id, "web", "user", "hello from bob", None)
+            .await
+            .unwrap();
+        assert!(msg_id > 0);
+
+        // Verify it appears in timeline with sender info.
+        let timeline = store.timeline_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(timeline[0].content, "hello from bob");
+        assert_eq!(timeline[0].sender_id.as_deref(), Some(sender.id.as_str()));
+        assert_eq!(timeline[0].transport.as_deref(), Some("web"));
+    }
+
+    #[tokio::test]
+    async fn test_record_trace() {
+        let store = test_store().await;
+
+        let session_id = store
+            .create_session("agent-1", "web", "trace-test", None, None)
+            .await
+            .unwrap();
+
+        let trace_id = store
+            .record_trace(
+                &session_id,
+                "tool_call",
+                Some("agent-1"),
+                "Called search tool",
+                Some(&serde_json::json!({"tool": "search", "duration_ms": 42})),
+            )
+            .await
+            .unwrap();
+        assert!(trace_id > 0);
+
+        let traces = store.traces_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(traces.len(), 1);
+        assert_eq!(traces[0].trace_type, "tool_call");
+        assert_eq!(traces[0].agent_id.as_deref(), Some("agent-1"));
+        assert_eq!(traces[0].content, "Called search tool");
+        assert_eq!(
+            traces[0]
+                .metadata
+                .as_ref()
+                .and_then(|m| m.get("tool"))
+                .and_then(|v| v.as_str()),
+            Some("search")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_record_event_with_sender() {
+        let store = test_store().await;
+
+        let session_id = store
+            .create_session("agent-1", "web", "event-sender-test", None, None)
+            .await
+            .unwrap();
+
+        let sender = store
+            .resolve_sender("web", "user1", "User One", None, None, None)
+            .await
+            .unwrap();
+
+        store
+            .record_event_by_session_with_sender(
+                &session_id,
+                "message",
+                "user",
+                "hello",
+                Some("web"),
+                None,
+                Some(&sender.id),
+                Some("web"),
+            )
+            .await
+            .unwrap();
+
+        let timeline = store.timeline_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(timeline[0].sender_id.as_deref(), Some(sender.id.as_str()));
+        assert_eq!(timeline[0].transport.as_deref(), Some("web"));
+    }
+
+    #[tokio::test]
+    async fn test_record_message_populates_first_message() {
+        let store = test_store().await;
+
+        let session_id = store
+            .create_session("agent-1", "web", "first-msg-test", None, None)
+            .await
+            .unwrap();
+
+        let sender = store
+            .resolve_sender("web", "user1", "User", None, None, None)
+            .await
+            .unwrap();
+
+        store
+            .record_message(&session_id, &sender.id, "web", "user", "My first message", None)
+            .await
+            .unwrap();
+
+        let session = store.get_session(&session_id).await.unwrap().unwrap();
+        assert_eq!(session.first_message.as_deref(), Some("My first message"));
     }
 }

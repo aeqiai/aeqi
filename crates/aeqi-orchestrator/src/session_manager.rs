@@ -144,6 +144,10 @@ pub struct SpawnOptions {
     pub record_initial_prompt: bool,
     /// Label for the session (shown in UI sidebar).
     pub name: Option<String>,
+    /// Sender identity for the initial prompt (who started this session).
+    pub sender_id: Option<String>,
+    /// Transport that originated this session (e.g. "web", "telegram", "ipc").
+    pub transport: Option<String>,
 }
 
 impl Default for SpawnOptions {
@@ -158,6 +162,8 @@ impl Default for SpawnOptions {
             auto_close: true,
             record_initial_prompt: true,
             name: None,
+            sender_id: None,
+            transport: None,
         }
     }
 }
@@ -662,12 +668,21 @@ impl SessionManager {
             uuid::Uuid::new_v4().to_string()
         };
 
-        // 10. Record prompt as user message.
+        // 10. Record prompt as user message (with sender identity when available).
         if opts.record_initial_prompt
             && let Some(ref ss) = self.session_store
         {
             let _ = ss
-                .record_by_session(&session_id, "user", prompt, Some(session_type_str))
+                .record_event_by_session_with_sender(
+                    &session_id,
+                    "message",
+                    "user",
+                    prompt,
+                    Some(session_type_str),
+                    None,
+                    opts.sender_id.as_deref(),
+                    opts.transport.as_deref(),
+                )
                 .await;
         }
 

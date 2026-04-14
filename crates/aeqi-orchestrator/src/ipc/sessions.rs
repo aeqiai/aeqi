@@ -154,18 +154,51 @@ pub async fn handle_session_messages(
         }
         match ss.timeline_by_session(session_id, limit).await {
             Ok(events) => {
+                // Collect unique sender_ids for batch lookup.
+                let sender_ids: Vec<String> = events
+                    .iter()
+                    .filter_map(|e| e.sender_id.clone())
+                    .collect::<std::collections::HashSet<_>>()
+                    .into_iter()
+                    .collect();
+
+                // Fetch sender info for all unique sender_ids.
+                let mut sender_map: std::collections::HashMap<String, serde_json::Value> =
+                    std::collections::HashMap::new();
+                for sid in &sender_ids {
+                    if let Ok(Some(sender)) = ss.get_sender(sid).await {
+                        sender_map.insert(
+                            sid.clone(),
+                            serde_json::json!({
+                                "id": sender.id,
+                                "display_name": sender.display_name,
+                                "transport": sender.transport,
+                                "avatar_url": sender.avatar_url,
+                            }),
+                        );
+                    }
+                }
+
                 let msgs: Vec<serde_json::Value> = events
                     .iter()
                     .map(|e| {
                         let mut obj = serde_json::json!({
+                            "id": e.id,
+                            "session_id": e.session_id,
                             "role": e.role,
                             "content": e.content,
                             "created_at": e.timestamp.to_rfc3339(),
                             "source": e.source,
                             "event_type": e.event_type,
+                            "transport": e.transport,
                         });
                         if let Some(ref meta) = e.metadata {
                             obj["metadata"] = meta.clone();
+                        }
+                        if let Some(ref sid) = e.sender_id {
+                            if let Some(sender_json) = sender_map.get(sid) {
+                                obj["sender"] = sender_json.clone();
+                            }
                         }
                         obj
                     })

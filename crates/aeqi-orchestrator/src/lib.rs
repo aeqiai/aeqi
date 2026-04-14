@@ -62,7 +62,7 @@ pub use runtime::{
 pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig};
 pub use scheduler::{Scheduler, SchedulerConfig};
 pub use session_manager::SessionManager;
-pub use session_store::SessionStore;
+pub use session_store::{Sender, SessionStore, SessionTrace};
 pub use template::Template;
 pub use tools::SandboxedShellTool;
 pub use event_handler::{Event, EventHandlerStore, NewEvent, migrate_injection_mode_to_events};
