@@ -38,6 +38,8 @@ interface Message {
   eventType?: string;
   taskId?: string;
   queued?: boolean;
+  /** DB message ID — used for fork-from-here. */
+  messageId?: number;
 }
 
 // ── Helpers ──
@@ -386,11 +388,13 @@ const MessageItem = memo(function MessageItem({
   agentName,
   userName,
   userAvatarUrl,
+  onFork,
 }: {
   msg: Message;
   agentName: string;
   userName: string;
   userAvatarUrl: string | null;
+  onFork?: (messageId: number) => void;
 }) {
   if (msg.role === "quest_event") {
     return (
@@ -455,9 +459,22 @@ const MessageItem = memo(function MessageItem({
             )}
           </div>
         )}
-        {msg.role === "assistant" && msg.content.trim().length > 0 && (
-          <CopyButton text={msg.content} />
-        )}
+        <div className="asv-msg-actions">
+          {msg.role === "assistant" && msg.content.trim().length > 0 && (
+            <CopyButton text={msg.content} />
+          )}
+          {msg.messageId && onFork && (
+            <button
+              className="asv-msg-fork-btn"
+              onClick={() => onFork(msg.messageId!)}
+              title="Fork conversation from here"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M5 3v4c0 2 2 3 4 3h4M10 7l3 3-3 3" />
+              </svg>
+            </button>
+          )}
+        </div>
         {metaParts.length > 0 && (
           <div className="asv-msg-footer">
             {metaParts.map((part, idx) => (
@@ -684,6 +701,37 @@ export default function AgentSessionView({
     setSession(null);
   }, [setSession]);
 
+  // Fork session from a message
+  const handleFork = useCallback(
+    async (messageId: number) => {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      try {
+        const result = await api.forkSession(sid, messageId);
+        if (result.ok && result.session_id) {
+          // Add fork to session list and switch to it.
+          setSessions((prev) => [
+            {
+              id: result.session_id,
+              agent_id: agentId,
+              name: "Fork",
+              status: "active",
+              created_at: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+          prevSessionRef.current = null;
+          sessionIdRef.current = result.session_id;
+          setMessages([]);
+          setSession(result.session_id);
+        }
+      } catch {
+        // silently fail
+      }
+    },
+    [agentId, setSession],
+  );
+
   // Switch to an existing session — force reload
   const handleSelectSession = useCallback(
     (sid: string) => {
@@ -794,6 +842,10 @@ export default function AgentSessionView({
         }
         startStep(numberFromMeta(meta.step), ts);
       } else if (eventType === "assistant_complete") {
+        // Track the last message ID for the completed agent response.
+        if (currentAgent && typeof m.id === "number") {
+          currentAgent.messageId = m.id;
+        }
         if (!currentAgent && pendingTools.length > 0) {
           currentAgent = {
             role: "assistant",
@@ -843,6 +895,7 @@ export default function AgentSessionView({
           role: "user",
           content: String(m.content || ""),
           timestamp: ts,
+          messageId: typeof m.id === "number" ? m.id : undefined,
         });
       }
     }
@@ -1368,6 +1421,7 @@ export default function AgentSessionView({
             agentName={agentName}
             userName={userName}
             userAvatarUrl={userAvatarUrl}
+            onFork={handleFork}
           />
         ))}
 

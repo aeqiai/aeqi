@@ -1364,6 +1364,38 @@
   letter-spacing: -0.005em;
 }
 
+/* ── Message actions (fork, copy) ── */
+.asv-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.asv-msg:hover .asv-msg-actions {
+  opacity: 1;
+}
+.asv-msg-fork-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.asv-msg-fork-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-surface);
+}
+
 /* ── Message footer (metadata) ── */
 .asv-msg-footer {
   display: flex;
