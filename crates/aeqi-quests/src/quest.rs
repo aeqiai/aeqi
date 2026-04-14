@@ -203,6 +203,9 @@ pub struct Quest {
     /// Filesystem path to the git worktree.
     #[serde(default)]
     pub worktree_path: Option<String>,
+    /// Session that created this quest — where to deliver results.
+    #[serde(default)]
+    pub creator_session_id: Option<String>,
 }
 
 impl Quest {
@@ -233,6 +236,7 @@ impl Quest {
             acceptance_criteria: None,
             worktree_branch: None,
             worktree_path: None,
+            creator_session_id: None,
         }
     }
 

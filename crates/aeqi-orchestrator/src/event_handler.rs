@@ -21,7 +21,7 @@ pub struct Event {
     pub id: String,
     pub agent_id: String,
     pub name: String,
-    /// Pattern: "lifecycle:quest_received", "schedule:0 9 * * *", "webhook:abc123"
+    /// Pattern: "session:quest_start", "schedule:0 9 * * *", "webhook:abc123"
     pub pattern: String,
     /// Scope: "self", "children", "descendants"
     pub scope: String,
@@ -149,7 +149,7 @@ impl EventHandlerStore {
         Ok(events)
     }
 
-    /// List enabled events matching a pattern prefix (e.g., "lifecycle:", "schedule:").
+    /// List enabled events matching a pattern prefix (e.g., "session:", "schedule:").
     pub async fn list_by_pattern_prefix(&self, prefix: &str) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
         let pattern = format!("{prefix}%");
@@ -272,7 +272,7 @@ impl EventHandlerStore {
             self.create(&NewEvent {
                 agent_id: agent_id.to_string(),
                 name: "on_session_start".to_string(),
-                pattern: "lifecycle:session_start".to_string(),
+                pattern: "session:start".to_string(),
                 scope: "self".to_string(),
                 idea_ids: idea_ids.to_vec(),
                 cooldown_secs: 0,
@@ -347,8 +347,8 @@ impl EventHandlerStore {
         Ok(())
     }
 
-    /// Get enabled events for a specific agent matching a lifecycle pattern.
-    pub async fn get_events_for_lifecycle(&self, agent_id: &str, pattern: &str) -> Vec<Event> {
+    /// Get enabled events for a specific agent matching a pattern.
+    pub async fn get_events_for_pattern(&self, agent_id: &str, pattern: &str) -> Vec<Event> {
         let db = self.db.lock().await;
         let like_pattern = format!("{pattern}%");
         let result: Result<Vec<Event>> = (|| {
@@ -386,88 +386,32 @@ pub async fn create_default_lifecycle_events(
     // (event_name, pattern, scope, idea_key, idea_content)
     let defaults: &[(&str, &str, &str, &str, &str)] = &[
         (
-            "on_quest_received",
-            "lifecycle:quest_received",
-            "self",
-            "lifecycle:quest-received",
-            "A quest has been assigned to you. Analyze the requirements, plan your approach, and begin working. Use your tools to complete the work. When finished, close the quest with a summary.",
-        ),
-        (
-            "on_quest_completed",
-            "lifecycle:quest_completed",
-            "self",
-            "lifecycle:quest-completed",
-            "You completed a quest. Reflect on what you learned. Store any reusable knowledge as ideas. Key facts, procedures, and preferences should be preserved for future work.",
-        ),
-        (
-            "on_quest_failed",
-            "lifecycle:quest_failed",
-            "self",
-            "lifecycle:quest-failed",
-            "A quest failed. Analyze the root cause. If recoverable and retry count is under 3, create a refined quest with lessons learned. If terminal, store the failure analysis as an idea and notify your parent.",
-        ),
-        (
-            "on_child_completed",
-            "lifecycle:quest_completed",
-            "children",
-            "lifecycle:child-completed",
-            "A child agent completed a quest. Review the outcome. Dependent quests will be unblocked automatically. Store any cross-cutting insights as ideas.",
-        ),
-        (
-            "on_child_failed",
-            "lifecycle:quest_failed",
-            "children",
-            "lifecycle:child-failed",
-            "A child agent failed a quest. Evaluate whether to: (1) create a refined retry quest for the same child, (2) reassign to a different child, or (3) handle the work yourself.",
-        ),
-        (
-            "on_idea_received",
-            "lifecycle:idea_received",
-            "self",
-            "lifecycle:idea-received",
-            "New knowledge has been shared with you. Acknowledge it and integrate it into your working context. This may change how you approach future quests.",
-        ),
-        (
-            "on_budget_exceeded",
-            "lifecycle:budget_exceeded",
-            "self",
-            "lifecycle:budget-exceeded",
-            "Your cost budget has been exceeded. Immediately checkpoint any in-progress work. Do not start new tool calls. Report the situation to your parent.",
-        ),
-        (
             "on_session_start",
-            "lifecycle:session_start",
+            "session:start",
             "self",
-            "lifecycle:session-start",
-            "A session is starting. Establish context, recall relevant ideas, and prepare for the work ahead.",
+            "session:start",
+            "A session is starting. Establish context, recall relevant ideas, and prepare for the conversation or work ahead.",
         ),
         (
-            "on_session_end",
-            "lifecycle:session_end",
+            "on_quest_start",
+            "session:quest_start",
             "self",
-            "lifecycle:session-end",
-            "A session is ending. Reflect on what happened. Store key learnings as ideas. Consolidate important facts, procedures, and preferences for future sessions.",
+            "session:quest-start",
+            "A quest has been assigned to you and a session spawned for it. Analyze the requirements, plan your approach, and begin working. Use your tools to complete the work. When finished, close the quest with a summary.",
         ),
         (
-            "on_quest_blocked",
-            "lifecycle:quest_blocked",
+            "on_quest_end",
+            "session:quest_end",
             "self",
-            "lifecycle:quest-blocked",
-            "A quest is blocked and needs external input. Clearly describe what you need — clarification, approval, or a dependency that must be resolved. Create a quest for your parent describing the blocker.",
+            "session:quest-end",
+            "You are closing a quest. Reflect on what you did. Store any reusable knowledge as ideas. Summarize the changes for review.",
         ),
         (
-            "on_child_added",
-            "lifecycle:child_added",
+            "on_quest_result",
+            "session:quest_result",
             "self",
-            "lifecycle:child-added",
-            "A new child agent was spawned under you. Brief them on current priorities. Share relevant ideas. Consider assigning an initial quest to get them started.",
-        ),
-        (
-            "on_child_removed",
-            "lifecycle:child_removed",
-            "self",
-            "lifecycle:child-removed",
-            "A child agent was retired. Reassign any of their pending quests to other children or handle them yourself. Archive any knowledge unique to that agent.",
+            "session:quest-result",
+            "A quest you created has completed and the result has been delivered. Review the outcome, check the diff, and decide on next steps. Create follow-up quests if needed.",
         ),
     ];
 
@@ -552,7 +496,7 @@ pub async fn migrate_injection_mode_to_events(
         let existing_events = event_store.list_for_agent(agent_id).await?;
         let session_start_event = existing_events
             .iter()
-            .find(|e| e.name == "on_session_start" && e.pattern == "lifecycle:session_start");
+            .find(|e| e.name == "on_session_start" && e.pattern == "session:start");
 
         match session_start_event {
             Some(event) => {
@@ -588,7 +532,7 @@ pub async fn migrate_injection_mode_to_events(
                     .create(&NewEvent {
                         agent_id: agent_id.clone(),
                         name: "on_session_start".to_string(),
-                        pattern: "lifecycle:session_start".to_string(),
+                        pattern: "session:start".to_string(),
                         scope: scope.to_string(),
                         idea_ids: idea_ids.clone(),
                         cooldown_secs: 0,
@@ -719,7 +663,7 @@ mod tests {
         let event = store.create(&NewEvent {
             agent_id: "a1".into(),
             name: "on-quest-received".into(),
-            pattern: "lifecycle:quest_received".into(),
+            pattern: "session:quest_start".into(),
             scope: "self".into(),
             idea_ids: Vec::new(),
             cooldown_secs: 0,
@@ -736,7 +680,7 @@ mod tests {
         let event = store.create(&NewEvent {
             agent_id: "a1".into(),
             name: "test".into(),
-            pattern: "lifecycle:test".into(),
+            pattern: "session:test".into(),
             scope: "self".into(),
             idea_ids: Vec::new(),
             cooldown_secs: 0,
@@ -762,7 +706,7 @@ mod tests {
         }).await.unwrap();
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "lifecycle1".into(),
-            pattern: "lifecycle:quest_received".into(), scope: "self".into(),
+            pattern: "session:quest_start".into(), scope: "self".into(),
             idea_ids: Vec::new(), cooldown_secs: 0, system: false,
         }).await.unwrap();
 
@@ -770,7 +714,7 @@ mod tests {
         assert_eq!(schedules.len(), 1);
         assert_eq!(schedules[0].name, "sched1");
 
-        let lifecycle = store.list_by_pattern_prefix("lifecycle:").await.unwrap();
+        let lifecycle = store.list_by_pattern_prefix("session:").await.unwrap();
         assert_eq!(lifecycle.len(), 1);
     }
 
@@ -780,7 +724,7 @@ mod tests {
         let event = store.create(&NewEvent {
             agent_id: "a1".into(),
             name: "update-me".into(),
-            pattern: "lifecycle:update_me".into(),
+            pattern: "session:update_me".into(),
             scope: "self".into(),
             idea_ids: vec!["keep-a".into(), "keep-b".into()],
             cooldown_secs: 0,
@@ -898,7 +842,7 @@ mod tests {
 
         let events = event_store.list_for_agent("a1").await.unwrap();
         let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
-        assert_eq!(session_event.pattern, "lifecycle:session_start");
+        assert_eq!(session_event.pattern, "session:start");
         assert_eq!(session_event.idea_ids.len(), 2);
         assert!(session_event.idea_ids.contains(&"i1".to_string()));
         assert!(session_event.idea_ids.contains(&"i2".to_string()));
@@ -932,7 +876,7 @@ mod tests {
         event_store.create(&NewEvent {
             agent_id: "a1".into(),
             name: "on_session_start".into(),
-            pattern: "lifecycle:session_start".into(),
+            pattern: "session:start".into(),
             scope: "self".into(),
             idea_ids: vec!["existing-id".into()],
             cooldown_secs: 0,

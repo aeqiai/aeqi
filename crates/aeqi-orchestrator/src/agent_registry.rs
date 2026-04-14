@@ -444,7 +444,8 @@ impl AgentRegistry {
                  created_at TEXT NOT NULL,
                  updated_at TEXT,
                  closed_at TEXT,
-                 closed_reason TEXT
+                 closed_reason TEXT,
+                 creator_session_id TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
              CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
@@ -457,6 +458,7 @@ impl AgentRegistry {
             ("worktree_branch", "TEXT"),
             ("worktree_path", "TEXT"),
             ("idea_ids", "TEXT NOT NULL DEFAULT '[]'"),
+            ("creator_session_id", "TEXT"),
         ] {
             let has: bool = sconn
                 .prepare("PRAGMA table_info(quests)")?
@@ -719,7 +721,7 @@ impl AgentRegistry {
                 } else if let Some(ref at) = t.at {
                     format!("once:{at}")
                 } else if let Some(ref event) = t.event {
-                    format!("lifecycle:{event}")
+                    format!("session:{event}")
                 } else {
                     continue;
                 };
@@ -1435,6 +1437,7 @@ impl AgentRegistry {
             acceptance_criteria: None,
             worktree_branch: None,
             worktree_path: None,
+            creator_session_id: None,
         };
 
         let sdb = self.sessions_db.lock().await;
@@ -2293,6 +2296,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         acceptance_criteria: row.get("acceptance_criteria").ok(),
         worktree_branch: row.get("worktree_branch").ok(),
         worktree_path: row.get("worktree_path").ok(),
+        creator_session_id: row.get("creator_session_id").ok(),
     }
 }
 

@@ -1,7 +1,7 @@
 //! Idea assembly — event-driven prompt construction.
 //!
 //! Walks the agent ancestor chain, collects ideas activated by
-//! `lifecycle:session_start` events, appends task prompts, groups by
+//! `session:start` events, appends task prompts, groups by
 //! position, and returns an `AssembledPrompt`.
 //!
 //! Events reference ideas via `idea_ids`. No inline content or fallback paths.
@@ -24,7 +24,7 @@ use crate::event_handler::EventHandlerStore;
 /// Entries grouped by position (system, prepend, append) and concatenated.
 ///
 /// Idea collection via events:
-/// `lifecycle:session_start` events on each ancestor contribute their
+/// `session:start` events on each ancestor contribute their
 /// referenced `idea_ids` ideas.
 pub async fn assemble_ideas(
     registry: &AgentRegistry,
@@ -52,9 +52,9 @@ pub async fn assemble_ideas(
         let is_self = depth == ancestors.len() - 1;
 
         // --- Phase 1: Event-based idea activation ---
-        // Get `lifecycle:session_start` events for this ancestor.
+        // Get `session:start` events for this ancestor.
         let session_start_events = event_store
-            .get_events_for_lifecycle(&agent.id, "lifecycle:session_start")
+            .get_events_for_pattern(&agent.id, "session:start")
             .await;
 
         // Collect idea_ids from events, respecting scope.

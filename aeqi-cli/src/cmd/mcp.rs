@@ -267,9 +267,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     },
                     "agent": {"type": "string", "description": "Agent name or ID"},
                     "name": {"type": "string", "description": "Event handler name (for create)"},
-                    "pattern": {"type": "string", "description": "Full pattern (e.g. 'schedule:0 9 * * *', 'lifecycle:quest_completed')"},
+                    "pattern": {"type": "string", "description": "Full pattern (e.g. 'schedule:0 9 * * *', 'session:quest_result')"},
                     "schedule": {"type": "string", "description": "Cron expression — shorthand for pattern 'schedule:<expr>'"},
-                    "event_pattern": {"type": "string", "description": "Lifecycle event — shorthand for pattern 'lifecycle:<event>'"},
+                    "event_pattern": {"type": "string", "description": "Session event — shorthand for pattern 'session:<event>' (e.g. 'start', 'quest_start', 'quest_end', 'quest_result')"},
                     "scope": {"type": "string", "enum": ["self", "children", "descendants"], "description": "Event scope (default: 'self')"},
                     "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
@@ -841,7 +841,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 } else if let Some(event) =
                                     args.get("event_pattern").and_then(|v| v.as_str())
                                 {
-                                    format!("lifecycle:{event}")
+                                    format!("session:{event}")
                                 } else {
                                     args.get("pattern")
                                         .and_then(|v| v.as_str())

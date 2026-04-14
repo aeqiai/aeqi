@@ -1051,7 +1051,7 @@ impl Tool for EventsTool {
                 {
                     format!("schedule:{schedule}")
                 } else if let Some(event) = args.get("event_pattern").and_then(|v| v.as_str()) {
-                    format!("lifecycle:{event}")
+                    format!("session:{event}")
                 } else if let Some(p) = args.get("pattern").and_then(|v| v.as_str()) {
                     p.to_string()
                 } else {
@@ -1200,7 +1200,7 @@ impl Tool for EventsTool {
                     },
                     "pattern": {
                         "type": "string",
-                        "description": "Full pattern string (e.g. 'schedule:0 9 * * *', 'lifecycle:quest_completed')"
+                        "description": "Full pattern string (e.g. 'schedule:0 9 * * *', 'session:quest_result')"
                     },
                     "schedule": {
                         "type": "string",
@@ -1208,7 +1208,7 @@ impl Tool for EventsTool {
                     },
                     "event_pattern": {
                         "type": "string",
-                        "description": "Lifecycle event (e.g. 'quest_completed') — shorthand for pattern 'lifecycle:<event>'"
+                        "description": "Lifecycle event (e.g. 'quest_completed') — shorthand for pattern 'session:<event>'"
                     },
                     "scope": {
                         "type": "string",

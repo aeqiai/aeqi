@@ -190,6 +190,7 @@ mod tests {
             acceptance_criteria: None,
             worktree_branch: None,
             worktree_path: None,
+            creator_session_id: None,
         }
     }
 
