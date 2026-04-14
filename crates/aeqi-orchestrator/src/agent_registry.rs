@@ -1981,6 +1981,23 @@ impl AgentRegistry {
         Ok(key)
     }
 
+    /// List quest IDs that have been in_progress for more than `max_hours` with no updates.
+    pub async fn list_stale_quests(&self, max_hours: u32) -> Result<Vec<String>> {
+        let cutoff = (chrono::Utc::now() - chrono::Duration::hours(max_hours as i64)).to_rfc3339();
+        let db = self.sessions_db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id FROM quests
+             WHERE status = 'in_progress'
+             AND (updated_at IS NULL OR updated_at < ?1)
+             AND created_at < ?1",
+        )?;
+        let ids: Vec<String> = stmt
+            .query_map(params![cutoff], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(ids)
+    }
+
     // -- Cross-DB orphan cleanup ----------------------------------------------
 
     /// Clean up orphaned records in sessions.db for agents that no longer exist in aeqi.db.

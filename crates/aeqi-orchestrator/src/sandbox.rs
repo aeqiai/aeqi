@@ -420,12 +420,55 @@ impl QuestSandbox {
                     .context("failed to merge quest branch")?;
 
                 if !merge.status.success() {
+                    // Merge failed — try rebase onto target branch first.
+                    let _ = Command::new("git")
+                        .args(["merge", "--abort"])
+                        .current_dir(&self.repo_root)
+                        .output()
+                        .await;
+
+                    let rebase = Command::new("git")
+                        .args(["rebase", "main"])
+                        .current_dir(&self.worktree_path)
+                        .output()
+                        .await;
+
+                    if let Ok(ref rb) = rebase
+                        && rb.status.success()
+                    {
+                        // Rebase succeeded — retry merge.
+                        let retry = Command::new("git")
+                            .args([
+                                "merge",
+                                &self.branch_name,
+                                "--no-ff",
+                                "-m",
+                                &format!("Merge quest {}: {message}", self.quest_id),
+                            ])
+                            .current_dir(&self.repo_root)
+                            .output()
+                            .await;
+
+                        if let Ok(ref r) = retry
+                            && r.status.success()
+                        {
+                            info!(quest_id = %self.quest_id, "merge succeeded after rebase");
+                            self.teardown().await?;
+                            return Ok(Some(hash));
+                        }
+                    }
+
+                    // Rebase also failed — abort and preserve branch.
+                    let _ = Command::new("git")
+                        .args(["rebase", "--abort"])
+                        .current_dir(&self.worktree_path)
+                        .output()
+                        .await;
+
                     warn!(
                         quest_id = %self.quest_id,
-                        stderr = %String::from_utf8_lossy(&merge.stderr),
-                        "merge failed — branch preserved for manual resolution"
+                        "merge and rebase both failed — branch preserved for manual resolution"
                     );
-                    // Don't tear down if merge fails — keep the branch for manual resolution.
                     return Ok(Some(hash));
                 }
 
