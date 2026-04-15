@@ -882,6 +882,15 @@ impl SessionManager {
         session_id: &str,
         message: &str,
     ) -> anyhow::Result<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
+        self.send_streaming_with_ideas(session_id, message, None).await
+    }
+
+    pub async fn send_streaming_with_ideas(
+        &self,
+        session_id: &str,
+        message: &str,
+        execution_ideas: Option<String>,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
         let sessions = self.sessions.lock().await;
         let session = sessions
             .get(session_id)
@@ -894,12 +903,13 @@ impl SessionManager {
             ));
         }
 
-        // Subscribe BEFORE pushing so we don't miss events.
         let rx = session.stream_sender.subscribe();
 
+        let mut input = aeqi_core::SessionInput::text(message);
+        input.execution_ideas = execution_ideas;
         session
             .input_tx
-            .send(aeqi_core::SessionInput::text(message))
+            .send(input)
             .map_err(|_| anyhow::anyhow!("session closed — agent loop exited"))?;
 
         Ok(rx)

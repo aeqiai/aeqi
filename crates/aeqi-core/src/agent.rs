@@ -578,6 +578,8 @@ pub struct SessionInput {
     pub step_ideas: Vec<StepIdeaSpec>,
     /// Quest ID to attach to this session.
     pub quest_id: Option<String>,
+    /// Execution-start ideas to inject as a system message for this execution.
+    pub execution_ideas: Option<String>,
 }
 
 impl SessionInput {
@@ -1231,6 +1233,18 @@ impl Agent {
                                             .lock()
                                             .await
                                             .extend(input.step_ideas.clone());
+                                    }
+
+                                    // Inject execution-start ideas before the user message.
+                                    if let Some(ref exec_ideas) = input.execution_ideas
+                                        && !exec_ideas.is_empty()
+                                    {
+                                        messages.push(Message {
+                                            role: Role::System,
+                                            content: MessageContent::text(format!(
+                                                "<execution-context>\n{exec_ideas}\n</execution-context>"
+                                            )),
+                                        });
                                     }
 
                                     messages.push(Message {

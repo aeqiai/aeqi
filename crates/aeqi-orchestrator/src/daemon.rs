@@ -1468,9 +1468,30 @@ impl Daemon {
                                     .activate_persistent(&resolved_session_id, &stream_sender)
                                     .await;
                             }
+                            // Assemble session:execution_start ideas for this agent.
+                            let exec_ideas: Option<String> = if let Some(ref ehs) = ipc_ctx.event_handler_store {
+                                let agent_uuid = agent_id_direct.as_deref().unwrap_or(&agent_hint);
+                                let exec_events = ehs.get_events_for_pattern(agent_uuid, "session:execution_start").await;
+                                let mut idea_ids: Vec<String> = Vec::new();
+                                for ev in &exec_events {
+                                    idea_ids.extend(ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned());
+                                }
+                                if !idea_ids.is_empty() {
+                                    if let Some(ref store) = ipc_ctx.idea_store {
+                                        if let Ok(ideas) = store.get_by_ids(&idea_ids).await {
+                                            let ctx = ideas.iter()
+                                                .map(|i| format!("## {}\n{}", i.key, i.content))
+                                                .collect::<Vec<_>>()
+                                                .join("\n\n");
+                                            if !ctx.is_empty() { Some(ctx) } else { None }
+                                        } else { None }
+                                    } else { None }
+                                } else { None }
+                            } else { None };
+
                             if stream_mode {
                                 match session_manager
-                                    .send_streaming(&resolved_session_id, message)
+                                    .send_streaming_with_ideas(&resolved_session_id, message, exec_ideas.clone())
                                     .await
                                 {
                                     Ok(mut rx) => {

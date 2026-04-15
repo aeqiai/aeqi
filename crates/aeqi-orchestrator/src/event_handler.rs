@@ -383,6 +383,12 @@ pub async fn create_default_lifecycle_events(
             "session:quest-result",
             "A quest you created has completed and the result has been delivered. Review the outcome, check the diff, and decide on next steps. Create follow-up quests if needed.",
         ),
+        (
+            "on_execution_start",
+            "session:execution_start",
+            "session:execution-start",
+            "A new execution is starting. Review the user's request and respond helpfully.",
+        ),
     ];
 
     let now = chrono::Utc::now().to_rfc3339();
