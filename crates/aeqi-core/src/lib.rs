@@ -20,9 +20,9 @@ pub mod traits;
 
 pub use agent::{
     Agent, AgentConfig, AgentResult, AgentStopReason, ContentReplacementState, LoopNotification,
-    NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType,
-    StepIdeaSpec,
+    NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType, StepIdeaSpec,
 };
+pub use traits::provider::{Message, MessageContent, Role};
 pub use chat_stream::{ChatStreamEvent, ChatStreamSender};
 pub use config::{
     AEQIConfig, AgentPromptConfig, AgentSpawnConfig, AgentTriggerConfig, ContextBudgetConfig,

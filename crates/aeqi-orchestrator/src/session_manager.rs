@@ -664,6 +664,32 @@ impl SessionManager {
             agent = agent.with_memory(mem.clone());
         }
 
+        // 7.5. Load forked session history if the session already has messages.
+        if let Some(ref sid) = opts.session_id
+            && let Some(ref ss) = self.session_store
+            && let Ok(timeline) = ss.timeline_by_session(sid, 500).await
+        {
+            let mut history = Vec::new();
+            for event in &timeline {
+                let role = match event.role.as_str() {
+                    "user" | "User" => aeqi_core::Role::User,
+                    "assistant" => aeqi_core::Role::Assistant,
+                    _ => continue,
+                };
+                if event.event_type != "message" || event.content.trim().is_empty() {
+                    continue;
+                }
+                history.push(aeqi_core::Message {
+                    role,
+                    content: aeqi_core::MessageContent::text(&event.content),
+                });
+            }
+            if !history.is_empty() {
+                tracing::info!(session_id = %sid, messages = history.len(), "loading forked session history");
+                agent = agent.with_history(history);
+            }
+        }
+
         // 8. If Interactive, create perpetual input channel.
         let (agent, input_tx, cancel_token) = if is_interactive {
             let cancel = agent.cancel_token();

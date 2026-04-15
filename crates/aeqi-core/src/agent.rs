@@ -625,6 +625,8 @@ pub struct Agent {
     /// Cancellation signal. When set to true, the agent loop exits at the next
     /// iteration boundary. Used for interrupt propagation from parent agents.
     cancel_token: Arc<std::sync::atomic::AtomicBool>,
+    /// Prior conversation history (for forked sessions).
+    history: Vec<Message>,
 }
 
 impl Agent {
@@ -646,6 +648,7 @@ impl Agent {
             chat_stream: None,
             notification_rx: None,
             input_rx: None,
+            history: Vec::new(),
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
@@ -654,6 +657,13 @@ impl Agent {
     /// Set to `true` to stop the agent at the next iteration boundary.
     pub fn cancel_token(&self) -> Arc<std::sync::atomic::AtomicBool> {
         self.cancel_token.clone()
+    }
+
+    /// Attach prior conversation history (for forked sessions).
+    /// These messages are prepended before the new user prompt in `run()`.
+    pub fn with_history(mut self, messages: Vec<Message>) -> Self {
+        self.history = messages;
+        self
     }
 
     /// Attach a memory backend for context recall.
@@ -710,16 +720,21 @@ impl Agent {
             .await;
 
         // Build initial messages.
-        let mut messages = vec![
-            Message {
-                role: Role::System,
-                content: MessageContent::text(&self.system_prompt),
-            },
-            Message {
-                role: Role::User,
-                content: MessageContent::text(prompt),
-            },
-        ];
+        let mut messages = vec![Message {
+            role: Role::System,
+            content: MessageContent::text(&self.system_prompt),
+        }];
+
+        // Inject prior conversation history (forked sessions).
+        if !self.history.is_empty() {
+            debug!(agent = %self.config.name, count = self.history.len(), "injecting forked history");
+            messages.extend(self.history.iter().cloned());
+        }
+
+        messages.push(Message {
+            role: Role::User,
+            content: MessageContent::text(prompt),
+        });
 
         self.inject_initial_memory(&mut messages, prompt).await;
 
