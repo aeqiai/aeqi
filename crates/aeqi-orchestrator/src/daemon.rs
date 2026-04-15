@@ -417,6 +417,18 @@ impl Daemon {
             warn!(error = %e, "orphan cleanup failed");
         }
 
+        // Purge legacy lifecycle: events (replaced by session: events).
+        {
+            let db = self.agent_registry.db();
+            let conn = db.lock().await;
+            let purged = conn
+                .execute("DELETE FROM events WHERE pattern LIKE 'lifecycle:%'", [])
+                .unwrap_or(0);
+            if purged > 0 {
+                info!(count = purged, "purged legacy lifecycle: events");
+            }
+        }
+
         info!("daemon started");
 
         self.run_patrol_loop().await;
