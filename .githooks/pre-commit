@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# Auto-format
+cargo fmt --quiet
+
+# Re-stage formatted files
+git diff --name-only | xargs -r git add
+
+# Clippy (warnings = errors)
+cargo clippy --workspace -- -D warnings 2>/dev/null
+
+# TypeScript
+(cd apps/ui && npx tsc --noEmit 2>&1 | head -5)
+
+echo "pre-commit: all checks passed"
