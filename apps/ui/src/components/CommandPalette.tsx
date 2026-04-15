@@ -19,21 +19,73 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const navigate = useNavigate();
   const appMode = useAuthStore((s) => s.appMode);
 
-  const go = useCallback((path: string) => { navigate(path); onClose(); }, [navigate, onClose]);
+  const go = useCallback(
+    (path: string) => {
+      navigate(path);
+      onClose();
+    },
+    [navigate, onClose],
+  );
 
   useEffect(() => {
-    if (!open) { setQuery(""); setSelected(0); return; }
+    if (!open) {
+      setQuery("");
+      setSelected(0);
+      return;
+    }
     inputRef.current?.focus();
 
     const buildItems = async () => {
       const navItems: PaletteItem[] = [
-        { id: "nav-dashboard", label: "Dashboard", hint: "Overview", section: "Navigate", action: () => go("/") },
-        { id: "nav-companies", label: "Companies", hint: "Select a company", section: "Navigate", action: () => go("/companies") },
-        { id: "nav-company", label: "Company", hint: "Active company settings", section: "Navigate", action: () => go("/company") },
-        { id: "nav-quests", label: "Quests", hint: "View all quests", section: "Navigate", action: () => go("/quests") },
-        { id: "nav-sessions", label: "Sessions", hint: "Agent sessions", section: "Navigate", action: () => go("/sessions") },
-        { id: "nav-events", label: "Events", hint: "Event stream", section: "Navigate", action: () => go("/events") },
-        { id: "nav-ideas", label: "Ideas", hint: "Agent knowledge", section: "Navigate", action: () => go("/ideas") },
+        {
+          id: "nav-dashboard",
+          label: "Dashboard",
+          hint: "Overview",
+          section: "Navigate",
+          action: () => go("/"),
+        },
+        {
+          id: "nav-companies",
+          label: "Companies",
+          hint: "Select a company",
+          section: "Navigate",
+          action: () => go("/companies"),
+        },
+        {
+          id: "nav-company",
+          label: "Company",
+          hint: "Active company settings",
+          section: "Navigate",
+          action: () => go("/company"),
+        },
+        {
+          id: "nav-quests",
+          label: "Quests",
+          hint: "View all quests",
+          section: "Navigate",
+          action: () => go("/quests"),
+        },
+        {
+          id: "nav-sessions",
+          label: "Sessions",
+          hint: "Agent sessions",
+          section: "Navigate",
+          action: () => go("/sessions"),
+        },
+        {
+          id: "nav-events",
+          label: "Events",
+          hint: "Event stream",
+          section: "Navigate",
+          action: () => go("/events"),
+        },
+        {
+          id: "nav-ideas",
+          label: "Ideas",
+          hint: "Agent knowledge",
+          section: "Navigate",
+          action: () => go("/ideas"),
+        },
         {
           id: "nav-settings",
           label: appMode === "platform" ? "Settings" : "Company",
@@ -86,19 +138,33 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   }, [open, go, appMode]);
 
   const filtered = query
-    ? items.filter((item) =>
-        item.label.toLowerCase().includes(query.toLowerCase()) ||
-        (item.hint || "").toLowerCase().includes(query.toLowerCase())
+    ? items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(query.toLowerCase()) ||
+          (item.hint || "").toLowerCase().includes(query.toLowerCase()),
       )
     : items;
 
-  useEffect(() => { setSelected(0); }, [query]);
+  useEffect(() => {
+    setSelected(0);
+  }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") { onClose(); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setSelected((s) => Math.min(s + 1, filtered.length - 1)); }
-    if (e.key === "ArrowUp") { e.preventDefault(); setSelected((s) => Math.max(s - 1, 0)); }
-    if (e.key === "Enter" && filtered[selected]) { filtered[selected].action(); }
+    if (e.key === "Escape") {
+      onClose();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelected((s) => Math.min(s + 1, filtered.length - 1));
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelected((s) => Math.max(s - 1, 0));
+    }
+    if (e.key === "Enter" && filtered[selected]) {
+      filtered[selected].action();
+    }
   };
 
   if (!open) return null;
@@ -143,9 +209,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               })}
             </div>
           ))}
-          {filtered.length === 0 && (
-            <div className="palette-empty">No results</div>
-          )}
+          {filtered.length === 0 && <div className="palette-empty">No results</div>}
         </div>
       </div>
     </div>

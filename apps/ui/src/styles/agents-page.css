@@ -1,6 +1,8 @@
 /* Agents page — team roster grid */
 
-.ap { max-width: 720px; }
+.ap {
+  max-width: 720px;
+}
 
 /* Header */
 .ap-header {

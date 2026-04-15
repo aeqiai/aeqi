@@ -115,10 +115,7 @@ function AgentNodeView({
         <RoundAvatar name={node.name} size={22} />
         <span className="agent-row-label">{label}</span>
         {hasChildren && (
-          <span
-            className="agent-tree-toggle"
-            onClick={(e) => onToggle(node.id, e)}
-          >
+          <span className="agent-tree-toggle" onClick={(e) => onToggle(node.id, e)}>
             {isCollapsed && <span className="agent-tree-count">{descendantCount}</span>}
             <Chevron expanded={!isCollapsed} />
           </span>
@@ -180,9 +177,7 @@ export default function AgentTree() {
           />
         ))}
 
-        {allAgents.length === 0 && (
-          <div className="agent-tree-empty">No agents yet</div>
-        )}
+        {allAgents.length === 0 && <div className="agent-tree-empty">No agents yet</div>}
       </div>
     </nav>
   );

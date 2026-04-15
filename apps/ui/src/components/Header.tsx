@@ -19,11 +19,7 @@ export default function Header({ title, breadcrumbs, actions }: HeaderProps) {
           {breadcrumbs.map((crumb, i) => (
             <span key={i}>
               {i > 0 && <span className="breadcrumb-sep"> / </span>}
-              {crumb.href ? (
-                <Link to={crumb.href}>{crumb.label}</Link>
-              ) : (
-                <span>{crumb.label}</span>
-              )}
+              {crumb.href ? <Link to={crumb.href}>{crumb.label}</Link> : <span>{crumb.label}</span>}
             </span>
           ))}
         </div>

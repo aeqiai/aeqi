@@ -41,7 +41,7 @@ export type QuestStatus = "pending" | "in_progress" | "done" | "blocked" | "canc
 export type QuestPriority = "critical" | "high" | "normal" | "low";
 
 export interface QuestOutcome {
-  kind: string;      // "done", "blocked", "failed", "handoff"
+  kind: string; // "done", "blocked", "failed", "handoff"
   summary: string;
   reason?: string;
   next_action?: string;

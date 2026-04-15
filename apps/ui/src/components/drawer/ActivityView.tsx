@@ -42,13 +42,9 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
   const description = quest.description || "";
   const descLines = description.split("\n");
   const isLongDesc = descLines.length > 2;
-  const descPreview = isLongDesc
-    ? descLines.slice(0, 2).join("\n") + "\u2026"
-    : description;
+  const descPreview = isLongDesc ? descLines.slice(0, 2).join("\n") + "\u2026" : description;
 
-  const criteria = quest.acceptance_criteria
-    ? parseCriteria(quest.acceptance_criteria)
-    : [];
+  const criteria = quest.acceptance_criteria ? parseCriteria(quest.acceptance_criteria) : [];
 
   const handleComplete = async () => {
     setClosing(true);
@@ -88,10 +84,7 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
         <div className="aq-desc">
           <span>{descExpanded ? description : descPreview}</span>
           {isLongDesc && (
-            <button
-              className="aq-expand-btn"
-              onClick={() => setDescExpanded((p) => !p)}
-            >
+            <button className="aq-expand-btn" onClick={() => setDescExpanded((p) => !p)}>
               {descExpanded ? "less" : "more"}
             </button>
           )}
@@ -109,23 +102,13 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
         </ul>
       )}
 
-      {quest.cost_usd > 0 && (
-        <span className="aq-cost">${quest.cost_usd.toFixed(2)}</span>
-      )}
+      {quest.cost_usd > 0 && <span className="aq-cost">${quest.cost_usd.toFixed(2)}</span>}
 
       <div className="aq-actions">
-        <button
-          className="aq-action-btn complete"
-          onClick={handleComplete}
-          disabled={closing}
-        >
+        <button className="aq-action-btn complete" onClick={handleComplete} disabled={closing}>
           Complete
         </button>
-        <button
-          className="aq-action-btn block"
-          onClick={handleBlock}
-          disabled={closing}
-        >
+        <button className="aq-action-btn block" onClick={handleBlock} disabled={closing}>
           Block
         </button>
       </div>
@@ -135,13 +118,7 @@ function ActiveQuestCard({ quest }: { quest: Quest }) {
 
 // --- Quest List ---
 
-function QuestList({
-  quests,
-  activeQuestId,
-}: {
-  quests: Quest[];
-  activeQuestId: string | null;
-}) {
+function QuestList({ quests, activeQuestId }: { quests: Quest[]; activeQuestId: string | null }) {
   const others = quests.filter((q) => q.id !== activeQuestId);
   if (others.length === 0) return null;
 
@@ -158,9 +135,7 @@ function QuestList({
               }}
             />
             <span className="ctx-quest-subject">{q.subject}</span>
-            <span className="ctx-quest-time">
-              {timeAgo(q.updated_at || q.created_at)}
-            </span>
+            <span className="ctx-quest-time">{timeAgo(q.updated_at || q.created_at)}</span>
           </div>
         ))}
       </div>
@@ -191,15 +166,9 @@ function EventStream({ agentName }: { agentName: string }) {
         <div className="ctx-list">
           {agentEvents.map((e, i) => (
             <div key={e.id || i} className="ctx-event-row">
-              <span className="ctx-event-time">
-                {timeAgo(e.timestamp)}
-              </span>
-              <span className="ctx-event-type">
-                {e.decision_type || "event"}
-              </span>
-              <span className="ctx-event-summary">
-                {e.summary || "\u2014"}
-              </span>
+              <span className="ctx-event-time">{timeAgo(e.timestamp)}</span>
+              <span className="ctx-event-type">{e.decision_type || "event"}</span>
+              <span className="ctx-event-summary">{e.summary || "\u2014"}</span>
             </div>
           ))}
         </div>
@@ -224,15 +193,11 @@ export default function ActivityView({
   // Find quests assigned to this agent
   const agentQuests = (quests as unknown as Quest[]).filter((q) => {
     const assignee = (q.agent_id || "").toLowerCase();
-    return (
-      assignee.includes(agentName.toLowerCase()) ||
-      assignee === agentId.toLowerCase()
-    );
+    return assignee.includes(agentName.toLowerCase()) || assignee === agentId.toLowerCase();
   });
 
   // Active quest: first in_progress
-  const activeQuest =
-    agentQuests.find((q) => q.status === "in_progress") || null;
+  const activeQuest = agentQuests.find((q) => q.status === "in_progress") || null;
 
   // Other quests: pending, blocked, recent done (sorted by update time)
   const otherQuests = agentQuests

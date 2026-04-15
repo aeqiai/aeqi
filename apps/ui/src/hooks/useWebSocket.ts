@@ -82,7 +82,9 @@ export function useWebSocket() {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const company = getScopedCompany();
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?token=${token}&company=${encodeURIComponent(company)}`);
+    const ws = new WebSocket(
+      `${protocol}//${window.location.host}/api/ws?token=${token}&company=${encodeURIComponent(company)}`,
+    );
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);

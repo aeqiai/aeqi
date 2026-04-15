@@ -45,42 +45,49 @@ export default function ContextDrawer({ agentId, sessionId }: Props) {
   );
   const resizing = useRef(false);
 
-  const onResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizing.current = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-    const startX = e.clientX;
-    const startW = width;
+  const onResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizing.current = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+      const startX = e.clientX;
+      const startW = width;
 
-    const onMove = (ev: MouseEvent) => {
-      const delta = startX - ev.clientX;
-      const next = Math.max(280, Math.min(480, startW + delta));
-      setWidth(next);
-    };
-    const onUp = () => {
-      resizing.current = false;
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      localStorage.setItem("aeqi_drawer_width", String(width));
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [width]);
+      const onMove = (ev: MouseEvent) => {
+        const delta = startX - ev.clientX;
+        const next = Math.max(280, Math.min(480, startW + delta));
+        setWidth(next);
+      };
+      const onUp = () => {
+        resizing.current = false;
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        localStorage.setItem("aeqi_drawer_width", String(width));
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [width],
+  );
 
   if (!agentId) return null;
 
   // Collapsed state — show toggle button
   if (!drawerOpen) {
     return (
-      <button
-        className="drawer-toggle-collapsed"
-        onClick={toggleDrawer}
-        title="Open panel (⌘.)"
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <button className="drawer-toggle-collapsed" onClick={toggleDrawer} title="Open panel (⌘.)">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
           <path d="M9 3L5 7l4 4" />
         </svg>
       </button>
@@ -98,14 +105,20 @@ export default function ContextDrawer({ agentId, sessionId }: Props) {
           <RoundAvatar name={displayName} size={22} />
           <div className="drawer-header-text">
             <span className="drawer-header-name">{displayName}</span>
-            {agentInfo?.model && (
-              <span className="drawer-header-model">{agentInfo.model}</span>
-            )}
+            {agentInfo?.model && <span className="drawer-header-model">{agentInfo.model}</span>}
           </div>
           <span className={`drawer-header-dot ${wsConnected ? "live" : ""}`} />
         </div>
         <button className="drawer-collapse-btn" onClick={toggleDrawer} title="Close panel (⌘.)">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <path d="M5 3l4 4-4 4" />
           </svg>
         </button>

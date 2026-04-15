@@ -40,9 +40,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
       .getSkills()
       .then((data) => {
         const skills: Skill[] = (data?.skills || data || []) as Skill[];
-        const identity = skills.filter(
-          (s) => Array.isArray(s.tags) && s.tags.includes("identity"),
-        );
+        const identity = skills.filter((s) => Array.isArray(s.tags) && s.tags.includes("identity"));
         if (identity.length > 0) {
           setTemplates(identity.map((s) => s.name));
           setUseFallback(false);

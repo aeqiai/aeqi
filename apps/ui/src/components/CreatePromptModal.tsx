@@ -220,17 +220,11 @@ export default function CreatePromptModal({ open, onClose }: Props) {
         >
           {showPreview ? "\u25BC" : "\u25B6"} Preview
         </button>
-        {showPreview && (
-          <div className="cpm-preview">{generatedContent}</div>
-        )}
+        {showPreview && <div className="cpm-preview">{generatedContent}</div>}
 
         {/* Submit */}
         <div className="modal-actions">
-          <button
-            className="modal-btn-primary"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
+          <button className="modal-btn-primary" onClick={handleSubmit} disabled={!canSubmit}>
             {submitting ? "Creating..." : "Create Prompt"}
           </button>
         </div>

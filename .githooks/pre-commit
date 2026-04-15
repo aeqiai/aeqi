@@ -1,16 +1,19 @@
 #!/bin/bash
 set -e
 
-# Auto-format
+# Rust: format
 cargo fmt --quiet
+
+# Frontend: format
+npx --prefix apps/ui prettier --write "apps/ui/src/**/*.{ts,tsx,css}" --log-level error 2>/dev/null || true
 
 # Re-stage formatted files
 git diff --name-only | xargs -r git add
 
-# Clippy (warnings = errors)
+# Rust: lint (warnings = errors)
 cargo clippy --workspace -- -D warnings 2>/dev/null
 
-# TypeScript
+# TypeScript: type check
 (cd apps/ui && npx tsc --noEmit 2>&1 | head -5)
 
 echo "pre-commit: all checks passed"

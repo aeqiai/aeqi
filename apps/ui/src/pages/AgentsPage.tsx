@@ -29,9 +29,7 @@ export default function AgentsPage() {
       a.model?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const activeCount = agents.filter(
-    (a) => a.status === "active" || a.status === "running",
-  ).length;
+  const activeCount = agents.filter((a) => a.status === "active" || a.status === "running").length;
 
   return (
     <div className="page-content ap">
@@ -42,7 +40,17 @@ export default function AgentsPage() {
           <span className="ap-count">{agents.length}</span>
         </div>
         <button className="ap-new-btn" onClick={() => setModalOpen(true)}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            <path d="M6 2.5v7M2.5 6h7" />
+          </svg>
           New Agent
         </button>
       </div>
@@ -55,7 +63,9 @@ export default function AgentsPage() {
             <span className="ap-stat-label">{activeCount} active</span>
           </div>
           <div className="ap-stat">
-            <span className="ap-stat-label ap-stat-label--muted">{agents.length - activeCount} idle</span>
+            <span className="ap-stat-label ap-stat-label--muted">
+              {agents.length - activeCount} idle
+            </span>
           </div>
         </div>
       )}
@@ -63,8 +73,18 @@ export default function AgentsPage() {
       {/* Search */}
       {agents.length > 3 && (
         <div className="ap-search">
-          <svg className="ap-search-icon" width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-            <circle cx="6" cy="6" r="4.5" /><path d="M9.5 9.5L13 13" />
+          <svg
+            className="ap-search-icon"
+            width="13"
+            height="13"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+          >
+            <circle cx="6" cy="6" r="4.5" />
+            <path d="M9.5 9.5L13 13" />
           </svg>
           <input
             className="ap-search-input"
@@ -120,17 +140,15 @@ function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
       <div className="ap-card-name">{label}</div>
       <div className="ap-card-meta">
         <span className="ap-card-template">{agent.status}</span>
-        {agent.model && (
-          <span className="ap-card-model">{agent.model.split("/").pop()}</span>
-        )}
+        {agent.model && <span className="ap-card-model">{agent.model.split("/").pop()}</span>}
       </div>
       <div className="ap-card-footer">
         {ideaCount > 0 && (
-          <span className="ap-card-tag">{ideaCount} idea{ideaCount !== 1 ? "s" : ""}</span>
+          <span className="ap-card-tag">
+            {ideaCount} idea{ideaCount !== 1 ? "s" : ""}
+          </span>
         )}
-        {agent.created_at && (
-          <span className="ap-card-time">{timeAgo(agent.created_at)}</span>
-        )}
+        {agent.created_at && <span className="ap-card-time">{timeAgo(agent.created_at)}</span>}
       </div>
     </div>
   );

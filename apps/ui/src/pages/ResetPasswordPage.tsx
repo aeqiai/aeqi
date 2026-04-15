@@ -56,7 +56,9 @@ export default function ResetPasswordPage() {
   return (
     <main className="auth-page">
       <div className="auth-container">
-        <div className="auth-logo"><BrandMark size={36} color="rgba(0,0,0,0.5)" /></div>
+        <div className="auth-logo">
+          <BrandMark size={36} color="rgba(0,0,0,0.5)" />
+        </div>
         <h1 className="auth-heading">Reset password</h1>
         <p className="auth-subheading">
           {success ? "Password reset! Redirecting to login..." : "Enter your new password"}
@@ -67,7 +69,10 @@ export default function ResetPasswordPage() {
             <PasswordInput
               placeholder="New password"
               value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               autoFocus
               hasError={!!error}
               errorId="reset-error"
@@ -75,11 +80,18 @@ export default function ResetPasswordPage() {
             <PasswordInput
               placeholder="Confirm password"
               value={confirmPassword}
-              onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setError("");
+              }}
               hasError={!!error}
               errorId="reset-error"
             />
-            {error && <div className="auth-error" role="alert" id="reset-error">{error}</div>}
+            {error && (
+              <div className="auth-error" role="alert" id="reset-error">
+                {error}
+              </div>
+            )}
             <button
               className="auth-btn-primary"
               type="submit"
@@ -97,9 +109,14 @@ export default function ResetPasswordPage() {
       <div className="auth-footer">
         <p>
           By continuing, you agree to the{" "}
-          <a href="https://aeqi.ai/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
-          {" "}and{" "}
-          <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          <a href="https://aeqi.ai/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+          .
         </p>
       </div>
     </main>

@@ -39,11 +39,7 @@ export default function QuickActions({
       <button className="drawer-action-btn" onClick={handleNewQuest}>
         New Quest
       </button>
-      <button
-        className="drawer-action-btn primary"
-        onClick={handleNewSession}
-        disabled={creating}
-      >
+      <button className="drawer-action-btn primary" onClick={handleNewSession} disabled={creating}>
         {creating ? "Starting\u2026" : "New Session"}
       </button>
     </div>

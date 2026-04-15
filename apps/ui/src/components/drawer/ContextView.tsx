@@ -24,10 +24,7 @@ function positionBadge(pos: string) {
     append: "var(--text-muted)",
   };
   return (
-    <span
-      className="ctx-prompt-badge"
-      style={{ color: colors[pos] || "var(--text-muted)" }}
-    >
+    <span className="ctx-prompt-badge" style={{ color: colors[pos] || "var(--text-muted)" }}>
       {pos}
     </span>
   );
@@ -73,20 +70,14 @@ function PromptsSection({ agentName }: { agentName: string }) {
     }));
   }, [agents, agentName]);
 
-  const totalIdeas = chain.reduce(
-    (sum, node) => sum + node.ideas.length,
-    0,
-  );
+  const totalIdeas = chain.reduce((sum, node) => sum + node.ideas.length, 0);
 
   return (
     <div className="ctx-section">
-      <button
-        className="ctx-prompts-summary"
-        onClick={() => setExpanded((p) => !p)}
-      >
+      <button className="ctx-prompts-summary" onClick={() => setExpanded((p) => !p)}>
         <span>
-          {chain.length} agent{chain.length !== 1 ? "s" : ""}, {totalIdeas}{" "}
-          idea{totalIdeas !== 1 ? "s" : ""}
+          {chain.length} agent{chain.length !== 1 ? "s" : ""}, {totalIdeas} idea
+          {totalIdeas !== 1 ? "s" : ""}
         </span>
         <svg
           width="12"
@@ -114,9 +105,7 @@ function PromptsSection({ agentName }: { agentName: string }) {
               <div key={node.agent_id} className="ctx-prompt-node">
                 <div className="ctx-prompt-agent">
                   <RoundAvatar name={node.agent_name} size={18} />
-                  <span className="ctx-prompt-agent-name">
-                    {node.agent_name}
-                  </span>
+                  <span className="ctx-prompt-agent-name">{node.agent_name}</span>
                 </div>
                 {node.ideas.length === 0 ? (
                   <div className="ctx-prompt-empty">no ideas</div>
@@ -127,10 +116,7 @@ function PromptsSection({ agentName }: { agentName: string }) {
                         {positionBadge(entry.position)}
                         {scopeBadge(entry.scope)}
                       </div>
-                      <pre
-                        className="ctx-pre"
-                        style={{ maxHeight: 150, overflow: "auto" }}
-                      >
+                      <pre className="ctx-pre" style={{ maxHeight: 150, overflow: "auto" }}>
                         {entry.content}
                       </pre>
                     </div>
@@ -195,8 +181,7 @@ function IdeasSection({ agentName }: { agentName: string }) {
             const id = item.id || item.key;
             const isExpanded = expandedId === id;
             const content = item.content || "";
-            const preview =
-              content.length > 120 ? content.slice(0, 120) + "\u2026" : content;
+            const preview = content.length > 120 ? content.slice(0, 120) + "\u2026" : content;
 
             return (
               <div
@@ -205,12 +190,8 @@ function IdeasSection({ agentName }: { agentName: string }) {
                 onClick={() => setExpandedId(isExpanded ? null : id)}
                 style={{ cursor: content.length > 120 ? "pointer" : "default" }}
               >
-                <span className="ctx-idea-key">
-                  {item.key || item.title || "idea"}
-                </span>
-                <span className="ctx-idea-content">
-                  {isExpanded ? content : preview}
-                </span>
+                <span className="ctx-idea-key">{item.key || item.title || "idea"}</span>
+                <span className="ctx-idea-content">{isExpanded ? content : preview}</span>
               </div>
             );
           })}

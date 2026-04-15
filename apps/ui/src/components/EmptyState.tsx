@@ -4,15 +4,18 @@ interface EmptyStateProps {
   action?: React.ReactNode;
 }
 
-export default function EmptyState({
-  title,
-  description,
-  action,
-}: EmptyStateProps) {
+export default function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-state-icon">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 48 48"
+          fill="none"
+          stroke="var(--text-muted)"
+          strokeWidth="1.5"
+        >
           <rect x="8" y="8" width="32" height="32" rx="4" />
           <path d="M18 20h12M18 26h8" />
         </svg>

@@ -80,17 +80,17 @@ export default function IdeasPage() {
         limit: 100,
       })
       .then((d) => {
-        setGraphData({ nodes: (d.nodes || []) as GraphNode[], edges: (d.edges || []) as GraphEdge[] });
+        setGraphData({
+          nodes: (d.nodes || []) as GraphNode[],
+          edges: (d.edges || []) as GraphEdge[],
+        });
         setGraphLoading(false);
       })
       .catch(() => setGraphLoading(false));
   }, [view, selectedAgent]);
 
   // Filter by category.
-  const filtered =
-    category === "all"
-      ? ideas
-      : ideas.filter((m) => m.category === category);
+  const filtered = category === "all" ? ideas : ideas.filter((m) => m.category === category);
 
   // Stats.
   const catCounts = ideas.reduce<Record<string, number>>((acc, m) => {
@@ -127,9 +127,7 @@ export default function IdeasPage() {
 
   // Find edges for selected node.
   const selectedEdges = selected
-    ? graphData.edges.filter(
-        (e) => e.source === selected.id || e.target === selected.id,
-      )
+    ? graphData.edges.filter((e) => e.source === selected.id || e.target === selected.id)
     : [];
 
   // Resolve edge targets to keys.
@@ -138,13 +136,31 @@ export default function IdeasPage() {
   return (
     <div className="page-content ideas-page">
       {/* View toggle — hero removed, title in ContentTopBar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 0",
+        }}
+      >
         <span style={{ fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
-          {ideas.length} ideas{selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
+          {ideas.length} ideas
+          {selectedAgent ? ` · ${selectedAgent.display_name || selectedAgent.name}` : ""}
         </span>
         <div className="ideas-view-toggle">
-          <button className={`view-btn ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>List</button>
-          <button className={`view-btn ${view === "graph" ? "active" : ""}`} onClick={() => setView("graph")}>Graph</button>
+          <button
+            className={`view-btn ${view === "list" ? "active" : ""}`}
+            onClick={() => setView("list")}
+          >
+            List
+          </button>
+          <button
+            className={`view-btn ${view === "graph" ? "active" : ""}`}
+            onClick={() => setView("graph")}
+          >
+            Graph
+          </button>
         </div>
       </div>
 
@@ -211,8 +227,7 @@ export default function IdeasPage() {
                         <span
                           className="idea-category"
                           style={{
-                            color:
-                              CATEGORY_COLORS[m.category] || "var(--text-muted)",
+                            color: CATEGORY_COLORS[m.category] || "var(--text-muted)",
                           }}
                         >
                           {m.category}
@@ -220,16 +235,12 @@ export default function IdeasPage() {
                       </div>
                     </div>
                     <div className="idea-content">
-                      {m.content.length > 200
-                        ? m.content.slice(0, 200) + "..."
-                        : m.content}
+                      {m.content.length > 200 ? m.content.slice(0, 200) + "..." : m.content}
                     </div>
                     <div className="idea-meta">
                       {m.agent_id && <span>Agent: {m.agent_id}</span>}
                       <span>{timeAgo(m.created_at)}</span>
-                      {m.score != null && m.score < 1 && (
-                        <span>Score: {m.score.toFixed(2)}</span>
-                      )}
+                      {m.score != null && m.score < 1 && <span>Score: {m.score.toFixed(2)}</span>}
                     </div>
                   </div>
                 ))}
@@ -255,10 +266,7 @@ export default function IdeasPage() {
                     .filter(([k]) => catCounts[k])
                     .map(([cat, color]) => (
                       <span key={cat} className="legend-item">
-                        <span
-                          className="legend-dot"
-                          style={{ background: color }}
-                        />
+                        <span className="legend-dot" style={{ background: color }} />
                         {cat}
                       </span>
                     ))}
@@ -273,10 +281,7 @@ export default function IdeasPage() {
           <div className="ideas-detail">
             <div className="detail-header">
               <code className="detail-key">{selected.key}</code>
-              <button
-                className="detail-close"
-                onClick={() => setSelected(null)}
-              >
+              <button className="detail-close" onClick={() => setSelected(null)}>
                 ×
               </button>
             </div>
@@ -284,8 +289,7 @@ export default function IdeasPage() {
             <span
               className="idea-category"
               style={{
-                color:
-                  CATEGORY_COLORS[selected.category] || "var(--text-muted)",
+                color: CATEGORY_COLORS[selected.category] || "var(--text-muted)",
               }}
             >
               {selected.category}
@@ -309,16 +313,10 @@ export default function IdeasPage() {
                         if (otherNode) handleGraphSelect(otherNode);
                       }}
                     >
-                      <span className="edge-direction">
-                        {isSource ? "→" : "←"}
-                      </span>
-                      <code className="edge-target">
-                        {otherNode?.key || otherId.slice(0, 8)}
-                      </code>
+                      <span className="edge-direction">{isSource ? "→" : "←"}</span>
+                      <code className="edge-target">{otherNode?.key || otherId.slice(0, 8)}</code>
                       <span className="edge-relation">{e.relation}</span>
-                      <span className="edge-strength">
-                        {(e.strength * 100).toFixed(0)}%
-                      </span>
+                      <span className="edge-strength">{(e.strength * 100).toFixed(0)}%</span>
                     </div>
                   );
                 })}
@@ -352,10 +350,7 @@ export default function IdeasPage() {
               </div>
             </div>
 
-            <button
-              className="detail-delete"
-              onClick={() => handleDelete(selected.id)}
-            >
+            <button className="detail-delete" onClick={() => handleDelete(selected.id)}>
               Delete idea
             </button>
           </div>

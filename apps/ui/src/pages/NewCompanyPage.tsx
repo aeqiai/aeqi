@@ -40,8 +40,25 @@ export default function NewCompanyPage() {
   return (
     <div className="new-co-page">
       <div className="new-co-container new-co-animate">
-        <a className="new-co-back" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 3L4.5 7l4 4" /></svg>
+        <a
+          className="new-co-back"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/");
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            <path d="M8.5 3L4.5 7l4 4" />
+          </svg>
           Back
         </a>
 
@@ -62,14 +79,28 @@ export default function NewCompanyPage() {
             }}
           />
           <div className="new-co-identity">
-            <div className="new-co-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
+            <div
+              className="new-co-avatar"
+              onClick={() => fileRef.current?.click()}
+              title="Upload logo"
+            >
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="new-co-avatar-img" />
               ) : (
                 <BlockAvatar name={name || "W"} size={56} />
               )}
               <span className="new-co-avatar-overlay">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" /></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" />
+                </svg>
               </span>
             </div>
             <div className="new-co-identity-fields">
@@ -78,7 +109,9 @@ export default function NewCompanyPage() {
                 placeholder="Company name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) handleCreate(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && name.trim()) handleCreate();
+                }}
                 autoFocus
               />
               <input
@@ -86,7 +119,9 @@ export default function NewCompanyPage() {
                 placeholder="Add a tagline..."
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) handleCreate(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && name.trim()) handleCreate();
+                }}
               />
             </div>
           </div>
@@ -99,8 +134,12 @@ export default function NewCompanyPage() {
           onClick={handleCreate}
           disabled={!name.trim() || creating}
         >
-          {creating ? "Creating..." : (
-            <>Create company <kbd className="new-co-kbd">↵</kbd></>
+          {creating ? (
+            "Creating..."
+          ) : (
+            <>
+              Create company <kbd className="new-co-kbd">↵</kbd>
+            </>
           )}
         </button>
 

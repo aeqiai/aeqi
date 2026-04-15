@@ -82,7 +82,14 @@ export default function EntitiesPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 560 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 24,
+        }}
+      >
         <h2 style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 600, margin: 0 }}>
           Companies
         </h2>
@@ -120,11 +127,25 @@ export default function EntitiesPage() {
       )}
 
       {loading ? (
-        <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0", textAlign: "center" }}>
+        <div
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            padding: "40px 0",
+            textAlign: "center",
+          }}
+        >
           Loading companies...
         </div>
       ) : entities.length === 0 ? (
-        <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0", textAlign: "center" }}>
+        <div
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            padding: "40px 0",
+            textAlign: "center",
+          }}
+        >
           No companies yet. Create your first company to get started.
         </div>
       ) : (
@@ -148,7 +169,8 @@ export default function EntitiesPage() {
                 transition: "background 0.1s",
               }}
               onMouseEnter={(e) => {
-                if (entity.name !== activeCompany) e.currentTarget.style.background = "var(--bg-surface)";
+                if (entity.name !== activeCompany)
+                  e.currentTarget.style.background = "var(--bg-surface)";
               }}
               onMouseLeave={(e) => {
                 if (entity.name !== activeCompany) e.currentTarget.style.background = "transparent";
@@ -156,11 +178,29 @@ export default function EntitiesPage() {
             >
               <BlockAvatar name={entity.name} size={32} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {entity.name}
                 </div>
                 {entity.tagline && (
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      marginTop: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {entity.tagline}
                   </div>
                 )}
@@ -172,7 +212,17 @@ export default function EntitiesPage() {
                   </span>
                 )}
                 {entity.name === activeCompany && (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ color: "var(--text-secondary)" }} aria-label="Selected">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    style={{ color: "var(--text-secondary)" }}
+                    aria-label="Selected"
+                  >
                     <path d="M3 7l3 3 5-5.5" />
                   </svg>
                 )}

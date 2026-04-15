@@ -61,8 +61,25 @@ export default function AppLayout() {
 
   if (!initialLoaded) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg-primary, #fafafa)" }}>
-        <span style={{ fontSize: 32, fontWeight: 700, color: "rgba(0,0,0,0.15)", animation: "ae-pulse 1.6s ease-in-out infinite" }}>æ</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          background: "var(--bg-primary, #fafafa)",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            color: "rgba(0,0,0,0.15)",
+            animation: "ae-pulse 1.6s ease-in-out infinite",
+          }}
+        >
+          æ
+        </span>
         <style>{`@keyframes ae-pulse { 0%, 100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }`}</style>
       </div>
     );
@@ -77,96 +94,520 @@ export default function AppLayout() {
           {appMode === "platform" ? (
             <>
               <nav className="sidebar-nav">
-                <a className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`} href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 7.5l5-4.5 5 4.5" /><path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" /></svg>
+                <a
+                  className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`}
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/");
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  >
+                    <path d="M2 7.5l5-4.5 5 4.5" />
+                    <path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" />
+                  </svg>
                   <span className="sidebar-nav-label">Home</span>
                 </a>
-                <a className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`} href="/market" onClick={(e) => { e.preventDefault(); navigate("/market"); }}>
-                  <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, width: 22, textAlign: "center" as const, flexShrink: 0, display: "inline-flex", justifyContent: "center" }}>æ</span>
+                <a
+                  className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`}
+                  href="/market"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/market");
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      width: 22,
+                      textAlign: "center" as const,
+                      flexShrink: 0,
+                      display: "inline-flex",
+                      justifyContent: "center",
+                    }}
+                  >
+                    æ
+                  </span>
                   <span className="sidebar-nav-label">Market</span>
                 </a>
               </nav>
               <nav className="sidebar-nav">
-                <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
+                <a
+                  className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`}
+                  href="/company"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/company");
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  >
+                    <rect x="2" y="4" width="10" height="8" rx="1" />
+                    <path d="M5 4V3a2 2 0 014 0v1" />
+                  </svg>
                   <span className="sidebar-nav-label">Company</span>
-                  <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/companies"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New company">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                  <span
+                    className="sidebar-nav-action"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate("/companies");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                    }}
+                    title="New company"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
+                      <path d="M6 2.5v7M2.5 6h7" />
+                    </svg>
                   </span>
                 </a>
-                <a className={`sidebar-nav-item ${isActive("/treasury") ? "active" : ""}`} href="/treasury" onClick={(e) => { e.preventDefault(); navigate("/treasury"); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 5l5-2.5L12 5" /><path d="M3 5.5v5M5.5 5.5v5M8.5 5.5v5M11 5.5v5" /><path d="M1.5 10.5h11" /><path d="M1 12h12" /></svg>
+                <a
+                  className={`sidebar-nav-item ${isActive("/treasury") ? "active" : ""}`}
+                  href="/treasury"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/treasury");
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  >
+                    <path d="M2 5l5-2.5L12 5" />
+                    <path d="M3 5.5v5M5.5 5.5v5M8.5 5.5v5M11 5.5v5" />
+                    <path d="M1.5 10.5h11" />
+                    <path d="M1 12h12" />
+                  </svg>
                   <span className="sidebar-nav-label">Treasury</span>
-                  <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/treasury"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New transaction">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                  <span
+                    className="sidebar-nav-action"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate("/treasury");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                    }}
+                    title="New transaction"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
+                      <path d="M6 2.5v7M2.5 6h7" />
+                    </svg>
                   </span>
                 </a>
-                <a className={`sidebar-nav-item ${isActive("/drive") ? "active" : ""}`} href="/drive" onClick={(e) => { e.preventDefault(); navigate("/drive"); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" /></svg>
+                <a
+                  className={`sidebar-nav-item ${isActive("/drive") ? "active" : ""}`}
+                  href="/drive"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/drive");
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  >
+                    <path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" />
+                  </svg>
                   <span className="sidebar-nav-label">Drive</span>
-                  <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/drive"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="Upload file">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                  <span
+                    className="sidebar-nav-action"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate("/drive");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                    }}
+                    title="Upload file"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
+                      <path d="M6 2.5v7M2.5 6h7" />
+                    </svg>
                   </span>
                 </a>
-                <a className={`sidebar-nav-item ${isActive("/apps") ? "active" : ""}`} href="/apps" onClick={(e) => { e.preventDefault(); navigate("/apps"); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="4" height="4" rx="0.5" /><rect x="8" y="2" width="4" height="4" rx="0.5" /><rect x="2" y="8" width="4" height="4" rx="0.5" /><rect x="8" y="8" width="4" height="4" rx="0.5" /></svg>
+                <a
+                  className={`sidebar-nav-item ${isActive("/apps") ? "active" : ""}`}
+                  href="/apps"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/apps");
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  >
+                    <rect x="2" y="2" width="4" height="4" rx="0.5" />
+                    <rect x="8" y="2" width="4" height="4" rx="0.5" />
+                    <rect x="2" y="8" width="4" height="4" rx="0.5" />
+                    <rect x="8" y="8" width="4" height="4" rx="0.5" />
+                  </svg>
                   <span className="sidebar-nav-label">Apps</span>
-                  <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/apps"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New app">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                  <span
+                    className="sidebar-nav-action"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate("/apps");
+                      setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                    }}
+                    title="New app"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
+                      <path d="M6 2.5v7M2.5 6h7" />
+                    </svg>
                   </span>
                 </a>
               </nav>
             </>
           ) : (
             <nav className="sidebar-nav">
-              <a className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`} href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 7.5l5-4.5 5 4.5" /><path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" /></svg>
+              <a
+                className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`}
+                href="/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                >
+                  <path d="M2 7.5l5-4.5 5 4.5" />
+                  <path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" />
+                </svg>
                 <span className="sidebar-nav-label">Home</span>
               </a>
-              <a className={`sidebar-nav-item ${isActive("/companies") ? "active" : ""}`} href="/companies" onClick={(e) => { e.preventDefault(); navigate("/companies"); }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
+              <a
+                className={`sidebar-nav-item ${isActive("/companies") ? "active" : ""}`}
+                href="/companies"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/companies");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                >
+                  <rect x="2" y="4" width="10" height="8" rx="1" />
+                  <path d="M5 4V3a2 2 0 014 0v1" />
+                </svg>
                 <span className="sidebar-nav-label">Companies</span>
-                <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/new"); }} title="New company">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+                <span
+                  className="sidebar-nav-action"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate("/new");
+                  }}
+                  title="New company"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M6 2.5v7M2.5 6h7" />
+                  </svg>
                 </span>
               </a>
-              <a className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`} href="/company" onClick={(e) => { e.preventDefault(); navigate("/company"); }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>
+              <a
+                className={`sidebar-nav-item ${isActive("/company") ? "active" : ""}`}
+                href="/company"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/company");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                >
+                  <rect x="2" y="4" width="10" height="8" rx="1" />
+                  <path d="M5 4V3a2 2 0 014 0v1" />
+                </svg>
                 <span className="sidebar-nav-label">Company</span>
               </a>
             </nav>
           )}
           <nav className="sidebar-nav">
-            <a className={`sidebar-nav-item ${isActive("/agents") ? "active" : ""}`} href="/agents" onClick={(e) => { e.preventDefault(); navigate("/agents"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="7" cy="5" r="2.5" /><path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" /></svg>
+            <a
+              className={`sidebar-nav-item ${isActive("/agents") ? "active" : ""}`}
+              href="/agents"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/agents");
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              >
+                <circle cx="7" cy="5" r="2.5" />
+                <path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+              </svg>
               <span className="sidebar-nav-label">Agents</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/agents"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New agent">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              <span
+                className="sidebar-nav-action"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate("/agents");
+                  setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                }}
+                title="New agent"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M6 2.5v7M2.5 6h7" />
+                </svg>
               </span>
             </a>
-            <a className={`sidebar-nav-item ${isActive("/events") ? "active" : ""}`} href="/events" onClick={(e) => { e.preventDefault(); navigate("/events"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="10" height="10" rx="1.5" /><path d="M2 8.5h3l1 1.5h2l1-1.5h3" /></svg>
+            <a
+              className={`sidebar-nav-item ${isActive("/events") ? "active" : ""}`}
+              href="/events"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/events");
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              >
+                <rect x="2" y="2" width="10" height="10" rx="1.5" />
+                <path d="M2 8.5h3l1 1.5h2l1-1.5h3" />
+              </svg>
               <span className="sidebar-nav-label">Events</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/events"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New event">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              <span
+                className="sidebar-nav-action"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate("/events");
+                  setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                }}
+                title="New event"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M6 2.5v7M2.5 6h7" />
+                </svg>
               </span>
             </a>
-            <a className={`sidebar-nav-item ${isActive("/quests") ? "active" : ""}`} href="/quests" onClick={(e) => { e.preventDefault(); navigate("/quests"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M4 3h8M4 7h8M4 11h6M2 3v0.4.0v0M2 11v0" strokeLinecap="round" /></svg>
+            <a
+              className={`sidebar-nav-item ${isActive("/quests") ? "active" : ""}`}
+              href="/quests"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/quests");
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              >
+                <path d="M4 3h8M4 7h8M4 11h6M2 3v0.4.0v0M2 11v0" strokeLinecap="round" />
+              </svg>
               <span className="sidebar-nav-label">Quests</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/quests"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New quest">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              <span
+                className="sidebar-nav-action"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate("/quests");
+                  setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                }}
+                title="New quest"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M6 2.5v7M2.5 6h7" />
+                </svg>
               </span>
             </a>
-            <a className={`sidebar-nav-item ${isActive("/ideas") ? "active" : ""}`} href="/ideas" onClick={(e) => { e.preventDefault(); navigate("/ideas"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4" strokeLinecap="round" /></svg>
+            <a
+              className={`sidebar-nav-item ${isActive("/ideas") ? "active" : ""}`}
+              href="/ideas"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/ideas");
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              >
+                <path
+                  d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
               <span className="sidebar-nav-label">Ideas</span>
-              <span className="sidebar-nav-action" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/ideas"); setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50); }} title="New idea">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+              <span
+                className="sidebar-nav-action"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate("/ideas");
+                  setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+                }}
+                title="New idea"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M6 2.5v7M2.5 6h7" />
+                </svg>
               </span>
             </a>
-            <a className={`sidebar-nav-item ${isActive("/sessions") ? "active" : ""}`} href="/sessions" onClick={(e) => { e.preventDefault(); navigate("/sessions"); }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2.5 3.5h9v6h-5l-2.5 2v-2h-1.5z" /></svg>
+            <a
+              className={`sidebar-nav-item ${isActive("/sessions") ? "active" : ""}`}
+              href="/sessions"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/sessions");
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              >
+                <path d="M2.5 3.5h9v6h-5l-2.5 2v-2h-1.5z" />
+              </svg>
               <span className="sidebar-nav-label">Sessions</span>
             </a>
           </nav>
@@ -175,14 +616,23 @@ export default function AppLayout() {
           </div>
           {appMode === "platform" && (
             <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
-              <a className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`} href="/account" onClick={(e) => { e.preventDefault(); navigate("/account"); }}>
+              <a
+                className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`}
+                href="/account"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/account");
+                }}
+              >
                 <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
                 <span className="sidebar-nav-label">Account</span>
               </a>
             </nav>
           )}
           <div className="sidebar-footer">
-            <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">Docs</a>
+            <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">
+              Docs
+            </a>
             <span className="sidebar-footer-dot">·</span>
             <span className="sidebar-footer-version">v{__APP_VERSION__}</span>
           </div>

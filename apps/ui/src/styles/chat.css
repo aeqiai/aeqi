@@ -925,7 +925,10 @@
   cursor: pointer;
   padding: 6px 10px;
   border-radius: 6px;
-  transition: color 0.1s, background 0.1s, border-color 0.1s;
+  transition:
+    color 0.1s,
+    background 0.1s,
+    border-color 0.1s;
 }
 .asv-session-new-btn:hover {
   color: var(--text-primary);
@@ -943,7 +946,7 @@
   gap: 2px;
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--border-faint, rgba(0,0,0,.04));
+  border-bottom: 1px solid var(--border-faint, rgba(0, 0, 0, 0.04));
   transition: background 0.1s;
 }
 .asv-session-item:hover {
@@ -1107,8 +1110,14 @@
 }
 
 @keyframes asv-enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .asv-msg-avatar {
@@ -1394,7 +1403,10 @@
   color: var(--text-muted);
   cursor: pointer;
   opacity: 1;
-  transition: color 0.1s, border-color 0.1s, background 0.1s;
+  transition:
+    color 0.1s,
+    border-color 0.1s,
+    background 0.1s;
 }
 .asv-msg-action-btn:hover,
 .asv-msg-actions .asv-copy:hover {
@@ -1637,7 +1649,9 @@
   animation: asv-spin 1s linear infinite;
 }
 @keyframes asv-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .asv-tool-live-item.step {
@@ -1709,8 +1723,15 @@
   flex-shrink: 0;
 }
 @keyframes asv-think-pulse {
-  0%, 100% { opacity: 0.2; transform: scale(0.8); }
-  50% { opacity: 0.8; transform: scale(1.2); }
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2);
+  }
 }
 .asv-thinking-text {
   font-family: var(--font-mono);
@@ -1904,7 +1925,10 @@
   color: var(--text-muted);
   cursor: pointer;
 }
-.asv-tag-btn:hover { color: var(--text-secondary); border-color: var(--border-hover); }
+.asv-tag-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-hover);
+}
 .asv-tag-btn--active {
   background: var(--text-primary);
   color: var(--bg-base);
@@ -1960,7 +1984,9 @@
   border: 1.5px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
   padding: 14px 16px 8px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   position: relative;
 }
 
@@ -1974,7 +2000,7 @@
   border-color: var(--border);
 }
 .asv-composer-busy::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -1px;
   left: 24px;
@@ -1985,11 +2011,26 @@
   animation: asv-stream-scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 @keyframes asv-stream-scan {
-  0%    { transform: scaleX(0); opacity: 0; transform-origin: left; }
-  40%   { transform: scaleX(1); opacity: 1; }
-  40.1% { transform-origin: right; }
-  80%   { transform: scaleX(0); opacity: 0; }
-  100%  { transform: scaleX(0); opacity: 0; }
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+    transform-origin: left;
+  }
+  40% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  40.1% {
+    transform-origin: right;
+  }
+  80% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
 }
 
 /* Queued user messages */
@@ -2052,7 +2093,9 @@
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  transition: color 0.1s, background 0.1s;
+  transition:
+    color 0.1s,
+    background 0.1s;
   opacity: 0.6;
 }
 .asv-attach-btn:hover {
@@ -2143,7 +2186,10 @@
   font-size: 12px;
   font-weight: 500;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, transform 0.1s ease;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.1s ease;
 }
 
 .asv-send.ready {

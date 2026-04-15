@@ -121,7 +121,9 @@
   font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
   margin-bottom: -1px;
 }
 .q-filter-tab:hover {
@@ -175,7 +177,9 @@
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   outline: none;
-  transition: border-color var(--transition-fast), width var(--transition-smooth);
+  transition:
+    border-color var(--transition-fast),
+    width var(--transition-smooth);
 }
 .q-search:focus {
   border-color: var(--border-hover);
@@ -539,7 +543,9 @@
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
 

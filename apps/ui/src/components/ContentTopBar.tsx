@@ -29,9 +29,7 @@ export default function ContentTopBar() {
     <div className="content-topbar">
       <div className="content-topbar-left">
         <span className="content-topbar-title">{config.title}</span>
-        {activeAgents > 0 && (
-          <span className="content-topbar-meta">{activeAgents} active</span>
-        )}
+        {activeAgents > 0 && <span className="content-topbar-meta">{activeAgents} active</span>}
       </div>
       <div className="content-topbar-right">
         {config.create && (
@@ -39,7 +37,15 @@ export default function ContentTopBar() {
             className="content-topbar-btn"
             onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <path d="M6 2.5v7M2.5 6h7" />
             </svg>
             {config.create.label}

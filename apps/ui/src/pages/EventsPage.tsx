@@ -34,7 +34,7 @@ export default function EventsPage() {
   let filtered = events;
   if (selectedAgent) {
     filtered = filtered.filter(
-      (e) => e.agent === selectedAgent.name || e.agent?.includes(selectedAgent.name)
+      (e) => e.agent === selectedAgent.name || e.agent?.includes(selectedAgent.name),
     );
   }
 
@@ -75,7 +75,16 @@ export default function EventsPage() {
         <div className="events-stream">
           {grouped.map((group) => (
             <div key={group.key}>
-              <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 500, color: "rgba(0,0,0,0.25)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <div
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "rgba(0,0,0,0.25)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
                 {group.label}
               </div>
               {group.events.map((event: any, i: number) => (
@@ -88,9 +97,7 @@ export default function EventsPage() {
                   <span className="event-summary">
                     {event.summary || event.reasoning || event.description || "\u2014"}
                   </span>
-                  {event.quest_id && (
-                    <code className="event-quest-id">{event.quest_id}</code>
-                  )}
+                  {event.quest_id && <code className="event-quest-id">{event.quest_id}</code>}
                 </div>
               ))}
             </div>

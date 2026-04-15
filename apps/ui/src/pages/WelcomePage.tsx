@@ -9,19 +9,124 @@ import "@/styles/welcome.css";
 
 // Same SVGs as sidebar
 const ICONS: Record<string, React.ReactNode> = {
-  agents: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="7" cy="5" r="2.5" /><path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" /></svg>,
-  events: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="10" height="10" rx="1.5" /><path d="M2 8.5h3l1 1.5h2l1-1.5h3" /></svg>,
-  quests: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" /></svg>,
-  ideas: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4" strokeLinecap="round" /></svg>,
-  company: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="4" width="10" height="8" rx="1" /><path d="M5 4V3a2 2 0 014 0v1" /></svg>,
-  drive: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" /></svg>,
-  apps: <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><rect x="2" y="2" width="4" height="4" rx="0.5" /><rect x="8" y="2" width="4" height="4" rx="0.5" /><rect x="2" y="8" width="4" height="4" rx="0.5" /><rect x="8" y="8" width="4" height="4" rx="0.5" /></svg>,
+  agents: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <circle cx="7" cy="5" r="2.5" />
+      <path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+    </svg>
+  ),
+  events: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    >
+      <rect x="2" y="2" width="10" height="10" rx="1.5" />
+      <path d="M2 8.5h3l1 1.5h2l1-1.5h3" />
+    </svg>
+  ),
+  quests: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" />
+    </svg>
+  ),
+  ideas: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <path
+        d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  company: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    >
+      <rect x="2" y="4" width="10" height="8" rx="1" />
+      <path d="M5 4V3a2 2 0 014 0v1" />
+    </svg>
+  ),
+  drive: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    >
+      <path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" />
+    </svg>
+  ),
+  apps: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    >
+      <rect x="2" y="2" width="4" height="4" rx="0.5" />
+      <rect x="8" y="2" width="4" height="4" rx="0.5" />
+      <rect x="2" y="8" width="4" height="4" rx="0.5" />
+      <rect x="8" y="8" width="4" height="4" rx="0.5" />
+    </svg>
+  ),
 };
 
 const PRIMARY_ITEMS = [
-  { key: "agents", name: "Agents", desc: "Autonomous entities that research, plan, implement, and verify.", route: "/agents" },
-  { key: "quests", name: "Quests", desc: "Units of work tracked through your agent pipeline.", route: "/quests" },
-  { key: "events", name: "Events", desc: "Real-time activity stream. Decisions, messages, and approvals.", route: "/events" },
+  {
+    key: "agents",
+    name: "Agents",
+    desc: "Autonomous entities that research, plan, implement, and verify.",
+    route: "/agents",
+  },
+  {
+    key: "quests",
+    name: "Quests",
+    desc: "Units of work tracked through your agent pipeline.",
+    route: "/quests",
+  },
+  {
+    key: "events",
+    name: "Events",
+    desc: "Real-time activity stream. Decisions, messages, and approvals.",
+    route: "/events",
+  },
 ];
 
 const SECONDARY_ITEMS = [
@@ -98,14 +203,28 @@ export default function WelcomePage() {
           }}
         />
         <div className="welcome-identity">
-          <div className="new-co-avatar" onClick={() => fileRef.current?.click()} title="Upload logo">
+          <div
+            className="new-co-avatar"
+            onClick={() => fileRef.current?.click()}
+            title="Upload logo"
+          >
             {avatarUrl ? (
               <img src={avatarUrl} alt="" className="new-co-avatar-img" />
             ) : (
               <BlockAvatar name={displayName} size={56} />
             )}
             <span className="new-co-avatar-overlay">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" /></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" />
+              </svg>
             </span>
           </div>
           <div className="welcome-identity-text">
@@ -117,14 +236,20 @@ export default function WelcomePage() {
                 onBlur={saveName}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") saveName();
-                  if (e.key === "Escape") { setEditingName(false); setNameDraft(activeCompany); }
+                  if (e.key === "Escape") {
+                    setEditingName(false);
+                    setNameDraft(activeCompany);
+                  }
                 }}
                 autoFocus
               />
             ) : (
               <h1
                 className="welcome-name"
-                onClick={() => { setEditingName(true); setNameDraft(activeCompany); }}
+                onClick={() => {
+                  setEditingName(true);
+                  setNameDraft(activeCompany);
+                }}
                 title="Click to rename"
               >
                 {displayName}
@@ -138,14 +263,20 @@ export default function WelcomePage() {
                 onBlur={saveTagline}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") saveTagline();
-                  if (e.key === "Escape") { setEditingTagline(false); setTaglineDraft(tagline); }
+                  if (e.key === "Escape") {
+                    setEditingTagline(false);
+                    setTaglineDraft(tagline);
+                  }
                 }}
                 autoFocus
               />
             ) : (
               <p
                 className="welcome-sub"
-                onClick={() => { setEditingTagline(true); setTaglineDraft(tagline); }}
+                onClick={() => {
+                  setEditingTagline(true);
+                  setTaglineDraft(tagline);
+                }}
                 title="Click to edit"
               >
                 {tagline}
@@ -155,20 +286,30 @@ export default function WelcomePage() {
         </div>
 
         {/* Getting started banner */}
-        <div style={{
-          padding: "16px 20px",
-          background: "rgba(0,0,0,0.02)",
-          borderRadius: 12,
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}>
+        <div
+          style={{
+            padding: "16px 20px",
+            background: "rgba(0,0,0,0.02)",
+            borderRadius: 12,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: "rgba(0,0,0,0.7)", margin: 0 }}>Get started</p>
-            <p style={{ fontSize: 12, color: "rgba(0,0,0,0.35)", margin: "2px 0 0" }}>Create your first agent or assign a quest</p>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "rgba(0,0,0,0.7)", margin: 0 }}>
+              Get started
+            </p>
+            <p style={{ fontSize: 12, color: "rgba(0,0,0,0.35)", margin: "2px 0 0" }}>
+              Create your first agent or assign a quest
+            </p>
           </div>
-          <button className="btn btn-primary" onClick={() => navigate("/agents")} style={{ padding: "6px 16px", fontSize: 12 }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate("/agents")}
+            style={{ padding: "6px 16px", fontSize: 12 }}
+          >
             Hire agent
           </button>
         </div>
@@ -182,7 +323,18 @@ export default function WelcomePage() {
                 <h3>{item.name}</h3>
                 <p>{item.desc}</p>
               </div>
-              <svg className="welcome-card-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 3l4 4-4 4" /></svg>
+              <svg
+                className="welcome-card-arrow"
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <path d="M5 3l4 4-4 4" />
+              </svg>
             </div>
           ))}
         </div>
@@ -206,9 +358,24 @@ export default function WelcomePage() {
         <div className="welcome-footer">
           <p>
             By using aeqi.ai you agree to our{" "}
-            <a href="https://aeqi.ai/terms" className="welcome-link" target="_blank" rel="noopener noreferrer">Terms of Service</a>
-            {" "}and{" "}
-            <a href="https://aeqi.ai/privacy" className="welcome-link" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            <a
+              href="https://aeqi.ai/terms"
+              className="welcome-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://aeqi.ai/privacy"
+              className="welcome-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Privacy Policy
+            </a>
+            .
           </p>
         </div>
       </div>

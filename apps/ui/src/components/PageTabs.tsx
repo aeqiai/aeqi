@@ -14,7 +14,10 @@ interface PageTabsProps {
 export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
   const navigate = useNavigate();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
-  const active = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : (defaultTab || tabs[0]?.id || "");
+  const active =
+    currentTab && tabs.some((t) => t.id === currentTab)
+      ? currentTab
+      : defaultTab || tabs[0]?.id || "";
 
   const setTab = (id: string) => {
     if (!agentId) return;

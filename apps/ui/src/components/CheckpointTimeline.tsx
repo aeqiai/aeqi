@@ -30,9 +30,7 @@ export default function CheckpointTimeline({ checkpoints }: CheckpointTimelinePr
             <div className="checkpoint-header">
               <span className="checkpoint-worker">{cp.agent_name}</span>
             </div>
-            {cp.progress && (
-              <p className="checkpoint-summary">{cp.progress}</p>
-            )}
+            {cp.progress && <p className="checkpoint-summary">{cp.progress}</p>}
             <div className="checkpoint-meta">
               {cp.cost_usd != null && (
                 <span className="checkpoint-cost">${cp.cost_usd.toFixed(2)}</span>

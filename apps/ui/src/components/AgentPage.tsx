@@ -34,27 +34,21 @@ export default function AgentPage({ agentId }: { agentId: string }) {
   const navigate = useNavigate();
   const { tab: routeTab, itemId } = useParams<{ tab?: string; itemId?: string }>();
   const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
-  const sessionId = activeTab === "sessions" ? (itemId || null) : null;
+  const sessionId = activeTab === "sessions" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const displayName = agent?.display_name || agent?.name || agentId;
-  const parent = agent?.parent_id
-    ? agents.find((a) => a.id === agent.parent_id)
-    : null;
+  const parent = agent?.parent_id ? agents.find((a) => a.id === agent.parent_id) : null;
 
   const resolvedAgentId = agent?.id || agentId;
-
 
   return (
     <>
       {/* Breadcrumb header */}
       <div className="content-topbar">
         <div className="content-topbar-left">
-          <span
-            className="content-topbar-breadcrumb"
-            onClick={() => navigate("/agents")}
-          >
+          <span className="content-topbar-breadcrumb" onClick={() => navigate("/agents")}>
             Agents
           </span>
           <span className="content-topbar-sep">/</span>
@@ -88,7 +82,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
         </div>
       )}
 
-
       {activeTab === "settings" && (
         <div className="agent-page-settings">
           {/* Model */}
@@ -118,7 +111,21 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Tools</h3>
             <div className="agent-tools-grid">
-              {["shell", "read_file", "write_file", "edit_file", "grep", "glob", "ideas", "quests", "agents", "events", "code", "web_search", "web_fetch"].map((tool) => {
+              {[
+                "shell",
+                "read_file",
+                "write_file",
+                "edit_file",
+                "grep",
+                "glob",
+                "ideas",
+                "quests",
+                "agents",
+                "events",
+                "code",
+                "web_search",
+                "web_fetch",
+              ].map((tool) => {
                 const denied = agent?.tool_deny?.includes(tool) ?? false;
                 return (
                   <label key={tool} className="agent-tool-toggle">
@@ -224,7 +231,9 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               <div className="agent-settings-field">
                 <span className="agent-settings-label">Status</span>
                 <span className="agent-settings-value">
-                  <span className={`agent-settings-status-dot ${agent?.status === "active" ? "live" : ""}`} />
+                  <span
+                    className={`agent-settings-status-dot ${agent?.status === "active" ? "live" : ""}`}
+                  />
                   {agent?.status || "unknown"}
                 </span>
               </div>
@@ -244,13 +253,19 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               )}
               <div className="agent-settings-field">
                 <span className="agent-settings-label">ID</span>
-                <span className="agent-settings-value agent-settings-mono">{agent?.id || agentId}</span>
+                <span className="agent-settings-value agent-settings-mono">
+                  {agent?.id || agentId}
+                </span>
               </div>
               {agent?.created_at && (
                 <div className="agent-settings-field">
                   <span className="agent-settings-label">Created</span>
                   <span className="agent-settings-value">
-                    {new Date(agent.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                    {new Date(agent.created_at).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </span>
                 </div>
               )}

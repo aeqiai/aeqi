@@ -38,8 +38,17 @@ interface AuthState {
 
   fetchAuthMode: () => Promise<void>;
   login: (secret: string) => Promise<boolean>;
-  loginWithEmail: (email: string, password: string) => Promise<"ok" | "unverified" | "2fa" | "totp" | "error">;
-  signup: (email: string, password: string, name: string, inviteCode?: string, template?: string) => Promise<"verified" | "pending" | "error">;
+  loginWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<"ok" | "unverified" | "2fa" | "totp" | "error">;
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    inviteCode?: string,
+    template?: string,
+  ) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
   verify2fa: (email: string, code: string) => Promise<boolean>;
@@ -157,7 +166,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signup: async (email: string, password: string, name: string, inviteCode?: string, template?: string) => {
+  signup: async (
+    email: string,
+    password: string,
+    name: string,
+    inviteCode?: string,
+    template?: string,
+  ) => {
     set({ loading: true, error: null });
     try {
       clearSessionData();
@@ -168,7 +183,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
           localStorage.setItem("aeqi_pending_email", email);
-          set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false, pendingEmail: email });
+          set({
+            token: resp.token,
+            user: (resp.user as User | undefined) || null,
+            loading: false,
+            pendingEmail: email,
+          });
         } else {
           set({ loading: false, pendingEmail: email });
         }
@@ -250,7 +270,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         clearSessionData();
         localStorage.setItem("aeqi_token", (resp as Record<string, unknown>).token as string);
         const user = ((resp as Record<string, unknown>).user as User | undefined) || null;
-        set({ token: (resp as Record<string, unknown>).token as string, user, loading: false, pending2faEmail: null });
+        set({
+          token: (resp as Record<string, unknown>).token as string,
+          user,
+          loading: false,
+          pending2faEmail: null,
+        });
         applyCompany(user?.companies);
         return true;
       }
@@ -277,10 +302,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem("aeqi_token", token);
     set({ token });
     // Fetch user profile to get companies — OAuth doesn't return user inline.
-    get().fetchMe().then(() => {
-      const user = get().user;
-      if (user?.companies) applyCompany(user.companies);
-    });
+    get()
+      .fetchMe()
+      .then(() => {
+        const user = get().user;
+        if (user?.companies) applyCompany(user.companies);
+      });
   },
 
   fetchMe: async () => {
@@ -297,7 +324,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem("aeqi_app_mode");
     localStorage.removeItem("aeqi_auth_mode");
     useUIStore.getState().setActiveCompany("");
-    set({ token: null, user: null, pendingEmail: null, pending2faEmail: null, appMode: null, authMode: null, authModeLoaded: false });
+    set({
+      token: null,
+      user: null,
+      pendingEmail: null,
+      pending2faEmail: null,
+      appMode: null,
+      authMode: null,
+      authModeLoaded: false,
+    });
   },
 
   isAuthenticated: () => {
@@ -311,5 +346,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     return !user.companies || user.companies.length === 0;
   },
-
 }));

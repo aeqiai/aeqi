@@ -23,13 +23,25 @@ function PriorityIcon({ priority }: { priority: QuestPriority }) {
   if (priority === "high")
     return (
       <svg className="q-priority-icon q-priority-high" viewBox="0 0 16 16" fill="none">
-        <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M4 10l4-4 4 4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   if (priority === "low")
     return (
       <svg className="q-priority-icon q-priority-low" viewBox="0 0 16 16" fill="none">
-        <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M4 6l4 4 4-4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   // normal — horizontal bars
@@ -124,7 +136,12 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
   const priorities: QuestPriority[] = ["critical", "high", "normal", "low"];
 
   return (
-    <div className="q-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className="q-modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="q-modal" onKeyDown={handleKeyDown}>
         <div className="q-modal-header">New Quest</div>
 
@@ -233,14 +250,14 @@ function QuestRow({ quest }: { quest: Quest }) {
       {quest.labels && quest.labels.length > 0 && (
         <div className="q-row-labels">
           {quest.labels.map((l) => (
-            <span key={l} className="q-label">{l}</span>
+            <span key={l} className="q-label">
+              {l}
+            </span>
           ))}
         </div>
       )}
       <div className="q-row-spacer" />
-      {quest.agent_id && (
-        <div className="q-row-assignee">{quest.agent_id}</div>
-      )}
+      {quest.agent_id && <div className="q-row-assignee">{quest.agent_id}</div>}
       <div className="q-row-time">{timeAgo(quest.updated_at || quest.created_at)}</div>
     </div>
   );
@@ -257,7 +274,13 @@ function QuestGroupSection({ group, defaultOpen }: { group: QuestGroup; defaultO
     <div className="q-group">
       <button className="q-group-header" onClick={() => setOpen((v) => !v)} type="button">
         <svg className={`q-group-chevron${open ? " open" : ""}`} viewBox="0 0 16 16" fill="none">
-          <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M6 4l4 4-4 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
         <StatusDot status={group.status} />
         <span className="q-group-label">{group.label}</span>
@@ -319,20 +342,17 @@ export default function QuestsPage() {
 
   // Filter
   const filtered = useMemo(() => {
-    let result = (quests as unknown as Quest[]);
+    let result = quests as unknown as Quest[];
 
     const effectiveAgent = agentFilter || (selectedAgent ? selectedAgent.name : "");
     if (effectiveAgent) {
-      result = result.filter(
-        (q) => q.agent_id === effectiveAgent,
-      );
+      result = result.filter((q) => q.agent_id === effectiveAgent);
     }
 
     if (search.trim()) {
       const term = search.toLowerCase();
-      result = result.filter((q) =>
-        q.subject?.toLowerCase().includes(term) ||
-        q.id?.toLowerCase().includes(term),
+      result = result.filter(
+        (q) => q.subject?.toLowerCase().includes(term) || q.id?.toLowerCase().includes(term),
       );
     }
 
@@ -380,13 +400,15 @@ export default function QuestsPage() {
   }, [filtered]);
 
   const totalActive = useMemo(
-    () => ((quests as unknown as Quest[])).filter((q) => q.status !== "done" && q.status !== "cancelled").length,
+    () =>
+      (quests as unknown as Quest[]).filter((q) => q.status !== "done" && q.status !== "cancelled")
+        .length,
     [quests],
   );
 
   // Stats
   const stats = useMemo(() => {
-    const all = (quests as unknown as Quest[]);
+    const all = quests as unknown as Quest[];
     const inProgress = all.filter((q) => q.status === "in_progress").length;
     const pending = all.filter((q) => q.status === "pending").length;
     const blocked = all.filter((q) => q.status === "blocked").length;
@@ -453,7 +475,12 @@ export default function QuestsPage() {
               <div className="q-search-wrap">
                 <svg className="q-search-icon" viewBox="0 0 16 16" fill="none">
                   <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path
+                    d="M10.5 10.5L14 14"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 <input
                   className="q-search"
@@ -485,19 +512,59 @@ export default function QuestsPage() {
         {groups.length === 0 && stats.total === 0 && (
           <div className="q-empty">
             <div className="q-empty-hero">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1.5" strokeLinecap="round">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke="rgba(0,0,0,0.15)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
                 <rect x="8" y="8" width="32" height="32" rx="4" />
                 <path d="M16 20h16M16 26h10M16 32h6" />
                 <path d="M34 18l-6 6-3-3" strokeWidth="2" stroke="rgba(0,0,0,0.3)" />
               </svg>
-              <h2 style={{ fontSize: 18, fontWeight: 600, color: "rgba(0,0,0,0.85)", margin: "16px 0 6px" }}>No quests yet</h2>
-              <p style={{ fontSize: 13, color: "rgba(0,0,0,0.35)", margin: "0 0 20px", maxWidth: 300 }}>
+              <h2
+                style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: "rgba(0,0,0,0.85)",
+                  margin: "16px 0 6px",
+                }}
+              >
+                No quests yet
+              </h2>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "rgba(0,0,0,0.35)",
+                  margin: "0 0 20px",
+                  maxWidth: 300,
+                }}
+              >
                 Quests are units of work you assign to agents. Create one to get started.
               </p>
-              <button className="q-btn q-btn-primary" onClick={openModal} style={{ padding: "10px 24px" }}>
+              <button
+                className="q-btn q-btn-primary"
+                onClick={openModal}
+                style={{ padding: "10px 24px" }}
+              >
                 Create your first quest
               </button>
-              <p style={{ fontSize: 11, color: "rgba(0,0,0,0.2)", marginTop: 12 }}>or press <kbd style={{ fontFamily: "var(--font-mono)", padding: "1px 5px", background: "rgba(0,0,0,0.05)", borderRadius: 4 }}>C</kbd></p>
+              <p style={{ fontSize: 11, color: "rgba(0,0,0,0.2)", marginTop: 12 }}>
+                or press{" "}
+                <kbd
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    padding: "1px 5px",
+                    background: "rgba(0,0,0,0.05)",
+                    borderRadius: 4,
+                  }}
+                >
+                  C
+                </kbd>
+              </p>
             </div>
           </div>
         )}

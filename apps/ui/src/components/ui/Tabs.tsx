@@ -24,7 +24,8 @@ export default function Tabs({ tabs, defaultTab }: TabsProps) {
             className={`btn${active === tab.id ? " btn-primary" : ""}`}
             onClick={() => setActive(tab.id)}
           >
-            {tab.label}{tab.count != null ? ` (${tab.count})` : ""}
+            {tab.label}
+            {tab.count != null ? ` (${tab.count})` : ""}
           </button>
         ))}
       </div>

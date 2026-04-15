@@ -9,7 +9,6 @@ function formatUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-
 function statusColor(status: string): string {
   const s = status.toLowerCase();
   if (s === "active" || s === "working" || s === "running") return "var(--success)";
@@ -49,7 +48,10 @@ export default function DashboardHome() {
     <div className="dash-home">
       {/* Title */}
       <div className="dash-home-header">
-        <h1 className="dash-home-title"><BrandMark size={22} /><span className="dash-home-dot">.ai</span></h1>
+        <h1 className="dash-home-title">
+          <BrandMark size={22} />
+          <span className="dash-home-dot">.ai</span>
+        </h1>
         {agents.length > 0 ? (
           <p className="dash-home-subtitle">Select an agent to start a session</p>
         ) : (
@@ -84,7 +86,9 @@ export default function DashboardHome() {
         <div className="dash-home-budget">
           <div className="dash-home-budget-header">
             <span>Daily limit</span>
-            <span>{formatUsd(spent)} / {formatUsd(budget)}</span>
+            <span>
+              {formatUsd(spent)} / {formatUsd(budget)}
+            </span>
           </div>
           <div className="dash-home-budget-track">
             <div className="dash-home-budget-fill" style={{ width: `${pct}%` }} />
@@ -95,24 +99,73 @@ export default function DashboardHome() {
       {/* Agent grid -- click to open session */}
       {agents.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="rgba(0,0,0,0.15)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <circle cx="24" cy="20" r="8" />
             <path d="M12 40c0-6.6 5.4-12 12-12s12 5.4 12 12" />
           </svg>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "rgba(0,0,0,0.85)", margin: "16px 0 6px" }}>Welcome to your company</h2>
-          <p style={{ fontSize: 13, color: "rgba(0,0,0,0.35)", margin: "0 0 24px", maxWidth: 340, marginLeft: "auto", marginRight: "auto" }}>
-            Hire your first agent to get started. Agents research, code, review, and operate autonomously.
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "rgba(0,0,0,0.85)",
+              margin: "16px 0 6px",
+            }}
+          >
+            Welcome to your company
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: "rgba(0,0,0,0.35)",
+              margin: "0 0 24px",
+              maxWidth: 340,
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            Hire your first agent to get started. Agents research, code, review, and operate
+            autonomously.
           </p>
-          <button className="btn btn-primary" onClick={() => window.location.href = "/agents"} style={{ padding: "10px 24px" }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => (window.location.href = "/agents")}
+            style={{ padding: "10px 24px" }}
+          >
             Hire an agent
           </button>
         </div>
       ) : (
         <>
           {quests.length === 0 && (
-            <div style={{ textAlign: "center", padding: "32px 24px 16px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "32px 24px 16px",
+                borderBottom: "1px solid rgba(0,0,0,0.06)",
+              }}
+            >
               <p style={{ fontSize: 14, color: "rgba(0,0,0,0.5)", margin: 0 }}>
-                Your agents are ready. <a href="/quests" style={{ color: "rgba(0,0,0,0.85)", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>Create a quest</a> to put them to work.
+                Your agents are ready.{" "}
+                <a
+                  href="/quests"
+                  style={{
+                    color: "rgba(0,0,0,0.85)",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 2,
+                  }}
+                >
+                  Create a quest
+                </a>{" "}
+                to put them to work.
               </p>
             </div>
           )}
@@ -126,7 +179,10 @@ export default function DashboardHome() {
                   onClick={() => handleAgentClick(agent)}
                 >
                   <div className="dash-agent-card-header">
-                    <span className="dash-agent-dot" style={{ background: statusColor(agent.status) }} />
+                    <span
+                      className="dash-agent-dot"
+                      style={{ background: statusColor(agent.status) }}
+                    />
                     <span className="dash-agent-name">{agent.display_name || agent.name}</span>
                   </div>
                   {agent.model && <span className="dash-agent-model">{agent.model}</span>}
@@ -147,7 +203,9 @@ export default function DashboardHome() {
               <div key={q.id} className="dash-quest-row">
                 <span className="dash-quest-agent">{q.agent_id || "\u2014"}</span>
                 <span className="dash-quest-subject">{q.subject}</span>
-                {runtimeLabel(q.runtime) && <span className="dash-quest-phase">{runtimeLabel(q.runtime)}</span>}
+                {runtimeLabel(q.runtime) && (
+                  <span className="dash-quest-phase">{runtimeLabel(q.runtime)}</span>
+                )}
                 <span className="dash-quest-time">{timeAgo(q.started_at || q.updated_at)}</span>
               </div>
             ))}

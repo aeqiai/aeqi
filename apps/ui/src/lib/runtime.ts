@@ -65,13 +65,18 @@ export function runtimeLabel(runtime?: QuestRuntime): string | null {
   return parts.length > 0 ? parts.join(" • ") : null;
 }
 
-export function extractRuntime(quest: { runtime?: QuestRuntime; metadata?: Record<string, unknown> }): QuestRuntime | null {
+export function extractRuntime(quest: {
+  runtime?: QuestRuntime;
+  metadata?: Record<string, unknown>;
+}): QuestRuntime | null {
   if (quest.runtime) return quest.runtime;
   const rt = quest.metadata?.["aeqi/runtime"] as QuestRuntime | undefined;
   return rt ?? null;
 }
 
-export function extractOutcome(quest: { metadata?: Record<string, unknown> }): { kind: string; summary: string; reason?: string; next_action?: string } | null {
+export function extractOutcome(quest: {
+  metadata?: Record<string, unknown>;
+}): { kind: string; summary: string; reason?: string; next_action?: string } | null {
   const oc = quest.metadata?.["aeqi/task_outcome"] as any;
   return oc ?? null;
 }

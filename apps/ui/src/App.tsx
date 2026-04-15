@@ -35,7 +35,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Loading mode discovery
   if (!authMode) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
         <div style={{ color: "rgba(0,0,0,0.3)", fontSize: 13 }}>Loading...</div>
       </div>
     );
@@ -75,10 +82,38 @@ export default function App() {
         <Route path="workspace" element={<LegacyWorkspaceRoute />} />
         <Route path="company" element={<CompanyPage />} />
         <Route path="companies" element={<EntitiesPage />} />
-        <Route path="treasury" element={<PlatformOnlyRoute><TreasuryPage /></PlatformOnlyRoute>} />
-        <Route path="drive" element={<PlatformOnlyRoute><DrivePage /></PlatformOnlyRoute>} />
-        <Route path="apps" element={<PlatformOnlyRoute><AppsPage /></PlatformOnlyRoute>} />
-        <Route path="market" element={<PlatformOnlyRoute><MarketPage /></PlatformOnlyRoute>} />
+        <Route
+          path="treasury"
+          element={
+            <PlatformOnlyRoute>
+              <TreasuryPage />
+            </PlatformOnlyRoute>
+          }
+        />
+        <Route
+          path="drive"
+          element={
+            <PlatformOnlyRoute>
+              <DrivePage />
+            </PlatformOnlyRoute>
+          }
+        />
+        <Route
+          path="apps"
+          element={
+            <PlatformOnlyRoute>
+              <AppsPage />
+            </PlatformOnlyRoute>
+          }
+        />
+        <Route
+          path="market"
+          element={
+            <PlatformOnlyRoute>
+              <MarketPage />
+            </PlatformOnlyRoute>
+          }
+        />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="account" element={<ModeAwareAccountRoute />} />
         <Route path="settings" element={<ModeAwareSettingsRoute />} />

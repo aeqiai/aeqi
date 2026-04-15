@@ -35,10 +35,7 @@ function formatDecisionType(type: string): string {
   return type.replace(/_/g, " ");
 }
 
-export default function ActivityEntryComponent({
-  entry,
-  compact = false,
-}: ActivityEntryProps) {
+export default function ActivityEntryComponent({ entry, compact = false }: ActivityEntryProps) {
   if (compact) {
     return (
       <div className="activity-entry-compact">
@@ -46,14 +43,10 @@ export default function ActivityEntryComponent({
           <span
             className="activity-type-dot"
             style={{
-              backgroundColor:
-                DECISION_TYPE_COLORS[entry.decision_type] ||
-                "var(--text-secondary)",
+              backgroundColor: DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)",
             }}
           />
-          <span className="activity-timestamp-compact">
-            {formatTimestamp(entry.timestamp)}
-          </span>
+          <span className="activity-timestamp-compact">{formatTimestamp(entry.timestamp)}</span>
         </div>
         <p className="activity-summary-compact">{entry.summary}</p>
       </div>
@@ -68,9 +61,7 @@ export default function ActivityEntryComponent({
           <span
             className="activity-type-badge"
             style={{
-              color:
-                DECISION_TYPE_COLORS[entry.decision_type] ||
-                "var(--text-secondary)",
+              color: DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)",
               backgroundColor: `color-mix(in srgb, ${DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)"} 10%, transparent)`,
             }}
           >
@@ -80,20 +71,14 @@ export default function ActivityEntryComponent({
             <span className="activity-project">{(entry.metadata as any).company}</span>
           )}
         </div>
-        <span className="activity-timestamp">
-          {formatTimestamp(entry.timestamp)}
-        </span>
+        <span className="activity-timestamp">{formatTimestamp(entry.timestamp)}</span>
       </div>
 
       <p className="activity-summary">{entry.summary}</p>
 
       <div className="activity-entry-footer">
-        {entry.agent && (
-          <span className="activity-agent">{entry.agent}</span>
-        )}
-        {entry.quest_id && (
-          <code className="activity-quest-id">{entry.quest_id}</code>
-        )}
+        {entry.agent && <span className="activity-agent">{entry.agent}</span>}
+        {entry.quest_id && <code className="activity-quest-id">{entry.quest_id}</code>}
       </div>
     </div>
   );

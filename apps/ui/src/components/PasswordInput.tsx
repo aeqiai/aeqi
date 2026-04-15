@@ -1,14 +1,32 @@
 import { useState } from "react";
 
 const EyeIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8s-2.5 4.5-6.5 4.5S1.5 8 1.5 8z" />
     <circle cx="8" cy="8" r="2" />
   </svg>
 );
 
 const EyeOffIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M6.5 3.8A6.4 6.4 0 018 3.5c4 0 6.5 4.5 6.5 4.5a10.7 10.7 0 01-1.3 1.7M9.4 9.4A2 2 0 016.6 6.6" />
     <path d="M1.5 8s1.2-2.2 3.2-3.5M1 1l14 14" />
   </svg>

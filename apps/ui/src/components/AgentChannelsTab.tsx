@@ -24,9 +24,7 @@ const CHANNEL_TYPES = [
 ] as const;
 
 const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?: string }[]> = {
-  telegram: [
-    { label: "Bot Token", placeholder: "Paste token from @BotFather", type: "password" },
-  ],
+  telegram: [{ label: "Bot Token", placeholder: "Paste token from @BotFather", type: "password" }],
   whatsapp: [
     { label: "Account SID", placeholder: "Twilio Account SID" },
     { label: "Auth Token", placeholder: "Twilio Auth Token", type: "password" },
@@ -61,22 +59,40 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         .map((i) => {
           const key = i.key as string;
           let config: Record<string, unknown> = {};
-          try { config = JSON.parse(i.content as string); } catch { config = { raw: i.content }; }
-          return { id: i.id as string, key, content: i.content as string, channel_type: key.replace("channel:", ""), config };
+          try {
+            config = JSON.parse(i.content as string);
+          } catch {
+            config = { raw: i.content };
+          }
+          return {
+            id: i.id as string,
+            key,
+            content: i.content as string,
+            channel_type: key.replace("channel:", ""),
+            config,
+          };
         });
       setChannels(parsed);
-    } catch { setChannels([]); }
-    finally { setLoading(false); }
+    } catch {
+      setChannels([]);
+    } finally {
+      setLoading(false);
+    }
   }, [agentId]);
 
   const loadSessions = useCallback(async () => {
     try {
       const data = await api.getChannelSessions(agentId);
       setChannelSessions((data.sessions || []) as ChannelSession[]);
-    } catch { setChannelSessions([]); }
+    } catch {
+      setChannelSessions([]);
+    }
   }, [agentId]);
 
-  useEffect(() => { loadChannels(); loadSessions(); }, [loadChannels, loadSessions]);
+  useEffect(() => {
+    loadChannels();
+    loadSessions();
+  }, [loadChannels, loadSessions]);
 
   const selected = channels.find((c) => c.id === selectedId);
 
@@ -84,19 +100,30 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     setError(null);
     const fields = CHANNEL_FIELDS[newChannelType] || [];
     for (const f of fields) {
-      if (!newChannelFields[fieldKey(f.label)]?.trim()) { setError(`${f.label} is required`); return; }
+      if (!newChannelFields[fieldKey(f.label)]?.trim()) {
+        setError(`${f.label} is required`);
+        return;
+      }
     }
     setSaving(true);
     try {
-      await api.createAgentChannel({ agent_id: agentId, channel_type: newChannelType, config: newChannelFields });
+      await api.createAgentChannel({
+        agent_id: agentId,
+        channel_type: newChannelType,
+        config: newChannelFields,
+      });
       setShowAddForm(false);
       setNewChannelFields({});
       loadChannels();
-    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const getChats = (ch: ChannelEntry) => channelSessions.filter((s) => s.transport === ch.channel_type);
+  const getChats = (ch: ChannelEntry) =>
+    channelSessions.filter((s) => s.transport === ch.channel_type);
   const getAllowed = (ch: ChannelEntry): number[] => {
     const ac = ch.config.allowed_chats;
     if (Array.isArray(ac)) return ac.map(Number).filter((n) => !isNaN(n));
@@ -104,7 +131,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   };
   const updateAllowed = async (ch: ChannelEntry, ids: number[]) => {
     const newConfig = { ...ch.config, allowed_chats: ids };
-    setChannels((prev) => prev.map((c) => c.id === ch.id ? { ...c, config: newConfig } : c));
+    setChannels((prev) => prev.map((c) => (c.id === ch.id ? { ...c, config: newConfig } : c)));
     api.updateIdea(ch.id, { content: JSON.stringify(newConfig) }).catch(() => {});
   };
 
@@ -114,8 +141,24 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     <div className="asv">
       <div className="asv-sidebar">
         <div className="asv-sidebar-header">
-          <button className="asv-session-new-btn" onClick={() => { setShowAddForm(true); setError(null); }}>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+          <button
+            className="asv-session-new-btn"
+            onClick={() => {
+              setShowAddForm(true);
+              setError(null);
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
             Add Channel
           </button>
         </div>
@@ -147,10 +190,18 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             <h3 className="events-detail-name">Add Channel</h3>
             <div className="channel-type-picker" style={{ marginBottom: 12 }}>
               {CHANNEL_TYPES.map((ct) => (
-                <button key={ct.value} type="button"
+                <button
+                  key={ct.value}
+                  type="button"
                   className={`channel-type-option ${newChannelType === ct.value ? "active" : ""}`}
-                  onClick={() => { setNewChannelType(ct.value); setNewChannelFields({}); setError(null); }}
-                >{ct.label}</button>
+                  onClick={() => {
+                    setNewChannelType(ct.value);
+                    setNewChannelFields({});
+                    setError(null);
+                  }}
+                >
+                  {ct.label}
+                </button>
               ))}
             </div>
             {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
@@ -158,9 +209,14 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               return (
                 <div key={k} style={{ marginBottom: 10 }}>
                   <label className="agent-settings-label">{f.label}</label>
-                  <input className="agent-settings-input" type={f.type || "text"} placeholder={f.placeholder}
-                    value={newChannelFields[k] || ""} style={{ width: "100%", marginTop: 4 }}
-                    onChange={(e) => setNewChannelFields((p) => ({ ...p, [k]: e.target.value }))} />
+                  <input
+                    className="agent-settings-input"
+                    type={f.type || "text"}
+                    placeholder={f.placeholder}
+                    value={newChannelFields[k] || ""}
+                    style={{ width: "100%", marginTop: 4 }}
+                    onChange={(e) => setNewChannelFields((p) => ({ ...p, [k]: e.target.value }))}
+                  />
                 </div>
               );
             })}
@@ -169,7 +225,15 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               <button className="btn btn-primary" onClick={handleAdd} disabled={saving}>
                 {saving ? "Connecting..." : "Connect"}
               </button>
-              <button className="btn" onClick={() => { setShowAddForm(false); setError(null); }}>Cancel</button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         ) : !selected ? (
@@ -181,11 +245,16 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 <h3 className="events-detail-name">{selected.channel_type}</h3>
                 <span className="events-detail-pattern">channel:{selected.channel_type}</span>
               </div>
-              <button className="btn channel-disconnect-btn" onClick={async () => {
-                await api.deleteAgentChannel(selected.id);
-                navigate(`/agents/${agentId}/channels`);
-                loadChannels();
-              }}>Disconnect</button>
+              <button
+                className="btn channel-disconnect-btn"
+                onClick={async () => {
+                  await api.deleteAgentChannel(selected.id);
+                  navigate(`/agents/${agentId}/channels`);
+                  loadChannels();
+                }}
+              >
+                Disconnect
+              </button>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -196,7 +265,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                     <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
                     <span className="agent-settings-value agent-settings-mono">
                       {k.includes("token") || k.includes("auth") || k.includes("sid")
-                        ? `${String(v).slice(0, 8)}...` : String(v)}
+                        ? `${String(v).slice(0, 8)}...`
+                        : String(v)}
                     </span>
                   </div>
                 ))}
@@ -206,17 +276,43 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               const chats = getChats(selected);
               const allowed = getAllowed(selected);
               const whitelist = allowed.length > 0;
-              if (chats.length === 0) return <div className="events-detail-loading">No active chats yet.</div>;
+              if (chats.length === 0)
+                return <div className="events-detail-loading">No active chats yet.</div>;
               return (
                 <div>
-                  <div className="events-detail-ideas-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    className="events-detail-ideas-header"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <span>Active Chats ({chats.length})</span>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)", cursor: "pointer" }}>
-                      <input type="checkbox" checked={whitelist} onChange={(e) => {
-                        if (e.target.checked) {
-                          updateAllowed(selected, chats.map((s) => Number(s.chat_id)).filter((n) => !isNaN(n)));
-                        } else { updateAllowed(selected, []); }
-                      }} />
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={whitelist}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            updateAllowed(
+                              selected,
+                              chats.map((s) => Number(s.chat_id)).filter((n) => !isNaN(n)),
+                            );
+                          } else {
+                            updateAllowed(selected, []);
+                          }
+                        }}
+                      />
                       Whitelist
                     </label>
                   </div>
@@ -224,16 +320,38 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                     const n = Number(s.chat_id);
                     const isAllowed = allowed.includes(n);
                     return (
-                      <div key={s.channel_key} className="event-idea-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div
+                        key={s.channel_key}
+                        className="event-idea-card"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
                         <div>
                           <span className="event-idea-key">{s.chat_id}</span>
-                          <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 8 }}>{n < 0 ? "Group" : "DM"}</span>
+                          <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 8 }}>
+                            {n < 0 ? "Group" : "DM"}
+                          </span>
                         </div>
                         {whitelist ? (
-                          <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                            <input type="checkbox" checked={isAllowed} onChange={(e) => {
-                              updateAllowed(selected, e.target.checked ? [...allowed, n] : allowed.filter((id) => id !== n));
-                            }} /> Allow
+                          <label
+                            style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isAllowed}
+                              onChange={(e) => {
+                                updateAllowed(
+                                  selected,
+                                  e.target.checked
+                                    ? [...allowed, n]
+                                    : allowed.filter((id) => id !== n),
+                                );
+                              }}
+                            />{" "}
+                            Allow
                           </label>
                         ) : (
                           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Allowed</span>

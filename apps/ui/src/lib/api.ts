@@ -49,7 +49,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const res = await fetch(url, { ...options, headers });
-  const body = await parseResponseBody(res) as Record<string, unknown> | null;
+  const body = (await parseResponseBody(res)) as Record<string, unknown> | null;
 
   if (res.status === 401) {
     // Don't redirect for auth mode check or if mode is "none".
@@ -84,7 +84,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Auth
   getAuthMode: () =>
-    request<{ app_mode?: AppMode; mode: string; google_oauth: boolean; github_oauth: boolean; waitlist: boolean }>("/auth/mode"),
+    request<{
+      app_mode?: AppMode;
+      mode: string;
+      google_oauth: boolean;
+      github_oauth: boolean;
+      waitlist: boolean;
+    }>("/auth/mode"),
 
   login: (secret: string) =>
     request<{ ok: boolean; token: string }>("/auth/login", {
@@ -93,13 +99,25 @@ export const api = {
     }),
 
   loginWithEmail: (email: string, password: string) =>
-    request<{ ok: boolean; token: string; user?: Record<string, unknown>; pending_verification?: boolean; pending_2fa?: boolean; email?: string }>("/auth/login/email", {
+    request<{
+      ok: boolean;
+      token: string;
+      user?: Record<string, unknown>;
+      pending_verification?: boolean;
+      pending_2fa?: boolean;
+      email?: string;
+    }>("/auth/login/email", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
   signup: (email: string, password: string, name: string, inviteCode?: string, template?: string) =>
-    request<{ ok: boolean; token: string; user?: Record<string, unknown>; pending_verification?: boolean }>("/auth/signup", {
+    request<{
+      ok: boolean;
+      token: string;
+      user?: Record<string, unknown>;
+      pending_verification?: boolean;
+    }>("/auth/signup", {
       method: "POST",
       body: JSON.stringify({ email, password, name, invite_code: inviteCode, template }),
     }),
@@ -116,15 +134,14 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
-  getInviteCodes: () => request<{ ok: boolean; codes: Array<{ code: string; used: boolean }> }>("/auth/invite-codes"),
+  getInviteCodes: () =>
+    request<{ ok: boolean; codes: Array<{ code: string; used: boolean }> }>("/auth/invite-codes"),
 
   getMe: () => request<Record<string, unknown>>("/auth/me"),
 
-  deleteAccount: () =>
-    request<{ ok: boolean }>("/auth/delete-account", { method: "DELETE" }),
+  deleteAccount: () => request<{ ok: boolean }>("/auth/delete-account", { method: "DELETE" }),
 
-  setupTotp: () =>
-    request<Record<string, unknown>>("/auth/totp/setup", { method: "POST" }),
+  setupTotp: () => request<Record<string, unknown>>("/auth/totp/setup", { method: "POST" }),
 
   verifyTotp: (code: string) =>
     request<Record<string, unknown>>("/auth/totp/verify", {
@@ -144,8 +161,7 @@ export const api = {
       body: JSON.stringify({ password, code }),
     }),
 
-  getActivity: () =>
-    request<Record<string, unknown>>("/auth/activity"),
+  getActivity: () => request<Record<string, unknown>>("/auth/activity"),
 
   updateAvatar: (dataUrl: string) =>
     request<{ ok: boolean }>("/auth/update-avatar", {
@@ -225,8 +241,14 @@ export const api = {
   getCompanies: () => request<Record<string, unknown>>("/companies"),
   createCompany: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
-  updateCompany: (name: string, data: { display_name?: string; tagline?: string; logo_url?: string }) =>
-    request<{ ok: boolean }>(`/companies/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateCompany: (
+    name: string,
+    data: { display_name?: string; tagline?: string; logo_url?: string },
+  ) =>
+    request<{ ok: boolean }>(`/companies/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   // Quests
   getTasks: (params?: { status?: string; company?: string }) => {
@@ -293,7 +315,11 @@ export const api = {
   // Agent Channels (stored as ideas with key prefix "channel:")
   getAgentChannels: (agentId: string) =>
     request<Record<string, unknown>>(`/ideas?agent_id=${encodeURIComponent(agentId)}`),
-  createAgentChannel: (params: { agent_id: string; channel_type: string; config: Record<string, string> }) =>
+  createAgentChannel: (params: {
+    agent_id: string;
+    channel_type: string;
+    config: Record<string, string>;
+  }) =>
     request<Record<string, unknown>>("/ideas", {
       method: "POST",
       body: JSON.stringify({
@@ -336,10 +362,17 @@ export const api = {
   getPipelines: () => request<Record<string, unknown>>("/pipelines"),
 
   // Company Knowledge
-  getCompanyKnowledge: (name: string) => request<Record<string, unknown>>(`/companies/${name}/knowledge`),
+  getCompanyKnowledge: (name: string) =>
+    request<Record<string, unknown>>(`/companies/${name}/knowledge`),
 
   // Knowledge CRUD
-  storeKnowledge: (data: { company: string; key: string; content: string; category?: string; scope?: string }) =>
+  storeKnowledge: (data: {
+    company: string;
+    key: string;
+    content: string;
+    category?: string;
+    scope?: string;
+  }) =>
     request<{ ok: boolean }>("/knowledge/store", { method: "POST", body: JSON.stringify(data) }),
 
   deleteKnowledge: (data: { company: string; id: string }) =>
@@ -430,7 +463,13 @@ export const api = {
     }),
 
   // Write: Post Note
-  postNote: (data: { company: string; key: string; content: string; tags?: string[]; durability?: string }) =>
+  postNote: (data: {
+    company: string;
+    key: string;
+    content: string;
+    tags?: string[];
+    durability?: string;
+  }) =>
     request<{ ok: boolean }>("/notes", {
       method: "POST",
       body: JSON.stringify(data),
@@ -455,10 +494,19 @@ export const api = {
     return request<Record<string, unknown>>(`/sessions${qs ? `?${qs}` : ""}`);
   },
   createSession: (agentId: string) =>
-    request<Record<string, unknown>>("/sessions", { method: "POST", body: JSON.stringify({ agent_id: agentId }) }),
+    request<Record<string, unknown>>("/sessions", {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId }),
+    }),
 
   // Spawn Agent
-  spawnAgent: (data: { template: string; project?: string; parent_id?: string; display_name?: string; system_prompt?: string }) =>
+  spawnAgent: (data: {
+    template: string;
+    project?: string;
+    parent_id?: string;
+    display_name?: string;
+    system_prompt?: string;
+  }) =>
     request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
   // Create Prompt
@@ -467,7 +515,9 @@ export const api = {
   closeSession: (sessionId: string) =>
     request<{ ok: boolean }>(`/sessions/${sessionId}/close`, { method: "POST" }),
   cancelSession: (sessionId: string) =>
-    request<{ ok: boolean; cancelled: boolean }>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
+    request<{ ok: boolean; cancelled: boolean }>(`/sessions/${sessionId}/cancel`, {
+      method: "POST",
+    }),
   forkSession: (sessionId: string, messageId: number) =>
     request<{ ok: boolean; session_id: string }>(`/sessions/${sessionId}/fork`, {
       method: "POST",
@@ -489,10 +539,10 @@ export const api = {
 
   // Ideas by IDs
   getIdeasByIds: (ids: string[]) =>
-    request<{ ok: boolean; ideas: Array<{ id: string; key: string; content: string; tags: string[] }> }>(
-      "/ideas/by-ids",
-      { method: "POST", body: JSON.stringify({ ids }) },
-    ),
+    request<{
+      ok: boolean;
+      ideas: Array<{ id: string; key: string; content: string; tags: string[] }>;
+    }>("/ideas/by-ids", { method: "POST", body: JSON.stringify({ ids }) }),
 
   // Agent events
   getAgentEvents: (agentId: string) =>
@@ -500,7 +550,10 @@ export const api = {
   createEvent: (data: Record<string, unknown>) =>
     request<Record<string, unknown>>("/events", { method: "POST", body: JSON.stringify(data) }),
   updateEvent: (id: string, data: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/events/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<Record<string, unknown>>(`/events/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   deleteEvent: (id: string) =>
     request<Record<string, unknown>>(`/events/${id}`, { method: "DELETE" }),
 
@@ -509,11 +562,18 @@ export const api = {
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),
 
   // Session messages
-  getSessionMessages: (params: { session_id?: string; channel_name?: string; agent_id?: string; limit?: number }) => {
+  getSessionMessages: (params: {
+    session_id?: string;
+    channel_name?: string;
+    agent_id?: string;
+    limit?: number;
+  }) => {
     // Prefer new session-based endpoint when a UUID session_id is available.
     if (params.session_id) {
       const limit = params.limit || 50;
-      return request<Record<string, unknown>>(`/sessions/${params.session_id}/messages?limit=${limit}`);
+      return request<Record<string, unknown>>(
+        `/sessions/${params.session_id}/messages?limit=${limit}`,
+      );
     }
     // Fallback to deprecated endpoint for backwards compat.
     const query = new URLSearchParams();
@@ -525,21 +585,36 @@ export const api = {
   },
 
   // Context panel (per-channel)
-  getNote: (channel: string) => request<Record<string, unknown>>(`/notes/${encodeURIComponent(channel)}`),
+  getNote: (channel: string) =>
+    request<Record<string, unknown>>(`/notes/${encodeURIComponent(channel)}`),
   saveNote: (data: { channel: string; content: string }) =>
     request<{ ok: boolean }>("/notes", { method: "POST", body: JSON.stringify(data) }),
-  deleteNote: (id: string) =>
-    request<{ ok: boolean }>(`/notes/${id}/delete`, { method: "DELETE" }),
+  deleteNote: (id: string) => request<{ ok: boolean }>(`/notes/${id}/delete`, { method: "DELETE" }),
   updateDirectiveStatus: (id: string, data: { status: string; quest_id?: string }) =>
-    request<{ ok: boolean }>(`/directives/${id}/status`, { method: "POST", body: JSON.stringify(data) }),
+    request<{ ok: boolean }>(`/directives/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // Account API key (ak_)
   generateApiKey: () =>
-    request<{ ok: boolean; id: string; api_key: string; rotated: boolean }>("/account/api-key", { method: "POST" }),
+    request<{ ok: boolean; id: string; api_key: string; rotated: boolean }>("/account/api-key", {
+      method: "POST",
+    }),
 
   // Secret Keys (sk_)
   getKeys: () =>
-    request<{ ok: boolean; keys: Array<{ id: string; prefix: string; company: string; name: string; created_at: string; last_used_at: string | null }> }>("/keys"),
+    request<{
+      ok: boolean;
+      keys: Array<{
+        id: string;
+        prefix: string;
+        company: string;
+        name: string;
+        created_at: string;
+        last_used_at: string | null;
+      }>;
+    }>("/keys"),
 
   createKey: (data: { company: string; name: string }) =>
     request<{ ok: boolean; id: string; secret_key: string }>("/keys", {
@@ -547,9 +622,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  revokeKey: (id: string) =>
-    request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
-
+  revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
 };
 
 export { ApiError };

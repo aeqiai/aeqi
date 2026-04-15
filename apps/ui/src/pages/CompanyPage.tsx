@@ -24,20 +24,47 @@ interface NewSecretKey {
 }
 
 const CopyIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
     <rect x="5" y="5" width="9" height="9" rx="1.5" />
     <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" />
   </svg>
 );
 
 const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--success, #22c55e)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="var(--success, #22c55e)"
+    strokeWidth="2"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
     <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />
   </svg>
 );
 
 const KeyIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.3"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
     <circle cx="5" cy="11" r="3" />
     <path d="M7.5 8.5L14 2m0 0l-2 2m2-2v3" />
   </svg>
@@ -84,9 +111,12 @@ export default function CompanyPage() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const fetchKeys = () => {
-    api.getKeys().then((data) => {
-      if (data.keys) setKeys(data.keys);
-    }).catch(() => {});
+    api
+      .getKeys()
+      .then((data) => {
+        if (data.keys) setKeys(data.keys);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -131,7 +161,6 @@ export default function CompanyPage() {
     <>
       <PageTabs tabs={TABS} defaultTab="overview" />
       <div className="account-page" style={{ maxWidth: 640 }}>
-
         {activeTab === "overview" && (
           <>
             <p className="account-field-desc" style={{ marginBottom: "var(--space-4)" }}>
@@ -155,12 +184,15 @@ export default function CompanyPage() {
                   Secret keys authenticate access to <strong>{company}</strong>'s runtime.
                   {appMode === "platform" ? (
                     <>
-                      {" "}You'll also need your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>ak_</code>) to identify yourself.
+                      {" "}
+                      You'll also need your{" "}
+                      <Link to="/account?tab=api" className="key-link">
+                        account API key
+                      </Link>{" "}
+                      (<code>ak_</code>) to identify yourself.
                     </>
                   ) : (
-                    <>
-                      {" "}In self-hosted mode, these keys are the company-level runtime credentials.
-                    </>
+                    <> In self-hosted mode, these keys are the company-level runtime credentials.</>
                   )}
                 </>
               ) : (
@@ -184,11 +216,22 @@ export default function CompanyPage() {
                   <CopyButton text={`export AEQI_SECRET_KEY=${newKey.secret_key}`} />
                 </div>
                 {appMode === "platform" && (
-                  <p className="account-field-desc" style={{ marginTop: "var(--space-2)", fontSize: "0.78rem" }}>
-                    Pair this with your <Link to="/account?tab=api" className="key-link">account API key</Link> (<code>AEQI_API_KEY</code>).
+                  <p
+                    className="account-field-desc"
+                    style={{ marginTop: "var(--space-2)", fontSize: "0.78rem" }}
+                  >
+                    Pair this with your{" "}
+                    <Link to="/account?tab=api" className="key-link">
+                      account API key
+                    </Link>{" "}
+                    (<code>AEQI_API_KEY</code>).
                   </p>
                 )}
-                <button type="button" className="btn btn-ghost key-new-dismiss" onClick={() => setNewKey(null)}>
+                <button
+                  type="button"
+                  className="btn btn-ghost key-new-dismiss"
+                  onClick={() => setNewKey(null)}
+                >
                   I've saved this key
                 </button>
               </div>
@@ -235,7 +278,9 @@ export default function CompanyPage() {
                     <span className="key-list-name">{k.name}</span>
                     <code className="key-list-prefix">{k.prefix}...</code>
                     <span className="key-list-meta">{timeAgo(k.created_at)}</span>
-                    <span className="key-list-meta">{k.last_used_at ? timeAgo(k.last_used_at) : "never"}</span>
+                    <span className="key-list-meta">
+                      {k.last_used_at ? timeAgo(k.last_used_at) : "never"}
+                    </span>
                     <button
                       type="button"
                       className="btn btn-ghost btn-danger-text key-revoke-btn"
@@ -247,8 +292,8 @@ export default function CompanyPage() {
                   </div>
                 ))}
               </div>
-            ) : !newKey && (
-              <p className="key-empty">No API keys yet. Create one to get started.</p>
+            ) : (
+              !newKey && <p className="key-empty">No API keys yet. Create one to get started.</p>
             )}
           </>
         )}

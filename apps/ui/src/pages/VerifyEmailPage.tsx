@@ -86,7 +86,9 @@ export default function VerifyEmailPage() {
   return (
     <div className="auth-page">
       <div className="auth-container">
-        <div className="auth-logo"><BrandMark size={48} color="rgba(0,0,0,0.5)" /></div>
+        <div className="auth-logo">
+          <BrandMark size={48} color="rgba(0,0,0,0.5)" />
+        </div>
         <h1 className="auth-heading">Check your email</h1>
         <p className="auth-subheading">
           We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong>
@@ -96,7 +98,9 @@ export default function VerifyEmailPage() {
           {code.map((digit, i) => (
             <input
               key={i}
-              ref={(el) => { inputRefs.current[i] = el; }}
+              ref={(el) => {
+                inputRefs.current[i] = el;
+              }}
               className="verify-code-digit"
               type="text"
               inputMode="numeric"
@@ -117,7 +121,15 @@ export default function VerifyEmailPage() {
           {resendCooldown > 0 ? (
             <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span>
           ) : (
-            <a href="#" onClick={(e) => { e.preventDefault(); handleResend(); }}>Resend code</a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                handleResend();
+              }}
+            >
+              Resend code
+            </a>
           )}
         </p>
       </div>

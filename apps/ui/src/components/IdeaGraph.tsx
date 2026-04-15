@@ -247,31 +247,37 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const pos = getCanvasPos(e);
-    const node = hitTest(pos.x, pos.y);
-    if (node) {
-      dragRef.current = { node, offsetX: pos.x - node.x, offsetY: pos.y - node.y };
-      onSelect?.(node);
-    } else {
-      onSelect?.(null);
-    }
-  }, [hitTest, getCanvasPos, onSelect]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const pos = getCanvasPos(e);
-    if (dragRef.current) {
-      dragRef.current.node.x = pos.x - dragRef.current.offsetX;
-      dragRef.current.node.y = pos.y - dragRef.current.offsetY;
-      dragRef.current.node.vx = 0;
-      dragRef.current.node.vy = 0;
-    } else {
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      const pos = getCanvasPos(e);
       const node = hitTest(pos.x, pos.y);
-      hoverRef.current = node;
-      const canvas = canvasRef.current;
-      if (canvas) canvas.style.cursor = node ? "pointer" : "default";
-    }
-  }, [hitTest, getCanvasPos]);
+      if (node) {
+        dragRef.current = { node, offsetX: pos.x - node.x, offsetY: pos.y - node.y };
+        onSelect?.(node);
+      } else {
+        onSelect?.(null);
+      }
+    },
+    [hitTest, getCanvasPos, onSelect],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const pos = getCanvasPos(e);
+      if (dragRef.current) {
+        dragRef.current.node.x = pos.x - dragRef.current.offsetX;
+        dragRef.current.node.y = pos.y - dragRef.current.offsetY;
+        dragRef.current.node.vx = 0;
+        dragRef.current.node.vy = 0;
+      } else {
+        const node = hitTest(pos.x, pos.y);
+        hoverRef.current = node;
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = node ? "pointer" : "default";
+      }
+    },
+    [hitTest, getCanvasPos],
+  );
 
   const handleMouseUp = useCallback(() => {
     dragRef.current = null;

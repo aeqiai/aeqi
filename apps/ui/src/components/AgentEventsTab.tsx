@@ -95,7 +95,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     setSearching(true);
     try {
       const data = await api.getIdeas({ query: searchQuery, limit: 10 });
-      const items = ((data.ideas || data.entries || []) as IdeaPreview[]);
+      const items = (data.ideas || data.entries || []) as IdeaPreview[];
       const linked = new Set(selected?.idea_ids || []);
       setSearchResults(items.filter((i) => !linked.has(i.id)));
     } catch {
@@ -111,7 +111,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     await api.updateEvent(selected.id, { idea_ids: newIds });
     setSearchResults((prev) => prev.filter((i) => i.id !== ideaId));
     loadEvents();
-    const data = await api.getIdeasByIds(newIds).catch(() => ({ ok: false, ideas: [] as IdeaPreview[] }));
+    const data = await api
+      .getIdeasByIds(newIds)
+      .catch(() => ({ ok: false, ideas: [] as IdeaPreview[] }));
     if (data.ok) setIdeas(data.ideas);
   };
 
@@ -136,7 +138,17 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
               // TODO: add event creation flow
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
             Add Event
           </button>
         </div>
@@ -204,7 +216,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             {selected.fire_count > 0 && (
               <div className="events-detail-stats">
                 Fired {selected.fire_count} times
-                {selected.last_fired ? ` · last ${new Date(selected.last_fired).toLocaleString()}` : ""}
+                {selected.last_fired
+                  ? ` · last ${new Date(selected.last_fired).toLocaleString()}`
+                  : ""}
               </div>
             )}
 
@@ -234,7 +248,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                     {idea.tags.length > 0 && (
                       <div className="event-idea-tags">
                         {idea.tags.map((t) => (
-                          <span key={t} className="event-idea-tag">{t}</span>
+                          <span key={t} className="event-idea-tag">
+                            {t}
+                          </span>
                         ))}
                       </div>
                     )}
@@ -255,16 +271,26 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                     if (e.key === "Enter") handleSearch();
                   }}
                 />
-                <button className="events-link-search-btn" onClick={handleSearch} disabled={searching}>
+                <button
+                  className="events-link-search-btn"
+                  onClick={handleSearch}
+                  disabled={searching}
+                >
                   {searching ? "..." : "Search"}
                 </button>
               </div>
               {searchResults.length > 0 && (
                 <div className="events-link-results">
                   {searchResults.map((idea) => (
-                    <div key={idea.id} className="events-link-result" onClick={() => handleLinkIdea(idea.id)}>
+                    <div
+                      key={idea.id}
+                      className="events-link-result"
+                      onClick={() => handleLinkIdea(idea.id)}
+                    >
                       <span className="events-link-result-key">{idea.key}</span>
-                      <span className="events-link-result-preview">{idea.content.slice(0, 80)}</span>
+                      <span className="events-link-result-preview">
+                        {idea.content.slice(0, 80)}
+                      </span>
                     </div>
                   ))}
                 </div>

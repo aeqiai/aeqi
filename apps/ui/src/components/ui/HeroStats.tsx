@@ -15,7 +15,9 @@ export default function HeroStats({ stats }: HeroStatsProps) {
         <React.Fragment key={stat.label}>
           {i > 0 && <div className="hero-stat-divider" />}
           <div className="hero-stat">
-            <div className={`hero-stat-value${stat.color && stat.color !== "default" ? ` ${stat.color}` : ""}`}>
+            <div
+              className={`hero-stat-value${stat.color && stat.color !== "default" ? ` ${stat.color}` : ""}`}
+            >
               {stat.value}
             </div>
             <div className="hero-stat-label">{stat.label}</div>

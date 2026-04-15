@@ -11,7 +11,9 @@ export default function TagList({ items, empty }: TagListProps) {
   return (
     <div className="flex-wrap-tags">
       {items.map((item) => (
-        <span key={item} className="expertise-tag">{item}</span>
+        <span key={item} className="expertise-tag">
+          {item}
+        </span>
       ))}
     </div>
   );

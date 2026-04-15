@@ -18,16 +18,39 @@ export default function BlockAvatar({ name, size = 22 }: { name: string; size?: 
   for (let row = 0; row < 5; row++) {
     for (let col = 0; col < 3; col++) {
       if (cells[row * 3 + col]) {
-        rects.push(<rect key={`${row}-${col}`} x={col * cellSize} y={row * cellSize} width={cellSize} height={cellSize} fill={fg} />);
+        rects.push(
+          <rect
+            key={`${row}-${col}`}
+            x={col * cellSize}
+            y={row * cellSize}
+            width={cellSize}
+            height={cellSize}
+            fill={fg}
+          />,
+        );
         if (col < 2) {
-          rects.push(<rect key={`${row}-${4 - col}`} x={(4 - col) * cellSize} y={row * cellSize} width={cellSize} height={cellSize} fill={fg} />);
+          rects.push(
+            <rect
+              key={`${row}-${4 - col}`}
+              x={(4 - col) * cellSize}
+              y={row * cellSize}
+              width={cellSize}
+              height={cellSize}
+              fill={fg}
+            />,
+          );
         }
       }
     }
   }
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: 4, flexShrink: 0, background: bg, display: "block" }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ borderRadius: 4, flexShrink: 0, background: bg, display: "block" }}
+    >
       {rects}
     </svg>
   );

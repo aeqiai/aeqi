@@ -19,9 +19,7 @@ export default function AgentCard({ agent, compact = false }: AgentCardProps) {
           </div>
           <StatusBadge status={agent.status} size="sm" />
         </div>
-        {agent.model && (
-          <div className="agent-model">{agent.model}</div>
-        )}
+        {agent.model && <div className="agent-model">{agent.model}</div>}
       </Link>
     );
   }
@@ -41,7 +39,6 @@ export default function AgentCard({ agent, compact = false }: AgentCardProps) {
         </div>
         <StatusBadge status={agent.status} />
       </div>
-
     </Link>
   );
 }
