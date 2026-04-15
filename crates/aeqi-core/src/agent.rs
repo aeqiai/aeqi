@@ -390,11 +390,14 @@ pub enum LoopTransition {
         attempt: u32,
     },
     ContextCompacted,
-    ContextLengthRecovery,
     /// Reactive compaction: 413/context-length error recovered via emergency compact.
     ReactiveCompact,
     /// Snip compaction removed old rounds (no API call).
     SnipCompacted {
+        tokens_freed: u32,
+    },
+    /// Context collapse: deterministic drain of low-value middle content (no API call).
+    ContextCollapsed {
         tokens_freed: u32,
     },
     FallbackModelSwitch,
@@ -855,10 +858,14 @@ impl Agent {
             }
 
             // --- Conversation repair: ensure tool_use/tool_result pairing ---
-            // Only needed after compaction which may drop half of a use/result pair.
+            // Needed after any compaction path that may drop half of a use/result pair.
             if matches!(
                 transition,
-                LoopTransition::ContextCompacted | LoopTransition::ContextLengthRecovery
+                LoopTransition::ContextCompacted
+                    | LoopTransition::ReactiveCompact
+                    | LoopTransition::SnipCompacted { .. }
+                    | LoopTransition::ContextCollapsed { .. }
+                    | LoopTransition::FallbackModelSwitch
             ) {
                 Self::repair_tool_pairing(&mut messages);
             }
@@ -948,6 +955,12 @@ impl Agent {
                                 agent = %self.config.name,
                                 "reactive compact: context too long, emergency compaction"
                             );
+                            // Tombstone any partial output the frontend received
+                            // from this failed streaming attempt.
+                            self.emit(crate::chat_stream::ChatStreamEvent::Tombstone {
+                                step: iterations,
+                                reason: "context too long — emergency compaction".into(),
+                            });
                             self.emit(crate::chat_stream::ChatStreamEvent::Status {
                                 message: "Emergency context compaction...".into(),
                             });
@@ -983,6 +996,13 @@ impl Agent {
                             to = %fallback,
                             "switching to fallback model"
                         );
+                        // Tombstone any partial output from the failed attempts.
+                        self.emit(crate::chat_stream::ChatStreamEvent::Tombstone {
+                            step: iterations,
+                            reason: format!(
+                                "switching to fallback model after {consecutive_errors} errors"
+                            ),
+                        });
                         active_model = fallback.clone();
                         consecutive_errors = 0;
                         iterations -= 1;
@@ -991,7 +1011,12 @@ impl Agent {
                         continue;
                     }
 
-                    // Notify observer.
+                    // All automatic recovery exhausted — surface the error.
+                    self.emit(crate::chat_stream::ChatStreamEvent::Error {
+                        message: err_str.clone(),
+                        recoverable: false,
+                    });
+
                     let action = self.observer.on_error(iterations, &err_str).await;
                     match action {
                         LoopAction::Halt(reason) => {
@@ -1754,9 +1779,10 @@ impl Agent {
     // Compaction pipeline — extracted from run() for clarity
     // -----------------------------------------------------------------------
 
-    /// Run the 3-stage context compaction pipeline:
+    /// Run the 4-stage context compaction pipeline:
     ///   Stage 0: Snip — remove entire old API rounds (no API call, ~free)
     ///   Stage 1: Microcompact — clear old tool results by name, keep recent N
+    ///   Stage 1.5: Context collapse — remove stale system msgs + truncate long tool results
     ///   Stage 2: Full compact — LLM-based structured summary + restoration
     ///
     /// Returns (optional transition, estimated_tokens after compaction).
@@ -1820,7 +1846,27 @@ impl Agent {
         }
 
         // Re-estimate after microcompact.
-        let estimated_tokens = Self::estimate_tokens_from_messages(messages);
+        let mut estimated_tokens = Self::estimate_tokens_from_messages(messages);
+
+        // --- Stage 1.5: Context collapse — deterministic drain before expensive LLM compact ---
+        if estimated_tokens > full_threshold && messages.len() > protected {
+            let collapsed = Self::context_collapse(
+                messages,
+                self.config.compact_preserve_head,
+                self.config.compact_preserve_tail,
+            );
+            if collapsed > 0 {
+                info!(
+                    agent = %self.config.name,
+                    tokens_freed = collapsed,
+                    "context collapse: removed low-value content"
+                );
+                estimated_tokens = Self::estimate_tokens_from_messages(messages);
+                transition = Some(LoopTransition::ContextCollapsed {
+                    tokens_freed: collapsed,
+                });
+            }
+        }
 
         // --- Stage 2: Full compaction ---
         if estimated_tokens > full_threshold
@@ -2732,6 +2778,110 @@ impl Agent {
                 "microcompact: cleared old tool results"
             );
         }
+    }
+
+    /// Context collapse: cheap, deterministic drain of low-value content from the
+    /// compactable window. Removes stale system messages and truncates long tool
+    /// results to head+tail previews. No LLM call — purely structural.
+    /// Returns estimated tokens freed.
+    fn context_collapse(
+        messages: &mut Vec<Message>,
+        preserve_head: usize,
+        preserve_tail: usize,
+    ) -> u32 {
+        let len = messages.len();
+        if len <= preserve_head + preserve_tail {
+            return 0;
+        }
+
+        let start = preserve_head;
+        let mut freed: u32 = 0;
+
+        // Pass 1: Remove stale system messages in the middle.
+        // These are step-context injections, post-compact summaries, file restoration
+        // messages from previous compactions — all stale by now.
+        let mut i = start;
+        loop {
+            let end = messages.len().saturating_sub(preserve_tail);
+            if i >= end {
+                break;
+            }
+            if messages[i].role == Role::System {
+                let chars = match &messages[i].content {
+                    MessageContent::Text(t) => t.len(),
+                    MessageContent::Parts(parts) => parts
+                        .iter()
+                        .map(|p| match p {
+                            ContentPart::Text { text } => text.len(),
+                            ContentPart::ToolUse { input, name, .. } => {
+                                name.len() + input.to_string().len()
+                            }
+                            ContentPart::ToolResult { content, .. } => content.len(),
+                        })
+                        .sum(),
+                };
+                freed += (chars / CHARS_PER_TOKEN) as u32;
+                messages.remove(i);
+                // Don't increment i — next element shifted into current position.
+            } else {
+                i += 1;
+            }
+        }
+
+        // Pass 2: Truncate long tool results (>2K chars) to head+tail preview.
+        let end = messages.len().saturating_sub(preserve_tail);
+        for msg in messages[start..end].iter_mut() {
+            if msg.role != Role::Tool {
+                continue;
+            }
+            if let MessageContent::Parts(ref mut parts) = msg.content {
+                for part in parts.iter_mut() {
+                    if let ContentPart::ToolResult { content, .. } = part
+                        && content.len() > 2000
+                    {
+                        let original_len = content.len();
+                        let head: String = content.chars().take(500).collect();
+                        let tail: String = content
+                            .chars()
+                            .rev()
+                            .take(500)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev()
+                            .collect();
+                        *content = format!(
+                            "{head}\n\n[... {} chars collapsed ...]\n\n{tail}",
+                            original_len - 1000
+                        );
+                        let saved = original_len.saturating_sub(content.len());
+                        freed += (saved / CHARS_PER_TOKEN) as u32;
+                    }
+                }
+            }
+            // Also handle plain Text tool messages.
+            if let MessageContent::Text(ref mut text) = msg.content
+                && text.len() > 2000
+            {
+                let original_len = text.len();
+                let head: String = text.chars().take(500).collect();
+                let tail: String = text
+                    .chars()
+                    .rev()
+                    .take(500)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect();
+                *text = format!(
+                    "{head}\n\n[... {} chars collapsed ...]\n\n{tail}",
+                    original_len - 1000
+                );
+                let saved = original_len.saturating_sub(text.len());
+                freed += (saved / CHARS_PER_TOKEN) as u32;
+            }
+        }
+
+        freed
     }
 
     /// Stages 2+3: Compact conversation by summarizing middle messages.

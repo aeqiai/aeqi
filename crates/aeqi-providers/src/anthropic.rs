@@ -48,7 +48,7 @@ struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<AnthropicTool>,
+    tools: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     stream: bool,
 }
@@ -57,13 +57,6 @@ struct AnthropicRequest {
 struct AnthropicMessage {
     role: String,
     content: serde_json::Value,
-}
-
-#[derive(Serialize)]
-struct AnthropicTool {
-    name: String,
-    description: String,
-    input_schema: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -225,15 +218,27 @@ fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<Ant
     (system, converted)
 }
 
-fn convert_tools(tools: &[ToolSpec]) -> Vec<AnthropicTool> {
-    tools
+fn convert_tools(tools: &[ToolSpec]) -> Vec<serde_json::Value> {
+    let mut converted: Vec<serde_json::Value> = tools
         .iter()
-        .map(|t| AnthropicTool {
-            name: t.name.clone(),
-            description: t.description.clone(),
-            input_schema: t.input_schema.clone(),
+        .map(|t| {
+            serde_json::json!({
+                "name": t.name,
+                "description": t.description,
+                "input_schema": t.input_schema,
+            })
         })
-        .collect()
+        .collect();
+    // Cache the last tool definition — tools are stable across turns.
+    if let Some(last) = converted.last_mut()
+        && let Some(obj) = last.as_object_mut()
+    {
+        obj.insert(
+            "cache_control".to_string(),
+            serde_json::json!({"type": "ephemeral"}),
+        );
+    }
+    converted
 }
 
 // --- SSE streaming event types ---

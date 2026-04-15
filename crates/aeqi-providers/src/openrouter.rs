@@ -56,12 +56,10 @@ impl OpenRouterProvider {
     pub async fn generate_image(&self, prompt: &str, model: &str) -> Result<Vec<u8>> {
         let api_request = ApiRequest {
             model: model.to_string(),
-            messages: vec![ApiMessage {
-                role: "user".to_string(),
-                content: Some(serde_json::Value::String(prompt.to_string())),
-                tool_calls: None,
-                tool_call_id: None,
-            }],
+            messages: vec![serde_json::json!({
+                "role": "user",
+                "content": prompt,
+            })],
             tools: vec![],
             max_tokens: 4096,
             temperature: 1.0,
@@ -148,9 +146,9 @@ impl OpenRouterProvider {
 #[derive(Debug, Serialize)]
 struct ApiRequest {
     model: String,
-    messages: Vec<ApiMessage>,
+    messages: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<ApiTool>,
+    tools: Vec<serde_json::Value>,
     max_tokens: u32,
     temperature: f32,
     /// OpenRouter provider routing options.
@@ -166,30 +164,6 @@ struct ProviderRouting {
     /// Disable fallback to alternative providers on the OpenRouter side.
     #[serde(skip_serializing_if = "Option::is_none")]
     allow_fallbacks: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ApiMessage {
-    role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<ApiToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ApiTool {
-    r#type: String,
-    function: ApiFunction,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ApiFunction {
-    name: String,
-    description: String,
-    parameters: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -260,46 +234,64 @@ struct ApiErrorDetail {
 
 // --- Conversion helpers ---
 
-fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<ApiMessage> {
+fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::Value> {
     use aeqi_core::traits::{ContentPart, MessageContent, Role};
 
-    let mut api_messages = Vec::new();
+    let mut api_messages: Vec<serde_json::Value> = Vec::new();
+    // Track indices of non-system messages for cache_control marking.
+    let mut non_system_indices: Vec<usize> = Vec::new();
 
     for msg in messages {
         match &msg.role {
-            Role::System | Role::User => {
-                let content = match &msg.content {
-                    MessageContent::Text(t) => Some(serde_json::Value::String(t.clone())),
-                    MessageContent::Parts(parts) => {
-                        let text: String = parts
-                            .iter()
-                            .filter_map(|p| match p {
-                                ContentPart::Text { text } => Some(text.as_str()),
-                                _ => None,
-                            })
-                            .collect::<Vec<_>>()
-                            .join("");
-                        Some(serde_json::Value::String(text))
-                    }
+            Role::System => {
+                let text = match &msg.content {
+                    MessageContent::Text(t) => t.clone(),
+                    MessageContent::Parts(parts) => parts
+                        .iter()
+                        .filter_map(|p| match p {
+                            ContentPart::Text { text } => Some(text.as_str()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join(""),
                 };
-                api_messages.push(ApiMessage {
-                    role: match msg.role {
-                        Role::System => "system".to_string(),
-                        _ => "user".to_string(),
-                    },
-                    content,
-                    tool_calls: None,
-                    tool_call_id: None,
-                });
+                // System message with cache_control on its content block.
+                api_messages.push(serde_json::json!({
+                    "role": "system",
+                    "content": [{
+                        "type": "text",
+                        "text": text,
+                        "cache_control": {"type": "ephemeral"}
+                    }]
+                }));
+            }
+            Role::User => {
+                let text = match &msg.content {
+                    MessageContent::Text(t) => t.clone(),
+                    MessageContent::Parts(parts) => parts
+                        .iter()
+                        .filter_map(|p| match p {
+                            ContentPart::Text { text } => Some(text.as_str()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join(""),
+                };
+                let idx = api_messages.len();
+                api_messages.push(serde_json::json!({
+                    "role": "user",
+                    "content": text,
+                }));
+                non_system_indices.push(idx);
             }
             Role::Assistant => match &msg.content {
                 MessageContent::Text(t) => {
-                    api_messages.push(ApiMessage {
-                        role: "assistant".to_string(),
-                        content: Some(serde_json::Value::String(t.clone())),
-                        tool_calls: None,
-                        tool_call_id: None,
-                    });
+                    let idx = api_messages.len();
+                    api_messages.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": t,
+                    }));
+                    non_system_indices.push(idx);
                 }
                 MessageContent::Parts(parts) => {
                     let text: Option<String> = {
@@ -317,31 +309,33 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<ApiMessage> 
                         }
                     };
 
-                    let tool_calls: Vec<ApiToolCall> = parts
+                    let tool_calls: Vec<serde_json::Value> = parts
                         .iter()
                         .filter_map(|p| match p {
-                            ContentPart::ToolUse { id, name, input } => Some(ApiToolCall {
-                                id: id.clone(),
-                                r#type: "function".to_string(),
-                                function: ApiToolCallFunction {
-                                    name: name.clone(),
-                                    arguments: serde_json::to_string(input).unwrap_or_default(),
-                                },
-                            }),
+                            ContentPart::ToolUse { id, name, input } => Some(serde_json::json!({
+                                "id": id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": serde_json::to_string(input).unwrap_or_default(),
+                                }
+                            })),
                             _ => None,
                         })
                         .collect();
 
-                    api_messages.push(ApiMessage {
-                        role: "assistant".to_string(),
-                        content: text.map(serde_json::Value::String),
-                        tool_calls: if tool_calls.is_empty() {
-                            None
-                        } else {
-                            Some(tool_calls)
-                        },
-                        tool_call_id: None,
+                    let mut obj = serde_json::json!({
+                        "role": "assistant",
                     });
+                    if let Some(t) = text {
+                        obj["content"] = serde_json::Value::String(t);
+                    }
+                    if !tool_calls.is_empty() {
+                        obj["tool_calls"] = serde_json::Value::Array(tool_calls);
+                    }
+                    let idx = api_messages.len();
+                    api_messages.push(obj);
+                    non_system_indices.push(idx);
                 }
             },
             Role::Tool => {
@@ -354,14 +348,48 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<ApiMessage> 
                             ..
                         } = part
                         {
-                            api_messages.push(ApiMessage {
-                                role: "tool".to_string(),
-                                content: Some(serde_json::Value::String(content.clone())),
-                                tool_calls: None,
-                                tool_call_id: Some(tool_use_id.clone()),
-                            });
+                            let idx = api_messages.len();
+                            api_messages.push(serde_json::json!({
+                                "role": "tool",
+                                "content": content,
+                                "tool_call_id": tool_use_id,
+                            }));
+                            non_system_indices.push(idx);
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Mark last 3 non-system messages with cache_control breakpoints.
+    let cache_count = non_system_indices.len().min(3);
+    for &idx in non_system_indices.iter().rev().take(cache_count) {
+        if let Some(obj) = api_messages[idx].as_object_mut() {
+            match obj.get("content") {
+                Some(serde_json::Value::String(text)) => {
+                    // Convert plain string content to content block array with cache_control.
+                    let block = serde_json::json!([{
+                        "type": "text",
+                        "text": text.clone(),
+                        "cache_control": {"type": "ephemeral"}
+                    }]);
+                    obj.insert("content".to_string(), block);
+                }
+                Some(serde_json::Value::Array(_)) => {
+                    // Content is already an array of blocks — add cache_control to the last block.
+                    if let Some(serde_json::Value::Array(blocks)) = obj.get_mut("content")
+                        && let Some(last_block) = blocks.last_mut()
+                        && let Some(block_obj) = last_block.as_object_mut()
+                    {
+                        block_obj.insert(
+                            "cache_control".to_string(),
+                            serde_json::json!({"type": "ephemeral"}),
+                        );
+                    }
+                }
+                _ => {
+                    // No content (e.g., assistant with only tool_calls) — skip cache marking.
                 }
             }
         }
@@ -370,18 +398,31 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<ApiMessage> 
     api_messages
 }
 
-fn convert_tools(tools: &[ToolSpec]) -> Vec<ApiTool> {
-    tools
+fn convert_tools(tools: &[ToolSpec]) -> Vec<serde_json::Value> {
+    let mut converted: Vec<serde_json::Value> = tools
         .iter()
-        .map(|t| ApiTool {
-            r#type: "function".to_string(),
-            function: ApiFunction {
-                name: t.name.clone(),
-                description: t.description.clone(),
-                parameters: t.input_schema.clone(),
-            },
+        .map(|t| {
+            serde_json::json!({
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.input_schema,
+                }
+            })
         })
-        .collect()
+        .collect();
+    // Cache the last tool definition — tools are stable across turns.
+    if let Some(last) = converted.last_mut()
+        && let Some(func) = last.get_mut("function")
+        && let Some(func_obj) = func.as_object_mut()
+    {
+        func_obj.insert(
+            "cache_control".to_string(),
+            serde_json::json!({"type": "ephemeral"}),
+        );
+    }
+    converted
 }
 
 #[async_trait]
