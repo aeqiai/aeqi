@@ -65,10 +65,12 @@ if $BUILD_RUNTIME; then
     # Stage binary for platform (tenant hosts use this copy).
     # Must stop hosts first — the binary is locked while in use.
     if [ -d "$PLATFORM_ROOT/runtime/bin" ]; then
-        # Stop all host services.
+        # Stop and reset all host services (transient units must be reset so
+        # the platform can respawn them with systemd-run).
         for unit in $(systemctl list-units 'aeqi-host-*' --no-legend --plain 2>/dev/null | awk '{print $1}'); do
             echo "  -> stopping $unit for binary staging"
             sudo systemctl stop "$unit" 2>/dev/null || true
+            sudo systemctl reset-failed "$unit" 2>/dev/null || true
         done
         # Also kill any lingering aeqi processes using the staged binary.
         sudo fuser -k "$PLATFORM_ROOT/runtime/bin/aeqi" 2>/dev/null || true
