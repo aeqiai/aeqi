@@ -1163,6 +1163,18 @@ impl Daemon {
                     crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_companies)
                         .await
                 }
+                "agent_set_model" => {
+                    let id = request_field(&request, "id").unwrap_or("");
+                    let model = request_field(&request, "model").unwrap_or("");
+                    if id.is_empty() {
+                        serde_json::json!({"ok": false, "error": "id required"})
+                    } else {
+                        match agent_registry.set_model(id, model).await {
+                            Ok(()) => serde_json::json!({"ok": true}),
+                            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                        }
+                    }
+                }
                 "agent_info" => {
                     crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_companies).await
                 }

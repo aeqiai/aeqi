@@ -1121,6 +1121,17 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Set the model for an agent.
+    pub async fn set_model(&self, id: &str, model: &str) -> Result<()> {
+        let db = self.db.lock().await;
+        let model_val = if model.is_empty() { None } else { Some(model) };
+        db.execute(
+            "UPDATE agents SET model = ?1 WHERE id = ?2",
+            params![model_val, id],
+        )?;
+        Ok(())
+    }
+
     /// Resolve workdir for an agent — walks ancestor chain to find first non-None.
     pub async fn resolve_workdir(&self, agent_id: &str) -> Result<Option<String>> {
         let ancestors = self.get_ancestors(agent_id).await?;

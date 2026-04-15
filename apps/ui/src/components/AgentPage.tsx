@@ -8,7 +8,7 @@ import AgentEventsTab from "./AgentEventsTab";
 import RoundAvatar from "./RoundAvatar";
 
 const TABS = [
-  { id: "chat", label: "Chat" },
+  { id: "sessions", label: "Sessions" },
   { id: "events", label: "Events" },
   { id: "channels", label: "Channels" },
   { id: "settings", label: "Settings" },
@@ -70,7 +70,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const sessionId = params.get("session");
-  const activeTab = useActiveTab(TABS, "chat");
+  const activeTab = useActiveTab(TABS, "sessions");
 
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
@@ -219,10 +219,10 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       </div>
 
       {/* Page tabs */}
-      <PageTabs tabs={TABS} defaultTab="chat" />
+      <PageTabs tabs={TABS} defaultTab="sessions" />
 
       {/* Tab content */}
-      {activeTab === "chat" && (
+      {activeTab === "sessions" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
         </div>
@@ -429,10 +429,20 @@ export default function AgentPage({ agentId }: { agentId: string }) {
             <h3 className="agent-settings-heading">Model</h3>
             <div className="agent-settings-grid">
               <div className="agent-settings-field">
-                <span className="agent-settings-label">Current model</span>
-                <span className="agent-settings-value agent-settings-mono">
-                  {agent?.model || "inherited from config"}
-                </span>
+                <span className="agent-settings-label">Model</span>
+                <input
+                  className="agent-settings-input"
+                  type="text"
+                  defaultValue={agent?.model || ""}
+                  placeholder="e.g. deepseek/deepseek-v3.2"
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    await api.setAgentModel(resolvedAgentId, val);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  }}
+                />
               </div>
             </div>
           </div>

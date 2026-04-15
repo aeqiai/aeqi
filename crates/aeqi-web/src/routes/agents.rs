@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -17,6 +17,7 @@ pub fn routes() -> Router<AppState> {
         .route("/agents/spawn", post(agents_spawn))
         .route("/agents/{id}/retire", post(agent_retire))
         .route("/agents/{id}/activate", post(agent_activate))
+        .route("/agents/{id}/model", axum::routing::put(agent_set_model))
         .route("/agents/{name}/identity", get(agent_identity))
         .route("/agents/{name}/prompts", get(agent_prompts))
         .route("/agents/{name}/files", post(save_agent_file))
@@ -69,6 +70,17 @@ async fn agents(State(state): State<AppState>, scope: Scope) -> Response {
         .collect();
 
     Json(serde_json::json!({"ok": true, "agents": enriched})).into_response()
+}
+
+async fn agent_set_model(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let mut params = body;
+    params["id"] = serde_json::json!(id);
+    ipc_proxy(state, scope.as_ref(), "agent_set_model", params).await
 }
 
 #[derive(Deserialize, Default)]

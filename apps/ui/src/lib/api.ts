@@ -474,6 +474,13 @@ export const api = {
       body: JSON.stringify({ message_id: messageId }),
     }),
 
+  // Agent model
+  setAgentModel: (agentId: string, model: string) =>
+    request<{ ok: boolean }>(`/agents/${agentId}/model`, {
+      method: "PUT",
+      body: JSON.stringify({ model }),
+    }),
+
   // Ideas by IDs
   getIdeasByIds: (ids: string[]) =>
     request<{ ok: boolean; ideas: Array<{ id: string; key: string; content: string; tags: string[] }> }>(
