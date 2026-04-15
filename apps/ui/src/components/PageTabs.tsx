@@ -18,6 +18,9 @@ export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
   const setTab = (id: string) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
+      // Remove tab-specific params when switching tabs.
+      next.delete("session");
+      next.delete("event");
       if (id === (defaultTab || tabs[0]?.id)) {
         next.delete("tab");
       } else {
