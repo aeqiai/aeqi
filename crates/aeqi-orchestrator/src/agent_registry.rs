@@ -730,7 +730,6 @@ impl AgentRegistry {
                         agent_id: agent.id.clone(),
                         name: t.name.clone(),
                         pattern,
-                        scope: "self".into(),
                         idea_ids: Vec::new(),
                         cooldown_secs: t.cooldown_secs.unwrap_or(300),
                         system: false,

@@ -74,7 +74,7 @@ function EventRow({
   onDelete,
   onUnlinkIdea,
 }: {
-  ev: { id: string; name: string; pattern: string; scope: string; idea_ids: string[]; enabled: boolean; cooldown_secs: number; fire_count: number; last_fired?: string };
+  ev: { id: string; name: string; pattern: string; idea_ids: string[]; enabled: boolean; cooldown_secs: number; fire_count: number; last_fired?: string };
   expanded: boolean;
   ideas?: Array<{ id: string; key: string; content: string; tags: string[] }>;
   onToggleExpand: () => void;
@@ -116,7 +116,6 @@ function EventRow({
       {expanded && (
         <div className="event-row-detail">
           <div className="event-detail-meta">
-            <span className="event-detail-meta-item">Scope: {ev.scope}</span>
             {ev.cooldown_secs > 0 && <span className="event-detail-meta-item">Cooldown: {ev.cooldown_secs}s</span>}
             {ev.last_fired && <span className="event-detail-meta-item">Last: {new Date(ev.last_fired).toLocaleString()}</span>}
           </div>
@@ -174,7 +173,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     id: string;
     name: string;
     pattern: string;
-    scope: string;
     idea_ids: string[];
     enabled: boolean;
     cooldown_secs: number;

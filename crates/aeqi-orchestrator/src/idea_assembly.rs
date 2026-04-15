@@ -57,19 +57,12 @@ pub async fn assemble_ideas(
             .get_events_for_pattern(&agent.id, "session:start")
             .await;
 
-        // Collect idea_ids from events, respecting scope.
+        // Collect idea_ids from events (only from the agent itself).
         let mut event_idea_ids: Vec<String> = Vec::new();
 
         for event in &session_start_events {
-            // Scope check: "descendants" events from ancestors apply; "self" events only from self.
-            let include = match event.scope.as_str() {
-                "descendants" => true, // propagates down the tree; always included in ancestor walk
-                "self" => is_self,     // only the owning agent
-                "children" => false,   // children scope is for downward propagation, not ancestor walk
-                _ => is_self,          // unknown scope defaults to self-only
-            };
-
-            if !include {
+            // Without scope, events only apply to the owning agent.
+            if !is_self {
                 continue;
             }
 

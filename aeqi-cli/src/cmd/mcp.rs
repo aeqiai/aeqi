@@ -270,7 +270,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "pattern": {"type": "string", "description": "Full pattern (e.g. 'schedule:0 9 * * *', 'session:quest_result')"},
                     "schedule": {"type": "string", "description": "Cron expression — shorthand for pattern 'schedule:<expr>'"},
                     "event_pattern": {"type": "string", "description": "Session event — shorthand for pattern 'session:<event>' (e.g. 'start', 'quest_start', 'quest_end', 'quest_result')"},
-                    "scope": {"type": "string", "enum": ["self", "children", "descendants"], "description": "Event scope (default: 'self')"},
                     "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
                     "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"}
@@ -827,11 +826,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .get("name")
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("");
-                                let scope = args
-                                    .get("scope")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("self");
-
                                 // Build pattern from shorthand or explicit
                                 let pattern = if let Some(schedule) =
                                     args.get("schedule").and_then(|v| v.as_str())
@@ -853,7 +847,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "agent": agent,
                                     "name": name,
                                     "pattern": pattern,
-                                    "scope": scope,
                                 });
                                 if let Some(cooldown) = args.get("cooldown_secs") {
                                     ipc["cooldown_secs"] = cooldown.clone();

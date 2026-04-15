@@ -1,6 +1,6 @@
 //! Event handlers — the fourth primitive.
 //!
-//! An event is a reaction rule: when pattern X fires on agent Y's scope,
+//! An event is a reaction rule: when pattern X fires on agent Y,
 //! run idea Z. Events replace triggers and express the entire agent lifecycle.
 
 use anyhow::Result;
@@ -21,18 +21,16 @@ pub struct Event {
     pub id: String,
     pub agent_id: String,
     pub name: String,
-    /// Pattern: "session:quest_start", "schedule:0 9 * * *", "webhook:abc123"
+    /// Pattern: "session:start", "session:quest_start", "schedule:0 9 * * *", "webhook:abc123"
     pub pattern: String,
-    /// Scope: "self", "children", "descendants"
-    pub scope: String,
-    /// References to ideas to run (JSON array of idea ID strings).
+    /// References to ideas to inject when this event fires.
     pub idea_ids: Vec<String>,
     pub enabled: bool,
     pub cooldown_secs: u64,
     pub last_fired: Option<DateTime<Utc>>,
     pub fire_count: u64,
     pub total_cost_usd: f64,
-    /// System events cannot be deleted (lifecycle handlers).
+    /// System events cannot be deleted.
     pub system: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -42,8 +40,7 @@ pub struct NewEvent {
     pub agent_id: String,
     pub name: String,
     pub pattern: String,
-    pub scope: String,
-    /// References to ideas to run (JSON array of idea ID strings).
+    /// References to ideas to inject when this event fires.
     pub idea_ids: Vec<String>,
     pub cooldown_secs: u64,
     pub system: bool,
@@ -79,9 +76,9 @@ impl EventHandlerStore {
             let db = self.db.lock().await;
             db.execute(
                 "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, enabled, cooldown_secs, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, ?9)",
+                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, 1, ?6, ?7, ?8)",
                 params![
-                    id, e.agent_id, e.name, e.pattern, e.scope,
+                    id, e.agent_id, e.name, e.pattern,
                     idea_ids_json, e.cooldown_secs as i64,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
@@ -176,34 +173,16 @@ impl EventHandlerStore {
         .map_err(Into::into)
     }
 
-    /// Partial update of event fields. System events cannot have pattern/scope changed.
+    /// Partial update of event fields.
     pub async fn update_fields(
         &self,
         id: &str,
         enabled: Option<bool>,
         pattern: Option<&str>,
-        scope: Option<&str>,
         cooldown_secs: Option<u64>,
         idea_ids: Option<&[String]>,
     ) -> Result<()> {
         let db = self.db.lock().await;
-
-        let is_system: bool = db
-            .query_row("SELECT system FROM events WHERE id = ?1", params![id], |row| row.get(0))
-            .optional()?
-            .unwrap_or(false);
-
-        if is_system {
-            if let Some(false) = enabled {
-                anyhow::bail!("cannot disable system lifecycle event");
-            }
-            if pattern.is_some() {
-                anyhow::bail!("cannot change pattern on system lifecycle event");
-            }
-            if scope.is_some() {
-                anyhow::bail!("cannot change scope on system lifecycle event");
-            }
-        }
 
         // Build dynamic UPDATE.
         let mut sets = Vec::new();
@@ -216,10 +195,6 @@ impl EventHandlerStore {
         if let Some(pattern) = pattern {
             sets.push("pattern = ?");
             values.push(Box::new(pattern.to_string()));
-        }
-        if let Some(scope) = scope {
-            sets.push("scope = ?");
-            values.push(Box::new(scope.to_string()));
         }
         if let Some(cooldown_secs) = cooldown_secs {
             sets.push("cooldown_secs = ?");
@@ -273,8 +248,7 @@ impl EventHandlerStore {
                 agent_id: agent_id.to_string(),
                 name: "on_session_start".to_string(),
                 pattern: "session:start".to_string(),
-                scope: "self".to_string(),
-                idea_ids: idea_ids.to_vec(),
+                                idea_ids: idea_ids.to_vec(),
                 cooldown_secs: 0,
                 system: false,
             })
@@ -383,33 +357,29 @@ pub async fn create_default_lifecycle_events(
     store: &EventHandlerStore,
     agent_id: &str,
 ) -> anyhow::Result<()> {
-    // (event_name, pattern, scope, idea_key, idea_content)
-    let defaults: &[(&str, &str, &str, &str, &str)] = &[
+    // (event_name, pattern, idea_key, idea_content)
+    let defaults: &[(&str, &str, &str, &str)] = &[
         (
             "on_session_start",
             "session:start",
-            "self",
             "session:start",
             "A session is starting. Establish context, recall relevant ideas, and prepare for the conversation or work ahead.",
         ),
         (
             "on_quest_start",
             "session:quest_start",
-            "self",
             "session:quest-start",
             "A quest has been assigned to you and a session spawned for it. Analyze the requirements, plan your approach, and begin working. Use your tools to complete the work. When finished, close the quest with a summary.",
         ),
         (
             "on_quest_end",
             "session:quest_end",
-            "self",
             "session:quest-end",
             "You are closing a quest. Reflect on what you did. Store any reusable knowledge as ideas. Summarize the changes for review.",
         ),
         (
             "on_quest_result",
             "session:quest_result",
-            "self",
             "session:quest-result",
             "A quest you created has completed and the result has been delivered. Review the outcome, check the diff, and decide on next steps. Create follow-up quests if needed.",
         ),
@@ -417,7 +387,7 @@ pub async fn create_default_lifecycle_events(
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    for &(name, pattern, scope, idea_key, idea_content) in defaults {
+    for &(name, pattern, idea_key, idea_content) in defaults {
         // Create the seed idea.
         let idea_id = uuid::Uuid::new_v4().to_string();
         {
@@ -435,8 +405,7 @@ pub async fn create_default_lifecycle_events(
                 agent_id: agent_id.to_string(),
                 name: name.to_string(),
                 pattern: pattern.to_string(),
-                scope: scope.to_string(),
-                idea_ids: vec![idea_id],
+                                idea_ids: vec![idea_id],
                 cooldown_secs: 0,
                 system: true,
             })
@@ -454,7 +423,6 @@ pub async fn create_default_lifecycle_events(
 /// 2. Collect all injection_mode idea IDs for that agent
 /// 3. Set the event's `idea_ids` to reference them (merging, not duplicating)
 /// 4. Preserve the `PromptPosition` info (system/prepend/append) from injection_mode
-///    and the scope from `inheritance` in the event's scope field
 ///
 /// This is idempotent -- running it multiple times is safe.
 /// Returns the count of ideas migrated (linked to events).
@@ -482,15 +450,6 @@ pub async fn migrate_injection_mode_to_events(
 
     for (agent_id, ideas) in &by_agent {
         let idea_ids: Vec<String> = ideas.iter().map(|(id, _, _)| id.clone()).collect();
-
-        // Determine the broadest scope from the ideas' inheritance fields.
-        // If any idea has "descendants", the event scope should be "descendants".
-        // Otherwise, "self".
-        let scope = if ideas.iter().any(|(_, _, inh)| inh == "descendants") {
-            "descendants"
-        } else {
-            "self"
-        };
 
         // Check if an on_session_start event already exists for this agent.
         let existing_events = event_store.list_for_agent(agent_id).await?;
@@ -533,8 +492,7 @@ pub async fn migrate_injection_mode_to_events(
                         agent_id: agent_id.clone(),
                         name: "on_session_start".to_string(),
                         pattern: "session:start".to_string(),
-                        scope: scope.to_string(),
-                        idea_ids: idea_ids.clone(),
+                                                idea_ids: idea_ids.clone(),
                         cooldown_secs: 0,
                         system: true,
                     })
@@ -556,7 +514,6 @@ pub async fn migrate_injection_mode_to_events(
                         info!(
                             agent_id = %agent_id,
                             ideas = idea_ids.len(),
-                            scope = scope,
                             "injection_mode migration: created on_session_start event"
                         );
                         total_migrated += idea_ids.len();
@@ -599,7 +556,6 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         agent_id: row.get("agent_id").unwrap_or_default(),
         name: row.get("name").unwrap_or_default(),
         pattern: row.get("pattern").unwrap_or_default(),
-        scope: row.get("scope").unwrap_or_else(|_| "self".to_string()),
         idea_ids,
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
@@ -643,8 +599,7 @@ mod tests {
             agent_id: "a1".into(),
             name: "morning-brief".into(),
             pattern: "schedule:0 9 * * *".into(),
-            scope: "self".into(),
-            idea_ids: Vec::new(),
+                        idea_ids: Vec::new(),
             cooldown_secs: 300,
             system: false,
         }).await.unwrap();
@@ -664,8 +619,7 @@ mod tests {
             agent_id: "a1".into(),
             name: "on-quest-received".into(),
             pattern: "session:quest_start".into(),
-            scope: "self".into(),
-            idea_ids: Vec::new(),
+                        idea_ids: Vec::new(),
             cooldown_secs: 0,
             system: true,
         }).await.unwrap();
@@ -681,8 +635,7 @@ mod tests {
             agent_id: "a1".into(),
             name: "test".into(),
             pattern: "session:test".into(),
-            scope: "self".into(),
-            idea_ids: Vec::new(),
+                        idea_ids: Vec::new(),
             cooldown_secs: 0,
             system: false,
         }).await.unwrap();
@@ -701,13 +654,11 @@ mod tests {
         let store = test_store().await;
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "sched1".into(),
-            pattern: "schedule:0 9 * * *".into(), scope: "self".into(),
-            idea_ids: Vec::new(), cooldown_secs: 0, system: false,
+            pattern: "schedule:0 9 * * *".into(),             idea_ids: Vec::new(), cooldown_secs: 0, system: false,
         }).await.unwrap();
         store.create(&NewEvent {
             agent_id: "a1".into(), name: "lifecycle1".into(),
-            pattern: "session:quest_start".into(), scope: "self".into(),
-            idea_ids: Vec::new(), cooldown_secs: 0, system: false,
+            pattern: "session:quest_start".into(),             idea_ids: Vec::new(), cooldown_secs: 0, system: false,
         }).await.unwrap();
 
         let schedules = store.list_by_pattern_prefix("schedule:").await.unwrap();
@@ -725,8 +676,7 @@ mod tests {
             agent_id: "a1".into(),
             name: "update-me".into(),
             pattern: "session:update_me".into(),
-            scope: "self".into(),
-            idea_ids: vec!["keep-a".into(), "keep-b".into()],
+                        idea_ids: vec!["keep-a".into(), "keep-b".into()],
             cooldown_secs: 0,
             system: false,
         }).await.unwrap();
@@ -735,7 +685,6 @@ mod tests {
         store
             .update_fields(
                 &event.id,
-                None,
                 None,
                 None,
                 None,
@@ -754,7 +703,6 @@ mod tests {
                 None,
                 None,
                 None,
-                None,
                 Some(&replacement),
             )
             .await
@@ -767,7 +715,6 @@ mod tests {
         store
             .update_fields(
                 &event.id,
-                None,
                 None,
                 None,
                 None,
@@ -877,8 +824,7 @@ mod tests {
             agent_id: "a1".into(),
             name: "on_session_start".into(),
             pattern: "session:start".into(),
-            scope: "self".into(),
-            idea_ids: vec!["existing-id".into()],
+                        idea_ids: vec!["existing-id".into()],
             cooldown_secs: 0,
             system: true,
         }).await.unwrap();
@@ -896,26 +842,6 @@ mod tests {
         assert_eq!(session_event.idea_ids.len(), 2);
         assert!(session_event.idea_ids.contains(&"existing-id".to_string()));
         assert!(session_event.idea_ids.contains(&"new-id".to_string()));
-    }
-
-    #[tokio::test]
-    async fn migrate_uses_descendants_scope_when_any_idea_has_it() {
-        let event_store = test_store().await;
-        let idea1 = make_idea("i1", "a1", "system", "self");
-        let idea2 = make_idea("i2", "a1", "prepend", "descendants");
-        let idea_store = MockIdeaStore {
-            injection_ideas: vec![
-                ("a1".into(), "system".into(), idea1),
-                ("a1".into(), "prepend".into(), idea2),
-            ],
-        };
-
-        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
-        assert_eq!(count, 2);
-
-        let events = event_store.list_for_agent("a1").await.unwrap();
-        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
-        assert_eq!(session_event.scope, "descendants");
     }
 
     #[tokio::test]

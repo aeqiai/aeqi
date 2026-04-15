@@ -382,7 +382,6 @@ impl AgentsTool {
                             "id": e.id,
                             "name": e.name,
                             "pattern": e.pattern,
-                            "scope": e.scope,
                             "enabled": e.enabled,
                         })
                     })
@@ -1040,12 +1039,6 @@ impl Tool for EventsTool {
                     .get("cooldown_secs")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
-                let scope = args
-                    .get("scope")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("self")
-                    .to_string();
-
                 let pattern = if let Some(schedule) =
                     args.get("schedule").and_then(|v| v.as_str())
                 {
@@ -1073,7 +1066,6 @@ impl Tool for EventsTool {
                         agent_id: self.agent_id.clone(),
                         name: name.to_string(),
                         pattern: pattern.clone(),
-                        scope,
                         idea_ids,
                         cooldown_secs,
                         system: false,
@@ -1209,11 +1201,6 @@ impl Tool for EventsTool {
                     "event_pattern": {
                         "type": "string",
                         "description": "Lifecycle event (e.g. 'quest_completed') — shorthand for pattern 'session:<event>'"
-                    },
-                    "scope": {
-                        "type": "string",
-                        "enum": ["self", "children", "descendants"],
-                        "description": "Event scope (default: 'self')"
                     },
                     "content": {
                         "type": "string",

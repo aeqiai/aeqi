@@ -301,7 +301,6 @@ mod tests {
             agent_id: "a1".into(),
             name: "test".into(),
             pattern: "schedule:every 60s".into(),
-            scope: "self".into(),
             idea_ids: vec!["a".into(), "b".into(), "a".into(), "".into()],
             enabled: true,
             cooldown_secs: 0,

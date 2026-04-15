@@ -46,7 +46,6 @@ pub async fn handle_create_event(
         return serde_json::json!({"ok": false, "error": "agent_id, name, and pattern are required"});
     }
 
-    let scope = request_field(request, "scope").unwrap_or("self");
     let cooldown_secs = request
         .get("cooldown_secs")
         .and_then(|v| v.as_u64())
@@ -65,7 +64,6 @@ pub async fn handle_create_event(
         agent_id: agent_id.to_string(),
         name: name.to_string(),
         pattern: pattern.to_string(),
-        scope: scope.to_string(),
         idea_ids,
         cooldown_secs,
         system,
@@ -93,7 +91,6 @@ pub async fn handle_update_event(
 
     let enabled = request.get("enabled").and_then(|v| v.as_bool());
     let pattern = request_field(request, "pattern");
-    let scope = request_field(request, "scope");
     let cooldown_secs = request.get("cooldown_secs").and_then(|v| v.as_u64());
     let idea_ids = match parse_optional_idea_ids(request) {
         Ok(ids) => ids,
@@ -103,7 +100,6 @@ pub async fn handle_update_event(
     // Check if any field is provided at all.
     if enabled.is_none()
         && pattern.is_none()
-        && scope.is_none()
         && cooldown_secs.is_none()
         && idea_ids.is_none()
     {
@@ -115,7 +111,6 @@ pub async fn handle_update_event(
             id,
             enabled,
             pattern,
-            scope,
             cooldown_secs,
             idea_ids.as_deref(),
         )
@@ -159,7 +154,6 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "agent_id": e.agent_id,
         "name": e.name,
         "pattern": e.pattern,
-        "scope": e.scope,
         "idea_ids": e.idea_ids,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,
