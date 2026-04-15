@@ -75,6 +75,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   const selected = events.find((e) => e.id === selectedId);
 
+  // Re-fetch ideas when selected event or its idea_ids change.
+  const selectedIdeaIdsKey = selected ? selected.idea_ids.join(",") : "";
   useEffect(() => {
     if (!selected || selected.idea_ids.length === 0) {
       setIdeas([]);
@@ -85,10 +87,11 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       .getIdeasByIds(selected.idea_ids)
       .then((data) => {
         if (data.ok) setIdeas(data.ideas);
+        else setIdeas([]);
       })
       .catch(() => setIdeas([]))
       .finally(() => setIdeasLoading(false));
-  }, [selected?.id, selected?.idea_ids.length]);
+  }, [selected?.id, selectedIdeaIdsKey]);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
