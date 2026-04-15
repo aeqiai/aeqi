@@ -169,10 +169,7 @@ impl PromptLoader {
     }
 
     /// Filter entries by allowed project names (for tenancy).
-    pub async fn entries_filtered(
-        &self,
-        allowed: &Option<Vec<String>>,
-    ) -> Vec<PromptFileEntry> {
+    pub async fn entries_filtered(&self, allowed: &Option<Vec<String>>) -> Vec<PromptFileEntry> {
         let entries = self.entries().await;
         if allowed.is_none() {
             return entries.as_ref().clone();
@@ -189,10 +186,7 @@ impl PromptLoader {
                         .map(|list| {
                             list.iter().any(|a| {
                                 source == a
-                                    || source
-                                        .split('/')
-                                        .next()
-                                        .is_some_and(|prefix| prefix == a)
+                                    || source.split('/').next().is_some_and(|prefix| prefix == a)
                             })
                         })
                         .unwrap_or(false)

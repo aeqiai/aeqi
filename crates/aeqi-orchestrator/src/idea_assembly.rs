@@ -77,30 +77,31 @@ pub async fn assemble_ideas(
 
         // Bulk-fetch ideas referenced by events.
         if let Some(store) = idea_store
-            && !event_idea_ids.is_empty() {
-                match store.get_by_ids(&event_idea_ids).await {
-                    Ok(ideas) => {
-                        for idea in ideas {
-                            if idea.content.is_empty() {
-                                continue;
-                            }
-                            let entry = idea.to_prompt_entry();
-                            append_entry(
-                                &entry,
-                                is_self,
-                                &mut system_parts,
-                                &mut prepend_parts,
-                                &mut append_parts,
-                                &mut allow_sets,
-                                &mut deny_all,
-                            );
+            && !event_idea_ids.is_empty()
+        {
+            match store.get_by_ids(&event_idea_ids).await {
+                Ok(ideas) => {
+                    for idea in ideas {
+                        if idea.content.is_empty() {
+                            continue;
                         }
-                    }
-                    Err(e) => {
-                        tracing::warn!(agent = %agent.id, error = %e, "failed to fetch event-referenced ideas");
+                        let entry = idea.to_prompt_entry();
+                        append_entry(
+                            &entry,
+                            is_self,
+                            &mut system_parts,
+                            &mut prepend_parts,
+                            &mut append_parts,
+                            &mut allow_sets,
+                            &mut deny_all,
+                        );
                     }
                 }
+                Err(e) => {
+                    tracing::warn!(agent = %agent.id, error = %e, "failed to fetch event-referenced ideas");
+                }
             }
+        }
 
         // No fallback. Events are the only activation mechanism.
         // injection_mode ideas are migrated to events on daemon startup.

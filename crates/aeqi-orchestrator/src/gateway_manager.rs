@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
+use aeqi_core::ChatStreamEvent;
 use aeqi_core::chat_stream::ChatStreamSender;
 use aeqi_core::traits::{CompletedResponse, DeliveryMode, SessionGateway};
-use aeqi_core::ChatStreamEvent;
 
 use crate::session_store::SessionStore;
 
@@ -57,11 +57,7 @@ impl GatewayManager {
 
     /// Register a persistent gateway for a session. It will be auto-registered
     /// whenever the session's dispatcher starts (including from the web path).
-    pub async fn register_persistent(
-        &self,
-        session_id: &str,
-        gateway: Arc<dyn SessionGateway>,
-    ) {
+    pub async fn register_persistent(&self, session_id: &str, gateway: Arc<dyn SessionGateway>) {
         let gw_id = gateway.gateway_id().to_string();
         let mut persistent = self.persistent.lock().await;
         let entry = persistent.entry(session_id.to_string()).or_default();
@@ -74,11 +70,7 @@ impl GatewayManager {
     /// Activate persistent gateways for a session using the given stream sender.
     /// Call this when a session starts from a non-gateway source (e.g. web UI)
     /// to ensure responses also deliver to persistent channels (e.g. Telegram).
-    pub async fn activate_persistent(
-        &self,
-        session_id: &str,
-        stream_sender: &ChatStreamSender,
-    ) {
+    pub async fn activate_persistent(&self, session_id: &str, stream_sender: &ChatStreamSender) {
         let persistent = self.persistent.lock().await;
         let Some(pgws) = persistent.get(session_id) else {
             return;
@@ -100,7 +92,8 @@ impl GatewayManager {
         gateway: Arc<dyn SessionGateway>,
         stream_sender: &ChatStreamSender,
     ) {
-        self.register_with_rx(session_id, gateway, stream_sender.subscribe()).await;
+        self.register_with_rx(session_id, gateway, stream_sender.subscribe())
+            .await;
     }
 
     /// Register a gateway with a pre-created broadcast receiver.
@@ -215,11 +208,16 @@ async fn dispatch_loop(
                         if !accumulated_text.is_empty() {
                             // Record the assistant response ONCE before delivering to gateways.
                             if let Some(ref ss) = session_store {
-                                let _ = ss.record_event_by_session(
-                                    &session_id, "message", "assistant",
-                                    &accumulated_text, Some("agent"),
-                                    None,
-                                ).await;
+                                let _ = ss
+                                    .record_event_by_session(
+                                        &session_id,
+                                        "message",
+                                        "assistant",
+                                        &accumulated_text,
+                                        Some("agent"),
+                                        None,
+                                    )
+                                    .await;
                             }
 
                             let response = CompletedResponse {

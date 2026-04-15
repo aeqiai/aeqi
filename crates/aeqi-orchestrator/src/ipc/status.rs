@@ -102,11 +102,7 @@ pub async fn handle_readiness(
     let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
-    crate::daemon::readiness_response(
-        worker_limits,
-        (spent, budget, remaining),
-        readiness,
-    )
+    crate::daemon::readiness_response(worker_limits, (spent, budget, remaining), readiness)
 }
 
 pub async fn handle_worker_progress(
@@ -138,7 +134,8 @@ pub async fn handle_worker_events(
 ) -> serde_json::Value {
     let cursor = request.get("cursor").and_then(|v| v.as_u64());
     let snapshot = {
-        let buffer: tokio::sync::MutexGuard<'_, super::ActivityBuffer> = ctx.activity_buffer.lock().await;
+        let buffer: tokio::sync::MutexGuard<'_, super::ActivityBuffer> =
+            ctx.activity_buffer.lock().await;
         buffer.read_since(cursor)
     };
     let events: Vec<crate::activity::Activity> = if allowed.is_some() {
@@ -381,4 +378,3 @@ pub async fn handle_pipelines(
     }
     serde_json::json!({"ok": true, "pipelines": pipelines})
 }
-

@@ -36,11 +36,7 @@ pub(crate) async fn cmd_team(
     println!("Projects:");
     for project_cfg in projects {
         let org_hint = format_project_org_hint(&config, &project_cfg.name);
-        println!(
-            "  {}{}",
-            project_cfg.name,
-            org_hint,
-        );
+        println!("  {}{}", project_cfg.name, org_hint,);
     }
 
     let mut issues = config.validate_teams();

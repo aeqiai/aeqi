@@ -5,9 +5,9 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
-use crate::agent_registry::AgentRegistry;
+use crate::activity::{Activity, ActivityStream};
 use crate::activity_log::ActivityLog;
-use crate::activity::{ActivityStream, Activity};
+use crate::agent_registry::AgentRegistry;
 use crate::gateway_manager::GatewayManager;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
@@ -15,7 +15,6 @@ use crate::progress_tracker::ProgressTracker;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::{SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id};
-
 
 const MAX_EVENT_BUFFER_LEN: usize = 512;
 
@@ -163,7 +162,6 @@ pub fn quest_snapshot(quest: &aeqi_quests::Quest) -> serde_json::Value {
     })
 }
 
-
 pub fn merge_timeline_metadata(
     metadata: Option<&serde_json::Value>,
     task: Option<serde_json::Value>,
@@ -197,7 +195,6 @@ pub async fn find_quest_snapshot(
         .flatten()
         .map(|t| quest_snapshot(&t))
 }
-
 
 pub fn attach_chat_id(mut payload: serde_json::Value, chat_id: i64) -> serde_json::Value {
     payload["chat_id"] = serde_json::json!(chat_id);
@@ -567,7 +564,8 @@ impl Daemon {
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    let _ = std::fs::set_permissions(sock_path, std::fs::Permissions::from_mode(0o600));
+                    let _ =
+                        std::fs::set_permissions(sock_path, std::fs::Permissions::from_mode(0o600));
                 }
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
@@ -652,7 +650,10 @@ impl Daemon {
         .await
         {
             Ok(count) if count > 0 => {
-                info!(count, "migrated injection_mode ideas to event-based activation");
+                info!(
+                    count,
+                    "migrated injection_mode ideas to event-based activation"
+                );
             }
             Err(e) => {
                 warn!(error = %e, "injection_mode migration failed");
@@ -680,9 +681,12 @@ impl Daemon {
             let dir_name = entry.file_name().to_string_lossy().to_string();
             // Check if this worktree belongs to an open quest.
             let quest = self.agent_registry.get_task(&dir_name).await.ok().flatten();
-            let is_open = quest
-                .as_ref()
-                .is_some_and(|q| !matches!(q.status, aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled));
+            let is_open = quest.as_ref().is_some_and(|q| {
+                !matches!(
+                    q.status,
+                    aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled
+                )
+            });
 
             if !is_open {
                 // Orphan — remove worktree.
@@ -777,7 +781,10 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                match mem.store(&w.key, &w.content, std::slice::from_ref(&w.category), None).await {
+                match mem
+                    .store(&w.key, &w.content, std::slice::from_ref(&w.category), None)
+                    .await
+                {
                     Ok(id) => debug!(
                         project = %w.project,
                         id = %id,
@@ -1117,8 +1124,12 @@ impl Daemon {
                 }
                 "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_companies).await,
                 "session_message" => {
-                    match crate::ipc::chat::handle_session_message(&ctx, &request, &allowed_companies)
-                        .await
+                    match crate::ipc::chat::handle_session_message(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                    )
+                    .await
                     {
                         Some(resp) => resp,
                         None => {
@@ -1207,8 +1218,7 @@ impl Daemon {
                 }
 
                 "seed_ideas" => {
-                    crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies).await
                 }
                 "list_ideas" => {
                     crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_companies).await
@@ -1223,13 +1233,11 @@ impl Daemon {
                     crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_companies).await
                 }
                 "search_ideas" => {
-                    crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_companies).await
                 }
 
                 "list_events" => {
-                    crate::ipc::events::handle_list_events(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::events::handle_list_events(&ctx, &request, &allowed_companies).await
                 }
                 "create_event" => {
                     crate::ipc::events::handle_create_event(&ctx, &request, &allowed_companies)
@@ -1249,8 +1257,12 @@ impl Daemon {
                         .await
                 }
                 "list_channel_sessions" => {
-                    crate::ipc::sessions::handle_list_channel_sessions(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::sessions::handle_list_channel_sessions(
+                        &ctx,
+                        &request,
+                        &allowed_companies,
+                    )
+                    .await
                 }
                 "sessions" => {
                     crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_companies).await
@@ -1312,7 +1324,10 @@ impl Daemon {
 
                 "session_fork" => {
                     let session_id = request_field(&request, "session_id").unwrap_or("");
-                    let message_id = request.get("message_id").and_then(|v| v.as_i64()).unwrap_or(0);
+                    let message_id = request
+                        .get("message_id")
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(0);
                     if session_id.is_empty() || message_id == 0 {
                         serde_json::json!({"ok": false, "error": "session_id and message_id required"})
                     } else if let Some(ref ss) = ipc_ctx.session_store {
@@ -1384,9 +1399,10 @@ impl Daemon {
 
                         // Resolve web sender identity (anonymous — no auth context yet).
                         let web_sender_id: Option<String> = if let Some(ref cs) = session_store {
-                            cs.resolve_sender(
-                                "web", "anonymous", "Web User", None, None, None,
-                            ).await.ok().map(|s| s.id)
+                            cs.resolve_sender("web", "anonymous", "Web User", None, None, None)
+                                .await
+                                .ok()
+                                .map(|s| s.id)
                         } else {
                             None
                         };
@@ -1399,8 +1415,14 @@ impl Daemon {
                             if let Some(ref cs) = session_store {
                                 let _ = cs
                                     .record_event_by_session_with_sender(
-                                        sid, "message", "user", message, Some("web"),
-                                        None, web_sender_id.as_deref(), Some("web"),
+                                        sid,
+                                        "message",
+                                        "user",
+                                        message,
+                                        Some("web"),
+                                        None,
+                                        web_sender_id.as_deref(),
+                                        Some("web"),
                                     )
                                     .await;
                             }
@@ -1441,8 +1463,14 @@ impl Daemon {
                             if let Some(ref sid) = usid {
                                 let _ = cs
                                     .record_event_by_session_with_sender(
-                                        sid, "message", "user", message, Some("web"),
-                                        None, web_sender_id.as_deref(), Some("web"),
+                                        sid,
+                                        "message",
+                                        "user",
+                                        message,
+                                        Some("web"),
+                                        None,
+                                        web_sender_id.as_deref(),
+                                        Some("web"),
                                     )
                                     .await;
                             }
@@ -1461,11 +1489,11 @@ impl Daemon {
 
                         // Resolve agent sender for identity-aware response recording.
                         let agent_sender_id: Option<String> = if let Some(ref cs) = session_store {
-                            let agent_uuid = agent_id_direct.as_deref()
-                                .unwrap_or(&agent_hint);
-                            cs.resolve_sender(
-                                "agent", agent_uuid, &agent_hint, None, None, None,
-                            ).await.ok().map(|s| s.id)
+                            let agent_uuid = agent_id_direct.as_deref().unwrap_or(&agent_hint);
+                            cs.resolve_sender("agent", agent_uuid, &agent_hint, None, None, None)
+                                .await
+                                .ok()
+                                .map(|s| s.id)
                         } else {
                             None
                         };
@@ -1475,35 +1503,57 @@ impl Daemon {
                             && session_manager.is_running(&resolved_session_id).await
                         {
                             // Activate persistent gateways (e.g. Telegram) for this session.
-                            if let Some(stream_sender) = session_manager.get_stream_sender(&resolved_session_id).await {
+                            if let Some(stream_sender) = session_manager
+                                .get_stream_sender(&resolved_session_id)
+                                .await
+                            {
                                 gateway_manager
                                     .activate_persistent(&resolved_session_id, &stream_sender)
                                     .await;
                             }
                             // Assemble session:execution_start ideas for this agent.
-                            let exec_ideas: Option<String> = if let Some(ref ehs) = ipc_ctx.event_handler_store {
+                            let exec_ideas: Option<String> = if let Some(ref ehs) =
+                                ipc_ctx.event_handler_store
+                            {
                                 let agent_uuid = agent_id_direct.as_deref().unwrap_or(&agent_hint);
-                                let exec_events = ehs.get_events_for_pattern(agent_uuid, "session:execution_start").await;
+                                let exec_events = ehs
+                                    .get_events_for_pattern(agent_uuid, "session:execution_start")
+                                    .await;
                                 let mut idea_ids: Vec<String> = Vec::new();
                                 for ev in &exec_events {
-                                    idea_ids.extend(ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned());
+                                    idea_ids.extend(
+                                        ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned(),
+                                    );
                                 }
                                 if !idea_ids.is_empty() {
                                     if let Some(ref store) = ipc_ctx.idea_store {
                                         if let Ok(ideas) = store.get_by_ids(&idea_ids).await {
-                                            let ctx = ideas.iter()
+                                            let ctx = ideas
+                                                .iter()
                                                 .map(|i| format!("## {}\n{}", i.key, i.content))
                                                 .collect::<Vec<_>>()
                                                 .join("\n\n");
                                             if !ctx.is_empty() { Some(ctx) } else { None }
-                                        } else { None }
-                                    } else { None }
-                                } else { None }
-                            } else { None };
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
 
                             if stream_mode {
                                 match session_manager
-                                    .send_streaming_with_ideas(&resolved_session_id, message, exec_ideas.clone())
+                                    .send_streaming_with_ideas(
+                                        &resolved_session_id,
+                                        message,
+                                        exec_ideas.clone(),
+                                    )
                                     .await
                                 {
                                     Ok(mut rx) => {
@@ -1611,16 +1661,17 @@ impl Daemon {
 
                                         // Text already flushed per-step in StepComplete/Complete handlers above.
                                         if let Some(ref cs) = session_store
-                                            && store_session_id.is_none() {
-                                                let _ = cs
-                                                    .record_with_source(
-                                                        chat_id,
-                                                        "assistant",
-                                                        &text,
-                                                        Some("web"),
-                                                    )
-                                                    .await;
-                                            }
+                                            && store_session_id.is_none()
+                                        {
+                                            let _ = cs
+                                                .record_with_source(
+                                                    chat_id,
+                                                    "assistant",
+                                                    &text,
+                                                    Some("web"),
+                                                )
+                                                .await;
+                                        }
 
                                         let cost_usd = aeqi_providers::estimate_cost(
                                             &default_model,
@@ -1679,9 +1730,14 @@ impl Daemon {
                                             if let Some(ref usid) = store_session_id {
                                                 let _ = cs
                                                     .record_event_by_session_with_sender(
-                                                        usid, "message", "assistant",
-                                                        &resp.text, Some("web"),
-                                                        None, agent_sender_id.as_deref(), Some("web"),
+                                                        usid,
+                                                        "message",
+                                                        "assistant",
+                                                        &resp.text,
+                                                        Some("web"),
+                                                        None,
+                                                        agent_sender_id.as_deref(),
+                                                        Some("web"),
                                                     )
                                                     .await;
                                             } else {
@@ -1910,7 +1966,9 @@ impl Daemon {
                                                         completion_tokens = *ct;
                                                         iterations = *it;
                                                         // Auto-commit worktree changes at end of turn.
-                                                        session_manager.auto_commit(&session_id, *it).await;
+                                                        session_manager
+                                                            .auto_commit(&session_id, *it)
+                                                            .await;
                                                         break;
                                                     }
                                                     _ => {}
@@ -1929,16 +1987,18 @@ impl Daemon {
 
                                     // Text already flushed per-step above.
                                     if let Some(ref cs) = session_store
-                                        && store_session_id.is_none() && !full_text.is_empty() {
-                                            let _ = cs
-                                                .record_with_source(
-                                                    chat_id,
-                                                    "assistant",
-                                                    &full_text,
-                                                    Some("web"),
-                                                )
-                                                .await;
-                                        }
+                                        && store_session_id.is_none()
+                                        && !full_text.is_empty()
+                                    {
+                                        let _ = cs
+                                            .record_with_source(
+                                                chat_id,
+                                                "assistant",
+                                                &full_text,
+                                                Some("web"),
+                                            )
+                                            .await;
+                                    }
 
                                     let cost_usd = aeqi_providers::estimate_cost(
                                         &default_model,
@@ -2015,16 +2075,13 @@ impl Daemon {
                     crate::ipc::ideas::handle_ideas_search(&ctx, &request, &allowed_companies).await
                 }
                 "idea_profile" | "memory_profile" => {
-                    crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_companies).await
                 }
                 "idea_graph" | "memory_graph" => {
-                    crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_companies).await
                 }
                 "idea_prefix" | "memory_prefix" => {
-                    crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_companies)
-                        .await
+                    crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_companies).await
                 }
                 "company_knowledge" => {
                     crate::ipc::ideas::handle_company_knowledge(&ctx, &request, &allowed_companies)
@@ -2043,21 +2100,29 @@ impl Daemon {
                         .await
                 }
                 "ideas_by_ids" => {
-                    let ids: Vec<String> = request.get("ids")
+                    let ids: Vec<String> = request
+                        .get("ids")
                         .and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                .collect()
+                        })
                         .unwrap_or_default();
                     if let Some(ref store) = ctx.idea_store {
                         match store.get_by_ids(&ids).await {
                             Ok(ideas) => {
-                                let items: Vec<serde_json::Value> = ideas.iter().map(|i| {
-                                    serde_json::json!({
-                                        "id": i.id,
-                                        "key": i.key,
-                                        "content": i.content,
-                                        "tags": i.tags,
+                                let items: Vec<serde_json::Value> = ideas
+                                    .iter()
+                                    .map(|i| {
+                                        serde_json::json!({
+                                            "id": i.id,
+                                            "key": i.key,
+                                            "content": i.content,
+                                            "tags": i.tags,
+                                        })
                                     })
-                                }).collect();
+                                    .collect();
                                 serde_json::json!({"ok": true, "ideas": items})
                             }
                             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -2111,10 +2176,8 @@ pub fn readiness_response(
     let (spent, budget, remaining) = budget_status;
     worker_limits.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let registered_owners: Vec<String> = worker_limits
-        .iter()
-        .map(|(name, _)| name.clone())
-        .collect();
+    let registered_owners: Vec<String> =
+        worker_limits.iter().map(|(name, _)| name.clone()).collect();
     let max_workers: u32 = worker_limits.iter().map(|(_, workers)| *workers).sum();
 
     let mut blocking_reasons = Vec::new();
@@ -2166,8 +2229,7 @@ pub fn readiness_response(
 #[cfg(test)]
 mod tests {
     use super::{
-        ActivityBuffer, Activity, ReadinessContext, readiness_response,
-        resolve_web_chat_id,
+        Activity, ActivityBuffer, ReadinessContext, readiness_response, resolve_web_chat_id,
     };
     use crate::session_store::{agency_chat_id, named_channel_chat_id, project_chat_id};
 

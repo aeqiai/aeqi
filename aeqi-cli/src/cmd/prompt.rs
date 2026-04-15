@@ -91,10 +91,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             let provider = build_provider_for_project(&config, &company)?;
             let workdir = PathBuf::from(&project_cfg.repo);
             let worktree_root = project_cfg.worktree_root.as_ref().map(PathBuf::from);
-            let all_tools = build_project_tools(
-                &workdir,
-                worktree_root.as_ref(),
-            );
+            let all_tools = build_project_tools(&workdir, worktree_root.as_ref());
 
             // Filter tools by prompt policy.
             let filtered_tools: Vec<Arc<dyn Tool>> = all_tools

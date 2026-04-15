@@ -19,13 +19,13 @@ use aeqi_core::AgentResult;
 use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender};
 use aeqi_core::traits::{IdeaStore, Provider};
 
-use crate::agent_registry::AgentRegistry;
-use crate::activity_log::ActivityLog;
 use crate::activity::ActivityStream;
+use crate::activity_log::ActivityLog;
+use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::prompt_loader::PromptLoader;
 use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
-use crate::prompt_loader::PromptLoader;
 
 /// A running agent session — the in-memory handle to a live agent loop.
 pub struct RunningSession {
@@ -398,9 +398,14 @@ impl SessionManager {
             .clone()
             .unwrap_or_else(|| Arc::new(EventHandlerStore::new(agent_registry.db())));
         let mut system_prompt = if let Some(ref id) = agent_uuid {
-            let assembled =
-                crate::idea_assembly::assemble_ideas(agent_registry, self.idea_store.as_ref(), &event_store, id, &opts.extra_prompts)
-                    .await;
+            let assembled = crate::idea_assembly::assemble_ideas(
+                agent_registry,
+                self.idea_store.as_ref(),
+                &event_store,
+                id,
+                &opts.extra_prompts,
+            )
+            .await;
             let full = assembled.full_system_prompt();
             // Safety net: if assembly returned empty, use a sensible default.
             if full.trim().is_empty() {
@@ -475,13 +480,14 @@ impl SessionManager {
                     let quest_id = aeqi_quests::QuestId(qid.clone());
                     if let Some(parent_id) = quest_id.parent()
                         && let Ok(Some(parent_quest)) = agent_registry.get_task(&parent_id.0).await
-                            && let Some(ref parent_branch) = parent_quest.worktree_branch {
-                                cfg.base_ref = parent_branch.clone();
-                                tracing::info!(
-                                    quest = %qid, parent = %parent_id.0,
-                                    base = %parent_branch, "forking from parent quest branch"
-                                );
-                            }
+                        && let Some(ref parent_branch) = parent_quest.worktree_branch
+                    {
+                        cfg.base_ref = parent_branch.clone();
+                        tracing::info!(
+                            quest = %qid, parent = %parent_id.0,
+                            base = %parent_branch, "forking from parent quest branch"
+                        );
+                    }
                 }
                 QuestSandbox::create(&sandbox_id, &cfg).await
             };
@@ -492,12 +498,14 @@ impl SessionManager {
                     if let Some(ref qid) = opts.quest_id {
                         let wt_path = sb.worktree_path.to_string_lossy().to_string();
                         let branch = sb.branch_name.clone();
-                        let _ = agent_registry.update_task(qid, |q| {
-                            if q.worktree_path.is_none() {
-                                q.worktree_path = Some(wt_path);
-                                q.worktree_branch = Some(branch);
-                            }
-                        }).await;
+                        let _ = agent_registry
+                            .update_task(qid, |q| {
+                                if q.worktree_path.is_none() {
+                                    q.worktree_path = Some(wt_path);
+                                    q.worktree_branch = Some(branch);
+                                }
+                            })
+                            .await;
                     }
                     Some(Arc::new(sb))
                 }
@@ -599,7 +607,6 @@ impl SessionManager {
         let mut step_idea_specs: Vec<aeqi_core::StepIdeaSpec> = Vec::new();
 
         for prompt_name in &opts.skills {
-
             // Disk fallback (for prompts not yet imported).
             if let Some(p) = all_prompts.iter().find(|s| s.name == *prompt_name) {
                 session_prompt_parts.push(p.system_prompt(""));
@@ -710,13 +717,21 @@ impl SessionManager {
             // Pre-assigned session_id (e.g. from channel_sessions). Ensure a
             // `sessions` table record exists so the UI can list it.
             if let Some(ref ss) = self.session_store
-                && ss.get_session(&existing_id).await.ok().flatten().is_none() {
-                    let aid = agent_uuid.as_deref().unwrap_or("");
-                    let display_name = opts.name.as_deref().unwrap_or(&agent_name);
-                    let _ = ss.create_session_with_id(
-                        &existing_id, aid, session_type_str, display_name, parent_id, quest_id,
-                    ).await;
-                }
+                && ss.get_session(&existing_id).await.ok().flatten().is_none()
+            {
+                let aid = agent_uuid.as_deref().unwrap_or("");
+                let display_name = opts.name.as_deref().unwrap_or(&agent_name);
+                let _ = ss
+                    .create_session_with_id(
+                        &existing_id,
+                        aid,
+                        session_type_str,
+                        display_name,
+                        parent_id,
+                        quest_id,
+                    )
+                    .await;
+            }
             existing_id
         } else if let Some(ref ss) = self.session_store {
             let aid = agent_uuid.as_deref().unwrap_or("");
@@ -762,26 +777,42 @@ impl SessionManager {
             // stay open until explicitly closed).
             if !is_interactive_spawn && let (Some(ss), Ok(r)) = (&ss_clone, &result) {
                 // Resolve agent sender for identity-aware recording.
-                let agent_sender = ss.resolve_sender(
-                    "agent", &agent_id_clone, &agent_name_clone, None, None, None,
-                ).await.ok();
+                let agent_sender = ss
+                    .resolve_sender(
+                        "agent",
+                        &agent_id_clone,
+                        &agent_name_clone,
+                        None,
+                        None,
+                        None,
+                    )
+                    .await
+                    .ok();
                 let sender_id = agent_sender.as_ref().map(|s| s.id.as_str());
                 let transport = spawn_transport.as_deref().unwrap_or("internal");
                 let _ = ss
                     .record_event_by_session_with_sender(
-                        &sid_clone, "message", "assistant", &r.text,
-                        Some("session"), None, sender_id, Some(transport),
+                        &sid_clone,
+                        "message",
+                        "assistant",
+                        &r.text,
+                        Some("session"),
+                        None,
+                        sender_id,
+                        Some(transport),
                     )
                     .await;
                 let _ = ss.close_session(&sid_clone).await;
             }
-            let _ = al_clone.emit(
-                "session_end",
-                Some(&agent_id_clone),
-                Some(&sid_clone),
-                None,
-                &serde_json::json!({}),
-            ).await;
+            let _ = al_clone
+                .emit(
+                    "session_end",
+                    Some(&agent_id_clone),
+                    Some(&sid_clone),
+                    None,
+                    &serde_json::json!({}),
+                )
+                .await;
             result
         });
 
@@ -804,13 +835,15 @@ impl SessionManager {
         };
         self.register(running).await;
 
-        let _ = activity_log.emit(
-            "session_start",
-            Some(&agent_id_for_session),
-            Some(&session_id),
-            None,
-            &serde_json::json!({"agent_name": agent_name, "session_type": session_type_str}),
-        ).await;
+        let _ = activity_log
+            .emit(
+                "session_start",
+                Some(&agent_id_for_session),
+                Some(&session_id),
+                None,
+                &serde_json::json!({"agent_name": agent_name, "session_type": session_type_str}),
+            )
+            .await;
 
         info!(
             session_id = %session_id,
@@ -882,7 +915,8 @@ impl SessionManager {
         session_id: &str,
         message: &str,
     ) -> anyhow::Result<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
-        self.send_streaming_with_ideas(session_id, message, None).await
+        self.send_streaming_with_ideas(session_id, message, None)
+            .await
     }
 
     pub async fn send_streaming_with_ideas(

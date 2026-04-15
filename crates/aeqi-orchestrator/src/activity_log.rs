@@ -46,10 +46,7 @@ impl ActivityLog {
     /// Create an ActivityLog sharing a connection pool (from AgentRegistry).
     pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(256);
-        Self {
-            db,
-            broadcast_tx,
-        }
+        Self { db, broadcast_tx }
     }
 
     /// Subscribe to the event broadcast channel for push-based dispatch.
@@ -403,7 +400,6 @@ impl ActivityLog {
         )?;
         Ok(deleted as u64)
     }
-
 }
 
 fn row_to_event(row: &rusqlite::Row) -> Event {
@@ -559,5 +555,4 @@ mod tests {
         assert_eq!(store.count("test", None).await.unwrap(), 2);
         assert_eq!(store.count("other", None).await.unwrap(), 1);
     }
-
 }

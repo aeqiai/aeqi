@@ -196,11 +196,15 @@ pub async fn handle_agent_info(
                 .get_ancestors(&agent.id)
                 .await
                 .unwrap_or_default();
-            let idea_chain: Vec<serde_json::Value> = ancestors.iter().rev()
-                .map(|a| serde_json::json!({
-                    "agent_name": a.name,
-                    "agent_id": a.id,
-                }))
+            let idea_chain: Vec<serde_json::Value> = ancestors
+                .iter()
+                .rev()
+                .map(|a| {
+                    serde_json::json!({
+                        "agent_name": a.name,
+                        "agent_id": a.id,
+                    })
+                })
                 .collect();
 
             serde_json::json!({

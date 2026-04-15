@@ -95,11 +95,13 @@ impl EventHandlerStore {
             None => {
                 // Already exists — find by agent_id + name.
                 let db = self.db.lock().await;
-                let existing = db.query_row(
-                    "SELECT * FROM events WHERE agent_id = ?1 AND name = ?2",
-                    params![e.agent_id, e.name],
-                    |row| Ok(row_to_event(row)),
-                ).optional()?;
+                let existing = db
+                    .query_row(
+                        "SELECT * FROM events WHERE agent_id = ?1 AND name = ?2",
+                        params![e.agent_id, e.name],
+                        |row| Ok(row_to_event(row)),
+                    )
+                    .optional()?;
                 match existing {
                     Some(event) => Ok(event),
                     None => anyhow::bail!("event creation failed for {}", e.name),
@@ -111,11 +113,9 @@ impl EventHandlerStore {
     /// Get an event by ID.
     pub async fn get(&self, id: &str) -> Result<Option<Event>> {
         let db = self.db.lock().await;
-        db.query_row(
-            "SELECT * FROM events WHERE id = ?1",
-            params![id],
-            |row| Ok(row_to_event(row)),
-        )
+        db.query_row("SELECT * FROM events WHERE id = ?1", params![id], |row| {
+            Ok(row_to_event(row))
+        })
         .optional()
         .map_err(Into::into)
     }
@@ -123,9 +123,7 @@ impl EventHandlerStore {
     /// List all events for an agent.
     pub async fn list_for_agent(&self, agent_id: &str) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
-        let mut stmt = db.prepare(
-            "SELECT * FROM events WHERE agent_id = ?1 ORDER BY name",
-        )?;
+        let mut stmt = db.prepare("SELECT * FROM events WHERE agent_id = ?1 ORDER BY name")?;
         let events = stmt
             .query_map(params![agent_id], |row| Ok(row_to_event(row)))?
             .filter_map(|r| r.ok())
@@ -136,9 +134,8 @@ impl EventHandlerStore {
     /// List all enabled events.
     pub async fn list_enabled(&self) -> Result<Vec<Event>> {
         let db = self.db.lock().await;
-        let mut stmt = db.prepare(
-            "SELECT * FROM events WHERE enabled = 1 ORDER BY agent_id, name",
-        )?;
+        let mut stmt =
+            db.prepare("SELECT * FROM events WHERE enabled = 1 ORDER BY agent_id, name")?;
         let events = stmt
             .query_map([], |row| Ok(row_to_event(row)))?
             .filter_map(|r| r.ok())
@@ -212,11 +209,9 @@ impl EventHandlerStore {
         }
 
         values.push(Box::new(id.to_string()));
-        let sql = format!(
-            "UPDATE events SET {} WHERE id = ?",
-            sets.join(", ")
-        );
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = values.iter().map(|v| v.as_ref()).collect();
+        let sql = format!("UPDATE events SET {} WHERE id = ?", sets.join(", "));
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            values.iter().map(|v| v.as_ref()).collect();
         db.execute(&sql, param_refs.as_slice())?;
         Ok(())
     }
@@ -248,7 +243,7 @@ impl EventHandlerStore {
                 agent_id: agent_id.to_string(),
                 name: "on_session_start".to_string(),
                 pattern: "session:start".to_string(),
-                                idea_ids: idea_ids.to_vec(),
+                idea_ids: idea_ids.to_vec(),
                 cooldown_secs: 0,
                 system: false,
             })
@@ -273,7 +268,11 @@ impl EventHandlerStore {
         let db = self.db.lock().await;
         // Cannot disable system events.
         let is_system: bool = db
-            .query_row("SELECT system FROM events WHERE id = ?1", params![id], |row| row.get(0))
+            .query_row(
+                "SELECT system FROM events WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
             .unwrap_or(false);
         if is_system && !enabled {
             anyhow::bail!("cannot disable system lifecycle event");
@@ -289,7 +288,11 @@ impl EventHandlerStore {
     pub async fn delete(&self, id: &str) -> Result<()> {
         let db = self.db.lock().await;
         let is_system: bool = db
-            .query_row("SELECT system FROM events WHERE id = ?1", params![id], |row| row.get(0))
+            .query_row(
+                "SELECT system FROM events WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
             .unwrap_or(false);
         if is_system {
             anyhow::bail!("cannot delete system lifecycle event");
@@ -341,11 +344,10 @@ impl EventHandlerStore {
     /// Count enabled events.
     pub async fn count_enabled(&self) -> Result<u64> {
         let db = self.db.lock().await;
-        let count: i64 = db.query_row(
-            "SELECT COUNT(*) FROM events WHERE enabled = 1",
-            [],
-            |row| row.get(0),
-        )?;
+        let count: i64 =
+            db.query_row("SELECT COUNT(*) FROM events WHERE enabled = 1", [], |row| {
+                row.get(0)
+            })?;
         Ok(count as u64)
     }
 }
@@ -411,7 +413,7 @@ pub async fn create_default_lifecycle_events(
                 agent_id: agent_id.to_string(),
                 name: name.to_string(),
                 pattern: pattern.to_string(),
-                                idea_ids: vec![idea_id],
+                idea_ids: vec![idea_id],
                 cooldown_secs: 0,
                 system: true,
             })
@@ -446,10 +448,11 @@ pub async fn migrate_injection_mode_to_events(
     // Group by agent_id.
     let mut by_agent: HashMap<String, Vec<(String, String, String)>> = HashMap::new();
     for (agent_id, injection_mode, idea) in &injection_ideas {
-        by_agent
-            .entry(agent_id.clone())
-            .or_default()
-            .push((idea.id.clone(), injection_mode.clone(), idea.inheritance.clone()));
+        by_agent.entry(agent_id.clone()).or_default().push((
+            idea.id.clone(),
+            injection_mode.clone(),
+            idea.inheritance.clone(),
+        ));
     }
 
     let mut total_migrated: usize = 0;
@@ -498,7 +501,7 @@ pub async fn migrate_injection_mode_to_events(
                         agent_id: agent_id.clone(),
                         name: "on_session_start".to_string(),
                         pattern: "session:start".to_string(),
-                                                idea_ids: idea_ids.clone(),
+                        idea_ids: idea_ids.clone(),
                         cooldown_secs: 0,
                         system: true,
                     })
@@ -601,14 +604,17 @@ mod tests {
     #[tokio::test]
     async fn create_and_list() {
         let store = test_store().await;
-        let event = store.create(&NewEvent {
-            agent_id: "a1".into(),
-            name: "morning-brief".into(),
-            pattern: "schedule:0 9 * * *".into(),
-                        idea_ids: Vec::new(),
-            cooldown_secs: 300,
-            system: false,
-        }).await.unwrap();
+        let event = store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "morning-brief".into(),
+                pattern: "schedule:0 9 * * *".into(),
+                idea_ids: Vec::new(),
+                cooldown_secs: 300,
+                system: false,
+            })
+            .await
+            .unwrap();
 
         assert_eq!(event.name, "morning-brief");
         assert_eq!(event.pattern, "schedule:0 9 * * *");
@@ -621,14 +627,17 @@ mod tests {
     #[tokio::test]
     async fn system_events_cannot_be_deleted() {
         let store = test_store().await;
-        let event = store.create(&NewEvent {
-            agent_id: "a1".into(),
-            name: "on-quest-received".into(),
-            pattern: "session:quest_start".into(),
-                        idea_ids: Vec::new(),
-            cooldown_secs: 0,
-            system: true,
-        }).await.unwrap();
+        let event = store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "on-quest-received".into(),
+                pattern: "session:quest_start".into(),
+                idea_ids: Vec::new(),
+                cooldown_secs: 0,
+                system: true,
+            })
+            .await
+            .unwrap();
 
         assert!(store.delete(&event.id).await.is_err());
         assert!(store.set_enabled(&event.id, false).await.is_err());
@@ -637,14 +646,17 @@ mod tests {
     #[tokio::test]
     async fn record_fire_updates_stats() {
         let store = test_store().await;
-        let event = store.create(&NewEvent {
-            agent_id: "a1".into(),
-            name: "test".into(),
-            pattern: "session:test".into(),
-                        idea_ids: Vec::new(),
-            cooldown_secs: 0,
-            system: false,
-        }).await.unwrap();
+        let event = store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "test".into(),
+                pattern: "session:test".into(),
+                idea_ids: Vec::new(),
+                cooldown_secs: 0,
+                system: false,
+            })
+            .await
+            .unwrap();
 
         store.record_fire(&event.id, 0.5).await.unwrap();
         store.record_fire(&event.id, 0.3).await.unwrap();
@@ -658,14 +670,28 @@ mod tests {
     #[tokio::test]
     async fn list_by_pattern_prefix() {
         let store = test_store().await;
-        store.create(&NewEvent {
-            agent_id: "a1".into(), name: "sched1".into(),
-            pattern: "schedule:0 9 * * *".into(),             idea_ids: Vec::new(), cooldown_secs: 0, system: false,
-        }).await.unwrap();
-        store.create(&NewEvent {
-            agent_id: "a1".into(), name: "lifecycle1".into(),
-            pattern: "session:quest_start".into(),             idea_ids: Vec::new(), cooldown_secs: 0, system: false,
-        }).await.unwrap();
+        store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "sched1".into(),
+                pattern: "schedule:0 9 * * *".into(),
+                idea_ids: Vec::new(),
+                cooldown_secs: 0,
+                system: false,
+            })
+            .await
+            .unwrap();
+        store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "lifecycle1".into(),
+                pattern: "session:quest_start".into(),
+                idea_ids: Vec::new(),
+                cooldown_secs: 0,
+                system: false,
+            })
+            .await
+            .unwrap();
 
         let schedules = store.list_by_pattern_prefix("schedule:").await.unwrap();
         assert_eq!(schedules.len(), 1);
@@ -678,39 +704,33 @@ mod tests {
     #[tokio::test]
     async fn update_fields_replaces_idea_ids_and_respects_omission() {
         let store = test_store().await;
-        let event = store.create(&NewEvent {
-            agent_id: "a1".into(),
-            name: "update-me".into(),
-            pattern: "session:update_me".into(),
-                        idea_ids: vec!["keep-a".into(), "keep-b".into()],
-            cooldown_secs: 0,
-            system: false,
-        }).await.unwrap();
+        let event = store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "update-me".into(),
+                pattern: "session:update_me".into(),
+                idea_ids: vec!["keep-a".into(), "keep-b".into()],
+                cooldown_secs: 0,
+                system: false,
+            })
+            .await
+            .unwrap();
 
         // Update with no idea_ids change — idea_ids should remain.
         store
-            .update_fields(
-                &event.id,
-                None,
-                None,
-                None,
-                None,
-            )
+            .update_fields(&event.id, None, None, None, None)
             .await
             .unwrap_err(); // no fields to update
 
         let after_omitted = store.get(&event.id).await.unwrap().unwrap();
-        assert_eq!(after_omitted.idea_ids, vec!["keep-a".to_string(), "keep-b".to_string()]);
+        assert_eq!(
+            after_omitted.idea_ids,
+            vec!["keep-a".to_string(), "keep-b".to_string()]
+        );
 
         let replacement = vec!["new-a".to_string(), "new-b".to_string()];
         store
-            .update_fields(
-                &event.id,
-                None,
-                None,
-                None,
-                Some(&replacement),
-            )
+            .update_fields(&event.id, None, None, None, Some(&replacement))
             .await
             .unwrap();
 
@@ -719,13 +739,7 @@ mod tests {
 
         let cleared: Vec<String> = Vec::new();
         store
-            .update_fields(
-                &event.id,
-                None,
-                None,
-                None,
-                Some(&cleared),
-            )
+            .update_fields(&event.id, None, None, None, Some(&cleared))
             .await
             .unwrap();
 
@@ -745,7 +759,11 @@ mod tests {
     #[async_trait::async_trait]
     impl IdeaStore for MockIdeaStore {
         async fn store(
-            &self, _key: &str, _content: &str, _tags: &[String], _agent_id: Option<&str>,
+            &self,
+            _key: &str,
+            _content: &str,
+            _tags: &[String],
+            _agent_id: Option<&str>,
         ) -> anyhow::Result<String> {
             Ok("mock-id".into())
         }
@@ -755,7 +773,9 @@ mod tests {
         async fn delete(&self, _id: &str) -> anyhow::Result<()> {
             Ok(())
         }
-        fn name(&self) -> &str { "mock" }
+        fn name(&self) -> &str {
+            "mock"
+        }
         async fn get_injection_ideas(&self) -> anyhow::Result<Vec<(String, String, Idea)>> {
             Ok(self.injection_ideas.clone())
         }
@@ -790,11 +810,16 @@ mod tests {
             ],
         };
 
-        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store)
+            .await
+            .unwrap();
         assert_eq!(count, 2);
 
         let events = event_store.list_for_agent("a1").await.unwrap();
-        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        let session_event = events
+            .iter()
+            .find(|e| e.name == "on_session_start")
+            .unwrap();
         assert_eq!(session_event.pattern, "session:start");
         assert_eq!(session_event.idea_ids.len(), 2);
         assert!(session_event.idea_ids.contains(&"i1".to_string()));
@@ -811,13 +836,20 @@ mod tests {
         };
 
         // Run twice.
-        let count1 = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        let count1 = migrate_injection_mode_to_events(&idea_store, &event_store)
+            .await
+            .unwrap();
         assert_eq!(count1, 1);
-        let count2 = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        let count2 = migrate_injection_mode_to_events(&idea_store, &event_store)
+            .await
+            .unwrap();
         assert_eq!(count2, 0); // Already migrated, nothing new.
 
         let events = event_store.list_for_agent("a1").await.unwrap();
-        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        let session_event = events
+            .iter()
+            .find(|e| e.name == "on_session_start")
+            .unwrap();
         assert_eq!(session_event.idea_ids.len(), 1);
     }
 
@@ -826,25 +858,33 @@ mod tests {
         let event_store = test_store().await;
 
         // Pre-create an on_session_start event with one idea already.
-        event_store.create(&NewEvent {
-            agent_id: "a1".into(),
-            name: "on_session_start".into(),
-            pattern: "session:start".into(),
-                        idea_ids: vec!["existing-id".into()],
-            cooldown_secs: 0,
-            system: true,
-        }).await.unwrap();
+        event_store
+            .create(&NewEvent {
+                agent_id: "a1".into(),
+                name: "on_session_start".into(),
+                pattern: "session:start".into(),
+                idea_ids: vec!["existing-id".into()],
+                cooldown_secs: 0,
+                system: true,
+            })
+            .await
+            .unwrap();
 
         let idea1 = make_idea("new-id", "a1", "append", "self");
         let idea_store = MockIdeaStore {
             injection_ideas: vec![("a1".into(), "append".into(), idea1)],
         };
 
-        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store)
+            .await
+            .unwrap();
         assert_eq!(count, 1);
 
         let events = event_store.list_for_agent("a1").await.unwrap();
-        let session_event = events.iter().find(|e| e.name == "on_session_start").unwrap();
+        let session_event = events
+            .iter()
+            .find(|e| e.name == "on_session_start")
+            .unwrap();
         assert_eq!(session_event.idea_ids.len(), 2);
         assert!(session_event.idea_ids.contains(&"existing-id".to_string()));
         assert!(session_event.idea_ids.contains(&"new-id".to_string()));
@@ -857,7 +897,9 @@ mod tests {
             injection_ideas: Vec::new(),
         };
 
-        let count = migrate_injection_mode_to_events(&idea_store, &event_store).await.unwrap();
+        let count = migrate_injection_mode_to_events(&idea_store, &event_store)
+            .await
+            .unwrap();
         assert_eq!(count, 0);
 
         let events = event_store.list_for_agent("a1").await.unwrap();

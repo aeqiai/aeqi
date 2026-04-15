@@ -107,9 +107,7 @@ mod tests {
     #[tokio::test]
     async fn scope_extracts_user_scope_from_extensions() {
         // Build a request with UserScope in extensions, then extract Scope from parts.
-        let mut req = axum::http::Request::builder()
-            .body(())
-            .unwrap();
+        let mut req = axum::http::Request::builder().body(()).unwrap();
         req.extensions_mut().insert(UserScope {
             companies: vec!["co-a".to_string(), "co-b".to_string()],
         });
@@ -190,7 +188,8 @@ mod tests {
     fn resolve_ws_companies_default_secret_fallback() {
         // No auth_secret configured -> signing_secret returns ephemeral fallback
         let state = test_state(None, AuthMode::Secret);
-        let token = crate::auth::create_token("aeqi-ephemeral-fallback", 1, Some("user"), None).unwrap();
+        let token =
+            crate::auth::create_token("aeqi-ephemeral-fallback", 1, Some("user"), None).unwrap();
         let result = resolve_ws_companies(&state, Some(&token));
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());

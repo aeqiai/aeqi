@@ -1,6 +1,6 @@
 use aeqi_core::traits::{
-    ChatRequest, Event, IdeaStore, LogObserver, LoopAction, Message, MessageContent,
-    Observer, Provider, Role, Tool,
+    ChatRequest, Event, IdeaStore, LogObserver, LoopAction, Message, MessageContent, Observer,
+    Provider, Role, Tool,
 };
 use aeqi_core::{Agent, AgentConfig, AssembledPrompt};
 use aeqi_quests::{Quest, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus};
@@ -9,10 +9,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
+use crate::activity::{Activity, ActivityStream};
+use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::checkpoint::AgentCheckpoint;
-use crate::activity_log::ActivityLog;
-use crate::activity::{ActivityStream, Activity};
 use crate::executor::QuestOutcome;
 use crate::failure_analysis::{FailureAnalysis, FailureMode};
 use crate::hook::Hook;
@@ -500,17 +500,20 @@ impl AgentWorker {
                     // Emit budget_exceeded if the halt was budget-related.
                     let reason_lower = reason.to_lowercase();
                     if reason_lower.contains("budget") || reason_lower.contains("cost") {
-                        let _ = self.activity_log.emit(
-                            "budget_exceeded",
-                            None,
-                            None,
-                            Some(&hook.quest_id.0),
-                            &serde_json::json!({
-                                "worker": self.name,
-                                "agent": self.agent_name,
-                                "reason": reason,
-                            }),
-                        ).await;
+                        let _ = self
+                            .activity_log
+                            .emit(
+                                "budget_exceeded",
+                                None,
+                                None,
+                                Some(&hook.quest_id.0),
+                                &serde_json::json!({
+                                    "worker": self.name,
+                                    "agent": self.agent_name,
+                                    "reason": reason,
+                                }),
+                            )
+                            .await;
                     }
                     // Fire on_complete for this early exit path.
                     if let Some(cb) = self.on_complete.take() {
@@ -1001,8 +1004,9 @@ impl AgentWorker {
                         };
                         match provider.chat(&request).await {
                             Ok(response) if response.content.is_some() => {
-                                let analysis =
-                                    FailureAnalysis::parse(response.content.as_deref().unwrap_or_default());
+                                let analysis = FailureAnalysis::parse(
+                                    response.content.as_deref().unwrap_or_default(),
+                                );
                                 info!(
                                     worker = %self.name,
                                     task = %hook.quest_id,
@@ -1556,14 +1560,21 @@ impl AgentWorker {
                 _ => None,
             };
 
-            match mem.store(key, content, std::slice::from_ref(&category), agent_id_for_store).await {
+            match mem
+                .store(
+                    key,
+                    content,
+                    std::slice::from_ref(&category),
+                    agent_id_for_store,
+                )
+                .await
+            {
                 Ok(id) if !id.is_empty() => {
                     debug!(worker = %worker_name, id = %id, key = %key, "idea stored");
 
                     // Create memory graph edge if dedup detected a relationship.
                     if let Some((relation, target_id)) = supersede_target {
-                        if let Err(e) = mem.store_idea_edge(&id, &target_id, relation, 0.8).await
-                        {
+                        if let Err(e) = mem.store_idea_edge(&id, &target_id, relation, 0.8).await {
                             debug!(worker = %worker_name, "failed to store edge: {e}");
                         } else {
                             debug!(
@@ -1587,18 +1598,15 @@ impl AgentWorker {
                                 continue;
                             }
                             if aeqi_ideas::dedup::is_support(content, &entry.content) {
-                                let _ = mem
-                                    .store_idea_edge(&id, &entry.id, "supports", 0.7)
-                                    .await;
+                                let _ = mem.store_idea_edge(&id, &entry.id, "supports", 0.7).await;
                                 debug!(
                                     worker = %worker_name,
                                     source = %id, target = %entry.id,
                                     "supports edge created"
                                 );
                             } else if entry.score > 0.7 && entry.key != key {
-                                let _ = mem
-                                    .store_idea_edge(&id, &entry.id, "related_to", 0.5)
-                                    .await;
+                                let _ =
+                                    mem.store_idea_edge(&id, &entry.id, "related_to", 0.5).await;
                                 debug!(
                                     worker = %worker_name,
                                     source = %id, target = %entry.id,
@@ -1635,7 +1643,6 @@ fn truncate_for_prompt(text: &str, max_chars: usize) -> String {
     }
     out
 }
-
 
 // ---------------------------------------------------------------------------
 // MiddlewareObserver — bridges the middleware chain into the agent loop

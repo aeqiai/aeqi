@@ -1,5 +1,5 @@
 use crate::graph::{IdeaEdge, IdeaRelation};
-use aeqi_core::traits::{Embedder, IdeaStore, Idea, IdeaQuery};
+use aeqi_core::traits::{Embedder, Idea, IdeaQuery, IdeaStore};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -86,9 +86,7 @@ impl SqliteIdeas {
 
         Self::migrate(&conn)?;
 
-        conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
-        )?;
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);")?;
 
         let fts_exists: bool = conn.query_row(
             "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
@@ -298,9 +296,7 @@ impl SqliteIdeas {
 
         // Rename companion_id → agent_id (for DBs created before the rename).
         let has_companion: bool = conn
-            .prepare(
-                "SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='companion_id'",
-            )?
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='companion_id'")?
             .query_row([], |row| row.get(0))?;
         if has_companion {
             conn.execute_batch(
@@ -446,7 +442,14 @@ impl SqliteIdeas {
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, vec![cat_str], agent_id, created_at, session_id, 1.0,
+                        id,
+                        key,
+                        content,
+                        vec![cat_str],
+                        agent_id,
+                        created_at,
+                        session_id,
+                        1.0,
                     ))
                 },
             )
@@ -488,7 +491,14 @@ impl SqliteIdeas {
                         .ok()?
                         .with_timezone(&Utc);
                     Some(Idea::recalled(
-                        id, key, content, vec![cat_str], agent_id, created_at, session_id, 1.0,
+                        id,
+                        key,
+                        content,
+                        vec![cat_str],
+                        agent_id,
+                        created_at,
+                        session_id,
+                        1.0,
                     ))
                 },
             )
@@ -784,9 +794,7 @@ impl SqliteIdeas {
     }
 
     fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
-        if !query.tags.is_empty()
-            && !query.tags.iter().any(|t| t == &row.cat_str)
-        {
+        if !query.tags.is_empty() && !query.tags.iter().any(|t| t == &row.cat_str) {
             return None;
         }
 
@@ -807,7 +815,14 @@ impl SqliteIdeas {
         };
 
         Some(Idea::recalled(
-            row.id, row.key, row.content, vec![row.cat_str], row.agent_id, created_at, row.session_id, score * decay,
+            row.id,
+            row.key,
+            row.content,
+            vec![row.cat_str],
+            row.agent_id,
+            created_at,
+            row.session_id,
+            score * decay,
         ))
     }
 
@@ -1073,8 +1088,7 @@ impl SqliteIdeas {
         let candidate_ids: Vec<String> = scored.iter().map(|(_, e)| e.id.clone()).collect();
         let embedding_cache = Self::load_embeddings_for_ids(&conn, &candidate_ids);
 
-        let scored_results: Vec<ScoredResult> =
-            scored.iter().map(|(sr, _)| sr.clone()).collect();
+        let scored_results: Vec<ScoredResult> = scored.iter().map(|(sr, _)| sr.clone()).collect();
 
         let reranked = mmr_rerank(
             &scored_results,
@@ -1132,7 +1146,11 @@ impl IdeaStore for SqliteIdeas {
         // Dedup + insert in spawn_blocking to avoid blocking tokio.
         let key_owned = key.to_string();
         let content_owned = content.to_string();
-        let cat_owned = tags.first().map(|s| s.as_str()).unwrap_or("untagged").to_string();
+        let cat_owned = tags
+            .first()
+            .map(|s| s.as_str())
+            .unwrap_or("untagged")
+            .to_string();
         let agent_id_owned = agent_id.map(|s| s.to_string());
         let this = self.clone();
 
@@ -1265,7 +1283,12 @@ impl IdeaStore for SqliteIdeas {
         let id = id.to_string();
         let key = key.map(|s| s.to_string());
         let content = content.map(|s| s.to_string());
-        let cat_from_tags = tags.map(|t| t.first().map(|s| s.as_str()).unwrap_or("untagged").to_string());
+        let cat_from_tags = tags.map(|t| {
+            t.first()
+                .map(|s| s.as_str())
+                .unwrap_or("untagged")
+                .to_string()
+        });
         self.blocking(move |conn| {
             let now = Utc::now().to_rfc3339();
             if let Some(key) = key {
@@ -1332,11 +1355,7 @@ impl IdeaStore for SqliteIdeas {
         "sqlite"
     }
 
-    async fn reassign_agent(
-        &self,
-        old_agent_id: &str,
-        new_agent_id: &str,
-    ) -> Result<u64> {
+    async fn reassign_agent(&self, old_agent_id: &str, new_agent_id: &str) -> Result<u64> {
         let old = old_agent_id.to_string();
         let new = new_agent_id.to_string();
         self.blocking(move |conn| {
@@ -1495,10 +1514,7 @@ mod tests {
         .await
         .unwrap();
 
-        let results = mem
-            .search(&IdeaQuery::new("login JWT", 10))
-            .await
-            .unwrap();
+        let results = mem.search(&IdeaQuery::new("login JWT", 10)).await.unwrap();
         assert!(!results.is_empty());
         assert!(results[0].content.contains("JWT"));
         assert!(results[0].agent_id.is_none());
@@ -1611,10 +1627,7 @@ mod tests {
 
         let mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
 
-        let results = mem
-            .search(&IdeaQuery::new("old data", 10))
-            .await
-            .unwrap();
+        let results = mem.search(&IdeaQuery::new("old data", 10)).await.unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].agent_id.is_none());
 

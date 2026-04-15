@@ -25,7 +25,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-
 pub(crate) fn load_config(config_path: &Option<PathBuf>) -> Result<(AEQIConfig, PathBuf)> {
     if let Some(path) = config_path {
         Ok((AEQIConfig::load(path)?, path.clone()))

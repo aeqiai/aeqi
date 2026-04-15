@@ -2,7 +2,7 @@ use aeqi_core::SecretStore;
 use aeqi_core::traits::Channel;
 use aeqi_gates::{TelegramChannel, TelegramGateway};
 use aeqi_orchestrator::{
-    AEQIMetrics, AgentRouter, CompanyRecord, Daemon, ActivityLog, GatewayManager, Scheduler,
+    AEQIMetrics, ActivityLog, AgentRouter, CompanyRecord, Daemon, GatewayManager, Scheduler,
     SchedulerConfig, SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
@@ -13,10 +13,8 @@ use tracing::{info, warn};
 
 use crate::cli::DaemonAction;
 use crate::helpers::{
-    build_provider_for_project, build_provider_for_runtime, build_tools,
-    daemon_ipc_request,
-    get_api_key, load_config,
-    load_config_with_agents, open_ideas, pid_file_path,
+    build_provider_for_project, build_provider_for_runtime, build_tools, daemon_ipc_request,
+    get_api_key, load_config, load_config_with_agents, open_ideas, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
 
@@ -167,12 +165,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     Ok(Some(existing)) => existing,
                     _ => {
                         match agent_reg
-                            .spawn(
-                                &project_cfg.name,
-                                None,
-                                None,
-                                project_cfg.model.as_deref(),
-                            )
+                            .spawn(&project_cfg.name, None, None, project_cfg.model.as_deref())
                             .await
                         {
                             Ok(a) => a,
@@ -258,12 +251,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     Ok(Some(existing)) => existing,
                     _ => {
                         match agent_reg
-                            .spawn(
-                                &agent_cfg.name,
-                                None,
-                                None,
-                                agent_cfg.model.as_deref(),
-                            )
+                            .spawn(&agent_cfg.name, None, None, agent_cfg.model.as_deref())
                             .await
                         {
                             Ok(a) => a,
@@ -435,7 +423,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             if let Some(ref ss) = session_store {
-                daemon.gateway_manager = Arc::new(GatewayManager::new().with_session_store(ss.clone()));
+                daemon.gateway_manager =
+                    Arc::new(GatewayManager::new().with_session_store(ss.clone()));
             }
             // Primers are now seeded via ideas.db — prompt store import removed.
             // Still set in-memory primers for backward compat during migration.
@@ -457,7 +446,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             }
 
             // Set up event handler store (the fourth primitive).
-            let event_handler_store = Arc::new(aeqi_orchestrator::EventHandlerStore::new(agent_reg.db()));
+            let event_handler_store =
+                Arc::new(aeqi_orchestrator::EventHandlerStore::new(agent_reg.db()));
 
             // Wire event store into session manager for event-driven idea assembly.
             if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {
@@ -468,12 +458,18 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // create_default_lifecycle_events is idempotent — only runs if 0 events exist.
             if let Ok(agents) = agent_reg.list_active().await {
                 for agent in &agents {
-                    let existing = event_handler_store.list_for_agent(&agent.id).await.unwrap_or_default();
+                    let existing = event_handler_store
+                        .list_for_agent(&agent.id)
+                        .await
+                        .unwrap_or_default();
                     if existing.is_empty() {
-                        if let Err(e) = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
-                            &event_handler_store,
-                            &agent.id,
-                        ).await {
+                        if let Err(e) =
+                            aeqi_orchestrator::event_handler::create_default_lifecycle_events(
+                                &event_handler_store,
+                                &agent.id,
+                            )
+                            .await
+                        {
                             warn!(agent = %agent.name, error = %e, "failed to seed lifecycle events");
                         } else {
                             info!(agent = %agent.name, "seeded default lifecycle events");
@@ -485,12 +481,16 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Seed lifecycle events for all active agents that don't have the full set.
             if let Ok(agents) = agent_reg.list_active().await {
                 for agent in &agents {
-                    let existing = event_handler_store.list_for_agent(&agent.id).await.unwrap_or_default();
+                    let existing = event_handler_store
+                        .list_for_agent(&agent.id)
+                        .await
+                        .unwrap_or_default();
                     if existing.len() < 12 {
                         let _ = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
                             &event_handler_store,
                             &agent.id,
-                        ).await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -525,7 +525,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 warn!(key = %idea.key, "channel:telegram idea has no agent_id, skipping");
                                 continue;
                             };
-                            let tg_cfg: serde_json::Value = match serde_json::from_str(&idea.content) {
+                            let tg_cfg: serde_json::Value = match serde_json::from_str(
+                                &idea.content,
+                            ) {
                                 Ok(v) => v,
                                 Err(e) => {
                                     warn!(key = %idea.key, error = %e, "invalid JSON in channel:telegram idea");
@@ -546,7 +548,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 .unwrap_or_default();
 
                             let agent_id = owner_agent_id.clone();
-                            let tg_channel = Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
+                            let tg_channel =
+                                Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
                             let sm = daemon.session_manager.clone();
                             let ar = agent_reg.clone();
                             let provider = daemon.default_provider.clone();
@@ -574,63 +577,64 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Legacy fallback: if [channels.telegram] is configured in aeqi.toml,
             // start a single gateway bound to the root agent.
             if tg_gateway_count == 0
-                && let Some(ref tg_config) = config.channels.telegram {
-                    let secret_store_path = config
-                        .security
-                        .secret_store
-                        .as_ref()
-                        .map(PathBuf::from)
-                        .unwrap_or_else(|| config.data_dir().join("secrets"));
-                    match SecretStore::open(&secret_store_path) {
-                        Ok(secret_store) => {
-                            match secret_store.get(&tg_config.token_secret) {
-                                Ok(token) if !token.is_empty() => {
-                                    // Resolve root agent for legacy binding.
-                                    let root_agent_id = match agent_reg.get_root_agent().await {
-                                        Ok(Some(a)) => a.id,
-                                        _ => {
-                                            // Fall back to first company agent.
-                                            config
-                                                .agent_spawns
-                                                .first()
-                                                .map(|c| c.name.clone())
-                                                .unwrap_or_else(|| "root".to_string())
-                                        }
-                                    };
-                                    let allowed_chats = tg_config.allowed_chats.clone();
-                                    let tg_channel = Arc::new(TelegramChannel::new(
-                                        token,
-                                        allowed_chats.clone(),
-                                    ));
-                                    let sm = daemon.session_manager.clone();
-                                    let ar = agent_reg.clone();
-                                    let provider = daemon.default_provider.clone();
+                && let Some(ref tg_config) = config.channels.telegram
+            {
+                let secret_store_path = config
+                    .security
+                    .secret_store
+                    .as_ref()
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| config.data_dir().join("secrets"));
+                match SecretStore::open(&secret_store_path) {
+                    Ok(secret_store) => {
+                        match secret_store.get(&tg_config.token_secret) {
+                            Ok(token) if !token.is_empty() => {
+                                // Resolve root agent for legacy binding.
+                                let root_agent_id = match agent_reg.get_root_agent().await {
+                                    Ok(Some(a)) => a.id,
+                                    _ => {
+                                        // Fall back to first company agent.
+                                        config
+                                            .agent_spawns
+                                            .first()
+                                            .map(|c| c.name.clone())
+                                            .unwrap_or_else(|| "root".to_string())
+                                    }
+                                };
+                                let allowed_chats = tg_config.allowed_chats.clone();
+                                let tg_channel =
+                                    Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
+                                let sm = daemon.session_manager.clone();
+                                let ar = agent_reg.clone();
+                                let provider = daemon.default_provider.clone();
 
-                                    tokio::spawn(start_agent_telegram_gateway(
-                                        root_agent_id.clone(),
-                                        allowed_chats,
-                                        sm,
-                                        ar,
-                                        provider,
-                                        tg_channel,
-                                        daemon.session_store.clone(),
-                                        daemon.gateway_manager.clone(),
-                                    ));
-                                    info!(
-                                        agent_id = %root_agent_id,
-                                        "started legacy telegram gateway from [channels.telegram]"
-                                    );
-                                }
-                                _ => {
-                                    info!("Telegram token not found in secret store, skipping legacy gateway");
-                                }
+                                tokio::spawn(start_agent_telegram_gateway(
+                                    root_agent_id.clone(),
+                                    allowed_chats,
+                                    sm,
+                                    ar,
+                                    provider,
+                                    tg_channel,
+                                    daemon.session_store.clone(),
+                                    daemon.gateway_manager.clone(),
+                                ));
+                                info!(
+                                    agent_id = %root_agent_id,
+                                    "started legacy telegram gateway from [channels.telegram]"
+                                );
+                            }
+                            _ => {
+                                info!(
+                                    "Telegram token not found in secret store, skipping legacy gateway"
+                                );
                             }
                         }
-                        Err(e) => {
-                            warn!(error = %e, "failed to open secret store for legacy Telegram");
-                        }
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "failed to open secret store for legacy Telegram");
                     }
                 }
+            }
             daemon.run().await?;
         }
 
@@ -769,12 +773,13 @@ async fn start_agent_telegram_gateway(
     if let Ok(channel_sessions) = agent_registry.list_channel_sessions(&agent_id).await {
         for (channel_key, session_id, _created_at) in &channel_sessions {
             if let Some(chat_id_str) = channel_key.split(':').nth(2)
-                && let Ok(chat_id) = chat_id_str.parse::<i64>() {
-                    let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
-                        Arc::new(TelegramGateway::new(tg_channel.clone(), chat_id, &agent_id));
-                    gateway_manager.register_persistent(session_id, tg_gw).await;
-                    info!(session_id = %session_id, chat_id, "restored persistent telegram gateway");
-                }
+                && let Ok(chat_id) = chat_id_str.parse::<i64>()
+            {
+                let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
+                    Arc::new(TelegramGateway::new(tg_channel.clone(), chat_id, &agent_id));
+                gateway_manager.register_persistent(session_id, tg_gw).await;
+                info!(session_id = %session_id, chat_id, "restored persistent telegram gateway");
+            }
         }
     }
 
@@ -835,19 +840,23 @@ async fn start_agent_telegram_gateway(
             let _ = tg.send_typing(chat_id).await;
 
             // Resolve the Telegram user sender identity.
-            let user_sender_id = if let Some(ref ss) = session_store_clone {
-                let sender = ss.resolve_sender(
-                    "telegram",
-                    &telegram_user_id.to_string(),
-                    &sender_name,
-                    None,
-                    None,
-                    Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
-                ).await.ok();
+            let user_sender_id =
+                if let Some(ref ss) = session_store_clone {
+                    let sender = ss
+                        .resolve_sender(
+                            "telegram",
+                            &telegram_user_id.to_string(),
+                            &sender_name,
+                            None,
+                            None,
+                            Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
+                        )
+                        .await
+                        .ok();
 
-                // Record the user's inbound message with sender identity.
-                if let Some(ref s) = sender {
-                    let _ = ss.record_message(
+                    // Record the user's inbound message with sender identity.
+                    if let Some(ref s) = sender {
+                        let _ = ss.record_message(
                         &session_id,
                         &s.id,
                         "telegram",
@@ -855,11 +864,11 @@ async fn start_agent_telegram_gateway(
                         &user_text,
                         Some(&serde_json::json!({"chat_id": chat_id, "message_id": message_id})),
                     ).await;
-                }
-                sender.map(|s| s.id)
-            } else {
-                None
-            };
+                    }
+                    sender.map(|s| s.id)
+                } else {
+                    None
+                };
 
             // Register TelegramGateway for this session (deduplicated by gateway_id).
             let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =

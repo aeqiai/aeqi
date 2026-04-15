@@ -13,10 +13,7 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/quests", get(quests).post(create_quest))
-        .route(
-            "/quests/{id}",
-            get(get_quest).put(update_quest),
-        )
+        .route("/quests/{id}", get(get_quest).put(update_quest))
         .route("/quests/{id}/close", post(close_quest))
 }
 

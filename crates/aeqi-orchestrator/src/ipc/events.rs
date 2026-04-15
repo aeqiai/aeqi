@@ -98,22 +98,12 @@ pub async fn handle_update_event(
     };
 
     // Check if any field is provided at all.
-    if enabled.is_none()
-        && pattern.is_none()
-        && cooldown_secs.is_none()
-        && idea_ids.is_none()
-    {
+    if enabled.is_none() && pattern.is_none() && cooldown_secs.is_none() && idea_ids.is_none() {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
     }
 
     match store
-        .update_fields(
-            id,
-            enabled,
-            pattern,
-            cooldown_secs,
-            idea_ids.as_deref(),
-        )
+        .update_fields(id, enabled, pattern, cooldown_secs, idea_ids.as_deref())
         .await
     {
         Ok(()) => {

@@ -367,14 +367,8 @@ mod tests {
     fn proxy_scope_empty_companies_header_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
-            HeaderValue::from_static(""),
-        );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_COMPANIES_HEADER, HeaderValue::from_static(""));
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
 
@@ -386,10 +380,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static("   "),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         // After trim, it becomes empty -> None
         // But the filter(|s| !s.is_empty()) removes empty entries from split
         // so companies list is empty -> None
@@ -420,10 +411,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static("company-a"),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static(""),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static(""));
         // Empty auth_secret -> proxy scope is ignored
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
@@ -449,10 +437,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static("  alpha ,  beta  , gamma  "),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
         assert_eq!(scope.companies, vec!["alpha", "beta", "gamma"]);
@@ -466,10 +451,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static("a,,b,,,c"),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
         assert_eq!(scope.companies, vec!["a", "b", "c"]);
@@ -483,10 +465,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static("solo-company"),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
         assert_eq!(scope.companies, vec!["solo-company"]);
@@ -500,10 +479,7 @@ mod tests {
             PROXY_SCOPE_COMPANIES_HEADER,
             HeaderValue::from_static(",,,"),
         );
-        headers.insert(
-            PROXY_SCOPE_TOKEN_HEADER,
-            HeaderValue::from_static("secret"),
-        );
+        headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         // All segments empty after split+trim+filter -> companies is empty -> None
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }

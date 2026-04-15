@@ -56,10 +56,7 @@ impl WhatsAppChannel {
     }
 
     fn messages_url(&self) -> String {
-        format!(
-            "{}/Accounts/{}/Messages.json",
-            TWILIO_API, self.account_sid
-        )
+        format!("{}/Accounts/{}/Messages.json", TWILIO_API, self.account_sid)
     }
 }
 
@@ -114,11 +111,7 @@ impl Channel for WhatsAppChannel {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!(status = %status, body = %body, "Twilio API error");
-            Err(anyhow::anyhow!(
-                "Twilio API error ({}): {}",
-                status,
-                body
-            ))
+            Err(anyhow::anyhow!("Twilio API error ({}): {}", status, body))
         }
     }
 
@@ -267,11 +260,8 @@ mod tests {
         let to = "whatsapp:+15559876543";
         let from_whatsapp = format!("whatsapp:{}", from_number);
 
-        let body: Vec<(&str, &str)> = vec![
-            ("Body", text),
-            ("From", from_whatsapp.as_str()),
-            ("To", to),
-        ];
+        let body: Vec<(&str, &str)> =
+            vec![("Body", text), ("From", from_whatsapp.as_str()), ("To", to)];
 
         assert_eq!(body[0], ("Body", "Hello from AEQI!"));
         assert_eq!(body[1], ("From", "whatsapp:+15551234567"));
@@ -296,11 +286,7 @@ mod tests {
 
     #[tokio::test]
     async fn push_incoming_delivers_message() {
-        let ch = WhatsAppChannel::new(
-            "AC123".to_string(),
-            "auth".to_string(),
-            "+1".to_string(),
-        );
+        let ch = WhatsAppChannel::new("AC123".to_string(), "auth".to_string(), "+1".to_string());
         let mut rx = ch.start().await.unwrap();
 
         let incoming = IncomingMessage {
@@ -325,11 +311,7 @@ mod tests {
 
     #[tokio::test]
     async fn push_incoming_multiple_messages() {
-        let ch = WhatsAppChannel::new(
-            "AC123".to_string(),
-            "auth".to_string(),
-            "+1".to_string(),
-        );
+        let ch = WhatsAppChannel::new("AC123".to_string(), "auth".to_string(), "+1".to_string());
         let mut rx = ch.start().await.unwrap();
 
         for i in 0..3 {
@@ -350,11 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn start_can_only_be_called_once() {
-        let ch = WhatsAppChannel::new(
-            "AC123".to_string(),
-            "auth".to_string(),
-            "+1".to_string(),
-        );
+        let ch = WhatsAppChannel::new("AC123".to_string(), "auth".to_string(), "+1".to_string());
         let _rx = ch.start().await.unwrap();
         let result = ch.start().await;
         assert!(result.is_err());

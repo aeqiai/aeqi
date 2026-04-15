@@ -20,15 +20,16 @@ pub mod traits;
 
 pub use agent::{
     Agent, AgentConfig, AgentResult, AgentStopReason, ContentReplacementState, LoopNotification,
-    NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType, StepIdeaSpec,
+    NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType,
+    StepIdeaSpec,
 };
-pub use traits::provider::{Message, MessageContent, Role};
 pub use chat_stream::{ChatStreamEvent, ChatStreamSender};
 pub use config::{
     AEQIConfig, AgentPromptConfig, AgentSpawnConfig, AgentTriggerConfig, ContextBudgetConfig,
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
 };
+pub use traits::provider::{Message, MessageContent, Role};
 /// Compat alias — old callers used `CompanyConfig`.
 pub type CompanyConfig = AgentSpawnConfig;
 pub use prompt::{AssembledPrompt, PromptEntry, PromptPosition, PromptScope, ToolRestrictions};

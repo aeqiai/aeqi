@@ -56,7 +56,11 @@ fn ipc_request_sync(
 
 /// Validate keys against the platform and return the runtime socket path.
 /// secret_key (sk_) is required, api_key (ak_) is optional for analytics.
-fn validate_api_key(secret_key: &str, api_key: Option<&str>, platform_url: &str) -> Result<PathBuf> {
+fn validate_api_key(
+    secret_key: &str,
+    api_key: Option<&str>,
+    platform_url: &str,
+) -> Result<PathBuf> {
     let url = format!("{platform_url}/api/mcp/validate");
     let client = std::net::TcpStream::connect(
         url.trim_start_matches("http://")
@@ -103,10 +107,7 @@ fn validate_api_key(secret_key: &str, api_key: Option<&str>, platform_url: &str)
     }
 
     // Parse: skip headers, find JSON body after blank line.
-    let body = response
-        .split("\r\n\r\n")
-        .nth(1)
-        .unwrap_or(&response);
+    let body = response.split("\r\n\r\n").nth(1).unwrap_or(&response);
 
     // Handle chunked transfer encoding — extract the JSON from chunks.
     let json_body = if body.contains('{') {
@@ -372,12 +373,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 // Auto-scope to AEQI_AGENT_ID if not specified.
                                 if ipc.get("agent_id").and_then(|v| v.as_str()).is_none()
-                                    && let Some(ref aid) = agent_id {
-                                        ipc["agent_id"] = serde_json::json!(aid);
-                                    }
+                                    && let Some(ref aid) = agent_id
+                                {
+                                    ipc["agent_id"] = serde_json::json!(aid);
+                                }
                                 // Invalidate recall cache — new memories change results.
-                                if let Some(project) =
-                                    args.get("project").and_then(|v| v.as_str())
+                                if let Some(project) = args.get("project").and_then(|v| v.as_str())
                                 {
                                     let prefix = format!("{project}\0");
                                     recall_cache.retain(|k, _| !k.starts_with(&prefix));
@@ -385,10 +386,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "search" => {
-                                let project = args
-                                    .get("project")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let project =
+                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                                 let query =
                                     args.get("query").and_then(|v| v.as_str()).unwrap_or("");
                                 let scope = args
@@ -399,8 +398,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .get("agent_id")
                                     .and_then(|v| v.as_str())
                                     .or(agent_id.as_deref());
-                                let limit =
-                                    args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
+                                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
                                 let agent_key = agent_id.unwrap_or("");
                                 let cache_key =
@@ -438,12 +436,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                             }
                             "delete" => {
-                                let id =
-                                    args.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                let project = args
-                                    .get("project")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                                let project =
+                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                                 // Invalidate recall cache.
                                 let prefix = format!("{project}\0");
                                 recall_cache.retain(|k, _| !k.starts_with(&prefix));
@@ -474,9 +469,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 ipc["cmd"] = serde_json::json!("create_quest");
                                 // Default agent to AEQI_AGENT if not specified.
                                 if ipc.get("agent").and_then(|v| v.as_str()).is_none()
-                                    && let Some(ref aname) = agent_name {
-                                        ipc["agent"] = serde_json::json!(aname);
-                                    }
+                                    && let Some(ref aname) = agent_name
+                                {
+                                    ipc["agent"] = serde_json::json!(aname);
+                                }
                                 // Normalize depends_on: string → array
                                 if let Some(dep) = ipc.get("depends_on").cloned()
                                     && dep.is_string()
@@ -502,16 +498,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 ipc_request_sync(&sock_path, &ipc)
                             }
-                            "show" => {
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "get_quest",
-                                        "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                                        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
-                                    }),
-                                )
-                            }
+                            "show" => ipc_request_sync(
+                                &sock_path,
+                                &serde_json::json!({
+                                    "cmd": "get_quest",
+                                    "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                }),
+                            ),
                             "update" => {
                                 let mut ipc = serde_json::json!({
                                     "cmd": "update_quest",
@@ -536,22 +530,17 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                             .and_then(|id| id.split('-').next())
                                     })
                                     .unwrap_or("");
-                                let _quest_id = args
-                                    .get("quest_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let _quest_id =
+                                    args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
                                 let mut ipc = args.clone();
                                 ipc["cmd"] = serde_json::json!("close_quest");
-                                
 
                                 // Enrich: check if review was posted for this quest
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "cancel" => {
-                                let quest_id = args
-                                    .get("quest_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let quest_id =
+                                    args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
                                 let reason = args
                                     .get("reason")
                                     .and_then(|v| v.as_str())
@@ -627,26 +616,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 Ok(result)
                             }
                             "hire" => {
-                                let template = args
-                                    .get("template")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let template =
+                                    args.get("template").and_then(|v| v.as_str()).unwrap_or("");
                                 let mut ipc = serde_json::json!({
                                     "cmd": "agent_spawn",
                                     "template": template,
                                 });
-                                if let Some(parent) =
-                                    args.get("parent_id").and_then(|v| v.as_str())
+                                if let Some(parent) = args.get("parent_id").and_then(|v| v.as_str())
                                 {
                                     ipc["parent_id"] = serde_json::json!(parent);
                                 }
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "retire" => {
-                                let agent_hint = args
-                                    .get("agent")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let agent_hint =
+                                    args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
                                 ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
@@ -658,8 +642,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             }
                             "list" => {
                                 let mut ipc = serde_json::json!({"cmd": "agents_registry"});
-                                if let Some(status) = args.get("status").and_then(|v| v.as_str())
-                                {
+                                if let Some(status) = args.get("status").and_then(|v| v.as_str()) {
                                     ipc["status"] = serde_json::json!(status);
                                 }
                                 ipc_request_sync(&sock_path, &ipc)
@@ -679,22 +662,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 Ok(serde_json::json!({"ok": true, "projects": projects}))
                             }
                             "delegate" => {
-                                let agent_name = args
-                                    .get("agent")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let project = args
-                                    .get("project")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let quest_id = args
-                                    .get("quest_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let extra_prompt = args
-                                    .get("prompt")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let agent_name =
+                                    args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
+                                let project =
+                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
+                                let quest_id =
+                                    args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
+                                let extra_prompt =
+                                    args.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
 
                                 // 1. Load agent template — try DB ideas via IPC first, fall back to .md files
                                 let agent_template = {
@@ -712,26 +687,25 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         .unwrap_or(false)
                                     {
                                         // Extract system prompt from ideas array
-                                        if let Some(ideas) = resp.get("ideas").and_then(|v| v.as_array())
+                                        if let Some(ideas) =
+                                            resp.get("ideas").and_then(|v| v.as_array())
                                             && let Some(first) = ideas.first()
-                                                && let Some(content) = first.get("content").and_then(|v| v.as_str())
-                                                    && !content.is_empty() {
-                                                        found = content.to_string();
-                                                    }
+                                            && let Some(content) =
+                                                first.get("content").and_then(|v| v.as_str())
+                                            && !content.is_empty()
+                                        {
+                                            found = content.to_string();
+                                        }
                                     }
 
                                     if found.is_empty() {
                                         for dir in &[
-                                            base_dir
-                                                .join("projects")
-                                                .join(project)
-                                                .join("agents"),
+                                            base_dir.join("projects").join(project).join("agents"),
                                             base_dir.join("projects/shared/agents"),
                                         ] {
                                             let path = dir.join(format!("{agent_name}.md"));
                                             if path.exists()
-                                                && let Ok(content) =
-                                                    std::fs::read_to_string(&path)
+                                                && let Ok(content) = std::fs::read_to_string(&path)
                                             {
                                                 found = content;
                                                 break;
@@ -757,13 +731,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         "limit": 5,
                                     });
                                     if let Ok(resp) = ipc_request_sync(&sock_path, &ipc)
-                                        && let Some(ideas) = resp.get("ideas").and_then(|e| e.as_array())
+                                        && let Some(ideas) =
+                                            resp.get("ideas").and_then(|e| e.as_array())
                                     {
                                         for idea in ideas {
-                                            let key = idea.get("key").and_then(|k| k.as_str()).unwrap_or("");
-                                            let content = idea.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                                            let key = idea
+                                                .get("key")
+                                                .and_then(|k| k.as_str())
+                                                .unwrap_or("");
+                                            let content = idea
+                                                .get("content")
+                                                .and_then(|c| c.as_str())
+                                                .unwrap_or("");
                                             if !content.is_empty() {
-                                                bb_context.push_str(&format!("\n## {key}\n{content}\n"));
+                                                bb_context
+                                                    .push_str(&format!("\n## {key}\n{content}\n"));
                                             }
                                         }
                                     }
@@ -780,13 +762,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     prompt.push_str(&format!("Quest: {quest_id}\n"));
                                 }
                                 if !bb_context.is_empty() {
-                                    prompt.push_str(&format!(
-                                        "\n# Notes Context\n{bb_context}\n"
-                                    ));
+                                    prompt.push_str(&format!("\n# Notes Context\n{bb_context}\n"));
                                 }
                                 if !extra_prompt.is_empty() {
-                                    prompt
-                                        .push_str(&format!("\n# Instructions\n{extra_prompt}\n"));
+                                    prompt.push_str(&format!("\n# Instructions\n{extra_prompt}\n"));
                                 }
                                 prompt.push_str(&format!(
                                     "\nWhen done, store your findings as ideas:\n\
@@ -822,10 +801,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .and_then(|v| v.as_str())
                                     .or(agent_name.as_deref())
                                     .unwrap_or("");
-                                let name = args
-                                    .get("name")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
                                 // Build pattern from shorthand or explicit
                                 let pattern = if let Some(schedule) =
                                     args.get("schedule").and_then(|v| v.as_str())
@@ -866,10 +842,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "enable" | "disable" => {
-                                let event_id = args
-                                    .get("event_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let event_id =
+                                    args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
                                 ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
@@ -880,10 +854,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 )
                             }
                             "delete" => {
-                                let event_id = args
-                                    .get("event_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let event_id =
+                                    args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
                                 ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
@@ -900,29 +872,25 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
 
                     // ── Code (graph intelligence) ──────────────────
                     "code" => {
-                        let project = args
-                            .get("project")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                         let action = args
                             .get("action")
                             .and_then(|v| v.as_str())
                             .unwrap_or("stats");
 
                         // Find project repo path from config
-                        let repo_path = config
-                            .agent_spawns
-                            .iter()
-                            .find(|p| p.name == project)
-                            .map(|p| {
-                                let r = p.repo.replace(
-                                    '~',
-                                    &dirs::home_dir()
-                                        .unwrap_or_default()
-                                        .to_string_lossy(),
-                                );
-                                std::path::PathBuf::from(r)
-                            });
+                        let repo_path =
+                            config
+                                .agent_spawns
+                                .iter()
+                                .find(|p| p.name == project)
+                                .map(|p| {
+                                    let r = p.repo.replace(
+                                        '~',
+                                        &dirs::home_dir().unwrap_or_default().to_string_lossy(),
+                                    );
+                                    std::path::PathBuf::from(r)
+                                });
 
                         let graph_dir = config.data_dir().join("codegraph");
                         std::fs::create_dir_all(&graph_dir).ok();
@@ -931,9 +899,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         match action {
                             "index" => {
                                 let repo = repo_path.ok_or_else(|| {
-                                    anyhow::anyhow!(
-                                        "project '{project}' not found in config"
-                                    )
+                                    anyhow::anyhow!("project '{project}' not found in config")
                                 })?;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let indexer = aeqi_graph::Indexer::new();
@@ -951,14 +917,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "search" => {
-                                let query = args
-                                    .get("query")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let limit = args
-                                    .get("limit")
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(10)
+                                let query =
+                                    args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                                let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10)
                                     as usize;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let results = store.search_nodes(query, limit)?;
@@ -969,10 +930,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "context" => {
-                                let node_id = args
-                                    .get("node_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let node_id =
+                                    args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let ctx = store.context(node_id)?;
                                 Ok(serde_json::json!({
@@ -986,15 +945,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "impact" => {
-                                let node_id = args
-                                    .get("node_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let depth = args
-                                    .get("depth")
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(3)
-                                    as u32;
+                                let node_id =
+                                    args.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+                                let depth =
+                                    args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let entries = store.impact(&[node_id], depth)?;
                                 let affected: Vec<serde_json::Value> = entries
@@ -1014,10 +968,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "file" => {
-                                let file_path = args
-                                    .get("file_path")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let file_path =
+                                    args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let nodes = store.nodes_in_file(file_path)?;
                                 Ok(serde_json::json!({
@@ -1030,8 +982,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             "stats" => {
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let stats = store.stats()?;
-                                let indexed_at =
-                                    store.get_meta("indexed_at")?.unwrap_or_default();
+                                let indexed_at = store.get_meta("indexed_at")?.unwrap_or_default();
                                 Ok(serde_json::json!({
                                     "ok": true,
                                     "project": project,
@@ -1045,11 +996,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 let repo = repo_path.ok_or_else(|| {
                                     anyhow::anyhow!("project '{project}' not found")
                                 })?;
-                                let depth = args
-                                    .get("depth")
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(3)
-                                    as u32;
+                                let depth =
+                                    args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let indexer = aeqi_graph::Indexer::new();
                                 let impact = indexer.diff_impact(&repo, &store, depth)?;
@@ -1068,10 +1016,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "file_summary" => {
-                                let file_path = args
-                                    .get("file_path")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let file_path =
+                                    args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
                                 let summary = store.file_summary(file_path)?;
                                 Ok(serde_json::json!({
@@ -1172,14 +1118,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                             "content": synthesized.content,
                                         }))
                                     }
-                                    None => Err(anyhow::anyhow!(
-                                        "community '{community_id}' not found"
-                                    )),
+                                    None => {
+                                        Err(anyhow::anyhow!("community '{community_id}' not found"))
+                                    }
                                 }
                             }
-                            _ => Err(anyhow::anyhow!(
-                                "unknown code action: {action}"
-                            )),
+                            _ => Err(anyhow::anyhow!("unknown code action: {action}")),
                         }
                     }
 

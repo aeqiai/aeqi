@@ -9,7 +9,7 @@ pub mod tool;
 pub use channel::{Channel, IncomingMessage, OutgoingMessage};
 pub use embedder::Embedder;
 pub use gateway::{CompletedResponse, DeliveryMode, SessionGateway};
-pub use idea::{IdeaStore, Idea, IdeaQuery};
+pub use idea::{Idea, IdeaQuery, IdeaStore};
 pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,
     PrometheusObserver,

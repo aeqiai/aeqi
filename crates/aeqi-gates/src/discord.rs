@@ -407,10 +407,7 @@ mod tests {
                 "channel_id": "123456789",
             }),
         };
-        let channel_id = message
-            .metadata
-            .get("channel_id")
-            .and_then(|v| v.as_str());
+        let channel_id = message.metadata.get("channel_id").and_then(|v| v.as_str());
         assert_eq!(channel_id, Some("123456789"));
     }
 
@@ -422,10 +419,7 @@ mod tests {
             text: "hello".to_string(),
             metadata: serde_json::json!({}),
         };
-        let channel_id = message
-            .metadata
-            .get("channel_id")
-            .and_then(|v| v.as_str());
+        let channel_id = message.metadata.get("channel_id").and_then(|v| v.as_str());
         assert!(channel_id.is_none());
     }
 
@@ -439,10 +433,7 @@ mod tests {
                 "channel_id": 12345,
             }),
         };
-        let channel_id = message
-            .metadata
-            .get("channel_id")
-            .and_then(|v| v.as_str());
+        let channel_id = message.metadata.get("channel_id").and_then(|v| v.as_str());
         // as_str() returns None for integer values
         assert!(channel_id.is_none());
     }

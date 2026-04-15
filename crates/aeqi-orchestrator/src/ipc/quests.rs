@@ -319,14 +319,11 @@ pub async fn handle_update_quest(
     let priority_str = request.get("priority").and_then(|v| v.as_str());
     let description = request.get("description").and_then(|v| v.as_str());
     let agent_id = request.get("agent_id").and_then(|v| v.as_str());
-    let labels: Option<Vec<String>> = request
-        .get("labels")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        });
+    let labels: Option<Vec<String>> = request.get("labels").and_then(|v| v.as_array()).map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
+    });
 
     let status = status_str.map(|s| match s {
         "in_progress" => aeqi_quests::QuestStatus::InProgress,
@@ -426,7 +423,9 @@ pub async fn handle_close_quest(
     // Fetch quest before closing to get worktree info.
     let quest_before = ctx.agent_registry.get_task(quest_id).await.ok().flatten();
     let worktree_path = quest_before.as_ref().and_then(|q| q.worktree_path.clone());
-    let worktree_branch = quest_before.as_ref().and_then(|q| q.worktree_branch.clone());
+    let worktree_branch = quest_before
+        .as_ref()
+        .and_then(|q| q.worktree_branch.clone());
 
     // Finalize worktree if quest has one.
     let mut merge_result: Option<serde_json::Value> = None;

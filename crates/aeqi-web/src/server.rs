@@ -91,7 +91,9 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
             .take(48)
             .map(char::from)
             .collect();
-        tracing::warn!("No auth_secret configured — generated ephemeral secret (tokens won't survive restarts)");
+        tracing::warn!(
+            "No auth_secret configured — generated ephemeral secret (tokens won't survive restarts)"
+        );
         Some(secret)
     });
 
@@ -109,7 +111,9 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     };
 
     // Error if auth mode requires a secret but signing_secret resolves to the default.
-    if matches!(state.auth_mode, AuthMode::Secret) && state.auth_secret.as_deref() == Some("aeqi-ephemeral-fallback") {
+    if matches!(state.auth_mode, AuthMode::Secret)
+        && state.auth_secret.as_deref() == Some("aeqi-ephemeral-fallback")
+    {
         tracing::error!(
             "SECURITY: auth_mode is {:?} but no auth_secret configured — using insecure default. Set [web] auth_secret in aeqi.toml",
             state.auth_mode

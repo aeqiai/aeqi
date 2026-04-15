@@ -35,10 +35,7 @@ pub enum Activity {
         last_tool: Option<String>,
     },
     /// A tool call has started.
-    ToolCallStarted {
-        quest_id: String,
-        tool_name: String,
-    },
+    ToolCallStarted { quest_id: String, tool_name: String },
     /// A tool call has completed.
     ToolCallCompleted {
         quest_id: String,

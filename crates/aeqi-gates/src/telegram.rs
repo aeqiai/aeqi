@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use aeqi_core::traits::{Channel, CompletedResponse, DeliveryMode, IncomingMessage, OutgoingMessage, SessionGateway};
+use aeqi_core::traits::{
+    Channel, CompletedResponse, DeliveryMode, IncomingMessage, OutgoingMessage, SessionGateway,
+};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -710,7 +712,10 @@ mod tests {
         let updates = resp.result.unwrap();
         assert_eq!(updates.len(), 3);
         assert_eq!(updates[0].update_id, 1);
-        assert_eq!(updates[1].message.as_ref().unwrap().text.as_deref(), Some("second"));
+        assert_eq!(
+            updates[1].message.as_ref().unwrap().text.as_deref(),
+            Some("second")
+        );
         assert!(updates[2].message.is_none());
     }
 

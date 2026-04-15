@@ -109,8 +109,7 @@ async fn whatsapp_handler(
         let url = format!("{}/api/webhooks/whatsapp", base_url.trim_end_matches('/'));
 
         // Parse the form body into key-value pairs for signature computation.
-        let params: Vec<(String, String)> =
-            serde_urlencoded::from_bytes(&body).unwrap_or_default();
+        let params: Vec<(String, String)> = serde_urlencoded::from_bytes(&body).unwrap_or_default();
 
         if !validate_twilio_signature(auth_token, &url, &params, twilio_sig) {
             warn!("WhatsApp webhook rejected: invalid Twilio signature");

@@ -433,9 +433,7 @@ impl SessionStore {
         .context("failed to create session_gateways table")?;
 
         // ── Add sender_id and transport columns to session_messages ──
-        let _ = conn.execute_batch(
-            "ALTER TABLE session_messages ADD COLUMN sender_id TEXT;",
-        );
+        let _ = conn.execute_batch("ALTER TABLE session_messages ADD COLUMN sender_id TEXT;");
         let _ = conn.execute_batch(
             "ALTER TABLE session_messages ADD COLUMN transport TEXT DEFAULT 'unknown';",
         );
@@ -1258,7 +1256,13 @@ impl SessionStore {
         let now = Utc::now().to_rfc3339();
 
         // Try to find existing sender.
-        let existing: Option<(String, String, Option<String>, Option<String>, Option<String>)> = db
+        let existing: Option<(
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        )> = db
             .query_row(
                 "SELECT id, display_name, avatar_url, account_id, metadata \
                  FROM senders WHERE transport = ?1 AND transport_id = ?2",
@@ -1288,15 +1292,11 @@ impl SessionStore {
                 transport: transport.to_string(),
                 transport_id: transport_id.to_string(),
                 display_name: display_name.to_string(),
-                avatar_url: avatar_url
-                    .map(|s| s.to_string())
-                    .or(existing_avatar),
-                account_id: account_id
-                    .map(|s| s.to_string())
-                    .or(existing_account),
-                metadata: metadata.cloned().or_else(|| {
-                    existing_meta.and_then(|raw| serde_json::from_str(&raw).ok())
-                }),
+                avatar_url: avatar_url.map(|s| s.to_string()).or(existing_avatar),
+                account_id: account_id.map(|s| s.to_string()).or(existing_account),
+                metadata: metadata
+                    .cloned()
+                    .or_else(|| existing_meta.and_then(|raw| serde_json::from_str(&raw).ok())),
             });
         }
 
@@ -1396,8 +1396,7 @@ impl SessionStore {
                     display_name: row.get(3)?,
                     avatar_url: row.get(4)?,
                     account_id: row.get(5)?,
-                    metadata: metadata_text
-                        .and_then(|raw| serde_json::from_str(&raw).ok()),
+                    metadata: metadata_text.and_then(|raw| serde_json::from_str(&raw).ok()),
                 })
             },
         )
@@ -1426,8 +1425,7 @@ impl SessionStore {
                     agent_id: row.get(3)?,
                     content: row.get(4)?,
                     created_at: row.get(5)?,
-                    metadata: metadata_text
-                        .and_then(|raw| serde_json::from_str(&raw).ok()),
+                    metadata: metadata_text.and_then(|raw| serde_json::from_str(&raw).ok()),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1850,7 +1848,14 @@ mod tests {
         let store = test_store().await;
 
         let sender = store
-            .resolve_sender("web", "user@example.com", "Bob", Some("https://avatar.url"), None, None)
+            .resolve_sender(
+                "web",
+                "user@example.com",
+                "Bob",
+                Some("https://avatar.url"),
+                None,
+                None,
+            )
             .await
             .unwrap();
 
@@ -1875,7 +1880,14 @@ mod tests {
             .unwrap();
 
         let msg_id = store
-            .record_message(&session_id, &sender.id, "web", "user", "hello from bob", None)
+            .record_message(
+                &session_id,
+                &sender.id,
+                "web",
+                "user",
+                "hello from bob",
+                None,
+            )
             .await
             .unwrap();
         assert!(msg_id > 0);
@@ -1973,7 +1985,14 @@ mod tests {
             .unwrap();
 
         store
-            .record_message(&session_id, &sender.id, "web", "user", "My first message", None)
+            .record_message(
+                &session_id,
+                &sender.id,
+                "web",
+                "user",
+                "My first message",
+                None,
+            )
             .await
             .unwrap();
 

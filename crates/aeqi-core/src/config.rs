@@ -1217,7 +1217,9 @@ impl AEQIConfig {
     /// Get the root agent — the first orchestrator-role agent, or the first agent.
     /// With no leader concept, hierarchy comes from the agent tree (parent_id).
     pub fn root_agent(&self) -> Option<&PeerAgentConfig> {
-        self.agents.iter().find(|a| a.role == "orchestrator")
+        self.agents
+            .iter()
+            .find(|a| a.role == "orchestrator")
             .or_else(|| self.agents.first())
     }
 

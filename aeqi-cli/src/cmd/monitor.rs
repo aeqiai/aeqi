@@ -313,7 +313,6 @@ fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> V
         }
     }
 
-
     let mut project_actions = Vec::new();
     for project in projects {
         if !project.repo_present {

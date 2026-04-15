@@ -16,7 +16,10 @@ pub fn routes() -> Router<AppState> {
         .route("/ideas/search", get(search_ideas))
         .route("/ideas/prefix", get(ideas_by_prefix))
         .route("/ideas/seed", axum::routing::post(seed_ideas))
-        .route("/ideas/{id}", axum::routing::put(update_idea).delete(delete_idea))
+        .route(
+            "/ideas/{id}",
+            axum::routing::put(update_idea).delete(delete_idea),
+        )
 }
 
 #[derive(Deserialize, Default)]

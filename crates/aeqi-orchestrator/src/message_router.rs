@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 use anyhow::Result;
 
-use aeqi_core::traits::{IdeaStore, IdeaQuery};
+use aeqi_core::traits::{IdeaQuery, IdeaStore};
 
 use crate::agent_registry::AgentRegistry;
 use crate::agent_router::AgentRouter;
@@ -1042,9 +1042,7 @@ impl MessageRouter {
             .idea_store
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no idea store available"))?;
-        let id = mem
-            .store(key, content, &["fact".to_string()], None)
-            .await?;
+        let id = mem.store(key, content, &["fact".to_string()], None).await?;
         Ok(id)
     }
 

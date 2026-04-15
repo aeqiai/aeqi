@@ -98,9 +98,7 @@ mod tests {
     #[test]
     fn hosting_deny_if_scoped_empty_companies_still_denied() {
         // Even with an empty companies list, the scope is Some, so access is denied.
-        let scope = Scope(Some(UserScope {
-            companies: vec![],
-        }));
+        let scope = Scope(Some(UserScope { companies: vec![] }));
         let response = hosting_deny_if_scoped(&scope);
         assert!(response.is_some());
         assert_eq!(response.unwrap().status(), StatusCode::FORBIDDEN);

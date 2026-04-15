@@ -240,9 +240,10 @@ pub async fn handle_session_messages(
                             obj["metadata"] = meta.clone();
                         }
                         if let Some(ref sid) = e.sender_id
-                            && let Some(sender_json) = sender_map.get(sid) {
-                                obj["sender"] = sender_json.clone();
-                            }
+                            && let Some(sender_json) = sender_map.get(sid)
+                        {
+                            obj["sender"] = sender_json.clone();
+                        }
                         obj
                     })
                     .collect();

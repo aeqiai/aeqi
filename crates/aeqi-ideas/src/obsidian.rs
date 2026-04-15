@@ -310,8 +310,7 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
             .unwrap_or("unknown")
             .to_string()
     });
-    let category = extract_field(&frontmatter, "category")
-        .unwrap_or_else(|| "fact".to_string());
+    let category = extract_field(&frontmatter, "category").unwrap_or_else(|| "fact".to_string());
     let agent_id = extract_field(&frontmatter, "agent_id").filter(|s| s != "null" && !s.is_empty());
 
     // Split body into content and relations.

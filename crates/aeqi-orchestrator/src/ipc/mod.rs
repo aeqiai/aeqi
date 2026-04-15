@@ -19,15 +19,15 @@ pub mod vfs;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
+use crate::agent_registry::AgentRegistry;
+use crate::event_handler::EventHandlerStore;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
+use crate::prompt_loader::PromptLoader;
 use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
-use crate::prompt_loader::PromptLoader;
-use crate::event_handler::EventHandlerStore;
 
 /// Shared context for all IPC command handlers.
 /// Replaces the 13 loose parameters previously passed to handle_socket_connection.

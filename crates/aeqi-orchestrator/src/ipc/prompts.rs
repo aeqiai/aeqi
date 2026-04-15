@@ -3,8 +3,6 @@
 //! Stores ideas via `store()`, spawns agents, and creates `on_session_start`
 //! events referencing the ideas directly. No injection_mode involved.
 
-
-
 /// Seed ideas into a tenant's idea store + spawn agents + wire events.
 /// Called by the platform after company provisioning.
 ///
@@ -50,7 +48,9 @@ pub async fn handle_seed_ideas(
             let name = idea_val["name"].as_str().unwrap_or("");
             let content = idea_val["content"].as_str().unwrap_or("");
             if name.is_empty() || content.is_empty() {
-                idea_results.push(serde_json::json!({"name": name, "status": "skipped", "reason": "empty"}));
+                idea_results.push(
+                    serde_json::json!({"name": name, "status": "skipped", "reason": "empty"}),
+                );
                 continue;
             }
 
@@ -66,7 +66,8 @@ pub async fn handle_seed_ideas(
                             .or_default()
                             .push(id.clone());
                     }
-                    idea_results.push(serde_json::json!({"name": name, "id": id, "status": "created"}));
+                    idea_results
+                        .push(serde_json::json!({"name": name, "id": id, "status": "created"}));
                 }
                 Err(e) => {
                     idea_results.push(serde_json::json!({"name": name, "status": "error", "error": e.to_string()}));
@@ -82,7 +83,6 @@ pub async fn handle_seed_ideas(
             let name = agent_val["name"].as_str().unwrap_or("");
             let display_name = agent_val["display_name"].as_str();
             let model = agent_val["model"].as_str();
-
 
             let _template = agent_val["template"].as_str().unwrap_or("seeded");
 
@@ -108,11 +108,12 @@ pub async fn handle_seed_ideas(
 
                     // Wire on_session_start event with the agent's ideas.
                     if let Some(idea_ids) = agent_idea_ids.remove(name)
-                        && let Some(ref ehs) = ctx.event_handler_store {
-                            let _ = ehs
-                                .update_on_session_start_ideas(&agent.id, &idea_ids)
-                                .await;
-                        }
+                        && let Some(ref ehs) = ctx.event_handler_store
+                    {
+                        let _ = ehs
+                            .update_on_session_start_ideas(&agent.id, &idea_ids)
+                            .await;
+                    }
 
                     agent_results.push(serde_json::json!({
                         "name": name,

@@ -23,7 +23,10 @@ pub async fn handle_list_ideas(
     match idea_store.search_by_prefix("", 1000) {
         Ok(ideas) => {
             let filtered: Vec<_> = if let Some(aid) = agent_id {
-                ideas.into_iter().filter(|i| i.agent_id.as_deref() == Some(aid)).collect()
+                ideas
+                    .into_iter()
+                    .filter(|i| i.agent_id.as_deref() == Some(aid))
+                    .collect()
             } else {
                 ideas
             };
@@ -51,9 +54,16 @@ pub async fn handle_store_idea(
     }
 
     let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
-        tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+        tags_val
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
     } else {
-        vec![request_field(request, "category").unwrap_or("fact").to_string()]
+        vec![
+            request_field(request, "category")
+                .unwrap_or("fact")
+                .to_string(),
+        ]
     };
 
     let agent_id = request_field(request, "agent_id");
@@ -100,9 +110,11 @@ pub async fn handle_update_idea(
 
     let key = request_field(request, "key");
     let content = request_field(request, "content");
-    let tags: Option<Vec<String>> = request.get("tags")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+    let tags: Option<Vec<String>> = request.get("tags").and_then(|v| v.as_array()).map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
+    });
 
     match idea_store.update(id, key, content, tags.as_deref()).await {
         Ok(()) => serde_json::json!({"ok": true}),
@@ -120,10 +132,7 @@ pub async fn handle_search_ideas(
     };
 
     let query_text = request_field(request, "query").unwrap_or("");
-    let top_k = request
-        .get("top_k")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(20) as usize;
+    let top_k = request.get("top_k").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
 
     let mut query = aeqi_core::traits::IdeaQuery::new(query_text, top_k);
 
@@ -135,7 +144,10 @@ pub async fn handle_search_ideas(
         query.tags = vec![cat_str.to_string()];
     }
     if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
-        let parsed: Vec<String> = tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+        let parsed: Vec<String> = tags_val
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
         if !parsed.is_empty() {
             query.tags = parsed;
         }
@@ -564,9 +576,18 @@ pub async fn handle_knowledge_store(
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
-        tags_val.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+        tags_val
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
     } else {
-        vec![request.get("category").and_then(|v| v.as_str()).unwrap_or("fact").to_string()]
+        vec![
+            request
+                .get("category")
+                .and_then(|v| v.as_str())
+                .unwrap_or("fact")
+                .to_string(),
+        ]
     };
     let scope = request
         .get("scope")

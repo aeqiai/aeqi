@@ -117,7 +117,7 @@ pub async fn handle_create_company(
         agent_id: None,
         created_at: now.clone(),
         updated_at: now,
-        };
+    };
     match ctx.agent_registry.create_company(&record).await {
         Ok(()) => {
             let _identity_content = format!(
@@ -134,10 +134,7 @@ pub async fn handle_create_company(
             );
             let identity_tags = vec!["identity".to_string(), "company".to_string()];
 
-            let agent = ctx
-                .agent_registry
-                .spawn(name, Some(name), None, None)
-                .await;
+            let agent = ctx.agent_registry.spawn(name, Some(name), None, None).await;
             match &agent {
                 Ok(a) => {
                     // Link agent to company.

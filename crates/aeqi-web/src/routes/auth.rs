@@ -69,13 +69,13 @@ pub fn public_routes() -> Router<AppState> {
 async fn metrics_handler(State(state): State<AppState>) -> Response {
     match state.ipc.cmd("metrics").await {
         Ok(resp) => {
-            let text = resp
-                .get("metrics")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let text = resp.get("metrics").and_then(|v| v.as_str()).unwrap_or("");
             (
                 axum::http::StatusCode::OK,
-                [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+                [(
+                    axum::http::header::CONTENT_TYPE,
+                    "text/plain; version=0.0.4; charset=utf-8",
+                )],
                 text.to_string(),
             )
                 .into_response()
@@ -1014,7 +1014,8 @@ mod tests {
 
     #[test]
     fn signup_request_deserialize() {
-        let json = r#"{"email":"a@b.com","password":"12345678","name":"Test","invite_code":"INV-1"}"#;
+        let json =
+            r#"{"email":"a@b.com","password":"12345678","name":"Test","invite_code":"INV-1"}"#;
         let req: SignupRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.email, "a@b.com");
         assert_eq!(req.password, "12345678");

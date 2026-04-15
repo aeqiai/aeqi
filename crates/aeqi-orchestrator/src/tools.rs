@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
-use aeqi_core::traits::{IdeaStore, IdeaQuery};
+use crate::agent_registry::AgentRegistry;
+use aeqi_core::traits::{IdeaQuery, IdeaStore};
 
 // ---------------------------------------------------------------------------
 // Helper: format quest detail
@@ -190,12 +190,16 @@ impl AgentsTool {
             .await?;
 
         // Emit child_added for the parent.
-        let _ = self.activity_log.emit(
-            "child_added",
-            Some(parent_id),
-            None, None,
-            &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
-        ).await;
+        let _ = self
+            .activity_log
+            .emit(
+                "child_added",
+                Some(parent_id),
+                None,
+                None,
+                &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
+            )
+            .await;
 
         Ok(ToolResult::success(format!(
             "Agent hired: {} (id: {}, template: {})",
@@ -221,12 +225,16 @@ impl AgentsTool {
 
         // Emit child_removed for the parent.
         if let Some(ref parent_id) = agent.parent_id {
-            let _ = self.activity_log.emit(
-                "child_removed",
-                Some(parent_id),
-                None, None,
-                &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
-            ).await;
+            let _ = self
+                .activity_log
+                .emit(
+                    "child_removed",
+                    Some(parent_id),
+                    None,
+                    None,
+                    &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
+                )
+                .await;
         }
 
         Ok(ToolResult::success(format!(
@@ -271,10 +279,7 @@ impl AgentsTool {
     }
 
     async fn action_self(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let detail = args
-            .get("detail")
-            .and_then(|v| v.as_str())
-            .unwrap_or("all");
+        let detail = args.get("detail").and_then(|v| v.as_str()).unwrap_or("all");
 
         let agent = match self
             .agent_registry
@@ -420,7 +425,8 @@ impl Tool for AgentsTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "agents".to_string(),
-            description: "Manage agents: hire from template, retire, list, or introspect self.".to_string(),
+            description: "Manage agents: hire from template, retire, list, or introspect self."
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -481,7 +487,10 @@ pub struct IdeasTool {
 
 impl IdeasTool {
     pub fn new(memory: Arc<dyn IdeaStore>, activity_log: Arc<ActivityLog>) -> Self {
-        Self { memory, activity_log }
+        Self {
+            memory,
+            activity_log,
+        }
     }
 
     async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
@@ -493,20 +502,28 @@ impl IdeasTool {
             .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
-        let tags = vec![args.get("category").and_then(|v| v.as_str()).unwrap_or("fact").to_string()];
+        let tags = vec![
+            args.get("category")
+                .and_then(|v| v.as_str())
+                .unwrap_or("fact")
+                .to_string(),
+        ];
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
         match self.memory.store(key, content, &tags, agent_id).await {
             Ok(id) => {
                 // Emit idea_received so lifecycle events can fire.
                 if let Some(aid) = agent_id {
-                    let _ = self.activity_log.emit(
-                        "idea_received",
-                        Some(aid),
-                        None,
-                        None,
-                        &serde_json::json!({"key": key, "idea_id": id}),
-                    ).await;
+                    let _ = self
+                        .activity_log
+                        .emit(
+                            "idea_received",
+                            Some(aid),
+                            None,
+                            None,
+                            &serde_json::json!({"key": key, "idea_id": id}),
+                        )
+                        .await;
                 }
                 Ok(ToolResult::success(format!("Stored memory {id} {key}")))
             }
@@ -630,7 +647,11 @@ pub struct QuestsTool {
 }
 
 impl QuestsTool {
-    pub fn new(agent_registry: Arc<AgentRegistry>, agent_name: String, activity_log: Arc<ActivityLog>) -> Self {
+    pub fn new(
+        agent_registry: Arc<AgentRegistry>,
+        agent_name: String,
+        activity_log: Arc<ActivityLog>,
+    ) -> Self {
         Self {
             agent_registry,
             agent_name,
@@ -659,14 +680,10 @@ impl QuestsTool {
         let agent = match self.agent_registry.resolve_by_hint(agent_hint).await {
             Ok(Some(a)) => a,
             Ok(None) => {
-                return Ok(ToolResult::error(format!(
-                    "Agent not found: {agent_hint}"
-                )));
+                return Ok(ToolResult::error(format!("Agent not found: {agent_hint}")));
             }
             Err(e) => {
-                return Ok(ToolResult::error(format!(
-                    "Failed to resolve agent: {e}"
-                )));
+                return Ok(ToolResult::error(format!("Failed to resolve agent: {e}")));
             }
         };
 
@@ -688,22 +705,23 @@ impl QuestsTool {
         {
             Ok(q) => q,
             Err(e) => {
-                return Ok(ToolResult::error(format!(
-                    "Failed to create quest: {e}"
-                )));
+                return Ok(ToolResult::error(format!("Failed to create quest: {e}")));
             }
         };
 
         let quest_id = quest.id.0.clone();
 
         // Broadcast quest_created so the scheduler wakes up immediately.
-        let _ = self.activity_log.emit(
-            "quest_created",
-            Some(&agent.id),
-            None,
-            Some(&quest_id),
-            &serde_json::json!({"subject": subject}),
-        ).await;
+        let _ = self
+            .activity_log
+            .emit(
+                "quest_created",
+                Some(&agent.id),
+                None,
+                Some(&quest_id),
+                &serde_json::json!({"subject": subject}),
+            )
+            .await;
 
         if priority_str != "normal" {
             let priority = match priority_str.to_lowercase().as_str() {
@@ -739,14 +757,10 @@ impl QuestsTool {
             Some(hint) => match self.agent_registry.resolve_by_hint(hint).await {
                 Ok(Some(a)) => Some(a.id),
                 Ok(None) => {
-                    return Ok(ToolResult::error(format!(
-                        "Agent not found: {hint}"
-                    )));
+                    return Ok(ToolResult::error(format!("Agent not found: {hint}")));
                 }
                 Err(e) => {
-                    return Ok(ToolResult::error(format!(
-                        "Failed to resolve agent: {e}"
-                    )));
+                    return Ok(ToolResult::error(format!("Failed to resolve agent: {e}")));
                 }
             },
             None => None,
@@ -759,9 +773,7 @@ impl QuestsTool {
         {
             Ok(q) => q,
             Err(e) => {
-                return Ok(ToolResult::error(format!(
-                    "Failed to list quests: {e}"
-                )));
+                return Ok(ToolResult::error(format!("Failed to list quests: {e}")));
             }
         };
 
@@ -1039,8 +1051,7 @@ impl Tool for EventsTool {
                     .get("cooldown_secs")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
-                let pattern = if let Some(schedule) =
-                    args.get("schedule").and_then(|v| v.as_str())
+                let pattern = if let Some(schedule) = args.get("schedule").and_then(|v| v.as_str())
                 {
                     format!("schedule:{schedule}")
                 } else if let Some(event) = args.get("event_pattern").and_then(|v| v.as_str()) {
@@ -1055,9 +1066,14 @@ impl Tool for EventsTool {
                     });
                 };
 
-                let idea_ids: Vec<String> = args.get("idea_ids")
+                let idea_ids: Vec<String> = args
+                    .get("idea_ids")
                     .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect()
+                    })
                     .unwrap_or_default();
 
                 match self
@@ -1075,9 +1091,7 @@ impl Tool for EventsTool {
                     Ok(event) => Ok(ToolResult {
                         output: format!(
                             "Event '{}' created (id: {}, pattern: {})",
-                            event.name,
-                            event.id,
-                            event.pattern,
+                            event.name, event.id, event.pattern,
                         ),
                         is_error: false,
                         context_modifier: None,
@@ -1101,11 +1115,7 @@ impl Tool for EventsTool {
                     .map(|e| {
                         format!(
                             "- {} (id: {}, pattern: {}, enabled: {}, fires: {})",
-                            e.name,
-                            e.id,
-                            e.pattern,
-                            e.enabled,
-                            e.fire_count
+                            e.name, e.id, e.pattern, e.enabled, e.fire_count
                         )
                     })
                     .collect();
@@ -1416,7 +1426,11 @@ impl CodeTool {
     async fn action_graph(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let db_path = match &self.db_path {
             Some(p) => p,
-            None => return Ok(ToolResult::error("code graph not available (no DB path configured)".to_string())),
+            None => {
+                return Ok(ToolResult::error(
+                    "code graph not available (no DB path configured)".to_string(),
+                ));
+            }
         };
 
         let sub_action = args
@@ -1491,7 +1505,11 @@ impl CodeTool {
     async fn action_transcript(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let ss = match &self.session_store {
             Some(s) => s,
-            None => return Ok(ToolResult::error("transcript search not available (no session store configured)".to_string())),
+            None => {
+                return Ok(ToolResult::error(
+                    "transcript search not available (no session store configured)".to_string(),
+                ));
+            }
         };
 
         let query = args
@@ -1539,9 +1557,11 @@ impl CodeTool {
         // Convenience: "search" dispatches to graph search by default.
         self.action_graph(&{
             let mut a = args.clone();
-            a.as_object_mut().map(|m| m.insert("sub_action".to_string(), serde_json::json!("search")));
+            a.as_object_mut()
+                .map(|m| m.insert("sub_action".to_string(), serde_json::json!("search")));
             a
-        }).await
+        })
+        .await
     }
 
     async fn action_usage(&self) -> Result<ToolResult> {
@@ -1637,7 +1657,9 @@ pub fn build_orchestration_tools(
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
 ) -> Vec<Arc<dyn Tool>> {
     let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
-    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(agent_registry.db()));
+    let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(
+        agent_registry.db(),
+    ));
 
     // 1. Agents tool (hire/retire/list/self)
     let agents_tool = AgentsTool::new(
@@ -1649,7 +1671,11 @@ pub fn build_orchestration_tools(
     );
 
     // 2. Quests tool (create/list/show/update/close/cancel)
-    let quests_tool = QuestsTool::new(agent_registry.clone(), agent_name.clone(), activity_log.clone());
+    let quests_tool = QuestsTool::new(
+        agent_registry.clone(),
+        agent_name.clone(),
+        activity_log.clone(),
+    );
 
     // 3. Events tool (create/list/enable/disable/delete)
     let events_tool = EventsTool::new(event_handler_store, agent_name);
@@ -1686,7 +1712,10 @@ pub struct WebTool;
 #[async_trait]
 impl Tool for WebTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("fetch");
+        let action = args
+            .get("action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("fetch");
         match action {
             "fetch" => {
                 let tool = aeqi_tools::WebFetchTool;

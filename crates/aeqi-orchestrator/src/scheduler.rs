@@ -35,13 +35,13 @@ use tracing::{debug, info, warn};
 use crate::agent_registry::AgentRegistry;
 use crate::agent_worker::AgentWorker;
 // escalation module still exists but EscalationTracker is no longer used here.
-use crate::activity_log::{EventFilter, ActivityLog};
-use crate::activity::{ActivityStream, Activity};
+use crate::activity::{Activity, ActivityStream};
+use crate::activity_log::{ActivityLog, EventFilter};
 use crate::metrics::AEQIMetrics;
 use crate::middleware::{
     ClarificationMiddleware, ContextBudgetMiddleware, ContextCompressionMiddleware,
-    CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware,
-    IdeaRefreshMiddleware, LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
+    CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware, IdeaRefreshMiddleware,
+    LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
 };
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
@@ -610,7 +610,9 @@ impl Scheduler {
         {
             // Events management tool — always available for persistent agents.
             {
-                let ehs = Arc::new(crate::event_handler::EventHandlerStore::new(self.agent_registry.db()));
+                let ehs = Arc::new(crate::event_handler::EventHandlerStore::new(
+                    self.agent_registry.db(),
+                ));
                 tools.push(Arc::new(crate::tools::EventsTool::new(
                     ehs,
                     agent_id.clone(),
@@ -967,14 +969,13 @@ fn ordered_unique_idea_ids(idea_ids: &[String]) -> Vec<String> {
     ordered
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aeqi_core::traits::{Idea, IdeaQuery};
     use async_trait::async_trait;
     use chrono::Utc;
     use std::sync::Arc;
-    use aeqi_core::traits::{Idea, IdeaQuery};
 
     struct MockIdeaStore {
         ideas: Vec<Idea>,

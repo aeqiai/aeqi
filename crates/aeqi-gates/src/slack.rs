@@ -320,10 +320,8 @@ mod tests {
         let messages: Vec<SlackMessage> = serde_json::from_str(json).unwrap();
 
         // Simulate the filtering logic from the polling loop
-        let human_messages: Vec<&SlackMessage> = messages
-            .iter()
-            .filter(|m| m.bot_id.is_none())
-            .collect();
+        let human_messages: Vec<&SlackMessage> =
+            messages.iter().filter(|m| m.bot_id.is_none()).collect();
         assert_eq!(human_messages.len(), 2);
         assert_eq!(human_messages[0].user.as_deref(), Some("U1"));
         assert_eq!(human_messages[1].user.as_deref(), Some("U3"));
@@ -402,10 +400,7 @@ mod tests {
                 "channel_id": "C_GENERAL",
             }),
         };
-        let channel_id = message
-            .metadata
-            .get("channel_id")
-            .and_then(|v| v.as_str());
+        let channel_id = message.metadata.get("channel_id").and_then(|v| v.as_str());
         assert_eq!(channel_id, Some("C_GENERAL"));
     }
 
@@ -417,10 +412,7 @@ mod tests {
             text: "hello".to_string(),
             metadata: serde_json::json!({}),
         };
-        let channel_id = message
-            .metadata
-            .get("channel_id")
-            .and_then(|v| v.as_str());
+        let channel_id = message.metadata.get("channel_id").and_then(|v| v.as_str());
         assert!(channel_id.is_none());
     }
 
@@ -447,7 +439,7 @@ mod tests {
             .iter()
             .filter(|m| m.bot_id.is_none() && m.text.is_some())
             .collect();
-        assert_eq!(processable.len(), 3);  // msgs 1, 2, 3 (msg 5 has no text)
+        assert_eq!(processable.len(), 3); // msgs 1, 2, 3 (msg 5 has no text)
     }
 
     // ── Error message formatting ──

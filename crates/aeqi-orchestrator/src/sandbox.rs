@@ -160,10 +160,7 @@ impl QuestSandbox {
         enable_bwrap: bool,
     ) -> Result<Self> {
         if !worktree_path.exists() {
-            bail!(
-                "quest worktree does not exist: {}",
-                worktree_path.display()
-            );
+            bail!("quest worktree does not exist: {}", worktree_path.display());
         }
         let branch_name = format!("quest/{quest_id}");
         info!(
@@ -346,10 +343,7 @@ impl QuestSandbox {
         }
 
         match self
-            .commit_changes(
-                &format!("turn {turn}: auto-commit"),
-                "aeqi-agent",
-            )
+            .commit_changes(&format!("turn {turn}: auto-commit"), "aeqi-agent")
             .await
         {
             Ok(hash) => {

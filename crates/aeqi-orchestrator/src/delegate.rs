@@ -15,8 +15,8 @@ use std::sync::Arc;
 use tracing::info;
 
 use crate::SessionStore;
-use crate::agent_registry::AgentRegistry;
 use crate::activity_log::ActivityLog;
+use crate::agent_registry::AgentRegistry;
 use crate::session_manager::SessionManager;
 
 // ---------------------------------------------------------------------------
@@ -130,14 +130,18 @@ impl DelegateTool {
         if !create_task {
             // Fire-and-forget: just log the message, don't create a quest.
             info!(from = %self.agent_name, to = %to, "delegation sent (no quest)");
-            return Ok(ToolResult::success(format!("Message sent to '{to}' (no quest created)")));
+            return Ok(ToolResult::success(format!(
+                "Message sent to '{to}' (no quest created)"
+            )));
         }
 
         // Resolve target agent in registry.
         let registry = match &self.agent_registry {
             Some(r) => r,
             None => {
-                return Ok(ToolResult::error("agent registry not available for delegation"));
+                return Ok(ToolResult::error(
+                    "agent registry not available for delegation",
+                ));
             }
         };
 
@@ -147,7 +151,9 @@ impl DelegateTool {
                 return Ok(ToolResult::error(format!("agent '{to}' not found")));
             }
             Err(e) => {
-                return Ok(ToolResult::error(format!("failed to resolve agent '{to}': {e}")));
+                return Ok(ToolResult::error(format!(
+                    "failed to resolve agent '{to}': {e}"
+                )));
             }
         };
 
@@ -165,27 +171,24 @@ impl DelegateTool {
         }
 
         let quest = registry
-            .create_task(
-                &target.id,
-                &subject,
-                prompt,
-                &[],
-                &labels,
-            )
+            .create_task(&target.id, &subject, prompt, &[], &labels)
             .await?;
 
         // Emit activity for audit trail.
-        let _ = self.activity_log.emit(
-            "quest.delegated",
-            Some(&target.id),
-            self.session_id.as_deref(),
-            Some(&quest.id.0),
-            &serde_json::json!({
-                "from_agent": self.agent_name,
-                "to_agent": to,
-                "response_mode": response_mode,
-            }),
-        ).await;
+        let _ = self
+            .activity_log
+            .emit(
+                "quest.delegated",
+                Some(&target.id),
+                self.session_id.as_deref(),
+                Some(&quest.id.0),
+                &serde_json::json!({
+                    "from_agent": self.agent_name,
+                    "to_agent": to,
+                    "response_mode": response_mode,
+                }),
+            )
+            .await;
 
         info!(
             from = %self.agent_name,
@@ -444,7 +447,8 @@ mod tests {
         DelegateTool::new(test_activity_log().await, "test-agent".to_string())
     }
 
-    async fn make_tool_with_registry() -> (DelegateTool, Arc<crate::agent_registry::AgentRegistry>) {
+    async fn make_tool_with_registry() -> (DelegateTool, Arc<crate::agent_registry::AgentRegistry>)
+    {
         let dir = tempfile::tempdir().unwrap();
         let reg = Arc::new(crate::agent_registry::AgentRegistry::open(dir.path()).unwrap());
         // Create a target agent.

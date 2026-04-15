@@ -5,9 +5,9 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::traits::{
-    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore,
-    LoopAction, Message, MessageContent, Observer, Provider, Role, StopReason, Tool, ToolResult,
-    ToolSpec, Usage,
+    ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore, LoopAction,
+    Message, MessageContent, Observer, Provider, Role, StopReason, Tool, ToolResult, ToolSpec,
+    Usage,
 };
 
 /// Generic notification that can be injected into the agent loop between steps.
@@ -1187,7 +1187,7 @@ impl Agent {
                                 role: Role::User,
                                 content: MessageContent::text(
                                     "You called a tool but gave an empty response. \
-                                     Please analyze the tool result and respond to the user."
+                                     Please analyze the tool result and respond to the user.",
                                 ),
                             });
                             transition = LoopTransition::AfterTurnContinue;

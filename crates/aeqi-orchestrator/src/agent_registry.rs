@@ -233,7 +233,8 @@ impl ConnectionPool {
 
     /// Acquire a connection from the pool.
     pub async fn lock(&self) -> tokio::sync::MutexGuard<'_, Connection> {
-        let idx = self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % self.connections.len();
+        let idx =
+            self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % self.connections.len();
         self.connections[idx].lock().await
     }
 }
@@ -270,7 +271,8 @@ impl AgentRegistry {
         let schema_version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         tracing::debug!(schema_version, db = "aeqi.db", "schema version");
 
-        conn.execute_batch("
+        conn.execute_batch(
+            "
 
              CREATE TABLE IF NOT EXISTS agents (
                  id TEXT PRIMARY KEY,
@@ -391,7 +393,9 @@ impl AgentRegistry {
             .filter_map(|r| r.ok())
             .any(|col| col == "idea_ids");
         if !has_event_idea_ids {
-            conn.execute_batch("ALTER TABLE events ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';")?;
+            conn.execute_batch(
+                "ALTER TABLE events ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';",
+            )?;
         }
 
         // Purge legacy tables.
@@ -404,7 +408,11 @@ impl AgentRegistry {
         const AEQI_SCHEMA_VERSION: i32 = 1;
         if schema_version < AEQI_SCHEMA_VERSION {
             conn.execute_batch(&format!("PRAGMA user_version = {AEQI_SCHEMA_VERSION};"))?;
-            tracing::info!(from = schema_version, to = AEQI_SCHEMA_VERSION, "aeqi.db schema upgraded");
+            tracing::info!(
+                from = schema_version,
+                to = AEQI_SCHEMA_VERSION,
+                "aeqi.db schema upgraded"
+            );
         }
 
         // Close the aeqi.db migration connection and open a pool.
@@ -420,7 +428,8 @@ impl AgentRegistry {
              PRAGMA busy_timeout = 5000;
              PRAGMA foreign_keys = ON;",
         )?;
-        let sessions_schema_version: i32 = sconn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        let sessions_schema_version: i32 =
+            sconn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
 
         // Quests table (live work state — lives in sessions.db).
         sconn.execute_batch(
@@ -533,7 +542,11 @@ impl AgentRegistry {
         const SESSIONS_SCHEMA_VERSION: i32 = 1;
         if sessions_schema_version < SESSIONS_SCHEMA_VERSION {
             sconn.execute_batch(&format!("PRAGMA user_version = {SESSIONS_SCHEMA_VERSION};"))?;
-            tracing::info!(from = sessions_schema_version, to = SESSIONS_SCHEMA_VERSION, "sessions.db schema upgraded");
+            tracing::info!(
+                from = sessions_schema_version,
+                to = SESSIONS_SCHEMA_VERSION,
+                "sessions.db schema upgraded"
+            );
         }
 
         // Close the sessions.db migration connection and open a pool.
@@ -582,7 +595,15 @@ impl AgentRegistry {
         ))?;
 
         // Tables to migrate: (table_name).
-        let tables = ["quests", "activity", "sessions", "session_messages", "session_summaries", "messages_fts", "runs"];
+        let tables = [
+            "quests",
+            "activity",
+            "sessions",
+            "session_messages",
+            "session_summaries",
+            "messages_fts",
+            "runs",
+        ];
 
         for table in &tables {
             let exists: bool = src
@@ -610,11 +631,9 @@ impl AgentRegistry {
 
             if target_exists {
                 let target_count: i64 = src
-                    .query_row(
-                        &format!("SELECT COUNT(*) FROM sdb.{table}"),
-                        [],
-                        |row| row.get(0),
-                    )
+                    .query_row(&format!("SELECT COUNT(*) FROM sdb.{table}"), [], |row| {
+                        row.get(0)
+                    })
                     .unwrap_or(0);
 
                 if target_count > 0 {
@@ -627,11 +646,9 @@ impl AgentRegistry {
 
             // Copy data from aeqi.db → sessions.db.
             let count: i64 = src
-                .query_row(
-                    &format!("SELECT COUNT(*) FROM main.{table}"),
-                    [],
-                    |row| row.get(0),
-                )
+                .query_row(&format!("SELECT COUNT(*) FROM main.{table}"), [], |row| {
+                    row.get(0)
+                })
                 .unwrap_or(0);
 
             if count > 0 && target_exists {
@@ -1370,7 +1387,6 @@ impl AgentRegistry {
         Ok(Vec::new())
     }
 
-
     /// Create a task assigned to an agent.
     pub async fn create_task(
         &self,
@@ -1848,9 +1864,16 @@ impl AgentRegistry {
              completion_tokens = ?8, duration_ms = ?9
              WHERE id = ?10",
             rusqlite::params![
-                status, cost_usd, turns as i64, outcome, now,
-                tokens_used as i64, prompt_tokens as i64, completion_tokens as i64,
-                duration_ms.map(|d| d as i64), run_id,
+                status,
+                cost_usd,
+                turns as i64,
+                outcome,
+                now,
+                tokens_used as i64,
+                prompt_tokens as i64,
+                completion_tokens as i64,
+                duration_ms.map(|d| d as i64),
+                run_id,
             ],
         )?;
         Ok(())
@@ -1879,10 +1902,14 @@ impl AgentRegistry {
             sql.push_str(&format!(" AND session_id = ?{}", params_vec.len() + 1));
             params_vec.push(Box::new(sid.to_string()));
         }
-        sql.push_str(&format!(" ORDER BY started_at DESC LIMIT ?{}", params_vec.len() + 1));
+        sql.push_str(&format!(
+            " ORDER BY started_at DESC LIMIT ?{}",
+            params_vec.len() + 1
+        ));
         params_vec.push(Box::new(limit as i64));
 
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
         let mut stmt = db.prepare(&sql)?;
         let rows = stmt.query_map(param_refs.as_slice(), |row| {
             Ok(RunRecord {
@@ -1903,7 +1930,8 @@ impl AgentRegistry {
                 duration_ms: row.get(14).ok(),
             })
         })?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(Into::into)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Expose the template connection pool (aeqi.db: agents, events, ideas, quest_sequences).
@@ -2057,7 +2085,10 @@ impl AgentRegistry {
                 params![cutoff],
             )?;
             if deleted > 0 {
-                info!(messages = deleted, "pruned old messages from sessions closed > 30 days ago");
+                info!(
+                    messages = deleted,
+                    "pruned old messages from sessions closed > 30 days ago"
+                );
                 total_affected += deleted;
             }
         }
@@ -2083,7 +2114,10 @@ impl AgentRegistry {
         }
 
         if total_affected > 0 {
-            info!(total = total_affected, "cross-database orphan cleanup complete");
+            info!(
+                total = total_affected,
+                "cross-database orphan cleanup complete"
+            );
         }
         Ok(total_affected)
     }
@@ -2391,9 +2425,7 @@ mod tests {
     async fn spawn_and_get() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("shadow", Some("Shadow"), None,
-                Some("claude-sonnet-4.6"),
-            )
+            .spawn("shadow", Some("Shadow"), None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -2408,20 +2440,13 @@ mod tests {
     #[tokio::test]
     async fn parent_child_relationship() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("assistant", None, None, None)
-            .await
-            .unwrap();
+        let root = reg.spawn("assistant", None, None, None).await.unwrap();
         let child = reg
-            .spawn("engineering", None, Some(&root.id),
-                None,
-            )
+            .spawn("engineering", None, Some(&root.id), None)
             .await
             .unwrap();
         let grandchild = reg
-            .spawn("backend", None, Some(&child.id),
-                None,
-            )
+            .spawn("backend", None, Some(&child.id), None)
             .await
             .unwrap();
 
@@ -2448,10 +2473,7 @@ mod tests {
     #[tokio::test]
     async fn get_root() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("assistant", None, None, None)
-            .await
-            .unwrap();
+        let root = reg.spawn("assistant", None, None, None).await.unwrap();
         let _child = reg
             .spawn("worker", None, Some(&root.id), None)
             .await
@@ -2464,22 +2486,10 @@ mod tests {
     #[tokio::test]
     async fn subtree() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("root", None, None, None)
-            .await
-            .unwrap();
-        let a = reg
-            .spawn("a", None, Some(&root.id), None)
-            .await
-            .unwrap();
-        let _b = reg
-            .spawn("b", None, Some(&root.id), None)
-            .await
-            .unwrap();
-        let _c = reg
-            .spawn("c", None, Some(&a.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None, None).await.unwrap();
+        let a = reg.spawn("a", None, Some(&root.id), None).await.unwrap();
+        let _b = reg.spawn("b", None, Some(&root.id), None).await.unwrap();
+        let _c = reg.spawn("c", None, Some(&a.id), None).await.unwrap();
 
         let tree = reg.get_subtree(&root.id).await.unwrap();
         assert_eq!(tree.len(), 4); // root + a + b + c
@@ -2488,10 +2498,7 @@ mod tests {
     #[tokio::test]
     async fn move_agent_prevents_cycles() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("root", None, None, None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None, None).await.unwrap();
         let child = reg
             .spawn("child", None, Some(&root.id), None)
             .await
@@ -2505,10 +2512,7 @@ mod tests {
     #[tokio::test]
     async fn record_session_updates_stats() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("test", None, None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("test", None, None, None).await.unwrap();
 
         reg.record_session(&agent.id, 5000).await.unwrap();
         reg.record_session(&agent.id, 3000).await.unwrap();
@@ -2540,10 +2544,7 @@ You are Shadow, the user's personal assistant."#;
     #[tokio::test]
     async fn spawn_from_template_with_parent() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("root", None, None, None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None, None).await.unwrap();
         let template = r#"---
 name: worker
 model: anthropic/claude-sonnet-4.6
@@ -2560,9 +2561,7 @@ You are a worker agent."#;
     #[tokio::test]
     async fn get_by_name_found_and_missing() {
         let reg = test_registry().await;
-        reg.spawn("shadow", None, None, None)
-            .await
-            .unwrap();
+        reg.spawn("shadow", None, None, None).await.unwrap();
 
         let found = reg.get_by_name("shadow").await.unwrap();
         assert_eq!(found.len(), 1);
@@ -2575,10 +2574,7 @@ You are a worker agent."#;
     #[tokio::test]
     async fn get_active_by_name_returns_none_for_retired() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("worker", None, None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("worker", None, None, None).await.unwrap();
 
         // Active agent should be found.
         let found = reg.get_active_by_name("worker").await.unwrap();
@@ -2597,10 +2593,7 @@ You are a worker agent."#;
     #[tokio::test]
     async fn resolve_by_hint_name_uuid_partial() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("analyst", None, None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("analyst", None, None, None).await.unwrap();
 
         // Full name match.
         let by_name = reg.resolve_by_hint("analyst").await.unwrap();
@@ -2620,18 +2613,9 @@ You are a worker agent."#;
     #[tokio::test]
     async fn list_with_parent_and_status_filters() {
         let reg = test_registry().await;
-        let root = reg
-            .spawn("root", None, None, None)
-            .await
-            .unwrap();
-        let child_a = reg
-            .spawn("a", None, Some(&root.id), None)
-            .await
-            .unwrap();
-        let _child_b = reg
-            .spawn("b", None, Some(&root.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None, None).await.unwrap();
+        let child_a = reg.spawn("a", None, Some(&root.id), None).await.unwrap();
+        let _child_b = reg.spawn("b", None, Some(&root.id), None).await.unwrap();
 
         // Pause child_a.
         reg.set_status(&child_a.id, AgentStatus::Paused)
@@ -2668,22 +2652,10 @@ You are a worker agent."#;
     #[tokio::test]
     async fn list_active_excludes_paused_and_retired() {
         let reg = test_registry().await;
-        let a = reg
-            .spawn("active1", None, None, None)
-            .await
-            .unwrap();
-        let b = reg
-            .spawn("paused1", None, None, None)
-            .await
-            .unwrap();
-        let c = reg
-            .spawn("retired1", None, None, None)
-            .await
-            .unwrap();
-        let _d = reg
-            .spawn("active2", None, None, None)
-            .await
-            .unwrap();
+        let a = reg.spawn("active1", None, None, None).await.unwrap();
+        let b = reg.spawn("paused1", None, None, None).await.unwrap();
+        let c = reg.spawn("retired1", None, None, None).await.unwrap();
+        let _d = reg.spawn("active2", None, None, None).await.unwrap();
 
         reg.set_status(&b.id, AgentStatus::Paused).await.unwrap();
         reg.set_status(&c.id, AgentStatus::Retired).await.unwrap();
@@ -2707,10 +2679,7 @@ You are a worker agent."#;
     #[tokio::test]
     async fn set_status_transitions() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("lifecycle", None, None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("lifecycle", None, None, None).await.unwrap();
 
         assert_eq!(
             reg.get(&agent.id).await.unwrap().unwrap().status,
@@ -2737,10 +2706,7 @@ You are a worker agent."#;
     #[tokio::test]
     async fn create_get_list_tasks() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("tasker", None, None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("tasker", None, None, None).await.unwrap();
 
         // Create two tasks.
         let t1 = reg

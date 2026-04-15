@@ -3,13 +3,13 @@
 //! The agent decides what to do — create quests, run tasks, etc.
 //! Events inject ideas. The runtime just spawns the session.
 
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use tracing::{info, warn};
 
+use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
-use crate::activity_log::ActivityLog;
 use crate::session_manager::{SessionManager, SpawnOptions};
 
 /// Runs schedule-type events without polling.
@@ -189,11 +189,20 @@ enum CronField {
 impl CronMatcher {
     fn matches_now(&self) -> bool {
         let now = Utc::now();
-        self.minute.matches(now.format("%M").to_string().parse().unwrap_or(0))
-            && self.hour.matches(now.format("%H").to_string().parse().unwrap_or(0))
-            && self.day.matches(now.format("%d").to_string().parse().unwrap_or(0))
-            && self.month.matches(now.format("%m").to_string().parse().unwrap_or(0))
-            && self.weekday.matches(now.format("%u").to_string().parse().unwrap_or(0) % 7)
+        self.minute
+            .matches(now.format("%M").to_string().parse().unwrap_or(0))
+            && self
+                .hour
+                .matches(now.format("%H").to_string().parse().unwrap_or(0))
+            && self
+                .day
+                .matches(now.format("%d").to_string().parse().unwrap_or(0))
+            && self
+                .month
+                .matches(now.format("%m").to_string().parse().unwrap_or(0))
+            && self
+                .weekday
+                .matches(now.format("%u").to_string().parse().unwrap_or(0) % 7)
     }
 }
 
