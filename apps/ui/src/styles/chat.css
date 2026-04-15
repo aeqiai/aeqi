@@ -972,6 +972,9 @@
 .asv-session-item.active .asv-session-item-name {
   font-weight: 550;
 }
+.asv-session-item--disabled {
+  opacity: 0.4;
+}
 .asv-session-item-transport {
   font-family: var(--font-mono);
   font-size: 9px;

@@ -229,7 +229,9 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       )}
 
       {activeTab === "events" && (
-        <AgentEventsTab agentId={resolvedAgentId} />
+        <div className="agent-page-chat">
+          <AgentEventsTab agentId={resolvedAgentId} />
+        </div>
       )}
 
       {activeTab === "channels" && (

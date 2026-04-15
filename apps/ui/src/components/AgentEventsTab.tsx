@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 
 interface AgentEvent {
@@ -20,24 +21,42 @@ interface IdeaPreview {
   tags: string[];
 }
 
-function timeAgo(iso?: string): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
+function eventLabel(ev: AgentEvent): string {
+  return ev.name.replace(/^on_/, "").replace(/_/g, " ");
+}
+
+function eventTransport(ev: AgentEvent): string | null {
+  const prefix = ev.pattern.split(":")[0];
+  if (prefix === "session") return null;
+  return prefix.toUpperCase();
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
+  const [params, setParams] = useSearchParams();
+  const selectedId = params.get("event");
+
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ideas, setIdeas] = useState<IdeaPreview[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<IdeaPreview[]>([]);
   const [searching, setSearching] = useState(false);
+
+  const setSelectedId = useCallback(
+    (id: string | null) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) {
+          next.set("event", id);
+        } else {
+          next.delete("event");
+        }
+        return next;
+      }, { replace: true });
+    },
+    [setParams],
+  );
 
   const loadEvents = useCallback(async () => {
     try {
@@ -56,7 +75,6 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   const selected = events.find((e) => e.id === selectedId);
 
-  // Load ideas when selection changes
   useEffect(() => {
     if (!selected || selected.idea_ids.length === 0) {
       setIdeas([]);
@@ -72,14 +90,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       .finally(() => setIdeasLoading(false));
   }, [selected?.id, selected?.idea_ids.length]);
 
-  // Search ideas for linking
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
       const data = await api.getIdeas({ query: searchQuery, limit: 10 });
       const items = ((data.ideas || data.entries || []) as IdeaPreview[]);
-      // Filter out already-linked ideas
       const linked = new Set(selected?.idea_ids || []);
       setSearchResults(items.filter((i) => !linked.has(i.id)));
     } catch {
@@ -95,8 +111,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     await api.updateEvent(selected.id, { idea_ids: newIds });
     setSearchResults((prev) => prev.filter((i) => i.id !== ideaId));
     loadEvents();
-    // Reload ideas for the selected event
-    const data = await api.getIdeasByIds(newIds).catch(() => ({ ok: false, ideas: [] }));
+    const data = await api.getIdeasByIds(newIds).catch(() => ({ ok: false, ideas: [] as IdeaPreview[] }));
     if (data.ok) setIdeas(data.ideas);
   };
 
@@ -110,50 +125,50 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   if (loading) return <div className="events-empty">Loading...</div>;
 
-  const sessionEvents = events.filter((e) => e.pattern.startsWith("session:"));
-  const customEvents = events.filter((e) => !e.pattern.startsWith("session:"));
-
   return (
-    <div className="events-split">
-      {/* Sidebar: event list */}
-      <div className="events-sidebar">
-        <div className="events-sidebar-section">Session</div>
-        {sessionEvents.map((ev) => (
-          <div
-            key={ev.id}
-            className={`events-sidebar-item${ev.id === selectedId ? " active" : ""}${!ev.enabled ? " disabled" : ""}`}
-            onClick={() => setSelectedId(ev.id)}
+    <div className="asv">
+      {/* Sidebar — same style as session sidebar */}
+      <div className="asv-sidebar">
+        <div className="asv-sidebar-header">
+          <button
+            className="asv-session-new-btn"
+            onClick={() => {
+              // TODO: add event creation flow
+            }}
           >
-            <span className="events-sidebar-name">{ev.name}</span>
-            <span className="events-sidebar-meta">
-              {ev.idea_ids.length > 0 ? `${ev.idea_ids.length} ideas` : ""}
-            </span>
-          </div>
-        ))}
-        {customEvents.length > 0 && (
-          <>
-            <div className="events-sidebar-section">Custom</div>
-            {customEvents.map((ev) => {
-              const prefix = ev.pattern.split(":")[0];
-              return (
-                <div
-                  key={ev.id}
-                  className={`events-sidebar-item${ev.id === selectedId ? " active" : ""}${!ev.enabled ? " disabled" : ""}`}
-                  onClick={() => setSelectedId(ev.id)}
-                >
-                  <span className="events-sidebar-name">{ev.name}</span>
-                  <span className="events-sidebar-badge">{prefix}</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 2.5v7M2.5 6h7" /></svg>
+            Add Event
+          </button>
+        </div>
+        <div className="asv-sidebar-list">
+          {events.map((ev) => {
+            const transport = eventTransport(ev);
+            return (
+              <div
+                key={ev.id}
+                className={`asv-session-item${ev.id === selectedId ? " active" : ""}${!ev.enabled ? " asv-session-item--disabled" : ""}`}
+                onClick={() => setSelectedId(ev.id)}
+              >
+                <div className="asv-session-item-top">
+                  <span className="asv-session-item-name">{eventLabel(ev)}</span>
+                  {transport && <span className="asv-session-item-transport">{transport}</span>}
                 </div>
-              );
-            })}
-          </>
-        )}
+                <div className="asv-session-item-bottom">
+                  <span className="asv-session-item-preview">{ev.pattern}</span>
+                  {ev.idea_ids.length > 0 && (
+                    <span className="asv-session-item-date">{ev.idea_ids.length} ideas</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main: selected event detail */}
-      <div className="events-detail">
+      {/* Detail — main area */}
+      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
         {!selected ? (
-          <div className="events-detail-empty">Select an event to view details</div>
+          <div className="events-detail-empty">Select an event</div>
         ) : (
           <>
             <div className="events-detail-header">
@@ -171,24 +186,36 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                 >
                   {selected.enabled ? "Disable" : "Enable"}
                 </button>
+                {!selected.system && !selected.pattern.startsWith("session:") && (
+                  <button
+                    className="btn channel-disconnect-btn"
+                    onClick={async () => {
+                      await api.deleteEvent(selected.id);
+                      setSelectedId(null);
+                      loadEvents();
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
 
             {selected.fire_count > 0 && (
               <div className="events-detail-stats">
                 Fired {selected.fire_count} times
-                {selected.last_fired ? ` · last ${timeAgo(selected.last_fired)}` : ""}
+                {selected.last_fired ? ` · last ${new Date(selected.last_fired).toLocaleString()}` : ""}
               </div>
             )}
 
             <div className="events-detail-ideas-header">
-              <span>Injected Ideas ({selected.idea_ids.length})</span>
+              Injected Ideas ({selected.idea_ids.length})
             </div>
 
             {ideasLoading ? (
               <div className="events-detail-loading">Loading ideas...</div>
             ) : ideas.length === 0 && selected.idea_ids.length === 0 ? (
-              <div className="events-detail-loading">No ideas linked to this event.</div>
+              <div className="events-detail-loading">No ideas linked. Search below to add one.</div>
             ) : (
               <div className="events-detail-ideas">
                 {ideas.map((idea) => (
@@ -216,7 +243,6 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
               </div>
             )}
 
-            {/* Search and link ideas */}
             <div className="events-link-section">
               <div className="events-link-search">
                 <input

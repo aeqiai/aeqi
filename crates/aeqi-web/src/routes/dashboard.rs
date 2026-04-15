@@ -21,8 +21,6 @@ pub fn routes() -> Router<AppState> {
         .route("/worker/events", get(activity_events))
         .route("/notes", get(notes).post(post_note_entry))
         .route("/expertise", get(expertise))
-        .route("/skills", get(skills))
-        .route("/pipelines", get(pipelines))
         .route("/rate-limit", get(rate_limit))
         .route("/approvals", get(approvals))
         .route("/approvals/{id}/resolve", post(resolve_approval))
@@ -147,14 +145,6 @@ async fn expertise(
         params["domain"] = serde_json::Value::String(domain.clone());
     }
     ipc_proxy(state, scope.as_ref(), "expertise", params).await
-}
-
-async fn skills(State(state): State<AppState>, scope: Scope) -> Response {
-    ipc_proxy(state, scope.as_ref(), "skills", serde_json::Value::Null).await
-}
-
-async fn pipelines(State(state): State<AppState>, scope: Scope) -> Response {
-    ipc_proxy(state, scope.as_ref(), "pipelines", serde_json::Value::Null).await
 }
 
 async fn rate_limit(State(state): State<AppState>, scope: Scope) -> Response {
