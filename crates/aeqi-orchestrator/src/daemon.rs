@@ -1271,6 +1271,10 @@ impl Daemon {
                     crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_companies)
                         .await
                 }
+                "trigger_event" => {
+                    crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_companies)
+                        .await
+                }
 
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)

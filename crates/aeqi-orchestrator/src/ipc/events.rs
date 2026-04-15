@@ -138,6 +138,69 @@ pub async fn handle_delete_event(
     }
 }
 
+/// Trigger an event pattern for an agent and return the assembled ideas context.
+///
+/// Resolves agent by name → id, runs `assemble_ideas` with the specified pattern's
+/// referenced ideas, and returns the full assembled prompt. This lets external
+/// consumers (like Claude Code session hooks) receive the same context that the
+/// AEQI runtime would inject during its own event lifecycle.
+pub async fn handle_trigger_event(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref event_store) = ctx.event_handler_store else {
+        return serde_json::json!({"ok": false, "error": "event handler store not available"});
+    };
+
+    // Accept either agent name or agent_id.
+    let agent_name = request_field(request, "agent");
+    let agent_id_direct = request_field(request, "agent_id");
+    let pattern = request_field(request, "pattern").unwrap_or("session:start");
+
+    // Resolve agent_id: prefer direct ID, fall back to name lookup.
+    let agent_id = if let Some(id) = agent_id_direct {
+        id.to_string()
+    } else if let Some(name) = agent_name {
+        match ctx.agent_registry.get_active_by_name(name).await {
+            Ok(Some(agent)) => agent.id,
+            Ok(None) => {
+                return serde_json::json!({"ok": false, "error": format!("agent '{}' not found", name)});
+            }
+            Err(e) => {
+                return serde_json::json!({"ok": false, "error": e.to_string()});
+            }
+        }
+    } else {
+        return serde_json::json!({"ok": false, "error": "agent or agent_id is required"});
+    };
+
+    // Run assemble_ideas — same path as the internal runtime, parameterized by pattern.
+    let assembled = crate::idea_assembly::assemble_ideas_for_pattern(
+        &ctx.agent_registry,
+        ctx.idea_store.as_ref(),
+        event_store,
+        &agent_id,
+        &[], // no task prompts for external triggers
+        pattern,
+    )
+    .await;
+
+    let system_prompt = assembled.full_system_prompt();
+
+    // Also return the matched events for visibility.
+    let matched_events = event_store.get_events_for_pattern(&agent_id, pattern).await;
+    let event_items: Vec<serde_json::Value> = matched_events.iter().map(event_to_json).collect();
+
+    serde_json::json!({
+        "ok": true,
+        "agent_id": agent_id,
+        "pattern": pattern,
+        "system_prompt": system_prompt,
+        "matched_events": event_items,
+    })
+}
+
 fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
     serde_json::json!({
         "id": e.id,

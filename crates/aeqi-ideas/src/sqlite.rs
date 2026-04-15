@@ -20,6 +20,7 @@ struct MemRow {
     agent_id: Option<String>,
     created_at: String,
     session_id: Option<String>,
+    tags: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -82,6 +83,16 @@ impl SqliteIdeas {
             CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
             CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
             ",
+        )?;
+
+        // Junction table for multi-tag support.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS idea_tags (
+                idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (idea_id, tag)
+            );
+            CREATE INDEX IF NOT EXISTS idx_idea_tags_tag ON idea_tags(tag);",
         )?;
 
         Self::migrate(&conn)?;
@@ -424,7 +435,7 @@ impl SqliteIdeas {
              WHERE expires_at IS NULL OR expires_at > ?1
              ORDER BY created_at DESC",
         )?;
-        let entries = stmt
+        let mut entries = stmt
             .query_map(rusqlite::params![now], |row| {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
@@ -453,7 +464,8 @@ impl SqliteIdeas {
                     ))
                 },
             )
-            .collect();
+            .collect::<Vec<Idea>>();
+        Self::enrich_tags(&conn, &mut entries);
         Ok(entries)
     }
 
@@ -473,7 +485,7 @@ impl SqliteIdeas {
              ORDER BY created_at DESC
              LIMIT ?3",
         )?;
-        let entries = stmt
+        let mut entries: Vec<Idea> = stmt
             .query_map(rusqlite::params![like_pattern, now, limit as i64], |row| {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
@@ -503,6 +515,7 @@ impl SqliteIdeas {
                 },
             )
             .collect();
+        Self::enrich_tags(&conn, &mut entries);
         Ok(entries)
     }
 
@@ -525,8 +538,13 @@ impl SqliteIdeas {
 
         let count = expired_ids.len();
 
-        // Delete embeddings for expired entries.
+        // Delete tags and embeddings for expired entries.
         for id in &expired_ids {
+            conn.execute(
+                "DELETE FROM idea_tags WHERE idea_id = ?1",
+                rusqlite::params![id],
+            )
+            .ok();
             conn.execute(
                 "DELETE FROM memory_embeddings WHERE memory_id = ?1",
                 rusqlite::params![id],
@@ -617,6 +635,7 @@ impl SqliteIdeas {
                         agent_id,
                         created_at,
                         session_id,
+                        tags: Vec::new(),
                     },
                     bm25,
                 ))
@@ -710,6 +729,7 @@ impl SqliteIdeas {
                 agent_id: row.get(4)?,
                 created_at: row.get(5)?,
                 session_id: row.get(6)?,
+                tags: Vec::new(),
             })
         })
         .map(|iter| iter.filter_map(|r| r.ok()).collect())
@@ -749,20 +769,76 @@ impl SqliteIdeas {
         .unwrap_or_default()
     }
 
+    /// Bulk-fetch tags from the idea_tags junction table for a set of idea IDs.
+    /// Falls back to the category column for ideas not present in the junction table.
+    fn fetch_tags_for_ids(conn: &Connection, ids: &[String]) -> HashMap<String, Vec<String>> {
+        let mut map: HashMap<String, Vec<String>> = HashMap::new();
+        if ids.is_empty() {
+            return map;
+        }
+        let placeholders: Vec<String> = ids
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect();
+        let sql = format!(
+            "SELECT idea_id, tag FROM idea_tags WHERE idea_id IN ({})",
+            placeholders.join(",")
+        );
+        let params: Vec<&dyn rusqlite::types::ToSql> = ids
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+        let Ok(mut stmt) = conn.prepare(&sql) else {
+            return map;
+        };
+        let rows = stmt.query_map(params.as_slice(), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        if let Ok(rows) = rows {
+            for (idea_id, tag) in rows.flatten() {
+                map.entry(idea_id).or_default().push(tag);
+            }
+        }
+        map
+    }
+
+    /// Enrich a list of Ideas with tags from the junction table.
+    /// For ideas not present in the junction table, keeps existing tags (category fallback).
+    fn enrich_tags(conn: &Connection, entries: &mut [Idea]) {
+        let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
+        let tag_map = Self::fetch_tags_for_ids(conn, &ids);
+        for entry in entries.iter_mut() {
+            if let Some(tags) = tag_map.get(&entry.id) {
+                entry.tags = tags.clone();
+            }
+            // else: keep existing tags (from category column fallback)
+        }
+    }
+
     /// Check if a memory with the same key was stored within the given time window.
-    pub fn has_recent_key(&self, key: &str, hours: u32) -> bool {
+    /// When agent_id is provided, scopes the check to that agent only.
+    pub fn has_recent_key(&self, key: &str, agent_id: Option<&str>, hours: u32) -> bool {
         let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
         let conn = match self.conn.lock() {
             Ok(c) => c,
             Err(_) => return false,
         };
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND created_at > ?2",
+        let count: i64 = if let Some(aid) = agent_id {
+            conn.query_row(
+                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND agent_id = ?2 AND created_at > ?3",
+                rusqlite::params![key, aid, cutoff],
+                |row| row.get(0),
+            )
+            .unwrap_or(0)
+        } else {
+            conn.query_row(
+                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND agent_id IS NULL AND created_at > ?2",
                 rusqlite::params![key, cutoff],
                 |row| row.get(0),
             )
-            .unwrap_or(0);
+            .unwrap_or(0)
+        };
         count > 0
     }
 
@@ -814,11 +890,17 @@ impl SqliteIdeas {
             self.decay_factor(&created_at)
         };
 
+        let tags = if row.tags.is_empty() {
+            vec![row.cat_str]
+        } else {
+            row.tags
+        };
+
         Some(Idea::recalled(
             row.id,
             row.key,
             row.content,
-            vec![row.cat_str],
+            tags,
             row.agent_id,
             created_at,
             row.session_id,
@@ -983,6 +1065,18 @@ impl SqliteIdeas {
 
         // BM25-only path with graph boost.
         if vector_scores.is_empty() {
+            // Enrich MemRows with tags from junction table before dropping conn.
+            let bm25_ids: Vec<String> = bm25_rows.iter().map(|(r, _)| r.id.clone()).collect();
+            let tag_map = Self::fetch_tags_for_ids(&conn, &bm25_ids);
+            let bm25_rows: Vec<(MemRow, f64)> = bm25_rows
+                .into_iter()
+                .map(|(mut row, score)| {
+                    if let Some(tags) = tag_map.get(&row.id) {
+                        row.tags = tags.clone();
+                    }
+                    (row, score)
+                })
+                .collect();
             // Drop conn before calling methods that re-lock.
             drop(conn);
             let mut entries: Vec<Idea> = bm25_rows
@@ -1045,9 +1139,18 @@ impl SqliteIdeas {
             HashMap::new()
         };
 
+        // Enrich BM25 rows and extra rows with tags from junction table.
+        let all_row_ids: Vec<String> = bm25_rows
+            .iter()
+            .map(|(r, _)| r.id.clone())
+            .chain(extra_rows.keys().cloned())
+            .collect();
+        let tag_map = Self::fetch_tags_for_ids(&conn, &all_row_ids);
+
         // Build Idea for each merged result, applying temporal decay.
         let mut scored: Vec<(ScoredResult, Idea)> = Vec::new();
         for sr in merged.into_iter().take(query.top_k * 2) {
+            let enriched_tags = tag_map.get(&sr.idea_id).cloned().unwrap_or_default();
             let row_ref = bm25_map
                 .get(&sr.idea_id)
                 .map(|r| MemRow {
@@ -1058,6 +1161,7 @@ impl SqliteIdeas {
                     agent_id: r.agent_id.clone(),
                     created_at: r.created_at.clone(),
                     session_id: r.session_id.clone(),
+                    tags: enriched_tags.clone(),
                 })
                 .or_else(|| {
                     extra_rows.get(&sr.idea_id).map(|r| MemRow {
@@ -1068,6 +1172,7 @@ impl SqliteIdeas {
                         agent_id: r.agent_id.clone(),
                         created_at: r.created_at.clone(),
                         session_id: r.session_id.clone(),
+                        tags: enriched_tags.clone(),
                     })
                 });
 
@@ -1146,6 +1251,7 @@ impl IdeaStore for SqliteIdeas {
         // Dedup + insert in spawn_blocking to avoid blocking tokio.
         let key_owned = key.to_string();
         let content_owned = content.to_string();
+        let tags_owned: Vec<String> = tags.to_vec();
         let cat_owned = tags
             .first()
             .map(|s| s.as_str())
@@ -1159,7 +1265,7 @@ impl IdeaStore for SqliteIdeas {
                 debug!(key = %key_owned, "skipping duplicate memory (exact content match within 24h)");
                 return Ok(String::new());
             }
-            if this.has_recent_key(&key_owned, 24) {
+            if this.has_recent_key(&key_owned, agent_id_owned.as_deref(), 24) {
                 debug!(key = %key_owned, "skipping duplicate memory (same key within 24h)");
                 return Ok(String::new());
             }
@@ -1173,6 +1279,14 @@ impl IdeaStore for SqliteIdeas {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 rusqlite::params![id, key_owned, content_owned, cat_owned, agent_id_owned, now],
             )?;
+
+            // Insert all tags into the junction table.
+            for tag in &tags_owned {
+                conn.execute(
+                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                    rusqlite::params![id, tag],
+                )?;
+            }
 
             debug!(id = %id, key = %key_owned, agent_id = ?agent_id_owned, "memory stored");
             Ok(id)
@@ -1263,6 +1377,10 @@ impl IdeaStore for SqliteIdeas {
     async fn delete(&self, id: &str) -> Result<()> {
         let id = id.to_string();
         self.blocking(move |conn| {
+            conn.execute(
+                "DELETE FROM idea_tags WHERE idea_id = ?1",
+                rusqlite::params![id],
+            )?;
             conn.execute("DELETE FROM ideas WHERE id = ?1", rusqlite::params![id])?;
             conn.execute(
                 "DELETE FROM memory_embeddings WHERE memory_id = ?1",
@@ -1283,6 +1401,7 @@ impl IdeaStore for SqliteIdeas {
         let id = id.to_string();
         let key = key.map(|s| s.to_string());
         let content = content.map(|s| s.to_string());
+        let tags_owned = tags.map(|t| t.to_vec());
         let cat_from_tags = tags.map(|t| {
             t.first()
                 .map(|s| s.as_str())
@@ -1308,6 +1427,18 @@ impl IdeaStore for SqliteIdeas {
                     "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
                     rusqlite::params![cat_str, now, id],
                 )?;
+            }
+            if let Some(tags) = tags_owned {
+                conn.execute(
+                    "DELETE FROM idea_tags WHERE idea_id = ?1",
+                    rusqlite::params![id],
+                )?;
+                for tag in &tags {
+                    conn.execute(
+                        "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                        rusqlite::params![id, tag],
+                    )?;
+                }
             }
             Ok(())
         })
@@ -1403,7 +1534,7 @@ impl IdeaStore for SqliteIdeas {
             let mut stmt = conn.prepare(&sql)?;
             let params: Vec<&dyn rusqlite::types::ToSql> =
                 ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
-            let entries: Vec<Idea> = stmt
+            let mut entries: Vec<Idea> = stmt
                 .query_map(params.as_slice(), |row| {
                     let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                     let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
@@ -1428,6 +1559,7 @@ impl IdeaStore for SqliteIdeas {
                 })?
                 .filter_map(|r| r.ok())
                 .collect();
+            Self::enrich_tags(conn, &mut entries);
             Ok(entries)
         })
         .await
@@ -1440,7 +1572,7 @@ impl IdeaStore for SqliteIdeas {
                  FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
                  ORDER BY agent_id, created_at ASC",
             )?;
-            let entries: Vec<(String, String, Idea)> = stmt
+            let mut entries: Vec<(String, String, Idea)> = stmt
                 .query_map([], |row| {
                     let agent_id: String = row.get(4)?;
                     let injection_mode: String = row.get::<_, Option<String>>(7)?.unwrap_or_default();
@@ -1468,6 +1600,14 @@ impl IdeaStore for SqliteIdeas {
                 })?
                 .filter_map(|r| r.ok())
                 .collect();
+            // Enrich tags on the ideas within the tuples.
+            let idea_ids: Vec<String> = entries.iter().map(|(_, _, idea)| idea.id.clone()).collect();
+            let tag_map = Self::fetch_tags_for_ids(conn, &idea_ids);
+            for (_, _, idea) in &mut entries {
+                if let Some(tags) = tag_map.get(&idea.id) {
+                    idea.tags = tags.clone();
+                }
+            }
             Ok(entries)
         })
         .await

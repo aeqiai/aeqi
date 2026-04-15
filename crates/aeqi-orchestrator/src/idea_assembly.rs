@@ -24,7 +24,7 @@ use crate::event_handler::EventHandlerStore;
 /// Entries grouped by position (system, prepend, append) and concatenated.
 ///
 /// Idea collection via events:
-/// `session:start` events on each ancestor contribute their
+/// Events matching `event_pattern` on each ancestor contribute their
 /// referenced `idea_ids` ideas.
 pub async fn assemble_ideas(
     registry: &AgentRegistry,
@@ -32,6 +32,26 @@ pub async fn assemble_ideas(
     event_store: &EventHandlerStore,
     agent_id: &str,
     task_prompts: &[PromptEntry],
+) -> AssembledPrompt {
+    assemble_ideas_for_pattern(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        task_prompts,
+        "session:start",
+    )
+    .await
+}
+
+/// Like `assemble_ideas` but for an arbitrary event pattern.
+pub async fn assemble_ideas_for_pattern(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    task_prompts: &[PromptEntry],
+    event_pattern: &str,
 ) -> AssembledPrompt {
     // get_ancestors returns [self, parent, grandparent, ..., root].
     // We want root-first ordering.
@@ -52,9 +72,9 @@ pub async fn assemble_ideas(
         let is_self = depth == ancestors.len() - 1;
 
         // --- Phase 1: Event-based idea activation ---
-        // Get `session:start` events for this ancestor.
+        // Get events matching the target pattern for this ancestor.
         let session_start_events = event_store
-            .get_events_for_pattern(&agent.id, "session:start")
+            .get_events_for_pattern(&agent.id, event_pattern)
             .await;
 
         // Collect idea_ids from events (only from the agent itself).

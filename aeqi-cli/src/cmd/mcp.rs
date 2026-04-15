@@ -173,24 +173,23 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Ideas (unified: store | search | delete) ───────────────
         ToolDef {
             name: "ideas".to_string(),
-            description: "Store, search, or delete ideas. Use for facts, preferences, patterns, and context worth remembering.".to_string(),
+            description: "Persistent knowledge store. Search, store, or delete ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
                         "enum": ["store", "search", "delete"],
-                        "description": "store: save knowledge (needs key, content). search: find ideas (needs query). delete: remove an idea (needs id)."
+                        "description": "store: save knowledge (needs key, content, tags). search: find ideas by natural language query (needs query). delete: remove an idea by ID (needs id)."
                     },
-                    "project": {"type": "string", "description": "Project to scope ideas to"},
-                    "id": {"type": "string", "description": "Idea ID to delete (for delete)"},
-                    "key": {"type": "string", "description": "Short slug key (for store)"},
+                    "project": {"type": "string", "description": "Project name to scope ideas to"},
+                    "id": {"type": "string", "description": "Idea ID (for delete)"},
+                    "key": {"type": "string", "description": "Short slug key, e.g. 'auth/jwt-rotation' (for store). Same key+agent within 24h is deduplicated."},
                     "content": {"type": "string", "description": "The knowledge to store (for store)"},
-                    "category": {"type": "string", "default": "fact", "description": "Primary tag / category (free-form). Common: fact, procedure, preference, context, evergreen, config"},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Multiple tags for the idea. If omitted, defaults to [category]."},
-                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level, system = cross-project, entity = per-agent"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
+                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level (default), system = cross-project, entity = per-agent"},
                     "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
-                    "query": {"type": "string", "description": "Natural language search query (for search)"},
+                    "query": {"type": "string", "description": "Natural language search query (for search). Uses full-text search + optional vector similarity."},
                     "limit": {"type": "integer", "description": "Max results (for search, default: 5)"}
                 },
                 "required": ["action", "project"]
@@ -199,7 +198,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Quests (unified: create | list | show | update | close | cancel) ──
         ToolDef {
             name: "quests".to_string(),
-            description: "Manage quests: create, list, show details, update status/priority, close with result, or cancel.".to_string(),
+            description: "Track units of work. Quests support dependencies, parent-child hierarchy, and priority. Use for multi-step tasks worth tracking. Each quest can own a git worktree branch.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -235,7 +234,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Agents (unified: hire | retire | list | delegate) ──────
         ToolDef {
             name: "agents".to_string(),
-            description: "Manage agents: get full context, hire from template, retire, list, or delegate work.".to_string(),
+            description: "Manage agents in the agent tree. get: full agent profile with assembled ideas (session primer). list: all agents. hire: spawn from template. retire: deactivate. delegate: assemble a subagent prompt with quest context. projects: list configured projects.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -257,14 +256,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Events (new: create | list | enable | disable | delete) ──
         ToolDef {
             name: "events".to_string(),
-            description: "Manage event handlers for agents. Events automate recurring quests on a schedule or in response to lifecycle events.".to_string(),
+            description: "Manage event handlers and trigger lifecycle events. Events bind ideas to lifecycle patterns (session:start, quest_start, etc.) or cron schedules. Use trigger to fire an event and receive the assembled ideas context.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "list", "enable", "disable", "delete"],
-                        "description": "create: new handler (needs name, pattern or schedule). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id)."
+                        "enum": ["create", "list", "enable", "disable", "delete", "trigger"],
+                        "description": "create: new handler (needs name, pattern or schedule, idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start)."
                     },
                     "agent": {"type": "string", "description": "Agent name or ID"},
                     "name": {"type": "string", "description": "Event handler name (for create)"},
@@ -281,11 +280,11 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Code (unified graph intelligence) ──────────────────────
         ToolDef {
             name: "code".to_string(),
-            description: "Code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes, list communities or processes.".to_string(),
+            description: "Code intelligence graph. Search symbols, get 360° context (callers/callees/implementors), analyze blast radius of changes before refactoring. Use diff_impact to see what your uncommitted changes affect. Use incremental to re-index after code changes.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search=FTS symbol search, context=360° view of a symbol, impact=blast radius, file=symbols in a file, stats=graph statistics, index=re-index project, diff_impact=blast radius from uncommitted changes, file_summary=summary of a file's symbols, incremental=re-index only changed files, synthesize=generate community summary"},
+                    "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
                     "project": {"type": "string", "description": "Project name"},
                     "query": {"type": "string", "description": "Search query (for search action)"},
                     "node_id": {"type": "string", "description": "Node ID (for context/impact actions)"},
@@ -864,8 +863,34 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     }),
                                 )
                             }
+                            "trigger" => {
+                                let agent = args
+                                    .get("agent")
+                                    .and_then(|v| v.as_str())
+                                    .or(agent_name.as_deref())
+                                    .unwrap_or("");
+                                // Build pattern from shorthand or explicit
+                                let pattern = if let Some(event) =
+                                    args.get("event_pattern").and_then(|v| v.as_str())
+                                {
+                                    format!("session:{event}")
+                                } else {
+                                    args.get("pattern")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("session:start")
+                                        .to_string()
+                                };
+                                ipc_request_sync(
+                                    &sock_path,
+                                    &serde_json::json!({
+                                        "cmd": "trigger_event",
+                                        "agent": agent,
+                                        "pattern": pattern,
+                                    }),
+                                )
+                            }
                             _ => Err(anyhow::anyhow!(
-                                "unknown events action: {action}. Use: create, list, enable, disable, delete"
+                                "unknown events action: {action}. Use: create, list, enable, disable, delete, trigger"
                             )),
                         }
                     }
