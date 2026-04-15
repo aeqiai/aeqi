@@ -214,7 +214,7 @@ pub trait IdeaStore: Send + Sync {
 
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
 
-    /// Update an existing idea's key, content, and/or category.
+    /// Update an existing idea's key, content, and/or tags.
     async fn update(
         &self,
         id: &str,

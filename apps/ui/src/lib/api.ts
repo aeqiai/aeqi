@@ -1,9 +1,5 @@
 import { clearSessionData } from "@/lib/session";
 import { getScopedCompany, type AppMode } from "@/lib/appMode";
-import { useUIStore } from "@/store/ui";
-
-// NOTE: HTTPS enforcement should be done at the reverse proxy layer (nginx/caddy),
-// not in this client-side code. Ensure your deployment terminates TLS upstream.
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -62,12 +58,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new ApiError(401, "Unauthorized");
   }
 
-  // If company access denied, clear stale company selection in both localStorage and Zustand.
   if (res.status === 403 && !path.startsWith("/auth/")) {
     localStorage.removeItem("aeqi_company");
     localStorage.removeItem("aeqi_company_tagline");
     localStorage.removeItem("aeqi_company_avatar");
-    useUIStore.getState().setActiveCompany("");
   }
 
   if (!res.ok) {
@@ -251,7 +245,7 @@ export const api = {
     }),
 
   // Quests
-  getTasks: (params?: { status?: string; company?: string }) => {
+  getQuests: (params?: { status?: string; company?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
     if (params?.company) query.set("company", params.company);
@@ -259,16 +253,8 @@ export const api = {
     return request<Record<string, unknown>>(`/quests${qs ? `?${qs}` : ""}`);
   },
 
-  // Missions
-  getMissions: (params?: { company?: string }) => {
-    const query = new URLSearchParams();
-    if (params?.company) query.set("company", params.company);
-    const qs = query.toString();
-    return request<Record<string, unknown>>(`/missions${qs ? `?${qs}` : ""}`);
-  },
-
   // Agents
-  getAgents: () => request<Record<string, unknown>>("/agents/registry"),
+  getAgents: () => request<Record<string, unknown>>("/agents"),
 
   // Activity stream (daemon events)
   getActivityStream: (params?: { last?: number; company?: string }) => {
@@ -299,9 +285,6 @@ export const api = {
   // Cost
   getCost: () => request<Record<string, unknown>>("/cost"),
 
-  // Brief
-  getBrief: () => request<Record<string, unknown>>("/brief"),
-
   // Ideas
   getIdeas: (params?: { company?: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
@@ -311,6 +294,9 @@ export const api = {
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas${qs ? `?${qs}` : ""}`);
   },
+
+  // Skills (ideas tagged with "skill")
+  getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
   // Agent Channels (stored as ideas with key prefix "channel:")
   getAgentChannels: (agentId: string) =>
@@ -325,7 +311,7 @@ export const api = {
       body: JSON.stringify({
         key: `channel:${params.channel_type}`,
         content: JSON.stringify(params.config),
-        category: "fact",
+        tags: ["fact"],
         agent_id: params.agent_id,
       }),
     }),
@@ -355,12 +341,6 @@ export const api = {
     return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
-  // Skills
-  getSkills: () => request<Record<string, unknown>>("/skills"),
-
-  // Pipelines
-  getPipelines: () => request<Record<string, unknown>>("/pipelines"),
-
   // Company Knowledge
   getCompanyKnowledge: (name: string) =>
     request<Record<string, unknown>>(`/companies/${name}/knowledge`),
@@ -370,7 +350,7 @@ export const api = {
     company: string;
     key: string;
     content: string;
-    category?: string;
+    tags?: string[];
     scope?: string;
   }) =>
     request<{ ok: boolean }>("/knowledge/store", { method: "POST", body: JSON.stringify(data) }),
@@ -399,47 +379,8 @@ export const api = {
   // Rate Limit
   getRateLimit: () => request<Record<string, unknown>>("/rate-limit"),
 
-  // Crons & Watchdogs
-  getCrons: () => request<Record<string, unknown>>("/crons"),
-  getWatchdogs: () => request<Record<string, unknown>>("/watchdogs"),
-
   // Health
   getHealth: () => request<{ ok: boolean }>("/health"),
-
-  // Chat -- canonical path
-  chatFull: (params: {
-    message: string;
-    company?: string | null;
-    department?: string | null;
-    channelName?: string | null;
-    sender?: string;
-  }) =>
-    request<Record<string, unknown>>("/chat/full", {
-      method: "POST",
-      body: JSON.stringify({
-        message: params.message,
-        ...(params.company ? { company: params.company } : {}),
-        ...(params.department ? { department: params.department } : {}),
-        ...(params.channelName ? { channel_name: params.channelName } : {}),
-        ...(params.sender ? { sender: params.sender } : {}),
-      }),
-    }),
-
-  // Chat -- typed thread timeline
-  chatTimeline: (params?: {
-    company?: string | null;
-    department?: string | null;
-    channelName?: string | null;
-    limit?: number;
-  }) => {
-    const query = new URLSearchParams();
-    if (params?.company) query.set("company", params.company);
-    if (params?.department) query.set("department", params.department);
-    if (params?.channelName) query.set("channel_name", params.channelName);
-    if (params?.limit) query.set("limit", String(params.limit));
-    const qs = query.toString();
-    return request<Record<string, unknown>>(`/chat/timeline${qs ? `?${qs}` : ""}`);
-  },
 
   // Write: Create Quest
   createQuest: (data: {
@@ -478,14 +419,6 @@ export const api = {
   // Single quest
   getQuest: (id: string) => request<Record<string, unknown>>(`/quests/${id}`),
 
-  // Activity stream filtered by quest (client-side filter)
-  getActivityStreamForQuest: async (taskId: string, last = 50) => {
-    const data = await request<Record<string, unknown>>(`/activity?last=${last}`);
-    const raw = (data.entries || data.activity || []) as Array<Record<string, unknown>>;
-    const entries = raw.filter((e) => e.quest_id === taskId);
-    return { entries };
-  },
-
   // Sessions
   getSessions: (agentId?: string) => {
     const q = new URLSearchParams();
@@ -509,9 +442,6 @@ export const api = {
   }) =>
     request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
-  // Create Prompt
-  createPrompt: (data: { project: string; name: string; content: string }) =>
-    request<{ ok: boolean }>("/prompts", { method: "POST", body: JSON.stringify(data) }),
   closeSession: (sessionId: string) =>
     request<{ ok: boolean }>(`/sessions/${sessionId}/close`, { method: "POST" }),
   cancelSession: (sessionId: string) =>
@@ -562,39 +492,8 @@ export const api = {
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),
 
   // Session messages
-  getSessionMessages: (params: {
-    session_id?: string;
-    channel_name?: string;
-    agent_id?: string;
-    limit?: number;
-  }) => {
-    // Prefer new session-based endpoint when a UUID session_id is available.
-    if (params.session_id) {
-      const limit = params.limit || 50;
-      return request<Record<string, unknown>>(
-        `/sessions/${params.session_id}/messages?limit=${limit}`,
-      );
-    }
-    // Fallback to deprecated endpoint for backwards compat.
-    const query = new URLSearchParams();
-    if (params.channel_name) query.set("channel_name", params.channel_name);
-    if (params.agent_id) query.set("agent_id", params.agent_id);
-    if (params.limit) query.set("limit", String(params.limit));
-    const qs = query.toString();
-    return request<Record<string, unknown>>(`/chat/history${qs ? `?${qs}` : ""}`);
-  },
-
-  // Context panel (per-channel)
-  getNote: (channel: string) =>
-    request<Record<string, unknown>>(`/notes/${encodeURIComponent(channel)}`),
-  saveNote: (data: { channel: string; content: string }) =>
-    request<{ ok: boolean }>("/notes", { method: "POST", body: JSON.stringify(data) }),
-  deleteNote: (id: string) => request<{ ok: boolean }>(`/notes/${id}/delete`, { method: "DELETE" }),
-  updateDirectiveStatus: (id: string, data: { status: string; quest_id?: string }) =>
-    request<{ ok: boolean }>(`/directives/${id}/status`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  getSessionMessages: (sessionId: string, limit = 50) =>
+    request<Record<string, unknown>>(`/sessions/${sessionId}/messages?limit=${limit}`),
 
   // Account API key (ak_)
   generateApiKey: () =>

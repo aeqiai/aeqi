@@ -53,18 +53,16 @@ pub async fn handle_store_idea(
         return serde_json::json!({"ok": false, "error": "key and content are required"});
     }
 
-    let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
-        tags_val
-            .iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-            .collect()
-    } else {
-        vec![
-            request_field(request, "category")
-                .unwrap_or("fact")
-                .to_string(),
-        ]
-    };
+    let tags: Vec<String> = request
+        .get("tags")
+        .and_then(|v| v.as_array())
+        .map(|tags_val| {
+            tags_val
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_else(|| vec!["fact".to_string()]);
 
     let agent_id = request_field(request, "agent_id");
 
@@ -116,6 +114,13 @@ pub async fn handle_update_idea(
             .collect()
     });
 
+    if key.is_none() && content.is_none() && tags.is_none() {
+        return serde_json::json!({
+            "ok": false,
+            "error": "at least one of key, content, or tags is required"
+        });
+    }
+
     match idea_store.update(id, key, content, tags.as_deref()).await {
         Ok(()) => serde_json::json!({"ok": true}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -140,9 +145,6 @@ pub async fn handle_search_ideas(
         query = query.with_agent(agent_id);
     }
 
-    if let Some(cat_str) = request_field(request, "category") {
-        query.tags = vec![cat_str.to_string()];
-    }
     if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
         let parsed: Vec<String> = tags_val
             .iter()
@@ -266,13 +268,19 @@ pub async fn handle_idea_profile(
     }
 
     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-        let fetch = |categories: &[&str]| -> Vec<serde_json::Value> {
+        let fetch = |tags: &[&str]| -> Vec<serde_json::Value> {
             let placeholders: Vec<String> =
-                categories.iter().map(|c| format!("LOWER('{c}')")).collect();
+                tags.iter().map(|tag| format!("LOWER('{tag}')")).collect();
             let sql = format!(
-                "SELECT id, key, content, category, scope, created_at \
+                "SELECT ideas.id, ideas.key, ideas.content, \
+                        COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
+                        ideas.scope, ideas.created_at \
                  FROM ideas \
-                 WHERE LOWER(category) IN ({}) \
+                 WHERE EXISTS (
+                     SELECT 1 FROM idea_tags
+                     WHERE idea_tags.idea_id = ideas.id
+                     AND LOWER(idea_tags.tag) IN ({})
+                 ) \
                  ORDER BY created_at DESC \
                  LIMIT 20",
                 placeholders.join(", ")
@@ -281,11 +289,17 @@ pub async fn handle_idea_profile(
                 .ok()
                 .map(|mut stmt| {
                     stmt.query_map([], |row| {
+                        let tags_raw: String = row.get(3)?;
+                        let tags: Vec<String> = tags_raw
+                            .split('\u{1f}')
+                            .filter(|tag| !tag.is_empty())
+                            .map(|tag| tag.to_string())
+                            .collect();
                         Ok(serde_json::json!({
                             "id": row.get::<_, String>(0)?,
                             "key": row.get::<_, String>(1)?,
                             "content": row.get::<_, String>(2)?,
-                            "category": row.get::<_, String>(3)?,
+                            "tags": tags,
                             "scope": row.get::<_, String>(4)?,
                             "created_at": row.get::<_, String>(5)?,
                         }))
@@ -337,64 +351,72 @@ pub async fn handle_idea_graph(
 
     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
         let sql = format!(
-            "SELECT id, key, content, category, created_at \
+            "SELECT id, key, content, \
+                    COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
+                    created_at \
              FROM ideas \
              ORDER BY created_at DESC \
              LIMIT {limit}"
         );
-        let nodes: Vec<serde_json::Value> =
-            conn.prepare(&sql)
-                .ok()
-                .map(|mut stmt| {
-                    stmt.query_map([], |row| {
-                        let id: String = row.get(0)?;
-                        let key: String = row.get(1)?;
-                        let content: String = row.get(2)?;
-                        let category: String = row.get(3)?;
-                        let created_at: String = row.get(4)?;
+        let nodes: Vec<serde_json::Value> = conn
+            .prepare(&sql)
+            .ok()
+            .map(|mut stmt| {
+                stmt.query_map([], |row| {
+                    let id: String = row.get(0)?;
+                    let key: String = row.get(1)?;
+                    let content: String = row.get(2)?;
+                    let tags_raw: String = row.get(3)?;
+                    let created_at: String = row.get(4)?;
+                    let tags: Vec<String> = tags_raw
+                        .split('\u{1f}')
+                        .filter(|tag| !tag.is_empty())
+                        .map(|tag| tag.to_string())
+                        .collect();
 
-                        use std::hash::{Hash, Hasher};
-                        let mut h = std::collections::hash_map::DefaultHasher::new();
-                        key.hash(&mut h);
-                        let x = (h.finish() % 1000) as u32;
+                    use std::hash::{Hash, Hasher};
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    key.hash(&mut h);
+                    let x = (h.finish() % 1000) as u32;
 
-                        let mut h2 = std::collections::hash_map::DefaultHasher::new();
-                        content.hash(&mut h2);
-                        let y = (h2.finish() % 1000) as u32;
+                    let mut h2 = std::collections::hash_map::DefaultHasher::new();
+                    content.hash(&mut h2);
+                    let y = (h2.finish() % 1000) as u32;
 
-                        let hotness = chrono::NaiveDateTime::parse_from_str(
-                            &created_at,
-                            "%Y-%m-%dT%H:%M:%S%.f",
-                        )
-                        .or_else(|_| {
-                            chrono::NaiveDateTime::parse_from_str(&created_at, "%Y-%m-%d %H:%M:%S")
-                        })
-                        .map(|dt| {
-                            let age_secs =
-                                (chrono::Utc::now().naive_utc().signed_duration_since(dt))
-                                    .num_seconds()
-                                    .max(0) as f64;
-                            let days = age_secs / 86400.0;
-                            let lambda = (2.0_f64).ln() / 7.0;
-                            (-lambda * days).exp() as f32
-                        })
-                        .unwrap_or(0.5);
+                    let hotness =
+                        chrono::NaiveDateTime::parse_from_str(&created_at, "%Y-%m-%dT%H:%M:%S%.f")
+                            .or_else(|_| {
+                                chrono::NaiveDateTime::parse_from_str(
+                                    &created_at,
+                                    "%Y-%m-%d %H:%M:%S",
+                                )
+                            })
+                            .map(|dt| {
+                                let age_secs =
+                                    (chrono::Utc::now().naive_utc().signed_duration_since(dt))
+                                        .num_seconds()
+                                        .max(0) as f64;
+                                let days = age_secs / 86400.0;
+                                let lambda = (2.0_f64).ln() / 7.0;
+                                (-lambda * days).exp() as f32
+                            })
+                            .unwrap_or(0.5);
 
-                        Ok(serde_json::json!({
-                            "id": id,
-                            "key": key,
-                            "content": content,
-                            "category": category,
-                            "x": x,
-                            "y": y,
-                            "hotness": hotness,
-                        }))
-                    })
-                    .ok()
-                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                    .unwrap_or_default()
+                    Ok(serde_json::json!({
+                        "id": id,
+                        "key": key,
+                        "content": content,
+                        "tags": if tags.is_empty() { vec!["untagged".to_string()] } else { tags },
+                        "x": x,
+                        "y": y,
+                        "hotness": hotness,
+                    }))
                 })
-                .unwrap_or_default();
+                .ok()
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default()
+            })
+            .unwrap_or_default();
 
         let node_ids: Vec<String> = nodes
             .iter()
@@ -575,20 +597,16 @@ pub async fn handle_knowledge_store(
         .get("content")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let tags: Vec<String> = if let Some(tags_val) = request.get("tags").and_then(|v| v.as_array()) {
-        tags_val
-            .iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-            .collect()
-    } else {
-        vec![
-            request
-                .get("category")
-                .and_then(|v| v.as_str())
-                .unwrap_or("fact")
-                .to_string(),
-        ]
-    };
+    let tags: Vec<String> = request
+        .get("tags")
+        .and_then(|v| v.as_array())
+        .map(|tags_val| {
+            tags_val
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_else(|| vec!["fact".to_string()]);
     let scope = request
         .get("scope")
         .and_then(|v| v.as_str())

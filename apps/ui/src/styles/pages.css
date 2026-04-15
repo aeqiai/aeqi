@@ -3089,7 +3089,7 @@
   flex-shrink: 0;
 }
 
-.idea-category {
+.idea-tag {
   font-size: var(--font-size-2xs);
   font-weight: 500;
   text-transform: uppercase;
@@ -3171,7 +3171,7 @@
   color: var(--text-primary);
 }
 
-/* Category chips */
+/* Tag chips */
 
 .ideas-categories {
   display: flex;
@@ -3181,7 +3181,7 @@
   flex-wrap: wrap;
 }
 
-.cat-chip {
+.tag-chip {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -3197,18 +3197,18 @@
   gap: var(--space-1);
 }
 
-.cat-chip:hover {
+.tag-chip:hover {
   border-color: var(--border-hover);
   color: var(--text-primary);
 }
 
-.cat-chip.active {
+.tag-chip.active {
   background: var(--bg-elevated);
   color: var(--text-primary);
   border-color: var(--border-hover);
 }
 
-.cat-chip-count {
+.tag-chip-count {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--bg-overlay);

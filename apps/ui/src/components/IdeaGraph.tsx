@@ -4,7 +4,7 @@ export interface GraphNode {
   id: string;
   key: string;
   content: string;
-  category: string;
+  tags: string[];
   x: number;
   y: number;
   vx: number;
@@ -26,7 +26,7 @@ interface Props {
   selectedId?: string | null;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
+const TAG_COLORS: Record<string, string> = {
   fact: "#3b82f6",
   procedure: "#8b5cf6",
   preference: "#f59e0b",
@@ -35,6 +35,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   decision: "#000000",
   idea: "#22c55e",
 };
+
+function primaryTag(node: Pick<GraphNode, "tags">): string {
+  return node.tags[0] || "untagged";
+}
 
 const RELATION_COLORS: Record<string, string> = {
   supports: "#22c55e",
@@ -187,7 +191,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         const isSelected = n.id === selectedId;
         const isHovered = hoverRef.current === n;
         const radius = 6 + n.hotness * 8 + (isSelected ? 3 : 0);
-        const color = CATEGORY_COLORS[n.category] || "#6b7280";
+        const color = TAG_COLORS[primaryTag(n)] || "#6b7280";
 
         // Glow for selected.
         if (isSelected) {

@@ -22,8 +22,8 @@ pub struct DebouncedWrite {
     pub key: String,
     /// Full content to be stored.
     pub content: String,
-    /// Memory category (e.g. "fact", "pattern", "decision").
-    pub category: String,
+    /// Memory tags (e.g. ["fact"], ["decision", "planning"]).
+    pub tags: Vec<String>,
     /// Memory scope (e.g. "domain", "system").
     pub scope: String,
     /// Project this write belongs to.
@@ -138,7 +138,7 @@ mod tests {
         DebouncedWrite {
             key: key.to_string(),
             content: content.to_string(),
-            category: "fact".to_string(),
+            tags: vec!["fact".to_string()],
             scope: "domain".to_string(),
             project: project.to_string(),
             queued_at,

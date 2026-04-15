@@ -59,7 +59,7 @@ Ideas are stored in `ideas.db` with SQLite FTS5 full-text search and optional ve
 
 - **Knowledge graph** -- typed edges (caused_by, supports, contradicts, supersedes) with strength weights
 - **Hybrid search** -- BM25 keyword + vector cosine similarity + graph boost + MMR reranking
-- **Temporal decay** -- exponential with configurable halflife, evergreen category exempt
+- **Temporal decay** -- exponential with configurable halflife, evergreen tag exempt
 
 Idea searches walk the agent tree upward: an agent sees its own ideas, its parent's, and ancestors' up to root.
 

@@ -30,7 +30,7 @@ pub struct IdeaDirectory {
 
 // ── Index ───────────────────────────────────────────────────────────────────
 
-/// Hierarchical index mapping idea categories to directories with summaries.
+/// Hierarchical index mapping idea tags to directories with summaries.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HierarchicalIndex {
     /// Directory path → directory data.
@@ -43,7 +43,7 @@ impl HierarchicalIndex {
         Self::default()
     }
 
-    /// Map an idea category string to the appropriate directory path.
+    /// Map an idea tag to the appropriate directory path.
     ///
     /// | Category       | Directory      |
     /// |---------------|----------------|
@@ -53,23 +53,23 @@ impl HierarchicalIndex {
     /// | pattern, procedure | patterns  |
     /// | preference    | preferences    |
     /// | insight       | insights       |
-    pub fn categorize(category: &str) -> &str {
-        match category.to_lowercase().as_str() {
+    pub fn categorize(tag: &str) -> &str {
+        match tag.to_lowercase().as_str() {
             "fact" | "context" => "domain",
             "decision" => "decisions",
             "case" => "cases",
             "pattern" | "procedure" => "patterns",
             "preference" => "preferences",
             "insight" => "insights",
-            // Fallback: use the category name itself.
+            // Fallback: use the default domain bucket.
             _ => "domain",
         }
     }
 
     /// Add an idea ID to the appropriate directory.
     /// Creates the directory if it doesn't exist.
-    pub fn add_idea(&mut self, id: &str, category: &str) {
-        let dir_path = Self::categorize(category).to_string();
+    pub fn add_idea(&mut self, id: &str, tag: &str) {
+        let dir_path = Self::categorize(tag).to_string();
         let dir = self
             .directories
             .entry(dir_path.clone())
@@ -86,8 +86,8 @@ impl HierarchicalIndex {
     }
 
     /// Remove an idea ID from its directory.
-    pub fn remove_idea(&mut self, id: &str, category: &str) {
-        let dir_path = Self::categorize(category);
+    pub fn remove_idea(&mut self, id: &str, tag: &str) {
+        let dir_path = Self::categorize(tag);
         if let Some(dir) = self.directories.get_mut(dir_path) {
             dir.idea_ids.retain(|m| m != id);
         }
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(HierarchicalIndex::categorize("procedure"), "patterns");
         assert_eq!(HierarchicalIndex::categorize("preference"), "preferences");
         assert_eq!(HierarchicalIndex::categorize("insight"), "insights");
-        // Unknown category falls back to "domain".
+        // Unknown tag falls back to "domain".
         assert_eq!(HierarchicalIndex::categorize("unknown"), "domain");
     }
 

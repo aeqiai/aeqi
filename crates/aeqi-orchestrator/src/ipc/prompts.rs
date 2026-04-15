@@ -12,7 +12,7 @@
 ///   "cmd": "seed_ideas",
 ///   "ideas": [
 ///     { "name": "...", "content": "...", "agent_id": "agent-name",
-///       "category": "evergreen", "tool_allow": [], "tool_deny": [] }
+///       "tags": ["evergreen"], "tool_allow": [], "tool_deny": [] }
 ///   ],
 ///   "agents": [
 ///     { "name": "shadow", "template": "shadow-identity",
@@ -54,7 +54,14 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            let tags = vec![idea_val["category"].as_str().unwrap_or("fact").to_string()];
+            let tags: Vec<String> = idea_val["tags"]
+                .as_array()
+                .map(|vals| {
+                    vals.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_else(|| vec!["fact".to_string()]);
             let agent_id = idea_val["agent_id"].as_str();
 
             match idea_store.store(name, content, &tags, agent_id).await {

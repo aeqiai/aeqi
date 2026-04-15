@@ -165,22 +165,22 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     };
 
     let tools = vec![
-        // ── Ideas (unified: store | search | delete) ───────────────
+        // ── Ideas (unified: store | search | update | delete) ───────────────
         ToolDef {
             name: "ideas".to_string(),
-            description: "Persistent knowledge store. Search, store, or delete ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
+            description: "Persistent knowledge store. Search, store, update, or delete ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["store", "search", "delete"],
-                        "description": "store: save knowledge (needs key, content, tags). search: find ideas by natural language query (needs query). delete: remove an idea by ID (needs id)."
+                        "enum": ["store", "search", "update", "delete"],
+                        "description": "store: save knowledge (needs key, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus key/content/tags). delete: remove an idea by ID (needs id)."
                     },
                     "project": {"type": "string", "description": "Project name to scope ideas to"},
-                    "id": {"type": "string", "description": "Idea ID (for delete)"},
-                    "key": {"type": "string", "description": "Short slug key, e.g. 'auth/jwt-rotation' (for store). Same key+agent within 24h is deduplicated."},
-                    "content": {"type": "string", "description": "The knowledge to store (for store)"},
+                    "id": {"type": "string", "description": "Idea ID (for update, delete)"},
+                    "key": {"type": "string", "description": "Short slug key, e.g. 'auth/jwt-rotation' (for store, update). Same key+agent within 24h is deduplicated on store."},
+                    "content": {"type": "string", "description": "The knowledge to store or replace (for store, update)"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
                     "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level (default), system = cross-project, entity = per-agent"},
                     "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
@@ -427,6 +427,27 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     r
                                 }
                             }
+                            "update" => {
+                                let project =
+                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "update_idea",
+                                    "id": args.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                                });
+                                if let Some(key) = args.get("key").and_then(|v| v.as_str()) {
+                                    ipc["key"] = serde_json::json!(key);
+                                }
+                                if let Some(content) = args.get("content").and_then(|v| v.as_str())
+                                {
+                                    ipc["content"] = serde_json::json!(content);
+                                }
+                                if let Some(tags) = args.get("tags") {
+                                    ipc["tags"] = tags.clone();
+                                }
+                                let prefix = format!("{project}\0");
+                                recall_cache.retain(|k, _| !k.starts_with(&prefix));
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
                             "delete" => {
                                 let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
                                 let project =
@@ -444,7 +465,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 )
                             }
                             _ => Err(anyhow::anyhow!(
-                                "unknown ideas action: {action}. Use: store, search, delete"
+                                "unknown ideas action: {action}. Use: store, search, update, delete"
                             )),
                         }
                     }

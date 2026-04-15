@@ -407,9 +407,13 @@ pub async fn create_default_lifecycle_events(
         {
             let db = store.db.lock().await;
             let _ = db.execute(
-                "INSERT OR IGNORE INTO ideas (id, key, content, category, scope, agent_id, created_at)
-                 VALUES (?1, ?2, ?3, 'procedure', 'domain', ?4, ?5)",
+                "INSERT OR IGNORE INTO ideas (id, key, content, scope, agent_id, created_at)
+                 VALUES (?1, ?2, ?3, 'domain', ?4, ?5)",
                 rusqlite::params![idea_id, idea_key, idea_content, agent_id, now],
+            );
+            let _ = db.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, 'procedure')",
+                rusqlite::params![idea_id],
             );
         }
 

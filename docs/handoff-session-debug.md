@@ -59,7 +59,7 @@ Tools are assembled in `session_manager.rs:432-496` (function `spawn_session`):
 ### Why IdeasTool was missing
 
 **The IdeasTool IS defined** (`tools.rs:479-628`) as a unified tool with actions:
-store, search, delete. It replaces the old ideas_store/ideas_recall/ideas_graph
+store, search, update, delete. It replaces the old ideas_store/ideas_recall/ideas_graph
 as separate tools.
 
 **But it's conditionally registered** at `tools.rs:1691`:
@@ -106,7 +106,7 @@ Runtime: crates/aeqi-web/src/routes/memory.rs handles the POST
 
 DB: crates/aeqi-ideas/src/sqlite.rs
   → ideas.db (was insights.db)
-  → table: ideas (id, key, content, category, agent_id, scope,
+  → table: ideas (id, key, content, agent_id, scope,
     injection_mode, inheritance, tool_allow, tool_deny, ...)
 ```
 

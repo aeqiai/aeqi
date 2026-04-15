@@ -85,10 +85,11 @@ export interface Idea {
   id: string;
   key: string;
   content: string;
-  category?: string;
+  tags?: string[];
   scope?: string;
   agent_id?: string;
-  created_at: string;
+  created_at?: string;
+  score?: number;
 }
 
 export interface ActivityEntry {
@@ -130,4 +131,53 @@ export interface ThreadEvent {
 
 export interface ChatThreadState {
   sessionId?: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
+  email_verified?: boolean;
+  companies?: string[];
+  phone?: string;
+  phishing_code?: string;
+}
+
+export interface SessionInfo {
+  id: string;
+  agent_id?: string;
+  agent_name?: string;
+  name?: string;
+  session_type?: string;
+  status: string;
+  created_at: string;
+  last_active?: string;
+  message_count?: number;
+  first_message?: string;
+}
+
+export interface AgentEvent {
+  id: string;
+  name: string;
+  pattern: string;
+  idea_ids: string[];
+  enabled: boolean;
+  cooldown_secs: number;
+  fire_count: number;
+  last_fired?: string;
+  system: boolean;
+}
+
+export interface WorkerEvent {
+  event_type: string;
+  quest_id?: string;
+  agent?: string;
+  company?: string;
+  steps?: number;
+  cost_usd?: number;
+  outcome?: string;
+  confidence?: number;
+  reason?: string;
+  [key: string]: unknown;
 }

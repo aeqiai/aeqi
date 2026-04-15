@@ -1420,12 +1420,12 @@ impl AgentWorker {
              genuinely important ideas worth remembering long-term. Output NOTHING if the \
              conversation is trivial.\n\n\
              For each idea, output exactly one line in this format:\n\
-             SCOPE CATEGORY: key-slug | The idea content\n\n\
+             SCOPE TAG: key-slug | The idea content\n\n\
              Scopes (choose the most appropriate):\n\
              - DOMAIN: Technical facts about this specific project/codebase\n\
              - SYSTEM: Ideas about the user (preferences, decisions, patterns that span projects)\n\
              - SELF: Your own observations, reflections, learnings as an agent\n\n\
-             Categories:\n\
+             Tags:\n\
              - FACT: Factual information (technical details, architecture decisions, numbers)\n\
              - PROCEDURE: How something works or should be done\n\
              - PREFERENCE: User preferences, opinions, behavioral patterns\n\
@@ -1497,7 +1497,7 @@ impl AgentWorker {
                 continue;
             };
 
-            let category = cat_str.trim().to_lowercase();
+            let tag = cat_str.trim().to_lowercase();
 
             let key = key.trim();
             let content = content.trim();
@@ -1561,12 +1561,7 @@ impl AgentWorker {
             };
 
             match mem
-                .store(
-                    key,
-                    content,
-                    std::slice::from_ref(&category),
-                    agent_id_for_store,
-                )
+                .store(key, content, std::slice::from_ref(&tag), agent_id_for_store)
                 .await
             {
                 Ok(id) if !id.is_empty() => {

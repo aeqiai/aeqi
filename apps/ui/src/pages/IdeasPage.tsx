@@ -4,8 +4,9 @@ import IdeaGraph, { type GraphNode, type GraphEdge } from "@/components/IdeaGrap
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useChatStore } from "@/store/chat";
+import type { Idea } from "@/lib/types";
 
-const CATEGORY_COLORS: Record<string, string> = {
+const TAG_COLORS: Record<string, string> = {
   fact: "var(--info)",
   procedure: "#8b5cf6",
   preference: "var(--warning)",
@@ -15,35 +16,32 @@ const CATEGORY_COLORS: Record<string, string> = {
   insight: "var(--success)",
 };
 
-const CATEGORIES = ["all", "fact", "procedure", "preference", "context", "evergreen"] as const;
+const TAG_FILTERS = ["all", "fact", "procedure", "preference", "context", "evergreen"] as const;
 
 type ViewMode = "list" | "graph";
-
-interface IdeaEntry {
-  id: string;
-  key: string;
-  content: string;
-  category: string;
-  scope?: string;
-  agent_id?: string;
-  created_at: string;
-  score?: number;
-}
 
 interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
 
+function ideaTags(idea: Pick<Idea, "tags">): string[] {
+  return Array.isArray(idea.tags) ? idea.tags.filter(Boolean) : [];
+}
+
+function primaryTag(idea: Pick<Idea, "tags">): string {
+  return ideaTags(idea)[0] || "untagged";
+}
+
 export default function IdeasPage() {
   const selectedAgent = useChatStore((s) => s.selectedAgent);
-  const [ideas, setIdeas] = useState<IdeaEntry[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("list");
-  const [category, setCategory] = useState<string>("all");
-  const [selected, setSelected] = useState<IdeaEntry | null>(null);
+  const [activeTag, setActiveTag] = useState<string>("all");
+  const [selected, setSelected] = useState<Idea | null>(null);
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
   const [graphLoading, setGraphLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -64,7 +62,11 @@ export default function IdeasPage() {
         limit: 200,
       })
       .then((d) => {
-        setIdeas((d.ideas || []) as IdeaEntry[]);
+        const normalized = ((d.ideas || []) as Idea[]).map((idea) => ({
+          ...idea,
+          tags: ideaTags(idea),
+        }));
+        setIdeas(normalized);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -81,7 +83,10 @@ export default function IdeasPage() {
       })
       .then((d) => {
         setGraphData({
-          nodes: (d.nodes || []) as GraphNode[],
+          nodes: ((d.nodes || []) as GraphNode[]).map((node) => ({
+            ...node,
+            tags: Array.isArray(node.tags) ? node.tags.filter(Boolean) : [],
+          })),
           edges: (d.edges || []) as GraphEdge[],
         });
         setGraphLoading(false);
@@ -89,12 +94,14 @@ export default function IdeasPage() {
       .catch(() => setGraphLoading(false));
   }, [view, selectedAgent]);
 
-  // Filter by category.
-  const filtered = category === "all" ? ideas : ideas.filter((m) => m.category === category);
+  const filtered =
+    activeTag === "all" ? ideas : ideas.filter((idea) => ideaTags(idea).includes(activeTag));
 
   // Stats.
-  const catCounts = ideas.reduce<Record<string, number>>((acc, m) => {
-    acc[m.category] = (acc[m.category] || 0) + 1;
+  const tagCounts = ideas.reduce<Record<string, number>>((acc, idea) => {
+    for (const tag of ideaTags(idea)) {
+      acc[tag] = (acc[tag] || 0) + 1;
+    }
     return acc;
   }, {});
 
@@ -109,7 +116,7 @@ export default function IdeasPage() {
       id: node.id,
       key: node.key,
       content: node.content,
-      category: node.category,
+      tags: Array.isArray(node.tags) ? node.tags.filter(Boolean) : [],
       created_at: "",
     };
     setSelected(entry);
@@ -164,22 +171,22 @@ export default function IdeasPage() {
         </div>
       </div>
 
-      {/* Category chips */}
+      {/* Tag chips */}
       <div className="ideas-categories">
-        {CATEGORIES.map((cat) => (
+        {TAG_FILTERS.map((tag) => (
           <button
-            key={cat}
-            className={`cat-chip ${category === cat ? "active" : ""}`}
+            key={tag}
+            className={`tag-chip ${activeTag === tag ? "active" : ""}`}
             style={
-              cat !== "all" && category === cat
-                ? { borderColor: CATEGORY_COLORS[cat], color: CATEGORY_COLORS[cat] }
+              tag !== "all" && activeTag === tag
+                ? { borderColor: TAG_COLORS[tag], color: TAG_COLORS[tag] }
                 : undefined
             }
-            onClick={() => setCategory(cat)}
+            onClick={() => setActiveTag(tag)}
           >
-            {cat}
-            {cat !== "all" && catCounts[cat] ? (
-              <span className="cat-chip-count">{catCounts[cat]}</span>
+            {tag}
+            {tag !== "all" && tagCounts[tag] ? (
+              <span className="tag-chip-count">{tagCounts[tag]}</span>
             ) : null}
           </button>
         ))}
@@ -217,21 +224,24 @@ export default function IdeasPage() {
                     key={m.id}
                     className={`idea-entry ${selected?.id === m.id ? "selected" : ""}`}
                     style={{
-                      borderLeft: `3px solid ${CATEGORY_COLORS[m.category] || "var(--text-muted)"}`,
+                      borderLeft: `3px solid ${TAG_COLORS[primaryTag(m)] || "var(--text-muted)"}`,
                     }}
                     onClick={() => setSelected(selected?.id === m.id ? null : m)}
                   >
                     <div className="idea-header">
                       <code className="idea-key">{m.key}</code>
                       <div className="idea-tags">
-                        <span
-                          className="idea-category"
-                          style={{
-                            color: CATEGORY_COLORS[m.category] || "var(--text-muted)",
-                          }}
-                        >
-                          {m.category}
-                        </span>
+                        {ideaTags(m).map((tag) => (
+                          <span
+                            key={tag}
+                            className="idea-tag"
+                            style={{
+                              color: TAG_COLORS[tag] || "var(--text-muted)",
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="idea-content">
@@ -262,12 +272,12 @@ export default function IdeasPage() {
                   onSelect={handleGraphSelect}
                 />
                 <div className="graph-legend">
-                  {Object.entries(CATEGORY_COLORS)
-                    .filter(([k]) => catCounts[k])
-                    .map(([cat, color]) => (
-                      <span key={cat} className="legend-item">
+                  {Object.entries(TAG_COLORS)
+                    .filter(([k]) => tagCounts[k])
+                    .map(([tag, color]) => (
+                      <span key={tag} className="legend-item">
                         <span className="legend-dot" style={{ background: color }} />
-                        {cat}
+                        {tag}
                       </span>
                     ))}
                 </div>
@@ -287,12 +297,12 @@ export default function IdeasPage() {
             </div>
 
             <span
-              className="idea-category"
+              className="idea-tag"
               style={{
-                color: CATEGORY_COLORS[selected.category] || "var(--text-muted)",
+                color: TAG_COLORS[primaryTag(selected)] || "var(--text-muted)",
               }}
             >
-              {selected.category}
+              {ideaTags(selected).join(" · ")}
             </span>
 
             <div className="detail-content">{selected.content}</div>

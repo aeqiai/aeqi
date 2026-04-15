@@ -3,8 +3,8 @@ use aeqi_core::traits::{Embedder, Idea, IdeaQuery, IdeaStore};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
-use std::collections::HashMap;
+use rusqlite::{Connection, OptionalExtension};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, warn};
@@ -16,7 +16,6 @@ struct MemRow {
     id: String,
     key: String,
     content: String,
-    cat_str: String,
     agent_id: Option<String>,
     created_at: String,
     session_id: Option<String>,
@@ -62,99 +61,7 @@ impl SqliteIdeas {
             true
         }))?;
 
-        // Migrate: rename memories → insights → ideas for existing databases.
-        Self::migrate_table_rename(&conn)?;
-        Self::migrate_insights_to_ideas(&conn)?;
-
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS ideas (
-                id TEXT PRIMARY KEY,
-                key TEXT NOT NULL,
-                content TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT 'fact',
-                scope TEXT NOT NULL DEFAULT 'domain',
-                agent_id TEXT,
-                session_id TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
-            CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
-            CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
-            ",
-        )?;
-
-        // Junction table for multi-tag support.
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS idea_tags (
-                idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-                tag TEXT NOT NULL,
-                PRIMARY KEY (idea_id, tag)
-            );
-            CREATE INDEX IF NOT EXISTS idx_idea_tags_tag ON idea_tags(tag);",
-        )?;
-
-        Self::migrate(&conn)?;
-
-        conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);")?;
-
-        let fts_exists: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
-            [],
-            |row| row.get(0),
-        )?;
-
-        if !fts_exists {
-            conn.execute_batch(
-                "CREATE VIRTUAL TABLE ideas_fts USING fts5(
-                    key, content, content=ideas, content_rowid=rowid
-                );
-
-                CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
-                END;
-
-                INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
-            )?;
-        }
-
-        // Idea graph edges table (SQL table name kept as `memory_edges` for DB compat).
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS memory_edges (
-                source_id TEXT NOT NULL,
-                target_id TEXT NOT NULL,
-                relation TEXT NOT NULL,
-                strength REAL NOT NULL DEFAULT 0.5,
-                agent TEXT,
-                task_id TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (source_id, target_id, relation)
-            );
-            CREATE INDEX IF NOT EXISTS idx_edges_source ON memory_edges(source_id);
-            CREATE INDEX IF NOT EXISTS idx_edges_target ON memory_edges(target_id);",
-        )?;
-
-        // Always ensure embeddings table exists for future use.
-        VectorStore::open(&conn, 1536)?;
-
-        // Migrate: add expires_at column for optional TTL.
-        Self::migrate_ttl(&conn)?;
-
-        // Migrate: add content_hash column for embedding cache dedup.
-        Self::migrate_embedding_hash(&conn)?;
-
-        // Migrate: add injection metadata columns (prompts consolidated into insights).
-        Self::migrate_injection_columns(&conn)?;
+        Self::prepare_schema(&conn)?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -202,6 +109,33 @@ impl SqliteIdeas {
         self.keyword_weight = keyword_weight;
         self.mmr_lambda = mmr_lambda;
         Ok(self)
+    }
+
+    pub fn prepare_schema(conn: &Connection) -> Result<()> {
+        // Migrate: rename memories → insights → ideas for existing databases.
+        Self::migrate_table_rename(conn)?;
+        Self::migrate_insights_to_ideas(conn)?;
+
+        Self::ensure_ideas_table(conn)?;
+        Self::ensure_idea_tags_table(conn)?;
+        Self::migrate(conn)?;
+
+        // Always ensure embeddings table exists for future use.
+        VectorStore::open(conn, 1536)?;
+
+        // Migrate: add optional TTL + injection metadata columns when opening
+        // legacy databases that predate the unified schema.
+        Self::migrate_ttl(conn)?;
+        Self::migrate_embedding_hash(conn)?;
+        Self::migrate_injection_columns(conn)?;
+
+        Self::ensure_ideas_table(conn)?;
+        Self::ensure_idea_tags_table(conn)?;
+        Self::ensure_idea_indexes(conn)?;
+        Self::ensure_fts(conn)?;
+        Self::ensure_edge_table(conn)?;
+
+        Ok(())
     }
 
     /// Migrate: rename `memories` table to `insights` for existing databases.
@@ -290,48 +224,373 @@ impl SqliteIdeas {
         Ok(())
     }
 
+    fn ensure_ideas_table(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS ideas (
+                id TEXT PRIMARY KEY,
+                key TEXT NOT NULL,
+                content TEXT NOT NULL,
+                scope TEXT NOT NULL DEFAULT 'domain',
+                agent_id TEXT,
+                session_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT,
+                expires_at TEXT,
+                injection_mode TEXT,
+                inheritance TEXT NOT NULL DEFAULT 'self',
+                tool_allow TEXT NOT NULL DEFAULT '[]',
+                tool_deny TEXT NOT NULL DEFAULT '[]',
+                content_hash TEXT,
+                source_kind TEXT,
+                source_ref TEXT,
+                managed INTEGER NOT NULL DEFAULT 0
+            );",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_idea_tags_table(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS idea_tags (
+                idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (idea_id, tag)
+            );
+            CREATE INDEX IF NOT EXISTS idx_idea_tags_tag ON idea_tags(tag);",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_idea_indexes(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
+             CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
+             CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
+             CREATE INDEX IF NOT EXISTS idx_ideas_injection ON ideas(injection_mode);
+             CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
+             CREATE INDEX IF NOT EXISTS idx_ideas_source ON ideas(source_kind, source_ref);",
+        )?;
+        Ok(())
+    }
+
+    fn ensure_fts(conn: &Connection) -> Result<()> {
+        let fts_exists: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if !fts_exists {
+            conn.execute_batch(
+                "CREATE VIRTUAL TABLE ideas_fts USING fts5(
+                    key, content, content=ideas, content_rowid=rowid
+                );
+
+                CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                END;
+
+                INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn ensure_edge_table(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS memory_edges (
+                source_id TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                relation TEXT NOT NULL,
+                strength REAL NOT NULL DEFAULT 0.5,
+                agent TEXT,
+                task_id TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (source_id, target_id, relation)
+            );
+            CREATE INDEX IF NOT EXISTS idx_edges_source ON memory_edges(source_id);
+            CREATE INDEX IF NOT EXISTS idx_edges_target ON memory_edges(target_id);",
+        )?;
+        Ok(())
+    }
+
+    fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
+        conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name = ?1",
+            rusqlite::params![table],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
+    }
+
+    fn table_columns(conn: &Connection, table: &str) -> Result<HashSet<String>> {
+        let pragma = format!("PRAGMA table_info({table})");
+        let cols = conn
+            .prepare(&pragma)?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(cols)
+    }
+
+    fn normalize_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
+        let mut seen = HashSet::new();
+        let mut normalized = Vec::new();
+        for tag in tags {
+            let tag = tag.trim().to_lowercase();
+            if tag.is_empty() {
+                continue;
+            }
+            if seen.insert(tag.clone()) {
+                normalized.push(tag);
+            }
+        }
+        if normalized.is_empty() {
+            normalized.push("fact".to_string());
+        }
+        normalized
+    }
+
+    fn parse_legacy_tags(raw: &str) -> Vec<String> {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+        if let Ok(tags) = serde_json::from_str::<Vec<String>>(trimmed) {
+            return tags;
+        }
+        if let Ok(tag) = serde_json::from_str::<String>(trimmed) {
+            return vec![tag];
+        }
+        trimmed
+            .split([',', '\u{1f}', '|'])
+            .map(str::trim)
+            .filter(|tag| !tag.is_empty())
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    fn migrate_legacy_ideas_schema(conn: &Connection) -> Result<()> {
+        let cols = Self::table_columns(conn, "ideas")?;
+        let has_category = cols.contains("category");
+        let has_legacy_tags = cols.contains("tags");
+        let has_companion = cols.contains("companion_id");
+        let has_entity = cols.contains("entity_id");
+
+        if !(has_category || has_legacy_tags || has_companion || has_entity) {
+            return Ok(());
+        }
+
+        let idea_ids: Vec<String> = conn
+            .prepare("SELECT id FROM ideas")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut tag_map = if Self::table_exists(conn, "idea_tags")? {
+            Self::fetch_tags_for_ids(conn, &idea_ids)
+        } else {
+            HashMap::new()
+        };
+
+        if has_category || has_legacy_tags {
+            let mut select_cols = vec!["id".to_string()];
+            if has_category {
+                select_cols.push("category".to_string());
+            }
+            if has_legacy_tags {
+                select_cols.push("tags".to_string());
+            }
+            let sql = format!("SELECT {} FROM ideas", select_cols.join(", "));
+            let mut stmt = conn.prepare(&sql)?;
+            let legacy_rows = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let mut idx = 1;
+                let category: Option<String> = if has_category {
+                    let value = row.get(idx)?;
+                    idx += 1;
+                    value
+                } else {
+                    None
+                };
+                let tags_text: Option<String> = if has_legacy_tags { row.get(idx)? } else { None };
+                Ok((id, category, tags_text))
+            })?;
+
+            for (id, category, tags_text) in legacy_rows.flatten() {
+                let tags = tag_map.entry(id).or_default();
+                if let Some(category) = category {
+                    tags.push(category);
+                }
+                if let Some(tags_text) = tags_text {
+                    tags.extend(Self::parse_legacy_tags(&tags_text));
+                }
+            }
+        }
+
+        for idea_id in idea_ids {
+            let normalized = Self::normalize_tags(tag_map.remove(&idea_id).unwrap_or_default());
+            tag_map.insert(idea_id, normalized);
+        }
+
+        let scope_expr = if cols.contains("scope") {
+            "CASE WHEN scope = 'companion' THEN 'entity' ELSE COALESCE(scope, 'domain') END"
+        } else {
+            "'domain'"
+        };
+        let agent_expr = if cols.contains("agent_id") {
+            "agent_id"
+        } else if cols.contains("companion_id") {
+            "companion_id"
+        } else if cols.contains("entity_id") {
+            "entity_id"
+        } else {
+            "NULL"
+        };
+        let session_expr = if cols.contains("session_id") {
+            "session_id"
+        } else {
+            "NULL"
+        };
+        let created_expr = if cols.contains("created_at") {
+            "created_at"
+        } else {
+            "CURRENT_TIMESTAMP"
+        };
+        let updated_expr = if cols.contains("updated_at") {
+            "updated_at"
+        } else {
+            "NULL"
+        };
+        let expires_expr = if cols.contains("expires_at") {
+            "expires_at"
+        } else {
+            "NULL"
+        };
+        let injection_expr = if cols.contains("injection_mode") {
+            "injection_mode"
+        } else {
+            "NULL"
+        };
+        let inheritance_expr = if cols.contains("inheritance") {
+            "COALESCE(inheritance, 'self')"
+        } else {
+            "'self'"
+        };
+        let tool_allow_expr = if cols.contains("tool_allow") {
+            "COALESCE(tool_allow, '[]')"
+        } else {
+            "'[]'"
+        };
+        let tool_deny_expr = if cols.contains("tool_deny") {
+            "COALESCE(tool_deny, '[]')"
+        } else {
+            "'[]'"
+        };
+        let content_hash_expr = if cols.contains("content_hash") {
+            "content_hash"
+        } else {
+            "NULL"
+        };
+        let source_kind_expr = if cols.contains("source_kind") {
+            "source_kind"
+        } else {
+            "NULL"
+        };
+        let source_ref_expr = if cols.contains("source_ref") {
+            "source_ref"
+        } else {
+            "NULL"
+        };
+        let managed_expr = if cols.contains("managed") {
+            "COALESCE(managed, 0)"
+        } else {
+            "0"
+        };
+
+        conn.execute_batch("BEGIN IMMEDIATE;")?;
+        let result = (|| -> Result<()> {
+            conn.execute_batch(
+                "DROP TRIGGER IF EXISTS ideas_ai;
+                 DROP TRIGGER IF EXISTS ideas_ad;
+                 DROP TRIGGER IF EXISTS ideas_au;
+                 DROP TABLE IF EXISTS ideas_fts;
+                 DROP TABLE IF EXISTS idea_tags;
+                 ALTER TABLE ideas RENAME TO ideas_legacy;",
+            )?;
+
+            Self::ensure_ideas_table(conn)?;
+
+            let copy_sql = format!(
+                "INSERT INTO ideas (
+                    id, key, content, scope, agent_id, session_id, created_at, updated_at,
+                    expires_at, injection_mode, inheritance, tool_allow, tool_deny,
+                    content_hash, source_kind, source_ref, managed
+                 )
+                 SELECT
+                    id, key, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
+                    {expires_expr}, {injection_expr}, {inheritance_expr}, {tool_allow_expr}, {tool_deny_expr},
+                    {content_hash_expr}, {source_kind_expr}, {source_ref_expr}, {managed_expr}
+                 FROM ideas_legacy"
+            );
+            conn.execute(&copy_sql, [])?;
+            conn.execute_batch("DROP TABLE ideas_legacy;")?;
+
+            Self::ensure_idea_tags_table(conn)?;
+            for (idea_id, tags) in &tag_map {
+                for tag in tags {
+                    conn.execute(
+                        "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                        rusqlite::params![idea_id, tag],
+                    )?;
+                }
+            }
+
+            Ok(())
+        })();
+
+        if result.is_ok() {
+            conn.execute_batch("COMMIT;")?;
+            debug!("migrated ideas table: removed legacy category/tags columns");
+        } else {
+            let _ = conn.execute_batch("ROLLBACK;");
+        }
+
+        result
+    }
+
     fn migrate(conn: &Connection) -> Result<()> {
-        let has_scope: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='scope'")?
-            .query_row([], |row| row.get(0))?;
+        Self::migrate_legacy_ideas_schema(conn)?;
 
-        if !has_scope {
+        let cols = Self::table_columns(conn, "ideas")?;
+        if !cols.contains("scope") {
             conn.execute_batch(
-                "ALTER TABLE ideas ADD COLUMN scope TEXT NOT NULL DEFAULT 'domain';
-                 ALTER TABLE ideas ADD COLUMN agent_id TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_ideas_scope ON ideas(scope);
-                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
+                "ALTER TABLE ideas ADD COLUMN scope TEXT NOT NULL DEFAULT 'domain';",
             )?;
-            debug!("migrated insights table: added scope + agent_id columns");
+            debug!("migrated ideas table: added scope column");
         }
-
-        // Rename companion_id → agent_id (for DBs created before the rename).
-        let has_companion: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='companion_id'")?
-            .query_row([], |row| row.get(0))?;
-        if has_companion {
-            conn.execute_batch(
-                "ALTER TABLE ideas RENAME COLUMN companion_id TO agent_id;
-                 UPDATE ideas SET scope = 'entity' WHERE scope = 'companion';",
-            )?;
-            conn.execute_batch(
-                "DROP INDEX IF EXISTS idx_ideas_companion;
-                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
-            )?;
-            debug!("migrated: companion_id → agent_id");
+        if !cols.contains("agent_id") {
+            conn.execute_batch("ALTER TABLE ideas ADD COLUMN agent_id TEXT;")?;
+            debug!("migrated ideas table: added agent_id column");
         }
-
-        // Rename entity_id → agent_id (for DBs created before this rename).
-        let has_entity_id: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='entity_id'")?
-            .query_row([], |row| row.get(0))?;
-        if has_entity_id {
-            conn.execute_batch("ALTER TABLE ideas RENAME COLUMN entity_id TO agent_id;")?;
-            conn.execute_batch(
-                "DROP INDEX IF EXISTS idx_ideas_entity;
-                 CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
-            )?;
-            debug!("migrated: entity_id → agent_id");
+        if !cols.contains("session_id") {
+            conn.execute_batch("ALTER TABLE ideas ADD COLUMN session_id TEXT;")?;
+            debug!("migrated ideas table: added session_id column");
+        }
+        if !cols.contains("updated_at") {
+            conn.execute_batch("ALTER TABLE ideas ADD COLUMN updated_at TEXT;")?;
+            debug!("migrated ideas table: added updated_at column");
         }
 
         Ok(())
@@ -430,7 +689,7 @@ impl SqliteIdeas {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let mut stmt = conn.prepare(
-            "SELECT id, key, content, category, agent_id, session_id, created_at
+            "SELECT id, key, content, agent_id, session_id, created_at
              FROM ideas
              WHERE expires_at IS NULL OR expires_at > ?1
              ORDER BY created_at DESC",
@@ -440,30 +699,27 @@ impl SqliteIdeas {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
                 let content: String = row.get(2)?;
-                let cat_str: String = row.get(3)?;
-                let agent_id: Option<String> = row.get(4)?;
-                let session_id: Option<String> = row.get(5)?;
-                let created_str: String = row.get(6)?;
-                Ok((id, key, content, cat_str, agent_id, session_id, created_str))
+                let agent_id: Option<String> = row.get(3)?;
+                let session_id: Option<String> = row.get(4)?;
+                let created_str: String = row.get(5)?;
+                Ok((id, key, content, agent_id, session_id, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(
-                |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let created_at = DateTime::parse_from_rfc3339(&created_str)
-                        .ok()?
-                        .with_timezone(&Utc);
-                    Some(Idea::recalled(
-                        id,
-                        key,
-                        content,
-                        vec![cat_str],
-                        agent_id,
-                        created_at,
-                        session_id,
-                        1.0,
-                    ))
-                },
-            )
+            .filter_map(|(id, key, content, agent_id, session_id, created_str)| {
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .ok()?
+                    .with_timezone(&Utc);
+                Some(Idea::recalled(
+                    id,
+                    key,
+                    content,
+                    Vec::new(),
+                    agent_id,
+                    created_at,
+                    session_id,
+                    1.0,
+                ))
+            })
             .collect::<Vec<Idea>>();
         Self::enrich_tags(&conn, &mut entries);
         Ok(entries)
@@ -478,7 +734,7 @@ impl SqliteIdeas {
         let now = Utc::now().to_rfc3339();
         let like_pattern = format!("{prefix}%");
         let mut stmt = conn.prepare(
-            "SELECT id, key, content, category, agent_id, session_id, created_at
+            "SELECT id, key, content, agent_id, session_id, created_at
              FROM ideas
              WHERE key LIKE ?1
              AND (expires_at IS NULL OR expires_at > ?2)
@@ -490,30 +746,27 @@ impl SqliteIdeas {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
                 let content: String = row.get(2)?;
-                let cat_str: String = row.get(3)?;
-                let agent_id: Option<String> = row.get(4)?;
-                let session_id: Option<String> = row.get(5)?;
-                let created_str: String = row.get(6)?;
-                Ok((id, key, content, cat_str, agent_id, session_id, created_str))
+                let agent_id: Option<String> = row.get(3)?;
+                let session_id: Option<String> = row.get(4)?;
+                let created_str: String = row.get(5)?;
+                Ok((id, key, content, agent_id, session_id, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(
-                |(id, key, content, cat_str, agent_id, session_id, created_str)| {
-                    let created_at = DateTime::parse_from_rfc3339(&created_str)
-                        .ok()?
-                        .with_timezone(&Utc);
-                    Some(Idea::recalled(
-                        id,
-                        key,
-                        content,
-                        vec![cat_str],
-                        agent_id,
-                        created_at,
-                        session_id,
-                        1.0,
-                    ))
-                },
-            )
+            .filter_map(|(id, key, content, agent_id, session_id, created_str)| {
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .ok()?
+                    .with_timezone(&Utc);
+                Some(Idea::recalled(
+                    id,
+                    key,
+                    content,
+                    Vec::new(),
+                    agent_id,
+                    created_at,
+                    session_id,
+                    1.0,
+                ))
+            })
             .collect();
         Self::enrich_tags(&conn, &mut entries);
         Ok(entries)
@@ -602,7 +855,7 @@ impl SqliteIdeas {
         let where_clause = conditions.join(" AND ");
 
         let sql = format!(
-            "SELECT m.id, m.key, m.content, m.category, m.agent_id,
+            "SELECT m.id, m.key, m.content, m.agent_id,
                     m.created_at, m.session_id, bm25(ideas_fts) as rank
              FROM ideas_fts f
              JOIN ideas m ON m.rowid = f.rowid
@@ -621,17 +874,15 @@ impl SqliteIdeas {
                 let id: String = row.get(0)?;
                 let key: String = row.get(1)?;
                 let content: String = row.get(2)?;
-                let cat_str: String = row.get(3)?;
-                let agent_id: Option<String> = row.get(4)?;
-                let created_at: String = row.get(5)?;
-                let session_id: Option<String> = row.get(6)?;
-                let bm25: f64 = row.get(7)?;
+                let agent_id: Option<String> = row.get(3)?;
+                let created_at: String = row.get(4)?;
+                let session_id: Option<String> = row.get(5)?;
+                let bm25: f64 = row.get(6)?;
                 Ok((
                     MemRow {
                         id,
                         key,
                         content,
-                        cat_str,
                         agent_id,
                         created_at,
                         session_id,
@@ -710,7 +961,7 @@ impl SqliteIdeas {
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT id, key, content, category, agent_id, created_at, session_id
+            "SELECT id, key, content, agent_id, created_at, session_id
              FROM ideas WHERE id IN ({placeholders})"
         );
         let params: Vec<&dyn rusqlite::types::ToSql> = ids
@@ -725,10 +976,9 @@ impl SqliteIdeas {
                 id: row.get(0)?,
                 key: row.get(1)?,
                 content: row.get(2)?,
-                cat_str: row.get(3)?,
-                agent_id: row.get(4)?,
-                created_at: row.get(5)?,
-                session_id: row.get(6)?,
+                agent_id: row.get(3)?,
+                created_at: row.get(4)?,
+                session_id: row.get(5)?,
                 tags: Vec::new(),
             })
         })
@@ -770,7 +1020,6 @@ impl SqliteIdeas {
     }
 
     /// Bulk-fetch tags from the idea_tags junction table for a set of idea IDs.
-    /// Falls back to the category column for ideas not present in the junction table.
     fn fetch_tags_for_ids(conn: &Connection, ids: &[String]) -> HashMap<String, Vec<String>> {
         let mut map: HashMap<String, Vec<String>> = HashMap::new();
         if ids.is_empty() {
@@ -800,19 +1049,22 @@ impl SqliteIdeas {
                 map.entry(idea_id).or_default().push(tag);
             }
         }
+        for tags in map.values_mut() {
+            *tags = Self::normalize_tags(std::mem::take(tags));
+        }
         map
     }
 
-    /// Enrich a list of Ideas with tags from the junction table.
-    /// For ideas not present in the junction table, keeps existing tags (category fallback).
+    /// Enrich a list of ideas with tags from the junction table.
     fn enrich_tags(conn: &Connection, entries: &mut [Idea]) {
         let ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
         let tag_map = Self::fetch_tags_for_ids(conn, &ids);
         for entry in entries.iter_mut() {
             if let Some(tags) = tag_map.get(&entry.id) {
                 entry.tags = tags.clone();
+            } else {
+                entry.tags = Self::normalize_tags(std::mem::take(&mut entry.tags));
             }
-            // else: keep existing tags (from category column fallback)
         }
     }
 
@@ -870,7 +1122,9 @@ impl SqliteIdeas {
     }
 
     fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
-        if !query.tags.is_empty() && !query.tags.iter().any(|t| t == &row.cat_str) {
+        let tags = Self::normalize_tags(row.tags);
+
+        if !query.tags.is_empty() && !query.tags.iter().any(|query_tag| tags.contains(query_tag)) {
             return None;
         }
 
@@ -884,16 +1138,10 @@ impl SqliteIdeas {
             .ok()?
             .with_timezone(&Utc);
 
-        let decay = if row.cat_str == "evergreen" {
+        let decay = if tags.iter().any(|tag| tag == "evergreen") {
             1.0
         } else {
             self.decay_factor(&created_at)
-        };
-
-        let tags = if row.tags.is_empty() {
-            vec![row.cat_str]
-        } else {
-            row.tags
         };
 
         Some(Idea::recalled(
@@ -1157,7 +1405,6 @@ impl SqliteIdeas {
                     id: r.id.clone(),
                     key: r.key.clone(),
                     content: r.content.clone(),
-                    cat_str: r.cat_str.clone(),
                     agent_id: r.agent_id.clone(),
                     created_at: r.created_at.clone(),
                     session_id: r.session_id.clone(),
@@ -1168,7 +1415,6 @@ impl SqliteIdeas {
                         id: r.id.clone(),
                         key: r.key.clone(),
                         content: r.content.clone(),
-                        cat_str: r.cat_str.clone(),
                         agent_id: r.agent_id.clone(),
                         created_at: r.created_at.clone(),
                         session_id: r.session_id.clone(),
@@ -1251,12 +1497,7 @@ impl IdeaStore for SqliteIdeas {
         // Dedup + insert in spawn_blocking to avoid blocking tokio.
         let key_owned = key.to_string();
         let content_owned = content.to_string();
-        let tags_owned: Vec<String> = tags.to_vec();
-        let cat_owned = tags
-            .first()
-            .map(|s| s.as_str())
-            .unwrap_or("untagged")
-            .to_string();
+        let tags_owned = Self::normalize_tags(tags.iter().cloned());
         let agent_id_owned = agent_id.map(|s| s.to_string());
         let this = self.clone();
 
@@ -1275,9 +1516,9 @@ impl IdeaStore for SqliteIdeas {
 
             let conn = this.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
-                "INSERT INTO ideas (id, key, content, category, agent_id, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                rusqlite::params![id, key_owned, content_owned, cat_owned, agent_id_owned, now],
+                "INSERT INTO ideas (id, key, content, agent_id, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![id, key_owned, content_owned, agent_id_owned, now],
             )?;
 
             // Insert all tags into the junction table.
@@ -1399,50 +1640,136 @@ impl IdeaStore for SqliteIdeas {
         tags: Option<&[String]>,
     ) -> Result<()> {
         let id = id.to_string();
+        let id_for_update = id.clone();
         let key = key.map(|s| s.to_string());
         let content = content.map(|s| s.to_string());
-        let tags_owned = tags.map(|t| t.to_vec());
-        let cat_from_tags = tags.map(|t| {
-            t.first()
-                .map(|s| s.as_str())
-                .unwrap_or("untagged")
-                .to_string()
-        });
-        self.blocking(move |conn| {
-            let now = Utc::now().to_rfc3339();
-            if let Some(key) = key {
-                conn.execute(
-                    "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
-                    rusqlite::params![key, now, id],
-                )?;
-            }
-            if let Some(content) = content {
-                conn.execute(
-                    "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
-                    rusqlite::params![content, now, id],
-                )?;
-            }
-            if let Some(cat_str) = cat_from_tags {
-                conn.execute(
-                    "UPDATE ideas SET category = ?1, updated_at = ?2 WHERE id = ?3",
-                    rusqlite::params![cat_str, now, id],
-                )?;
-            }
-            if let Some(tags) = tags_owned {
-                conn.execute(
-                    "DELETE FROM idea_tags WHERE idea_id = ?1",
-                    rusqlite::params![id],
-                )?;
-                for tag in &tags {
+        let content_for_embedding = content.clone();
+        let tags_owned = tags.map(|t| Self::normalize_tags(t.iter().cloned()));
+        let content_changed = self
+            .blocking(move |conn| {
+                let current_content: Option<String> = conn
+                    .query_row(
+                        "SELECT content FROM ideas WHERE id = ?1",
+                        rusqlite::params![&id_for_update],
+                        |row| row.get(0),
+                    )
+                    .optional()?;
+                let Some(current_content) = current_content else {
+                    anyhow::bail!("idea not found: {id_for_update}");
+                };
+
+                if key.is_none() && content.is_none() && tags_owned.is_none() {
+                    anyhow::bail!("at least one field must be updated");
+                }
+
+                let content_changed = content
+                    .as_ref()
+                    .is_some_and(|new_content| new_content != &current_content);
+
+                let now = Utc::now().to_rfc3339();
+                if let Some(ref key) = key {
                     conn.execute(
-                        "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
-                        rusqlite::params![id, tag],
+                        "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
+                        rusqlite::params![key, &now, &id_for_update],
                     )?;
                 }
-            }
-            Ok(())
-        })
-        .await
+                if let Some(ref content) = content {
+                    conn.execute(
+                        "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
+                        rusqlite::params![content, &now, &id_for_update],
+                    )?;
+                }
+                if let Some(ref tags) = tags_owned {
+                    conn.execute(
+                        "UPDATE ideas SET updated_at = ?1 WHERE id = ?2",
+                        rusqlite::params![&now, &id_for_update],
+                    )?;
+                    conn.execute(
+                        "DELETE FROM idea_tags WHERE idea_id = ?1",
+                        rusqlite::params![&id_for_update],
+                    )?;
+                    for tag in tags {
+                        conn.execute(
+                            "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                            rusqlite::params![&id_for_update, tag],
+                        )?;
+                    }
+                }
+                Ok(content_changed)
+            })
+            .await?;
+
+        if !content_changed {
+            return Ok(());
+        }
+
+        let Some(content) = content_for_embedding else {
+            return Ok(());
+        };
+
+        if let Some(ref embedder) = self.embedder {
+            let hash = Self::content_hash(&content);
+
+            let cached = {
+                let conn = self.conn.clone();
+                let hash_c = hash.clone();
+                tokio::task::spawn_blocking(move || {
+                    let conn = conn.lock().ok()?;
+                    Self::lookup_embedding_by_hash(&conn, &hash_c)
+                })
+                .await
+                .ok()
+                .flatten()
+            };
+
+            let embed_bytes = if let Some(existing_bytes) = cached {
+                Some(existing_bytes)
+            } else {
+                match embedder.embed(&content).await {
+                    Ok(embedding) => Some(vec_to_bytes(&embedding)),
+                    Err(e) => {
+                        warn!(id = %id, "embedding refresh failed after update: {e}");
+                        None
+                    }
+                }
+            };
+
+            let conn = self.conn.clone();
+            let id_for_embedding = id.clone();
+            let dims = self.embedding_dimensions;
+            let _ = tokio::task::spawn_blocking(move || {
+                if let Ok(conn) = conn.lock() {
+                    let result = if let Some(bytes) = embed_bytes {
+                        conn.execute(
+                            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
+                            rusqlite::params![id_for_embedding, bytes, dims as i64, hash],
+                        )
+                        .map(|_| ())
+                    } else {
+                        conn.execute(
+                            "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                            rusqlite::params![id_for_embedding],
+                        )
+                        .map(|_| ())
+                    };
+                    if let Err(e) = result {
+                        warn!(id = %id, "failed to refresh embedding after update: {e}");
+                    }
+                }
+            })
+            .await;
+        } else {
+            self.blocking(move |conn| {
+                conn.execute(
+                    "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                    rusqlite::params![id],
+                )?;
+                Ok(())
+            })
+            .await?;
+        }
+
+        Ok(())
     }
 
     async fn store_with_ttl(
@@ -1527,7 +1854,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                "SELECT id, key, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -1536,23 +1863,22 @@ impl IdeaStore for SqliteIdeas {
                 ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
             let mut entries: Vec<Idea> = stmt
                 .query_map(params.as_slice(), |row| {
-                    let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
-                    let cat: String = row.get(3)?;
+                    let tool_allow_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                     Ok(Idea {
                         id: row.get(0)?,
                         key: row.get(1)?,
                         content: row.get(2)?,
-                        tags: vec![cat],
-                        agent_id: row.get(4)?,
+                        tags: Vec::new(),
+                        agent_id: row.get(3)?,
                         created_at: {
-                            let s: String = row.get(5)?;
+                            let s: String = row.get(4)?;
                             DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
                         },
-                        session_id: row.get(6)?,
+                        session_id: row.get(5)?,
                         score: 1.0,
-                        injection_mode: row.get(7)?,
-                        inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                        injection_mode: row.get(6)?,
+                        inheritance: row.get::<_, String>(7).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
                     })
@@ -1568,31 +1894,30 @@ impl IdeaStore for SqliteIdeas {
     async fn get_injection_ideas(&self) -> Result<Vec<(String, String, Idea)>> {
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, key, content, category, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                "SELECT id, key, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
                  FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
                  ORDER BY agent_id, created_at ASC",
             )?;
             let mut entries: Vec<(String, String, Idea)> = stmt
                 .query_map([], |row| {
-                    let agent_id: String = row.get(4)?;
-                    let injection_mode: String = row.get::<_, Option<String>>(7)?.unwrap_or_default();
-                    let tool_allow_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String = row.get::<_, String>(10).unwrap_or_else(|_| "[]".to_string());
-                    let cat: String = row.get(3)?;
+                    let agent_id: String = row.get(3)?;
+                    let injection_mode: String = row.get::<_, Option<String>>(6)?.unwrap_or_default();
+                    let tool_allow_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                     let idea = Idea {
                         id: row.get(0)?,
                         key: row.get(1)?,
                         content: row.get(2)?,
-                        tags: vec![cat],
+                        tags: Vec::new(),
                         agent_id: Some(agent_id.clone()),
                         created_at: {
-                            let s: String = row.get(5)?;
+                            let s: String = row.get(4)?;
                             DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
                         },
-                        session_id: row.get(6)?,
+                        session_id: row.get(5)?,
                         score: 1.0,
                         injection_mode: Some(injection_mode.clone()),
-                        inheritance: row.get::<_, String>(8).unwrap_or_else(|_| "self".to_string()),
+                        inheritance: row.get::<_, String>(7).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
                     };
@@ -1942,6 +2267,50 @@ mod tests {
             assert!(cached1.is_some(), "first hash should be cached");
             assert!(cached2.is_some(), "second hash should be cached");
         }
+    }
+
+    #[tokio::test]
+    async fn test_update_refreshes_embedding_hash() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("test_embed_update.db");
+        let embedder = Arc::new(MockEmbedder::new(4));
+
+        let mem = SqliteIdeas::open(&db_path, 30.0)
+            .unwrap()
+            .with_embedder(embedder.clone(), 4, 0.6, 0.4, 0.7)
+            .unwrap();
+
+        let id = mem
+            .store("key-1", "first unique content", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        assert_eq!(embedder.calls(), 1, "initial store should call embedder");
+
+        mem.update(&id, None, Some("second unique content"), None)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            embedder.calls(),
+            2,
+            "content update should refresh embedding"
+        );
+
+        let conn = mem.conn.lock().unwrap();
+        let stored_hash: Option<String> = conn
+            .query_row(
+                "SELECT content_hash FROM memory_embeddings WHERE memory_id = ?1",
+                rusqlite::params![id],
+                |row| row.get(0),
+            )
+            .optional()
+            .unwrap();
+
+        assert_eq!(
+            stored_hash,
+            Some(SqliteIdeas::content_hash("second unique content")),
+            "updated content should refresh cached embedding hash"
+        );
     }
 
     #[tokio::test]

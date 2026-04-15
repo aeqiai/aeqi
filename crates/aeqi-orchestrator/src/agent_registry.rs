@@ -16,6 +16,7 @@
 //! 2. Registry metadata → survives daemon restarts
 //! 3. Tree position → parent_id chain for memory scoping and delegation
 
+use aeqi_ideas::SqliteIdeas;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -357,37 +358,8 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
         )?;
 
-        // Ideas table — created here so seed ideas work even if SqliteIdeas hasn't opened yet.
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS ideas (
-                 id TEXT PRIMARY KEY,
-                 key TEXT NOT NULL,
-                 content TEXT NOT NULL,
-                 category TEXT NOT NULL DEFAULT 'fact',
-                 scope TEXT NOT NULL DEFAULT 'domain',
-                 agent_id TEXT,
-                 session_id TEXT,
-                 created_at TEXT NOT NULL,
-                 updated_at TEXT,
-                 tags TEXT
-             );
-             CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
-             CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
-             CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
-             CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);",
-        )?;
-
-        // Ideas: add tags column if missing (migrating from single category to multi-tag).
-        {
-            let has_tags: bool = conn
-                .prepare("PRAGMA table_info(ideas)")?
-                .query_map([], |row| row.get::<_, String>(1))?
-                .filter_map(|r| r.ok())
-                .any(|c| c == "tags");
-            if !has_tags {
-                conn.execute_batch("ALTER TABLE ideas ADD COLUMN tags TEXT;")?;
-            }
-        }
+        // Ideas live in the shared tags-only schema maintained by aeqi-ideas.
+        SqliteIdeas::prepare_schema(&conn)?;
 
         // Idempotent migrations for existing databases.
         // Events: add idea_ids if missing (legacy DBs had idea_id singular + content).

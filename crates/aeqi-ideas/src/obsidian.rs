@@ -65,8 +65,8 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
 
     let mut written = 0;
     for entry in &entries {
-        let cat_dir = category_dir(entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
-        let dir = vault_dir.join(cat_dir);
+        let tag_dir = tag_dir(entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
+        let dir = vault_dir.join(tag_dir);
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("failed to create dir: {}", dir.display()))?;
 
@@ -91,24 +91,32 @@ fn render_markdown(
     edges: Option<&Vec<&IdeaEdge>>,
     id_to_key: &HashMap<&str, &str>,
 ) -> String {
-    let cat = category_str(entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
+    let tags = if entry.tags.is_empty() {
+        vec!["untagged".to_string()]
+    } else {
+        entry.tags.clone()
+    };
+    let primary_tag = tag_str(tags.first().map(|s| s.as_str()).unwrap_or("untagged"));
     let agent = entry
         .agent_id
         .as_deref()
         .map(|a| format!("\"{a}\""))
         .unwrap_or_else(|| "null".to_string());
     let created = entry.created_at.to_rfc3339();
+    let rendered_tags = std::iter::once("aeqi".to_string())
+        .chain(tags.iter().cloned())
+        .map(|tag| format!("         - {tag}\n"))
+        .collect::<String>();
 
     let mut md = format!(
         "---\n\
          id: \"{}\"\n\
          key: \"{}\"\n\
-         category: {cat}\n\
+         primary_tag: {primary_tag}\n\
          agent_id: {agent}\n\
          created_at: \"{created}\"\n\
          tags:\n\
-         - aeqi\n\
-         - {cat}\n\
+{rendered_tags}\
          ---\n\n\
          {}\n",
         entry.id, entry.key, entry.content
@@ -144,7 +152,7 @@ pub struct ParsedIdea {
     pub id: Option<String>,
     pub key: String,
     pub content: String,
-    pub category: String,
+    pub tags: Vec<String>,
     pub agent_id: Option<String>,
     pub relations: Vec<ParsedRelation>,
 }
@@ -176,12 +184,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
 
     for mem in &parsed {
         match store
-            .store(
-                &mem.key,
-                &mem.content,
-                std::slice::from_ref(&mem.category),
-                mem.agent_id.as_deref(),
-            )
+            .store(&mem.key, &mem.content, &mem.tags, mem.agent_id.as_deref())
             .await
         {
             Ok(id) if id.is_empty() => {
@@ -247,15 +250,15 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
 fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
     let mut results = Vec::new();
 
-    // Scan all subdirectories (each subdirectory name is treated as a category).
+    // Scan all subdirectories (each subdirectory name is treated as the primary tag).
     if vault_dir.is_dir() {
         for dir_entry in std::fs::read_dir(vault_dir)? {
             let dir_entry = dir_entry?;
-            let cat_dir = dir_entry.path();
-            if !cat_dir.is_dir() {
+            let tag_dir = dir_entry.path();
+            if !tag_dir.is_dir() {
                 continue;
             }
-            for entry in std::fs::read_dir(&cat_dir)? {
+            for entry in std::fs::read_dir(&tag_dir)? {
                 let entry = entry?;
                 let path = entry.path();
                 if path.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -277,7 +280,7 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
             if !path.is_file() || path.extension().and_then(|e| e.to_str()) != Some("md") {
                 continue;
             }
-            // Skip if already parsed from a category subdirectory.
+            // Skip if already parsed from a tag subdirectory.
             if results.iter().any(|m| {
                 let fname = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
                 m.key == fname
@@ -310,7 +313,14 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
             .unwrap_or("unknown")
             .to_string()
     });
-    let category = extract_field(&frontmatter, "category").unwrap_or_else(|| "fact".to_string());
+    let mut tags = extract_tags(&frontmatter);
+    if tags.is_empty() {
+        if let Some(primary_tag) = extract_field(&frontmatter, "primary_tag") {
+            tags.push(primary_tag);
+        } else {
+            tags.push("fact".to_string());
+        }
+    }
     let agent_id = extract_field(&frontmatter, "agent_id").filter(|s| s != "null" && !s.is_empty());
 
     // Split body into content and relations.
@@ -320,7 +330,7 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
         id,
         key,
         content: content.trim().to_string(),
-        category,
+        tags,
         agent_id,
         relations,
     })
@@ -328,12 +338,12 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-fn category_dir(cat: &str) -> &str {
-    cat
+fn tag_dir(tag: &str) -> &str {
+    tag
 }
 
-fn category_str(cat: &str) -> &str {
-    cat
+fn tag_str(tag: &str) -> &str {
+    tag
 }
 
 fn sanitize_filename(key: &str) -> String {
@@ -378,6 +388,37 @@ fn extract_field(frontmatter: &str, field: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn extract_tags(frontmatter: &str) -> Vec<String> {
+    let mut tags = Vec::new();
+    let mut in_tags = false;
+
+    for raw_line in frontmatter.lines() {
+        let line = raw_line.trim();
+        if !in_tags {
+            if line == "tags:" {
+                in_tags = true;
+            }
+            continue;
+        }
+
+        if let Some(rest) = line.strip_prefix("- ") {
+            let tag = rest.trim().trim_matches('"');
+            if !tag.is_empty() && tag != "aeqi" {
+                tags.push(tag.to_string());
+            }
+            continue;
+        }
+
+        if line.is_empty() {
+            continue;
+        }
+
+        break;
+    }
+
+    tags
 }
 
 /// Split body into content (before `## Relations`) and parsed relations.
@@ -447,7 +488,7 @@ mod tests {
 
     #[test]
     fn test_split_frontmatter() {
-        let raw = "---\nkey: test\ncategory: fact\n---\n\nHello world\n";
+        let raw = "---\nkey: test\ntags:\n- fact\n---\n\nHello world\n";
         let (fm, body) = split_frontmatter(raw);
         assert!(fm.contains("key: test"));
         assert!(body.contains("Hello world"));
@@ -455,11 +496,20 @@ mod tests {
 
     #[test]
     fn test_extract_field() {
-        let fm = "id: \"abc-123\"\nkey: \"my-key\"\ncategory: fact\nagent_id: null";
+        let fm = "id: \"abc-123\"\nkey: \"my-key\"\nprimary_tag: fact\nagent_id: null";
         assert_eq!(extract_field(fm, "id"), Some("abc-123".to_string()));
         assert_eq!(extract_field(fm, "key"), Some("my-key".to_string()));
-        assert_eq!(extract_field(fm, "category"), Some("fact".to_string()));
+        assert_eq!(extract_field(fm, "primary_tag"), Some("fact".to_string()));
         assert_eq!(extract_field(fm, "agent_id"), None); // null → None
+    }
+
+    #[test]
+    fn test_extract_tags() {
+        let fm = "key: test\ntags:\n- aeqi\n- fact\n- evergreen\nagent_id: null";
+        assert_eq!(
+            extract_tags(fm),
+            vec!["fact".to_string(), "evergreen".to_string()]
+        );
     }
 
     #[test]
@@ -498,7 +548,8 @@ mod tests {
 
         assert_eq!(extract_field(&fm, "id"), Some("abc-123".to_string()));
         assert_eq!(extract_field(&fm, "key"), Some("test-key".to_string()));
-        assert_eq!(extract_field(&fm, "category"), Some("fact".to_string()));
+        assert_eq!(extract_field(&fm, "primary_tag"), Some("fact".to_string()));
+        assert_eq!(extract_tags(&fm), vec!["fact".to_string()]);
         assert!(body.contains("Some test content"));
     }
 

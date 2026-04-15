@@ -492,10 +492,10 @@ impl Tool for AgentsTool {
 }
 
 // ===================================================================
-// 2. IDEAS TOOL — store | search | delete
+// 2. IDEAS TOOL — store | search | update | delete
 // ===================================================================
 
-/// Unified ideas tool combining store, search, and delete.
+/// Unified ideas tool combining store, search, update, and delete.
 pub struct IdeasTool {
     memory: Arc<dyn IdeaStore>,
     activity_log: Arc<ActivityLog>,
@@ -509,6 +509,14 @@ impl IdeasTool {
         }
     }
 
+    fn parse_tags(args: &serde_json::Value) -> Option<Vec<String>> {
+        args.get("tags").and_then(|v| v.as_array()).map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+    }
+
     async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let key = args
             .get("key")
@@ -518,12 +526,7 @@ impl IdeasTool {
             .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
-        let tags = vec![
-            args.get("category")
-                .and_then(|v| v.as_str())
-                .unwrap_or("fact")
-                .to_string(),
-        ];
+        let tags = Self::parse_tags(args).unwrap_or_else(|| vec!["fact".to_string()]);
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
         match self.memory.store(key, content, &tags, agent_id).await {
@@ -590,6 +593,27 @@ impl IdeasTool {
         }
     }
 
+    async fn action_update(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing id"))?;
+        let key = args.get("key").and_then(|v| v.as_str());
+        let content = args.get("content").and_then(|v| v.as_str());
+        let tags = Self::parse_tags(args);
+
+        if key.is_none() && content.is_none() && tags.is_none() {
+            return Ok(ToolResult::error(
+                "Provide at least one of key, content, or tags".to_string(),
+            ));
+        }
+
+        match self.memory.update(id, key, content, tags.as_deref()).await {
+            Ok(()) => Ok(ToolResult::success(format!("Updated idea {id}"))),
+            Err(e) => Ok(ToolResult::error(format!("Failed to update: {e}"))),
+        }
+    }
+
     async fn action_delete(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let id = args
             .get("id")
@@ -614,9 +638,10 @@ impl Tool for IdeasTool {
         match action {
             "store" => self.action_store(&args).await,
             "search" => self.action_search(&args).await,
+            "update" => self.action_update(&args).await,
             "delete" => self.action_delete(&args).await,
             other => Ok(ToolResult::error(format!(
-                "Unknown action: {other}. Use: store, search, delete"
+                "Unknown action: {other}. Use: store, search, update, delete"
             ))),
         }
     }
@@ -624,19 +649,19 @@ impl Tool for IdeasTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "ideas".to_string(),
-            description: "Store, search, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering.".to_string(),
+            description: "Store, search, update, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["store", "search", "delete"],
-                        "description": "store: save a memory (needs key, content). search: find memories (needs query). delete: remove a memory (needs id)."
+                        "enum": ["store", "search", "update", "delete"],
+                        "description": "store: save a memory (needs key, content). search: find memories (needs query). update: modify an existing idea (needs id plus key/content/tags). delete: remove a memory (needs id)."
                     },
-                    "id": { "type": "string", "description": "Idea ID to delete (for delete)" },
-                    "key": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store)" },
-                    "content": { "type": "string", "description": "The memory content to store (for store)" },
-                    "category": { "type": "string", "enum": ["fact", "procedure", "preference", "context", "evergreen"], "description": "Memory category (for store, default: fact)" },
+                    "id": { "type": "string", "description": "Idea ID to update or delete (for update, delete)" },
+                    "key": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store, update)" },
+                    "content": { "type": "string", "description": "The memory content to store or replace (for store, update)" },
+                    "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags to store or replace on an idea (for store, update)" },
                     "agent_id": { "type": "string", "description": "Agent ID to scope memories (for store, search)" },
                     "query": { "type": "string", "description": "Natural language search query (for search)" },
                     "top_k": { "type": "integer", "description": "Max results to return (for search, default: 5)" }
@@ -1729,7 +1754,7 @@ pub fn build_orchestration_tools(
         Arc::new(code_tool),
     ];
 
-    // 5. Ideas tool (store/search/delete)
+    // 5. Ideas tool (store/search/update/delete)
     if let Some(mem) = memory {
         tools.push(Arc::new(IdeasTool::new(mem, activity_log)));
     } else {

@@ -26,7 +26,7 @@ The idea store was originally called "memory." This is the largest naming debt.
 - `MemoryEntry` interface (types.ts) — used everywhere for ideas
 - `MemoryGraph` component (MemoryGraph.tsx)
 - CSS classes: `memory-list`, `memory-entry`, `memory-header`, `memory-key`,
-  `memory-tags`, `memory-category`, `memory-content`, `memory-meta`,
+  `memory-tags`, `memory-tag`, `memory-content`, `memory-meta`,
   `memory-graph-canvas`, `memory-graph-container`
 - `MemoryActivity` WebSocket event type
 
