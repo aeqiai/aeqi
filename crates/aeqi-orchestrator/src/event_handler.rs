@@ -391,6 +391,12 @@ pub async fn create_default_lifecycle_events(
             "session:execution-start",
             "A new execution is starting. Review the user's request and respond helpfully.",
         ),
+        (
+            "on_step_start",
+            "session:step_start",
+            "session:step-start",
+            "A new LLM call is starting. Tool definitions are included in this request.",
+        ),
     ];
 
     let now = chrono::Utc::now().to_rfc3339();

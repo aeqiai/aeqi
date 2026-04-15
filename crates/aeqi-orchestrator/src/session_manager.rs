@@ -662,6 +662,29 @@ impl SessionManager {
 
         let (stream_sender, _initial_rx) = ChatStreamSender::new(256);
 
+        // Load session:step_start ideas as step context (injected every LLM call).
+        if let (Some(ehs), Some(idea_store)) = (&self.event_store, &self.idea_store) {
+            let step_events = ehs
+                .get_events_for_pattern(agent_uuid.as_deref().unwrap_or(""), "session:step_start")
+                .await;
+            let mut step_idea_ids: Vec<String> = Vec::new();
+            for ev in &step_events {
+                step_idea_ids.extend(ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned());
+            }
+            if !step_idea_ids.is_empty()
+                && let Ok(ideas) = idea_store.get_by_ids(&step_idea_ids).await
+            {
+                for idea in &ideas {
+                    step_idea_specs.push(aeqi_core::StepIdeaSpec {
+                        path: std::path::PathBuf::from(&idea.key),
+                        allow_shell: false,
+                        name: idea.key.clone(),
+                        content: Some(idea.content.clone()),
+                    });
+                }
+            }
+        }
+
         let mut agent =
             aeqi_core::Agent::new(agent_config, provider, tools, observer, system_prompt)
                 .with_chat_stream(stream_sender.clone())
