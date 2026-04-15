@@ -72,6 +72,7 @@ function EventRow({
   onToggleExpand,
   onToggleEnabled,
   onDelete,
+  onUnlinkIdea,
 }: {
   ev: { id: string; name: string; pattern: string; scope: string; idea_ids: string[]; enabled: boolean; cooldown_secs: number; fire_count: number; last_fired?: string };
   expanded: boolean;
@@ -79,6 +80,7 @@ function EventRow({
   onToggleExpand: () => void;
   onToggleEnabled: () => void;
   onDelete: (() => void) | null;
+  onUnlinkIdea: (ideaId: string) => void;
 }) {
   const prefix = ev.pattern.split(":")[0];
   const typeLabel = prefix === "session" ? "Session" : prefix === "schedule" ? "Schedule" : prefix === "webhook" ? "Webhook" : prefix;
@@ -113,24 +115,40 @@ function EventRow({
       </div>
       {expanded && (
         <div className="event-row-detail">
+          <div className="event-detail-meta">
+            <span className="event-detail-meta-item">Scope: {ev.scope}</span>
+            {ev.cooldown_secs > 0 && <span className="event-detail-meta-item">Cooldown: {ev.cooldown_secs}s</span>}
+            {ev.last_fired && <span className="event-detail-meta-item">Last: {new Date(ev.last_fired).toLocaleString()}</span>}
+          </div>
+          <div className="event-detail-ideas-header">
+            <span className="event-detail-ideas-title">Injected Ideas</span>
+          </div>
           {ideas && ideas.length > 0 ? (
             <div className="event-ideas-list">
               {ideas.map((idea) => (
                 <div key={idea.id} className="event-idea-card">
-                  <div className="event-idea-key">{idea.key}</div>
-                  <div className="event-idea-content">{idea.content}</div>
-                  {idea.tags.length > 0 && (
-                    <div className="event-idea-tags">
+                  <div className="event-idea-header">
+                    <span className="event-idea-key">{idea.key}</span>
+                    <div className="event-idea-actions">
                       {idea.tags.map((t) => <span key={t} className="event-idea-tag">{t}</span>)}
+                      <button
+                        className="event-idea-unlink"
+                        onClick={() => onUnlinkIdea(idea.id)}
+                        title="Unlink from event"
+                      >
+                        &times;
+                      </button>
                     </div>
-                  )}
+                  </div>
+                  <div className="event-idea-content">{idea.content}</div>
+                  <div className="event-idea-id">{idea.id}</div>
                 </div>
               ))}
             </div>
           ) : ev.idea_ids.length === 0 ? (
-            <div className="event-ideas-empty">No ideas linked to this event.</div>
+            <div className="event-ideas-empty">No ideas linked. Click an idea to link it to this event.</div>
           ) : (
-            <div className="event-ideas-empty">Loading ideas...</div>
+            <div className="event-ideas-empty">Loading...</div>
           )}
         </div>
       )}
@@ -366,6 +384,12 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   }}
                   onToggleEnabled={async () => { await api.updateEvent(ev.id, { enabled: !ev.enabled }); loadEvents(); }}
                   onDelete={null}
+                  onUnlinkIdea={async (ideaId) => {
+                    const newIds = ev.idea_ids.filter((id) => id !== ideaId);
+                    await api.updateEvent(ev.id, { idea_ids: newIds });
+                    setEventIdeas((p) => ({ ...p, [ev.id]: (p[ev.id] || []).filter((i) => i.id !== ideaId) }));
+                    loadEvents();
+                  }}
                 />
               ))}
 
@@ -392,6 +416,12 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                       }}
                       onToggleEnabled={async () => { await api.updateEvent(ev.id, { enabled: !ev.enabled }); loadEvents(); }}
                       onDelete={async () => { await api.deleteEvent(ev.id); loadEvents(); }}
+                      onUnlinkIdea={async (ideaId) => {
+                        const newIds = ev.idea_ids.filter((id) => id !== ideaId);
+                        await api.updateEvent(ev.id, { idea_ids: newIds });
+                        setEventIdeas((p) => ({ ...p, [ev.id]: (p[ev.id] || []).filter((i) => i.id !== ideaId) }));
+                        loadEvents();
+                      }}
                     />
                   ))}
                 </>
