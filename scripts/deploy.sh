@@ -63,7 +63,20 @@ if $BUILD_RUNTIME; then
     cargo build --release -p aeqi 2>&1 | tail -3
 
     # Stage binary for platform (tenant hosts use this copy).
+    # Must stop hosts first — the binary is locked while in use.
     if [ -d "$PLATFORM_ROOT/runtime/bin" ]; then
+        # Stop all host services.
+        for unit in $(systemctl list-units 'aeqi-host-*' --no-legend --plain 2>/dev/null | awk '{print $1}'); do
+            echo "  -> stopping $unit for binary staging"
+            sudo systemctl stop "$unit" 2>/dev/null || true
+        done
+        # Also kill any lingering aeqi processes using the staged binary.
+        sudo fuser -k "$PLATFORM_ROOT/runtime/bin/aeqi" 2>/dev/null || true
+        sleep 2
+        # Clean stale PID/socket files.
+        for pidfile in /var/lib/aeqi/hosts/*/rm.pid; do
+            [ -f "$pidfile" ] && rm -f "$pidfile" "${pidfile%.pid}.sock"
+        done
         sudo cp "$AEQI_ROOT/target/release/aeqi" "$PLATFORM_ROOT/runtime/bin/aeqi"
         echo "  -> staged binary to $PLATFORM_ROOT/runtime/bin/aeqi"
     fi
@@ -85,21 +98,14 @@ fi
 if ! $SKIP_RESTART; then
     step "Restarting services..."
 
-    # Stop host runtimes first (they use the staged binary).
-    for unit in $(systemctl list-units 'aeqi-host-*' --no-legend --plain 2>/dev/null | awk '{print $1}'); do
-        echo "  -> stopping $unit"
-        sudo systemctl stop "$unit" 2>/dev/null || true
-    done
-
-    # Clean stale PID/socket files so hosts can restart cleanly.
-    for pidfile in /var/lib/aeqi/hosts/*/rm.pid; do
-        [ -f "$pidfile" ] || continue
-        pid=$(cat "$pidfile" 2>/dev/null)
-        if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
-            rm -f "$pidfile" "${pidfile%.pid}.sock"
-            echo "  -> cleaned stale PID file: $pidfile"
-        fi
-    done
+    # Hosts were already stopped during binary staging (if runtime was built).
+    # If only platform was built, stop hosts now.
+    if ! $BUILD_RUNTIME; then
+        for unit in $(systemctl list-units 'aeqi-host-*' --no-legend --plain 2>/dev/null | awk '{print $1}'); do
+            echo "  -> stopping $unit"
+            sudo systemctl stop "$unit" 2>/dev/null || true
+        done
+    fi
 
     # Restart the platform (it will re-spawn hosts on demand).
     sudo systemctl restart aeqi-platform.service
