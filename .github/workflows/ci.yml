@@ -29,6 +29,9 @@ jobs:
       - name: UI install
         run: npm --prefix apps/ui ci
 
+      - name: UI check (tsc + prettier)
+        run: npm --prefix apps/ui run check
+
       - name: UI build
         run: npm --prefix apps/ui run build
 

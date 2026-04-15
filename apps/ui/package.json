@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "tsc --noEmit && prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
     "react": "^19.0.0",
