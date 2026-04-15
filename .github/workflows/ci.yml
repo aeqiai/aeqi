@@ -26,23 +26,28 @@ jobs:
       - name: Install ripgrep
         run: sudo apt-get install -y ripgrep
 
+      # ── Frontend ──────────────────────────────────
       - name: UI install
         run: npm --prefix apps/ui ci
 
       - name: UI check (tsc + prettier)
         run: npm --prefix apps/ui run check
 
+      - name: UI lint (eslint)
+        run: npm --prefix apps/ui run lint
+
       - name: UI build
         run: npm --prefix apps/ui run build
 
-      - name: Build
-        run: cargo build
-
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-
-      - name: Tests
-        run: cargo test
-
-      - name: Format check
+      # ── Backend ───────────────────────────────────
+      - name: Rust format check
         run: cargo fmt --check
+
+      - name: Rust clippy (workspace)
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Rust build
+        run: cargo build --workspace
+
+      - name: Rust tests
+        run: cargo test --workspace
