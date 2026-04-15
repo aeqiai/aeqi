@@ -1364,35 +1364,39 @@
   letter-spacing: -0.005em;
 }
 
-/* ── Message actions (fork, copy) ── */
+/* ── Message actions bar (copy, fork — agent messages only) ── */
 .asv-msg-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 2px;
+  margin-top: 6px;
   opacity: 0;
   transition: opacity 0.12s;
 }
 .asv-msg:hover .asv-msg-actions {
   opacity: 1;
 }
-.asv-msg-fork-btn {
+.asv-msg-action-btn,
+.asv-msg-actions .asv-copy {
+  position: static;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 5px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.1s;
+  opacity: 1;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
 }
-.asv-msg-fork-btn:hover {
+.asv-msg-action-btn:hover,
+.asv-msg-actions .asv-copy:hover {
   color: var(--text-primary);
-  border-color: var(--border);
+  border-color: var(--text-muted);
   background: var(--bg-surface);
 }
 
@@ -1421,29 +1425,7 @@
   opacity: 0.4;
 }
 
-/* ── Copy button ── */
-.asv-copy {
-  position: absolute;
-  top: 4px;
-  right: 0;
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  cursor: pointer;
-  color: var(--text-muted);
-  opacity: 0;
-  transition: opacity 0.12s;
-  display: flex;
-  align-items: center;
-}
-.asv-msg:hover .asv-copy {
-  opacity: 1;
-}
-.asv-copy:hover {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-}
+/* (copy button styles consolidated into .asv-msg-actions above) */
 
 /* ── Collapsible tool group ── */
 

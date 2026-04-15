@@ -459,22 +459,25 @@ const MessageItem = memo(function MessageItem({
             )}
           </div>
         )}
-        <div className="asv-msg-actions">
-          {msg.role === "assistant" && msg.content.trim().length > 0 && (
+        {msg.role === "assistant" && msg.content.trim().length > 0 && (
+          <div className="asv-msg-actions">
             <CopyButton text={msg.content} />
-          )}
-          {msg.messageId && onFork && (
-            <button
-              className="asv-msg-fork-btn"
-              onClick={() => onFork(msg.messageId!)}
-              title="Fork conversation from here"
-            >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M5 3v4c0 2 2 3 4 3h4M10 7l3 3-3 3" />
-              </svg>
-            </button>
-          )}
-        </div>
+            {msg.messageId && onFork && (
+              <button
+                className="asv-msg-action-btn"
+                onClick={() => onFork(msg.messageId!)}
+                title="Fork from here"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                  <circle cx="4" cy="4" r="1.5" />
+                  <circle cx="12" cy="4" r="1.5" />
+                  <circle cx="4" cy="12" r="1.5" />
+                  <path d="M4 5.5V10.5M5.5 4H10.5" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
         {metaParts.length > 0 && (
           <div className="asv-msg-footer">
             {metaParts.map((part, idx) => (
