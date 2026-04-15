@@ -144,6 +144,7 @@ async fn main() -> Result<()> {
         Some(Commands::Chat { agent, company }) => {
             tui::run(&cli.config, agent.as_deref(), company.as_deref()).await
         }
+        Some(Commands::Primer) => cmd::primer::cmd_primer(&cli.config),
         Some(Commands::Mcp) => cmd::mcp::cmd_mcp(&cli.config).map(|_| ()),
     }
 }

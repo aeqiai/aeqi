@@ -230,6 +230,9 @@ pub enum Commands {
         company: Option<String>,
     },
 
+    /// Emit session primer context from the daemon (replaces session-primer.sh).
+    Primer,
+
     /// Run as an MCP (Model Context Protocol) server.
     Mcp,
 }
@@ -482,6 +485,16 @@ pub enum HooksAction {
         /// Number of iterations.
         #[arg(long, default_value = "20")]
         iterations: u32,
+    },
+    /// Install git hook shims into .githooks/ that delegate to `aeqi hooks run`.
+    Install,
+    /// Run a git hook by name (called by the installed shims).
+    Run {
+        /// Hook name (e.g. post-commit, post-merge, post-checkout).
+        hook: String,
+        /// Extra arguments passed by git.
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
     },
 }
 

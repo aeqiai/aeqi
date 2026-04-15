@@ -929,6 +929,38 @@ impl Agent {
                 model: request.model.clone(),
             });
 
+            // --- Memory prefetch: spawn search in parallel with API call ---
+            // After iteration 1, speculatively search memory using the last
+            // user message while the LLM streams. Results are merged after
+            // tool execution completes, avoiding sequential latency.
+            let prefetch_handle = if iterations > 1 {
+                if let Some(ref mem) = self.memory {
+                    let last_user_text = messages
+                        .iter()
+                        .rev()
+                        .find(|m| m.role == Role::User || m.role == Role::Tool)
+                        .and_then(|m| m.content.as_text())
+                        .unwrap_or("")
+                        .to_string();
+                    if last_user_text.len() > 50 {
+                        let mem_clone = Arc::clone(mem);
+                        let ancestors = self.config.ancestor_ids.clone();
+                        Some(tokio::spawn(async move {
+                            mem_clone
+                                .hierarchical_search(&last_user_text, &ancestors, 5)
+                                .await
+                                .unwrap_or_default()
+                        }))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             // --- Call provider (streaming with early tool execution) ---
             let response;
             let streaming_tool_outcome;
@@ -1621,6 +1653,16 @@ impl Agent {
                 content: MessageContent::Parts(tool_result_parts),
             });
 
+            // --- Tool batch summary (compact digest for large outputs) ---
+            let total_output_chars: usize = processed.iter().map(|r| r.output.len()).sum();
+            if total_output_chars > 5000 {
+                let summary = Self::build_tool_batch_summary(&processed);
+                messages.push(Message {
+                    role: Role::System,
+                    content: MessageContent::text(summary),
+                });
+            }
+
             // --- Mid-loop memory recall ---
             if mid_loop_recalls < MAX_MID_LOOP_RECALLS
                 && let Some(ref mem) = self.memory
@@ -1669,6 +1711,42 @@ impl Agent {
                         );
                     }
                 }
+            }
+
+            // --- Consume memory prefetch results ---
+            // Merge any entries from the prefetch task that was spawned before
+            // the API call. Deduplicates against the synchronous mid-loop recall
+            // that may have already injected memory above.
+            if let Some(handle) = prefetch_handle
+                && let Ok(prefetched) = handle.await
+                && !prefetched.is_empty()
+                && mid_loop_recalls < MAX_MID_LOOP_RECALLS
+            {
+                let ctx = prefetched
+                    .iter()
+                    .map(|e| format!("{}: {}", e.key, e.content))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let preview = prefetched
+                    .iter()
+                    .map(|e| e.key.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
+                    action: "prefetched".into(),
+                    key: format!("{} insights", prefetched.len()),
+                    preview,
+                });
+                messages.push(Message {
+                    role: Role::System,
+                    content: MessageContent::text(format!("# Prefetched Memory\n{ctx}")),
+                });
+                mid_loop_recalls += 1;
+                debug!(
+                    agent = %self.config.name,
+                    entries = prefetched.len(),
+                    "prefetched memory results merged"
+                );
             }
 
             // --- Session memory extraction (fire-and-forget background task) ---
@@ -1963,7 +2041,7 @@ impl Agent {
             return;
         }
 
-        // Group by category for clearer context injection.
+        // Group by tag for clearer context injection.
         let mut by_cat: std::collections::BTreeMap<&str, Vec<&crate::traits::Idea>> =
             std::collections::BTreeMap::new();
         for entry in &all_entries {
@@ -2360,6 +2438,35 @@ impl Agent {
                 total_tokens, "mid-step enrichments injected"
             );
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Tool batch summary
+    // -----------------------------------------------------------------------
+
+    /// Build a compact summary line for a batch of tool results.
+    /// Groups by tool name, counts calls, and sums output sizes.
+    /// Example: `[Tool batch: read_file(3 calls, 12KB), grep(2 calls, 8KB)]`
+    fn build_tool_batch_summary(results: &[ProcessedToolResult]) -> String {
+        use std::collections::BTreeMap;
+        let mut groups: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+        for r in results {
+            let entry = groups.entry(r.name.as_str()).or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += r.output.len();
+        }
+        let parts: Vec<String> = groups
+            .iter()
+            .map(|(name, (count, bytes))| {
+                let kb = (*bytes + 512) / 1024; // round to nearest KB
+                if kb > 0 {
+                    format!("{name}({count} calls, {kb}KB)")
+                } else {
+                    format!("{name}({count} calls, {bytes}B)")
+                }
+            })
+            .collect();
+        format!("[Tool batch: {}]", parts.join(", "))
     }
 
     // -----------------------------------------------------------------------
@@ -3347,12 +3454,12 @@ impl Agent {
              genuinely important ideas worth remembering long-term. Output NOTHING if the \
              conversation is trivial (greetings, status checks, small talk).\n\n\
              For each idea, output exactly one line in this format:\n\
-             SCOPE CATEGORY: key-slug | The idea content\n\n\
+             SCOPE TAG: key-slug | The idea content\n\n\
              Scopes (choose the most appropriate):\n\
              - DOMAIN: Technical facts about this specific project/codebase\n\
              - SYSTEM: Ideas about the user (preferences, decisions, patterns that span projects)\n\
              - SELF: Your own observations, reflections, learnings as an agent\n\n\
-             Categories:\n\
+             Tags:\n\
              - FACT: Factual information (technical details, architecture decisions, numbers)\n\
              - PROCEDURE: How something works or should be done\n\
              - PREFERENCE: User preferences, opinions, behavioral patterns\n\

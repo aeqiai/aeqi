@@ -100,14 +100,14 @@ struct AnthropicErrorDetail {
 }
 
 fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<AnthropicMessage>) {
-    let mut system_text = None;
+    let mut system_texts: Vec<String> = Vec::new();
     let mut converted = Vec::new();
 
     for msg in messages {
         match msg.role {
             Role::System => {
                 if let Some(text) = msg.content.as_text() {
-                    system_text = Some(text.to_string());
+                    system_texts.push(text.to_string());
                 }
             }
             Role::User => {
@@ -179,15 +179,26 @@ fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<Ant
         }
     }
 
-    // Apply prompt caching: system as content block array with cache_control,
-    // plus cache_control on last 3 non-system messages.
-    let system = system_text.map(|text| {
-        serde_json::json!([{
+    // Apply prompt caching: first system text (stable system prompt) gets
+    // cache_control: ephemeral. Subsequent system texts (step-context, memory
+    // recalls) go into a second content block WITHOUT cache_control so they
+    // don't bust the cache on the stable prefix.
+    let system = if system_texts.is_empty() {
+        None
+    } else {
+        let mut blocks = vec![serde_json::json!({
             "type": "text",
-            "text": text,
+            "text": system_texts[0],
             "cache_control": {"type": "ephemeral"}
-        }])
-    });
+        })];
+        if system_texts.len() > 1 {
+            blocks.push(serde_json::json!({
+                "type": "text",
+                "text": system_texts[1..].join("\n\n"),
+            }));
+        }
+        Some(serde_json::Value::Array(blocks))
+    };
 
     // Mark last 3 messages with cache_control breakpoints.
     let len = converted.len();

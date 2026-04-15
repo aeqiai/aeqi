@@ -1,10 +1,2 @@
 #!/bin/bash
-# Auto-reindex code graph after merge (quest worktree → main).
-# Runs in background so merges aren't slowed down.
-
-AEQI_BIN="${AEQI_BIN:-/home/claudedev/aeqi/target/release/aeqi}"
-AEQI_CONFIG="${AEQI_CONFIG:-/var/lib/aeqi/hosts/luca-eich/aeqi.toml}"
-
-[ -x "$AEQI_BIN" ] || exit 0
-
-AEQI_CONFIG="$AEQI_CONFIG" "$AEQI_BIN" code incremental --project luca-eich &>/dev/null &
+exec /home/claudedev/aeqi/target/release/aeqi hooks run "${0##*/}" "$@" 2>/dev/null || true

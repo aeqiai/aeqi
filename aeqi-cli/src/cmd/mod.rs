@@ -14,6 +14,7 @@ pub(crate) mod monitor;
 pub(crate) mod notes;
 pub(crate) mod operation;
 pub(crate) mod pipeline;
+pub(crate) mod primer;
 pub(crate) mod prompt;
 pub(crate) mod quests;
 pub(crate) mod run;

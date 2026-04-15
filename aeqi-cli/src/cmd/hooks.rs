@@ -18,6 +18,8 @@ pub(crate) async fn cmd_hooks(action: HooksAction) -> Result<()> {
         HooksAction::Bench { script, iterations } => {
             cmd_hooks_bench(script.as_deref(), iterations).await
         }
+        HooksAction::Install => cmd_hooks_install().await,
+        HooksAction::Run { hook, args } => cmd_hooks_run(&hook, &args).await,
     }
 }
 
@@ -467,5 +469,77 @@ pub(crate) async fn cmd_hooks_bench(script: Option<&str>, iterations: u32) -> Re
     // Cleanup
     let _ = std::fs::remove_file(&gate);
 
+    Ok(())
+}
+
+pub(crate) async fn cmd_hooks_install() -> Result<()> {
+    let aeqi_bin = std::env::current_exe()
+        .unwrap_or_else(|_| PathBuf::from("aeqi"))
+        .to_string_lossy()
+        .to_string();
+
+    // Find the repo root by looking for .githooks/ relative to cwd or binary location.
+    let repo_root = std::env::current_dir().context("cannot determine current directory")?;
+    let hooks_dir = repo_root.join(".githooks");
+    std::fs::create_dir_all(&hooks_dir)
+        .with_context(|| format!("failed to create {}", hooks_dir.display()))?;
+
+    let hook_names = ["post-commit", "post-merge", "post-checkout"];
+
+    for hook in &hook_names {
+        let path = hooks_dir.join(hook);
+        let content = format!(
+            "#!/bin/bash\nexec {} hooks run \"${{0##*/}}\" \"$@\" 2>/dev/null || true\n",
+            aeqi_bin,
+        );
+        std::fs::write(&path, &content)
+            .with_context(|| format!("failed to write {}", path.display()))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path)?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms)?;
+        }
+
+        println!("  installed {}", path.display());
+    }
+
+    println!("\nEnsure git uses these hooks:\n  git config core.hooksPath .githooks");
+
+    Ok(())
+}
+
+pub(crate) async fn cmd_hooks_run(hook: &str, args: &[String]) -> Result<()> {
+    match hook {
+        "post-commit" | "post-merge" => {
+            // Background graph re-index.
+            let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("aeqi"));
+            Command::new(&exe)
+                .args(["graph", "index", "-r", "luca-eich"])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .ok();
+        }
+        "post-checkout" => {
+            // $3 (first of trailing args after hook name) = 1 for branch checkout.
+            let is_branch = args.get(2).is_some_and(|v| v == "1");
+            if !is_branch {
+                return Ok(());
+            }
+            let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("aeqi"));
+            Command::new(&exe)
+                .args(["graph", "index", "-r", "luca-eich"])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .ok();
+        }
+        _ => {
+            // Unknown hook — silently ignore.
+        }
+    }
     Ok(())
 }
