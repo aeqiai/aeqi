@@ -392,6 +392,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     config.shared_primer.clone(),
                     config.agent_spawns.first().and_then(|c| c.primer.clone()),
                 );
+                session_manager.set_data_dir(config.data_dir());
                 info!("session manager configured for spawn_session");
             }
             let session_manager = Arc::new(session_manager);
@@ -635,6 +636,52 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     }
                 }
             }
+            // ── Auto-index code graphs on startup ──
+            // Trigger incremental indexing for each configured project repo
+            // in a background task so it doesn't block daemon startup.
+            {
+                let graph_dir = config.data_dir().join("codegraph");
+                let _ = std::fs::create_dir_all(&graph_dir);
+                for project_cfg in &config.agent_spawns {
+                    let repo_path = config.resolve_repo(&project_cfg.repo);
+                    let db_path = graph_dir.join(format!("{}.db", project_cfg.name));
+                    let project_name = project_cfg.name.clone();
+                    tokio::spawn(async move {
+                        match tokio::task::spawn_blocking(move || {
+                            let store = aeqi_graph::GraphStore::open(&db_path)?;
+                            let indexer = aeqi_graph::Indexer::new();
+                            indexer.index_incremental(&repo_path, &store)
+                        })
+                        .await
+                        {
+                            Ok(Ok(result)) => {
+                                info!(
+                                    project = %project_name,
+                                    files = result.files_parsed,
+                                    nodes = result.nodes,
+                                    edges = result.edges,
+                                    "code graph auto-indexed on startup"
+                                );
+                            }
+                            Ok(Err(e)) => {
+                                warn!(
+                                    project = %project_name,
+                                    error = %e,
+                                    "code graph auto-index failed"
+                                );
+                            }
+                            Err(e) => {
+                                warn!(
+                                    project = %project_name,
+                                    error = %e,
+                                    "code graph auto-index task panicked"
+                                );
+                            }
+                        }
+                    });
+                }
+            }
+
             daemon.run().await?;
         }
 

@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
@@ -43,6 +44,16 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
   const resolvedAgentId = agent?.id || agentId;
 
+  // Save feedback toast
+  const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const showToast = useCallback((message: string, isError = false) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, isError });
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
   return (
     <>
       {/* Breadcrumb header */}
@@ -84,6 +95,22 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
       {activeTab === "settings" && (
         <div className="agent-page-settings">
+          {/* Save feedback toast */}
+          {toast && (
+            <div
+              style={{
+                padding: "8px 16px",
+                marginBottom: 12,
+                borderRadius: 6,
+                fontSize: 13,
+                background: toast.isError ? "var(--error, #dc2626)" : "var(--success, #16a34a)",
+                color: "#fff",
+              }}
+            >
+              {toast.message}
+            </div>
+          )}
+
           {/* Model */}
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Model</h3>
@@ -97,7 +124,15 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                   placeholder="e.g. deepseek/deepseek-v3.2"
                   onBlur={async (e) => {
                     const val = e.target.value.trim();
-                    await api.setAgentModel(resolvedAgentId, val);
+                    try {
+                      await api.setAgentModel(resolvedAgentId, val);
+                      showToast("Model saved");
+                    } catch (err) {
+                      showToast(
+                        `Error: ${err instanceof Error ? err.message : "Failed to save model"}`,
+                        true,
+                      );
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") (e.target as HTMLInputElement).blur();
@@ -111,6 +146,8 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Tools</h3>
             <div className="agent-tools-grid">
+              {/* Known AEQI tools -- these match the daemon's tool registry in
+                 daemon/src/tools/. Update this list when new tools are added. */}
               {[
                 "shell",
                 "read_file",
@@ -137,7 +174,15 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                         const next = e.target.checked
                           ? current.filter((t) => t !== tool)
                           : [...current, tool];
-                        await api.setAgentTools(resolvedAgentId, next);
+                        try {
+                          await api.setAgentTools(resolvedAgentId, next);
+                          showToast("Tools saved");
+                        } catch (err) {
+                          showToast(
+                            `Error: ${err instanceof Error ? err.message : "Failed to save tools"}`,
+                            true,
+                          );
+                        }
                       }}
                     />
                     <span className="agent-tool-name">{tool}</span>

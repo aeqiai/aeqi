@@ -897,7 +897,18 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
 
                     // ── Code (graph intelligence) ──────────────────
                     "code" => {
-                        let project = args.get("project").and_then(|v| v.as_str()).unwrap_or("");
+                        let project_arg =
+                            args.get("project").and_then(|v| v.as_str()).unwrap_or("");
+                        // Default to first configured project when not specified.
+                        let project = if project_arg.is_empty() {
+                            config
+                                .agent_spawns
+                                .first()
+                                .map(|c| c.name.as_str())
+                                .unwrap_or("code")
+                        } else {
+                            project_arg
+                        };
                         let action = args
                             .get("action")
                             .and_then(|v| v.as_str())

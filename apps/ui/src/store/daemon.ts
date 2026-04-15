@@ -67,7 +67,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     try {
       const data = await api.getCost();
       set({ cost: data });
-    } catch {}
+    } catch {
+      // silently ignore fetch failures
+    }
   },
 
   fetchAgents: async () => {
@@ -75,7 +77,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       const data = await api.getAgents();
       const raw = data?.agents || data?.registry || [];
       set({ agents: Array.isArray(raw) ? (raw as Agent[]) : [] });
-    } catch {}
+    } catch {
+      // silently ignore fetch failures
+    }
   },
 
   fetchQuests: async () => {
@@ -83,7 +87,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       const data = await api.getTasks({});
       const raw = data?.tasks || [];
       set({ quests: Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [] });
-    } catch {}
+    } catch {
+      // silently ignore fetch failures
+    }
   },
 
   fetchEvents: async () => {
@@ -91,7 +97,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       const data = await api.getActivityStream({ last: 30 });
       const raw = data?.entries || data?.activity || [];
       set({ events: Array.isArray(raw) ? (raw as ActivityEntry[]) : [] });
-    } catch {}
+    } catch {
+      // silently ignore fetch failures
+    }
   },
 
   fetchAll: async () => {

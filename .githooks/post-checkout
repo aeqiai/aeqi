@@ -1,0 +1,13 @@
+#!/bin/bash
+# Auto-reindex code graph on branch switch / worktree creation.
+# Only runs on branch checkout (not file checkout).
+# $3 = 1 for branch checkout, 0 for file checkout.
+
+[ "$3" = "1" ] || exit 0
+
+AEQI_BIN="${AEQI_BIN:-/home/claudedev/aeqi/target/release/aeqi}"
+AEQI_CONFIG="${AEQI_CONFIG:-/var/lib/aeqi/hosts/luca-eich/aeqi.toml}"
+
+[ -x "$AEQI_BIN" ] || exit 0
+
+AEQI_CONFIG="$AEQI_CONFIG" "$AEQI_BIN" code incremental --project luca-eich &>/dev/null &

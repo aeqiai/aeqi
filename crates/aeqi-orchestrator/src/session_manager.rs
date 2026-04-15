@@ -274,6 +274,8 @@ pub struct SessionManager {
     prompt_loader: Option<Arc<PromptLoader>>,
     /// Event handler store for event-driven idea assembly.
     event_store: Option<Arc<EventHandlerStore>>,
+    /// Data directory for graph DB fallback.
+    data_dir: Option<PathBuf>,
 }
 
 impl SessionManager {
@@ -292,6 +294,7 @@ impl SessionManager {
             sandbox_config: None,
             prompt_loader: None,
             event_store: None,
+            data_dir: None,
         }
     }
 
@@ -341,6 +344,11 @@ impl SessionManager {
     /// Set the event handler store for event-driven idea assembly.
     pub fn set_event_store(&mut self, store: Arc<EventHandlerStore>) {
         self.event_store = Some(store);
+    }
+
+    /// Set the data directory for graph DB fallback.
+    pub fn set_data_dir(&mut self, dir: PathBuf) {
+        self.data_dir = Some(dir);
     }
 
     /// Spawn a new agent session — the universal executor.
@@ -560,18 +568,27 @@ impl SessionManager {
         let memory_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
 
         // Resolve graph DB path.
-        let graph_project = if self.default_project.is_empty() {
-            None
-        } else {
-            Some(self.default_project.as_str())
+        // Prefer data_dir/codegraph/{project}.db when a project is set,
+        // fall back to data_dir/codegraph/code.db, then $HOME/.aeqi/codegraph/.
+        let graph_db_path = {
+            let base_dir = self
+                .data_dir
+                .clone()
+                .or_else(|| {
+                    std::env::var("HOME")
+                        .ok()
+                        .map(|h| PathBuf::from(h).join(".aeqi"))
+                })
+                .unwrap_or_else(|| PathBuf::from("/tmp"));
+            let graph_dir = base_dir.join("codegraph");
+            let _ = std::fs::create_dir_all(&graph_dir);
+            let path = if self.default_project.is_empty() {
+                graph_dir.join("code.db")
+            } else {
+                graph_dir.join(format!("{}.db", self.default_project))
+            };
+            Some(path)
         };
-        let graph_db_path = graph_project.and_then(|c| {
-            let data_dir = std::env::var("HOME")
-                .map(|h| PathBuf::from(h).join(".aeqi"))
-                .unwrap_or_else(|_| PathBuf::from("/tmp"));
-            let path = data_dir.join("codegraph").join(format!("{c}.db"));
-            path.exists().then_some(path)
-        });
 
         // Determine session_id placeholder for delegate tool wiring (filled in after DB create).
         let is_interactive = !opts.auto_close;

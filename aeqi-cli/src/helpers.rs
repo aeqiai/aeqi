@@ -315,11 +315,17 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
         .providers
         .openrouter
         .as_ref()
-        .and_then(|or| or.embedding_model.clone());
+        .and_then(|or| or.embedding_model.clone())
+        .or_else(|| {
+            // Default to a cheap, high-quality model when OpenRouter is configured
+            // but no explicit embedding_model is set.
+            api_key
+                .as_ref()
+                .map(|_| "openai/text-embedding-3-small".to_string())
+        });
 
-    let has_key = api_key.is_some();
     if let (Some(key), Some(model)) = (api_key, embedding_model) {
-        tracing::info!(model = %model, "idea embedder initialized");
+        tracing::info!(model = %model, "idea vector search enabled");
         let embedder = Arc::new(OpenRouterEmbedder::new(
             key,
             model,
@@ -333,11 +339,7 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
             config.ideas.mmr_lambda,
         )
     } else {
-        if !has_key {
-            tracing::warn!("idea store initialized WITHOUT embeddings (no API key)");
-        } else {
-            tracing::warn!("memory initialized WITHOUT embeddings (no embedding model configured)");
-        }
+        tracing::info!("idea vector search disabled (no API key); using keyword search only");
         Ok(mem)
     }
 }

@@ -43,7 +43,9 @@ export function useDaemonSocket() {
           if (msg.event === "agent_update") {
             fetchAgents();
           }
-        } catch {}
+        } catch {
+          // ignore malformed messages
+        }
       };
 
       ws.onclose = () => {

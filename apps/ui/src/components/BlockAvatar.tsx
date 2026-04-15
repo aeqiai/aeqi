@@ -4,7 +4,7 @@ export default function BlockAvatar({ name, size = 22 }: { name: string; size?: 
   for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
 
   const cells: boolean[] = [];
-  let h = Math.abs(hash);
+  const h = Math.abs(hash);
   for (let i = 0; i < 15; i++) {
     cells.push((h >> i) & 1 ? true : false);
   }
