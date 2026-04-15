@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# Production deploy — build runtime + UI + platform, restart all services.
+# Production deploy — build runtime + UI + platform, restart services.
 #
 # Architecture:
-#   aeqi-runtime.service  — agent orchestration daemon (port 8400)
-#   aeqi-platform.service — SaaS control plane (port 8443, serves UI)
-#   aeqi-host-*.service   — per-tenant host runtimes (transient systemd-run units)
+#   aeqi-platform.service — SaaS control plane (port 8443, serves UI + API)
+#   aeqi-host-*.service   — per-tenant host runtimes (transient systemd-run units,
+#                           auto-respawned by the platform on demand)
+#
+# The platform manages host lifecycle. On deploy we:
+#   1. Build the runtime binary + UI dist
+#   2. Stage them into the platform directory
+#   3. Stop host services (they use the staged binary)
+#   4. Restart the platform (which re-spawns hosts on demand)
 #
 # Usage:
 #   ./scripts/deploy.sh              # full deploy
-#   ./scripts/deploy.sh --runtime    # runtime only (skip platform)
+#   ./scripts/deploy.sh --runtime    # runtime only (skip platform rebuild)
 #   ./scripts/deploy.sh --platform   # platform only (skip runtime build)
 #   ./scripts/deploy.sh --no-restart # build only, don't restart services
 
@@ -19,7 +25,7 @@ PLATFORM_ROOT="/home/claudedev/aeqi-platform"
 cd "$AEQI_ROOT"
 
 # Guard: only run on production.
-if [ ! -f /etc/systemd/system/aeqi-runtime.service ] && [ ! -f "$HOME/.aeqi-production" ]; then
+if [ ! -f /etc/systemd/system/aeqi-platform.service ] && [ ! -f "$HOME/.aeqi-production" ]; then
     echo "[deploy] Not a production server, skipping."
     exit 0
 fi
@@ -56,8 +62,7 @@ if $BUILD_RUNTIME; then
     step "Building aeqi runtime binary..."
     cargo build --release -p aeqi 2>&1 | tail -3
 
-    # Stage binary for platform (tenant sandboxes/hosts use this copy).
-    # Requires sudo if platform binary is owned by root.
+    # Stage binary for platform (tenant hosts use this copy).
     if [ -d "$PLATFORM_ROOT/runtime/bin" ]; then
         sudo cp "$AEQI_ROOT/target/release/aeqi" "$PLATFORM_ROOT/runtime/bin/aeqi"
         echo "  -> staged binary to $PLATFORM_ROOT/runtime/bin/aeqi"
@@ -86,39 +91,42 @@ if ! $SKIP_RESTART; then
         sudo systemctl stop "$unit" 2>/dev/null || true
     done
 
-    # Restart core services.
-    sudo systemctl restart aeqi-runtime.service
-    echo "  -> aeqi-runtime restarted"
+    # Clean stale PID/socket files so hosts can restart cleanly.
+    for pidfile in /var/lib/aeqi/hosts/*/rm.pid; do
+        [ -f "$pidfile" ] || continue
+        pid=$(cat "$pidfile" 2>/dev/null)
+        if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$pidfile" "${pidfile%.pid}.sock"
+            echo "  -> cleaned stale PID file: $pidfile"
+        fi
+    done
 
-    if $BUILD_PLATFORM; then
-        sudo systemctl restart aeqi-platform.service
-        echo "  -> aeqi-platform restarted"
-    fi
+    # Restart the platform (it will re-spawn hosts on demand).
+    sudo systemctl restart aeqi-platform.service
+    echo "  -> aeqi-platform restarted"
 
     # Wait for health.
-    sleep 2
+    sleep 3
 
-    # Verify.
-    RUNTIME_STATUS=$(systemctl is-active aeqi-runtime 2>/dev/null || echo "failed")
+    # Verify platform.
     PLATFORM_STATUS=$(systemctl is-active aeqi-platform 2>/dev/null || echo "failed")
-
-    RUNTIME_HEALTH=$(curl -sf http://127.0.0.1:8400/api/health 2>/dev/null || echo '{"ok":false}')
     PLATFORM_HEALTH=$(curl -sf https://app.aeqi.ai/api/health 2>/dev/null || echo '{"ok":false}')
 
     echo ""
     echo "Status:"
-    echo "  runtime:  $RUNTIME_STATUS  $RUNTIME_HEALTH"
     echo "  platform: $PLATFORM_STATUS  $PLATFORM_HEALTH"
 
-    # Host runtimes will auto-restart on next request via the platform's
-    # proxy auto-respawn logic. No manual restart needed.
+    # Wait for host to come back (platform respawns on first request).
+    sleep 2
+    HOST_STATUS=$(systemctl is-active aeqi-host-luca-eich 2>/dev/null || echo "not yet")
+    echo "  host:     $HOST_STATUS"
 
-    if [[ "$RUNTIME_STATUS" == "active" && "$PLATFORM_STATUS" == "active" ]]; then
+    if [[ "$PLATFORM_STATUS" == "active" ]]; then
         echo ""
         echo "Deploy successful."
     else
         echo ""
-        echo "WARNING: One or more services failed!"
+        echo "FAILED: platform did not start!"
         exit 1
     fi
 fi
