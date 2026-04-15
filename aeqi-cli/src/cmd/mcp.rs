@@ -145,12 +145,7 @@ fn validate_api_key(
 }
 
 pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
-    let (config, config_file) = load_config(config_path)?;
-    let _base_dir = config_file
-        .parent()
-        .and_then(|p| p.parent())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let (config, ..) = load_config(config_path)?;
 
     // Resolve agent identity: AEQI_AGENT scopes all operations to a specific agent.
     let agent_name = std::env::var("AEQI_AGENT").ok();
