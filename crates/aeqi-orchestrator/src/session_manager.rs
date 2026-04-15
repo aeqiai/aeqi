@@ -71,6 +71,10 @@ impl RunningSession {
                     ChatStreamEvent::TextDelta { text: delta } => {
                         text.push_str(&delta);
                     }
+                    ChatStreamEvent::Tombstone { .. } => {
+                        // Discard partial text from a failed streaming attempt.
+                        text.clear();
+                    }
                     ChatStreamEvent::Complete {
                         total_prompt_tokens,
                         total_completion_tokens,
@@ -593,7 +597,7 @@ impl SessionManager {
         // Determine session_id placeholder for delegate tool wiring (filled in after DB create).
         let is_interactive = !opts.auto_close;
 
-        // Build orchestration tools (delegate, memory, notes, graph, etc.)
+        // Build orchestration tools (agents, quests, events, code, ideas)
         {
             let orch_tools = crate::tools::build_orchestration_tools(
                 agent_name.clone(),

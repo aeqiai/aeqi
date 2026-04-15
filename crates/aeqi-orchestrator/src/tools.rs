@@ -417,7 +417,8 @@ impl Tool for AgentsTool {
             "list" => self.action_list(&args).await,
             "self" => self.action_self(&args).await,
             other => Ok(ToolResult::error(format!(
-                "Unknown action: {other}. Use: hire, retire, list, self"
+                "Unknown action: {other}. Use: hire, retire, list, self. \
+                 To delegate work, use quests(action='create', agent='target-name')."
             ))),
         }
     }
@@ -425,7 +426,10 @@ impl Tool for AgentsTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "agents".to_string(),
-            description: "Manage agents: hire from template, retire, list, or introspect self."
+            description: "Manage agents in the agent tree. \
+                Actions: hire (spawn from template), retire (deactivate), \
+                list (show agents), self (introspect). \
+                To delegate work, use quests(action='create')."
                 .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -433,7 +437,7 @@ impl Tool for AgentsTool {
                     "action": {
                         "type": "string",
                         "enum": ["hire", "retire", "list", "self"],
-                        "description": "hire: spawn agent from template (needs template). retire: deactivate agent (needs agent). list: show agents (optional status). self: introspect own identity/tree/quests/events (optional detail)."
+                        "description": "hire: spawn agent from template. retire: deactivate agent. list: show agents. self: introspect."
                     },
                     "template": {
                         "type": "string",
@@ -456,6 +460,18 @@ impl Tool for AgentsTool {
                         "type": "string",
                         "enum": ["identity", "tree", "quests", "events", "all"],
                         "description": "Which section to return (for self, default: all)"
+                    },
+                    "to": {
+                        "type": "string",
+                        "description": "Target for delegation: 'subagent' for ephemeral child session, or an agent name to create a quest (for delegate)"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "The task or message to delegate (for delegate)"
+                    },
+                    "skill": {
+                        "type": "string",
+                        "description": "Optional skill hint for the delegated agent (for delegate)"
                     }
                 },
                 "required": ["action"]
@@ -644,6 +660,8 @@ pub struct QuestsTool {
     agent_registry: Arc<AgentRegistry>,
     agent_name: String,
     activity_log: Arc<ActivityLog>,
+    /// Session ID of the calling agent, propagated as creator_session_id.
+    session_id: Option<String>,
 }
 
 impl QuestsTool {
@@ -656,7 +674,15 @@ impl QuestsTool {
             agent_registry,
             agent_name,
             activity_log,
+            session_id: None,
         }
+    }
+
+    /// Set the session ID of the calling session. Used to propagate
+    /// creator_session_id in quest_created events.
+    pub fn with_session_id(mut self, id: Option<String>) -> Self {
+        self.session_id = id;
+        self
     }
 
     async fn action_create(&self, args: &serde_json::Value) -> Result<ToolResult> {
@@ -712,14 +738,19 @@ impl QuestsTool {
         let quest_id = quest.id.0.clone();
 
         // Broadcast quest_created so the scheduler wakes up immediately.
+        // Include creator_session_id so the scheduler can route completion
+        // notifications back to the originating session.
         let _ = self
             .activity_log
             .emit(
                 "quest_created",
                 Some(&agent.id),
-                None,
+                self.session_id.as_deref(),
                 Some(&quest_id),
-                &serde_json::json!({"subject": subject}),
+                &serde_json::json!({
+                    "subject": subject,
+                    "creator_session_id": self.session_id,
+                }),
             )
             .await;
 
@@ -1396,6 +1427,14 @@ impl Tool for SandboxedShellTool {
     fn name(&self) -> &str {
         "shell"
     }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+
+    fn cascades_error_to_siblings(&self) -> bool {
+        true
+    }
 }
 
 // ===================================================================
@@ -1644,7 +1683,7 @@ impl Tool for CodeTool {
 }
 
 // ===================================================================
-// build_orchestration_tools — creates the 4 consolidated tools
+// build_orchestration_tools — creates the consolidated orchestration tools
 // ===================================================================
 
 pub fn build_orchestration_tools(

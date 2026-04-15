@@ -772,43 +772,62 @@ impl Scheduler {
                 )
                 .await;
 
-            // Session resolution: notify creator session of task completion.
-            if let Some(ref sm) = session_manager
-                && let Ok(events) = spawn_activity_log
-                    .query(
-                        &EventFilter {
-                            event_type: Some("quest_created".to_string()),
-                            quest_id: Some(quest_id.clone()),
-                            ..Default::default()
-                        },
-                        1,
-                        0,
-                    )
-                    .await
+            // Session resolution: notify creator session and emit quest_result event.
+            if let Ok(events) = spawn_activity_log
+                .query(
+                    &EventFilter {
+                        event_type: Some("quest_created".to_string()),
+                        quest_id: Some(quest_id.clone()),
+                        ..Default::default()
+                    },
+                    1,
+                    0,
+                )
+                .await
                 && let Some(creation_event) = events.first()
                 && let Some(creator_session_id) = creation_event
                     .content
                     .get("creator_session_id")
                     .and_then(|v| v.as_str())
             {
-                if sm.is_running(creator_session_id).await {
-                    let result_text = format!(
-                        "Quest {} completed ({}): {}",
-                        quest_id, outcome_status, agent_name,
-                    );
-                    // Fire-and-forget: inject result into creator session.
-                    let _ = sm.send_streaming(creator_session_id, &result_text).await;
-                    debug!(
-                        task = %quest_id,
-                        creator_session = %creator_session_id,
-                        "session resolution: notified creator session"
-                    );
-                } else {
-                    debug!(
-                        task = %quest_id,
-                        creator_session = %creator_session_id,
-                        "session resolution: creator session gone, cascade handles it"
-                    );
+                // Emit quest_result event — fires session:quest_result event handlers.
+                let _ = spawn_activity_log
+                    .emit(
+                        "quest_result",
+                        Some(&agent_id_clone),
+                        Some(creator_session_id),
+                        Some(&quest_id),
+                        &serde_json::json!({
+                            "quest_id": quest_id,
+                            "agent_name": agent_name,
+                            "outcome": outcome_status,
+                            "cost_usd": cost_usd,
+                            "steps": steps,
+                            "creator_session_id": creator_session_id,
+                        }),
+                    )
+                    .await;
+
+                // Inject result text into creator session if still running.
+                if let Some(ref sm) = session_manager {
+                    if sm.is_running(creator_session_id).await {
+                        let result_text = format!(
+                            "Quest {} completed ({}): {}",
+                            quest_id, outcome_status, agent_name,
+                        );
+                        let _ = sm.send_streaming(creator_session_id, &result_text).await;
+                        debug!(
+                            task = %quest_id,
+                            creator_session = %creator_session_id,
+                            "quest_result: notified creator session"
+                        );
+                    } else {
+                        debug!(
+                            task = %quest_id,
+                            creator_session = %creator_session_id,
+                            "quest_result: creator session gone, event emitted for later retrieval"
+                        );
+                    }
                 }
             }
 

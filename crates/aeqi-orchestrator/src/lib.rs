@@ -14,7 +14,6 @@ pub mod checkpoint;
 pub mod claude_code;
 pub mod context_budget;
 pub mod daemon;
-pub mod delegate;
 pub mod escalation;
 pub mod event_handler;
 pub mod event_matcher;

@@ -146,7 +146,7 @@ fn validate_api_key(
 
 pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     let (config, config_file) = load_config(config_path)?;
-    let base_dir = config_file
+    let _base_dir = config_file
         .parent()
         .and_then(|p| p.parent())
         .map(PathBuf::from)
@@ -240,15 +240,13 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["get", "hire", "retire", "list", "projects", "delegate"],
-                        "description": "get: full agent profile with assembled ideas (needs agent). hire: spawn from template. retire: deactivate. list: show agents. projects: list configured projects. delegate: assemble subagent prompt."
+                        "enum": ["get", "hire", "retire", "list", "projects"],
+                        "description": "get: full agent profile with assembled ideas (needs agent). hire: spawn from template. retire: deactivate. list: show agents. projects: list configured projects. To delegate work, use quests(action='create', agent='target-name')."
                     },
                     "project": {"type": "string", "description": "Project name"},
                     "template": {"type": "string", "description": "Template name, e.g. 'shadow', 'analyst' (for hire)"},
-                    "agent": {"type": "string", "description": "Agent name or ID (for retire, delegate)"},
+                    "agent": {"type": "string", "description": "Agent name or ID (for get, retire)"},
                     "status": {"type": "string", "enum": ["active", "paused", "retired", "all"], "description": "Filter by status (for list, default: active)"},
-                    "quest_id": {"type": "string", "description": "Quest ID for context (for delegate)"},
-                    "prompt": {"type": "string", "description": "Additional instructions (for delegate)"}
                 },
                 "required": ["action"]
             }),
@@ -660,129 +658,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .collect();
                                 Ok(serde_json::json!({"ok": true, "projects": projects}))
                             }
-                            "delegate" => {
-                                let agent_name =
-                                    args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
-                                let project =
-                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
-                                let quest_id =
-                                    args.get("quest_id").and_then(|v| v.as_str()).unwrap_or("");
-                                let extra_prompt =
-                                    args.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
-
-                                // 1. Load agent template — try DB ideas via IPC first, fall back to .md files
-                                let agent_template = {
-                                    let mut found = String::new();
-
-                                    if let Ok(resp) = ipc_request_sync(
-                                        &sock_path,
-                                        &serde_json::json!({
-                                            "cmd": "agent_info",
-                                            "name": agent_name,
-                                        }),
-                                    ) && resp
-                                        .get("ok")
-                                        .and_then(|v| v.as_bool())
-                                        .unwrap_or(false)
-                                    {
-                                        // Extract system prompt from ideas array
-                                        if let Some(ideas) =
-                                            resp.get("ideas").and_then(|v| v.as_array())
-                                            && let Some(first) = ideas.first()
-                                            && let Some(content) =
-                                                first.get("content").and_then(|v| v.as_str())
-                                            && !content.is_empty()
-                                        {
-                                            found = content.to_string();
-                                        }
-                                    }
-
-                                    if found.is_empty() {
-                                        for dir in &[
-                                            base_dir.join("projects").join(project).join("agents"),
-                                            base_dir.join("projects/shared/agents"),
-                                        ] {
-                                            let path = dir.join(format!("{agent_name}.md"));
-                                            if path.exists()
-                                                && let Ok(content) = std::fs::read_to_string(&path)
-                                            {
-                                                found = content;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if found.is_empty() {
-                                        return Err(anyhow::anyhow!(
-                                            "agent '{agent_name}' not found"
-                                        ));
-                                    }
-                                    found
-                                };
-
-                                // 2. Gather quest context via ideas search
-                                let mut bb_context = String::new();
-                                if !quest_id.is_empty() {
-                                    let ipc = serde_json::json!({
-                                        "cmd": "ideas",
-                                        "project": project,
-                                        "query": format!("quest {quest_id}"),
-                                        "limit": 5,
-                                    });
-                                    if let Ok(resp) = ipc_request_sync(&sock_path, &ipc)
-                                        && let Some(ideas) =
-                                            resp.get("ideas").and_then(|e| e.as_array())
-                                    {
-                                        for idea in ideas {
-                                            let key = idea
-                                                .get("key")
-                                                .and_then(|k| k.as_str())
-                                                .unwrap_or("");
-                                            let content = idea
-                                                .get("content")
-                                                .and_then(|c| c.as_str())
-                                                .unwrap_or("");
-                                            if !content.is_empty() {
-                                                bb_context
-                                                    .push_str(&format!("\n## {key}\n{content}\n"));
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 3. Assemble the delegation prompt
-                                let mut prompt = String::new();
-                                prompt.push_str(&agent_template);
-                                prompt.push_str("\n\n---\n\n");
-                                prompt.push_str(&format!(
-                                    "# Delegation Context\n\nProject: {project}\n"
-                                ));
-                                if !quest_id.is_empty() {
-                                    prompt.push_str(&format!("Quest: {quest_id}\n"));
-                                }
-                                if !bb_context.is_empty() {
-                                    prompt.push_str(&format!("\n# Notes Context\n{bb_context}\n"));
-                                }
-                                if !extra_prompt.is_empty() {
-                                    prompt.push_str(&format!("\n# Instructions\n{extra_prompt}\n"));
-                                }
-                                prompt.push_str(&format!(
-                                    "\nWhen done, store your findings as ideas:\n\
-                                     ideas(action='store', project='{project}', key='quest:{quest_id}:{agent_name}', content='<your findings>')\n\
-                                     Then close the quest: quests(action='close', project='{project}', quest_id='{quest_id}', result='<summary>')\n"
-                                ));
-
-                                Ok(serde_json::json!({
-                                    "ok": true,
-                                    "agent": agent_name,
-                                    "project": project,
-                                    "quest_id": quest_id,
-                                    "prompt": prompt,
-                                    "usage": "Pass the 'prompt' field to a Claude Code Agent subagent."
-                                }))
-                            }
                             _ => Err(anyhow::anyhow!(
-                                "unknown agents action: {action}. Use: get, hire, retire, list, projects, delegate"
+                                "unknown agents action: {action}. Use: get, hire, retire, list, projects. \
+                                 To delegate work, use quests(action='create', agent='target-name')."
                             )),
                         }
                     }
