@@ -148,6 +148,29 @@ impl GatewayManager {
         info!(session_id = %session_id, gateway_id = %gw_id, gateway_type = %gw_type, "gateway registered");
     }
 
+    /// Ensure a dispatcher is running for a session (for recording).
+    /// Does NOT register a gateway — just starts the dispatch loop if not already running.
+    pub async fn ensure_dispatcher(&self, session_id: &str, stream_sender: &ChatStreamSender) {
+        let mut dispatchers = self.dispatchers.lock().await;
+        if dispatchers.contains_key(session_id) {
+            return;
+        }
+
+        let regs = self.registrations.lock().await;
+        let gateways = Arc::new(Mutex::new(
+            regs.get(session_id).cloned().unwrap_or_default(),
+        ));
+        drop(regs);
+
+        let rx = stream_sender.subscribe();
+        let sid = session_id.to_string();
+        let ss = self.session_store.clone();
+        let handle = tokio::spawn(async move {
+            dispatch_loop(sid, rx, gateways, ss).await;
+        });
+        dispatchers.insert(session_id.to_string(), handle);
+    }
+
     /// Unregister a gateway from a session.
     pub async fn unregister(&self, session_id: &str, gateway_id: &str) {
         let mut regs = self.registrations.lock().await;

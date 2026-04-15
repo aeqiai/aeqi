@@ -1547,6 +1547,17 @@ impl Daemon {
                                 None
                             };
 
+                            // Ensure GatewayManager dispatcher is running for recording.
+                            // This guarantees responses are recorded even if the WebSocket disconnects.
+                            if let Some(stream_sender) = session_manager
+                                .get_stream_sender(&resolved_session_id)
+                                .await
+                            {
+                                gateway_manager
+                                    .ensure_dispatcher(&resolved_session_id, &stream_sender)
+                                    .await;
+                            }
+
                             if stream_mode {
                                 match session_manager
                                     .send_streaming_with_ideas(
@@ -1832,10 +1843,12 @@ impl Daemon {
                                 Ok(spawned) => {
                                     let session_id = spawned.session_id.clone();
 
-                                    // Activate persistent gateways (e.g. Telegram) so
-                                    // web-originated responses also deliver there.
+                                    // Activate persistent gateways + ensure dispatcher for recording.
                                     gateway_manager
                                         .activate_persistent(&session_id, &spawned.stream_sender)
+                                        .await;
+                                    gateway_manager
+                                        .ensure_dispatcher(&session_id, &spawned.stream_sender)
                                         .await;
 
                                     let mut rx = spawned.stream_sender.subscribe();
