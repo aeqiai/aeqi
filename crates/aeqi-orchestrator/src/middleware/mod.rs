@@ -17,6 +17,7 @@ pub mod guardrails;
 pub mod idea_refresh;
 pub mod loop_detection;
 pub mod safety_net;
+pub mod shell_hooks;
 #[cfg(test)]
 pub mod test_helpers;
 
@@ -29,6 +30,7 @@ pub use guardrails::GuardrailsMiddleware;
 pub use idea_refresh::IdeaRefreshMiddleware;
 pub use loop_detection::LoopDetectionMiddleware;
 pub use safety_net::SafetyNetMiddleware;
+pub use shell_hooks::ShellHookMiddleware;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -57,6 +59,8 @@ pub const ORDER_LOOP_DETECTION: u32 = 500;
 pub const ORDER_COST_TRACKING: u32 = 600;
 /// Idea refresh: periodic idea re-search during long executions.
 pub const ORDER_IDEA_REFRESH: u32 = 700;
+/// Shell hooks: user-configurable post-step validation via shell commands.
+pub const ORDER_SHELL_HOOKS: u32 = 750;
 /// Safety net: preserve partial work on failure (runs late).
 pub const ORDER_SAFETY_NET: u32 = 900;
 

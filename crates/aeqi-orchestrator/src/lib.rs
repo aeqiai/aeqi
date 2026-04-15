@@ -64,7 +64,7 @@ pub use runtime::{
     Artifact, ArtifactKind, Run, RunStatus, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus,
     RuntimePhase, RuntimeSession, RuntimeSessionStatus,
 };
-pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig};
+pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig, prune_stale_worktrees};
 pub use schedule_timer::ScheduleTimer;
 pub use scheduler::{Scheduler, SchedulerConfig};
 pub use session_manager::SessionManager;

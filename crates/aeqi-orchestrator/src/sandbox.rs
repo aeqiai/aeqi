@@ -95,7 +95,11 @@ pub enum FinalizeAction {
 }
 
 impl QuestSandbox {
-    /// Create a new sandbox: creates a git worktree on a detached branch.
+    /// Create a new sandbox: creates a git worktree on a dedicated branch.
+    ///
+    /// Handles the case where the branch already exists (e.g., quest retry after
+    /// a previous run that committed but didn't clean up). If the branch exists,
+    /// we reuse it instead of creating a new one.
     pub async fn create(quest_id: &str, config: &SandboxConfig) -> Result<Self> {
         let branch_name = format!("quest/{quest_id}");
         let worktree_path = config.worktree_base.join(quest_id);
@@ -110,7 +114,34 @@ impl QuestSandbox {
                 )
             })?;
 
-        // Create git worktree.
+        // If the worktree directory already exists (stale from a previous run),
+        // remove it first so git worktree add doesn't fail.
+        if worktree_path.exists() {
+            warn!(
+                quest_id,
+                worktree = %worktree_path.display(),
+                "stale worktree directory exists — removing before creation"
+            );
+            let _ = Command::new("git")
+                .args([
+                    "worktree",
+                    "remove",
+                    "--force",
+                    &worktree_path.to_string_lossy(),
+                ])
+                .current_dir(&config.repo_root)
+                .output()
+                .await;
+            // Fallback: manual removal if git worktree remove failed.
+            let _ = tokio::fs::remove_dir_all(&worktree_path).await;
+            let _ = Command::new("git")
+                .args(["worktree", "prune"])
+                .current_dir(&config.repo_root)
+                .output()
+                .await;
+        }
+
+        // Try creating with a new branch first.
         let output = Command::new("git")
             .args([
                 "worktree",
@@ -127,10 +158,48 @@ impl QuestSandbox {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            bail!(
-                "git worktree add failed: {stderr}\nrepo: {}\nbranch: {branch_name}",
-                config.repo_root.display()
-            );
+
+            // If the branch already exists, delete it and retry.
+            // This handles quest retries where the previous branch wasn't cleaned up.
+            if stderr.contains("already exists") {
+                info!(
+                    quest_id,
+                    branch = %branch_name,
+                    "branch already exists — deleting and retrying"
+                );
+                let _ = Command::new("git")
+                    .args(["branch", "-D", &branch_name])
+                    .current_dir(&config.repo_root)
+                    .output()
+                    .await;
+
+                let retry = Command::new("git")
+                    .args([
+                        "worktree",
+                        "add",
+                        "-b",
+                        &branch_name,
+                        &worktree_path.to_string_lossy(),
+                        &config.base_ref,
+                    ])
+                    .current_dir(&config.repo_root)
+                    .output()
+                    .await
+                    .context("failed to run git worktree add (retry)")?;
+
+                if !retry.status.success() {
+                    let retry_stderr = String::from_utf8_lossy(&retry.stderr);
+                    bail!(
+                        "git worktree add failed after branch cleanup: {retry_stderr}\nrepo: {}\nbranch: {branch_name}",
+                        config.repo_root.display()
+                    );
+                }
+            } else {
+                bail!(
+                    "git worktree add failed: {stderr}\nrepo: {}\nbranch: {branch_name}",
+                    config.repo_root.display()
+                );
+            }
         }
 
         info!(
@@ -611,6 +680,102 @@ impl QuestSandbox {
             .map(|o| o.status.success())
             .unwrap_or(false)
     }
+}
+
+/// Prune worktrees that have no corresponding running quest.
+///
+/// Compares `git worktree list --porcelain` output against a set of active quest IDs.
+/// Any worktree under `worktree_base` whose quest ID is not in `active_quest_ids` is
+/// removed along with its branch.
+pub async fn prune_stale_worktrees(
+    repo_root: &Path,
+    worktree_base: &Path,
+    active_quest_ids: &std::collections::HashSet<String>,
+) -> Result<Vec<String>> {
+    let output = Command::new("git")
+        .args(["worktree", "list", "--porcelain"])
+        .current_dir(repo_root)
+        .output()
+        .await
+        .context("failed to run git worktree list")?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let worktree_base_str = worktree_base.to_string_lossy();
+    let mut pruned = Vec::new();
+
+    // Parse porcelain output: each worktree entry starts with "worktree <path>".
+    for line in stdout.lines() {
+        let Some(wt_path) = line.strip_prefix("worktree ") else {
+            continue;
+        };
+
+        // Only consider worktrees under our managed base directory.
+        if !wt_path.starts_with(worktree_base_str.as_ref()) {
+            continue;
+        }
+
+        // Extract the quest ID from the path (last component).
+        let wt = Path::new(wt_path);
+        let Some(quest_id) = wt.file_name().and_then(|f| f.to_str()) else {
+            continue;
+        };
+
+        // Skip worktrees that have a corresponding active quest.
+        if active_quest_ids.contains(quest_id) {
+            continue;
+        }
+
+        info!(
+            quest_id,
+            worktree = %wt_path,
+            "pruning stale worktree (no active quest)"
+        );
+
+        // Remove the worktree.
+        let rm = Command::new("git")
+            .args(["worktree", "remove", "--force", wt_path])
+            .current_dir(repo_root)
+            .output()
+            .await;
+
+        match rm {
+            Ok(r) if !r.status.success() => {
+                let stderr = String::from_utf8_lossy(&r.stderr);
+                warn!(quest_id, stderr = %stderr, "git worktree remove failed during prune");
+                let _ = tokio::fs::remove_dir_all(wt_path).await;
+            }
+            Err(e) => {
+                warn!(quest_id, error = %e, "failed to prune worktree");
+                let _ = tokio::fs::remove_dir_all(wt_path).await;
+            }
+            Ok(_) => {}
+        }
+
+        // Delete the quest branch.
+        let branch_name = format!("quest/{quest_id}");
+        let _ = Command::new("git")
+            .args(["branch", "-D", &branch_name])
+            .current_dir(repo_root)
+            .output()
+            .await;
+
+        pruned.push(quest_id.to_string());
+    }
+
+    // Final prune pass to clean up any stale worktree entries.
+    if !pruned.is_empty() {
+        let _ = Command::new("git")
+            .args(["worktree", "prune"])
+            .current_dir(repo_root)
+            .output()
+            .await;
+    }
+
+    if !pruned.is_empty() {
+        info!(count = pruned.len(), "stale worktrees pruned");
+    }
+
+    Ok(pruned)
 }
 
 /// Parse insertions/deletions from `git diff --stat` summary line.

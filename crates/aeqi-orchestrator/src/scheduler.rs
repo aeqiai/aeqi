@@ -41,8 +41,9 @@ use crate::metrics::AEQIMetrics;
 use crate::middleware::{
     ClarificationMiddleware, ContextBudgetMiddleware, ContextCompressionMiddleware,
     CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware, IdeaRefreshMiddleware,
-    LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware,
+    LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware, ShellHookMiddleware,
 };
+use crate::sandbox::{QuestSandbox, SandboxConfig};
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
 use aeqi_core::traits::{Channel, IdeaStore, Provider, Tool};
@@ -55,6 +56,9 @@ struct TrackedWorker {
     agent_name: String,
     started_at: Instant,
     timeout_secs: u64,
+    /// The quest sandbox (worktree) for this worker, if any.
+    /// Held here so we can tear down orphaned sandboxes on timeout/abort.
+    sandbox: Option<Arc<QuestSandbox>>,
 }
 
 /// Configuration for the scheduler.
@@ -124,8 +128,14 @@ pub struct Scheduler {
     pub session_manager: Option<Arc<SessionManager>>,
     pub gate_channels: Vec<Arc<dyn Channel>>,
 
+    /// Sandbox configuration for quest worktree isolation.
+    /// When set, each spawned quest gets its own git worktree.
+    pub sandbox_config: Option<SandboxConfig>,
+
     // Runtime state
     running: Mutex<Vec<TrackedWorker>>,
+    /// Last time stale worktrees were pruned.
+    last_prune: Mutex<Instant>,
 
     // Event-driven dispatch channels
     /// Broadcast receiver for ActivityLog events (quest_created, quest_completed, etc.)
@@ -162,7 +172,9 @@ impl Scheduler {
             session_store: None,
             session_manager: None,
             gate_channels: Vec::new(),
+            sandbox_config: None,
             running: Mutex::new(Vec::new()),
+            last_prune: Mutex::new(Instant::now()),
             event_rx: Mutex::new(event_rx),
             completion_tx,
             completion_rx: Mutex::new(completion_rx),
@@ -412,15 +424,20 @@ impl Scheduler {
 
     async fn reap(&self) {
         let mut running = self.running.lock().await;
-        let mut timed_out = Vec::new();
+        let mut timed_out: Vec<(String, String, u64, Option<Arc<QuestSandbox>>)> = Vec::new();
 
-        running.retain(|w| {
+        running.retain_mut(|w| {
             if w.handle.is_finished() {
                 return false;
             }
             if w.started_at.elapsed() > std::time::Duration::from_secs(w.timeout_secs) {
                 w.handle.abort();
-                timed_out.push((w.quest_id.clone(), w.agent_name.clone(), w.timeout_secs));
+                timed_out.push((
+                    w.quest_id.clone(),
+                    w.agent_name.clone(),
+                    w.timeout_secs,
+                    w.sandbox.take(),
+                ));
                 return false;
             }
             true
@@ -428,8 +445,17 @@ impl Scheduler {
         drop(running);
 
         // Handle timed-out workers.
-        for (quest_id, agent_name, timeout) in timed_out {
+        for (quest_id, agent_name, timeout, sandbox) in &timed_out {
             warn!(task = %quest_id, agent = %agent_name, timeout, "worker timed out");
+
+            // Auto-commit any work in progress before tearing down the sandbox.
+            // This preserves partial progress from timed-out quests.
+            if let Some(sb) = sandbox {
+                let _ = sb.auto_commit(0).await;
+                if let Err(e) = sb.teardown().await {
+                    warn!(task = %quest_id, error = %e, "failed to tear down sandbox for timed-out worker");
+                }
+            }
 
             let _ = self
                 .activity_log
@@ -437,7 +463,7 @@ impl Scheduler {
                     "decision",
                     None,
                     None,
-                    Some(&quest_id),
+                    Some(quest_id.as_str()),
                     &serde_json::json!({
                         "decision_type": "WorkerTimedOut",
                         "reasoning": format!("Timed out after {timeout}s"),
@@ -448,7 +474,7 @@ impl Scheduler {
             // Reset task to pending.
             if let Err(e) = self
                 .agent_registry
-                .update_task_status(&quest_id, aeqi_quests::QuestStatus::Pending)
+                .update_task_status(quest_id, aeqi_quests::QuestStatus::Pending)
                 .await
             {
                 warn!(task = %quest_id, error = %e, "failed to reset timed-out task");
@@ -461,12 +487,55 @@ impl Scheduler {
                     "quest_created",
                     None,
                     None,
-                    Some(&quest_id),
+                    Some(quest_id.as_str()),
                     &serde_json::json!({
                         "reason": "worker_timed_out_reset",
                     }),
                 )
                 .await;
+        }
+
+        // Periodically prune stale worktrees (every 5 minutes).
+        if self.sandbox_config.is_some() {
+            let mut last_prune = self.last_prune.lock().await;
+            if last_prune.elapsed() > Duration::from_secs(300) {
+                *last_prune = Instant::now();
+                drop(last_prune);
+                self.prune_stale_worktrees().await;
+            }
+        }
+    }
+
+    /// Prune stale worktrees that have no corresponding running quest.
+    /// Called periodically from the reap/schedule cycle.
+    async fn prune_stale_worktrees(&self) {
+        let Some(ref sandbox_cfg) = self.sandbox_config else {
+            return;
+        };
+
+        // Collect active quest IDs from running workers.
+        let running = self.running.lock().await;
+        let active_ids: HashSet<String> = running.iter().map(|w| w.quest_id.clone()).collect();
+        drop(running);
+
+        // Use running worker IDs as the active set — any worktree not owned
+        // by a running worker is stale and safe to prune.
+        let all_active = active_ids;
+
+        match crate::sandbox::prune_stale_worktrees(
+            &sandbox_cfg.repo_root,
+            &sandbox_cfg.worktree_base,
+            &all_active,
+        )
+        .await
+        {
+            Ok(pruned) if !pruned.is_empty() => {
+                info!(count = pruned.len(), "pruned stale worktrees");
+            }
+            Err(e) => {
+                warn!(error = %e, "failed to prune stale worktrees");
+            }
+            _ => {}
         }
     }
 
@@ -544,12 +613,80 @@ impl Scheduler {
         // Pass assembled prompt string directly to AgentWorker.
         let system_prompt = assembled.full_system_prompt();
 
+        // Create or reuse a quest sandbox (git worktree) for isolation.
+        // Each quest gets its own worktree so parallel quests never conflict.
+        let sandbox: Option<Arc<QuestSandbox>> = if let Some(ref sandbox_cfg) = self.sandbox_config
+        {
+            // Check if quest already has a worktree we can reuse (from a previous attempt).
+            let existing_worktree = task
+                .worktree_path
+                .as_ref()
+                .map(PathBuf::from)
+                .filter(|p| p.exists());
+
+            let sb_result = if let Some(existing_path) = existing_worktree {
+                QuestSandbox::open_existing(
+                    &task.id.0,
+                    existing_path,
+                    sandbox_cfg.repo_root.clone(),
+                    sandbox_cfg.enable_bwrap,
+                )
+            } else {
+                // For child quests, fork from parent quest's branch instead of HEAD.
+                let mut cfg = sandbox_cfg.clone();
+                if let Some(parent_id) = task.id.parent()
+                    && let Ok(Some(parent_quest)) = self.agent_registry.get_task(&parent_id.0).await
+                    && let Some(ref parent_branch) = parent_quest.worktree_branch
+                {
+                    cfg.base_ref = parent_branch.clone();
+                    info!(
+                        quest = %task.id, parent = %parent_id.0,
+                        base = %parent_branch, "forking from parent quest branch"
+                    );
+                }
+                QuestSandbox::create(&task.id.0, &cfg).await
+            };
+
+            match sb_result {
+                Ok(sb) => {
+                    // Save worktree path and branch back to quest record.
+                    let wt_path = sb.worktree_path.to_string_lossy().to_string();
+                    let branch = sb.branch_name.clone();
+                    let _ = self
+                        .agent_registry
+                        .update_task(&task.id.0, |q| {
+                            if q.worktree_path.is_none() {
+                                q.worktree_path = Some(wt_path);
+                                q.worktree_branch = Some(branch);
+                            }
+                        })
+                        .await;
+                    Some(Arc::new(sb))
+                }
+                Err(e) => {
+                    warn!(
+                        task = %task.id,
+                        error = %e,
+                        "failed to create quest sandbox — falling back to unsandboxed"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // Effective working directory: worktree path if sandboxed, otherwise agent workdir.
+        let effective_workdir = sandbox
+            .as_ref()
+            .map(|s| s.worktree_path.clone())
+            .or_else(|| workdir.clone().map(PathBuf::from));
+
         // Build the AgentWorker.
         let mut worker = match execution_mode.as_str() {
             "claude_code" => {
-                let cwd = workdir
+                let cwd = effective_workdir
                     .clone()
-                    .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from("."));
                 let budget = agent
                     .budget_usd
@@ -598,12 +735,10 @@ impl Scheduler {
             worker = worker.with_reflect(provider.clone(), self.config.reflect_model.clone());
         }
 
-        // Inject working directory.
-        if let Some(ref wd) = workdir {
-            worker = worker.with_project_dir(PathBuf::from(wd));
+        // Inject working directory (worktree path when sandboxed).
+        if let Some(ref wd) = effective_workdir {
+            worker = worker.with_project_dir(wd.clone());
         }
-
-        // Prompt is now assembled via assemble_prompts() above.
 
         // Inject tools for persistent agents.
         if let crate::agent_worker::WorkerExecution::Agent { ref mut tools, .. } = worker.execution
@@ -633,7 +768,7 @@ impl Scheduler {
         let budget = agent
             .budget_usd
             .unwrap_or(self.config.worker_max_budget_usd);
-        let chain = MiddlewareChain::new(vec![
+        let mut layers: Vec<Box<dyn crate::middleware::Middleware>> = vec![
             Box::new(LoopDetectionMiddleware::new()),
             Box::new(CostTrackingMiddleware::new(budget)),
             Box::new(ContextBudgetMiddleware::new(200)),
@@ -645,7 +780,17 @@ impl Scheduler {
             Box::new(IdeaRefreshMiddleware::new()),
             Box::new(ClarificationMiddleware::new()),
             Box::new(SafetyNetMiddleware::new()),
-        ]);
+        ];
+
+        // Add shell hook middleware if hook ideas exist for this agent.
+        if let Some(ref store) = self.idea_store {
+            let shell_hooks = ShellHookMiddleware::from_idea_store(store, Some(&agent_id)).await;
+            if shell_hooks.has_hooks() {
+                layers.push(Box::new(shell_hooks));
+            }
+        }
+
+        let chain = MiddlewareChain::new(layers);
         worker.set_middleware(chain);
 
         // Inject event broadcaster.
@@ -706,6 +851,7 @@ impl Scheduler {
         let activity_stream = self.activity_stream.clone();
         let completion_tx = self.completion_tx.clone();
         let session_manager = self.session_manager.clone();
+        let worker_sandbox = sandbox.clone();
 
         let handle = tokio::spawn(async move {
             // Create a run record for this execution.
@@ -843,6 +989,36 @@ impl Scheduler {
                 runtime: None,
             });
 
+            // Sandbox lifecycle: auto-commit work, tear down on terminal outcomes.
+            if let Some(ref sb) = worker_sandbox {
+                // Always auto-commit to snapshot progress.
+                let _ = sb.auto_commit(0).await;
+
+                match outcome_status {
+                    // Quest completed successfully — tear down the worktree.
+                    // The branch can be merged later from the quest record.
+                    "done" | "error" => {
+                        if let Err(e) = sb.teardown().await {
+                            warn!(
+                                task = %quest_id,
+                                error = %e,
+                                "failed to tear down sandbox after completion"
+                            );
+                        }
+                    }
+                    // Blocked/retry — keep the worktree for the next attempt.
+                    // The worktree_path is stored on the quest record so a future
+                    // worker can reattach via open_existing().
+                    _ => {
+                        debug!(
+                            task = %quest_id,
+                            outcome = %outcome_status,
+                            "preserving sandbox for retry/resume"
+                        );
+                    }
+                }
+            }
+
             info!(
                 task = %quest_id,
                 agent = %agent_name,
@@ -871,6 +1047,7 @@ impl Scheduler {
             agent_name: agent.name.clone(),
             started_at: Instant::now(),
             timeout_secs: timeout,
+            sandbox: None,
         });
 
         info!(
