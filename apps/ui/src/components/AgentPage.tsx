@@ -73,6 +73,7 @@ function EventRow({
   onToggleEnabled,
   onDelete,
   onUnlinkIdea,
+  onLinkIdea,
 }: {
   ev: { id: string; name: string; pattern: string; idea_ids: string[]; enabled: boolean; cooldown_secs: number; fire_count: number; last_fired?: string };
   expanded: boolean;
@@ -81,7 +82,10 @@ function EventRow({
   onToggleEnabled: () => void;
   onDelete: (() => void) | null;
   onUnlinkIdea: (ideaId: string) => void;
+  onLinkIdea: (ideaId: string) => void;
 }) {
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
   const prefix = ev.pattern.split(":")[0];
   const typeLabel = prefix === "session" ? "Session" : prefix === "schedule" ? "Schedule" : prefix === "webhook" ? "Webhook" : prefix;
   const patternSuffix = ev.pattern.slice(ev.pattern.indexOf(":") + 1);
@@ -145,9 +149,35 @@ function EventRow({
               ))}
             </div>
           ) : ev.idea_ids.length === 0 ? (
-            <div className="event-ideas-empty">No ideas linked. Click an idea to link it to this event.</div>
+            <div className="event-ideas-empty">No ideas linked.</div>
           ) : (
             <div className="event-ideas-empty">Loading...</div>
+          )}
+          {showLinkInput ? (
+            <div className="event-link-form">
+              <input
+                className="event-link-input"
+                type="text"
+                placeholder="Paste idea ID..."
+                value={linkInput}
+                onChange={(e) => setLinkInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && linkInput.trim()) {
+                    onLinkIdea(linkInput.trim());
+                    setLinkInput("");
+                    setShowLinkInput(false);
+                  }
+                  if (e.key === "Escape") {
+                    setShowLinkInput(false);
+                    setLinkInput("");
+                  }
+                }}
+                autoFocus
+              />
+              <button className="event-link-cancel" onClick={() => { setShowLinkInput(false); setLinkInput(""); }}>Cancel</button>
+            </div>
+          ) : (
+            <button className="event-link-btn" onClick={() => setShowLinkInput(true)}>+ Link Idea</button>
           )}
         </div>
       )}
@@ -388,6 +418,12 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     setEventIdeas((p) => ({ ...p, [ev.id]: (p[ev.id] || []).filter((i) => i.id !== ideaId) }));
                     loadEvents();
                   }}
+                  onLinkIdea={async (ideaId) => {
+                    const newIds = [...ev.idea_ids, ideaId];
+                    await api.updateEvent(ev.id, { idea_ids: newIds });
+                    setEventIdeas((p) => ({ ...p, [ev.id]: undefined as unknown as IdeaPreview[] }));
+                    loadEvents();
+                  }}
                 />
               ))}
 
@@ -418,6 +454,12 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                         const newIds = ev.idea_ids.filter((id) => id !== ideaId);
                         await api.updateEvent(ev.id, { idea_ids: newIds });
                         setEventIdeas((p) => ({ ...p, [ev.id]: (p[ev.id] || []).filter((i) => i.id !== ideaId) }));
+                        loadEvents();
+                      }}
+                      onLinkIdea={async (ideaId) => {
+                        const newIds = [...ev.idea_ids, ideaId];
+                        await api.updateEvent(ev.id, { idea_ids: newIds });
+                        setEventIdeas((p) => ({ ...p, [ev.id]: undefined as unknown as IdeaPreview[] }));
                         loadEvents();
                       }}
                     />
