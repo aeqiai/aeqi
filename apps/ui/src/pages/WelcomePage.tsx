@@ -139,7 +139,7 @@ const SECONDARY_ITEMS = [
 export default function WelcomePage() {
   const navigate = useNavigate();
   const activeCompany = useUIStore((s) => s.activeCompany);
-  const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const _setActiveCompany = useUIStore((s) => s.setActiveCompany);
   const agents = useDaemonStore((s) => s.agents);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(activeCompany);

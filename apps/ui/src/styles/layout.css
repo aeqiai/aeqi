@@ -2427,3 +2427,189 @@
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
+
+/* ── Responsive: Tablet (max-width: 1024px) ── */
+/* Collapse sidebar to icon-only strip */
+@media (max-width: 1024px) {
+  .left-sidebar {
+    width: 52px;
+  }
+
+  .sidebar-nav-label,
+  .sidebar-nav-action,
+  .sidebar-nav-badge,
+  .sidebar-footer,
+  .sidebar-menu-text,
+  .sidebar-menu-btn,
+  .co-trigger-text,
+  .co-chevron-icon,
+  .co-trigger-action,
+  .pm-trigger-text,
+  .pm-trigger-plan,
+  .pm-trigger-icon,
+  .platform-bar-info,
+  .agent-row-label,
+  .agent-tree-toggle,
+  .agent-tree-count {
+    display: none;
+  }
+
+  .sidebar-nav-item {
+    justify-content: center;
+    padding: 8px;
+    min-height: var(--touch-target-min);
+  }
+
+  .sidebar-nav {
+    padding: 8px 4px;
+  }
+
+  .agent-tree {
+    padding: 4px;
+  }
+
+  .agent-row {
+    justify-content: center;
+    padding: 4px;
+    min-height: var(--touch-target-min);
+  }
+
+  .sidebar-menu-trigger,
+  .co-trigger,
+  .pm-trigger,
+  .platform-bar {
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .sidebar-menu,
+  .co-switcher,
+  .pm-container,
+  .platform-bar-wrapper {
+    padding: 4px;
+  }
+
+  /* Context drawer hidden on tablet */
+  .context-drawer {
+    display: none;
+  }
+  .drawer-toggle-collapsed {
+    display: none;
+  }
+}
+
+/* ── Responsive: Mobile (max-width: 768px) ── */
+/* Stack layout vertically, full-width content */
+@media (max-width: 768px) {
+  .shell {
+    flex-direction: column;
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
+  }
+
+  .left-sidebar {
+    width: 100%;
+    flex-direction: row;
+    height: auto;
+    min-height: var(--touch-target-min);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide everything except nav items on mobile */
+  .co-switcher,
+  .left-sidebar-body,
+  .sidebar-footer,
+  .platform-bar-wrapper,
+  .pm-container,
+  .sidebar-menu-bottom,
+  .sidebar-nav-agents,
+  .agent-tree {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    gap: 0;
+    padding: 0 4px;
+    border-bottom: none;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .sidebar-nav-item {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    min-height: var(--touch-target-min);
+    white-space: nowrap;
+  }
+
+  .sidebar-nav-label {
+    display: inline;
+  }
+
+  .sidebar-nav-action,
+  .sidebar-nav-badge {
+    display: none;
+  }
+
+  .content-area {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Full-width floating nav, scrollable */
+  .floating-nav {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-bottom: 0;
+  }
+
+  .floating-nav-items {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  .floating-nav-item {
+    flex-shrink: 0;
+    min-height: var(--touch-target-min);
+    padding: 0 14px;
+  }
+
+  .floating-nav-btn {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* Touch-friendly topbar buttons */
+  .content-topbar-btn {
+    min-height: var(--touch-target-min);
+    padding: 8px 14px;
+  }
+
+  .content-topbar {
+    padding: 0 12px;
+  }
+
+  /* Context drawer fully hidden on mobile */
+  .context-drawer,
+  .drawer-toggle-collapsed {
+    display: none;
+  }
+
+  /* Prevent text overflow globally */
+  .content-topbar-title,
+  .content-topbar-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+}

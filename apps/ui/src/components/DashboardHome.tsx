@@ -18,7 +18,7 @@ function statusColor(status: string): string {
 }
 
 export default function DashboardHome() {
-  const status = useDaemonStore((s) => s.status);
+  const _status = useDaemonStore((s) => s.status);
   const quests = useDaemonStore((s) => s.quests);
   const agents = useDaemonStore((s) => s.agents);
   const cost = useDaemonStore((s) => s.cost);

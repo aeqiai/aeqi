@@ -88,6 +88,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       })
       .catch(() => setIdeas([]))
       .finally(() => setIdeasLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selectedIdeaIdsKey]);
 
   const handleSearch = useCallback(async () => {

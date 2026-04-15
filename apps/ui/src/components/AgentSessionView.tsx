@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import { api } from "@/lib/api";
@@ -321,7 +321,6 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
 }
 
 /** Custom markdown components — code blocks get headers */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const markdownComponents: any = {
   code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
     const isBlock = className?.startsWith("language-");
@@ -403,8 +402,8 @@ function ThinkingTimer({ start }: { start: number }) {
 const MessageItem = memo(function MessageItem({
   msg,
   agentName,
-  userName,
-  userAvatarUrl,
+  userName: _userName,
+  userAvatarUrl: _userAvatarUrl,
   onFork,
 }: {
   msg: Message;
@@ -558,7 +557,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
   const user = useAuthStore((s) => s.user);
-  const wsConnected = useDaemonStore((s) => s.wsConnected);
+  const _wsConnected = useDaemonStore((s) => s.wsConnected);
   const agents = useDaemonStore((s) => s.agents);
 
   // Resolve agent info from the store
@@ -649,6 +648,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         })
         .catch(() => {});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAttachPicker]);
 
   // File attachment helpers

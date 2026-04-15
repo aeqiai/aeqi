@@ -1,4 +1,3 @@
-import StatusBadge from "./StatusBadge";
 import type { Checkpoint } from "@/lib/types";
 
 interface CheckpointTimelineProps {

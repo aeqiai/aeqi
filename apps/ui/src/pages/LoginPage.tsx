@@ -260,7 +260,7 @@ export default function LoginPage() {
     try {
       await api.forgotPassword(forgotEmail);
       setForgotSent(true);
-    } catch (err: unknown) {
+    } catch {
       // Always show success to avoid email enumeration
       setForgotSent(true);
     } finally {
