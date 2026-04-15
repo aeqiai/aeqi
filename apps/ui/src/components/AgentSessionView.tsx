@@ -1,551 +1,26 @@
-import { useState, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Markdown from "react-markdown";
 import { api } from "@/lib/api";
 import { getScopedCompany } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import RoundAvatar from "./RoundAvatar";
-
-// ── Types ──
-
-interface ToolEvent {
-  type: "start" | "complete" | "step" | "status";
-  name: string;
-  id?: string;
-  success?: boolean;
-  input_preview?: string;
-  output_preview?: string;
-  duration_ms?: number;
-  timestamp: number;
-}
-
-type MessageSegment =
-  | { kind: "text"; text: string }
-  | { kind: "tool"; event: ToolEvent }
-  | { kind: "step"; step: number }
-  | { kind: "status"; text: string };
-
-interface Message {
-  role: string;
-  content: string;
-  segments?: MessageSegment[];
-  timestamp?: number;
-  duration?: string;
-  costUsd?: number;
-  stepCount?: number;
-  tokenUsage?: { prompt: number; completion: number };
-  eventType?: string;
-  taskId?: string;
-  queued?: boolean;
-  /** DB message ID — used for fork-from-here. */
-  messageId?: number;
-}
-
-// ── Helpers ──
-
-function formatMs(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatDuration(startMs: number, endMs: number): string {
-  const diff = endMs - startMs;
-  if (diff < 1000) return "<1s";
-  if (diff < 60000) return `${Math.round(diff / 1000)}s`;
-  return `${Math.floor(diff / 60000)}m ${Math.round((diff % 60000) / 1000)}s`;
-}
-
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// ── Tool display helpers ──
-
-const TOOL_LABELS: Record<string, string> = {
-  // Four primitives
-  agents: "Agents",
-  quests: "Quests",
-  events: "Events",
-  ideas: "Ideas",
-  // Code intelligence
-  code: "Code",
-  // Files
-  read_file: "Read file",
-  write_file: "Write file",
-  edit_file: "Edit file",
-  list_dir: "List directory",
-  glob: "Find files",
-  grep: "Search code",
-  // System
-  shell: "Run command",
-  web_search: "Web search",
-  web_fetch: "Fetch URL",
-};
-
-function toolLabel(name: string): string {
-  return TOOL_LABELS[name] || name.replace(/_/g, " ");
-}
-
-function shouldRenderStatus(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  if (/^step \d+$/.test(normalized)) return false;
-  if (normalized === "recalling ideas...") return false;
-  return true;
-}
-
-function numberFromMeta(value: unknown): number | undefined {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function formatStepCount(count: number): string {
-  return `${count} step${count === 1 ? "" : "s"}`;
-}
-
-function countStepSegments(segments?: MessageSegment[]): number {
-  return segments?.filter((seg) => seg.kind === "step").length || 0;
-}
-
-function applyAssistantMeta(message: Message, meta: Record<string, unknown>) {
-  const durationMs = numberFromMeta(meta.duration_ms);
-  const costUsd = numberFromMeta(meta.cost_usd);
-  const stepCount = numberFromMeta(meta.iterations ?? meta.steps ?? meta.step_count);
-  const promptTokens = numberFromMeta(meta.prompt_tokens ?? meta.total_prompt_tokens);
-  const completionTokens = numberFromMeta(meta.completion_tokens ?? meta.total_completion_tokens);
-
-  if (durationMs != null && durationMs > 0) {
-    message.duration = formatDuration(0, durationMs);
-  }
-  if (costUsd != null && costUsd > 0) {
-    message.costUsd = costUsd;
-  }
-  if (stepCount != null && stepCount > 0) {
-    message.stepCount = Math.round(stepCount);
-  }
-  if (
-    (promptTokens != null && promptTokens > 0) ||
-    (completionTokens != null && completionTokens > 0)
-  ) {
-    message.tokenUsage = {
-      prompt: Math.round(promptTokens || 0),
-      completion: Math.round(completionTokens || 0),
-    };
-  }
-}
-
-function currentRunningToolName(segments: MessageSegment[]): string | undefined {
-  for (let i = segments.length - 1; i >= 0; i--) {
-    const seg = segments[i];
-    if (seg.kind === "tool" && seg.event.type === "start") {
-      return toolLabel(seg.event.name);
-    }
-  }
-  return undefined;
-}
-
-// ── Sub-components ──
-
-function ExpandableOutput({ text, limit = 100 }: { text: string; limit?: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const needsExpand = text.length > limit;
-  return (
-    <div className="session-tool-output">
-      {expanded || !needsExpand ? text : text.slice(0, limit) + "..."}
-      {needsExpand && (
-        <span
-          className="session-tool-expand"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded(!expanded);
-          }}
-        >
-          {expanded ? "less" : "more"}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** A single collapsible tool block with its own expand state. */
-function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: boolean }) {
-  const [expanded, setExpanded] = useState(live);
-  const tools = items.filter((s): s is { kind: "tool"; event: ToolEvent } => s.kind === "tool");
-  const count = tools.length;
-  const cats = [
-    ...new Set(
-      tools.map((t) => {
-        const n = t.event.name;
-        if (n.startsWith("agents_")) return "agents";
-        if (n.startsWith("quests_")) return "quests";
-        if (n.startsWith("events_")) return "events";
-        if (n.startsWith("ideas_")) return "ideas";
-        if (n.startsWith("prompts_")) return "prompts";
-        if (n.startsWith("web_")) return "web";
-        return "system";
-      }),
-    ),
-  ];
-  const hasFail = tools.some((t) => t.event.success === false);
-  const showDetail = live || expanded;
-
-  return (
-    <div
-      className={`asv-tools-group${live ? " asv-tools-group--live" : ""}${hasFail ? " asv-tools-group--fail" : ""}`}
-    >
-      {!live && (
-        <button className="asv-tools-toggle" onClick={() => setExpanded(!expanded)}>
-          <span className="asv-tools-chevron">{expanded ? "▾" : "▸"}</span>
-          <span className="asv-tools-count">
-            {count} tool{count !== 1 ? "s" : ""}
-          </span>
-          {!expanded && cats.length > 0 && (
-            <span className="asv-tools-cats">{cats.join(", ")}</span>
-          )}
-        </button>
-      )}
-      {showDetail && (
-        <div className="asv-tools-detail">
-          {items.map((seg, si) =>
-            seg.kind === "tool" ? (
-              <div key={si} className={`asv-tool-row${seg.event.success === false ? " fail" : ""}`}>
-                <span className={`asv-tool-dot ${seg.event.type}`} />
-                <span className="asv-tool-name">{toolLabel(seg.event.name)}</span>
-                {seg.event.duration_ms != null && (
-                  <span className="asv-tool-dur">{formatMs(seg.event.duration_ms)}</span>
-                )}
-                {!live && seg.event.output_preview && (
-                  <ExpandableOutput text={seg.event.output_preview} />
-                )}
-              </div>
-            ) : seg.kind === "status" ? (
-              <div key={si} className="asv-tool-status-msg">
-                {seg.text}
-              </div>
-            ) : null,
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Renders segments, grouping consecutive tool items into blocks. */
-function SegmentRenderer({
-  segments,
-  live = false,
-}: {
-  segments: MessageSegment[];
-  live?: boolean;
-}) {
-  type SegGroup =
-    | { kind: "text"; text: string }
-    | { kind: "step"; step: number }
-    | { kind: "status"; text: string }
-    | { kind: "tools"; items: MessageSegment[] };
-  const groups: SegGroup[] = [];
-  for (const seg of segments) {
-    if (seg.kind === "text") {
-      groups.push({ kind: "text", text: seg.text });
-    } else if (seg.kind === "step") {
-      groups.push({ kind: "step", step: seg.step });
-    } else if (seg.kind === "status") {
-      const stepMatch = seg.text.trim().match(/^step\s+(\d+)$/i);
-      if (stepMatch) {
-        groups.push({ kind: "step", step: Number(stepMatch[1]) });
-      } else if (shouldRenderStatus(seg.text)) {
-        groups.push({ kind: "status", text: seg.text });
-      }
-    } else {
-      const last = groups[groups.length - 1];
-      if (last && last.kind === "tools") {
-        last.items.push(seg);
-      } else {
-        groups.push({ kind: "tools", items: [seg] });
-      }
-    }
-  }
-
-  return (
-    <>
-      {groups.map((group, gi) =>
-        group.kind === "text" ? (
-          <div key={gi} className="asv-msg-content">
-            <Markdown components={markdownComponents}>{group.text}</Markdown>
-          </div>
-        ) : group.kind === "step" ? (
-          <div key={gi} className="asv-step-sep">
-            <span>{`Step ${group.step}`}</span>
-          </div>
-        ) : group.kind === "status" ? (
-          <div key={gi} className="asv-status-line">
-            {group.text}
-          </div>
-        ) : (
-          <ToolBlock key={gi} items={group.items} live={live} />
-        ),
-      )}
-    </>
-  );
-}
-
-/** Code block with language label + copy button */
-function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
-  const [copied, setCopied] = useState(false);
-  const lang = className?.replace("language-", "") || "";
-  const code = String(children).replace(/\n$/, "");
-  return (
-    <div className="asv-codeblock">
-      <div className="asv-codeblock-header">
-        <span className="asv-codeblock-lang">{lang}</span>
-        <button
-          className="asv-codeblock-copy"
-          onClick={() => {
-            navigator.clipboard.writeText(code);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
-        >
-          {copied ? "copied" : "copy"}
-        </button>
-      </div>
-      <pre>
-        <code className={className}>{children}</code>
-      </pre>
-    </div>
-  );
-}
-
-/** Custom markdown components — code blocks get headers */
-const markdownComponents: any = {
-  code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
-    const isBlock = className?.startsWith("language-");
-    if (isBlock) {
-      return <CodeBlock className={className}>{children}</CodeBlock>;
-    }
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
-  },
-  pre({ children }: { children?: React.ReactNode }) {
-    return <>{children}</>;
-  },
-};
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <button className="asv-copy" onClick={handleCopy} title={copied ? "Copied" : "Copy"}>
-      {copied ? (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 8.5l3 3 7-7" />
-        </svg>
-      ) : (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="5" y="5" width="9" height="9" rx="2" />
-          <path d="M5 11H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v1" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
-function ThinkingStatus({ toolName }: { toolName?: string }) {
-  return (
-    <div className="asv-thinking">
-      <span className="asv-thinking-dot" />
-      <span className="asv-thinking-text">{toolName ? `${toolName}...` : "thinking..."}</span>
-    </div>
-  );
-}
-
-function ThinkingTimer({ start }: { start: number }) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setElapsed(Date.now() - start), 100);
-    return () => clearInterval(interval);
-  }, [start]);
-  return <span className="session-msg-duration">{formatDuration(start, start + elapsed)}</span>;
-}
-
-// ── Memoized message item — prevents re-rendering historical messages during streaming ──
-
-const MessageItem = memo(function MessageItem({
-  msg,
-  agentName,
-  userName: _userName,
-  userAvatarUrl: _userAvatarUrl,
-  onFork,
-}: {
-  msg: Message;
-  agentName: string;
-  userName: string;
-  userAvatarUrl: string | null;
-  onFork?: (messageId: number) => void;
-}) {
-  if (msg.role === "quest_event") {
-    return (
-      <div className="asv-quest-event">
-        <span className="asv-quest-event-icon">
-          {(msg.eventType || "").includes("create")
-            ? "+"
-            : (msg.eventType || "").includes("complete") || (msg.eventType || "").includes("close")
-              ? "\u2713"
-              : (msg.eventType || "").includes("block")
-                ? "!"
-                : "\u2192"}
-        </span>
-        <span className="asv-quest-event-text">{msg.content}</span>
-        {msg.timestamp && <span className="asv-quest-event-time">{formatTime(msg.timestamp)}</span>}
-      </div>
-    );
-  }
-  if (msg.role === "error") {
-    return (
-      <div className="asv-msg asv-msg-error">
-        <div className="asv-msg-header">
-          {msg.duration && <span className="asv-msg-duration">{msg.duration}</span>}
-        </div>
-        <div className="asv-msg-content">{msg.content}</div>
-      </div>
-    );
-  }
-  const stepCount = msg.stepCount || countStepSegments(msg.segments);
-  const metaParts = [
-    msg.timestamp && formatTime(msg.timestamp),
-    msg.duration,
-    msg.role === "assistant" && stepCount > 0 && formatStepCount(stepCount),
-    msg.costUsd != null && msg.costUsd > 0 && `$${msg.costUsd.toFixed(4)}`,
-    msg.tokenUsage &&
-      (msg.tokenUsage.prompt > 0 || msg.tokenUsage.completion > 0) &&
-      `${msg.tokenUsage.prompt}\u2192${msg.tokenUsage.completion} tok`,
-    msg.queued && "queued",
-  ].filter(Boolean) as string[];
-  return (
-    <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
-      {msg.role === "assistant" && (
-        <div className="asv-msg-avatar">
-          <RoundAvatar name={agentName} size={24} />
-        </div>
-      )}
-      <div className="asv-msg-body">
-        {msg.segments && msg.segments.length > 0 ? (
-          <SegmentRenderer segments={msg.segments} />
-        ) : (
-          <div className="asv-msg-content">
-            {msg.role === "assistant" ? (
-              <Markdown components={markdownComponents}>{msg.content}</Markdown>
-            ) : (
-              <span>{msg.content}</span>
-            )}
-          </div>
-        )}
-        {msg.role === "assistant" && msg.content.trim().length > 0 && (
-          <div className="asv-msg-actions">
-            <CopyButton text={msg.content} />
-            {msg.messageId && onFork && (
-              <button
-                className="asv-msg-action-btn"
-                onClick={() => onFork(msg.messageId!)}
-                title="Fork from here"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                >
-                  <circle cx="4" cy="4" r="1.5" />
-                  <circle cx="12" cy="4" r="1.5" />
-                  <circle cx="4" cy="12" r="1.5" />
-                  <path d="M4 5.5V10.5M5.5 4H10.5" />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-        {metaParts.length > 0 && (
-          <div className="asv-msg-footer">
-            {metaParts.map((part, idx) => (
-              <span key={idx}>{part}</span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
+import {
+  type Message,
+  type MessageSegment,
+  type SessionInfo,
+  type ToolEvent,
+  formatDuration,
+  countStepSegments,
+  numberFromMeta,
+  applyAssistantMeta,
+} from "./session/types";
+import MessageItem from "./session/MessageItem";
+import StreamingMessage from "./session/StreamingMessage";
+import SessionSidebar from "./session/SessionSidebar";
+import ChatComposer from "./session/ChatComposer";
+import EmptyState from "./session/EmptyState";
 
 // ── Main Component ──
-
-interface SessionInfo {
-  id: string;
-  agent_id?: string;
-  agent_name?: string;
-  name?: string;
-  session_type?: string;
-  status: string;
-  created_at: string;
-  last_active?: string;
-  message_count?: number;
-  first_message?: string;
-}
-
-/** Derive a short display label for a session */
-function sessionLabel(s: SessionInfo): string {
-  if (s.name) {
-    // Strip transport prefix — the badge already shows TG/WA.
-    const stripped = s.name
-      .replace(/^Telegram DM:\s*/i, "")
-      .replace(/^Telegram Group\s*/i, "Group")
-      .replace(/^telegram:\s*/i, "")
-      .replace(/^whatsapp:\s*/i, "");
-    if (stripped && stripped !== s.id && !stripped.startsWith("session-")) return stripped;
-  }
-  // Derive from first message — first ~5 words.
-  if (s.first_message) {
-    const words = s.first_message
-      .replace(/[\n\r]+/g, " ")
-      .trim()
-      .split(/\s+/)
-      .slice(0, 6);
-    const label = words.join(" ");
-    return label.length > 32 ? label.slice(0, 30) + "..." : label;
-  }
-  return s.id.slice(0, 8);
-}
 
 interface AgentSessionProps {
   agentId: string;
@@ -557,7 +32,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
   const user = useAuthStore((s) => s.user);
-  const _wsConnected = useDaemonStore((s) => s.wsConnected);
   const agents = useDaemonStore((s) => s.agents);
 
   // Resolve agent info from the store
@@ -648,7 +122,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         })
         .catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetch only when picker opens
   }, [showAttachPicker]);
 
   // File attachment helpers
@@ -753,7 +227,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     [agentId, setSession],
   );
 
-  // Switch to an existing session — force reload
+  // Switch to an existing session -- force reload
   const handleSelectSession = useCallback(
     (sid: string) => {
       prevSessionRef.current = null; // Force reload on next effect
@@ -764,7 +238,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     [setSession],
   );
 
-  // Keyboard shortcuts: Cmd+P → idea picker, Cmd+Q → quest picker, Cmd+N → new session
+  // Keyboard shortcuts: Cmd+P -> idea picker, Cmd+Q -> quest picker, Cmd+N -> new session
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -788,7 +262,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     (rawMessages: Array<Record<string, unknown>>): Message[] => {
       const processed: Message[] = [];
       let pendingTools: MessageSegment[] = [];
-      let currentAgent: Message | null = null; // Accumulator for multi-step agent response
+      let currentAgent: Message | null = null;
       let stepCount = 0;
       let sawStoredStepMarkers = false;
 
@@ -816,7 +290,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
       const startStep = (_step: number | undefined, timestamp: number) => {
         const message = ensureCurrentAgent(timestamp);
-        // Always count from 1 per response — ignore server's session-level number
         stepCount += 1;
         message.stepCount = Math.max(message.stepCount || 0, stepCount);
         message.segments!.push({ kind: "step", step: stepCount });
@@ -864,7 +337,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           }
           startStep(numberFromMeta(meta.step), ts);
         } else if (eventType === "assistant_complete") {
-          // Track the last message ID for the completed agent response.
           if (currentAgent && typeof m.id === "number") {
             currentAgent.messageId = m.id;
           }
@@ -883,19 +355,16 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           }
           applyMetaToCurrentAssistant((m.metadata || {}) as Record<string, unknown>);
         } else if (m.role === "assistant") {
-          // Older histories do not have stored step markers, so infer one marker per persisted assistant step.
           const agent = !sawStoredStepMarkers ? startStep(undefined, ts) : ensureCurrentAgent(ts);
           if (agent.timestamp == null) {
             agent.timestamp = ts;
           } else {
             agent.timestamp = Math.min(agent.timestamp, ts);
           }
-          // Flush pending tools before this step's text
           if (pendingTools.length > 0) {
             agent.segments!.push(...pendingTools);
             pendingTools = [];
           }
-          // Add this step's text
           const text = String(m.content || "");
           if (text) {
             agent.segments!.push({ kind: "text", text });
@@ -903,7 +372,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           }
           applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
         } else if (m.role === "user" || m.role === "User") {
-          // Flush any pending state
           if (pendingTools.length > 0 && currentAgent) {
             currentAgent.segments!.push(...pendingTools);
             pendingTools = [];
@@ -947,18 +415,15 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const prevSessionRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeSessionId) {
-      // No session = new conversation, clear everything
       setMessages([]);
       setLiveSegments([]);
       prevSessionRef.current = null;
       return;
     }
 
-    // If we just created this session (messages already in state from streaming), don't reload
     if (activeSessionId === prevSessionRef.current) return;
     prevSessionRef.current = activeSessionId;
 
-    // Clear and reload from API
     setLiveSegments([]);
 
     api
@@ -999,12 +464,11 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     inputRef.current?.focus();
   }, [agentId]);
 
-  // Core dispatch — opens WebSocket and sends a message
+  // Core dispatch -- opens WebSocket and sends a message
   const dispatchMessage = useCallback(
     async (messageText: string) => {
       const startTime = Date.now();
 
-      // Un-queue this message in the transcript
       setMessages((prev) => {
         let found = false;
         return prev.map((m) => {
@@ -1020,7 +484,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       setLiveSegments([]);
       setThinkingStart(startTime);
 
-      // If no active session, create one with the first message.
       let sessionId = sessionIdRef.current;
       const isNewConversation = !sessionId;
       if (!sessionId) {
@@ -1030,9 +493,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             sessionId = d.session_id as string;
             sessionIdRef.current = sessionId;
             prevSessionRef.current = sessionId;
-            // Update URL to include the new session
             setSession(sessionId);
-            // Add to session list
             setSessions((prev) => [
               {
                 id: d.session_id as string,
@@ -1050,7 +511,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         }
       }
 
-      // Close any previous connection before opening a new one
       if (wsRef.current) {
         wsRef.current.onmessage = null;
         wsRef.current.onerror = null;
@@ -1071,7 +531,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           agent_id: agentId || undefined,
           session_id: sessionId || undefined,
         };
-        // Include prompts, quest, and files on first message (session creation)
         if (isNewConversation) {
           if (sessionPrompts.length > 0) {
             payload.session_prompts = sessionPrompts;
@@ -1150,7 +609,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
               break;
             }
             case "StepStart": {
-              // Count per-response, not session-level
               const step = countStepSegments(segments) + 1;
               segments.push({ kind: "step", step });
               setLiveSegments([...segments]);
@@ -1211,7 +669,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
                         ? { prompt: promptTok, completion: completionTok }
                         : undefined,
                   };
-                  // Insert before any queued messages so transcript stays in order
                   const firstQueued = prev.findIndex((m) => m.queued);
                   if (firstQueued >= 0) {
                     return [...prev.slice(0, firstQueued), msg, ...prev.slice(firstQueued)];
@@ -1311,7 +768,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     setInput("");
     requestAnimationFrame(() => inputRef.current?.focus());
 
-    // Add to transcript — mark as queued if currently streaming
     setMessages((prev) => [
       ...prev,
       {
@@ -1330,31 +786,22 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     void dispatchMessage(messageText);
   }, [input, streaming, token, dispatchMessage]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  const handleStop = useCallback(() => {
+    const sid = sessionIdRef.current;
+    if (sid) api.cancelSession(sid).catch(() => {});
+    wsRef.current?.close();
+    setStreaming(false);
+  }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
-  };
+  const handleSuggestionClick = useCallback(
+    (q: string) => {
+      setMessages((prev) => [...prev, { role: "user", content: q, timestamp: Date.now() }]);
+      void dispatchMessage(q);
+    },
+    [dispatchMessage],
+  );
 
   if (!agentId) return null;
-
-  const runningToolName = currentRunningToolName(liveSegments);
-  const liveStepCount = countStepSegments(liveSegments);
-  const liveLastSegment = liveSegments[liveSegments.length - 1];
-  const showLiveThinking =
-    streaming &&
-    (runningToolName != null ||
-      liveSegments.length === 0 ||
-      liveLastSegment?.kind === "tool" ||
-      liveLastSegment?.kind === "step");
 
   return (
     <div
@@ -1364,101 +811,22 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
     >
-      {/* Session sidebar */}
-      <div className="asv-sidebar">
-        <div className="asv-sidebar-header">
-          <button
-            className="asv-session-new-btn"
-            onClick={handleNewConversation}
-            title="New session (Cmd+N)"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 2.5v7M2.5 6h7" />
-            </svg>
-            New Chat
-          </button>
-        </div>
-        <div className="asv-sidebar-list">
-          {sessions.length === 0 && <div className="asv-sidebar-empty">No sessions yet</div>}
-          {sessions.map((s) => {
-            const n = s.name?.toLowerCase() || "";
-            const transport = n.includes("telegram")
-              ? "TG"
-              : n.includes("whatsapp")
-                ? "WA"
-                : s.session_type === "web"
-                  ? "Web"
-                  : null;
-            return (
-              <div
-                key={s.id}
-                className={`asv-session-item${s.id === activeSessionId ? " active" : ""}`}
-                onClick={() => handleSelectSession(s.id)}
-              >
-                <div className="asv-session-item-top">
-                  <span className="asv-session-item-name">{sessionLabel(s)}</span>
-                  {transport && <span className="asv-session-item-transport">{transport}</span>}
-                </div>
-                {s.first_message && (
-                  <div className="asv-session-item-bottom">
-                    <span className="asv-session-item-preview">{s.first_message.slice(0, 40)}</span>
-                    <span className="asv-session-item-date">
-                      {s.created_at
-                        ? new Date(s.created_at).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : ""}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onNewConversation={handleNewConversation}
+        onSelectSession={handleSelectSession}
+      />
 
-      {/* Main chat area */}
       <div className="asv-main">
-        {/* Message transcript */}
         <div className="asv-messages">
           {messages.length === 0 && !streaming && (
-            <div className="asv-empty">
-              <div className="asv-empty-icon">
-                <RoundAvatar name={agentName} size={40} />
-              </div>
-              <div className="asv-empty-title">{displayName}</div>
-              <div className="asv-empty-hint">
-                {activeSessionId ? "Continue this conversation." : "Start a new session."}
-              </div>
-              {!activeSessionId && (
-                <div className="asv-empty-suggestions">
-                  {["What can you do?", "Show me your tools", "What quests are open?"].map((q) => (
-                    <button
-                      key={q}
-                      className="asv-empty-suggestion"
-                      onClick={() => {
-                        setMessages((prev) => [
-                          ...prev,
-                          { role: "user", content: q, timestamp: Date.now() },
-                        ]);
-                        void dispatchMessage(q);
-                      }}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <EmptyState
+              agentName={agentName}
+              displayName={displayName}
+              activeSessionId={activeSessionId}
+              onSuggestionClick={handleSuggestionClick}
+            />
           )}
 
           {messages.map((msg, i) => (
@@ -1472,202 +840,38 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             />
           ))}
 
-          {/* Live streaming — segments in order */}
-          {streaming && (
-            <div className="asv-msg asv-msg-assistant asv-msg-streaming">
-              <div className="asv-msg-avatar">
-                <RoundAvatar name={agentName} size={24} />
-              </div>
-              <div className="asv-msg-body">
-                <SegmentRenderer segments={liveSegments} live />
-                {showLiveThinking && <ThinkingStatus toolName={runningToolName} />}
-                {thinkingStart && (
-                  <div className="asv-msg-footer">
-                    <span>{formatTime(thinkingStart)}</span>
-                    <ThinkingTimer start={thinkingStart} />
-                    {liveStepCount > 0 && <span>{formatStepCount(liveStepCount)}</span>}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <StreamingMessage
+            agentName={agentName}
+            liveSegments={liveSegments}
+            thinkingStart={thinkingStart}
+            streaming={streaming}
+          />
 
           <div ref={messagesEnd} />
         </div>
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            if (e.target.files) readFiles(e.target.files);
-            e.target.value = "";
-          }}
+        <ChatComposer
+          input={input}
+          setInput={setInput}
+          streaming={streaming}
+          displayName={displayName}
+          sessionPrompts={sessionPrompts}
+          setSessionPrompts={setSessionPrompts}
+          sessionTask={sessionTask}
+          setSessionTask={setSessionTask}
+          attachedFiles={attachedFiles}
+          setAttachedFiles={setAttachedFiles}
+          setShowAttachPicker={setShowAttachPicker}
+          readFiles={readFiles}
+          dragOver={dragOver}
+          setDragOver={setDragOver}
+          dragCounter={dragCounter}
+          onSend={handleSend}
+          onStop={handleStop}
+          inputRef={inputRef}
+          fileInputRef={fileInputRef}
         />
-
-        {/* Input box */}
-        <div className="asv-composer">
-          <div className={`asv-composer-inner ${streaming ? "asv-composer-busy" : ""}`}>
-            <div className="asv-composer-body">
-              {/* Attached chips — always visible */}
-              {(sessionPrompts.length > 0 || sessionTask || attachedFiles.length > 0) && (
-                <div className="asv-attach-chips">
-                  {sessionPrompts.map((p, i) => (
-                    <span key={`p-${i}`} className="asv-attach-chip">
-                      {p}
-                      <span
-                        className="asv-attach-chip-x"
-                        onClick={() => setSessionPrompts((prev) => prev.filter((_, j) => j !== i))}
-                      >
-                        ×
-                      </span>
-                    </span>
-                  ))}
-                  {sessionTask && (
-                    <span className="asv-attach-chip">
-                      {sessionTask.name}
-                      <span className="asv-attach-chip-x" onClick={() => setSessionTask(null)}>
-                        ×
-                      </span>
-                    </span>
-                  )}
-                  {attachedFiles.map((f, i) => (
-                    <span key={`f-${i}`} className="asv-attach-chip">
-                      {f.name}
-                      <span
-                        className="asv-attach-chip-x"
-                        onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
-                      >
-                        ×
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <textarea
-                ref={inputRef}
-                className="asv-textarea"
-                placeholder={streaming ? "Queue a message..." : `Message ${displayName}...`}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                onDrop={(e) => {
-                  if (e.dataTransfer.files.length > 0) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    dragCounter.current = 0;
-                    setDragOver(false);
-                    readFiles(e.dataTransfer.files);
-                  }
-                }}
-                rows={2}
-              />
-              {/* Footer — attach actions left, send right */}
-              <div className="asv-composer-footer">
-                <div className="asv-attach-row">
-                  <button
-                    className="asv-attach-btn"
-                    onClick={() => setShowAttachPicker("prompt")}
-                    title="Attach idea (⌘P)"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                    >
-                      <path
-                        d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="asv-attach-btn"
-                    onClick={() => setShowAttachPicker("quest")}
-                    title="Attach quest (⌘Q)"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                    >
-                      <path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                  <button
-                    className="asv-attach-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Attach file"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
-                    >
-                      <path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" />
-                    </svg>
-                  </button>
-                </div>
-                {streaming && !input.trim() ? (
-                  <button
-                    className="asv-send busy"
-                    onClick={() => {
-                      const sid = sessionIdRef.current;
-                      if (sid) api.cancelSession(sid).catch(() => {});
-                      wsRef.current?.close();
-                      setStreaming(false);
-                    }}
-                    title="Stop execution"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                      <rect x="3" y="3" width="10" height="10" rx="2" />
-                    </svg>
-                    <span className="asv-send-label">Stop</span>
-                  </button>
-                ) : (
-                  <button
-                    className={`asv-send ${input.trim() ? "ready" : ""}`}
-                    onClick={handleSend}
-                    disabled={!input.trim()}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path
-                        d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span className="asv-send-label">Send</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="asv-composer-hint">
-            <kbd>Enter</kbd>&nbsp;send&ensp;<kbd>Shift+Enter</kbd>&nbsp;newline
-          </div>
-        </div>
       </div>
-      {/* /asv-main */}
     </div>
   );
 }
