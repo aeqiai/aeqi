@@ -1,8 +1,8 @@
 use axum::{
-    Router,
+    Json, Router,
     extract::{Query, State},
     response::Response,
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 
@@ -13,8 +13,17 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/ideas/recall", get(ideas))
+        .route("/ideas/by-ids", post(ideas_by_ids))
         .route("/ideas/profile", get(idea_profile))
         .route("/ideas/graph", get(idea_graph))
+}
+
+async fn ideas_by_ids(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "ideas_by_ids", body).await
 }
 
 #[derive(Deserialize, Default)]

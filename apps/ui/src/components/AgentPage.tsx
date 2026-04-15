@@ -65,6 +65,79 @@ function formatTokens(n?: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
+function EventRow({
+  ev,
+  expanded,
+  ideas,
+  onToggleExpand,
+  onToggleEnabled,
+  onDelete,
+}: {
+  ev: { id: string; name: string; pattern: string; scope: string; idea_ids: string[]; enabled: boolean; cooldown_secs: number; fire_count: number; last_fired?: string };
+  expanded: boolean;
+  ideas?: Array<{ id: string; key: string; content: string; tags: string[] }>;
+  onToggleExpand: () => void;
+  onToggleEnabled: () => void;
+  onDelete: (() => void) | null;
+}) {
+  const prefix = ev.pattern.split(":")[0];
+  const typeLabel = prefix === "session" ? "Session" : prefix === "schedule" ? "Schedule" : prefix === "webhook" ? "Webhook" : prefix;
+  const patternSuffix = ev.pattern.slice(ev.pattern.indexOf(":") + 1);
+
+  return (
+    <div className={`event-row${ev.enabled ? "" : " event-row--disabled"}${expanded ? " event-row--expanded" : ""}`}>
+      <div className="event-row-header" onClick={onToggleExpand}>
+        <div className="event-row-left">
+          <span className="event-row-type">{typeLabel}</span>
+          <div className="event-row-info">
+            <span className="event-row-name">{ev.name}</span>
+            <span className="event-row-pattern">{patternSuffix}</span>
+          </div>
+        </div>
+        <div className="event-row-right">
+          {ev.idea_ids.length > 0 && (
+            <span className="event-row-meta">{ev.idea_ids.length} {ev.idea_ids.length === 1 ? "idea" : "ideas"}</span>
+          )}
+          {ev.fire_count > 0 && (
+            <span className="event-row-meta">{ev.fire_count}x</span>
+          )}
+          <button className="event-row-toggle" onClick={(e) => { e.stopPropagation(); onToggleEnabled(); }}>
+            {ev.enabled ? "Disable" : "Enable"}
+          </button>
+          {onDelete && (
+            <button className="event-row-delete" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && (
+        <div className="event-row-detail">
+          {ideas && ideas.length > 0 ? (
+            <div className="event-ideas-list">
+              {ideas.map((idea) => (
+                <div key={idea.id} className="event-idea-card">
+                  <div className="event-idea-key">{idea.key}</div>
+                  <div className="event-idea-content">{idea.content}</div>
+                  {idea.tags.length > 0 && (
+                    <div className="event-idea-tags">
+                      {idea.tags.map((t) => <span key={t} className="event-idea-tag">{t}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : ev.idea_ids.length === 0 ? (
+            <div className="event-ideas-empty">No ideas linked to this event.</div>
+          ) : (
+            <div className="event-ideas-empty">Loading ideas...</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AgentPage({ agentId }: { agentId: string }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -268,123 +341,63 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
       {activeTab === "events" && (
         <div className="agent-page-events">
-          {eventsLoading && <div className="events-empty">Loading...</div>}
-          {!eventsLoading && events.length === 0 && (
-            <div className="events-empty">No events configured.</div>
-          )}
-          {events.map((ev) => {
-            const prefix = ev.pattern.split(":")[0];
-            const typeLabel = prefix === "session" ? "Session" : prefix === "schedule" ? "Schedule" : prefix === "webhook" ? "Webhook" : prefix;
-            const isExpanded = expandedEvent === ev.id;
-            const ideas = eventIdeas[ev.id] || [];
-            return (
-              <div key={ev.id} className={`event-row${ev.enabled ? "" : " event-row--disabled"}${isExpanded ? " event-row--expanded" : ""}`}>
-                <div
-                  className="event-row-header"
-                  onClick={async () => {
-                    if (isExpanded) {
+          {eventsLoading ? (
+            <div className="events-empty">Loading...</div>
+          ) : (
+            <>
+              {/* Session events — always present */}
+              <div className="events-section-label">Session Events</div>
+              {events.filter((ev) => ev.pattern.startsWith("session:")).map((ev) => (
+                <EventRow
+                  key={ev.id}
+                  ev={ev}
+                  expanded={expandedEvent === ev.id}
+                  ideas={eventIdeas[ev.id]}
+                  onToggleExpand={async () => {
+                    if (expandedEvent === ev.id) {
                       setExpandedEvent(null);
                     } else {
                       setExpandedEvent(ev.id);
                       if (!eventIdeas[ev.id] && ev.idea_ids.length > 0) {
-                        try {
-                          const data = await api.getAgentEvents(resolvedAgentId);
-                          const fullEv = ((data.events || []) as AgentEvent[]).find((e) => e.id === ev.id);
-                          if (fullEv) {
-                            const ideaResults = await Promise.all(
-                              fullEv.idea_ids.map((iid) =>
-                                api.getSessionMessages({ session_id: iid }).catch(() => null)
-                              )
-                            );
-                            // Try to fetch ideas by ID via search
-                            const searchResult = await api.getSessionMessages({ session_id: "", limit: 0 }).catch(() => null);
-                            // For now just show the idea IDs — full idea fetch needs a dedicated endpoint
-                            setEventIdeas((prev) => ({
-                              ...prev,
-                              [ev.id]: fullEv.idea_ids.map((iid) => ({
-                                id: iid,
-                                key: iid.slice(0, 8),
-                                content: "",
-                                tags: [],
-                              })),
-                            }));
-                          }
-                        } catch { /* ignore */ }
+                        const data = await api.getIdeasByIds(ev.idea_ids).catch(() => ({ ok: false, ideas: [] }));
+                        if (data.ok) setEventIdeas((p) => ({ ...p, [ev.id]: data.ideas }));
                       }
                     }
                   }}
-                >
-                  <div className="event-row-left">
-                    <span className="event-row-type">{typeLabel}</span>
-                    <div className="event-row-info">
-                      <span className="event-row-name">{ev.name}</span>
-                      <span className="event-row-pattern">{ev.pattern}</span>
-                    </div>
-                  </div>
-                  <div className="event-row-right">
-                    {ev.idea_ids.length > 0 && (
-                      <span className="event-row-meta">{ev.idea_ids.length} ideas</span>
-                    )}
-                    {ev.fire_count > 0 && (
-                      <span className="event-row-meta">{ev.fire_count}x{ev.last_fired ? ` · ${timeAgo(ev.last_fired)}` : ""}</span>
-                    )}
-                    <button
-                      className="event-row-toggle"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await api.updateEvent(ev.id, { enabled: !ev.enabled });
-                        loadEvents();
+                  onToggleEnabled={async () => { await api.updateEvent(ev.id, { enabled: !ev.enabled }); loadEvents(); }}
+                  onDelete={null}
+                />
+              ))}
+
+              {/* Custom events — schedules, webhooks, etc */}
+              {events.some((ev) => !ev.pattern.startsWith("session:")) && (
+                <>
+                  <div className="events-section-label">Custom Events</div>
+                  {events.filter((ev) => !ev.pattern.startsWith("session:")).map((ev) => (
+                    <EventRow
+                      key={ev.id}
+                      ev={ev}
+                      expanded={expandedEvent === ev.id}
+                      ideas={eventIdeas[ev.id]}
+                      onToggleExpand={async () => {
+                        if (expandedEvent === ev.id) {
+                          setExpandedEvent(null);
+                        } else {
+                          setExpandedEvent(ev.id);
+                          if (!eventIdeas[ev.id] && ev.idea_ids.length > 0) {
+                            const data = await api.getIdeasByIds(ev.idea_ids).catch(() => ({ ok: false, ideas: [] }));
+                            if (data.ok) setEventIdeas((p) => ({ ...p, [ev.id]: data.ideas }));
+                          }
+                        }
                       }}
-                    >
-                      {ev.enabled ? "Disable" : "Enable"}
-                    </button>
-                    {!ev.system && (
-                      <button
-                        className="event-row-delete"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await api.deleteEvent(ev.id);
-                          loadEvents();
-                        }}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {isExpanded && (
-                  <div className="event-row-detail">
-                    <div className="event-detail-section">
-                      <span className="event-detail-label">Scope</span>
-                      <span className="event-detail-value">{ev.scope}</span>
-                    </div>
-                    {ev.cooldown_secs > 0 && (
-                      <div className="event-detail-section">
-                        <span className="event-detail-label">Cooldown</span>
-                        <span className="event-detail-value">{ev.cooldown_secs}s</span>
-                      </div>
-                    )}
-                    {ev.idea_ids.length > 0 && (
-                      <div className="event-detail-section">
-                        <span className="event-detail-label">Injected Ideas</span>
-                        <div className="event-detail-ideas">
-                          {ev.idea_ids.map((iid) => (
-                            <span key={iid} className="event-detail-idea-id">{iid.slice(0, 12)}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {ev.idea_ids.length === 0 && (
-                      <div className="event-detail-section">
-                        <span className="event-detail-label">Injected Ideas</span>
-                        <span className="event-detail-value event-detail-value--muted">None</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      onToggleEnabled={async () => { await api.updateEvent(ev.id, { enabled: !ev.enabled }); loadEvents(); }}
+                      onDelete={async () => { await api.deleteEvent(ev.id); loadEvents(); }}
+                    />
+                  ))}
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 

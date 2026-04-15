@@ -474,6 +474,13 @@ export const api = {
       body: JSON.stringify({ message_id: messageId }),
     }),
 
+  // Ideas by IDs
+  getIdeasByIds: (ids: string[]) =>
+    request<{ ok: boolean; ideas: Array<{ id: string; key: string; content: string; tags: string[] }> }>(
+      "/ideas/by-ids",
+      { method: "POST", body: JSON.stringify({ ids }) },
+    ),
+
   // Agent events
   getAgentEvents: (agentId: string) =>
     request<Record<string, unknown>>(`/events?agent_id=${encodeURIComponent(agentId)}`),

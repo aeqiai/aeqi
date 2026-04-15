@@ -2009,6 +2009,30 @@ impl Daemon {
                     crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_companies)
                         .await
                 }
+                "ideas_by_ids" => {
+                    let ids: Vec<String> = request.get("ids")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                        .unwrap_or_default();
+                    if let Some(ref store) = ctx.idea_store {
+                        match store.get_by_ids(&ids).await {
+                            Ok(ideas) => {
+                                let items: Vec<serde_json::Value> = ideas.iter().map(|i| {
+                                    serde_json::json!({
+                                        "id": i.id,
+                                        "key": i.key,
+                                        "content": i.content,
+                                        "tags": i.tags,
+                                    })
+                                }).collect();
+                                serde_json::json!({"ok": true, "ideas": items})
+                            }
+                            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                        }
+                    } else {
+                        serde_json::json!({"ok": false, "error": "no idea store"})
+                    }
+                }
 
                 "vfs_list" => {
                     crate::ipc::vfs::handle_vfs_list(&ctx, &request, &allowed_companies).await
