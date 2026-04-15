@@ -590,8 +590,12 @@ impl SessionManager {
             tools.extend(orch_tools);
         }
 
-        // Note: transcript search is now part of the consolidated CodeTool,
-        // which is created inside build_orchestration_tools above.
+        // Filter tools based on agent's tool_deny list.
+        if let Some(ref agent) = agent_opt
+            && !agent.tool_deny.is_empty()
+        {
+            tools.retain(|t| !agent.tool_deny.contains(&t.spec().name));
+        }
 
         // 5b. Discover all available prompts via unified PromptLoader.
         let all_prompts: Arc<Vec<aeqi_tools::Prompt>> = if let Some(ref loader) = self.prompt_loader

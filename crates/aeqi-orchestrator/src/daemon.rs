@@ -1186,6 +1186,26 @@ impl Daemon {
                         }
                     }
                 }
+                "agent_set_tool_deny" => {
+                    let id = request_field(&request, "id").unwrap_or("");
+                    let tool_deny: Vec<String> = request
+                        .get("tool_deny")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if id.is_empty() {
+                        serde_json::json!({"ok": false, "error": "id required"})
+                    } else {
+                        match agent_registry.set_tool_deny(id, &tool_deny).await {
+                            Ok(()) => serde_json::json!({"ok": true}),
+                            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                        }
+                    }
+                }
                 "agent_info" => {
                     crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_companies).await
                 }

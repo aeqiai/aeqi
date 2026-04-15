@@ -481,6 +481,12 @@ export const api = {
       body: JSON.stringify({ model }),
     }),
 
+  setAgentTools: (agentId: string, toolDeny: string[]) =>
+    request<{ ok: boolean }>(`/agents/${agentId}/tools`, {
+      method: "PUT",
+      body: JSON.stringify({ tool_deny: toolDeny }),
+    }),
+
   // Ideas by IDs
   getIdeasByIds: (ids: string[]) =>
     request<{ ok: boolean; ideas: Array<{ id: string; key: string; content: string; tags: string[] }> }>(

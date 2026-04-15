@@ -1314,6 +1314,24 @@
   font-family: var(--font-mono);
   font-size: 12px;
 }
+.agent-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+}
+.agent-tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.agent-tool-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
 .agent-settings-input {
   font-family: var(--font-mono);
   font-size: 12px;

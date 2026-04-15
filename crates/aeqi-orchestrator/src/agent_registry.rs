@@ -74,6 +74,9 @@ pub struct Agent {
     /// Worker timeout in seconds. None = inherit from parent or use global default.
     #[serde(default)]
     pub worker_timeout_secs: Option<u64>,
+    /// Tools denied for this agent (JSON array of tool names). Empty = all tools allowed.
+    #[serde(default)]
+    pub tool_deny: Vec<String>,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -310,6 +313,7 @@ impl AgentRegistry {
             ("execution_mode", "TEXT"),
             ("quest_prefix", "TEXT"),
             ("worker_timeout_secs", "INTEGER"),
+            ("tool_deny", "TEXT DEFAULT '[]'"),
         ];
         for (col, typ) in &agent_columns {
             let has_col: bool = conn
@@ -797,6 +801,7 @@ impl AgentRegistry {
             execution_mode: None,
             quest_prefix: None,
             worker_timeout_secs: None,
+            tool_deny: Vec::new(),
         };
 
         let db = self.db.lock().await;
@@ -1135,6 +1140,17 @@ impl AgentRegistry {
             anyhow::bail!("agent '{id}' not found");
         }
         info!(id = %id, "agent operational fields updated");
+        Ok(())
+    }
+
+    /// Set tool_deny for an agent.
+    pub async fn set_tool_deny(&self, id: &str, tool_deny: &[String]) -> Result<()> {
+        let json = serde_json::to_string(tool_deny)?;
+        let db = self.db.lock().await;
+        db.execute(
+            "UPDATE agents SET tool_deny = ?1 WHERE id = ?2",
+            params![json, id],
+        )?;
         Ok(())
     }
 
@@ -2405,6 +2421,11 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .get::<_, i64>("worker_timeout_secs")
             .ok()
             .map(|v| v as u64),
+        tool_deny: row
+            .get::<_, String>("tool_deny")
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
     }
 }
 

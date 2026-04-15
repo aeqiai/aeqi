@@ -19,6 +19,7 @@ export interface Agent {
   workdir?: string;
   worker_timeout_secs?: number;
   idea_ids?: string[];
+  tool_deny?: string[];
 }
 
 export interface AgentRef {

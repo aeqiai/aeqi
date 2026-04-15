@@ -114,6 +114,32 @@ export default function AgentPage({ agentId }: { agentId: string }) {
             </div>
           </div>
 
+          {/* Tools */}
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Tools</h3>
+            <div className="agent-tools-grid">
+              {["shell", "read_file", "write_file", "edit_file", "grep", "glob", "ideas", "quests", "agents", "events", "code", "web_search", "web_fetch"].map((tool) => {
+                const denied = agent?.tool_deny?.includes(tool) ?? false;
+                return (
+                  <label key={tool} className="agent-tool-toggle">
+                    <input
+                      type="checkbox"
+                      checked={!denied}
+                      onChange={async (e) => {
+                        const current: string[] = agent?.tool_deny || [];
+                        const next = e.target.checked
+                          ? current.filter((t) => t !== tool)
+                          : [...current, tool];
+                        await api.setAgentTools(resolvedAgentId, next);
+                      }}
+                    />
+                    <span className="agent-tool-name">{tool}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Usage & Budget */}
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Usage</h3>
