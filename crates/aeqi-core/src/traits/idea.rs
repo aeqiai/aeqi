@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Idea {
     pub id: String,
-    #[serde(alias = "key")]
     pub name: String,
     pub content: String,
     /// Tags classify the idea. Free-form strings. No "primary" concept.

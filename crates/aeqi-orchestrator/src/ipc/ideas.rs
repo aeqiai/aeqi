@@ -46,9 +46,7 @@ pub async fn handle_store_idea(
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
-    let name = request_field(request, "name")
-        .or_else(|| request_field(request, "key"))
-        .unwrap_or("");
+    let name = request_field(request, "name").unwrap_or("");
     let content = request_field(request, "content").unwrap_or("");
 
     if name.is_empty() || content.is_empty() {
@@ -108,7 +106,7 @@ pub async fn handle_update_idea(
         return serde_json::json!({"ok": false, "error": "id is required"});
     }
 
-    let name = request_field(request, "name").or_else(|| request_field(request, "key"));
+    let name = request_field(request, "name");
     let content = request_field(request, "content");
     let tags: Option<Vec<String>> = request.get("tags").and_then(|v| v.as_array()).map(|arr| {
         arr.iter()

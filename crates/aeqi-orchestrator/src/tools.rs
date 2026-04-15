@@ -520,9 +520,8 @@ impl IdeasTool {
     async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let key = args
             .get("name")
-            .or_else(|| args.get("key"))
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing name"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing 'name'"))?;
         let content = args
             .get("content")
             .and_then(|v| v.as_str())
@@ -606,10 +605,7 @@ impl IdeasTool {
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing id"))?;
-        let name = args
-            .get("name")
-            .or_else(|| args.get("key"))
-            .and_then(|v| v.as_str());
+        let name = args.get("name").and_then(|v| v.as_str());
         let content = args.get("content").and_then(|v| v.as_str());
         let tags = Self::parse_tags(args);
 

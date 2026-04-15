@@ -19,7 +19,6 @@ use tracing::debug;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebouncedWrite {
     /// Semantic name (e.g. "auth/jwt-rotation").
-    #[serde(alias = "key")]
     pub name: String,
     /// Full content to be stored.
     pub content: String,
