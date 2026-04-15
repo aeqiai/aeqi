@@ -91,8 +91,16 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     last_fired?: string;
     system: boolean;
   }
+  interface IdeaPreview {
+    id: string;
+    key: string;
+    content: string;
+    tags: string[];
+  }
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [eventIdeas, setEventIdeas] = useState<Record<string, IdeaPreview[]>>({});
 
   // -- Channels state --
   const [channels, setChannels] = useState<ChannelEntry[]>([]);
@@ -260,61 +268,70 @@ export default function AgentPage({ agentId }: { agentId: string }) {
 
       {activeTab === "events" && (
         <div className="agent-page-events">
-          <div className="agent-settings-section">
-            <h3 className="agent-settings-heading">Events</h3>
-            {eventsLoading && <div className="channels-empty">Loading...</div>}
-            {!eventsLoading && events.length === 0 && (
-              <div className="channels-empty">No events configured for this agent.</div>
-            )}
-            {events.map((ev) => {
-              const isSession = ev.pattern.startsWith("session:");
-              const isSchedule = ev.pattern.startsWith("schedule:");
-              const isWebhook = ev.pattern.startsWith("webhook:");
-              const typeLabel = isSession ? "Session" : isSchedule ? "Schedule" : isWebhook ? "Webhook" : "Custom";
-              return (
-                <div key={ev.id} className="channel-card">
-                  <div className="channel-card-header">
-                    <span className="channel-card-type">{typeLabel}</span>
-                    <span className={`channel-card-status ${ev.enabled ? "connected" : ""}`}>
-                      {ev.enabled ? "Enabled" : "Disabled"}
-                    </span>
+          {eventsLoading && <div className="events-empty">Loading...</div>}
+          {!eventsLoading && events.length === 0 && (
+            <div className="events-empty">No events configured.</div>
+          )}
+          {events.map((ev) => {
+            const prefix = ev.pattern.split(":")[0];
+            const typeLabel = prefix === "session" ? "Session" : prefix === "schedule" ? "Schedule" : prefix === "webhook" ? "Webhook" : prefix;
+            const isExpanded = expandedEvent === ev.id;
+            const ideas = eventIdeas[ev.id] || [];
+            return (
+              <div key={ev.id} className={`event-row${ev.enabled ? "" : " event-row--disabled"}${isExpanded ? " event-row--expanded" : ""}`}>
+                <div
+                  className="event-row-header"
+                  onClick={async () => {
+                    if (isExpanded) {
+                      setExpandedEvent(null);
+                    } else {
+                      setExpandedEvent(ev.id);
+                      if (!eventIdeas[ev.id] && ev.idea_ids.length > 0) {
+                        try {
+                          const data = await api.getAgentEvents(resolvedAgentId);
+                          const fullEv = ((data.events || []) as AgentEvent[]).find((e) => e.id === ev.id);
+                          if (fullEv) {
+                            const ideaResults = await Promise.all(
+                              fullEv.idea_ids.map((iid) =>
+                                api.getSessionMessages({ session_id: iid }).catch(() => null)
+                              )
+                            );
+                            // Try to fetch ideas by ID via search
+                            const searchResult = await api.getSessionMessages({ session_id: "", limit: 0 }).catch(() => null);
+                            // For now just show the idea IDs — full idea fetch needs a dedicated endpoint
+                            setEventIdeas((prev) => ({
+                              ...prev,
+                              [ev.id]: fullEv.idea_ids.map((iid) => ({
+                                id: iid,
+                                key: iid.slice(0, 8),
+                                content: "",
+                                tags: [],
+                              })),
+                            }));
+                          }
+                        } catch { /* ignore */ }
+                      }
+                    }
+                  }}
+                >
+                  <div className="event-row-left">
+                    <span className="event-row-type">{typeLabel}</span>
+                    <div className="event-row-info">
+                      <span className="event-row-name">{ev.name}</span>
+                      <span className="event-row-pattern">{ev.pattern}</span>
+                    </div>
                   </div>
-                  <div className="channel-card-details">
-                    <div className="agent-settings-field">
-                      <span className="agent-settings-label">Name</span>
-                      <span className="agent-settings-value">{ev.name}</span>
-                    </div>
-                    <div className="agent-settings-field">
-                      <span className="agent-settings-label">Pattern</span>
-                      <span className="agent-settings-value agent-settings-mono">{ev.pattern}</span>
-                    </div>
+                  <div className="event-row-right">
                     {ev.idea_ids.length > 0 && (
-                      <div className="agent-settings-field">
-                        <span className="agent-settings-label">Ideas</span>
-                        <span className="agent-settings-value agent-settings-mono">
-                          {ev.idea_ids.length} linked
-                        </span>
-                      </div>
-                    )}
-                    {ev.cooldown_secs > 0 && (
-                      <div className="agent-settings-field">
-                        <span className="agent-settings-label">Cooldown</span>
-                        <span className="agent-settings-value">{ev.cooldown_secs}s</span>
-                      </div>
+                      <span className="event-row-meta">{ev.idea_ids.length} ideas</span>
                     )}
                     {ev.fire_count > 0 && (
-                      <div className="agent-settings-field">
-                        <span className="agent-settings-label">Fired</span>
-                        <span className="agent-settings-value">
-                          {ev.fire_count} times{ev.last_fired ? ` (last: ${timeAgo(ev.last_fired)})` : ""}
-                        </span>
-                      </div>
+                      <span className="event-row-meta">{ev.fire_count}x{ev.last_fired ? ` · ${timeAgo(ev.last_fired)}` : ""}</span>
                     )}
-                  </div>
-                  <div className="channel-card-actions">
                     <button
-                      className="btn"
-                      onClick={async () => {
+                      className="event-row-toggle"
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         await api.updateEvent(ev.id, { enabled: !ev.enabled });
                         loadEvents();
                       }}
@@ -323,8 +340,9 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     </button>
                     {!ev.system && (
                       <button
-                        className="btn channel-disconnect-btn"
-                        onClick={async () => {
+                        className="event-row-delete"
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           await api.deleteEvent(ev.id);
                           loadEvents();
                         }}
@@ -334,9 +352,39 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                {isExpanded && (
+                  <div className="event-row-detail">
+                    <div className="event-detail-section">
+                      <span className="event-detail-label">Scope</span>
+                      <span className="event-detail-value">{ev.scope}</span>
+                    </div>
+                    {ev.cooldown_secs > 0 && (
+                      <div className="event-detail-section">
+                        <span className="event-detail-label">Cooldown</span>
+                        <span className="event-detail-value">{ev.cooldown_secs}s</span>
+                      </div>
+                    )}
+                    {ev.idea_ids.length > 0 && (
+                      <div className="event-detail-section">
+                        <span className="event-detail-label">Injected Ideas</span>
+                        <div className="event-detail-ideas">
+                          {ev.idea_ids.map((iid) => (
+                            <span key={iid} className="event-detail-idea-id">{iid.slice(0, 12)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {ev.idea_ids.length === 0 && (
+                      <div className="event-detail-section">
+                        <span className="event-detail-label">Injected Ideas</span>
+                        <span className="event-detail-value event-detail-value--muted">None</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
