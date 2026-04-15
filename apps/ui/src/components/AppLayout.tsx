@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation, useSearchParams, Outlet } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, useParams, Outlet } from "react-router-dom";
 import AgentTree from "./Sidebar";
 import ContextDrawer from "./ContextDrawer";
 import CommandPalette from "./CommandPalette";
@@ -17,8 +17,8 @@ export default function AppLayout() {
   const [params] = useSearchParams();
   const [searching, setSearching] = useState(false);
 
-  const agentId = params.get("agent");
-  const sessionId = params.get("session");
+  const routeParams = useParams<{ agentId?: string; tab?: string; itemId?: string }>();
+  const agentId = routeParams.agentId || params.get("agent"); // fallback for old URLs
   const path = location.pathname;
   const appMode = useAuthStore((s) => s.appMode);
   const user = useAuthStore((s) => s.user);
@@ -203,7 +203,7 @@ export default function AppLayout() {
         </div>
 
         {/* Right context drawer */}
-        <ContextDrawer agentId={agentId} sessionId={sessionId} />
+        <ContextDrawer agentId={agentId} sessionId={routeParams.itemId || null} />
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
     </>

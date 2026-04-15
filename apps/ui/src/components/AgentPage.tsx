@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
-import PageTabs, { useActiveTab } from "./PageTabs";
+import PageTabs from "./PageTabs";
 import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import RoundAvatar from "./RoundAvatar";
@@ -68,9 +68,9 @@ function formatTokens(n?: number): string {
 
 export default function AgentPage({ agentId }: { agentId: string }) {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const sessionId = params.get("session");
-  const activeTab = useActiveTab(TABS, "sessions");
+  const { tab: routeTab, itemId } = useParams<{ tab?: string; itemId?: string }>();
+  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
+  const sessionId = activeTab === "sessions" ? (itemId || null) : null;
 
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
@@ -482,7 +482,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     <span className="agent-settings-label">Parent</span>
                     <span
                       className="agent-settings-value agent-settings-link"
-                      onClick={() => navigate(`/agents?agent=${encodeURIComponent(parent.id)}`)}
+                      onClick={() => navigate(`/agents/${parent.id}`)}
                     >
                       <RoundAvatar name={parent.name} size={14} />
                       {parent.display_name || parent.name}
@@ -499,7 +499,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                           <span
                             key={child.id}
                             className="agent-settings-child"
-                            onClick={() => navigate(`/agents?agent=${encodeURIComponent(child.id)}`)}
+                            onClick={() => navigate(`/agents/${child.id}`)}
                           >
                             <RoundAvatar name={child.name} size={14} />
                             {child.display_name || child.name}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 
 interface AgentEvent {
@@ -32,8 +32,9 @@ function eventTransport(ev: AgentEvent): string | null {
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const [params, setParams] = useSearchParams();
-  const selectedId = params.get("event");
+  const navigate = useNavigate();
+  const { itemId } = useParams<{ itemId?: string }>();
+  const selectedId = itemId || null;
 
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,17 +46,13 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   const setSelectedId = useCallback(
     (id: string | null) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        if (id) {
-          next.set("event", id);
-        } else {
-          next.delete("event");
-        }
-        return next;
-      }, { replace: true });
+      if (id) {
+        navigate(`/agents/${agentId}/events/${id}`, { replace: true });
+      } else {
+        navigate(`/agents/${agentId}/events`, { replace: true });
+      }
     },
-    [setParams],
+    [agentId, navigate],
   );
 
   const loadEvents = useCallback(async () => {

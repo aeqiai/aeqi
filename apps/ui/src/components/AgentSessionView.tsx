@@ -563,12 +563,9 @@ export default function AgentSessionView({
   const setSession = useCallback(
     (sid: string | null) => {
       if (sid) {
-        navigate(
-          `/agents?agent=${encodeURIComponent(agentId)}&session=${encodeURIComponent(sid)}`,
-          { replace: true },
-        );
+        navigate(`/agents/${agentId}/sessions/${sid}`, { replace: true });
       } else {
-        navigate(`/agents?agent=${encodeURIComponent(agentId)}`, { replace: true });
+        navigate(`/agents/${agentId}`, { replace: true });
       }
     },
     [agentId, navigate],

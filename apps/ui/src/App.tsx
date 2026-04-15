@@ -66,6 +66,9 @@ export default function App() {
         <Route index element={<ModeAwareHome />} />
         <Route path="new" element={<NewCompanyPage />} />
         <Route path="agents" element={<AgentsPage />} />
+        <Route path="agents/:agentId" element={<AgentsPage />} />
+        <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
+        <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="ideas" element={<IdeasPage />} />

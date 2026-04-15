@@ -83,7 +83,7 @@ export default function AgentsPage() {
             <AgentCard
               key={agent.id || agent.name}
               agent={agent}
-              onClick={() => navigate(`/agents?agent=${encodeURIComponent(agent.id || agent.name)}`)}
+              onClick={() => navigate(`/agents/${agent.id || agent.name}`)}
             />
           ))}
         </div>

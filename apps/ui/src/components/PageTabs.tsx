@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 interface Tab {
   id: string;
@@ -12,22 +12,17 @@ interface PageTabsProps {
 }
 
 export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
-  const [params, setParams] = useSearchParams();
-  const active = params.get("tab") || defaultTab || tabs[0]?.id || "";
+  const navigate = useNavigate();
+  const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
+  const active = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : (defaultTab || tabs[0]?.id || "");
 
   const setTab = (id: string) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      // Remove tab-specific params when switching tabs.
-      next.delete("session");
-      next.delete("event");
-      if (id === (defaultTab || tabs[0]?.id)) {
-        next.delete("tab");
-      } else {
-        next.set("tab", id);
-      }
-      return next;
-    }, { replace: true });
+    if (!agentId) return;
+    if (id === (defaultTab || tabs[0]?.id)) {
+      navigate(`/agents/${agentId}`);
+    } else {
+      navigate(`/agents/${agentId}/${id}`);
+    }
   };
 
   return (
@@ -50,7 +45,8 @@ export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
   );
 }
 
-export function useActiveTab(tabs: Tab[], defaultTab?: string): string {
+/** Legacy helper for pages that still use query-param tabs. */
+export function useActiveTab(tabs: { id: string }[], defaultTab?: string): string {
   const [params] = useSearchParams();
   return params.get("tab") || defaultTab || tabs[0]?.id || "";
 }
