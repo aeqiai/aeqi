@@ -474,6 +474,16 @@ export const api = {
       body: JSON.stringify({ message_id: messageId }),
     }),
 
+  // Agent events
+  getAgentEvents: (agentId: string) =>
+    request<Record<string, unknown>>(`/events?agent_id=${encodeURIComponent(agentId)}`),
+  createEvent: (data: Record<string, unknown>) =>
+    request<Record<string, unknown>>("/events", { method: "POST", body: JSON.stringify(data) }),
+  updateEvent: (id: string, data: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/events/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteEvent: (id: string) =>
+    request<Record<string, unknown>>(`/events/${id}`, { method: "DELETE" }),
+
   // Session children (spawned work)
   getSessionChildren: (sessionId: string) =>
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),

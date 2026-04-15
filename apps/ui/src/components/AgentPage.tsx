@@ -8,6 +8,7 @@ import RoundAvatar from "./RoundAvatar";
 
 const TABS = [
   { id: "chat", label: "Chat" },
+  { id: "events", label: "Events" },
   { id: "channels", label: "Channels" },
   { id: "settings", label: "Settings" },
 ];
@@ -77,6 +78,22 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     ? agents.find((a) => a.id === agent.parent_id)
     : null;
 
+  // -- Events state --
+  interface AgentEvent {
+    id: string;
+    name: string;
+    pattern: string;
+    scope: string;
+    idea_ids: string[];
+    enabled: boolean;
+    cooldown_secs: number;
+    fire_count: number;
+    last_fired?: string;
+    system: boolean;
+  }
+  const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
   // -- Channels state --
   const [channels, setChannels] = useState<ChannelEntry[]>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
@@ -131,7 +148,22 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     }
   }, [resolvedAgentId]);
 
+  const loadEvents = useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const data = await api.getAgentEvents(resolvedAgentId);
+      setEvents((data.events as AgentEvent[]) || []);
+    } catch {
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [resolvedAgentId]);
+
   useEffect(() => {
+    if (activeTab === "events") {
+      loadEvents();
+    }
     if (activeTab === "channels") {
       loadChannels();
       loadChannelSessions();
@@ -223,6 +255,88 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       {activeTab === "chat" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
+        </div>
+      )}
+
+      {activeTab === "events" && (
+        <div className="agent-page-events">
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Events</h3>
+            {eventsLoading && <div className="channels-empty">Loading...</div>}
+            {!eventsLoading && events.length === 0 && (
+              <div className="channels-empty">No events configured for this agent.</div>
+            )}
+            {events.map((ev) => {
+              const isSession = ev.pattern.startsWith("session:");
+              const isSchedule = ev.pattern.startsWith("schedule:");
+              const isWebhook = ev.pattern.startsWith("webhook:");
+              const typeLabel = isSession ? "Session" : isSchedule ? "Schedule" : isWebhook ? "Webhook" : "Custom";
+              return (
+                <div key={ev.id} className="channel-card">
+                  <div className="channel-card-header">
+                    <span className="channel-card-type">{typeLabel}</span>
+                    <span className={`channel-card-status ${ev.enabled ? "connected" : ""}`}>
+                      {ev.enabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <div className="channel-card-details">
+                    <div className="agent-settings-field">
+                      <span className="agent-settings-label">Name</span>
+                      <span className="agent-settings-value">{ev.name}</span>
+                    </div>
+                    <div className="agent-settings-field">
+                      <span className="agent-settings-label">Pattern</span>
+                      <span className="agent-settings-value agent-settings-mono">{ev.pattern}</span>
+                    </div>
+                    {ev.idea_ids.length > 0 && (
+                      <div className="agent-settings-field">
+                        <span className="agent-settings-label">Ideas</span>
+                        <span className="agent-settings-value agent-settings-mono">
+                          {ev.idea_ids.length} linked
+                        </span>
+                      </div>
+                    )}
+                    {ev.cooldown_secs > 0 && (
+                      <div className="agent-settings-field">
+                        <span className="agent-settings-label">Cooldown</span>
+                        <span className="agent-settings-value">{ev.cooldown_secs}s</span>
+                      </div>
+                    )}
+                    {ev.fire_count > 0 && (
+                      <div className="agent-settings-field">
+                        <span className="agent-settings-label">Fired</span>
+                        <span className="agent-settings-value">
+                          {ev.fire_count} times{ev.last_fired ? ` (last: ${timeAgo(ev.last_fired)})` : ""}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="channel-card-actions">
+                    <button
+                      className="btn"
+                      onClick={async () => {
+                        await api.updateEvent(ev.id, { enabled: !ev.enabled });
+                        loadEvents();
+                      }}
+                    >
+                      {ev.enabled ? "Disable" : "Enable"}
+                    </button>
+                    {!ev.system && (
+                      <button
+                        className="btn channel-disconnect-btn"
+                        onClick={async () => {
+                          await api.deleteEvent(ev.id);
+                          loadEvents();
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

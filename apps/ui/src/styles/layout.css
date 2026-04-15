@@ -1462,6 +1462,11 @@
   gap: 8px;
   margin-bottom: 12px;
 }
+.channel-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
 .channel-disconnect-btn {
   font-size: 12px;
   padding: 5px 12px;
