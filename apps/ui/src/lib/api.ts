@@ -348,7 +348,7 @@ export const api = {
   // Knowledge CRUD
   storeKnowledge: (data: {
     company: string;
-    key: string;
+    name: string;
     content: string;
     tags?: string[];
     scope?: string;
@@ -406,7 +406,7 @@ export const api = {
   // Write: Post Note
   postNote: (data: {
     company: string;
-    key: string;
+    name: string;
     content: string;
     tags?: string[];
     durability?: string;
@@ -471,7 +471,7 @@ export const api = {
   getIdeasByIds: (ids: string[]) =>
     request<{
       ok: boolean;
-      ideas: Array<{ id: string; key: string; content: string; tags: string[] }>;
+      ideas: Array<{ id: string; name: string; content: string; tags: string[] }>;
     }>("/ideas/by-ids", { method: "POST", body: JSON.stringify({ ids }) }),
 
   // Agent events

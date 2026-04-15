@@ -80,7 +80,7 @@ This calls `agents(action='get')` and prints the agent's assembled ideas. One MC
 
 | Tool | Actions | What it does |
 |------|---------|-------------|
-| `ideas` | store, search, delete | Persistent knowledge — facts, procedures, preferences, context |
+| `ideas` | store, search, update, delete | Persistent knowledge — facts, procedures, preferences, context |
 | `quests` | create, list, show, update, close, cancel | Work tracking — hierarchical, with dependencies and outcomes |
 | `agents` | get, hire, retire, list, projects, delegate | Agent management — hire children, delegate work, list projects |
 | `events` | create, list, enable, disable, delete | Reaction rules — lifecycle triggers and scheduled automation |

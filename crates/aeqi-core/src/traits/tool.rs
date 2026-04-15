@@ -85,6 +85,14 @@ pub trait Tool: Send + Sync {
         false
     }
 
+    /// Whether errors from this tool should cancel sibling tools in a concurrent batch.
+    /// Only shell/bash tools should return true — they often have implicit dependency
+    /// chains where a failure invalidates siblings. Read-only tools (file reads, searches)
+    /// should not cascade errors since they are independent queries.
+    fn cascades_error_to_siblings(&self) -> bool {
+        false
+    }
+
     /// What should happen when the user interrupts while this tool is running.
     /// Default: Block (keep running).
     fn interrupt_behavior(&self) -> InterruptBehavior {

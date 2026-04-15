@@ -1,14 +1,12 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
 import BlockAvatar from "./BlockAvatar";
 
 export default function CompanySwitcher() {
   const activeCompany = useUIStore((s) => s.activeCompany);
   const navigate = useNavigate();
-  const location = useLocation();
 
   const displayName = activeCompany || "Select company";
-  const isOnCompanies = location.pathname === "/companies";
 
   return (
     <div className="co-switcher">
@@ -17,11 +15,11 @@ export default function CompanySwitcher() {
         role="button"
         tabIndex={0}
         aria-label={`Switch company, current: ${displayName}`}
-        onClick={() => navigate("/companies")}
+        onClick={() => navigate("/")}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            navigate("/companies");
+            navigate("/");
           }
         }}
       >
@@ -41,7 +39,7 @@ export default function CompanySwitcher() {
           strokeWidth="1.5"
           strokeLinecap="round"
           aria-hidden="true"
-          style={{ opacity: isOnCompanies ? 0.5 : 0.2 }}
+          style={{ opacity: 0.2 }}
         >
           <path d="M4 3l2-1.5L8 3" />
           <path d="M4 9l2 1.5L8 9" />

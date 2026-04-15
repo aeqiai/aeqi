@@ -114,7 +114,7 @@ export default function IdeasPage() {
     // Find full entry in ideas list, or build from graph node.
     const entry = ideas.find((m) => m.id === node.id) || {
       id: node.id,
-      key: node.key,
+      name: node.name,
       content: node.content,
       tags: Array.isArray(node.tags) ? node.tags.filter(Boolean) : [],
       created_at: "",
@@ -229,7 +229,7 @@ export default function IdeasPage() {
                     onClick={() => setSelected(selected?.id === m.id ? null : m)}
                   >
                     <div className="idea-header">
-                      <code className="idea-key">{m.key}</code>
+                      <code className="idea-key">{m.name}</code>
                       <div className="idea-tags">
                         {ideaTags(m).map((tag) => (
                           <span
@@ -290,7 +290,7 @@ export default function IdeasPage() {
         {selected && (
           <div className="ideas-detail">
             <div className="detail-header">
-              <code className="detail-key">{selected.key}</code>
+              <code className="detail-key">{selected.name}</code>
               <button className="detail-close" onClick={() => setSelected(null)}>
                 ×
               </button>
@@ -324,7 +324,7 @@ export default function IdeasPage() {
                       }}
                     >
                       <span className="edge-direction">{isSource ? "→" : "←"}</span>
-                      <code className="edge-target">{otherNode?.key || otherId.slice(0, 8)}</code>
+                      <code className="edge-target">{otherNode?.name || otherId.slice(0, 8)}</code>
                       <span className="edge-relation">{e.relation}</span>
                       <span className="edge-strength">{(e.strength * 100).toFixed(0)}%</span>
                     </div>

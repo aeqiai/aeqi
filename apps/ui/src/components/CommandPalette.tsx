@@ -98,7 +98,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       try {
         const [agentsData, questsData, ideasData] = await Promise.all([
           api.getAgents().catch(() => ({ agents: [] })),
-          api.getTasks({}).catch(() => ({ tasks: [] })),
+          api.getQuests({}).catch(() => ({ quests: [] })),
           api.getIdeas({ limit: 30 }).catch(() => ({ ideas: [] })),
         ]);
 
@@ -111,7 +111,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           action: () => go(`/agents/${a.name}`),
         }));
 
-        const rawQuests = (questsData.tasks || []) as Array<Record<string, unknown>>;
+        const rawQuests = (questsData.quests || []) as Array<Record<string, unknown>>;
         const questItems: PaletteItem[] = rawQuests.slice(0, 20).map((q) => ({
           id: `quest-${q.id}`,
           label: `${q.id}: ${q.subject}`,
@@ -122,8 +122,8 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
         const rawIdeas = (ideasData.ideas || []) as Array<Record<string, unknown>>;
         const ideaItems: PaletteItem[] = rawIdeas.slice(0, 15).map((m) => ({
-          id: `idea-${m.id || m.key}`,
-          label: (m.key || m.title || "Idea") as string,
+          id: `idea-${m.id || m.name}`,
+          label: (m.name || m.title || "Idea") as string,
           hint: ((m.content || "") as string).slice(0, 50),
           section: "Ideas",
           action: () => go(`/ideas`),

@@ -4,8 +4,9 @@ set -e
 # Rust: format
 cargo fmt --quiet
 
-# Frontend: format
-npx --prefix apps/ui prettier --write "apps/ui/src/**/*.{ts,tsx,css}" --log-level error 2>/dev/null || true
+# Frontend: lint-staged (eslint --fix + prettier --write on staged files)
+cd apps/ui && npx lint-staged
+cd "$OLDPWD"
 
 # Re-stage formatted files
 git diff --name-only | xargs -r git add

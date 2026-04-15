@@ -1,25 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-
-interface AgentEvent {
-  id: string;
-  name: string;
-  pattern: string;
-  idea_ids: string[];
-  enabled: boolean;
-  cooldown_secs: number;
-  fire_count: number;
-  last_fired?: string;
-  system: boolean;
-}
-
-interface IdeaPreview {
-  id: string;
-  key: string;
-  content: string;
-  tags: string[];
-}
+import type { AgentEvent, Idea } from "@/lib/types";
 
 function eventLabel(ev: AgentEvent): string {
   return ev.name.replace(/^on_/, "").replace(/_/g, " ");
@@ -38,10 +20,10 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ideas, setIdeas] = useState<IdeaPreview[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<IdeaPreview[]>([]);
+  const [searchResults, setSearchResults] = useState<Idea[]>([]);
   const [searching, setSearching] = useState(false);
 
   const setSelectedId = useCallback(
@@ -88,7 +70,6 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       })
       .catch(() => setIdeas([]))
       .finally(() => setIdeasLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selectedIdeaIdsKey]);
 
   const handleSearch = useCallback(async () => {
@@ -96,7 +77,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     setSearching(true);
     try {
       const data = await api.getIdeas({ query: searchQuery, limit: 10 });
-      const items = (data.ideas || data.entries || []) as IdeaPreview[];
+      const items = (data.ideas || data.entries || []) as Idea[];
       const linked = new Set(selected?.idea_ids || []);
       setSearchResults(items.filter((i) => !linked.has(i.id)));
     } catch {
@@ -114,7 +95,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     loadEvents();
     const data = await api
       .getIdeasByIds(newIds)
-      .catch(() => ({ ok: false, ideas: [] as IdeaPreview[] }));
+      .catch(() => ({ ok: false, ideas: [] as Idea[] }));
     if (data.ok) setIdeas(data.ideas);
   };
 
@@ -236,7 +217,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                 {ideas.map((idea) => (
                   <div key={idea.id} className="event-idea-card">
                     <div className="event-idea-header">
-                      <span className="event-idea-key">{idea.key}</span>
+                      <span className="event-idea-key">{idea.name}</span>
                       <button
                         className="event-idea-unlink"
                         onClick={() => handleUnlinkIdea(idea.id)}
@@ -246,7 +227,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                       </button>
                     </div>
                     <div className="event-idea-content">{idea.content}</div>
-                    {idea.tags.length > 0 && (
+                    {idea.tags && idea.tags.length > 0 && (
                       <div className="event-idea-tags">
                         {idea.tags.map((t) => (
                           <span key={t} className="event-idea-tag">
@@ -288,7 +269,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                       className="events-link-result"
                       onClick={() => handleLinkIdea(idea.id)}
                     >
-                      <span className="events-link-result-key">{idea.key}</span>
+                      <span className="events-link-result-key">{idea.name}</span>
                       <span className="events-link-result-preview">
                         {idea.content.slice(0, 80)}
                       </span>

@@ -20,7 +20,7 @@ export default function AuthCallbackPage() {
         .then((me) => {
           const companies = me.companies as unknown[] | undefined;
           if (!companies || companies.length === 0) {
-            navigate("/onboarding", { replace: true });
+            navigate("/new", { replace: true });
           } else {
             navigate("/", { replace: true });
           }

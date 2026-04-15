@@ -1683,17 +1683,17 @@ impl Agent {
                     if !all_entries.is_empty() {
                         let ctx = all_entries
                             .iter()
-                            .map(|e| format!("{}: {}", e.key, e.content))
+                            .map(|e| format!("{}: {}", e.name, e.content))
                             .collect::<Vec<_>>()
                             .join("\n");
                         let preview = all_entries
                             .iter()
-                            .map(|e| e.key.as_str())
+                            .map(|e| e.name.as_str())
                             .collect::<Vec<_>>()
                             .join(", ");
                         self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
                             action: "recalled".into(),
-                            key: format!("{} insights", all_entries.len()),
+                            name: format!("{} insights", all_entries.len()),
                             preview,
                         });
                         messages.push(Message {
@@ -1724,17 +1724,17 @@ impl Agent {
             {
                 let ctx = prefetched
                     .iter()
-                    .map(|e| format!("{}: {}", e.key, e.content))
+                    .map(|e| format!("{}: {}", e.name, e.content))
                     .collect::<Vec<_>>()
                     .join("\n");
                 let preview = prefetched
                     .iter()
-                    .map(|e| e.key.as_str())
+                    .map(|e| e.name.as_str())
                     .collect::<Vec<_>>()
                     .join(", ");
                 self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
                     action: "prefetched".into(),
-                    key: format!("{} insights", prefetched.len()),
+                    name: format!("{} insights", prefetched.len()),
                     preview,
                 });
                 messages.push(Message {
@@ -2053,7 +2053,7 @@ impl Agent {
         for (cat, entries) in &by_cat {
             ctx.push_str(&format!("## {cat}\n"));
             for e in entries {
-                ctx.push_str(&format!("- **{}**: {}\n", e.key, e.content));
+                ctx.push_str(&format!("- **{}**: {}\n", e.name, e.content));
             }
             ctx.push('\n');
         }

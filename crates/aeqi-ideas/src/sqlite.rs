@@ -14,7 +14,7 @@ use crate::vector::{VectorStore, bytes_to_vec, cosine_similarity, vec_to_bytes};
 
 struct MemRow {
     id: String,
-    key: String,
+    name: String,
     content: String,
     agent_id: Option<String>,
     created_at: String,
@@ -697,21 +697,21 @@ impl SqliteIdeas {
         let mut entries = stmt
             .query_map(rusqlite::params![now], |row| {
                 let id: String = row.get(0)?;
-                let key: String = row.get(1)?;
+                let name: String = row.get(1)?; // DB column is `key`
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let session_id: Option<String> = row.get(4)?;
                 let created_str: String = row.get(5)?;
-                Ok((id, key, content, agent_id, session_id, created_str))
+                Ok((id, name, content, agent_id, session_id, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id, key, content, agent_id, session_id, created_str)| {
+            .filter_map(|(id, name, content, agent_id, session_id, created_str)| {
                 let created_at = DateTime::parse_from_rfc3339(&created_str)
                     .ok()?
                     .with_timezone(&Utc);
                 Some(Idea::recalled(
                     id,
-                    key,
+                    name,
                     content,
                     Vec::new(),
                     agent_id,
@@ -744,21 +744,21 @@ impl SqliteIdeas {
         let mut entries: Vec<Idea> = stmt
             .query_map(rusqlite::params![like_pattern, now, limit as i64], |row| {
                 let id: String = row.get(0)?;
-                let key: String = row.get(1)?;
+                let name: String = row.get(1)?; // DB column is `key`
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let session_id: Option<String> = row.get(4)?;
                 let created_str: String = row.get(5)?;
-                Ok((id, key, content, agent_id, session_id, created_str))
+                Ok((id, name, content, agent_id, session_id, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id, key, content, agent_id, session_id, created_str)| {
+            .filter_map(|(id, name, content, agent_id, session_id, created_str)| {
                 let created_at = DateTime::parse_from_rfc3339(&created_str)
                     .ok()?
                     .with_timezone(&Utc);
                 Some(Idea::recalled(
                     id,
-                    key,
+                    name,
                     content,
                     Vec::new(),
                     agent_id,
@@ -872,7 +872,7 @@ impl SqliteIdeas {
         let rows = stmt
             .query_map(param_refs.as_slice(), |row| {
                 let id: String = row.get(0)?;
-                let key: String = row.get(1)?;
+                let name: String = row.get(1)?; // DB column is `key`
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let created_at: String = row.get(4)?;
@@ -881,7 +881,7 @@ impl SqliteIdeas {
                 Ok((
                     MemRow {
                         id,
-                        key,
+                        name,
                         content,
                         agent_id,
                         created_at,
@@ -974,7 +974,7 @@ impl SqliteIdeas {
         stmt.query_map(params.as_slice(), |row| {
             Ok(MemRow {
                 id: row.get(0)?,
-                key: row.get(1)?,
+                name: row.get(1)?, // DB column is `key`
                 content: row.get(2)?,
                 agent_id: row.get(3)?,
                 created_at: row.get(4)?,
@@ -1146,7 +1146,7 @@ impl SqliteIdeas {
 
         Some(Idea::recalled(
             row.id,
-            row.key,
+            row.name,
             row.content,
             tags,
             row.agent_id,
@@ -1403,7 +1403,7 @@ impl SqliteIdeas {
                 .get(&sr.idea_id)
                 .map(|r| MemRow {
                     id: r.id.clone(),
-                    key: r.key.clone(),
+                    name: r.name.clone(),
                     content: r.content.clone(),
                     agent_id: r.agent_id.clone(),
                     created_at: r.created_at.clone(),
@@ -1413,7 +1413,7 @@ impl SqliteIdeas {
                 .or_else(|| {
                     extra_rows.get(&sr.idea_id).map(|r| MemRow {
                         id: r.id.clone(),
-                        key: r.key.clone(),
+                        name: r.name.clone(),
                         content: r.content.clone(),
                         agent_id: r.agent_id.clone(),
                         created_at: r.created_at.clone(),
@@ -1467,7 +1467,7 @@ impl SqliteIdeas {
                 let graph_boost = self.compute_graph_boost(&entry.id, &result_ids);
                 if graph_boost > 0.0 {
                     entry.score = entry.score * 0.9 + (graph_boost as f64) * 0.1;
-                    debug!(id = %entry.id, key = %entry.key, graph_boost, "graph boost applied");
+                    debug!(id = %entry.id, name = %entry.name, graph_boost, "graph boost applied");
                 } else {
                     entry.score = r.combined_score;
                 }
@@ -1867,7 +1867,7 @@ impl IdeaStore for SqliteIdeas {
                     let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                     Ok(Idea {
                         id: row.get(0)?,
-                        key: row.get(1)?,
+                        name: row.get(1)?, // DB column is `key`
                         content: row.get(2)?,
                         tags: Vec::new(),
                         agent_id: row.get(3)?,
@@ -1906,7 +1906,7 @@ impl IdeaStore for SqliteIdeas {
                     let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
                     let idea = Idea {
                         id: row.get(0)?,
-                        key: row.get(1)?,
+                        name: row.get(1)?, // DB column is `key`
                         content: row.get(2)?,
                         tags: Vec::new(),
                         agent_id: Some(agent_id.clone()),

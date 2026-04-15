@@ -65,40 +65,36 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchCost: async () => {
     try {
-      const data = await api.getCost();
-      set({ cost: data });
+      set({ cost: await api.getCost() });
     } catch {
-      // silently ignore fetch failures
+      // Cost is non-critical, don't surface errors.
     }
   },
 
   fetchAgents: async () => {
     try {
       const data = await api.getAgents();
-      const raw = data?.agents || data?.registry || [];
-      set({ agents: Array.isArray(raw) ? (raw as Agent[]) : [] });
+      set({ agents: (data?.agents as Agent[]) || [] });
     } catch {
-      // silently ignore fetch failures
+      // Keep existing agents on transient failure.
     }
   },
 
   fetchQuests: async () => {
     try {
-      const data = await api.getTasks({});
-      const raw = data?.tasks || [];
-      set({ quests: Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [] });
+      const data = await api.getQuests({});
+      set({ quests: (data?.quests as Array<Record<string, unknown>>) || [] });
     } catch {
-      // silently ignore fetch failures
+      // Keep existing quests on transient failure.
     }
   },
 
   fetchEvents: async () => {
     try {
       const data = await api.getActivityStream({ last: 30 });
-      const raw = data?.entries || data?.activity || [];
-      set({ events: Array.isArray(raw) ? (raw as ActivityEntry[]) : [] });
+      set({ events: (data?.events as ActivityEntry[]) || [] });
     } catch {
-      // silently ignore fetch failures
+      // Keep existing events on transient failure.
     }
   },
 

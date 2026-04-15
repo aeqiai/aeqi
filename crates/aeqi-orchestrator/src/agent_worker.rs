@@ -681,7 +681,7 @@ impl AgentWorker {
                         format!(
                             "- [{}] {}: {}",
                             e.agent_id.as_deref().unwrap_or("global"),
-                            e.key,
+                            e.name,
                             e.content
                         )
                     })
@@ -1513,13 +1513,13 @@ impl AgentWorker {
                     .iter()
                     .map(|e| SimilarIdea {
                         id: e.id.clone(),
-                        key: e.key.clone(),
+                        name: e.name.clone(),
                         content: e.content.clone(),
                         similarity: e.score as f32,
                     })
                     .collect();
                 let candidate = DedupCandidate {
-                    key: key.to_string(),
+                    name: key.to_string(),
                     content: content.to_string(),
                     embedding: None,
                 };
@@ -1599,7 +1599,7 @@ impl AgentWorker {
                                     source = %id, target = %entry.id,
                                     "supports edge created"
                                 );
-                            } else if entry.score > 0.7 && entry.key != key {
+                            } else if entry.score > 0.7 && entry.name != key {
                                 let _ =
                                     mem.store_idea_edge(&id, &entry.id, "related_to", 0.5).await;
                                 debug!(

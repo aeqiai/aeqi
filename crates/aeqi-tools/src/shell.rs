@@ -170,4 +170,12 @@ impl aeqi_core::traits::Tool for ShellTool {
     fn name(&self) -> &str {
         "shell"
     }
+
+    fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+        false
+    }
+
+    fn cascades_error_to_siblings(&self) -> bool {
+        true
+    }
 }

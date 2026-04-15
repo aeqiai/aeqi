@@ -1,4 +1,4 @@
-use aeqi_core::config::{AEQIConfig, AuthConfig, AuthMode, PeerAgentConfig};
+use aeqi_core::config::{AEQIConfig, AuthConfig, AuthMode};
 use anyhow::Result;
 use axum::{
     Router,
@@ -31,7 +31,6 @@ pub struct AppState {
     pub auth_secret: Option<String>,
     pub auth_mode: AuthMode,
     pub auth_config: AuthConfig,
-    pub agents_config: Vec<PeerAgentConfig>,
     pub ui_dist_dir: Option<PathBuf>,
     pub accounts: Option<Arc<AccountStore>>,
     pub smtp: Option<SmtpConfig>,
@@ -102,7 +101,6 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         auth_secret,
         auth_mode: web.auth.mode.clone(),
         auth_config: web.auth.clone(),
-        agents_config: config.agents.clone(),
         ui_dist_dir: web.ui_dist_dir.as_ref().map(PathBuf::from),
         accounts,
         smtp: web.auth.smtp.clone(),

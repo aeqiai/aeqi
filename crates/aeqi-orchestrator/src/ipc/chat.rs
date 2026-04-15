@@ -337,7 +337,11 @@ pub async fn handle_post_notes(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let key = request
+        .get("name")
+        .or_else(|| request.get("key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let content = request
         .get("content")
         .and_then(|v| v.as_str())
@@ -352,7 +356,7 @@ pub async fn handle_post_notes(
     } else if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {
             match mem.store(key, content, &["fact".to_string()], None).await {
-                Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "key": key}}),
+                Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "name": key}}),
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         } else {

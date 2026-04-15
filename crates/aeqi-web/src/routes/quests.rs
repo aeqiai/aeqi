@@ -4,9 +4,9 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use super::helpers::ipc_proxy;
+use super::helpers::{ipc_proxy, merge_path_id, query_to_params};
 use crate::extractors::Scope;
 use crate::server::AppState;
 
@@ -17,7 +17,7 @@ pub fn routes() -> Router<AppState> {
         .route("/quests/{id}/close", post(close_quest))
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct QuestsQuery {
     project: Option<String>,
     status: Option<String>,
@@ -28,14 +28,7 @@ async fn quests(
     scope: Scope,
     Query(q): Query<QuestsQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(project) = &q.project {
-        params["project"] = serde_json::Value::String(project.clone());
-    }
-    if let Some(status) = &q.status {
-        params["status"] = serde_json::Value::String(status.clone());
-    }
-    ipc_proxy(state, scope.as_ref(), "quests", params).await
+    ipc_proxy(state, scope.as_ref(), "quests", query_to_params(&q)).await
 }
 
 async fn create_quest(
@@ -51,8 +44,13 @@ async fn get_quest(
     scope: Scope,
     Path(id): Path<String>,
 ) -> Response {
-    let params = serde_json::json!({"id": id});
-    ipc_proxy(state, scope.as_ref(), "get_quest", params).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "get_quest",
+        serde_json::json!({"id": id}),
+    )
+    .await
 }
 
 async fn update_quest(
@@ -61,9 +59,13 @@ async fn update_quest(
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    let mut params = body;
-    params["id"] = serde_json::Value::String(id);
-    ipc_proxy(state, scope.as_ref(), "update_quest", params).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "update_quest",
+        merge_path_id(body, "id", id),
+    )
+    .await
 }
 
 async fn close_quest(
@@ -72,7 +74,11 @@ async fn close_quest(
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    let mut params = body;
-    params["quest_id"] = serde_json::Value::String(id);
-    ipc_proxy(state, scope.as_ref(), "close_quest", params).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "close_quest",
+        merge_path_id(body, "quest_id", id),
+    )
+    .await
 }

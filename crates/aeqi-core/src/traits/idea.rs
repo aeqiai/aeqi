@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Idea {
     pub id: String,
-    pub key: String,
+    #[serde(alias = "key")]
+    pub name: String,
     pub content: String,
     /// Tags classify the idea. Free-form strings. No "primary" concept.
     #[serde(default)]
@@ -75,7 +76,7 @@ impl Idea {
     #[allow(clippy::too_many_arguments)]
     pub fn recalled(
         id: String,
-        key: String,
+        name: String,
         content: String,
         tags: Vec<String>,
         agent_id: Option<String>,
@@ -85,7 +86,7 @@ impl Idea {
     ) -> Self {
         Self {
             id,
-            key,
+            name,
             content,
             tags,
             agent_id,
@@ -144,7 +145,7 @@ pub trait IdeaStore: Send + Sync {
     /// tags = classification labels (e.g. ["fact", "engineering"]).
     async fn store(
         &self,
-        key: &str,
+        name: &str,
         content: &str,
         tags: &[String],
         agent_id: Option<&str>,
@@ -193,13 +194,13 @@ pub trait IdeaStore: Send + Sync {
     /// Store with an optional TTL in seconds. Default delegates to store() ignoring TTL.
     async fn store_with_ttl(
         &self,
-        key: &str,
+        name: &str,
         content: &str,
         tags: &[String],
         agent_id: Option<&str>,
         _ttl_secs: Option<u64>,
     ) -> anyhow::Result<String> {
-        self.store(key, content, tags, agent_id).await
+        self.store(name, content, tags, agent_id).await
     }
 
     /// Search by key prefix (exact prefix match, not FTS). Default returns empty.
@@ -214,15 +215,15 @@ pub trait IdeaStore: Send + Sync {
 
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
 
-    /// Update an existing idea's key, content, and/or tags.
+    /// Update an existing idea's name, content, and/or tags.
     async fn update(
         &self,
         id: &str,
-        key: Option<&str>,
+        name: Option<&str>,
         content: Option<&str>,
         tags: Option<&[String]>,
     ) -> anyhow::Result<()> {
-        let _ = (id, key, content, tags);
+        let _ = (id, name, content, tags);
         anyhow::bail!("update not supported by this store")
     }
 

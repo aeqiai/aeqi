@@ -781,23 +781,23 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                match mem.store(&w.key, &w.content, &w.tags, None).await {
+                match mem.store(&w.name, &w.content, &w.tags, None).await {
                     Ok(id) => debug!(
                         project = %w.project,
                         id = %id,
-                        key = %w.key,
+                        name = %w.name,
                         "debounced write persisted"
                     ),
                     Err(e) => warn!(
                         project = %w.project,
-                        key = %w.key,
+                        name = %w.name,
                         "debounced write failed: {e}"
                     ),
                 }
             } else {
                 debug!(
                     project = %w.project,
-                    key = %w.key,
+                    name = %w.name,
                     "no idea store available — write dropped"
                 );
             }
@@ -1551,7 +1551,7 @@ impl Daemon {
                                         if let Ok(ideas) = store.get_by_ids(&idea_ids).await {
                                             let ctx = ideas
                                                 .iter()
-                                                .map(|i| format!("## {}\n{}", i.key, i.content))
+                                                .map(|i| format!("## {}\n{}", i.name, i.content))
                                                 .collect::<Vec<_>>()
                                                 .join("\n\n");
                                             if !ctx.is_empty() { Some(ctx) } else { None }
@@ -2151,7 +2151,7 @@ impl Daemon {
                                     .map(|i| {
                                         serde_json::json!({
                                             "id": i.id,
-                                            "key": i.key,
+                                            "name": i.name,
                                             "content": i.content,
                                             "tags": i.tags,
                                         })

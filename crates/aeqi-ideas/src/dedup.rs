@@ -28,8 +28,8 @@ pub enum DedupAction {
 /// A candidate idea about to be stored.
 #[derive(Debug, Clone)]
 pub struct DedupCandidate {
-    /// Semantic key (e.g. "auth/jwt-rotation").
-    pub key: String,
+    /// Semantic name (e.g. "auth/jwt-rotation").
+    pub name: String,
     /// Full content text.
     pub content: String,
     /// Optional pre-computed embedding for vector comparison.
@@ -41,8 +41,8 @@ pub struct DedupCandidate {
 pub struct SimilarIdea {
     /// Idea ID in the store.
     pub id: String,
-    /// Semantic key.
-    pub key: String,
+    /// Semantic name.
+    pub name: String,
     /// Full content text.
     pub content: String,
     /// Similarity score to the candidate (`0.0..=1.0`).
@@ -126,8 +126,8 @@ impl DedupPipeline {
             return DedupAction::Supersede(top.id.clone());
         }
 
-        // Same key, moderate similarity: merge.
-        if candidate.key == top.key {
+        // Same name, moderate similarity: merge.
+        if candidate.name == top.name {
             return DedupAction::Merge(top.id.clone());
         }
 
@@ -231,18 +231,18 @@ mod tests {
         DedupPipeline::default()
     }
 
-    fn candidate(key: &str, content: &str) -> DedupCandidate {
+    fn candidate(name: &str, content: &str) -> DedupCandidate {
         DedupCandidate {
-            key: key.to_string(),
+            name: name.to_string(),
             content: content.to_string(),
             embedding: None,
         }
     }
 
-    fn similar(id: &str, key: &str, content: &str, similarity: f32) -> SimilarIdea {
+    fn similar(id: &str, name: &str, content: &str, similarity: f32) -> SimilarIdea {
         SimilarIdea {
             id: id.to_string(),
-            key: key.to_string(),
+            name: name.to_string(),
             content: content.to_string(),
             similarity,
         }

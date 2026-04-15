@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
@@ -893,6 +894,7 @@ export default function AccountPage() {
 // ── API Key Tab (account-level ak_ key) ──────────────
 
 function ApiKeyTab() {
+  const { href } = useCompanyNav();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1019,7 +1021,7 @@ function ApiKeyTab() {
       <div style={{ marginTop: "var(--space-6)" }}>
         <p className="account-field-desc">
           To create secret keys for a specific company, go to{" "}
-          <a href="/company?tab=api-keys" className="key-link">
+          <a href={href("/company?tab=api-keys")} className="key-link">
             Company &rarr; API Keys
           </a>
           .

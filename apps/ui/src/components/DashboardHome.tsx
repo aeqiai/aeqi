@@ -1,5 +1,6 @@
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { runtimeLabel } from "@/lib/runtime";
 import { timeAgo } from "@/lib/format";
 import type { Agent } from "@/lib/types";
@@ -18,7 +19,7 @@ function statusColor(status: string): string {
 }
 
 export default function DashboardHome() {
-  const _status = useDaemonStore((s) => s.status);
+  const { href } = useCompanyNav();
   const quests = useDaemonStore((s) => s.quests);
   const agents = useDaemonStore((s) => s.agents);
   const cost = useDaemonStore((s) => s.cost);
@@ -136,7 +137,7 @@ export default function DashboardHome() {
           </p>
           <button
             className="btn btn-primary"
-            onClick={() => (window.location.href = "/agents")}
+            onClick={() => (window.location.href = href("/agents"))}
             style={{ padding: "10px 24px" }}
           >
             Hire an agent
@@ -155,7 +156,7 @@ export default function DashboardHome() {
               <p style={{ fontSize: 14, color: "rgba(0,0,0,0.5)", margin: 0 }}>
                 Your agents are ready.{" "}
                 <a
-                  href="/quests"
+                  href={href("/quests")}
                   style={{
                     color: "rgba(0,0,0,0.85)",
                     fontWeight: 500,

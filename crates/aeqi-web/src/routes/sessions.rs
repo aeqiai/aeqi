@@ -1,12 +1,12 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::Response,
     routing::{get, post},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use super::helpers::ipc_proxy;
+use super::helpers::{ipc_proxy, query_to_params};
 use crate::extractors::Scope;
 use crate::server::AppState;
 
@@ -18,11 +18,11 @@ pub fn routes() -> Router<AppState> {
         .route("/sessions/{id}/fork", post(fork_session))
         .route("/sessions/{id}/messages", get(session_messages))
         .route("/sessions/{id}/children", get(session_children))
-        .route("/session/send", post(session_send))
+        .route("/sessions/send", post(session_send))
         .route("/channel-sessions", get(channel_sessions))
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct SessionsQuery {
     agent_id: Option<String>,
 }
@@ -32,11 +32,7 @@ async fn sessions(
     scope: Scope,
     Query(q): Query<SessionsQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(agent_id) = &q.agent_id {
-        params["agent_id"] = serde_json::Value::String(agent_id.clone());
-    }
-    ipc_proxy(state, scope.as_ref(), "list_sessions", params).await
+    ipc_proxy(state, scope.as_ref(), "list_sessions", query_to_params(&q)).await
 }
 
 async fn create_session(
@@ -50,7 +46,7 @@ async fn create_session(
 async fn close_session(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
@@ -64,18 +60,17 @@ async fn close_session(
 async fn fork_session(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
-    Json(body): Json<serde_json::Value>,
+    Path(id): Path<String>,
+    Json(mut body): Json<serde_json::Value>,
 ) -> Response {
-    let mut params = body;
-    params["session_id"] = serde_json::json!(id);
-    ipc_proxy(state, scope.as_ref(), "session_fork", params).await
+    body["session_id"] = serde_json::json!(id);
+    ipc_proxy(state, scope.as_ref(), "session_fork", body).await
 }
 
 async fn cancel_session(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
@@ -86,7 +81,7 @@ async fn cancel_session(
     .await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct SessionMessagesQuery {
     limit: Option<u64>,
 }
@@ -94,7 +89,7 @@ struct SessionMessagesQuery {
 async fn session_messages(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
     Query(q): Query<SessionMessagesQuery>,
 ) -> Response {
     let limit = q.limit.unwrap_or(50);
@@ -110,7 +105,7 @@ async fn session_messages(
 async fn session_children(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
@@ -129,19 +124,16 @@ async fn session_send(
     ipc_proxy(state, scope.as_ref(), "session_send", body).await
 }
 
-#[derive(Deserialize, Default)]
-struct ChannelSessionsQuery {
-    agent_id: Option<String>,
-}
-
 async fn channel_sessions(
     State(state): State<AppState>,
     scope: Scope,
-    Query(q): Query<ChannelSessionsQuery>,
+    Query(q): Query<SessionsQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(agent_id) = &q.agent_id {
-        params["agent_id"] = serde_json::Value::String(agent_id.clone());
-    }
-    ipc_proxy(state, scope.as_ref(), "list_channel_sessions", params).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "list_channel_sessions",
+        query_to_params(&q),
+    )
+    .await
 }

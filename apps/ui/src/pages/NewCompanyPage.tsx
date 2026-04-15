@@ -27,10 +27,11 @@ export default function NewCompanyPage() {
         name: name.trim(),
         tagline: tagline.trim() || undefined,
       });
-      setActiveCompany(name.trim());
+      const companyName = name.trim();
+      setActiveCompany(companyName);
       // Backend auto-creates an agent for the company — fetch it immediately
       await fetchAgents();
-      navigate("/");
+      navigate(`/${encodeURIComponent(companyName)}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create company");
       setCreating(false);

@@ -1,106 +1,81 @@
-:root {
-  /* Monochromatic palette — pure black/white with opacity */
-  --bg-base: #ffffff;
-  --bg-surface: rgba(0, 0, 0, 0.015);
-  --bg-elevated: rgba(0, 0, 0, 0.035);
-  --bg-overlay: rgba(0, 0, 0, 0.08);
+/*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  AEQI Dashboard — Design Tokens
+ *
+ *  Source of truth: @aeqi/tokens (shared package).
+ *  This file imports the shared tokens and provides
+ *  compatibility aliases so existing dashboard CSS
+ *  keeps working with the old unprefixed names.
+ *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-  /* Legacy aliases */
-  --bg-hover: var(--bg-elevated);
-  --bg-secondary: var(--bg-surface);
-  --bg-primary: var(--bg-base);
+@import "../../../../packages/tokens/src/tokens.css";
+
+:root {
+  /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
+
+  /* Backgrounds */
+  --bg-base: var(--color-bg-base);
+  --bg-surface: var(--color-bg-surface);
+  --bg-elevated: var(--color-bg-elevated);
+  --bg-overlay: var(--color-bg-overlay);
+
+  /* Legacy background aliases */
+  --bg-hover: var(--color-bg-elevated);
+  --bg-secondary: var(--color-bg-surface);
+  --bg-primary: var(--color-bg-base);
 
   /* Text */
-  --text-primary: rgba(0, 0, 0, 0.85);
-  --text-secondary: rgba(0, 0, 0, 0.5);
-  --text-muted: rgba(0, 0, 0, 0.3);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
 
   /* Accent */
-  --accent: #000000;
-  --accent-dim: rgba(0, 0, 0, 0.45);
-  --accent-bg: rgba(0, 0, 0, 0.04);
-  --accent-glow: transparent;
-  --accent-glow-strong: transparent;
+  --accent: var(--color-accent);
+  --accent-dim: var(--color-accent-dim);
+  --accent-bg: var(--color-accent-bg);
 
   /* Status */
-  --success: #22c55e;
-  --success-glow: rgba(34, 197, 94, 0.08);
-  --error: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
+  --success: var(--color-success);
+  --error: var(--color-error);
+  --warning: var(--color-warning);
+  --info: var(--color-info);
 
   /* Borders */
-  --border: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
-  --border-accent: rgba(0, 0, 0, 0.15);
+  --border: var(--color-border);
+  --border-hover: var(--color-border-hover);
 
   /* Glass */
-  --glass-bg: rgba(255, 255, 255, 0.9);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg: var(--color-glass-bg);
+  --glass-border: var(--color-glass-border);
 
-  /* Typography */
-  --font-mono: "JetBrains Mono", monospace;
-  --font-sans: "Inter", -apple-system, sans-serif;
-  --font-brand: "Inter", -apple-system, sans-serif;
-  --font-size-3xs: 0.5625rem; /* 9px */
-  --font-size-2xs: 0.625rem; /* 10px */
-  --font-size-micro: 0.6875rem; /* 11px */
-  --font-size-xs: 0.75rem; /* 12px */
-  --font-size-sm: 0.8125rem; /* 13px */
-  --font-size-base: 0.875rem; /* 14px */
-  --font-size-lg: 1rem; /* 16px */
-  --font-size-xl: 1.25rem; /* 20px */
-  --font-size-2xl: 1.5rem; /* 24px */
+  /* ── Dashboard-specific tokens (not in shared package) ─── */
 
-  /* Spacing */
-  --space-0: 2px;
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-
-  /* Radius — softer, premium */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-full: 999px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --accent-glow: transparent;
+  --accent-glow-strong: transparent;
+  --success-glow: rgba(34, 197, 94, 0.08);
+  --border-accent: rgba(0, 0, 0, 0.15);
   --shadow-glow: none;
   --shadow-glow-strong: none;
 
-  /* Transitions */
-  --transition-fast: 150ms ease;
+  /* Brand font alias */
+  --font-brand: var(--font-sans);
+
+  /* Extra font size not in shared tokens */
+  --font-size-micro: 0.6875rem; /* 11px */
+
+  /* Extra radius alias */
+  --radius-2xl: var(--radius-xl);
+
+  /* Transition overrides — dashboard's --transition-normal includes
+     the "all" property (used as full shorthand), while the shared
+     token is duration+easing only. Keep the dashboard value. */
   --transition-normal: all 0.15s ease;
   --transition-smooth: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* ── Breakpoints ─────────────────────────────────── */
-  /* Usage: @media (max-width: 768px) { ... } */
-  /* sm: 640px, md: 768px, lg: 1024px, xl: 1280px */
-  --touch-target-min: 44px;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Base element styles (dashboard-specific) ──────── */
 
 html {
   font-size: var(--font-size-lg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -122,20 +97,4 @@ a {
 }
 a:hover {
   color: var(--text-primary);
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: var(--radius-xs);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
 }

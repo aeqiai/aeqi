@@ -205,7 +205,7 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
         }
         ChatStreamEvent::IdeaActivity {
             action,
-            key,
+            name,
             preview,
         } => {
             let icon = if action == "recalled" { "📖" } else { "💾" };
@@ -214,7 +214,17 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             } else {
                 preview
             };
-            state.push_system(&format!("{icon} {action} [{key}]: {short}"));
+            state.push_system(&format!("{icon} {action} [{name}]: {short}"));
+        }
+        ChatStreamEvent::Tombstone { reason, .. } => {
+            // Discard partial output from a failed streaming attempt.
+            if !state.streaming_text.is_empty() {
+                let _ = writeln!(stdout);
+                state.streaming_text.clear();
+            }
+            state.push_system(&format!("↺ Retrying: {reason}"));
+            render::print_message(stdout, state.messages.last().unwrap(), state, 80);
+            state.agent_state = AgentState::Thinking;
         }
         ChatStreamEvent::ToolProgress { .. } => {
             // Show spinner during tool execution.

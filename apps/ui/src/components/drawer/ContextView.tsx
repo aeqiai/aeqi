@@ -178,7 +178,7 @@ function IdeasSection({ agentName }: { agentName: string }) {
       {ideas.length > 0 ? (
         <div className="ctx-list">
           {ideas.map((item: any) => {
-            const id = item.id || item.key;
+            const id = item.id || item.name || item.key;
             const isExpanded = expandedId === id;
             const content = item.content || "";
             const preview = content.length > 120 ? content.slice(0, 120) + "\u2026" : content;
@@ -190,7 +190,7 @@ function IdeasSection({ agentName }: { agentName: string }) {
                 onClick={() => setExpandedId(isExpanded ? null : id)}
                 style={{ cursor: content.length > 120 ? "pointer" : "default" }}
               >
-                <span className="ctx-idea-key">{item.key || item.title || "idea"}</span>
+                <span className="ctx-idea-key">{item.name || item.key || item.title || "idea"}</span>
                 <span className="ctx-idea-content">{isExpanded ? content : preview}</span>
               </div>
             );

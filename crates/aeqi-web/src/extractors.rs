@@ -78,7 +78,6 @@ mod tests {
             auth_secret,
             auth_mode,
             auth_config: AuthConfig::default(),
-            agents_config: vec![],
             ui_dist_dir: None,
             accounts: None,
             smtp: None,

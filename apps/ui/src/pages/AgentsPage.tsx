@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import CreateAgentModal from "@/components/CreateAgentModal";
 import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
@@ -8,7 +8,7 @@ import type { Agent } from "@/lib/types";
 import "@/styles/agents-page.css";
 
 export default function AgentsPage() {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const agents = useDaemonStore((s) => s.agents);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -103,7 +103,7 @@ export default function AgentsPage() {
             <AgentCard
               key={agent.id || agent.name}
               agent={agent}
-              onClick={() => navigate(`/agents/${agent.id || agent.name}`)}
+              onClick={() => go(`/agents/${agent.id || agent.name}`)}
             />
           ))}
         </div>

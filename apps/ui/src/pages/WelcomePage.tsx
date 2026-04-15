@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
@@ -138,8 +138,8 @@ const SECONDARY_ITEMS = [
 
 export default function WelcomePage() {
   const navigate = useNavigate();
+  const { company } = useParams<{ company: string }>();
   const activeCompany = useUIStore((s) => s.activeCompany);
-  const _setActiveCompany = useUIStore((s) => s.setActiveCompany);
   const agents = useDaemonStore((s) => s.agents);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(activeCompany);
@@ -307,7 +307,7 @@ export default function WelcomePage() {
           </div>
           <button
             className="btn btn-primary"
-            onClick={() => navigate("/agents")}
+            onClick={() => navigate(`/${company}/agents`)}
             style={{ padding: "6px 16px", fontSize: 12 }}
           >
             Hire agent

@@ -59,7 +59,7 @@ pub enum ChatStreamEvent {
     /// Idea was recalled or stored.
     IdeaActivity {
         action: String, // "recalled" or "stored"
-        key: String,
+        name: String,
         preview: String,
     },
 
@@ -85,6 +85,13 @@ pub enum ChatStreamEvent {
         iterations: u32,
         cost_usd: f64,
     },
+
+    /// Partial output from a failed streaming attempt should be discarded.
+    /// Emitted when the agent loop recovers from a streaming error (reactive
+    /// compact, fallback model switch) after TextDelta/ToolStart events were
+    /// already sent. The frontend should discard any partial output from the
+    /// step indicated by `step`.
+    Tombstone { step: u32, reason: String },
 
     /// An error occurred.
     Error { message: String, recoverable: bool },

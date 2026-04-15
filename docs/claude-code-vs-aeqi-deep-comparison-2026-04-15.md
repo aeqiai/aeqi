@@ -1,3 +1,69 @@
+## Claude Code Handoff Prompt
+
+```text
+You are working in a local workspace with two codebases:
+
+- Claude Code source snapshot: `/home/claudedev/src`
+- AEQI source: `/home/claudedev/aeqi`
+
+Start with this research document and use its exact path references:
+`/home/claudedev/aeqi/docs/claude-code-vs-aeqi-deep-comparison-2026-04-15.md`
+
+Also read:
+`/home/claudedev/aeqi/docs/agent-loop-parity.md`
+
+Your job is to use the Claude Code source snapshot to materially improve AEQI.
+
+Do not treat the docs as gospel. Use them as a map, then verify the important claims directly in code in both `/home/claudedev/src` and `/home/claudedev/aeqi`.
+
+Focus on the highest-leverage runtime and orchestration improvements surfaced by the comparison, especially:
+- stable prompt prefix vs dynamic tail
+- attachment-first mutable context instead of prompt churn
+- live delegation wiring
+- delegated result-return semantics
+- subagent mode/tool-surface shaping
+- approval brokering and permission architecture
+- unified wakeup/notification queue semantics
+- compaction layering and reinjection contracts
+- transcript repair / resume correctness
+- canonical checkpoint / handoff / blocked-state resume artifacts
+- lifecycle event wiring
+- remote/bridge/coordinator separation where relevant
+
+What I want from you:
+
+1. Read the comparison docs and inspect the referenced code paths.
+2. Produce a ranked implementation roadmap for AEQI:
+   - quick wins
+   - medium-sized architectural improvements
+   - deeper structural changes
+3. For each item, name the exact AEQI files/modules to change and the Claude Code files that inspired it.
+4. Identify which improvements should be copied directly, which should be adapted to AEQI’s architecture, and which should not be copied.
+5. Then start implementing the highest-value items that are low-to-medium risk and can be completed cleanly in this repo.
+6. Do not stop at planning if implementation is feasible.
+7. Run relevant tests/checks for the code you change.
+8. Preserve AEQI’s strengths: scheduler, quests, sessions, checkpoints, activity log, auditability, and long-running orchestration. Do not collapse AEQI into a Claude Code-style single conversational monolith.
+
+Important guidance:
+
+- AEQI should copy Claude Code’s runtime discipline, not its whole architecture.
+- Keep AEQI’s control-plane spine.
+- Favor explicit, durable state over implicit transcript magic where AEQI is already stronger.
+- Where Claude Code has better runtime ergonomics, import the pattern in an AEQI-native way.
+- If you find that the docs missed something important in the source, extend the analysis and use that to guide implementation.
+
+Expected output style:
+- First: concise findings and a ranked implementation plan with exact file touchpoints.
+- Second: implement the top tranche of changes.
+- Third: summarize what changed, what was verified, what remains, and what should be done next.
+
+Begin by opening:
+- `/home/claudedev/aeqi/docs/claude-code-vs-aeqi-deep-comparison-2026-04-15.md`
+- `/home/claudedev/aeqi/docs/agent-loop-parity.md`
+
+Then inspect both codebases and get to work.
+```
+
 # Claude Code vs AEQI: Deep Runtime Comparison
 
 Scope: compare the uploaded Claude Code snapshot in `/home/claudedev/src` against AEQI's current runtime in `/home/claudedev/aeqi`, with emphasis on the agent loop, context injection, delegation/subagents, wakeups, tool surfacing, persistence, and orchestration shape.
@@ -722,12 +788,26 @@ The most valuable changes are not speculative. They map directly to AEQI files.
    - `crates/aeqi-core/src/chat_stream.rs`
    - `crates/aeqi-orchestrator/src/session_manager.rs`
 
+4. Add an explicit approval broker and distinguish blind async agents from promptable async agents.
+   - Primary touchpoints:
+   - `crates/aeqi-orchestrator/src/middleware/guardrails.rs`
+   - `crates/aeqi-orchestrator/src/session_manager.rs`
+   - `crates/aeqi-core/src/agent.rs`
+   - CLI / UI permission surfaces
+
+5. Add a unified wakeup queue for interactive sessions without replacing the scheduler.
+   - Primary touchpoints:
+   - `crates/aeqi-core/src/agent.rs`
+   - `crates/aeqi-orchestrator/src/message_router.rs`
+   - `crates/aeqi-orchestrator/src/session_store.rs`
+
 ### Tier 3: outer-product maturity
 
 1. Improve startup/performance instrumentation.
 2. Harden plugin/extension and MCP loading paths.
-3. Expand transcript/session persistence semantics for sidechains and resume.
+3. Expand transcript/session persistence semantics for sidechains, resume, and queue audit.
 4. Improve policy/permission productization around tools and delegation.
+5. Wire hook execution into the actual runtime lifecycle rather than leaving it as a mostly standalone subsystem.
 
 ## 19. Final Synthesis
 
@@ -763,3 +843,646 @@ If AEQI executes only five things from this comparison, they should be:
 3. explicit result-return semantics for delegated work
 4. mode-shaped subagent tool envelopes
 5. attachment-first mutable context instead of prompt churn
+
+## 20. Claude Code's Permission System Is Runtime Architecture
+
+The deeper permission read changed the comparison materially.
+
+Claude Code does not treat permissions as a single allow/deny step. It treats them as a runtime architecture spanning tool surfacing, mode transitions, agent typing, approval routing, and reporting.
+
+### Startup permission context is already policy compilation
+
+- `src/utils/permissions/permissionSetup.ts:872-1033` compiles the effective `ToolPermissionContext` from:
+  - CLI `allowedTools` / `disallowedTools`
+  - base-tool presets
+  - settings and disk rules
+  - extra working directories
+  - mode gates like `bypassPermissions` and `auto`
+- `permissionSetup.ts:930-976` explicitly detects:
+  - overly broad shell permissions
+  - dangerous auto-mode permissions
+- `permissionSetup.ts:978-1025` validates and folds in additional working directories before the session starts.
+
+This matters because the runtime is not deciding permissions from scratch on every tool call. It starts from a compiled policy state.
+
+### Bypass is not absolute
+
+- `src/utils/permissions/permissions.ts:1071-1155` shows the rule-based subset that still applies even in bypass-oriented flows:
+  - deny rules
+  - ask rules
+  - tool-specific `checkPermissions`
+  - safety checks for sensitive paths
+- The critical invariant is that some checks are deliberately bypass-immune.
+
+That is a better model than a global YOLO flag. It preserves hard boundaries even in permissive modes.
+
+### Auto mode is a mode transition, not just a prompt setting
+
+- `permissions.ts:518-956` shows auto mode as a staged pipeline:
+  - preserve non-classifier-approvable safety checks
+  - optionally reject PowerShell early
+  - fast-path actions that would already pass in `acceptEdits`
+  - fast-path allowlisted safe tools
+  - only then run the classifier
+- `permissions.ts:818-875` handles classifier failure modes explicitly:
+  - transcript too long
+  - classifier unavailable
+  - fail-open vs fail-closed behavior
+- `permissions.ts:878-1057` tracks denials across a session and aborts headless sessions after repeated blocked actions.
+
+This is much more mature than "if autonomous then let it run." Claude Code explicitly models when auto should degrade to manual review and when headless execution should just stop.
+
+### Tool surface is narrowed before call-time permission checks
+
+- `src/tools/AgentTool/agentToolUtils.ts:70-115` removes disallowed tools based on agent type and async status.
+- `agentToolUtils.ts:122-220` resolves tool specs into a concrete tool pool, including agent-type metadata and disallowed tool filtering.
+- `src/tools/AgentTool/runAgent.ts:436-462` distinguishes:
+  - async agents that cannot show prompts
+  - async agents that can show prompts after automated checks
+
+This is a key product lesson: call-time permission checks are not enough. Claude Code shapes the action space before the model acts, then still checks tool use at execution time.
+
+### Approval routing is brokered across frontends
+
+- `src/hooks/useCanUseTool.tsx:93-167` shows the approval broker behavior:
+  - automated checks before dialog for background agents
+  - coordinator/swarm delegation of some permission decisions
+  - interactive fallback only when automation cannot decide
+  - bridge and channel callbacks as approval surfaces
+- `src/services/mcp/channelNotification.ts:175-257` gates inbound channel permissions through capability, runtime gate, auth, org policy, session opt-in, and allowlist.
+- `src/remote/RemoteSessionManager.ts` shows the same permission story extended to remote sessions.
+- `src/QueryEngine.ts:243-270` does not implement policy itself; it only records denials for SDK reporting.
+
+This is another important design clue: permissions are not just local UI. They are a pluggable approval broker spanning terminal UI, bridge mode, channel integrations, and remote sessions.
+
+### AEQI implications
+
+AEQI should copy the shape, not the exact policies:
+
+- keep hard-deny and safety-check semantics separate from softer "ask" semantics
+- distinguish blind async workers from promptable background workers
+- shape tool surfaces before middleware sees a call
+- centralize approval brokering instead of leaving `ask` behavior implicit in middleware
+
+Right now AEQI has pieces of this in `middleware/guardrails.rs`, but Claude Code is doing more than guardrails. It is coordinating tool surface, mode, and approval transport as one system.
+
+## 21. Transcript, Queue, and Hook Invariants Are Part of the Loop
+
+The transcript and queue subsystems are not support code. They are part of Claude Code's agent-loop correctness model.
+
+### Transcript storage is append-only, but replay is repair-first
+
+- `src/utils/sessionStorage.ts` writes append-only JSONL, but the read path is not naive replay.
+- `sessionStorage.ts:549-606` and nearby write-queue logic serialize writes per file and track pending/in-flight work so flush is meaningful.
+- `sessionStorage.ts:1128-1254` keeps agent sidechains separate from the main session transcript.
+- `sessionStorage.ts:3472+`, `3616+`, and `3704+` repair old or compacted transcript topology during load.
+
+This is subtle but important. Claude Code's persistence model is not "the JSONL is the truth." The JSONL plus its replay repairs are the truth.
+
+### Queue operations are audited and prioritized
+
+- `src/utils/messageQueueManager.ts:41-61` defines a single module-level command queue.
+- `messageQueueManager.ts:49-50` and `151-192` make priority explicit: `now > next > later`, FIFO within a priority.
+- `messageQueueManager.ts:128-149` defaults task notifications to `later` so user input is not starved.
+- `messageQueueManager.ts:28-37` records queue operations to transcript storage.
+
+That means Claude Code has a durable explanation for why a command was enqueued, drained, or skipped. The queue is part of the session history, not just UI state.
+
+### Notifications are not treated like user input
+
+- The queue differentiates user-editable commands from task notifications.
+- `src/query.ts:1547-1630` drains queued commands into attachment-style re-entry inputs rather than naively splicing them into the raw conversation.
+- `src/cli/print.ts` only emits terminal `task_notification` SDK events for terminal notifications, not every internal progress ping.
+
+This keeps wakeups structured and keeps the user input buffer clean.
+
+### Tombstones are a correctness tool
+
+- `src/query.ts:713-730` tombstones partial assistant states on fallback.
+- `src/utils/sessionStorage.ts:863+` removes tombstoned messages with a fast tail-path and a bounded slow-path rewrite.
+
+This is a strong pattern worth copying. Claude Code assumes streaming can fail mid-structure and provides a first-class way to remove orphaned state before it poisons resume or future tool-result matching.
+
+### Hooks are session-scoped runtime state
+
+- `src/utils/hooks/sessionHooks.ts:48-61` uses a `Map` so hook mutation does not churn store listeners under concurrency.
+- `sessionHooks.ts:93-115` defines in-memory function hooks that are not persisted to settings.
+- `src/utils/hooks/hookHelpers.ts:41-82` uses `SyntheticOutputTool` plus a function hook to enforce structured output at stop time.
+
+This is not just extensibility. It is runtime loop control. Hooks can validate, halt, inject, or enforce structure without mutating the base prompt.
+
+### AEQI implications
+
+AEQI already has durable sessions, summaries, and traces in `session_store.rs`, which is stronger than Claude Code in some ways. But it should import several specific runtime invariants:
+
+- wakeups should be logged as first-class events, not only observed indirectly
+- interactive notifications should stay separate from user-authored input
+- delegated or background sidechains should have explicit persistence semantics
+- hook results should prefer structured enrichments over plain chat text
+- compaction/resume should normalize old topology on load, not only at write time
+
+In short: Claude Code's queue and transcript layers are doing loop hygiene work that AEQI currently spreads across several separate mechanisms.
+
+## 22. Direct AEQI Outer-System Comparison
+
+The more direct comparison is now clearer.
+
+### Where AEQI is already stronger
+
+- `crates/aeqi-orchestrator/src/session_store.rs` persists:
+  - sessions
+  - session messages
+  - session summaries
+  - session traces
+  - senders / gateways
+- `session_store.rs:560-596`, `609-633`, and `1359-1434` show that transcript search, summary management, and execution traces are all first-class persisted primitives.
+- `crates/aeqi-orchestrator/src/message_router.rs:287-307` records typed thread events, not just free-form messages.
+- `message_router.rs:334-392` and `426-469` show a durable chat-to-quest and quest-to-chat bridge.
+- `crates/aeqi-orchestrator/src/scheduler.rs` uses:
+  - `ActivityLog` broadcast wakeups
+  - a direct worker completion channel
+  - a patrol loop
+- `crates/aeqi-core/src/streaming_executor.rs:1-297` already has deterministic ordered tool draining plus sibling-cancellation behavior during streaming.
+
+This is not a weaker version of Claude Code. It is a different, more control-plane-heavy system.
+
+### Where AEQI is weaker
+
+- Delegation is not surfaced as cleanly as the codebase suggests it should be.
+  - `crates/aeqi-orchestrator/src/delegate.rs` is strong.
+  - the runtime tool pool still surfaces `AgentsTool` via `tools.rs:1650+`.
+- AEQI has multiple wakeup paths instead of one unified interactive queue:
+  - `input_rx` in `aeqi-core/src/agent.rs:1197-1274`
+  - `pending_tasks` and `task_notify` in `message_router.rs`
+  - `ActivityLog` broadcast and completion channels in `scheduler.rs`
+- `crates/aeqi-orchestrator/src/middleware/guardrails.rs:1-227` is useful, but it is not a full approval broker.
+  - ask-tier calls pass in autonomous mode
+  - supervised mode injects caution text rather than opening a richer approval workflow
+- `crates/aeqi-core/src/shell_hooks.rs` exists and is reasonably complete, but it is not yet clearly integrated into the main lifecycle in the way Claude Code's hook stack is.
+- `session_manager.rs` still builds a larger monolithic `system_prompt` and appends prompt material directly, which is less cache-stable than Claude Code's static-prefix / dynamic-tail boundary.
+
+### The most useful synthesis
+
+The correct takeaway is not "AEQI needs to look more like Claude Code everywhere."
+
+The correct takeaway is:
+
+- keep AEQI's durable session store, message router, scheduler, and trace model
+- import Claude Code's local runtime invariants for:
+  - tool-surface shaping
+  - approval brokering
+  - wakeup queue semantics
+  - transcript repair
+  - structured hook enforcement
+
+That is the real merge of strengths:
+
+- Claude Code contributes runtime discipline
+- AEQI contributes durable orchestration
+
+If AEQI tries to copy Claude Code too literally, it risks losing the very thing that makes it strategically stronger: explicit, auditable, long-running orchestration outside a single conversation loop.
+
+## 23. Compaction Is a Layered Runtime-Control Stack, Not One Feature
+
+The deeper compaction pass surfaced something important that the earlier sections only hinted at:
+
+Claude Code does not have "a compaction system." It has multiple distinct context-control mechanisms with different costs, different durability semantics, and different recovery roles.
+
+### The main loop stages context reduction in a deliberate order
+
+- `src/query.ts:396-460` runs:
+  - snip first
+  - microcompact second
+  - context collapse third
+  - autocompact last
+- The comments in `query.ts` are unusually explicit about why:
+  - snip frees history before the threshold check
+  - microcompact prunes tool-result weight before summary compaction
+  - context collapse runs before autocompact so a cheaper projection can avoid a full summary
+
+This is a strong design pattern.
+
+Claude Code does not jump straight from "too many tokens" to "summarize the conversation." It uses a cost ladder:
+
+- remove unnecessary bulk
+- clear stale tool-result weight
+- project a thinner view
+- summarize only if the cheaper steps are insufficient
+
+AEQI should copy that separation. Right now its context-management story is stronger on durable orchestration than on layered token-pressure response.
+
+### Overflow recovery is separate from proactive compaction
+
+- `src/query.ts:1065-1110` handles prompt-too-long recovery after a real failure.
+- The recovery path is not the same as the proactive path:
+  - first drain staged context collapses
+  - then try reactive compact
+  - only then surface the error
+- Media-size failures use a related but different path, because collapse cannot strip images.
+
+That distinction matters. Claude Code separates:
+
+- proactive shaping before the request
+- reactive repair after a hard API rejection
+
+This avoids overpaying the summarization cost on every turn while still giving the loop a recovery path when estimation was wrong or inputs changed unexpectedly.
+
+### Summary compact, session-memory compact, microcompact, and context collapse do different jobs
+
+- `src/services/compact/compact.ts:387-713` is the full summary path:
+  - build a summary prompt
+  - run pre-compact hooks
+  - retry prompt-too-long by truncating head groups
+  - produce a boundary + summary + preserved tail + reinjected attachments/hooks
+- `src/services/compact/sessionMemoryCompact.ts:324-600` is a faster variant that uses extracted session memory instead of full resummarization.
+- `src/services/compact/microCompact.ts:130-211` is not summarization at all. It prunes or clears old tool-result bulk.
+- `src/services/compact/apiMicrocompact.ts:63+` shows there is also an API-layer cache-editing flavor of that pruning.
+
+So the real Claude Code pattern is:
+
+- summary compaction for long-term transcript reduction
+- memory-based compaction for fast-path reuse
+- microcompact for tool-result pruning
+- collapse for projected view reduction without rewriting the visible transcript
+
+That is much more disciplined than a single "compress context" switch.
+
+### Compaction is a durability contract, not just a prompt rewrite
+
+- `src/services/compact/compact.ts:520-719` rebuilds the post-compact tail in a stable order:
+  - compact boundary
+  - summary
+  - preserved tail
+  - attachments
+  - hooks
+- The reinjection helpers are budgeted and type-specific:
+  - files in `compact.ts:1415+`
+  - invoked skills in `compact.ts:1494+`
+  - plan mode in `compact.ts:1542+`
+  - async agents in `compact.ts:1568+`
+- `src/services/compact/postCompactCleanup.ts:31+` then clears invalidated runtime caches after the new compacted state is committed.
+
+This is a major product lesson.
+
+Claude Code assumes that if context is compacted, the loop must still remember the live operational state that would otherwise be lost:
+
+- which files were attached
+- which skills were invoked
+- whether plan mode is active
+- which async agents are still running
+- which deferred tool schemas or MCP instructions matter
+
+AEQI should explicitly model this same post-compaction reinjection contract rather than relying on prompt assembly to rediscover that state later.
+
+### Transcript replay repairs compacted topology on load
+
+- `src/utils/sessionStorage.ts:3520+`, `3616+`, and `3704+` repair preserved compact segments and snip removals during transcript load.
+- The loader does not blindly trust append order. It:
+  - relinks preserved segments
+  - rewires anchors and parent pointers
+  - prunes old history only when the preserved segment is still walkable
+  - ignores older boundary formats that do not carry enough metadata for safe replay
+- `sessionStorage.ts:1408+` also guards against duplicate post-compact re-recording by treating already-recorded messages as a prefix.
+
+This is easy to underestimate, but it is one of Claude Code's more sophisticated loop invariants.
+
+Compaction is not complete when the summary is written. It is only complete when future resume and replay can reconstruct a correct message graph.
+
+AEQI is already stronger than Claude Code in explicit session persistence, but Claude Code is stronger in transcript-topology repair after in-loop rewriting.
+
+### The prompt boundary is part of compaction correctness
+
+- `src/utils/api.ts:321-449` splits the system prompt at `SYSTEM_PROMPT_DYNAMIC_BOUNDARY`.
+- `appendSystemContext()` appends volatile system context as a dynamic tail.
+- `prependUserContext()` injects CLAUDE.md/date/meta reminders as synthetic user-side context rather than mutating the cacheable prefix.
+- `src/context.ts:116-155` memoizes user/system context and explicitly clears it after compaction.
+- `src/services/api/claude.ts:3213+` turns that split into cache-controlled API blocks.
+
+This is one of the clearest places where prompt architecture and compaction architecture meet.
+
+Because the cached prefix stays stable, compaction mostly has to manage the mutable tail and attachment state. That reduces churn, improves cache reuse, and makes compaction semantics more predictable.
+
+AEQI should treat "stable prefix vs dynamic tail" as a foundational runtime boundary, not as an optimization to add later.
+
+## 24. Plugin, Skill, and MCP Loading Is Startup Architecture, Not Just Extensibility
+
+The extension pass exposed another major product lesson:
+
+Claude Code's extensibility story is not one generic plugin loader. It is a staged startup architecture with different registries, different freshness rules, and different policy boundaries.
+
+### Startup is optimized around cache-only discovery
+
+- `src/main.tsx:279+` logs plugin telemetry by calling `loadAllPluginsCacheOnly()`.
+- `src/main.tsx:1909-1934` registers built-in plugins and bundled skills before `getCommands(preSetupCwd)`.
+- The comment there is blunt: if registration happens later, the memoized command list misses them for the whole session.
+
+This shows Claude Code treating extension discovery as startup architecture, not as a later convenience feature.
+
+The key pattern is:
+
+- make startup use cache-only discovery
+- make explicit refresh paths do full-fidelity loading
+- register zero-I/O built-ins before command memoization begins
+
+That is better than trying to make every extension source equally fresh at all times.
+
+### Plugin loading has separate cache-only and full-refresh modes
+
+- `src/utils/plugins/pluginLoader.ts:3096-3175` defines:
+  - `loadAllPlugins()` for full refresh
+  - `loadAllPluginsCacheOnly()` for startup-safe loading
+- The comments explain the invariants:
+  - cache-only must never satisfy a fresh-source caller
+  - full refresh can warm the cache-only memoization
+  - startup consumers should not block on git clones
+- `assemblePluginLoadResult()` loads marketplace and session-only plugins in parallel, merges session/marketplace/builtin sources, then runs `verifyAndDemote()`.
+
+The architecture is careful about freshness.
+
+Claude Code does not pretend "loaded once" and "fresh from source" are the same thing. It gives them separate call paths and separate caching rules.
+
+AEQI should use the same distinction anywhere tools, agents, or integrations can come from durable install state, user-local state, and live-refresh state.
+
+### Commands, skills, and plugins are intentionally separate registries
+
+- `src/skills/loadSkillsDir.ts:638-923` loads skills from multiple scopes, dedups by file identity, and keeps conditional skills separate until their path filters match.
+- `src/utils/skills/skillChangeDetector.ts:89-247` invalidates caches when dynamic skills change.
+- `src/commands.ts:353-586` is the merge point for:
+  - bundled skills
+  - built-in plugin skills
+  - filesystem skills
+  - workflows
+  - plugin commands
+  - plugin skills
+  - core slash commands
+
+This is a more nuanced design than "plugins provide commands."
+
+Claude Code distinguishes:
+
+- shipped capabilities
+- user/project skills
+- installed marketplace plugins
+- runtime-discovered skills
+- MCP-provided tools/resources
+
+That separation prevents one source from polluting the semantics of another and makes caching/policy decisions much cleaner.
+
+### MCP is not loaded through the generic command path
+
+- `src/services/mcp/config.ts:1071-1258` merges plugin MCP servers with user/project/local config and enterprise policy.
+- `src/utils/plugins/mcpPluginIntegration.ts:341-589` resolves plugin MCP config, injects plugin-root variables, resolves user config/env substitutions, and namespaces server keys as `plugin:name:server`.
+- `src/services/mcp/client.ts:2226-2408` then connects to servers and incrementally emits tools, commands, skills, and resources.
+- `src/services/mcp/useManageMCPConnections.ts:143-856` consumes that incrementally in interactive mode.
+- `src/main.tsx:2404+` prefetches configured MCP resources before headless execution.
+
+This is another strong separation-of-concerns choice.
+
+MCP is not just another slash-command source. It is its own discovery, connection, auth, and incremental-delivery pipeline.
+
+That is exactly the right shape for AEQI if it wants a clean connector story:
+
+- config resolution
+- policy enforcement
+- connection lifecycle
+- surfaced tool/resource registry
+
+should be separate layers.
+
+### Policy sits upstream of execution
+
+- `src/utils/plugins/pluginStartupCheck.ts:39+` and `performStartupChecks.tsx:24+` run trust and seed-marketplace checks before normal plugin use.
+- `src/utils/plugins/pluginPolicy.ts:17+` is intentionally narrow: managed settings block/allow decisions stay at the policy edge.
+
+That is the right model.
+
+Claude Code does not rely on execution-time cleanup to make extension loading safe. It filters and demotes before the runtime sees those capabilities.
+
+AEQI should follow that same pattern for plugins, MCP servers, and agent-surface extensions.
+
+## 25. Bridge, Remote Session Sharing, and Coordinator Mode Are Separate Axes
+
+The remote-architecture pass clarified something that is easy to flatten incorrectly:
+
+Claude Code does not have one remote mode. It has multiple connectivity shapes that solve different recovery problems.
+
+### There are three connectivity stories, not one
+
+- `src/bridge/replBridge.ts` is the environment-based bridge path with environment registration, session reuse, pointer persistence, polling, and reconnect/re-dispatch.
+- `src/bridge/remoteBridgeCore.ts:1-29` is the env-less bridge core that removes the Environments API layer but still does session creation, bridge credential fetch, transport setup, and token-refresh rebuilds.
+- `src/remote/RemoteSessionManager.ts:95+` is for attaching to an already-existing remote session and relaying user input / permission responses.
+- `src/server/createDirectConnectSession.ts:26+` and `src/server/directConnectManager.ts:40+` implement a much thinner direct-connect path.
+
+So the product actually has:
+
+- a durable bridge runtime
+- an attach-to-existing-session client
+- a simple direct-connect mode
+
+Those are different operational contracts, not variants of the same code path.
+
+### Crash resume is a real data structure, not a convenience flag
+
+- `src/bridge/bridgePointer.ts` persists `{sessionId, environmentId}` per working directory, uses mtime refresh, and expires pointers after a bounded window.
+- The bridge code uses that pointer to resolve `--continue` and recover from process churn separately from network churn.
+
+This is another place where Claude Code is stronger than it first appears.
+
+Remote continuity is not only a socket problem. It is:
+
+- process resume
+- session resume
+- backend re-dispatch
+- transport reconnect
+
+handled at separate layers.
+
+AEQI should explicitly preserve that distinction if it expands remote or multi-client session attachment.
+
+### Auth repair is part of orchestration, not just transport
+
+- `src/bridge/bridgeMain.ts:141+` keeps sessions alive with heartbeats, refresh, and reconnect-on-auth-failure.
+- `src/bridge/jwtUtils.ts` proactively refreshes credentials before expiry and can force re-dispatch on auth churn.
+- `src/bridge/sessionIngressAuth.ts` selects auth sources narrowly.
+- `src/bridge/trustedDevice.ts` adds a rollout-gated trusted-device token path.
+
+This matters because Claude Code treats auth expiry as a session-liveness issue, not a transport exception to bubble upward.
+
+AEQI's equivalent lesson is not "copy the JWT code." It is:
+
+- give transport/auth/session-resume separate state machines
+- do not let auth repair logic leak across the whole runtime
+
+### Remote session sharing is adapted into the local UX
+
+- `src/services/mcp/channelNotification.ts` and `src/remote/remotePermissionBridge.ts` show permission and notification events being mapped into local surfaces.
+- `src/remote/sdkMessageAdapter.ts` normalizes remote SDK messages into local message shapes.
+- `src/remote/useRemoteSession.ts` filters echoed user UUIDs, tracks background tasks, and maps remote permission prompts into the local confirmation flow.
+
+That is a subtle but high-value pattern.
+
+Claude Code does not require remote sessions to invent a completely different UX grammar. It normalizes remote events into the same local loop semantics wherever possible.
+
+If AEQI grows channel, bridge, or multi-client surfaces, it should do the same:
+
+- remote messages should adapt into local session semantics
+- not create a second parallel UX model
+
+### Coordinator mode is independent of transport
+
+- `src/coordinator/coordinatorMode.ts:36-88` shows coordinator mode as a prompt/tool-surface overlay driven by env state.
+- `matchSessionMode()` preserves mode across resume by flipping process state to match the stored session mode.
+- `getCoordinatorUserContext()` only injects coordinator-specific worker capability context when the mode is active.
+
+This is one of the cleanest Claude Code design choices.
+
+Coordinator behavior is not entangled with remote transport. It is a role overlay.
+
+AEQI should preserve the same separation:
+
+- transport decides where the session runs
+- orchestration mode decides how that session delegates and reasons
+
+## 26. AEQI Already Has a Real Control Plane, but Several Surfaces Are Only Half-Live
+
+The deeper AEQI pass made the comparison sharper in both directions.
+
+AEQI is not missing a control plane. In several places it already has a better one than Claude Code. But some of its most promising surfaces are still only partially activated.
+
+### The good news: the substrate is already strong
+
+- `crates/aeqi-orchestrator/src/runtime.rs:7-210` defines:
+  - phases
+  - session status
+  - outcome status
+  - artifacts
+  - contract parsing with legacy-text fallback
+- `crates/aeqi-core/src/checkpoint.rs:14+` and `crates/aeqi-orchestrator/src/checkpoint.rs:47-192` together give AEQI both shadow-git rollback and external git-observed checkpoint capture.
+- `crates/aeqi-orchestrator/src/activity_log.rs:38-88` is not just audit storage. It is a broadcastable event bus backed by immutable SQLite records.
+- `crates/aeqi-orchestrator/src/event_handler.rs:355+` seeds lifecycle events as data with attached ideas.
+- `crates/aeqi-orchestrator/src/daemon.rs:382-440` does real consistency work on startup:
+  - migrations
+  - stale quest reset
+  - orphaned worktree cleanup
+  - orphaned session cleanup
+  - schedule timer / IPC / activity services
+- `crates/aeqi-orchestrator/src/session_manager.rs:350-820` is a credible universal spawn path for new sessions.
+
+That is a substantial architecture. It means AEQI can absorb ideas from Claude Code without abandoning its strongest foundations.
+
+### The bad news: some important abstractions are present but not fully wired
+
+- `crates/aeqi-orchestrator/src/agent_worker.rs:296+` has `save_checkpoint()` as a no-op.
+- `crates/aeqi-orchestrator/src/daemon.rs:521+` leaves `spawn_event_matcher()` as a no-op with the comment that lifecycle events are context injection only.
+- `crates/aeqi-orchestrator/src/middleware/guardrails.rs:160-226` is still mostly substring classification with autonomous-mode pass-through for `Ask`.
+- `schedule_timer.rs:39-240` is useful, but it is still a coarse polling loop with a simple parser.
+
+These are not cosmetic gaps.
+
+They mean AEQI sometimes advertises richer lifecycle or persistence semantics than the runtime fully delivers today.
+
+### AEQI's persistence story is powerful, but split across multiple concepts
+
+Right now there are at least three overlapping notions of durable state:
+
+- shadow-git rollback in `aeqi-core/src/checkpoint.rs`
+- externally observed git snapshots in `aeqi-orchestrator/src/checkpoint.rs`
+- runtime/session/outcome state in `runtime.rs`, `session_store.rs`, and worker/scheduler records
+
+Each of those is defensible on its own. The problem is the handoff boundary between them.
+
+Claude Code's weakness is that it lacks AEQI's durable orchestrator.
+
+AEQI's weakness is that it sometimes has multiple durable stories for the same session without one explicit "this is the canonical resume artifact for this state transition" contract.
+
+The clearest place to fix that is around:
+
+- `Blocked`
+- `Handoff`
+- delegated quest completion
+- operator review/resume
+
+### Session spawn and policy injection are already the right place to evolve
+
+- `session_manager.rs:350-430` already does:
+  - agent resolution
+  - ancestor lookup
+  - idea assembly
+  - prompt construction
+  - workdir resolution
+- `agent_worker.rs:632+` already builds a serious middleware chain:
+  - loop detection
+  - cost tracking
+  - context budget
+  - graph guardrails
+  - guardrails
+  - context compression
+  - idea refresh
+  - clarification
+  - safety net
+
+So the right AEQI move is not to bolt new architecture onto the side.
+
+It is to sharpen the existing core surfaces:
+
+- make prompt assembly cache-stable
+- make approvals brokered instead of textual
+- make lifecycle events live instead of seed-only
+- make checkpoints canonical instead of parallel
+- make delegation the primary runtime path instead of a side implementation
+
+### The most important interpretation change
+
+After reading more of both systems, the comparison is now even clearer:
+
+- Claude Code is more complete at local runtime hygiene
+- AEQI is more ambitious and often stronger at durable orchestration
+
+So AEQI should not feel architecturally behind.
+
+It should feel partially unfinished in a few high-leverage runtime seams:
+
+- delegation surfacing
+- canonical resume artifacts
+- approval brokering
+- unified wakeups
+- prompt boundary discipline
+- live lifecycle dispatch
+
+Those are fixable without changing the basic AEQI shape.
+
+## 27. Updated Synthesis
+
+The deeper sweep changes the advice in one important way.
+
+Earlier, the main recommendation was:
+
+- keep AEQI's orchestrator
+- import Claude Code's runtime ergonomics
+
+That is still right, but it needs one sharper refinement:
+
+AEQI should copy Claude Code's separation discipline.
+
+The most valuable Claude Code patterns are not individual features. They are boundaries:
+
+- stable prompt prefix vs dynamic tail
+- summary compaction vs microcompact vs collapse
+- cache-only startup load vs explicit refresh
+- plugin registry vs skill registry vs MCP registry
+- transport reconnect vs backend re-dispatch vs process resume
+- async blind worker vs promptable background worker vs interactive main thread
+
+AEQI already has its own strong boundaries:
+
+- scheduler vs worker
+- session store vs activity log
+- quests vs chats
+- middleware vs agent runtime
+- external checkpoints vs session traces
+
+The opportunity is to make those boundaries line up more cleanly with runtime behavior.
+
+If AEQI does that, it does not become "more like Claude Code."
+
+It becomes a stronger system than Claude Code in the places that matter for long-running multi-agent orchestration, while also acquiring the runtime sharpness that currently makes Claude Code feel more production-hardened turn to turn.

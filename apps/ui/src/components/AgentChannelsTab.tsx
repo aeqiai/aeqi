@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { api } from "@/lib/api";
 
 interface ChannelEntry {
@@ -37,7 +38,7 @@ function fieldKey(label: string): string {
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
@@ -55,9 +56,9 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       const data = await api.getAgentChannels(agentId);
       const ideas = (data.ideas || []) as Array<Record<string, unknown>>;
       const parsed: ChannelEntry[] = ideas
-        .filter((i) => typeof i.key === "string" && (i.key as string).startsWith("channel:"))
+        .filter((i) => typeof i.name === "string" && (i.name as string).startsWith("channel:"))
         .map((i) => {
-          const key = i.key as string;
+          const key = i.name as string;
           let config: Record<string, unknown> = {};
           try {
             config = JSON.parse(i.content as string);
@@ -167,7 +168,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             <div
               key={ch.id}
               className={`asv-session-item${ch.id === selectedId ? " active" : ""}`}
-              onClick={() => navigate(`/agents/${agentId}/channels/${ch.id}`)}
+              onClick={() => go(`/agents/${agentId}/channels/${ch.id}`)}
             >
               <div className="asv-session-item-top">
                 <span className="asv-session-item-name">{ch.channel_type}</span>
@@ -249,7 +250,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 className="btn channel-disconnect-btn"
                 onClick={async () => {
                   await api.deleteAgentChannel(selected.id);
-                  navigate(`/agents/${agentId}/channels`);
+                  go(`/agents/${agentId}/channels`);
                   loadChannels();
                 }}
               >

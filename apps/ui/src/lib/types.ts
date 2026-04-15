@@ -83,7 +83,7 @@ export interface ActivityEvent {
 
 export interface Idea {
   id: string;
-  key: string;
+  name: string;
   content: string;
   tags?: string[];
   scope?: string;

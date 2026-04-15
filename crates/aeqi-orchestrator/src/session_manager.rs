@@ -701,9 +701,9 @@ impl SessionManager {
             {
                 for idea in &ideas {
                     step_idea_specs.push(aeqi_core::StepIdeaSpec {
-                        path: std::path::PathBuf::from(&idea.key),
+                        path: std::path::PathBuf::from(&idea.name),
                         allow_shell: false,
-                        name: idea.key.clone(),
+                        name: idea.name.clone(),
                         content: Some(idea.content.clone()),
                     });
                 }

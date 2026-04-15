@@ -3,10 +3,35 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use serde::Serialize;
 
 use crate::auth::UserScope;
 use crate::extractors::Scope;
 use crate::server::AppState;
+
+/// Convert a `Serialize`-able query struct into a `serde_json::Value` object,
+/// stripping all null (None) fields so only provided params are forwarded.
+pub(super) fn query_to_params(q: &impl Serialize) -> serde_json::Value {
+    let val = serde_json::to_value(q).unwrap_or(serde_json::Value::Null);
+    match val {
+        serde_json::Value::Object(map) => {
+            let cleaned: serde_json::Map<String, serde_json::Value> =
+                map.into_iter().filter(|(_, v)| !v.is_null()).collect();
+            serde_json::Value::Object(cleaned)
+        }
+        other => other,
+    }
+}
+
+/// Merge a path `id` parameter into a JSON body under the given key name.
+pub(super) fn merge_path_id(
+    mut body: serde_json::Value,
+    key: &str,
+    id: String,
+) -> serde_json::Value {
+    body[key] = serde_json::Value::String(id);
+    body
+}
 
 /// Send an IPC command to the daemon, injecting tenant scope when available.
 pub(super) async fn ipc_proxy(

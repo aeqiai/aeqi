@@ -39,7 +39,7 @@ pub async fn handle_notes(
                         .iter()
                         .map(|e| {
                             serde_json::json!({
-                                "key": e.key,
+                                "name": e.name,
                                 "content": e.content,
                                 "agent": e.agent_id.as_deref().unwrap_or("system"),
                                 "project": project,
@@ -69,18 +69,22 @@ pub async fn handle_get_notes(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let name = request
+        .get("name")
+        .or_else(|| request.get("key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {
-            let q = aeqi_core::traits::IdeaQuery::new(key, 1);
+            let q = aeqi_core::traits::IdeaQuery::new(name, 1);
             match mem.search(&q).await {
                 Ok(entries) => {
-                    if let Some(e) = entries.into_iter().find(|e| e.key == key) {
+                    if let Some(e) = entries.into_iter().find(|e| e.name == name) {
                         serde_json::json!({
                             "ok": true,
                             "entry": {
-                                "key": e.key,
+                                "name": e.name,
                                 "content": e.content,
                                 "agent": e.agent_id.as_deref().unwrap_or("system"),
                                 "project": project,
@@ -232,16 +236,20 @@ pub async fn handle_delete_notes(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let name = request
+        .get("name")
+        .or_else(|| request.get("key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {
-            let q = aeqi_core::traits::IdeaQuery::new(key, 5);
+            let q = aeqi_core::traits::IdeaQuery::new(name, 5);
             match mem.search(&q).await {
                 Ok(entries) => {
                     let mut deleted = false;
                     for e in &entries {
-                        if e.key == key {
+                        if e.name == name {
                             let _ = mem.delete(&e.id).await;
                             deleted = true;
                         }

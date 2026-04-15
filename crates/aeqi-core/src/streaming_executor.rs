@@ -31,6 +31,9 @@ struct TrackedTool {
     input: serde_json::Value,
     status: ToolStatus,
     is_concurrent_safe: bool,
+    /// Whether errors from this tool should cancel sibling tools.
+    /// Only shell/bash tools set this to true.
+    cascades_error: bool,
     result: Option<ToolResult>,
     started_at: Option<std::time::Instant>,
     join_handle: Option<JoinHandle<Result<ToolResult, String>>>,
@@ -80,11 +83,12 @@ impl StreamingToolExecutor {
 
     /// Add a tool to the execution queue. Starts executing immediately if concurrency allows.
     pub async fn add_tool(&mut self, id: String, name: String, input: serde_json::Value) {
-        let is_safe = self
-            .tools_defs
-            .iter()
-            .find(|t| t.name() == name)
+        let tool_def = self.tools_defs.iter().find(|t| t.name() == name);
+        let is_safe = tool_def
             .map(|t| t.is_concurrent_safe(&input))
+            .unwrap_or(false);
+        let cascades_error = tool_def
+            .map(|t| t.cascades_error_to_siblings())
             .unwrap_or(false);
 
         self.queue.push(TrackedTool {
@@ -93,6 +97,7 @@ impl StreamingToolExecutor {
             input,
             status: ToolStatus::Queued,
             is_concurrent_safe: is_safe,
+            cascades_error,
             result: None,
             started_at: None,
             join_handle: None,
@@ -147,6 +152,7 @@ impl StreamingToolExecutor {
             let input = self.queue[i].input.clone();
             let sibling_errored = self.sibling_errored.clone();
             let tool_name = self.queue[i].name.clone();
+            let cascades = self.queue[i].cascades_error;
 
             let handle = tokio::spawn(async move {
                 if sibling_errored.load(Ordering::Acquire) {
@@ -154,14 +160,16 @@ impl StreamingToolExecutor {
                 }
                 match tool_def.execute(input).await {
                     Ok(result) => {
-                        if result.is_error {
+                        if result.is_error && cascades {
                             sibling_errored.store(true, Ordering::Release);
-                            debug!(tool = %tool_name, "tool errored — signaling siblings");
+                            debug!(tool = %tool_name, "shell tool errored — signaling siblings");
                         }
                         Ok(result)
                     }
                     Err(e) => {
-                        sibling_errored.store(true, Ordering::Release);
+                        if cascades {
+                            sibling_errored.store(true, Ordering::Release);
+                        }
                         Err(e.to_string())
                     }
                 }
@@ -349,7 +357,7 @@ mod tests {
         }
     }
 
-    /// Test tool that always errors.
+    /// Test tool that always errors but does NOT cascade to siblings.
     struct ErrorTool;
 
     #[async_trait]
@@ -371,6 +379,36 @@ mod tests {
         }
 
         fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+            true
+        }
+    }
+
+    /// Test tool that always errors AND cascades to siblings (like shell tools).
+    struct CascadingErrorTool;
+
+    #[async_trait]
+    impl Tool for CascadingErrorTool {
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::error("cascading error"))
+        }
+
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "cascading_error_tool".into(),
+                description: "test".into(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }
+        }
+
+        fn name(&self) -> &str {
+            "cascading_error_tool"
+        }
+
+        fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
+            true
+        }
+
+        fn cascades_error_to_siblings(&self) -> bool {
             true
         }
     }
@@ -482,13 +520,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sibling_error_signaling() {
+    async fn test_cascading_error_cancels_siblings() {
+        let tools: Vec<Arc<dyn Tool>> = vec![
+            Arc::new(CascadingErrorTool),
+            Arc::new(EchoTool {
+                tool_name: "read".into(),
+                concurrent_safe: true,
+                delay_ms: 100, // Delayed so cascading error tool finishes first.
+            }),
+        ];
+
+        let mut executor = StreamingToolExecutor::new(tools);
+        executor
+            .add_tool(
+                "t1".into(),
+                "cascading_error_tool".into(),
+                serde_json::json!({}),
+            )
+            .await;
+        executor
+            .add_tool("t2".into(), "read".into(), serde_json::json!({}))
+            .await;
+
+        let results = executor.finish_all().await;
+        assert_eq!(results.len(), 2);
+        assert!(results[0].result.is_error); // cascading error tool errored
+        assert!(results[1].result.is_error); // sibling cancelled
+    }
+
+    #[tokio::test]
+    async fn test_non_cascading_error_does_not_cancel_siblings() {
         let tools: Vec<Arc<dyn Tool>> = vec![
             Arc::new(ErrorTool),
             Arc::new(EchoTool {
                 tool_name: "read".into(),
                 concurrent_safe: true,
-                delay_ms: 100, // Delayed so error tool finishes first.
+                delay_ms: 100,
             }),
         ];
 
@@ -503,6 +570,7 @@ mod tests {
         let results = executor.finish_all().await;
         assert_eq!(results.len(), 2);
         assert!(results[0].result.is_error); // error_tool errored
+        assert!(!results[1].result.is_error); // sibling NOT cancelled — read succeeded
     }
 
     #[tokio::test]

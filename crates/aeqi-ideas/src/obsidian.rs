@@ -40,10 +40,10 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
         return Ok(0);
     }
 
-    // Build ID → key lookup for wikilinks.
-    let id_to_key: HashMap<&str, &str> = entries
+    // Build ID → name lookup for wikilinks.
+    let id_to_name: HashMap<&str, &str> = entries
         .iter()
-        .map(|e| (e.id.as_str(), e.key.as_str()))
+        .map(|e| (e.id.as_str(), e.name.as_str()))
         .collect();
 
     // Fetch all edges.
@@ -70,14 +70,14 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("failed to create dir: {}", dir.display()))?;
 
-        let filename = sanitize_filename(&entry.key);
+        let filename = sanitize_filename(&entry.name);
         let path = dir.join(format!("{filename}.md"));
 
         let entry_edges = edges_by_id.get(entry.id.as_str());
-        let md = render_markdown(entry, entry_edges, &id_to_key);
+        let md = render_markdown(entry, entry_edges, &id_to_name);
 
         std::fs::write(&path, md).with_context(|| format!("failed to write {}", path.display()))?;
-        debug!(key = %entry.key, path = %path.display(), "exported idea");
+        debug!(name = %entry.name, path = %path.display(), "exported idea");
         written += 1;
     }
 
@@ -89,7 +89,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
 fn render_markdown(
     entry: &Idea,
     edges: Option<&Vec<&IdeaEdge>>,
-    id_to_key: &HashMap<&str, &str>,
+    id_to_name: &HashMap<&str, &str>,
 ) -> String {
     let tags = if entry.tags.is_empty() {
         vec!["untagged".to_string()]
@@ -119,7 +119,7 @@ fn render_markdown(
 {rendered_tags}\
          ---\n\n\
          {}\n",
-        entry.id, entry.key, entry.content
+        entry.id, entry.name, entry.content
     );
 
     // Append relations as wikilinks.
@@ -133,7 +133,7 @@ fn render_markdown(
             } else {
                 (edge.source_id.as_str(), "←")
             };
-            let other_key = id_to_key.get(other_id).copied().unwrap_or(other_id);
+            let other_key = id_to_name.get(other_id).copied().unwrap_or(other_id);
             md.push_str(&format!(
                 "- {direction} [[{other_key}]] — {} ({:.2})\n",
                 edge.relation, edge.strength
@@ -150,7 +150,7 @@ fn render_markdown(
 #[derive(Debug)]
 pub struct ParsedIdea {
     pub id: Option<String>,
-    pub key: String,
+    pub name: String,
     pub content: String,
     pub tags: Vec<String>,
     pub agent_id: Option<String>,
@@ -184,20 +184,20 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
 
     for mem in &parsed {
         match store
-            .store(&mem.key, &mem.content, &mem.tags, mem.agent_id.as_deref())
+            .store(&mem.name, &mem.content, &mem.tags, mem.agent_id.as_deref())
             .await
         {
             Ok(id) if id.is_empty() => {
-                debug!(key = %mem.key, "skipped (duplicate)");
+                debug!(name = %mem.name, "skipped (duplicate)");
                 skipped += 1;
             }
             Ok(id) => {
-                debug!(key = %mem.key, id = %id, "imported");
-                key_to_id.insert(mem.key.clone(), id);
+                debug!(name = %mem.name, id = %id, "imported");
+                key_to_id.insert(mem.name.clone(), id);
                 imported += 1;
             }
             Err(e) => {
-                warn!(key = %mem.key, err = %e, "failed to import");
+                warn!(name = %mem.name, err = %e, "failed to import");
                 skipped += 1;
             }
         }
@@ -208,7 +208,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
     let existing = store.list_all()?;
     for entry in &existing {
         key_to_id
-            .entry(entry.key.clone())
+            .entry(entry.name.clone())
             .or_insert_with(|| entry.id.clone());
     }
 
@@ -216,13 +216,13 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
         if mem.relations.is_empty() {
             continue;
         }
-        let Some(source_id) = key_to_id.get(&mem.key) else {
+        let Some(source_id) = key_to_id.get(&mem.name) else {
             continue;
         };
         for rel in &mem.relations {
             let Some(target_id) = key_to_id.get(&rel.target_key) else {
                 debug!(
-                    source = %mem.key,
+                    source = %mem.name,
                     target = %rel.target_key,
                     "skipping edge — target not found"
                 );
@@ -233,7 +233,7 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
                 .await
             {
                 warn!(
-                    source = %mem.key,
+                    source = %mem.name,
                     target = %rel.target_key,
                     err = %e,
                     "failed to store edge"
@@ -283,7 +283,7 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
             // Skip if already parsed from a tag subdirectory.
             if results.iter().any(|m| {
                 let fname = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                m.key == fname
+                m.name == fname
             }) {
                 continue;
             }
@@ -306,7 +306,7 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
 
     // Extract fields from frontmatter.
     let id = extract_field(&frontmatter, "id");
-    let key = extract_field(&frontmatter, "key").unwrap_or_else(|| {
+    let name = extract_field(&frontmatter, "key").unwrap_or_else(|| {
         // Fall back to filename.
         path.file_stem()
             .and_then(|s| s.to_str())
@@ -328,7 +328,7 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
 
     Ok(ParsedIdea {
         id,
-        key,
+        name,
         content: content.trim().to_string(),
         tags,
         agent_id,
@@ -346,8 +346,8 @@ fn tag_str(tag: &str) -> &str {
     tag
 }
 
-fn sanitize_filename(key: &str) -> String {
-    key.chars()
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '-' || c == '_' {
                 c

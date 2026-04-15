@@ -28,6 +28,19 @@ const AppsPage = lazy(() => import("@/pages/AppsPage"));
 const MarketPage = lazy(() => import("@/pages/MarketPage"));
 const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
 
+const LoadingSpinner = () => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "100vh",
+    }}
+  >
+    <div style={{ color: "rgba(0,0,0,0.3)", fontSize: 13 }}>Loading...</div>
+  </div>
+);
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
@@ -37,115 +50,108 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     fetchAuthMode();
   }, [fetchAuthMode]);
 
-  // Loading mode discovery
-  if (!authMode) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-        }}
-      >
-        <div style={{ color: "rgba(0,0,0,0.3)", fontSize: 13 }}>Loading...</div>
-      </div>
-    );
-  }
-
+  if (!authMode) return <LoadingSpinner />;
   if (authMode === "none") return <>{children}</>;
   if (!token) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
+function CompanyRedirect() {
+  const activeCompany = localStorage.getItem("aeqi_company");
+  if (activeCompany) {
+    return <Navigate to={`/${encodeURIComponent(activeCompany)}`} replace />;
+  }
+  return <EntitiesPage />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <Suspense
-        fallback={
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "100vh",
-            }}
-          >
-            <div style={{ color: "rgba(0,0,0,0.3)", fontSize: 13 }}>Loading...</div>
-          </div>
-        }
-      >
+      <Suspense fallback={<LoadingSpinner />}>
         <Routes>
+          {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Protected routes */}
           <Route
             path="/*"
             element={
               <ProtectedRoute>
-                <ModeAwareShell />
+                <Routes>
+                  {/* Root: company selector or redirect to active company */}
+                  <Route index element={<CompanyRedirect />} />
+                  <Route path="new" element={<NewCompanyPage />} />
+
+                  {/* Legacy flat routes → redirect to company-scoped */}
+                  <Route path="agents" element={<CompanyRedirect />} />
+                  <Route path="quests" element={<CompanyRedirect />} />
+                  <Route path="events" element={<CompanyRedirect />} />
+                  <Route path="ideas" element={<CompanyRedirect />} />
+                  <Route path="sessions" element={<CompanyRedirect />} />
+                  <Route path="companies" element={<CompanyRedirect />} />
+                  <Route path="company" element={<CompanyRedirect />} />
+                  <Route path="workspace" element={<CompanyRedirect />} />
+                  <Route path="settings" element={<ModeAwareSettingsRedirect />} />
+
+                  {/* Company-scoped routes: /:company/... */}
+                  <Route path=":company" element={<AppLayout />}>
+                    <Route index element={<ModeAwareHome />} />
+                    <Route path="agents" element={<AgentsPage />} />
+                    <Route path="agents/:agentId" element={<AgentsPage />} />
+                    <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
+                    <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
+                    <Route path="events" element={<EventsPage />} />
+                    <Route path="quests" element={<QuestsPage />} />
+                    <Route path="ideas" element={<IdeasPage />} />
+                    <Route path="sessions" element={<SessionsPage />} />
+                    <Route path="settings" element={<CompanyPage />} />
+                    <Route
+                      path="treasury"
+                      element={
+                        <PlatformOnlyRoute>
+                          <TreasuryPage />
+                        </PlatformOnlyRoute>
+                      }
+                    />
+                    <Route
+                      path="drive"
+                      element={
+                        <PlatformOnlyRoute>
+                          <DrivePage />
+                        </PlatformOnlyRoute>
+                      }
+                    />
+                    <Route
+                      path="apps"
+                      element={
+                        <PlatformOnlyRoute>
+                          <AppsPage />
+                        </PlatformOnlyRoute>
+                      }
+                    />
+                    <Route
+                      path="market"
+                      element={
+                        <PlatformOnlyRoute>
+                          <MarketPage />
+                        </PlatformOnlyRoute>
+                      }
+                    />
+                    <Route path="account" element={<ModeAwareAccountRoute />} />
+                  </Route>
+                </Routes>
               </ProtectedRoute>
             }
-          >
-            <Route index element={<ModeAwareHome />} />
-            <Route path="new" element={<NewCompanyPage />} />
-            <Route path="agents" element={<AgentsPage />} />
-            <Route path="agents/:agentId" element={<AgentsPage />} />
-            <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
-            <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
-            <Route path="events" element={<EventsPage />} />
-            <Route path="quests" element={<QuestsPage />} />
-            <Route path="ideas" element={<IdeasPage />} />
-            <Route path="workspace" element={<LegacyWorkspaceRoute />} />
-            <Route path="company" element={<CompanyPage />} />
-            <Route path="companies" element={<EntitiesPage />} />
-            <Route
-              path="treasury"
-              element={
-                <PlatformOnlyRoute>
-                  <TreasuryPage />
-                </PlatformOnlyRoute>
-              }
-            />
-            <Route
-              path="drive"
-              element={
-                <PlatformOnlyRoute>
-                  <DrivePage />
-                </PlatformOnlyRoute>
-              }
-            />
-            <Route
-              path="apps"
-              element={
-                <PlatformOnlyRoute>
-                  <AppsPage />
-                </PlatformOnlyRoute>
-              }
-            />
-            <Route
-              path="market"
-              element={
-                <PlatformOnlyRoute>
-                  <MarketPage />
-                </PlatformOnlyRoute>
-              }
-            />
-            <Route path="sessions" element={<SessionsPage />} />
-            <Route path="account" element={<ModeAwareAccountRoute />} />
-            <Route path="settings" element={<ModeAwareSettingsRoute />} />
-          </Route>
+          />
         </Routes>
       </Suspense>
     </ErrorBoundary>
   );
-}
-
-function ModeAwareShell() {
-  return <AppLayout />;
 }
 
 function ModeAwareHome() {
@@ -153,21 +159,19 @@ function ModeAwareHome() {
   return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
 }
 
-function LegacyWorkspaceRoute() {
-  return <Navigate to="/company" replace />;
-}
-
 function ModeAwareAccountRoute() {
   const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <AccountPage /> : <Navigate to="/company" replace />;
+  return appMode === "platform" ? <AccountPage /> : <Navigate to="settings" replace />;
 }
 
-function ModeAwareSettingsRoute() {
+function ModeAwareSettingsRedirect() {
   const appMode = useAuthStore((s) => s.appMode);
-  return <Navigate to={appMode === "platform" ? "/account" : "/company"} replace />;
+  const activeCompany = localStorage.getItem("aeqi_company");
+  const base = activeCompany ? `/${encodeURIComponent(activeCompany)}` : "/";
+  return <Navigate to={appMode === "platform" ? `${base}/account` : `${base}/settings`} replace />;
 }
 
 function PlatformOnlyRoute({ children }: { children: React.ReactNode }) {
   const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <>{children}</> : <Navigate to="/company" replace />;
+  return appMode === "platform" ? <>{children}</> : <Navigate to="settings" replace />;
 }

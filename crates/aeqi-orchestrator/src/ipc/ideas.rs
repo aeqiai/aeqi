@@ -46,11 +46,13 @@ pub async fn handle_store_idea(
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
-    let key = request_field(request, "key").unwrap_or("");
+    let name = request_field(request, "name")
+        .or_else(|| request_field(request, "key"))
+        .unwrap_or("");
     let content = request_field(request, "content").unwrap_or("");
 
-    if key.is_empty() || content.is_empty() {
-        return serde_json::json!({"ok": false, "error": "key and content are required"});
+    if name.is_empty() || content.is_empty() {
+        return serde_json::json!({"ok": false, "error": "name and content are required"});
     }
 
     let tags: Vec<String> = request
@@ -66,7 +68,7 @@ pub async fn handle_store_idea(
 
     let agent_id = request_field(request, "agent_id");
 
-    match idea_store.store(key, content, &tags, agent_id).await {
+    match idea_store.store(name, content, &tags, agent_id).await {
         Ok(id) => serde_json::json!({"ok": true, "id": id}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -106,7 +108,7 @@ pub async fn handle_update_idea(
         return serde_json::json!({"ok": false, "error": "id is required"});
     }
 
-    let key = request_field(request, "key");
+    let name = request_field(request, "name").or_else(|| request_field(request, "key"));
     let content = request_field(request, "content");
     let tags: Option<Vec<String>> = request.get("tags").and_then(|v| v.as_array()).map(|arr| {
         arr.iter()
@@ -114,14 +116,14 @@ pub async fn handle_update_idea(
             .collect()
     });
 
-    if key.is_none() && content.is_none() && tags.is_none() {
+    if name.is_none() && content.is_none() && tags.is_none() {
         return serde_json::json!({
             "ok": false,
-            "error": "at least one of key, content, or tags is required"
+            "error": "at least one of name, content, or tags is required"
         });
     }
 
-    match idea_store.update(id, key, content, tags.as_deref()).await {
+    match idea_store.update(id, name, content, tags.as_deref()).await {
         Ok(()) => serde_json::json!({"ok": true}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -167,7 +169,7 @@ pub async fn handle_search_ideas(
 fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
     serde_json::json!({
         "id": idea.id,
-        "key": idea.key,
+        "name": idea.name,
         "content": idea.content,
         "tags": idea.tags,
         "agent_id": idea.agent_id,
@@ -226,7 +228,7 @@ pub async fn handle_ideas_search(
                     .map(|e| {
                         serde_json::json!({
                             "id": e.id,
-                            "key": e.key,
+                            "name": e.name,
                             "content": e.content,
                             "tags": e.tags,
                             "agent_id": e.agent_id,
@@ -297,7 +299,7 @@ pub async fn handle_idea_profile(
                             .collect();
                         Ok(serde_json::json!({
                             "id": row.get::<_, String>(0)?,
-                            "key": row.get::<_, String>(1)?,
+                            "name": row.get::<_, String>(1)?, // DB column is `key`
                             "content": row.get::<_, String>(2)?,
                             "tags": tags,
                             "scope": row.get::<_, String>(4)?,
@@ -364,7 +366,7 @@ pub async fn handle_idea_graph(
             .map(|mut stmt| {
                 stmt.query_map([], |row| {
                     let id: String = row.get(0)?;
-                    let key: String = row.get(1)?;
+                    let name: String = row.get(1)?; // DB column is `key`
                     let content: String = row.get(2)?;
                     let tags_raw: String = row.get(3)?;
                     let created_at: String = row.get(4)?;
@@ -376,7 +378,7 @@ pub async fn handle_idea_graph(
 
                     use std::hash::{Hash, Hasher};
                     let mut h = std::collections::hash_map::DefaultHasher::new();
-                    key.hash(&mut h);
+                    name.hash(&mut h);
                     let x = (h.finish() % 1000) as u32;
 
                     let mut h2 = std::collections::hash_map::DefaultHasher::new();
@@ -404,7 +406,7 @@ pub async fn handle_idea_graph(
 
                     Ok(serde_json::json!({
                         "id": id,
-                        "key": key,
+                        "name": name,
                         "content": content,
                         "tags": if tags.is_empty() { vec!["untagged".to_string()] } else { tags },
                         "x": x,
@@ -502,7 +504,7 @@ pub async fn handle_idea_prefix(
                 .map(|e| {
                     serde_json::json!({
                         "id": e.id,
-                        "key": e.key,
+                        "name": e.name,
                         "content": e.content,
                         "tags": e.tags,
                         "agent_id": e.agent_id,
@@ -568,7 +570,7 @@ pub async fn handle_channel_knowledge(
             for entry in results {
                 items.push(serde_json::json!({
                     "id": entry.id,
-                    "key": entry.key,
+                    "name": entry.name,
                     "content": entry.content,
                     "tags": entry.tags,
                     "agent_id": entry.agent_id,
@@ -592,7 +594,11 @@ pub async fn handle_knowledge_store(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let key = request.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let name = request
+        .get("name")
+        .or_else(|| request.get("key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let content = request
         .get("content")
         .and_then(|v| v.as_str())
@@ -612,8 +618,8 @@ pub async fn handle_knowledge_store(
         .and_then(|v| v.as_str())
         .unwrap_or("domain");
 
-    if project.is_empty() || key.is_empty() || content.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project, key, and content required"});
+    if project.is_empty() || name.is_empty() || content.is_empty() {
+        return serde_json::json!({"ok": false, "error": "project, name, and content required"});
     }
 
     if let Some(ref mem) = ctx.idea_store {
@@ -624,7 +630,7 @@ pub async fn handle_knowledge_store(
         };
         let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
         match mem
-            .store_with_ttl(key, content, &tags, agent_id, ttl_secs)
+            .store_with_ttl(name, content, &tags, agent_id, ttl_secs)
             .await
         {
             Ok(id) => serde_json::json!({"ok": true, "id": id}),

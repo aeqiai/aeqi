@@ -519,9 +519,10 @@ impl IdeasTool {
 
     async fn action_store(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let key = args
-            .get("key")
+            .get("name")
+            .or_else(|| args.get("key"))
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing key"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing name"))?;
         let content = args
             .get("content")
             .and_then(|v| v.as_str())
@@ -540,7 +541,7 @@ impl IdeasTool {
                             Some(aid),
                             None,
                             None,
-                            &serde_json::json!({"key": key, "idea_id": id}),
+                            &serde_json::json!({"name": key, "idea_id": id}),
                         )
                         .await;
                 }
@@ -578,12 +579,19 @@ impl IdeasTool {
                     } else {
                         format!("{}m ago", age.num_minutes())
                     };
+                    let tags = if entry.tags.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" [{}]", entry.tags.join(", "))
+                    };
                     output.push_str(&format!(
-                        "{}. [{}] ({:.2}) {} — {}\n",
+                        "{}. id={} [{}] ({:.2}) {}{} — {}\n",
                         i + 1,
+                        entry.id,
                         age_str,
                         entry.score,
-                        entry.key,
+                        entry.name,
+                        tags,
                         entry.content,
                     ));
                 }
@@ -598,17 +606,20 @@ impl IdeasTool {
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing id"))?;
-        let key = args.get("key").and_then(|v| v.as_str());
+        let name = args
+            .get("name")
+            .or_else(|| args.get("key"))
+            .and_then(|v| v.as_str());
         let content = args.get("content").and_then(|v| v.as_str());
         let tags = Self::parse_tags(args);
 
-        if key.is_none() && content.is_none() && tags.is_none() {
+        if name.is_none() && content.is_none() && tags.is_none() {
             return Ok(ToolResult::error(
-                "Provide at least one of key, content, or tags".to_string(),
+                "Provide at least one of name, content, or tags".to_string(),
             ));
         }
 
-        match self.memory.update(id, key, content, tags.as_deref()).await {
+        match self.memory.update(id, name, content, tags.as_deref()).await {
             Ok(()) => Ok(ToolResult::success(format!("Updated idea {id}"))),
             Err(e) => Ok(ToolResult::error(format!("Failed to update: {e}"))),
         }
@@ -656,10 +667,10 @@ impl Tool for IdeasTool {
                     "action": {
                         "type": "string",
                         "enum": ["store", "search", "update", "delete"],
-                        "description": "store: save a memory (needs key, content). search: find memories (needs query). update: modify an existing idea (needs id plus key/content/tags). delete: remove a memory (needs id)."
+                        "description": "store: save a memory (needs name, content). search: find memories (needs query). update: modify an existing idea (needs id plus name/content/tags). delete: remove a memory (needs id)."
                     },
                     "id": { "type": "string", "description": "Idea ID to update or delete (for update, delete)" },
-                    "key": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store, update)" },
+                    "name": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store, update)" },
                     "content": { "type": "string", "description": "The memory content to store or replace (for store, update)" },
                     "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags to store or replace on an idea (for store, update)" },
                     "agent_id": { "type": "string", "description": "Agent ID to scope memories (for store, search)" },
@@ -1169,9 +1180,14 @@ impl Tool for EventsTool {
                 let items: Vec<String> = events
                     .iter()
                     .map(|e| {
+                        let ideas = if e.idea_ids.is_empty() {
+                            String::new()
+                        } else {
+                            format!(", idea_ids: [{}]", e.idea_ids.join(", "))
+                        };
                         format!(
-                            "- {} (id: {}, pattern: {}, enabled: {}, fires: {})",
-                            e.name, e.id, e.pattern, e.enabled, e.fire_count
+                            "- {} (id: {}, pattern: {}, enabled: {}, fires: {}{})",
+                            e.name, e.id, e.pattern, e.enabled, e.fire_count, ideas
                         )
                     })
                     .collect();

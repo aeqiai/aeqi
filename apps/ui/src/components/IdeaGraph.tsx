@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface GraphNode {
   id: string;
-  key: string;
+  name: string;
   content: string;
   tags: string[];
   x: number;
@@ -220,7 +220,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           ctx!.font = "11px 'Inter', sans-serif";
           ctx!.fillStyle = "rgba(0,0,0,0.7)";
           ctx!.textAlign = "center";
-          ctx!.fillText(n.key, n.x, n.y + radius + 14);
+          ctx!.fillText(n.name, n.x, n.y + radius + 14);
         }
       }
 

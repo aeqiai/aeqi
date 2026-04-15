@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { api } from "@/lib/api";
 import { getScopedCompany } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
@@ -28,7 +28,7 @@ interface AgentSessionProps {
 }
 
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
   const user = useAuthStore((s) => s.user);
@@ -54,12 +54,12 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const setSession = useCallback(
     (sid: string | null) => {
       if (sid) {
-        navigate(`/agents/${agentId}/sessions/${sid}`, { replace: true });
+        go(`/agents/${agentId}/sessions/${sid}`, { replace: true });
       } else {
-        navigate(`/agents/${agentId}`, { replace: true });
+        go(`/agents/${agentId}`, { replace: true });
       }
     },
-    [agentId, navigate],
+    [agentId, go],
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -109,9 +109,9 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     }
     if (showAttachPicker === "quest" && availableTasks.length === 0) {
       api
-        .getTasks({ status: "open" })
+        .getQuests({ status: "open" })
         .then((data: Record<string, unknown>) => {
-          const items = (data?.tasks || data?.quests || []) as Array<Record<string, unknown>>;
+          const items = (data?.quests || []) as Array<Record<string, unknown>>;
           setAvailableTasks(
             items.map((t) => ({
               id: (t.id as string) || "",
@@ -427,7 +427,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     setLiveSegments([]);
 
     api
-      .getSessionMessages({ session_id: activeSessionId, limit: 1000 })
+      .getSessionMessages(activeSessionId, 1000)
       .then((d: Record<string, unknown>) => {
         const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
         if (loaded.length > 0) {
@@ -442,7 +442,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     if (!activeSessionId || streaming) return;
     const iv = setInterval(() => {
       api
-        .getSessionMessages({ session_id: activeSessionId, limit: 1000 })
+        .getSessionMessages(activeSessionId, 1000)
         .then((d: Record<string, unknown>) => {
           const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
           if (loaded.length > 0) {
@@ -618,8 +618,8 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             case "MemoryActivity": {
               const label =
                 event.action === "stored"
-                  ? `Stored: ${event.key || "idea"}`
-                  : `Recalled: ${event.key || "idea"}`;
+                  ? `Stored: ${event.name || "idea"}`
+                  : `Recalled: ${event.name || "idea"}`;
               segments.push({ kind: "status", text: label });
               setLiveSegments([...segments]);
               break;

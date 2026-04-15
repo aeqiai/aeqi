@@ -1,0 +1,16 @@
+{
+  "name": "@aeqi/tokens",
+  "version": "0.1.0",
+  "description": "AEQI design tokens — colors, spacing, typography, radii, shadows",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./css": "./src/tokens.css",
+    "./tailwind": "./src/tailwind-preset.ts",
+    "./ts": "./src/tokens.ts",
+    ".": "./src/tokens.ts"
+  },
+  "files": [
+    "src"
+  ]
+}

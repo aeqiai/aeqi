@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import PageTabs from "./PageTabs";
@@ -32,8 +33,11 @@ function formatTokens(n?: number): string {
 }
 
 export default function AgentPage({ agentId }: { agentId: string }) {
-  const navigate = useNavigate();
-  const { tab: routeTab, itemId } = useParams<{ tab?: string; itemId?: string }>();
+  const { go } = useCompanyNav();
+  const { tab: routeTab, itemId } = useParams<{
+    tab?: string;
+    itemId?: string;
+  }>();
   const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 
@@ -59,7 +63,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       {/* Breadcrumb header */}
       <div className="content-topbar">
         <div className="content-topbar-left">
-          <span className="content-topbar-breadcrumb" onClick={() => navigate("/agents")}>
+          <span className="content-topbar-breadcrumb" onClick={() => go(`/agents`)}>
             Agents
           </span>
           <span className="content-topbar-sep">/</span>
@@ -227,7 +231,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                     <span className="agent-settings-label">Parent</span>
                     <span
                       className="agent-settings-value agent-settings-link"
-                      onClick={() => navigate(`/agents/${parent.id}`)}
+                      onClick={() => go(`/agents/${parent.id}`)}
                     >
                       <RoundAvatar name={parent.name} size={14} />
                       {parent.display_name || parent.name}
@@ -244,7 +248,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
                           <span
                             key={child.id}
                             className="agent-settings-child"
-                            onClick={() => navigate(`/agents/${child.id}`)}
+                            onClick={() => go(`/agents/${child.id}`)}
                           >
                             <RoundAvatar name={child.name} size={14} />
                             {child.display_name || child.name}

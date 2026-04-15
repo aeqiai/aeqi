@@ -7,7 +7,7 @@ Unopinionated agent runtime. Four primitives: agents, ideas, quests, events.
 Use the AEQI MCP tools to access project context:
 - `ideas(action='search', query='...')` — search knowledge, context, skills
 - `ideas(action='search', tags=['skill'])` — find available skills/workflows
-- `ideas(action='store', key='...', content='...', tags=['...'])` — save knowledge
+- `ideas(action='store', name='...', content='...', tags=['...'])` — save knowledge
 - `quests(action='list')` — see open work items
 - `agents(action='get')` — get current agent context + assembled ideas
 - `events(action='list')` — see configured events

@@ -6,7 +6,8 @@ import { clearSessionData } from "@/lib/session";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
 
-/** Set the active company from a server response into both localStorage and Zustand. */
+/** Set the active company from a server response into both localStorage and Zustand.
+ * After login, the router reads from localStorage to redirect to /:company. */
 function applyCompany(companies?: string[], explicit?: string) {
   const name = explicit || (companies && companies.length > 0 ? companies[0] : null);
   if (name) {

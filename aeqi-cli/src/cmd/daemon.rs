@@ -523,7 +523,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     Ok(ideas) => {
                         for idea in ideas {
                             let Some(ref owner_agent_id) = idea.agent_id else {
-                                warn!(key = %idea.key, "channel:telegram idea has no agent_id, skipping");
+                                warn!(name = %idea.name, "channel:telegram idea has no agent_id, skipping");
                                 continue;
                             };
                             let tg_cfg: serde_json::Value = match serde_json::from_str(
@@ -531,14 +531,14 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                             ) {
                                 Ok(v) => v,
                                 Err(e) => {
-                                    warn!(key = %idea.key, error = %e, "invalid JSON in channel:telegram idea");
+                                    warn!(name = %idea.name, error = %e, "invalid JSON in channel:telegram idea");
                                     continue;
                                 }
                             };
                             let token = match tg_cfg.get("token").and_then(|v| v.as_str()) {
                                 Some(t) if !t.is_empty() => t.to_string(),
                                 _ => {
-                                    warn!(key = %idea.key, "channel:telegram idea missing token");
+                                    warn!(name = %idea.name, "channel:telegram idea missing token");
                                     continue;
                                 }
                             };

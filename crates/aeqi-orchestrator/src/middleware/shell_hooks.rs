@@ -83,13 +83,13 @@ impl ShellHookMiddleware {
                                 blocking = hook.blocking,
                                 timeout_ms = hook.timeout_ms,
                                 "loaded shell hook from idea '{}'",
-                                idea.key
+                                idea.name
                             );
                             parsed.push(hook);
                         }
                         None => {
                             warn!(
-                                key = %idea.key,
+                                name = %idea.name,
                                 "failed to parse shell hook idea — missing 'event' or 'command' field"
                             );
                         }

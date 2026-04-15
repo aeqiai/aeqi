@@ -4,9 +4,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use super::helpers::ipc_proxy;
+use super::helpers::{ipc_proxy, merge_path_id, query_to_params};
 use crate::extractors::Scope;
 use crate::server::AppState;
 
@@ -17,8 +17,6 @@ pub fn routes() -> Router<AppState> {
         .route("/cost", get(cost))
         .route("/activity", get(activity))
         .route("/activity/events", get(activity_events))
-        // Keep old path for backward compat with existing clients.
-        .route("/worker/events", get(activity_events))
         .route("/notes", get(notes).post(post_note_entry))
         .route("/expertise", get(expertise))
         .route("/rate-limit", get(rate_limit))
@@ -63,7 +61,7 @@ async fn cost(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "cost", serde_json::Value::Null).await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct ActivityQuery {
     project: Option<String>,
     last: Option<u32>,
@@ -74,17 +72,10 @@ async fn activity(
     scope: Scope,
     Query(q): Query<ActivityQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(project) = &q.project {
-        params["project"] = serde_json::Value::String(project.clone());
-    }
-    if let Some(last) = q.last {
-        params["last"] = serde_json::json!(last);
-    }
-    ipc_proxy(state, scope.as_ref(), "activity", params).await
+    ipc_proxy(state, scope.as_ref(), "activity", query_to_params(&q)).await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct ActivityEventsQuery {
     cursor: Option<u64>,
 }
@@ -94,14 +85,10 @@ async fn activity_events(
     scope: Scope,
     Query(q): Query<ActivityEventsQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(cursor) = q.cursor {
-        params["cursor"] = serde_json::json!(cursor);
-    }
-    ipc_proxy(state, scope.as_ref(), "worker_events", params).await
+    ipc_proxy(state, scope.as_ref(), "worker_events", query_to_params(&q)).await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct NotesQuery {
     project: Option<String>,
     limit: Option<u32>,
@@ -112,14 +99,7 @@ async fn notes(
     scope: Scope,
     Query(q): Query<NotesQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(project) = &q.project {
-        params["project"] = serde_json::Value::String(project.clone());
-    }
-    if let Some(limit) = q.limit {
-        params["limit"] = serde_json::json!(limit);
-    }
-    ipc_proxy(state, scope.as_ref(), "notes", params).await
+    ipc_proxy(state, scope.as_ref(), "notes", query_to_params(&q)).await
 }
 
 async fn post_note_entry(
@@ -130,7 +110,7 @@ async fn post_note_entry(
     ipc_proxy(state, scope.as_ref(), "post_notes", body).await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct ExpertiseQuery {
     domain: Option<String>,
 }
@@ -140,18 +120,14 @@ async fn expertise(
     scope: Scope,
     Query(q): Query<ExpertiseQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(domain) = &q.domain {
-        params["domain"] = serde_json::Value::String(domain.clone());
-    }
-    ipc_proxy(state, scope.as_ref(), "expertise", params).await
+    ipc_proxy(state, scope.as_ref(), "expertise", query_to_params(&q)).await
 }
 
 async fn rate_limit(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "rate_limit", serde_json::Value::Null).await
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct ApprovalsQuery {
     status: Option<String>,
 }
@@ -161,11 +137,7 @@ async fn approvals(
     scope: Scope,
     Query(q): Query<ApprovalsQuery>,
 ) -> Response {
-    let mut params = serde_json::json!({});
-    if let Some(status) = &q.status {
-        params["status"] = serde_json::Value::String(status.clone());
-    }
-    ipc_proxy(state, scope.as_ref(), "approvals", params).await
+    ipc_proxy(state, scope.as_ref(), "approvals", query_to_params(&q)).await
 }
 
 async fn resolve_approval(
@@ -174,7 +146,11 @@ async fn resolve_approval(
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    let mut params = body;
-    params["approval_id"] = serde_json::Value::String(id);
-    ipc_proxy(state, scope.as_ref(), "resolve_approval", params).await
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "resolve_approval",
+        merge_path_id(body, "approval_id", id),
+    )
+    .await
 }

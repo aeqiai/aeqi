@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "./RoundAvatar";
@@ -141,14 +142,14 @@ function AgentNodeView({
 }
 
 export default function AgentTree() {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
   const allAgents = useDaemonStore((s) => s.agents);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Read agent ID from path: /agents/:agentId/...
+  // Read agent ID from path: /:company/agents/:agentId/...
   const location = useLocation();
-  const pathMatch = location.pathname.match(/^\/agents\/([^/]+)/);
+  const pathMatch = location.pathname.match(/\/agents\/([^/]+)/);
   const selectedId = pathMatch ? pathMatch[1] : null;
   const tree = buildAgentTree(allAgents);
 
@@ -159,7 +160,7 @@ export default function AgentTree() {
 
   const handleSelectAgent = (agent: AgentRef) => {
     setSelectedAgent(agent);
-    navigate(`/agents/${agent.id}`);
+    go(`/agents/${agent.id}`);
   };
 
   return (

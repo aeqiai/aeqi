@@ -35,7 +35,7 @@ pub(crate) async fn cmd_recall(
                 i + 1,
                 age_str,
                 entry.score,
-                entry.key,
+                entry.name,
                 entry.content
             );
         }

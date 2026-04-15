@@ -1,0 +1,193 @@
+/*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  @aeqi/tokens — single source of truth
+ *  Every color, size, and spacing value lives here.
+ *  Apps consume these via CSS import, Tailwind preset,
+ *  or TypeScript constants.
+ *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+:root {
+  /* ── Colors ─────────────────────────────────────── */
+
+  /* Backgrounds — monochromatic, opacity-based depth */
+  --color-bg-base: #ffffff;
+  --color-bg-surface: rgba(0, 0, 0, 0.015);
+  --color-bg-elevated: rgba(0, 0, 0, 0.035);
+  --color-bg-overlay: rgba(0, 0, 0, 0.08);
+
+  /* Text */
+  --color-text-primary: rgba(0, 0, 0, 0.85);
+  --color-text-secondary: rgba(0, 0, 0, 0.5);
+  --color-text-muted: rgba(0, 0, 0, 0.3);
+
+  /* Accent */
+  --color-accent: #000000;
+  --color-accent-dim: rgba(0, 0, 0, 0.45);
+  --color-accent-bg: rgba(0, 0, 0, 0.04);
+
+  /* Borders */
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-hover: rgba(0, 0, 0, 0.15);
+
+  /* Status — semantic */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* Status — backgrounds (10% opacity) */
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-error-bg: rgba(239, 68, 68, 0.1);
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-info-bg: rgba(59, 130, 246, 0.1);
+
+  /* Glass / frosted */
+  --color-glass-bg: rgba(255, 255, 255, 0.9);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+
+  /* Brand — domain-specific */
+  --color-brand-venture: #6366f1;
+  --color-brand-fund: #334155;
+  --color-brand-entity: #94a3b8;
+  --color-brand-foundation: #808080;
+
+  /* Funding stages */
+  --color-funding-angel: #10b981;
+  --color-funding-seed: #6366f1;
+  --color-funding-bridge: #3b82f6;
+  --color-funding-series: #94a3b8;
+  --color-funding-exit: #000000;
+
+  /* Roles */
+  --color-role-partner: #00fff5;
+  --color-role-advisor: #10b981;
+  --color-role-holder: #000000;
+  --color-role-director: #6366f1;
+  --color-role-executive: #64748b;
+  --color-role-dealflow: #3b82f6;
+
+  /* ── Typography ─────────────────────────────────── */
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+  --font-serif: "EB Garamond", "Georgia", serif;
+
+  --font-size-3xs: 0.5625rem; /*  9px */
+  --font-size-2xs: 0.625rem; /* 10px */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.8125rem; /* 13px */
+  --font-size-base: 0.875rem; /* 14px */
+  --font-size-lg: 1rem; /* 16px */
+  --font-size-xl: 1.25rem; /* 20px */
+  --font-size-2xl: 1.5rem; /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem; /* 36px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* ── Spacing ────────────────────────────────────── */
+
+  --space-0: 2px;
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*  8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+
+  /* ── Radius ─────────────────────────────────────── */
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* ── Shadows ────────────────────────────────────── */
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* ── Transitions ────────────────────────────────── */
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Z-index ────────────────────────────────────── */
+
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+
+  /* ── Layout ─────────────────────────────────────── */
+
+  --touch-target-min: 44px;
+}
+
+/* ── Base resets ──────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-xs);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+/* ── Reduced motion ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

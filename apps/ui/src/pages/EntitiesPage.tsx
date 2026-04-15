@@ -77,7 +77,7 @@ export default function EntitiesPage() {
 
   const selectEntity = (name: string) => {
     setActiveCompany(name);
-    navigate("/company");
+    navigate(`/${encodeURIComponent(name)}`);
   };
 
   return (

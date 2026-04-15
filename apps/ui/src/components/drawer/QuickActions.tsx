@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { api } from "@/lib/api";
 
 export default function QuickActions({
@@ -9,11 +9,11 @@ export default function QuickActions({
   agentId: string;
   agentName: string;
 }) {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const [creating, setCreating] = useState(false);
 
   const handleNewQuest = () => {
-    navigate("/quests");
+    go(`/quests`);
   };
 
   const handleNewSession = async () => {
@@ -22,13 +22,13 @@ export default function QuickActions({
       const result = await api.createSession(agentId);
       const sessionId = result?.session_id || result?.id;
       if (sessionId) {
-        navigate(`/agents/${agentName}/sessions/${sessionId}`);
+        go(`/agents/${agentName}/sessions/${sessionId}`);
       } else {
-        navigate(`/agents/${agentName}`);
+        go(`/agents/${agentName}`);
       }
     } catch {
       // Navigate to sessions page even on failure
-      navigate(`/agents/${agentName}`);
+      go(`/agents/${agentName}`);
     } finally {
       setCreating(false);
     }

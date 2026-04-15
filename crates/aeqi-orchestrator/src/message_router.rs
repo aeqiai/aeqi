@@ -892,7 +892,7 @@ impl MessageRouter {
                     } else {
                         let lines: Vec<String> = results
                             .iter()
-                            .map(|entry| format!("  • {}: {}", entry.key, entry.content))
+                            .map(|entry| format!("  • {}: {}", entry.name, entry.content))
                             .collect();
                         Some(format!("Relevant knowledge:\n{}", lines.join("\n")))
                     }
@@ -1031,7 +1031,7 @@ impl MessageRouter {
         }
         let mut ctx = String::from("Relevant knowledge:\n");
         for entry in &results {
-            ctx.push_str(&format!("  • {}: {}\n", entry.key, entry.content));
+            ctx.push_str(&format!("  • {}: {}\n", entry.name, entry.content));
         }
         Some(ctx)
     }

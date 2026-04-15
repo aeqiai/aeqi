@@ -18,8 +18,9 @@ use tracing::debug;
 /// A single memory write waiting in the debounce queue.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebouncedWrite {
-    /// Semantic key (e.g. "auth/jwt-rotation").
-    pub key: String,
+    /// Semantic name (e.g. "auth/jwt-rotation").
+    #[serde(alias = "key")]
+    pub name: String,
     /// Full content to be stored.
     pub content: String,
     /// Memory tags (e.g. ["fact"], ["decision", "planning"]).
@@ -70,7 +71,7 @@ impl WriteQueue {
     /// replaced — the newer content wins and the `queued_at` timestamp
     /// is updated.
     pub fn push(&mut self, write: DebouncedWrite) {
-        let composite_key = format!("{}:{}", write.project, write.key);
+        let composite_key = format!("{}:{}", write.project, write.name);
         debug!(
             key = %composite_key,
             "debounce queue: push (replace if exists)"
@@ -131,12 +132,12 @@ mod tests {
 
     fn make_write(
         project: &str,
-        key: &str,
+        name: &str,
         content: &str,
         queued_at: DateTime<Utc>,
     ) -> DebouncedWrite {
         DebouncedWrite {
-            key: key.to_string(),
+            name: name.to_string(),
             content: content.to_string(),
             tags: vec!["fact".to_string()],
             scope: "domain".to_string(),
@@ -197,7 +198,7 @@ mod tests {
 
         let ready = queue.drain_ready(now);
         assert_eq!(ready.len(), 1, "only the old write should be ready");
-        assert_eq!(ready[0].key, "old-write");
+        assert_eq!(ready[0].name, "old-write");
 
         // The recent write should still be pending.
         assert_eq!(queue.pending_count(), 1);
