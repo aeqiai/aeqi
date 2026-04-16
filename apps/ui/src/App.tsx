@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import AppLayout from "@/components/AppLayout";
@@ -94,7 +94,11 @@ export default function App() {
                     <Route path="agents/:agentId" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
-                    <Route path="sessions" element={<RootSessionsRedirect />} />
+                    {/* Root agent's chat lives at /:root/sessions(/:itemId).
+                        AppLayout detects this URL and renders AgentPage with
+                        the root — no need for /:root/agents/:root/... */}
+                    <Route path="sessions" element={null} />
+                    <Route path="sessions/:itemId" element={null} />
                     <Route path="events" element={<EventsPage />} />
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
@@ -119,10 +123,4 @@ function ModeAwareHome() {
 function ModeAwareProfileRoute() {
   const appMode = useAuthStore((s) => s.appMode);
   return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
-}
-
-// `/:root/sessions` opens the root agent's chat — same view as a child agent's chat.
-function RootSessionsRedirect() {
-  const { root } = useParams<{ root: string }>();
-  return <Navigate to={`/${root}/agents/${root}/sessions`} replace />;
 }

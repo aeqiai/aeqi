@@ -25,5 +25,20 @@ export function useNav() {
     [base],
   );
 
-  return { go, href, root: root || "", base };
+  /**
+   * Build the path for an agent view. The root agent collapses to top-level
+   * routes (`/sessions/:id`), children nest under `/agents/:id/...`.
+   */
+  const agentPath = useCallback(
+    (agentId: string, tab?: string, itemId?: string) => {
+      const isRoot = agentId === root;
+      let p = isRoot ? "" : `/agents/${agentId}`;
+      if (tab) p += `/${tab}`;
+      if (itemId) p += `/${itemId}`;
+      return p || "/";
+    },
+    [root],
+  );
+
+  return { go, href, agentPath, root: root || "", base };
 }

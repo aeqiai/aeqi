@@ -46,12 +46,19 @@ function formatTokens(n?: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
-export default function AgentPage({ agentId }: { agentId: string }) {
+export default function AgentPage({
+  agentId,
+  tab: tabProp,
+  itemId: itemIdProp,
+}: {
+  agentId: string;
+  tab?: string;
+  itemId?: string | null;
+}) {
   const { go } = useNav();
-  const { tab: routeTab, itemId } = useParams<{
-    tab?: string;
-    itemId?: string;
-  }>();
+  const params = useParams<{ tab?: string; itemId?: string }>();
+  const routeTab = tabProp ?? params.tab;
+  const itemId = itemIdProp ?? params.itemId;
   const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 

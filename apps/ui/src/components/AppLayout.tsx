@@ -23,8 +23,16 @@ export default function AppLayout() {
     tab?: string;
     itemId?: string;
   }>();
-  const agentId = routeParams.agentId || params.get("agent");
   const path = location.pathname;
+  // Detect the root agent's chat URL: `/:root/sessions(/:itemId)?`. AppLayout
+  // renders AgentPage for these without requiring `/agents/:rootId` in the URL.
+  const rootSessionMatch = !routeParams.agentId
+    ? path.match(/^\/[^/]+\/sessions(?:\/([^/]+))?\/?$/)
+    : null;
+  const rootSessionItemId = rootSessionMatch?.[1] || null;
+  const isRootChat = !!rootSessionMatch;
+  const agentId =
+    routeParams.agentId || params.get("agent") || (isRootChat ? routeParams.root || "" : null);
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
@@ -450,7 +458,11 @@ export default function AppLayout() {
         <div className="content-column">
           <div className="content-area">
             {agentId ? (
-              <AgentPage agentId={agentId} />
+              <AgentPage
+                agentId={agentId}
+                tab={isRootChat ? "sessions" : undefined}
+                itemId={isRootChat ? rootSessionItemId : undefined}
+              />
             ) : (
               <>
                 <ContentTopBar />
