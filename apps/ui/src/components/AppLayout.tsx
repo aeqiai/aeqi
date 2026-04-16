@@ -237,7 +237,6 @@ export default function AppLayout() {
             </div>
           )}
 
-          <div className="sidebar-section-label">aeqi</div>
           <nav className="sidebar-nav">
             {navLink("/", "Dashboard", homeIcon)}
             {navLink(
