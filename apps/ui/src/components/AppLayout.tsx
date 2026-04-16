@@ -24,22 +24,22 @@ export default function AppLayout() {
     tab?: string;
     itemId?: string;
   }>();
-  const rootName = routeParams.root || "";
+  const rootId = routeParams.root || "";
   const agentId = routeParams.agentId || params.get("agent");
   const path = location.pathname;
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
-  const userName = user?.name || (authMode === "none" ? "Local" : "Account");
+  const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
 
   // Sync root from URL param into store + localStorage.
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   useEffect(() => {
-    if (rootName) {
-      setActiveRoot(rootName);
+    if (rootId) {
+      setActiveRoot(rootId);
     }
-  }, [rootName, setActiveRoot]);
+  }, [rootId, setActiveRoot]);
 
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   const agents = useDaemonStore((s) => s.agents);
@@ -47,7 +47,7 @@ export default function AppLayout() {
     fetchAll();
     const i = setInterval(fetchAll, 30000);
     return () => clearInterval(i);
-  }, [fetchAll, rootName]);
+  }, [fetchAll, rootId]);
   useDaemonSocket();
 
   const openSearch = useCallback(() => setSearching(true), []);
@@ -69,7 +69,7 @@ export default function AppLayout() {
   }, [searching, openSearch, closeSearch]);
 
   // Root-scoped navigation helpers.
-  const base = `/${encodeURIComponent(rootName)}`;
+  const base = `/${encodeURIComponent(rootId)}`;
   const isActive = (p: string) => {
     if (agentId) return false;
     const full = p === "/" ? base : `${base}${p}`;
@@ -273,20 +273,20 @@ export default function AppLayout() {
             </button>
           </div>
 
-          {/* Account — always at top */}
-          <a
-            className="sidebar-account"
-            href={href("/account")}
-            onClick={(e) => {
-              e.preventDefault();
-              go("/account");
-            }}
-          >
-            <RoundAvatar name={userName} size={20} src={user?.avatar_url} />
-            <span className="sidebar-account-name">{userName}</span>
-          </a>
-
           <nav className="sidebar-nav">
+            <a
+              className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`}
+              href={href("/account")}
+              onClick={(e) => {
+                e.preventDefault();
+                go("/account");
+              }}
+            >
+              <span className="sidebar-nav-avatar">
+                <RoundAvatar name={userName} size={16} src={user?.avatar_url} />
+              </span>
+              <span className="sidebar-nav-label">{userName}</span>
+            </a>
             {navLink("/", "Dashboard", homeIcon)}
             {navLink(
               "/settings",
@@ -427,7 +427,9 @@ export default function AppLayout() {
                 </a>
                 <div className="sidebar-scope">
                   <RoundAvatar
-                    name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId}
+                    name={
+                      agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId
+                    }
                     size={18}
                   />
                   <span className="sidebar-scope-name">
@@ -439,8 +441,19 @@ export default function AppLayout() {
               </>
             ) : (
               <div className="sidebar-scope active">
-                <RoundAvatar name={rootName} size={18} />
-                <span className="sidebar-scope-name">{rootName}</span>
+                <RoundAvatar
+                  name={
+                    agents.find((a) => a.id === rootId && !a.parent_id)?.display_name ||
+                    agents.find((a) => a.id === rootId && !a.parent_id)?.name ||
+                    rootId
+                  }
+                  size={18}
+                />
+                <span className="sidebar-scope-name">
+                  {agents.find((a) => a.id === rootId && !a.parent_id)?.display_name ||
+                    agents.find((a) => a.id === rootId && !a.parent_id)?.name ||
+                    rootId}
+                </span>
               </div>
             )}
           </div>

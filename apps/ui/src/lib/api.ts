@@ -406,9 +406,7 @@ export const api = {
   closeQuest: (id: string, data?: { reason?: string; root?: string }) =>
     request<{ ok: boolean }>(`/quests/${id}/close`, {
       method: "POST",
-      body: JSON.stringify(
-        data ? { reason: data.reason, company: data.root } : {},
-      ),
+      body: JSON.stringify(data ? { reason: data.reason, company: data.root } : {}),
     }),
 
   // Write: Post Note

@@ -10,11 +10,11 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
 }
 
 /**
- * Get the active root agent name. Reads from the URL path first (/:root/...),
+ * Get the active root agent ID (UUID). Reads from the URL path first (/:root/...),
  * falls back to localStorage for contexts outside the router (WebSocket, etc).
  */
 export function getScopedRoot(): string {
-  // In the browser, extract from URL: /root-name/agents → "root-name"
+  // In the browser, extract from URL: /uuid/agents → UUID
   const path = window.location.pathname;
   const segments = path.split("/").filter(Boolean);
   // Skip known root-level routes that are NOT root agent names.

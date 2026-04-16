@@ -337,10 +337,7 @@ pub async fn handle_post_notes(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let key = request
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let key = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let content = request
         .get("content")
         .and_then(|v| v.as_str())

@@ -36,7 +36,10 @@ pub async fn handle_quests(
                     .unwrap_or_default();
                 let root_ids: std::collections::HashSet<String> = all_agents
                     .iter()
-                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
+                    .filter(|a| {
+                        a.parent_id.is_none()
+                            && (is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
+                    })
                     .map(|a| a.id.clone())
                     .collect();
                 Some(

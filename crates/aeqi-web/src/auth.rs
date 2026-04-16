@@ -240,10 +240,7 @@ mod tests {
     fn proxy_scope_from_headers_rejects_invalid_token() {
         let state = test_state(Some("scope-secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static("aeqi"),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static("aeqi"));
         headers.insert(
             PROXY_SCOPE_TOKEN_HEADER,
             HeaderValue::from_static("wrong-secret"),
@@ -375,10 +372,7 @@ mod tests {
     fn proxy_scope_whitespace_only_roots_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static("   "),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static("   "));
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         // After trim, it becomes empty -> None
         // But the filter(|s| !s.is_empty()) removes empty entries from split
@@ -390,10 +384,7 @@ mod tests {
     fn proxy_scope_no_auth_secret_configured_returns_none() {
         let state = test_state(None);
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static("root-a"),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static("root-a"));
         headers.insert(
             PROXY_SCOPE_TOKEN_HEADER,
             HeaderValue::from_static("anything"),
@@ -406,10 +397,7 @@ mod tests {
     fn proxy_scope_empty_auth_secret_returns_none() {
         let state = test_state(Some("".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static("root-a"),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static("root-a"));
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static(""));
         // Empty auth_secret -> proxy scope is ignored
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
@@ -419,10 +407,7 @@ mod tests {
     fn proxy_scope_missing_scope_token_header_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static("root-a"),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static("root-a"));
         // No PROXY_SCOPE_TOKEN_HEADER -> provided_token defaults to ""
         // which != "secret" -> None
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
@@ -474,10 +459,7 @@ mod tests {
     fn proxy_scope_only_commas_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(
-            PROXY_SCOPE_ROOTS_HEADER,
-            HeaderValue::from_static(",,,"),
-        );
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static(",,,"));
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         // All segments empty after split+trim+filter -> roots is empty -> None
         assert!(proxy_scope_from_headers(&state, &headers).is_none());

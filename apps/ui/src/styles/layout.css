@@ -52,7 +52,8 @@
   justify-content: center;
   padding: 8px;
 }
-.left-sidebar.collapsed .sidebar-nav-item > svg {
+.left-sidebar.collapsed .sidebar-nav-item > svg,
+.left-sidebar.collapsed .sidebar-nav-avatar {
   width: 16px;
 }
 .left-sidebar.collapsed .left-sidebar-body {
@@ -60,11 +61,14 @@
 }
 
 /* ── Sidebar header ── */
+/* Brand left edge (16px) aligns with nav-item icon-slot left edge
+   (nav padding 8px + item padding 8px), so wordmark sits directly
+   above the icon column. */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 0;
+  padding: 8px 12px 0 16px;
   height: 49px;
   box-sizing: content-box;
   flex-shrink: 0;
@@ -112,32 +116,13 @@
   color: var(--text-primary);
 }
 
-/* ── Account row ── */
-.sidebar-account {
+/* ── Avatar slot inside a sidebar-nav-item (same footprint as SVG icons) ── */
+.sidebar-nav-avatar {
+  width: 22px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 14px;
-  text-decoration: none;
-  color: var(--text-secondary);
-  transition: color var(--transition-fast);
-}
-.sidebar-account:hover {
-  color: var(--text-primary);
-}
-.sidebar-account-name {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.left-sidebar.collapsed .sidebar-account-name {
-  display: none;
-}
-.left-sidebar.collapsed .sidebar-account {
   justify-content: center;
-  padding: var(--space-2) 0;
+  flex-shrink: 0;
 }
 
 /* ── Agent scope (above tree) ── */

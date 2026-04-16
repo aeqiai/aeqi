@@ -7,15 +7,19 @@ import BlockAvatar from "@/components/BlockAvatar";
 import type { Agent } from "@/lib/types";
 
 interface Entity {
+  id: string;
   name: string;
+  display_name?: string;
   tagline?: string;
   tier?: string;
   agentCount?: number;
 }
 
 interface RootApiItem {
+  id?: string;
   name?: string;
   company?: string;
+  display_name?: string;
   tagline?: string;
   tier?: string;
   agent_count?: number;
@@ -23,10 +27,11 @@ interface RootApiItem {
 
 function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
   const roots = agents.filter((a) => !a.parent_id);
-  const agentNames = [...new Set(roots.map((a) => a.name).filter(Boolean))];
-  return agentNames.map((name) => ({
-    name,
-    agentCount: agents.filter((a) => a.name === name).length,
+  return roots.map((a) => ({
+    id: a.id,
+    name: a.name,
+    display_name: a.display_name,
+    agentCount: agents.filter((child) => child.name === a.name).length,
   }));
 }
 
@@ -51,12 +56,14 @@ export default function EntitiesPage() {
           setEntities(
             items
               .map((c) => ({
+                id: c.id || c.name || c.company || "",
                 name: c.name || c.company || "",
+                display_name: c.display_name,
                 tagline: c.tagline,
                 tier: c.tier || "Free",
                 agentCount: c.agent_count,
               }))
-              .filter((e) => e.name),
+              .filter((e) => e.id),
           );
         } else {
           setEntities(deriveEntitiesFromAgents(agents));
@@ -75,9 +82,9 @@ export default function EntitiesPage() {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [navigate]);
 
-  const selectEntity = (name: string) => {
-    setActiveRoot(name);
-    navigate(`/${encodeURIComponent(name)}`);
+  const selectEntity = (entity: Entity) => {
+    setActiveRoot(entity.id);
+    navigate(`/${encodeURIComponent(entity.id)}`);
   };
 
   return (
@@ -150,85 +157,88 @@ export default function EntitiesPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {entities.map((entity) => (
-            <button
-              key={entity.name}
-              onClick={() => selectEntity(entity.name)}
-              aria-pressed={entity.name === activeRoot}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 12px",
-                background: entity.name === activeRoot ? "var(--bg-elevated)" : "transparent",
-                border: "none",
-                borderRadius: "var(--radius-sm)",
-                cursor: "pointer",
-                width: "100%",
-                textAlign: "left",
-                transition: "background 0.1s",
-              }}
-              onMouseEnter={(e) => {
-                if (entity.name !== activeRoot)
-                  e.currentTarget.style.background = "var(--bg-surface)";
-              }}
-              onMouseLeave={(e) => {
-                if (entity.name !== activeRoot) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <BlockAvatar name={entity.name} size={32} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {entity.name}
-                </div>
-                {entity.tagline && (
+          {entities.map((entity) => {
+            const label = entity.display_name || entity.name;
+            return (
+              <button
+                key={entity.id}
+                onClick={() => selectEntity(entity)}
+                aria-pressed={entity.id === activeRoot}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                  background: entity.id === activeRoot ? "var(--bg-elevated)" : "transparent",
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  width: "100%",
+                  textAlign: "left",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  if (entity.id !== activeRoot)
+                    e.currentTarget.style.background = "var(--bg-surface)";
+                }}
+                onMouseLeave={(e) => {
+                  if (entity.id !== activeRoot) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <BlockAvatar name={label} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                      marginTop: 1,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: "var(--text-primary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {entity.tagline}
+                    {label}
                   </div>
-                )}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                {entity.tier && (
-                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>
-                    {entity.tier}
-                  </span>
-                )}
-                {entity.name === activeRoot && (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    style={{ color: "var(--text-secondary)" }}
-                    aria-label="Selected"
-                  >
-                    <path d="M3 7l3 3 5-5.5" />
-                  </svg>
-                )}
-              </div>
-            </button>
-          ))}
+                  {entity.tagline && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        marginTop: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {entity.tagline}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {entity.tier && (
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>
+                      {entity.tier}
+                    </span>
+                  )}
+                  {entity.id === activeRoot && (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      style={{ color: "var(--text-secondary)" }}
+                      aria-label="Selected"
+                    >
+                      <path d="M3 7l3 3 5-5.5" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

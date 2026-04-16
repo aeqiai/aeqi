@@ -26,7 +26,10 @@ pub async fn handle_agents_registry(
             let filtered_agents = if allowed.is_some() {
                 let root_ids: std::collections::HashSet<String> = agents
                     .iter()
-                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
+                    .filter(|a| {
+                        a.parent_id.is_none()
+                            && (is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
+                    })
                     .map(|a| a.id.clone())
                     .collect();
                 let mut allowed_ids = root_ids.clone();
@@ -370,7 +373,10 @@ pub async fn handle_approvals(
                     .unwrap_or_default();
                 let root_ids: std::collections::HashSet<String> = all_agents
                     .iter()
-                    .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
+                    .filter(|a| {
+                        a.parent_id.is_none()
+                            && (is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
+                    })
                     .map(|a| a.id.clone())
                     .collect();
                 let allowed_ids: std::collections::HashSet<String> = all_agents

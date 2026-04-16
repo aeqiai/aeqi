@@ -23,15 +23,19 @@ export default function NewAgentPage() {
     setCreating(true);
     setError("");
     try {
-      await api.createRoot({
+      const resp = await api.createRoot({
         name: name.trim(),
         tagline: tagline.trim() || undefined,
       });
-      const rootName = name.trim();
-      setActiveRoot(rootName);
+      // Use the agent UUID returned by the backend; fall back to name for compat.
+      const rootId =
+        (resp as Record<string, unknown>).id ||
+        (resp as Record<string, unknown>).company ||
+        name.trim();
+      setActiveRoot(rootId as string);
       // Backend auto-creates an agent -- fetch it immediately
       await fetchAgents();
-      navigate(`/${encodeURIComponent(rootName)}`);
+      navigate(`/${encodeURIComponent(rootId as string)}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create agent");
       setCreating(false);

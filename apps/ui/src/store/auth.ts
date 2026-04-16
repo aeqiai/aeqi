@@ -178,8 +178,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       clearSessionData();
       const resp = await api.signup(email, password, name, inviteCode, template);
-      // Backend auto-creates a root agent (named after user's first name) on signup.
-      const rootName = (resp as Record<string, unknown>).company as string | undefined;
+      // Backend auto-creates a root agent on signup, returns its UUID (or name as fallback).
+      const rootId =
+        ((resp as Record<string, unknown>).root_id as string | undefined) ||
+        ((resp as Record<string, unknown>).company as string | undefined);
       if (resp.ok && resp.pending_verification) {
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
@@ -193,13 +195,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } else {
           set({ loading: false, pendingEmail: email });
         }
-        applyRoot(undefined, rootName);
+        applyRoot(undefined, rootId);
         return "pending";
       }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
-        applyRoot(undefined, rootName);
+        applyRoot(undefined, rootId);
         return "verified";
       }
       set({ loading: false, error: "Signup failed" });

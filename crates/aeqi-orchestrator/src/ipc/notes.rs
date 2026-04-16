@@ -69,10 +69,7 @@ pub async fn handle_get_notes(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let name = request
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {
@@ -235,10 +232,7 @@ pub async fn handle_delete_notes(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let name = request
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     if let Some(ref engine) = ctx.message_router {
         if let Some(mem) = engine.idea_store.as_ref() {

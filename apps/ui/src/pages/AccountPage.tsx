@@ -943,8 +943,8 @@ function ApiKeyTab() {
   return (
     <>
       <p className="account-field-desc">
-        Your API key (<code>ak_</code>) identifies your account across all agents. Use it
-        alongside a secret key (<code>sk_</code>) for MCP and API access.
+        Your API key (<code>ak_</code>) identifies your account across all agents. Use it alongside
+        a secret key (<code>sk_</code>) for MCP and API access.
       </p>
       <p className="account-field-desc">
         Only one account API key is active at a time. Generating a new key rotates the previous one

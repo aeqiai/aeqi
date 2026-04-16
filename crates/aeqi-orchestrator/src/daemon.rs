@@ -1026,30 +1026,20 @@ impl Daemon {
 
             let response = match cmd {
                 "ping" => crate::ipc::status::handle_ping(&ctx, &request, &allowed_roots).await,
-                "status" => {
-                    crate::ipc::status::handle_status(&ctx, &request, &allowed_roots).await
-                }
+                "status" => crate::ipc::status::handle_status(&ctx, &request, &allowed_roots).await,
                 "readiness" => {
-                    crate::ipc::status::handle_readiness(
-                        &ctx,
-                        &request,
-                        &allowed_roots,
-                        &readiness,
-                    )
-                    .await
+                    crate::ipc::status::handle_readiness(&ctx, &request, &allowed_roots, &readiness)
+                        .await
                 }
 
                 "worker_progress" => {
-                    crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_roots).await
                 }
                 "worker_events" => {
-                    crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_roots).await
                 }
                 "companies" => {
-                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_roots).await
                 }
 
                 "create_company" => {
@@ -1074,15 +1064,11 @@ impl Daemon {
                 "rate_limit" => {
                     crate::ipc::status::handle_rate_limit(&ctx, &request, &allowed_roots).await
                 }
-                "skills" => {
-                    crate::ipc::status::handle_skills(&ctx, &request, &allowed_roots).await
-                }
+                "skills" => crate::ipc::status::handle_skills(&ctx, &request, &allowed_roots).await,
                 "pipelines" => {
                     crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_roots).await
                 }
-                "notes" => {
-                    crate::ipc::notes::handle_notes(&ctx, &request, &allowed_roots).await
-                }
+                "notes" => crate::ipc::notes::handle_notes(&ctx, &request, &allowed_roots).await,
                 "get_notes" => {
                     crate::ipc::notes::handle_get_notes(&ctx, &request, &allowed_roots).await
                 }
@@ -1090,8 +1076,7 @@ impl Daemon {
                     crate::ipc::notes::handle_claim_notes(&ctx, &request, &allowed_roots).await
                 }
                 "release_notes" => {
-                    crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_roots).await
                 }
                 "delete_notes" => {
                     crate::ipc::notes::handle_delete_notes(&ctx, &request, &allowed_roots).await
@@ -1100,19 +1085,15 @@ impl Daemon {
                     crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_roots).await
                 }
 
-                "quests" => {
-                    crate::ipc::quests::handle_quests(&ctx, &request, &allowed_roots).await
-                }
+                "quests" => crate::ipc::quests::handle_quests(&ctx, &request, &allowed_roots).await,
                 "create_quest" => {
-                    crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_roots).await
                 }
                 "get_quest" => {
                     crate::ipc::quests::handle_get_quest(&ctx, &request, &allowed_roots).await
                 }
                 "update_quest" => {
-                    crate::ipc::quests::handle_update_quest(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::quests::handle_update_quest(&ctx, &request, &allowed_roots).await
                 }
                 "close_quest" => {
                     crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_roots).await
@@ -1123,12 +1104,8 @@ impl Daemon {
                 }
                 "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_roots).await,
                 "session_message" => {
-                    match crate::ipc::chat::handle_session_message(
-                        &ctx,
-                        &request,
-                        &allowed_roots,
-                    )
-                    .await
+                    match crate::ipc::chat::handle_session_message(&ctx, &request, &allowed_roots)
+                        .await
                     {
                         Some(resp) => resp,
                         None => {
@@ -1159,12 +1136,10 @@ impl Daemon {
                 }
 
                 "agents_registry" => {
-                    crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_roots).await
                 }
                 "agent_children" => {
-                    crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_roots).await
                 }
                 "agent_spawn" => {
                     crate::ipc::agents::handle_agent_spawn(&ctx, &request, &allowed_roots).await
@@ -1209,24 +1184,17 @@ impl Daemon {
                     crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_roots).await
                 }
                 "agent_identity" => {
-                    crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_roots).await
                 }
                 "save_agent_file" => {
-                    crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_roots).await
                 }
                 "budget_policies" => {
-                    crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_roots).await
                 }
                 "create_budget_policy" => {
-                    crate::ipc::agents::handle_create_budget_policy(
-                        &ctx,
-                        &request,
-                        &allowed_roots,
-                    )
-                    .await
+                    crate::ipc::agents::handle_create_budget_policy(&ctx, &request, &allowed_roots)
+                        .await
                 }
                 "approvals" => {
                     crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_roots).await
@@ -1259,25 +1227,20 @@ impl Daemon {
                     crate::ipc::events::handle_list_events(&ctx, &request, &allowed_roots).await
                 }
                 "create_event" => {
-                    crate::ipc::events::handle_create_event(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::events::handle_create_event(&ctx, &request, &allowed_roots).await
                 }
                 "update_event" => {
-                    crate::ipc::events::handle_update_event(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::events::handle_update_event(&ctx, &request, &allowed_roots).await
                 }
                 "delete_event" => {
-                    crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_roots).await
                 }
                 "trigger_event" => {
-                    crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_roots).await
                 }
 
                 "list_sessions" => {
-                    crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_roots).await
                 }
                 "list_channel_sessions" => {
                     crate::ipc::sessions::handle_list_channel_sessions(
@@ -1295,8 +1258,7 @@ impl Daemon {
                         .await
                 }
                 "close_session" => {
-                    crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_roots).await
                 }
                 "session_messages" => {
                     match crate::ipc::sessions::handle_session_messages(
@@ -2128,12 +2090,10 @@ impl Daemon {
                         .await
                 }
                 "knowledge_store" => {
-                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_roots).await
                 }
                 "knowledge_delete" => {
-                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_roots)
-                        .await
+                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_roots).await
                 }
                 "ideas_by_ids" => {
                     let ids: Vec<String> = request

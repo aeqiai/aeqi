@@ -94,9 +94,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     await api.updateEvent(selected.id, { idea_ids: newIds });
     setSearchResults((prev) => prev.filter((i) => i.id !== ideaId));
     loadEvents();
-    const data = await api
-      .getIdeasByIds(newIds)
-      .catch(() => ({ ok: false, ideas: [] as Idea[] }));
+    const data = await api.getIdeasByIds(newIds).catch(() => ({ ok: false, ideas: [] as Idea[] }));
     if (data.ok) setIdeas(data.ideas);
   };
 

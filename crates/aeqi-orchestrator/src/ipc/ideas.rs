@@ -592,10 +592,7 @@ pub async fn handle_knowledge_store(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let name = request
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let content = request
         .get("content")
         .and_then(|v| v.as_str())

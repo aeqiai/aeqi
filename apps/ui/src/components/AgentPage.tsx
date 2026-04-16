@@ -176,7 +176,10 @@ export default function AgentPage({ agentId }: { agentId: string }) {
             </div>
             <div className="agent-stat">
               <span className="agent-stat-value">
-                {agentQuests.filter((q) => (q as Record<string, unknown>).status === "in_progress").length}
+                {
+                  agentQuests.filter((q) => (q as Record<string, unknown>).status === "in_progress")
+                    .length
+                }
               </span>
               <span className="agent-stat-label">in progress</span>
             </div>
@@ -316,7 +319,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           showToast={showToast}
         />
       )}
-
     </div>
   );
 }
@@ -422,10 +424,7 @@ function SettingsPanel({
         </div>
       )}
 
-      {settingsTab === "Channels" && (
-        <AgentChannelsTab agentId={resolvedAgentId} />
-      )}
-
+      {settingsTab === "Channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
     </div>
   );
 }

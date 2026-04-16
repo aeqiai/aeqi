@@ -273,20 +273,25 @@ async fn signup_handler(
     let root_name = format!("{first_name}-{suffix}");
     // Await root agent creation so the user_access link exists before the first API call.
     // This ensures allowed_roots is populated when the auth middleware resolves scope.
+    let mut root_id: Option<String> = None;
     match state
         .ipc
-        .cmd_with(
-            "create_company",
-            serde_json::json!({ "name": root_name }),
-        )
+        .cmd_with("create_company", serde_json::json!({ "name": root_name }))
         .await
     {
         Ok(resp) => {
             if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
-                if let Err(e) = accounts.add_director(&user.id, &root_name) {
+                // Store UUID in user_access for scoping; fall back to name.
+                let agent_id = resp
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&root_name);
+                root_id = Some(agent_id.to_string());
+                if let Err(e) = accounts.add_director(&user.id, agent_id) {
                     tracing::warn!(
-                        "signup: failed to link root agent '{}' to user {}: {e}",
+                        "signup: failed to link root agent '{}' (id={}) to user {}: {e}",
                         root_name,
+                        agent_id,
                         user.id
                     );
                 }
@@ -339,6 +344,7 @@ async fn signup_handler(
             "pending_verification": true,
             "user": user,
             "company": &root_name,
+            "root_id": root_id,
         }))
         .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

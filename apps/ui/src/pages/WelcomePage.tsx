@@ -141,16 +141,16 @@ export default function WelcomePage() {
   const { root } = useParams<{ root: string }>();
   const activeRoot = useUIStore((s) => s.activeRoot);
   const agents = useDaemonStore((s) => s.agents);
+  const rootAgent = agents.find((a) => a.id === activeRoot && !a.parent_id);
+  const rootDisplayName = rootAgent?.display_name || rootAgent?.name || activeRoot;
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(activeRoot);
+  const [nameDraft, setNameDraft] = useState(rootDisplayName);
   const [tagline, setTagline] = useState(
     () => localStorage.getItem("aeqi_root_tagline") || "The agent runtime.",
   );
   const [editingTagline, setEditingTagline] = useState(false);
   const [taglineDraft, setTaglineDraft] = useState(tagline);
-  const [avatarUrl, setAvatarUrl] = useState(
-    () => localStorage.getItem("aeqi_root_avatar") || "",
-  );
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem("aeqi_root_avatar") || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveName = () => {
@@ -170,7 +170,7 @@ export default function WelcomePage() {
     setEditingTagline(false);
   };
 
-  const displayName = activeRoot || "aeqi";
+  const displayName = rootDisplayName || "aeqi";
 
   // AppLayout handles the full-screen loading state.
   // By the time WelcomePage renders, initialLoaded is true.
@@ -248,7 +248,7 @@ export default function WelcomePage() {
                 className="welcome-name"
                 onClick={() => {
                   setEditingName(true);
-                  setNameDraft(activeRoot);
+                  setNameDraft(rootDisplayName);
                 }}
                 title="Click to rename"
               >

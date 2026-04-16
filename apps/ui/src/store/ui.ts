@@ -18,7 +18,7 @@ interface UIState {
   closeLayoutPicker: () => void;
   toggleDrawer: () => void;
   setDrawerMode: (mode: "context" | "activity") => void;
-  setActiveRoot: (name: string) => void;
+  setActiveRoot: (id: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -46,13 +46,13 @@ export const useUIStore = create<UIState>((set) => ({
   drawerOpen: localStorage.getItem("aeqi_drawer_open") !== "false",
   drawerMode: "context",
   activeRoot: getScopedRoot(),
-  setActiveRoot: (name) => {
-    if (name) {
-      localStorage.setItem("aeqi_root", name);
+  setActiveRoot: (id) => {
+    if (id) {
+      localStorage.setItem("aeqi_root", id);
     } else {
       localStorage.removeItem("aeqi_root");
     }
-    set({ activeRoot: name });
+    set({ activeRoot: id });
   },
   toggleDrawer: () =>
     set((s) => {

@@ -15,7 +15,7 @@ pub async fn handle_companies(
     let agents: Vec<_> = if allowed.is_some() {
         agents
             .into_iter()
-            .filter(|a| is_allowed(allowed, &a.name))
+            .filter(|a| is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
             .collect()
     } else {
         agents
@@ -49,6 +49,7 @@ pub async fn handle_companies(
             })
             .unwrap_or_default();
         result.push(serde_json::json!({
+            "id": agent.id,
             "name": agent.name,
             "display_name": agent.display_name,
             "prefix": agent.quest_prefix,
@@ -90,12 +91,12 @@ pub async fn handle_create_company(
     // Spawn a root agent (parent_id = None).
     let agent = ctx.agent_registry.spawn(name, Some(name), None, None).await;
     match agent {
-        Ok(_a) => {
+        Ok(a) => {
             if let Ok(cwd) = std::env::current_dir() {
                 let project_dir = cwd.join("projects").join(name);
                 let _ = std::fs::create_dir_all(&project_dir);
             }
-            serde_json::json!({"ok": true, "company": {"name": name, "prefix": prefix}})
+            serde_json::json!({"ok": true, "id": a.id, "company": {"name": name, "prefix": prefix}})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -116,10 +117,10 @@ pub async fn handle_update_company(
             .get("display_name")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        // Find the root agent by name and update it.
+        // Find the root agent by name or ID and update it.
         match ctx.agent_registry.list_root_agents().await {
             Ok(agents) => {
-                if let Some(agent) = agents.iter().find(|a| a.name == name) {
+                if let Some(agent) = agents.iter().find(|a| a.name == name || a.id == name) {
                     match ctx
                         .agent_registry
                         .update_display_name(&agent.id, display_name.as_deref())

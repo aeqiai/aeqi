@@ -2099,8 +2099,7 @@ impl AgentRegistry {
     /// List root agents (agents with no parent).
     pub async fn list_root_agents(&self) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
-        let mut stmt =
-            db.prepare("SELECT * FROM agents WHERE parent_id IS NULL ORDER BY name")?;
+        let mut stmt = db.prepare("SELECT * FROM agents WHERE parent_id IS NULL ORDER BY name")?;
         let agents = stmt
             .query_map([], |row| Ok(row_to_agent(row)))?
             .collect::<Result<Vec<_>, _>>()?;

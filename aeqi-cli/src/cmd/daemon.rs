@@ -2,8 +2,8 @@ use aeqi_core::SecretStore;
 use aeqi_core::traits::Channel;
 use aeqi_gates::{TelegramChannel, TelegramGateway};
 use aeqi_orchestrator::{
-    AEQIMetrics, ActivityLog, AgentRouter, Daemon, GatewayManager, Scheduler,
-    SchedulerConfig, SessionManager, SessionStore,
+    AEQIMetrics, ActivityLog, AgentRouter, Daemon, GatewayManager, Scheduler, SchedulerConfig,
+    SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
 use std::collections::HashMap;
