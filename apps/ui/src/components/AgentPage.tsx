@@ -15,13 +15,13 @@ const SETTINGS_TABS = ["General", "Channels"] as const;
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "sessions", label: "Sessions" },
-  { id: "tools", label: "Tools" },
   { id: "settings", label: "Settings" },
+  { id: "sessions", label: "Sessions" },
   { id: "agents", label: "Agents" },
+  { id: "events", label: "Events" },
   { id: "quests", label: "Quests" },
   { id: "ideas", label: "Ideas" },
-  { id: "events", label: "Events" },
+  { id: "tools", label: "Tools" },
 ];
 
 const ALL_TOOLS = [
