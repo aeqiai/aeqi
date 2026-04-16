@@ -1,7 +1,11 @@
 import { useLocation, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useNav } from "@/hooks/useNav";
-import { sessionLabel } from "@/components/session/types";
+import { sessionLabel, type SessionInfo } from "@/components/session/types";
+
+// Stable empty-array reference. Returning a fresh `[]` from a Zustand
+// selector on every render triggers React error #185 (infinite update loop).
+const NO_SESSIONS: SessionInfo[] = [];
 
 /** Page-keyed primary action shown at the top of the right rail. */
 const PAGE_ACTIONS: Record<string, { label: string; event: string } | null> = {
@@ -50,7 +54,9 @@ export default function ContentCTA() {
   const effectiveSection = isChat ? "sessions" : section === "agents" ? segments[3] || "" : section;
   const action = PAGE_ACTIONS[effectiveSection] ?? null;
 
-  const sessions = useChatStore((s) => (chatAgentId ? s.sessionsByAgent[chatAgentId] || [] : []));
+  const sessions = useChatStore((s) =>
+    chatAgentId ? s.sessionsByAgent[chatAgentId] || NO_SESSIONS : NO_SESSIONS,
+  );
 
   const handleSelectSession = (sid: string) => {
     if (!chatAgentId) return;
