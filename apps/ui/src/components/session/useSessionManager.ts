@@ -19,7 +19,7 @@ export function useSessionManager({
   urlSessionId,
   processRawMessages,
 }: UseSessionManagerOptions) {
-  const { go, agentPath } = useNav();
+  const { goAgent } = useNav();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const streamingRef = useRef(false);
@@ -33,9 +33,9 @@ export function useSessionManager({
   // Navigate helpers
   const setSession = useCallback(
     (sid: string | null) => {
-      go(agentPath(agentId, "sessions", sid || undefined), { replace: true });
+      goAgent(agentId, "sessions", sid || undefined, { replace: true });
     },
-    [agentId, go, agentPath],
+    [agentId, goAgent],
   );
 
   // Load sessions for this agent

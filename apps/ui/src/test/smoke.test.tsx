@@ -20,6 +20,9 @@ import { useDaemonStore } from "@/store/daemon";
  *
  * We render each component under StrictMode + MemoryRouter with realistic
  * URL shapes and watch for React's "error" console output during render.
+ *
+ * Version B routes: `/:agentId/[:tab[/:itemId]]` — every agent (root or
+ * child) at top level. No `/agents/` segment.
  */
 
 /** Inline helper — renders the component tree, returns any errors React logged. */
@@ -46,9 +49,9 @@ describe("ContentCTA smoke", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/root-1/agents"]}>
+          <MemoryRouter initialEntries={["/root-1/events"]}>
             <Routes>
-              <Route path=":root/*" element={<ContentCTA />} />
+              <Route path=":agentId/:tab/*" element={<ContentCTA />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -62,7 +65,7 @@ describe("ContentCTA smoke", () => {
         <StrictMode>
           <MemoryRouter initialEntries={["/root-1/sessions"]}>
             <Routes>
-              <Route path=":root/*" element={<ContentCTA />} />
+              <Route path=":agentId/:tab/*" element={<ContentCTA />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -74,9 +77,9 @@ describe("ContentCTA smoke", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/root-1/agents/child-2/sessions/abc"]}>
+          <MemoryRouter initialEntries={["/child-2/sessions/abc"]}>
             <Routes>
-              <Route path=":root/*" element={<ContentCTA />} />
+              <Route path=":agentId/:tab/:itemId" element={<ContentCTA />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -89,7 +92,7 @@ describe("ContentCTA smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1/sessions"]}>
           <Routes>
-            <Route path=":root/*" element={<ContentCTA />} />
+            <Route path=":agentId/:tab/*" element={<ContentCTA />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -120,7 +123,7 @@ describe("DashboardHome smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
-            <Route path=":root/*" element={<DashboardHome />} />
+            <Route path=":agentId/*" element={<DashboardHome />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -160,7 +163,7 @@ describe("DashboardHome smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
-            <Route path=":root/*" element={<DashboardHome />} />
+            <Route path=":agentId/*" element={<DashboardHome />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -185,8 +188,8 @@ describe("shell components smoke", () => {
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
             <Route
-              path=":root/*"
-              element={<LeftSidebar rootId="root-1" agentId={null} path="/root-1" />}
+              path=":agentId/*"
+              element={<LeftSidebar rootId="root-1" agentId="root-1" path="/root-1" />}
             />
           </Routes>
         </MemoryRouter>
@@ -195,20 +198,14 @@ describe("shell components smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("LeftSidebar renders with a drilled-in child agent (scope indicator visible)", () => {
+  it("LeftSidebar renders with a drilled-in child agent", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/agents/child-1/sessions"]}>
+        <MemoryRouter initialEntries={["/child-1/sessions"]}>
           <Routes>
             <Route
-              path=":root/*"
-              element={
-                <LeftSidebar
-                  rootId="root-1"
-                  agentId="child-1"
-                  path="/root-1/agents/child-1/sessions"
-                />
-              }
+              path=":agentId/*"
+              element={<LeftSidebar rootId="root-1" agentId="child-1" path="/child-1/sessions" />}
             />
           </Routes>
         </MemoryRouter>
@@ -222,7 +219,7 @@ describe("shell components smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
-            <Route path=":root/*" element={<ComposerRow agentId={null} base="/root-1" />} />
+            <Route path=":agentId/*" element={<ComposerRow agentId={null} base="/root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -235,7 +232,7 @@ describe("shell components smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1/sessions"]}>
           <Routes>
-            <Route path=":root/*" element={<ComposerRow agentId="root-1" base="/root-1" />} />
+            <Route path=":agentId/*" element={<ComposerRow agentId="root-1" base="/root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

@@ -1,4 +1,4 @@
-import { useLocation, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 
 const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
@@ -10,27 +10,29 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   settings: { title: "Settings" },
   profile: { title: "Profile" },
   tools: { title: "Tools" },
+  drive: { title: "Drive" },
+  apps: { title: "Apps" },
 };
 
+/**
+ * Header strip shown above non-AgentPage content (root dashboard, drive,
+ * apps). Version B: tab comes directly from URL params.
+ */
 export default function ContentTopBar() {
-  const location = useLocation();
-  const params = useParams<{ root?: string }>();
+  const { agentId, tab } = useParams<{ agentId?: string; tab?: string }>();
   const agents = useDaemonStore((s) => s.agents);
 
-  // Strip `/:root` prefix to get the section (e.g. "agents", "events", "" for home).
-  const rootId = params.root || "";
-  const section = location.pathname.replace(new RegExp(`^/${rootId}/?`), "").split("/")[0];
-
+  const section = tab || "";
   let config = PAGE_CONFIG[section];
   if (!config) {
-    // Home (empty section) — show the root agent's display name.
-    const root = agents.find((a) => a.id === rootId);
-    config = { title: root?.display_name || root?.name || "Home" };
+    // Home (no tab) — show the agent's display name.
+    const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+    config = { title: agent?.display_name || agent?.name || "Home" };
   }
 
-  // Count active agents in this root's tree only (exclude root itself, which is the workspace).
+  // Count active agents in this tree (exclude the root itself, which is the workspace).
   const activeAgents = agents.filter((a) => {
-    if (a.id === rootId || !a.parent_id) return false;
+    if (a.id === agentId || !a.parent_id) return false;
     const s = a.status;
     return s === "active" || s === "running";
   }).length;

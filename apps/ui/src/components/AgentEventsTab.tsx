@@ -15,7 +15,7 @@ function eventTransport(ev: AgentEvent): string | null {
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const { go } = useNav();
+  const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
@@ -29,13 +29,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   const setSelectedId = useCallback(
     (id: string | null) => {
-      if (id) {
-        go(`/agents/${agentId}/events/${id}`, { replace: true });
-      } else {
-        go(`/agents/${agentId}/events`, { replace: true });
-      }
+      goAgent(agentId, "events", id || undefined, { replace: true });
     },
-    [agentId, go],
+    [agentId, goAgent],
   );
 
   const loadEvents = useCallback(async () => {

@@ -55,7 +55,7 @@ export default function AgentPage({
   tab?: string;
   itemId?: string | null;
 }) {
-  const { go } = useNav();
+  const { goAgent } = useNav();
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
   const itemId = itemIdProp ?? params.itemId;
@@ -103,10 +103,6 @@ export default function AgentPage({
       {/* Breadcrumb header */}
       <div className="content-topbar">
         <div className="content-topbar-left">
-          <span className="content-topbar-breadcrumb" onClick={() => go(`/agents`)}>
-            Agents
-          </span>
-          <span className="content-topbar-sep">/</span>
           <RoundAvatar name={agent?.name || agentId} size={18} />
           <span className="content-topbar-title">{displayName}</span>
           {agent?.status && (
@@ -196,11 +192,7 @@ export default function AgentPage({
           {childAgents.length > 0 ? (
             <div className="agent-children-grid">
               {childAgents.map((child) => (
-                <div
-                  key={child.id}
-                  className="agent-child-card"
-                  onClick={() => go(`/agents/${child.id}`)}
-                >
+                <div key={child.id} className="agent-child-card" onClick={() => goAgent(child.id)}>
                   <RoundAvatar name={child.name} size={28} />
                   <div>
                     <div className="agent-child-name">{child.display_name || child.name}</div>

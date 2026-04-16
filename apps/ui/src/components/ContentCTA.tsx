@@ -1,4 +1,4 @@
-import { useLocation, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useNav } from "@/hooks/useNav";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
@@ -20,39 +20,26 @@ const PAGE_ACTIONS: Record<string, { label: string; event: string } | null> = {
 };
 
 /**
- * Unified right rail inside the content card. Mirrors the asv-sidebar pattern
- * (CTA at top, list below). On chat pages it renders the sessions list backed
- * by the same data the active AgentSessionView populates in chat store.
+ * Unified right rail inside the content card.
+ *
+ * Version B: every URL is `/:agentId/:tab(/:itemId)?`. The tab segment tells
+ * us which rail content to show. For sessions, we render the session list
+ * backed by chat store (same data `AgentSessionView` populates).
  */
 export default function ContentCTA() {
-  const location = useLocation();
-  const params = useParams<{ root?: string }>();
-  const { go, agentPath } = useNav();
+  const { agentId, tab, itemId } = useParams<{
+    agentId?: string;
+    tab?: string;
+    itemId?: string;
+  }>();
+  const { goAgent } = useNav();
 
-  const rootId = params.root || "";
-  const segments = location.pathname.split("/").filter(Boolean);
-  // segments after the root: [section, ...]
-  const section = segments[1] || "";
+  const section = tab || "";
+  const isChat = section === "sessions";
+  const chatAgentId = isChat ? agentId || null : null;
+  const activeSessionId = isChat ? itemId || null : null;
 
-  // Resolve which agent owns the current chat view (root or child)
-  // Root chat: /:root/sessions(/:itemId)?
-  // Child chat: /:root/agents/:agentId/sessions(/:itemId)?
-  let chatAgentId: string | null = null;
-  let activeSessionId: string | null = null;
-  if (section === "sessions") {
-    chatAgentId = rootId;
-    activeSessionId = segments[2] || null;
-  } else if (section === "agents" && segments[3] === "sessions") {
-    chatAgentId = segments[2] || null;
-    activeSessionId = segments[4] || null;
-  }
-
-  const isChat = chatAgentId !== null;
-  // For non-chat agent tabs (events / channels / etc.) we show no list yet —
-  // those tabs render their own sidebar inside AgentPage during the
-  // transition. Only the chat (sessions) tab is unified into this rail.
-  const effectiveSection = isChat ? "sessions" : section === "agents" ? segments[3] || "" : section;
-  const action = PAGE_ACTIONS[effectiveSection] ?? null;
+  const action = PAGE_ACTIONS[section] ?? null;
 
   const sessions = useChatStore((s) =>
     chatAgentId ? s.sessionsByAgent[chatAgentId] || NO_SESSIONS : NO_SESSIONS,
@@ -60,7 +47,7 @@ export default function ContentCTA() {
 
   const handleSelectSession = (sid: string) => {
     if (!chatAgentId) return;
-    go(agentPath(chatAgentId, "sessions", sid), { replace: true });
+    goAgent(chatAgentId, "sessions", sid, { replace: true });
   };
 
   return (

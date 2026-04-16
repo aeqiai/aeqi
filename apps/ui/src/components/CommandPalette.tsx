@@ -101,7 +101,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           label: (a.display_name || a.name) as string,
           hint: ((a.model || a.status) as string) || "",
           section: "Agents",
-          action: () => go(`/agents/${a.name}`),
+          action: () => go(`/${a.name}`),
         }));
 
         const rawQuests = (questsData.quests || []) as Array<Record<string, unknown>>;

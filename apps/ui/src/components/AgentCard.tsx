@@ -12,7 +12,7 @@ export default function AgentCard({ agent, compact = false }: AgentCardProps) {
 
   if (compact) {
     return (
-      <Link to={`/agents/${agent.name}`} className="agent-card-compact">
+      <Link to={`/${agent.name}`} className="agent-card-compact">
         <div className="agent-card-compact-header">
           <div className="agent-name-row">
             <span className="agent-name">{label}</span>
@@ -25,7 +25,7 @@ export default function AgentCard({ agent, compact = false }: AgentCardProps) {
   }
 
   return (
-    <Link to={`/agents/${agent.name}`} className="agent-card">
+    <Link to={`/${agent.name}`} className="agent-card">
       <div className="agent-card-header">
         <div>
           <div className="agent-name-row">

@@ -9,7 +9,7 @@ import type { Agent } from "@/lib/types";
 import styles from "./AgentsPage.module.css";
 
 export default function AgentsPage() {
-  const { go } = useNav();
+  const { goAgent } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const activeRoot = useUIStore((s) => s.activeRoot);
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function AgentsPage() {
             <AgentCard
               key={agent.id || agent.name}
               agent={agent}
-              onClick={() => go(`/agents/${agent.id || agent.name}`)}
+              onClick={() => goAgent(agent.id || agent.name)}
             />
           ))}
         </div>

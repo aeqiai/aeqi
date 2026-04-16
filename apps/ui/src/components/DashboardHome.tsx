@@ -109,7 +109,7 @@ export default function DashboardHome() {
           </p>
           <button
             className="btn btn-primary dash-home-welcome-cta"
-            onClick={() => (window.location.href = href("/agents"))}
+            onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
           >
             Hire an agent
           </button>

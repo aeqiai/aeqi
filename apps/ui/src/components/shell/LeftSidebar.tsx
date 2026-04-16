@@ -7,89 +7,114 @@ import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
-  /** The current root agent scope (URL param or store fallback). */
+  /** The current root agent (derived from URL agent's ancestry). */
   rootId: string;
-  /** The currently drilled-into agent, if any. Root chat = rootId. */
+  /** The currently viewed agent from URL. */
   agentId: string | null;
   /** Current pathname — used for active-state matching. */
   path: string;
 }
 
 /**
- * The application's left rail: brand, primary nav, user scope indicator,
- * and the recursive agent tree. Self-contained — pulls what it needs from
- * stores and receives only the routing-derived props from its parent so
- * AppLayout isn't the sole source of truth for "what URL are we on".
+ * Application left rail: brand, primary nav, agent tree.
+ *
+ * Version B: every nav link targets the CURRENT agent in the URL, not the
+ * root — so on `/child-1/sessions` the "Events" link goes to
+ * `/child-1/events`, not `/rootId/events`. Drive and Apps stay root-only
+ * and resolve to the root's URL regardless of where you clicked from.
  */
 export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
-  const agents = useDaemonStore((s) => s.agents);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const agents = useDaemonStore((s) => s.agents);
 
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
-  const base = `/${encodeURIComponent(rootId)}`;
+  const currentId = agentId || rootId;
+  const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
+  const rootBase = rootId ? `/${encodeURIComponent(rootId)}` : "";
+  const currentAgent = agents.find((a) => a.id === currentId || a.name === currentId);
+  const isOnRoot = !!currentId && currentId === rootId;
 
+  /**
+   * Active-state check. `p` is a tab name like "sessions" (or "" for the
+   * agent's home). We match the current URL against the current agent's
+   * path, so navigating between agents highlights the right row.
+   */
   const isActive = (p: string) => {
-    const full = p === "/" ? base : `${base}${p}`;
-    if (p === "/") return path === base || path === `${base}/`;
+    const full = p === "" ? base : `${base}/${p}`;
+    if (p === "") return path === base || path === `${base}/`;
     return path === full || path.startsWith(`${full}/`);
   };
-  const go = (p: string) => navigate(p === "/" ? base : `${base}${p}`);
-  const href = (p: string) => (p === "/" ? base : `${base}${p}`);
 
-  const navLink = (p: string, label: string, icon: React.ReactNode, action?: string) => (
-    <a
-      className={`sidebar-nav-item ${isActive(p) ? "active" : ""}`}
-      href={href(p)}
-      onClick={(e) => {
-        e.preventDefault();
-        go(p);
-      }}
-    >
-      {icon}
-      <span className="sidebar-nav-label">{label}</span>
-      {action && (
-        <span
-          className="sidebar-nav-action"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            go(p);
-            setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
-          }}
-          title={action}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
+  const hrefFor = (p: string, rootOnly = false) => {
+    const scope = rootOnly ? rootBase : base;
+    return p === "" ? scope || "/" : `${scope}/${p}`;
+  };
+  const goTo = (p: string, rootOnly = false) => navigate(hrefFor(p, rootOnly));
+
+  const navLink = (
+    p: string,
+    label: string,
+    icon: React.ReactNode,
+    action?: string,
+    opts?: { rootOnly?: boolean },
+  ) => {
+    const rootOnly = !!opts?.rootOnly;
+    const disabled = rootOnly && !isOnRoot;
+    const activeMatch = rootOnly
+      ? path === hrefFor(p, true) || path.startsWith(`${hrefFor(p, true)}/`)
+      : isActive(p);
+    return (
+      <a
+        className={`sidebar-nav-item ${activeMatch ? "active" : ""}${disabled ? " disabled" : ""}`}
+        href={hrefFor(p, rootOnly)}
+        onClick={(e) => {
+          e.preventDefault();
+          goTo(p, rootOnly);
+        }}
+      >
+        {icon}
+        <span className="sidebar-nav-label">{label}</span>
+        {action && (
+          <span
+            className="sidebar-nav-action"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goTo(p, rootOnly);
+              setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+            }}
+            title={action}
           >
-            <path d="M6 2.5v7M2.5 6h7" />
-          </svg>
-        </span>
-      )}
-    </a>
-  );
-
-  const scopeAgent = agentId ? agents.find((a) => a.id === agentId || a.name === agentId) : null;
-  const showScope = !!agentId && agentId !== rootId;
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+          </span>
+        )}
+      </a>
+    );
+  };
 
   return (
     <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
         <a
           className="sidebar-brand"
-          href={href("/")}
+          href={rootBase || "/"}
           onClick={(e) => {
             e.preventDefault();
-            go("/");
+            navigate(rootBase || "/");
           }}
         >
           <BrandMark size={18} />
@@ -122,11 +147,11 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
 
       <nav className="sidebar-nav">
         <a
-          className={`sidebar-nav-item ${isActive("/profile") ? "active" : ""}`}
-          href={href("/profile")}
+          className={`sidebar-nav-item ${path === "/profile" ? "active" : ""}`}
+          href="/profile"
           onClick={(e) => {
             e.preventDefault();
-            go("/profile");
+            navigate("/profile");
           }}
         >
           <span className="sidebar-nav-avatar">
@@ -135,8 +160,8 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           <span className="sidebar-nav-label">{userName}</span>
         </a>
         {navLink(
-          "/",
-          "Dashboard",
+          "",
+          currentAgent?.display_name || currentAgent?.name || "Home",
           <svg
             width="14"
             height="14"
@@ -151,7 +176,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/settings",
+          "settings",
           "Settings",
           <svg
             width="14"
@@ -167,7 +192,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/sessions",
+          "sessions",
           "Sessions",
           <svg
             width="14"
@@ -183,7 +208,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/events",
+          "events",
           "Events",
           <svg
             width="14"
@@ -198,7 +223,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/quests",
+          "quests",
           "Quests",
           <svg
             width="14"
@@ -213,7 +238,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           "New quest",
         )}
         {navLink(
-          "/ideas",
+          "ideas",
           "Ideas",
           <svg
             width="14"
@@ -231,7 +256,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           "New idea",
         )}
         {navLink(
-          "/drive",
+          "drive",
           "Drive",
           <svg
             width="14"
@@ -245,9 +270,11 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           >
             <path d="M2 4.5a1 1 0 011-1h3l1.5 1.5H11a1 1 0 011 1V10a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5z" />
           </svg>,
+          undefined,
+          { rootOnly: true },
         )}
         {navLink(
-          "/tools",
+          "tools",
           "Tools",
           <svg
             width="14"
@@ -262,7 +289,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/apps",
+          "apps",
           "Apps",
           <svg
             width="14"
@@ -278,74 +305,12 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
             <rect x="2" y="8" width="4" height="4" rx="0.5" />
             <rect x="8" y="8" width="4" height="4" rx="0.5" />
           </svg>,
+          undefined,
+          { rootOnly: true },
         )}
       </nav>
 
-      {showScope && (
-        <div className="sidebar-agent-scope">
-          <a
-            className="sidebar-back"
-            href={href("/agents")}
-            onClick={(e) => {
-              e.preventDefault();
-              go("/agents");
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M7.5 2L3.5 6l4 4" />
-            </svg>
-            Back
-          </a>
-          <div className="sidebar-scope">
-            <RoundAvatar name={scopeAgent?.name || agentId || ""} size={18} />
-            <span className="sidebar-scope-name">
-              {scopeAgent?.display_name || scopeAgent?.name || agentId}
-            </span>
-          </div>
-        </div>
-      )}
-
       <div className="left-sidebar-body">
-        <a
-          className="sidebar-section-header"
-          href={href("/agents")}
-          onClick={(e) => {
-            e.preventDefault();
-            go("/agents");
-          }}
-        >
-          <span className="sidebar-section-header-label">Agents</span>
-          <span
-            className="sidebar-nav-action"
-            title="New agent"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              go("/agents");
-              setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 2.5v7M2.5 6h7" />
-            </svg>
-          </span>
-        </a>
         <AgentTree />
       </div>
     </div>

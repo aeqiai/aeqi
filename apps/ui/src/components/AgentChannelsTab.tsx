@@ -38,7 +38,7 @@ function fieldKey(label: string): string {
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
-  const { go } = useNav();
+  const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
@@ -168,7 +168,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             <div
               key={ch.id}
               className={`asv-session-item${ch.id === selectedId ? " active" : ""}`}
-              onClick={() => go(`/agents/${agentId}/channels/${ch.id}`)}
+              onClick={() => goAgent(agentId, "channels", ch.id)}
             >
               <div className="asv-session-item-top">
                 <span className="asv-session-item-name">{ch.channel_type}</span>
@@ -250,7 +250,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 className="btn channel-disconnect-btn"
                 onClick={async () => {
                   await api.deleteAgentChannel(selected.id);
-                  go(`/agents/${agentId}/channels`);
+                  goAgent(agentId, "channels");
                   loadChannels();
                 }}
               >

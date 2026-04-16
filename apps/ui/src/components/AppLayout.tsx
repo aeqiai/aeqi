@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useLocation, useSearchParams, useParams, Outlet } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useLocation, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
@@ -9,47 +9,69 @@ import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
+import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
+import type { Agent } from "@/lib/types";
+
+// Root-only pages — lazy to keep AppLayout light for child-agent navigation.
+const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
+const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
+const DrivePage = lazy(() => import("@/pages/DrivePage"));
+const AppsPage = lazy(() => import("@/pages/AppsPage"));
+
+/** Walk up parent_id to find the root ancestor. */
+function findRoot(agents: Agent[], id: string): Agent | null {
+  const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
+  let current = byId.get(id);
+  for (let i = 0; i < 20 && current; i++) {
+    if (!current.parent_id) return current;
+    current = byId.get(current.parent_id);
+  }
+  return current || null;
+}
 
 /**
- * Top-level shell that composes the sidebar, content card, right rail, and
- * persistent composer. Owns only cross-cutting concerns: URL parsing, daemon
- * data bootstrap, ⌘K search toggling, and root-scope sync into the UI store.
- * Everything chunky (sidebar, composer, boot splash) lives in ./shell/*.
+ * Top-level shell: sidebar, content card, right rail, persistent composer.
+ *
+ * Version B: routes are flat — `/:agentId/[:tab/[:itemId]]`. This component
+ * parses those params, resolves the target agent, derives the tree's root
+ * from the parent chain, and routes to the right tab renderer. No more
+ * `/agents/` URL segment, no regex URL sniffing.
  */
 export default function AppLayout() {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const [searching, setSearching] = useState(false);
 
-  const routeParams = useParams<{
-    root?: string;
+  const {
+    agentId = "",
+    tab,
+    itemId,
+  } = useParams<{
     agentId?: string;
     tab?: string;
     itemId?: string;
   }>();
   const path = location.pathname;
 
-  // Detect the root agent's chat URL: `/:root/sessions(/:itemId)?`. AppLayout
-  // renders AgentPage for these without requiring `/agents/:rootId` in the URL.
-  const rootSessionMatch = !routeParams.agentId
-    ? path.match(/^\/[^/]+\/sessions(?:\/([^/]+))?\/?$/)
-    : null;
-  const rootSessionItemId = rootSessionMatch?.[1] || null;
-  const isRootChat = !!rootSessionMatch;
-  const agentId =
-    routeParams.agentId ||
-    searchParams.get("agent") ||
-    (isRootChat ? routeParams.root || "" : null);
-
-  // Sync URL root → store so sidebar nav still works on user-level pages
-  // (e.g. /profile) where the URL has no :root segment.
+  const agents = useDaemonStore((s) => s.agents);
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
-  const activeRoot = useUIStore((s) => s.activeRoot);
-  const rootId = routeParams.root || activeRoot || "";
+
+  // Resolve current agent + derive the root of its tree.
+  const { rootAgent, isRoot } = useMemo(() => {
+    const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
+    const root = current ? findRoot(agents, current.id) : null;
+    return {
+      rootAgent: root,
+      isRoot: !!current && !current.parent_id,
+    };
+  }, [agents, agentId]);
+
+  const rootId = rootAgent?.id || agentId;
+
+  // Sync the active root scope into the UI store (used by /profile etc.).
   useEffect(() => {
-    if (routeParams.root) setActiveRoot(routeParams.root);
-  }, [routeParams.root, setActiveRoot]);
+    if (rootId) setActiveRoot(rootId);
+  }, [rootId, setActiveRoot]);
 
   // Daemon bootstrap + live updates.
   const fetchAll = useDaemonStore((s) => s.fetchAll);
@@ -77,9 +99,29 @@ export default function AppLayout() {
   }, [searching, openSearch, closeSearch]);
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
+  const appMode = useAuthStore((s) => s.appMode);
   if (!initialLoaded) return <BootLoader />;
 
-  const base = `/${encodeURIComponent(rootId)}`;
+  const base = `/${encodeURIComponent(agentId)}`;
+
+  // Pick what renders in the main content area.
+  //   - no tab + root + platform mode  → welcome card (onboarding)
+  //   - no tab + root                  → dashboard home
+  //   - drive / apps (root-only)       → dedicated pages
+  //   - everything else                → AgentPage with tab/itemId
+  const rootOnly = isRoot && (tab === "drive" || tab === "apps");
+  const rootDefault = isRoot && !tab;
+
+  const mainContent = (() => {
+    if (rootDefault) {
+      return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
+    }
+    if (rootOnly && tab === "drive") return <DrivePage />;
+    if (rootOnly && tab === "apps") return <AppsPage />;
+    return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
+  })();
+
+  const usesTopBar = rootDefault || rootOnly;
 
   return (
     <>
@@ -89,26 +131,22 @@ export default function AppLayout() {
         <div className="content-column">
           <div className="content-card">
             <div className="content-main">
-              {agentId ? (
-                <AgentPage
-                  agentId={agentId}
-                  tab={isRootChat ? "sessions" : undefined}
-                  itemId={isRootChat ? rootSessionItemId : undefined}
-                />
-              ) : (
+              {usesTopBar ? (
                 <>
                   <ContentTopBar />
                   <div className="content-scroll">
-                    <Outlet />
+                    <Suspense fallback={null}>{mainContent}</Suspense>
                   </div>
                 </>
+              ) : (
+                <Suspense fallback={null}>{mainContent}</Suspense>
               )}
             </div>
             <aside className="content-cta-col">
               <ContentCTA />
             </aside>
           </div>
-          <ComposerRow agentId={agentId} base={base} />
+          <ComposerRow agentId={agentId || null} base={base} />
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

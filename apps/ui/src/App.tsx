@@ -12,18 +12,9 @@ import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 // App pages -- lazy-loaded for route-level code splitting
-const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
-const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
-const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
-const EventsPage = lazy(() => import("@/pages/EventsPage"));
-const QuestsPage = lazy(() => import("@/pages/QuestsPage"));
-const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const DrivePage = lazy(() => import("@/pages/DrivePage"));
-const AppsPage = lazy(() => import("@/pages/AppsPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -66,6 +57,18 @@ function RootRedirect() {
   return <EntitiesPage />;
 }
 
+function ModeAwareProfileRoute() {
+  const appMode = useAuthStore((s) => s.appMode);
+  return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
+}
+
+/**
+ * Version B — flat URL architecture. Every agent (root or child) lives at
+ * `/:agentId/...`. There is no `/agents/` URL segment. AppLayout inspects the
+ * current agent's `parent_id` to decide root-only rendering (billing, apps,
+ * drive), but the URL shape is identical regardless of where the agent sits
+ * in the tree.
+ */
 export default function App() {
   return (
     <ErrorBoundary>
@@ -85,29 +88,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Routes>
-                  {/* Root: agent selector or redirect to active root */}
+                  {/* User-level routes */}
                   <Route index element={<RootRedirect />} />
                   <Route path="new" element={<NewAgentPage />} />
+                  <Route path="profile" element={<ModeAwareProfileRoute />} />
 
-                  {/* Root-scoped routes: /:root/... */}
-                  <Route path=":root" element={<AppLayout />}>
-                    <Route index element={<ModeAwareHome />} />
-                    <Route path="agents" element={<AgentsPage />} />
-                    <Route path="agents/:agentId" element={<AgentsPage />} />
-                    <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
-                    <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
-                    {/* Root agent's chat lives at /:root/sessions(/:itemId).
-                        AppLayout detects this URL and renders AgentPage with
-                        the root — no need for /:root/agents/:root/... */}
-                    <Route path="sessions" element={null} />
-                    <Route path="sessions/:itemId" element={null} />
-                    <Route path="events" element={<EventsPage />} />
-                    <Route path="quests" element={<QuestsPage />} />
-                    <Route path="ideas" element={<IdeasPage />} />
-                    <Route path="drive" element={<DrivePage />} />
-                    <Route path="apps" element={<AppsPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
-                    <Route path="profile" element={<ModeAwareProfileRoute />} />
+                  {/* Every agent — root or child — at /:agentId/... */}
+                  <Route path=":agentId" element={<AppLayout />}>
+                    <Route index element={null} />
+                    <Route path=":tab" element={null} />
+                    <Route path=":tab/:itemId" element={null} />
                   </Route>
                 </Routes>
               </ProtectedRoute>
@@ -117,14 +107,4 @@ export default function App() {
       </Suspense>
     </ErrorBoundary>
   );
-}
-
-function ModeAwareHome() {
-  const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
-}
-
-function ModeAwareProfileRoute() {
-  const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
 }

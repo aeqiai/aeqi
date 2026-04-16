@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useNav } from "@/hooks/useNav";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
@@ -138,7 +139,7 @@ const SECONDARY_ITEMS = [
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { root } = useParams<{ root: string }>();
+  const { go } = useNav();
   const activeRoot = useUIStore((s) => s.activeRoot);
   const agents = useDaemonStore((s) => s.agents);
   const rootAgent = agents.find((a) => a.id === activeRoot && !a.parent_id);
@@ -307,7 +308,7 @@ export default function WelcomePage() {
           </div>
           <button
             className="btn btn-primary"
-            onClick={() => navigate(`/${root}/agents`)}
+            onClick={() => go("/agents")}
             style={{ padding: "6px 16px", fontSize: 12 }}
           >
             Hire agent
@@ -317,7 +318,7 @@ export default function WelcomePage() {
         {/* Primary navigation grid */}
         <div className="welcome-grid">
           {PRIMARY_ITEMS.map((item) => (
-            <div key={item.key} className="welcome-card" onClick={() => navigate(item.route)}>
+            <div key={item.key} className="welcome-card" onClick={() => go(item.route)}>
               <span className="welcome-card-icon">{ICONS[item.key]}</span>
               <div className="welcome-card-body">
                 <h3>{item.name}</h3>
@@ -342,7 +343,7 @@ export default function WelcomePage() {
         {/* Secondary navigation — compact 4-column grid */}
         <div className="welcome-grid-secondary">
           {SECONDARY_ITEMS.map((item) => (
-            <div key={item.key} className="welcome-card-sm" onClick={() => navigate(item.route)}>
+            <div key={item.key} className="welcome-card-sm" onClick={() => go(item.route)}>
               <span className="welcome-card-icon-sm">{ICONS[item.key]}</span>
               <span className="welcome-card-label-sm">{item.name}</span>
             </div>

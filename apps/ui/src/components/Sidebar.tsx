@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { useNav } from "@/hooks/useNav";
+import { useState, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "./RoundAvatar";
@@ -41,25 +40,21 @@ interface AgentNode {
   children: AgentNode[];
 }
 
-function buildAgentTree(agents: Agent[]): AgentNode[] {
-  const byId = new Map<string, Agent>();
-  for (const a of agents) byId.set(a.id, a);
+function buildSubtree(agents: Agent[], rootId: string): AgentNode | null {
+  const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
+  const root = byId.get(rootId);
+  if (!root) return null;
 
-  const childrenMap = new Map<string, Agent[]>();
-  const roots: Agent[] = [];
-
+  const childrenByParent = new Map<string, Agent[]>();
   for (const a of agents) {
-    if (a.parent_id && byId.has(a.parent_id)) {
-      const existing = childrenMap.get(a.parent_id) || [];
-      existing.push(a);
-      childrenMap.set(a.parent_id, existing);
-    } else {
-      roots.push(a);
-    }
+    if (!a.parent_id) continue;
+    const existing = childrenByParent.get(a.parent_id) || [];
+    existing.push(a);
+    childrenByParent.set(a.parent_id, existing);
   }
 
   function toNode(agent: Agent): AgentNode {
-    const kids = childrenMap.get(agent.id) || [];
+    const kids = childrenByParent.get(agent.id) || [];
     return {
       id: agent.id,
       name: agent.name,
@@ -69,14 +64,24 @@ function buildAgentTree(agents: Agent[]): AgentNode[] {
       children: kids.map(toNode),
     };
   }
-
-  return roots.map(toNode);
+  return toNode(root);
 }
 
 function countDescendants(node: AgentNode): number {
   let count = node.children.length;
   for (const child of node.children) count += countDescendants(child);
   return count;
+}
+
+/** Walk up parent_id chain to find the root of this agent's tree. */
+function findRootId(agents: Agent[], id: string): string | null {
+  const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
+  let current = byId.get(id);
+  for (let i = 0; i < 20 && current; i++) {
+    if (!current.parent_id) return current.id;
+    current = byId.get(current.parent_id);
+  }
+  return current?.id || null;
 }
 
 function AgentNodeView({
@@ -142,30 +147,30 @@ function AgentNodeView({
   );
 }
 
+/**
+ * Recursive agent tree rooted at the current URL agent's root ancestor.
+ *
+ * Version B: clicking any agent navigates to `/{id}` — no more `/agents/`
+ * segment. Selection highlighted by matching against `:agentId` from URL.
+ */
 export default function AgentTree() {
-  const { go } = useNav();
+  const navigate = useNavigate();
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
   const allAgents = useDaemonStore((s) => s.agents);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Read agent ID from path: /:root/agents/:agentId/...
-  const location = useLocation();
-  const pathMatch = location.pathname.match(/\/agents\/([^/]+)/);
-  const selectedId = pathMatch ? pathMatch[1] : null;
-  // Only show agents that belong to the current root's tree
-  // (direct or indirect children of the root agent)
-  const rootId = window.location.pathname.split("/")[1] || "";
-  const childAgents = allAgents.filter((a) => {
-    if (!a.parent_id) return false; // exclude root agents
-    // Walk up the parent chain to check if this agent belongs to the current root
-    let current: Agent | undefined = a;
-    for (let i = 0; i < 20 && current; i++) {
-      if (current.parent_id === rootId || current.id === rootId) return true;
-      current = allAgents.find((p) => p.id === current?.parent_id);
-    }
-    return false;
-  });
-  const tree = buildAgentTree(childAgents);
+  const { agentId } = useParams<{ agentId?: string }>();
+  const selectedId = agentId || null;
+
+  // Resolve the tree's root from the URL's agent (walk up parent chain).
+  const rootId = useMemo(
+    () => (agentId ? findRootId(allAgents, agentId) : null),
+    [agentId, allAgents],
+  );
+  const tree = useMemo(
+    () => (rootId ? buildSubtree(allAgents, rootId) : null),
+    [rootId, allAgents],
+  );
 
   const toggleNode = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -174,40 +179,24 @@ export default function AgentTree() {
 
   const handleSelectAgent = (agent: AgentRef) => {
     setSelectedAgent(agent);
-    go(`/agents/${agent.id}`);
+    navigate(`/${encodeURIComponent(agent.id)}`);
   };
 
-  const rootAgent = allAgents.find((a) => a.id === rootId);
-  const isRootSelected = !selectedId;
+  if (!tree) {
+    return <div className={styles.empty}>No agents</div>;
+  }
 
   return (
     <nav className={styles.tree}>
       <div className={styles.list}>
-        {/* Root agent — always at top of tree */}
-        {rootAgent && (
-          <div className={styles.node}>
-            <div
-              className={isRootSelected ? styles.rowActive : styles.row}
-              style={{ paddingLeft: "8px" }}
-              onClick={() => go("/")}
-            >
-              <RoundAvatar name={rootAgent.name} size={22} />
-              <span className={styles.rowLabel}>{rootAgent.display_name || rootAgent.name}</span>
-            </div>
-          </div>
-        )}
-        {/* Children */}
-        {tree.map((node) => (
-          <AgentNodeView
-            key={node.id}
-            node={node}
-            depth={1}
-            selectedId={selectedId}
-            collapsed={collapsed}
-            onSelectAgent={handleSelectAgent}
-            onToggle={toggleNode}
-          />
-        ))}
+        <AgentNodeView
+          node={tree}
+          depth={0}
+          selectedId={selectedId}
+          collapsed={collapsed}
+          onSelectAgent={handleSelectAgent}
+          onToggle={toggleNode}
+        />
       </div>
     </nav>
   );

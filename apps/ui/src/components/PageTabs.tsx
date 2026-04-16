@@ -23,8 +23,9 @@ export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
 
   const setTab = (id: string) => {
     if (agentId) {
-      if (id === fallback) go(`/agents/${agentId}`);
-      else go(`/agents/${agentId}/${id}`);
+      // Version B: tabs live at /:agentId/:tab. Fallback strips the tab.
+      if (id === fallback) go("/");
+      else go(`/${id}`);
       return;
     }
     // No agentId → this is a page-level tab set. Drive via ?tab=.
