@@ -347,7 +347,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
         </div>
       )}
     </div>
-    </>
   );
 }
 
