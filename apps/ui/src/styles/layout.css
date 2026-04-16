@@ -285,9 +285,11 @@
   overflow: hidden;
   background: var(--bg-base);
   border-top-left-radius: var(--radius-xl);
+  border-bottom-left-radius: var(--radius-xl);
   margin-top: 8px;
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-right: none;
 }
 
 /* ── Page Content ── */
