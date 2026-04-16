@@ -118,10 +118,10 @@
   transition: background 0.1s;
 }
 .asv-session-item:hover {
-  background: var(--bg-elevated);
+  background: var(--state-hover);
 }
 .asv-session-item.active {
-  background: var(--bg-surface);
+  background: var(--state-selected);
 }
 .asv-session-item-top {
   display: flex;

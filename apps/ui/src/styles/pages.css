@@ -1246,7 +1246,7 @@
 }
 
 .tag-chip.active {
-  background: var(--bg-elevated);
+  background: var(--state-selected);
   color: var(--text-primary);
   border-color: var(--border-hover);
 }

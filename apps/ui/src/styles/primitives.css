@@ -25,9 +25,20 @@
   --bg-overlay: var(--color-bg-overlay);
 
   /* Legacy background aliases */
-  --bg-hover: var(--color-bg-elevated);
   --bg-secondary: var(--color-bg-surface);
   --bg-primary: var(--color-bg-base);
+
+  /* ── State layers ─────────────────────────────────────
+     Semi-transparent overlays for interactive states.
+     They adapt to whatever surface they sit on — 6% ink
+     over the canvas reads the same "one step darker" as
+     6% over a card. This is the Material/Linear pattern:
+     one token per state, no per-surface variants.
+     Use these for hover, selected, and pressed — NOT for
+     base surface elevations (that's what --bg-* is for). */
+  --state-hover: rgba(0, 0, 0, 0.03);
+  --state-selected: rgba(0, 0, 0, 0.06);
+  --state-pressed: rgba(0, 0, 0, 0.09);
 
   /* Text */
   --text-primary: var(--color-text-primary);

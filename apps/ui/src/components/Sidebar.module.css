@@ -74,12 +74,12 @@
 }
 .row:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--state-hover);
 }
 .rowActive {
   composes: row;
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--state-selected);
   border-color: var(--border);
 }
 

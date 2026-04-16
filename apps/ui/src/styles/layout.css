@@ -137,7 +137,7 @@
 
 /* ── Scope indicator ── */
 .sidebar-scope.active {
-  background: var(--bg-overlay);
+  background: var(--state-selected);
   border-radius: var(--radius-md);
   margin: 0 8px;
   padding: var(--space-2) 8px;
@@ -204,11 +204,11 @@
 }
 .sidebar-nav-item:hover {
   color: var(--text-primary);
-  background: var(--bg-overlay);
+  background: var(--state-hover);
 }
 .sidebar-nav-item.active {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--state-selected);
   font-weight: 500;
 }
 .sidebar-nav-item > svg {
