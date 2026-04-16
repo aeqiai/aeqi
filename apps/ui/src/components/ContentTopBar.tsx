@@ -19,9 +19,7 @@ export default function ContentTopBar() {
 
   // Strip `/:root` prefix to get the section (e.g. "agents", "events", "" for home).
   const rootId = params.root || "";
-  const section = location.pathname
-    .replace(new RegExp(`^/${rootId}/?`), "")
-    .split("/")[0];
+  const section = location.pathname.replace(new RegExp(`^/${rootId}/?`), "").split("/")[0];
 
   let config = PAGE_CONFIG[section];
   if (!config) {

@@ -806,13 +806,15 @@
 
 /* ── Persistent composer (below content card in shell) ── */
 .persistent-composer {
-  flex-shrink: 0;
-  padding: 0 8px 8px 8px;
+  width: 100%;
+  max-width: 760px;
 }
 .persistent-composer .asv-composer {
   background: transparent;
-  padding: 8px 16px 8px;
+  padding: 0;
 }
 .persistent-composer .asv-composer-inner {
-  background: var(--bg-base);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
 }

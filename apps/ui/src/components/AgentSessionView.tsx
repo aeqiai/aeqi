@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import { useChatStore } from "@/store/chat";
 import { useMessageProcessor } from "./session/useMessageProcessor";
 import { useSessionManager } from "./session/useSessionManager";
 import { useWebSocketChat } from "./session/useWebSocketChat";
@@ -220,6 +221,21 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("aeqi:streaming-state", { detail: { streaming } }));
   }, [streaming]);
+
+  // Consume any pending message stashed by AppLayout's composer when there
+  // was no chat mounted (type-anywhere flow). Fire once on mount/agent change.
+  const pendingMessage = useChatStore((s) => s.pendingMessage);
+  const setPendingMessage = useChatStore((s) => s.setPendingMessage);
+  useEffect(() => {
+    if (!pendingMessage || !token) return;
+    const { text, files, prompts, task } = pendingMessage;
+    if (prompts?.length) setSessionPrompts(prompts);
+    if (task) setSessionTask(task);
+    if (files?.length) fileAttachments.setAttachedFiles(files);
+    handleSendText(text);
+    setPendingMessage(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once when pendingMessage arrives
+  }, [pendingMessage, token]);
 
   if (!agentId) return null;
 

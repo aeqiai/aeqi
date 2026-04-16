@@ -291,8 +291,30 @@
   overflow: hidden;
   border-top: 1px solid var(--border);
 }
-/* ── Content column (holds content card + persistent input) ── */
+/* ── Content column (holds content card + persistent composer) ── */
 .content-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 8px 8px 0;
+  gap: 8px;
+}
+
+/* The card: rounded on all sides, two columns inside (main + CTA rail). */
+.content-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.content-main {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -300,20 +322,48 @@
   overflow: hidden;
 }
 
-/* ── Content Area (floating card) ── */
+.content-cta-col {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+/* The .asv-sidebar inside already provides the left border + bg, so the
+   wrapper stays transparent to avoid doubled borders. */
+.content-cta-col .asv-sidebar {
+  width: 100%;
+  flex: 1;
+  border-left: 1px solid var(--border);
+}
+
+/* Composer row: aligned with the card, but spacer on the right keeps the
+   composer centered to the .content-main width (CTA column is excluded). */
+.composer-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+}
+.composer-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+.composer-spacer {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+/* Legacy: AgentPage and others still reference .content-area. Keep it as a
+   transparent flex container since the card now handles the visual frame. */
 .content-area {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-base);
-  border-top-left-radius: var(--radius-xl);
-  border-bottom-left-radius: var(--radius-xl);
-  margin-top: 8px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border);
-  border-right: none;
 }
 
 /* ── Page Content ── */

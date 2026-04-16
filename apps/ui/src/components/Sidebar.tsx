@@ -192,9 +192,7 @@ export default function AgentTree() {
               onClick={() => go("/")}
             >
               <RoundAvatar name={rootAgent.name} size={22} />
-              <span className={styles.rowLabel}>
-                {rootAgent.display_name || rootAgent.name}
-              </span>
+              <span className={styles.rowLabel}>{rootAgent.display_name || rootAgent.name}</span>
             </div>
           </div>
         )}
@@ -210,7 +208,6 @@ export default function AgentTree() {
             onToggle={toggleNode}
           />
         ))}
-
       </div>
     </nav>
   );

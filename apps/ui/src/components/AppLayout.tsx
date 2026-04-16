@@ -7,9 +7,11 @@ import ContentTopBar from "./ContentTopBar";
 import ChatComposer from "./session/ChatComposer";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
+import { useChatStore } from "@/store/chat";
 import { useUIStore } from "@/store/ui";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 import RoundAvatar from "./RoundAvatar";
+import ContentCTA from "./ContentCTA";
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -120,25 +122,40 @@ export default function AppLayout() {
     });
   }, []);
 
+  const setPendingMessage = useChatStore((s) => s.setPendingMessage);
+
   const handleComposerSend = useCallback(() => {
     const text = composerInput.trim();
     if (!text) return;
-    window.dispatchEvent(
-      new CustomEvent("aeqi:send-message", {
-        detail: {
-          text,
-          files: composerFiles.length > 0 ? composerFiles : undefined,
-          prompts: composerPrompts.length > 0 ? composerPrompts : undefined,
-          task: composerTask || undefined,
-        },
-      }),
-    );
+    const detail = {
+      text,
+      files: composerFiles.length > 0 ? composerFiles : undefined,
+      prompts: composerPrompts.length > 0 ? composerPrompts : undefined,
+      task: composerTask || undefined,
+    };
+    if (agentId) {
+      // A chat view is mounted — fire the event so AgentSessionView picks it up.
+      window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
+    } else {
+      // No chat mounted — stash for the chat to consume on mount, then navigate.
+      setPendingMessage(detail);
+      navigate(`${base}/sessions`);
+    }
     setComposerInput("");
     setComposerFiles([]);
     setComposerPrompts([]);
     setComposerTask(null);
     requestAnimationFrame(() => composerInputRef.current?.focus());
-  }, [composerInput, composerFiles, composerPrompts, composerTask]);
+  }, [
+    composerInput,
+    composerFiles,
+    composerPrompts,
+    composerTask,
+    agentId,
+    setPendingMessage,
+    navigate,
+    base,
+  ]);
 
   const handleComposerStop = useCallback(() => {
     window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));
@@ -436,9 +453,7 @@ export default function AppLayout() {
               </a>
               <div className="sidebar-scope">
                 <RoundAvatar
-                  name={
-                    agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId
-                  }
+                  name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId}
                   size={18}
                 />
                 <span className="sidebar-scope-name">
@@ -456,47 +471,55 @@ export default function AppLayout() {
 
         {/* Main content */}
         <div className="content-column">
-          <div className="content-area">
-            {agentId ? (
-              <AgentPage
-                agentId={agentId}
-                tab={isRootChat ? "sessions" : undefined}
-                itemId={isRootChat ? rootSessionItemId : undefined}
-              />
-            ) : (
-              <>
-                <ContentTopBar />
-                <div className="content-scroll">
-                  <Outlet />
-                </div>
-              </>
-            )}
-          </div>
-          {agentId && (
-            <div className="persistent-composer">
-              <ChatComposer
-                input={composerInput}
-                setInput={setComposerInput}
-                streaming={composerStreaming}
-                displayName={agentDisplayName}
-                sessionPrompts={composerPrompts}
-                setSessionPrompts={setComposerPrompts}
-                sessionTask={composerTask}
-                setSessionTask={setComposerTask}
-                attachedFiles={composerFiles}
-                setAttachedFiles={setComposerFiles}
-                setShowAttachPicker={() => {}}
-                readFiles={readComposerFiles}
-                dragOver={composerDragOver}
-                setDragOver={setComposerDragOver}
-                dragCounter={composerDragCounter}
-                onSend={handleComposerSend}
-                onStop={handleComposerStop}
-                inputRef={composerInputRef}
-                fileInputRef={composerFileRef}
-              />
+          <div className="content-card">
+            <div className="content-main">
+              {agentId ? (
+                <AgentPage
+                  agentId={agentId}
+                  tab={isRootChat ? "sessions" : undefined}
+                  itemId={isRootChat ? rootSessionItemId : undefined}
+                />
+              ) : (
+                <>
+                  <ContentTopBar />
+                  <div className="content-scroll">
+                    <Outlet />
+                  </div>
+                </>
+              )}
             </div>
-          )}
+            <aside className="content-cta-col">
+              <ContentCTA />
+            </aside>
+          </div>
+          <div className="composer-row">
+            <div className="composer-wrap">
+              <div className="persistent-composer">
+                <ChatComposer
+                  input={composerInput}
+                  setInput={setComposerInput}
+                  streaming={composerStreaming}
+                  displayName={agentDisplayName || "agent"}
+                  sessionPrompts={composerPrompts}
+                  setSessionPrompts={setComposerPrompts}
+                  sessionTask={composerTask}
+                  setSessionTask={setComposerTask}
+                  attachedFiles={composerFiles}
+                  setAttachedFiles={setComposerFiles}
+                  setShowAttachPicker={() => {}}
+                  readFiles={readComposerFiles}
+                  dragOver={composerDragOver}
+                  setDragOver={setComposerDragOver}
+                  dragCounter={composerDragCounter}
+                  onSend={handleComposerSend}
+                  onStop={handleComposerStop}
+                  inputRef={composerInputRef}
+                  fileInputRef={composerFileRef}
+                />
+              </div>
+            </div>
+            <div className="composer-spacer" aria-hidden />
+          </div>
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

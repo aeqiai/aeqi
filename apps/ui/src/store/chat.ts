@@ -22,9 +22,23 @@ function persistSelectedAgent(agent: AgentRef | null) {
   }
 }
 
+/**
+ * A message the user typed in the persistent composer while no chat view
+ * was mounted. AgentSessionView consumes this on mount so the user doesn't
+ * have to re-press Send after we navigate them into the chat.
+ */
+interface PendingMessage {
+  text: string;
+  files?: { name: string; content: string; size: number }[];
+  prompts?: string[];
+  task?: { id: string; name: string };
+}
+
 interface ChatState {
   selectedAgent: AgentRef | null;
   setSelectedAgent: (agent: AgentRef | null) => void;
+  pendingMessage: PendingMessage | null;
+  setPendingMessage: (msg: PendingMessage | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -33,4 +47,6 @@ export const useChatStore = create<ChatState>((set) => ({
     persistSelectedAgent(agent);
     set({ selectedAgent: agent });
   },
+  pendingMessage: null,
+  setPendingMessage: (msg) => set({ pendingMessage: msg }),
 }));

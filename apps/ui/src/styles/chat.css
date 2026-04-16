@@ -67,9 +67,14 @@
     display: none;
   }
 }
+.asv-sidebar-header {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--color-border-faint);
+}
 .asv-session-new-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   width: 100%;
   font-family: var(--font-sans);
