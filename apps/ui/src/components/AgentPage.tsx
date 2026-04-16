@@ -114,26 +114,32 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           )}
         </div>
         {activeTab === "sessions" && (
-          <div className="content-topbar-action">
-            <button
-              className="content-topbar-action-btn"
-              onClick={() => {
+          <div
+            className="content-topbar-action"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("aeqi:new-session"));
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
                 window.dispatchEvent(new CustomEvent("aeqi:new-session"));
-              }}
+              }
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
             >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <path d="M6 2.5v7M2.5 6h7" />
-              </svg>
-              New Chat
-            </button>
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            <span>New Chat</span>
           </div>
         )}
       </div>
