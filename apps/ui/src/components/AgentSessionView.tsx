@@ -231,13 +231,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       onDragEnter={fileAttachments.handleDragEnter}
       onDragLeave={fileAttachments.handleDragLeave}
     >
-      <SessionSidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onNewConversation={handleNewConversation}
-        onSelectSession={handleSelectSession}
-      />
-
       <div className="asv-main">
         <div className="asv-messages">
           {messages.length === 0 && !streaming && (
@@ -270,6 +263,13 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           <div ref={messagesEnd} />
         </div>
       </div>
+
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onNewConversation={handleNewConversation}
+        onSelectSession={handleSelectSession}
+      />
     </div>
   );
 }
