@@ -10,25 +10,39 @@ interface Tab {
 interface PageTabsProps {
   tabs: Tab[];
   defaultTab?: string;
+  /**
+   * Tab routing strategy:
+   *   - "path" (default): tabs map to `/:agentId/:tab`. Used by agent tabs.
+   *   - "query": tabs map to `?tab=…`. Used by sub-tab sets that live inside
+   *     a single outer route (e.g. Profile's Profile/Security/API/… tabs,
+   *     which sit under `/:agentId/profile` and must not collide with the
+   *     outer `:tab` slot).
+   */
+  mode?: "path" | "query";
 }
 
-export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
+export default function PageTabs({ tabs, defaultTab, mode = "path" }: PageTabsProps) {
   const { go } = useNav();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const fallback = defaultTab || tabs[0]?.id || "";
   const queryTab = searchParams.get("tab");
+  const usePath = mode === "path" && !!agentId;
   const pathTab = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : null;
-  const active = pathTab || (queryTab && tabs.some((t) => t.id === queryTab) ? queryTab : fallback);
+  const active = usePath
+    ? pathTab || fallback
+    : queryTab && tabs.some((t) => t.id === queryTab)
+      ? queryTab
+      : fallback;
 
   const setTab = (id: string) => {
-    if (agentId) {
+    if (usePath) {
       // Version B: tabs live at /:agentId/:tab. Fallback strips the tab.
       if (id === fallback) go("/");
       else go(`/${id}`);
       return;
     }
-    // No agentId → this is a page-level tab set. Drive via ?tab=.
+    // Query-string sub-tabs.
     const next = new URLSearchParams(searchParams);
     if (id === fallback) next.delete("tab");
     else next.set("tab", id);

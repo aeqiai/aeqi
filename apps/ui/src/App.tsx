@@ -14,7 +14,6 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 // App pages -- lazy-loaded for route-level code splitting
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
-const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 
 const LoadingSpinner = () => (
   <div
@@ -57,17 +56,13 @@ function RootRedirect() {
   return <EntitiesPage />;
 }
 
-function ModeAwareProfileRoute() {
-  const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
-}
-
 /**
  * Version B — flat URL architecture. Every agent (root or child) lives at
  * `/:agentId/...`. There is no `/agents/` URL segment. AppLayout inspects the
  * current agent's `parent_id` to decide root-only rendering (billing, apps,
  * drive), but the URL shape is identical regardless of where the agent sits
- * in the tree.
+ * in the tree. Profile lives at `/:agentId/profile` so it inherits the shell
+ * (Refined A) — the agent context is ambient; the page content is user-level.
  */
 export default function App() {
   return (
@@ -91,7 +86,6 @@ export default function App() {
                   {/* User-level routes */}
                   <Route index element={<RootRedirect />} />
                   <Route path="new" element={<NewAgentPage />} />
-                  <Route path="profile" element={<ModeAwareProfileRoute />} />
 
                   {/* Every agent — root or child — at /:agentId/... */}
                   <Route path=":agentId" element={<AppLayout />}>

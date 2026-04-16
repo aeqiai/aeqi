@@ -147,11 +147,11 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
 
       <nav className="sidebar-nav">
         <a
-          className={`sidebar-nav-item ${path === "/profile" ? "active" : ""}`}
-          href="/profile"
+          className={`sidebar-nav-item ${isActive("profile") ? "active" : ""}`}
+          href={hrefFor("profile")}
           onClick={(e) => {
             e.preventDefault();
-            navigate("/profile");
+            goTo("profile");
           }}
         >
           <span className="sidebar-nav-avatar">

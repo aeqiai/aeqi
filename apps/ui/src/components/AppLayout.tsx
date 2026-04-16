@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
@@ -13,11 +13,14 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 import type { Agent } from "@/lib/types";
 
-// Root-only pages — lazy to keep AppLayout light for child-agent navigation.
+// Out-of-flow pages rendered inside the shell — lazy to keep AppLayout light.
+// Drive/Apps are root-only. Profile is user-scoped but lives under
+// /:agentId/profile so it inherits the sidebar + tree chrome (Refined A).
 const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
 const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const AppsPage = lazy(() => import("@/pages/AppsPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 
 /** Walk up parent_id to find the root ancestor. */
 function findRoot(agents: Agent[], id: string): Agent | null {
@@ -108,9 +111,17 @@ export default function AppLayout() {
   //   - no tab + root + platform mode  → welcome card (onboarding)
   //   - no tab + root                  → dashboard home
   //   - drive / apps (root-only)       → dedicated pages
+  //   - profile                        → user profile (any agent scope)
   //   - everything else                → AgentPage with tab/itemId
   const rootOnly = isRoot && (tab === "drive" || tab === "apps");
   const rootDefault = isRoot && !tab;
+  const isProfile = tab === "profile";
+
+  // Profile is platform-mode only — runtime mode has nowhere to manage
+  // account-level identity, so kick back to the agent's home.
+  if (isProfile && appMode && appMode !== "platform") {
+    return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
+  }
 
   const mainContent = (() => {
     if (rootDefault) {
@@ -118,10 +129,15 @@ export default function AppLayout() {
     }
     if (rootOnly && tab === "drive") return <DrivePage />;
     if (rootOnly && tab === "apps") return <AppsPage />;
+    if (isProfile) return <ProfilePage />;
     return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
   })();
 
   const usesTopBar = rootDefault || rootOnly;
+  // Profile owns its own header + tabs and is user-scoped — composer and
+  // CTA right rail are noise there.
+  const showComposer = !isProfile;
+  const showCTA = !isProfile;
 
   return (
     <>
@@ -142,11 +158,13 @@ export default function AppLayout() {
                 <Suspense fallback={null}>{mainContent}</Suspense>
               )}
             </div>
-            <aside className="content-cta-col">
-              <ContentCTA />
-            </aside>
+            {showCTA && (
+              <aside className="content-cta-col">
+                <ContentCTA />
+              </aside>
+            )}
           </div>
-          <ComposerRow agentId={agentId || null} base={base} />
+          {showComposer && <ComposerRow agentId={agentId || null} base={base} />}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

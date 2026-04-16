@@ -259,7 +259,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PageTabs tabs={TABS} defaultTab="profile" />
+      <PageTabs tabs={TABS} defaultTab="profile" mode="query" />
       <div className="account-page">
         {activeTab === "profile" && (
           <>
