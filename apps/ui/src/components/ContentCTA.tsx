@@ -1,30 +1,60 @@
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
+import { useDaemonStore } from "@/store/daemon";
+import { useAgentDataStore } from "@/store/agentData";
 import { useNav } from "@/hooks/useNav";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
+import { ALL_TOOLS } from "@/lib/tools";
+import type { AgentEvent, Agent } from "@/lib/types";
 
 // Stable empty-array reference. Returning a fresh `[]` from a Zustand
 // selector on every render triggers React error #185 (infinite update loop).
 const NO_SESSIONS: SessionInfo[] = [];
+const NO_EVENTS: AgentEvent[] = [];
+const NO_CHANNELS: import("@/store/agentData").ChannelEntry[] = [];
 
-/** Page-keyed primary action shown at the top of the right rail. */
-const PAGE_ACTIONS: Record<string, { label: string; event: string } | null> = {
-  agents: { label: "New agent", event: "aeqi:create" },
-  events: { label: "New event", event: "aeqi:create" },
-  quests: { label: "New quest", event: "aeqi:create" },
-  ideas: { label: "New idea", event: "aeqi:create" },
-  sessions: { label: "New chat", event: "aeqi:new-session" },
-  settings: null,
-  profile: null,
-  tools: null,
-};
+/** A single row in the rail. Uniform across every tab. */
+interface RailItem {
+  id: string;
+  name: string;
+  /** Small uppercase badge on the top row (e.g. TG, WA, Web, SYS). */
+  badge?: string;
+  /** Secondary line — preview text, pattern, or status. */
+  preview?: string;
+  /** Right-aligned meta on the bottom line — date or count. */
+  meta?: string;
+  /** Dim the row (e.g. disabled event). */
+  dimmed?: boolean;
+}
+
+/** Header config: what the "+" button does and what it says. */
+interface RailHeader {
+  label: string;
+  event: string;
+}
+
+function eventLabel(ev: AgentEvent): string {
+  return ev.name.replace(/^on_/, "").replace(/_/g, " ");
+}
+function eventTransport(ev: AgentEvent): string | null {
+  const prefix = ev.pattern.split(":")[0];
+  if (prefix === "session") return null;
+  return prefix.toUpperCase();
+}
 
 /**
  * Unified right rail inside the content card.
  *
- * Version B: every URL is `/:agentId/:tab(/:itemId)?`. The tab segment tells
- * us which rail content to show. For sessions, we render the session list
- * backed by chat store (same data `AgentSessionView` populates).
+ * The rail is the index column for a master/detail pair — the same pattern
+ * regardless of tab. Each tab supplies its own rows; the detail pane
+ * (whatever AgentPage renders in `.content-main`) reacts to `:itemId`.
+ *
+ *   sessions  → chat sessions list (store-backed)
+ *   events    → agent events list  (store-backed, fetched on mount)
+ *   channels  → messaging channels (store-backed, fetched on mount)
+ *   tools     → static tool catalogue, on/off driven by agent.tool_deny
+ *   other     → header-only (primary action button, nothing to list)
  */
 export default function ContentCTA() {
   const { agentId, tab, itemId } = useParams<{
@@ -33,30 +63,136 @@ export default function ContentCTA() {
     itemId?: string;
   }>();
   const { goAgent } = useNav();
-
   const section = tab || "";
-  const isChat = section === "sessions";
-  const chatAgentId = isChat ? agentId || null : null;
-  const activeSessionId = isChat ? itemId || null : null;
 
-  const action = PAGE_ACTIONS[section] ?? null;
-
+  // --- Sessions -----------------------------------------------------------
   const sessions = useChatStore((s) =>
-    chatAgentId ? s.sessionsByAgent[chatAgentId] || NO_SESSIONS : NO_SESSIONS,
+    section === "sessions" && agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
   );
 
-  const handleSelectSession = (sid: string) => {
-    if (!chatAgentId) return;
-    goAgent(chatAgentId, "sessions", sid, { replace: true });
+  // --- Events -------------------------------------------------------------
+  const loadEvents = useAgentDataStore((s) => s.loadEvents);
+  const events = useAgentDataStore((s) =>
+    section === "events" && agentId ? s.eventsByAgent[agentId] || NO_EVENTS : NO_EVENTS,
+  );
+  useEffect(() => {
+    if (section === "events" && agentId) loadEvents(agentId);
+  }, [section, agentId, loadEvents]);
+
+  // --- Channels -----------------------------------------------------------
+  const loadChannels = useAgentDataStore((s) => s.loadChannels);
+  const channels = useAgentDataStore((s) =>
+    section === "channels" && agentId ? s.channelsByAgent[agentId] || NO_CHANNELS : NO_CHANNELS,
+  );
+  useEffect(() => {
+    if (section === "channels" && agentId) loadChannels(agentId);
+  }, [section, agentId, loadChannels]);
+
+  // --- Tools --------------------------------------------------------------
+  const agent: Agent | undefined = useDaemonStore((s) =>
+    section === "tools" && agentId
+      ? s.agents.find((a) => a.id === agentId || a.name === agentId)
+      : undefined,
+  );
+
+  // Compose: which rows + which header action for this tab.
+  let items: RailItem[] = [];
+  let header: RailHeader | null = null;
+  let emptyText = "";
+
+  switch (section) {
+    case "sessions":
+      header = { label: "New chat", event: "aeqi:new-session" };
+      items = sessions.map((s) => {
+        const n = s.name?.toLowerCase() || "";
+        const badge = n.includes("telegram")
+          ? "TG"
+          : n.includes("whatsapp")
+            ? "WA"
+            : s.session_type === "web"
+              ? "Web"
+              : undefined;
+        const meta = s.created_at
+          ? new Date(s.created_at).toLocaleDateString([], { month: "short", day: "numeric" })
+          : undefined;
+        return {
+          id: s.id,
+          name: sessionLabel(s),
+          badge,
+          preview: s.first_message ? s.first_message.slice(0, 40) : undefined,
+          meta,
+        };
+      });
+      emptyText = "No sessions yet";
+      break;
+
+    case "events":
+      // No "+new" button: events are pattern-matched system hooks; users
+      // enable/disable them rather than creating ad-hoc ones from the rail.
+      items = events.map((ev) => {
+        const transport = eventTransport(ev);
+        return {
+          id: ev.id,
+          name: eventLabel(ev),
+          badge: transport || undefined,
+          preview: ev.pattern,
+          meta: ev.idea_ids.length > 0 ? `${ev.idea_ids.length} ideas` : undefined,
+          dimmed: !ev.enabled,
+        };
+      });
+      emptyText = "No events yet";
+      break;
+
+    case "channels":
+      header = { label: "Add channel", event: "aeqi:new-channel" };
+      items = channels.map((c) => ({
+        id: c.id,
+        name: c.channel_type,
+        badge: c.channel_type.toUpperCase(),
+        preview: "Connected",
+      }));
+      emptyText = "No channels";
+      break;
+
+    case "tools":
+      items = ALL_TOOLS.map((t) => {
+        const allowed = agent ? !agent.tool_deny?.includes(t.id) : true;
+        return {
+          id: t.id,
+          name: t.label,
+          badge: allowed ? undefined : "OFF",
+          preview: t.category,
+          dimmed: !allowed,
+        };
+      });
+      emptyText = "";
+      break;
+
+    case "quests":
+      header = { label: "New quest", event: "aeqi:create" };
+      break;
+    case "ideas":
+      header = { label: "New idea", event: "aeqi:create" };
+      break;
+    case "agents":
+      header = { label: "New agent", event: "aeqi:create" };
+      break;
+    default:
+      header = null;
+  }
+
+  const handleSelect = (id: string) => {
+    if (!agentId) return;
+    goAgent(agentId, section, id, { replace: true });
   };
 
   return (
     <div className="asv-sidebar">
-      {action && (
+      {header && (
         <div className="asv-sidebar-header">
           <button
             className="asv-session-new-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent(action.event))}
+            onClick={() => window.dispatchEvent(new CustomEvent(header!.event))}
           >
             <svg
               width="12"
@@ -69,50 +205,32 @@ export default function ContentCTA() {
             >
               <path d="M6 2.5v7M2.5 6h7" />
             </svg>
-            {action.label}
+            {header.label}
           </button>
         </div>
       )}
       <div className="asv-sidebar-list">
-        {isChat && sessions.length === 0 && (
-          <div className="asv-sidebar-empty">No sessions yet</div>
-        )}
-        {isChat &&
-          sessions.map((s) => {
-            const n = s.name?.toLowerCase() || "";
-            const transport = n.includes("telegram")
-              ? "TG"
-              : n.includes("whatsapp")
-                ? "WA"
-                : s.session_type === "web"
-                  ? "Web"
-                  : null;
-            return (
-              <div
-                key={s.id}
-                className={`asv-session-item${s.id === activeSessionId ? " active" : ""}`}
-                onClick={() => handleSelectSession(s.id)}
-              >
-                <div className="asv-session-item-top">
-                  <span className="asv-session-item-name">{sessionLabel(s)}</span>
-                  {transport && <span className="asv-session-item-transport">{transport}</span>}
-                </div>
-                {s.first_message && (
-                  <div className="asv-session-item-bottom">
-                    <span className="asv-session-item-preview">{s.first_message.slice(0, 40)}</span>
-                    <span className="asv-session-item-date">
-                      {s.created_at
-                        ? new Date(s.created_at).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : ""}
-                    </span>
-                  </div>
-                )}
+        {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className={`asv-session-item${item.id === itemId ? " active" : ""}${
+              item.dimmed ? " asv-session-item--disabled" : ""
+            }`}
+            onClick={() => handleSelect(item.id)}
+          >
+            <div className="asv-session-item-top">
+              <span className="asv-session-item-name">{item.name}</span>
+              {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
+            </div>
+            {(item.preview || item.meta) && (
+              <div className="asv-session-item-bottom">
+                {item.preview && <span className="asv-session-item-preview">{item.preview}</span>}
+                {item.meta && <span className="asv-session-item-date">{item.meta}</span>}
               </div>
-            );
-          })}
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -8,9 +8,8 @@ import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import RoundAvatar from "./RoundAvatar";
 import { EmptyState } from "./ui";
+import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 import type { Idea } from "@/lib/types";
-
-const SETTINGS_TABS = ["General", "Channels"] as const;
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -18,25 +17,10 @@ const TABS = [
   { id: "sessions", label: "Sessions" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },
+  { id: "channels", label: "Channels" },
   { id: "quests", label: "Quests" },
   { id: "ideas", label: "Ideas" },
   { id: "tools", label: "Tools" },
-];
-
-const ALL_TOOLS = [
-  "shell",
-  "read_file",
-  "write_file",
-  "edit_file",
-  "grep",
-  "glob",
-  "ideas",
-  "quests",
-  "agents",
-  "events",
-  "code",
-  "web_search",
-  "web_fetch",
 ];
 
 function formatTokens(n?: number): string {
@@ -243,42 +227,12 @@ export default function AgentPage({
         </div>
       )}
 
-      {activeTab === "events" && (
-        <div className="agent-page-chat">
-          <AgentEventsTab agentId={resolvedAgentId} />
-        </div>
-      )}
+      {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
+
+      {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
 
       {activeTab === "tools" && (
-        <div className="page-content">
-          <div className="tools-grid">
-            {ALL_TOOLS.map((tool) => {
-              const allowed = !agent?.tool_deny?.includes(tool);
-              return (
-                <button
-                  key={tool}
-                  className={`tool-card ${allowed ? "tool-active" : ""}`}
-                  onClick={async () => {
-                    const current = agent?.tool_deny || [];
-                    const next = allowed ? [...current, tool] : current.filter((t) => t !== tool);
-                    try {
-                      await api.setAgentTools(resolvedAgentId, next);
-                      showToast("Tools saved");
-                    } catch (err) {
-                      showToast(
-                        `Error: ${err instanceof Error ? err.message : "Failed to save tools"}`,
-                        true,
-                      );
-                    }
-                  }}
-                >
-                  <span className="tool-name">{tool}</span>
-                  <span className="tool-status">{allowed ? "active" : "off"}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
       )}
 
       {activeTab === "settings" && (
@@ -289,6 +243,86 @@ export default function AgentPage({
           showToast={showToast}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Tools detail pane. The tool list lives in the global right rail —
+ * this pane shows the selected tool's description and the allow/deny
+ * toggle. Without a selection we show a quick overview: how many are
+ * enabled and a nudge to pick one.
+ */
+function ToolsDetail({
+  agent,
+  resolvedAgentId,
+  showToast,
+}: {
+  agent: ReturnType<typeof useDaemonStore.getState>["agents"][0] | undefined;
+  resolvedAgentId: string;
+  showToast: (msg: string, isError?: boolean) => void;
+}) {
+  const { itemId } = useParams<{ itemId?: string }>();
+  const selected = itemId ? TOOL_BY_ID[itemId] : null;
+
+  if (!selected) {
+    const denied = agent?.tool_deny || [];
+    const activeCount = ALL_TOOLS.length - denied.length;
+    return (
+      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+        <EmptyState
+          title={`${activeCount}/${ALL_TOOLS.length} tools enabled`}
+          description="Pick a tool from the right to read its description and toggle access."
+        />
+      </div>
+    );
+  }
+
+  const allowed = !agent?.tool_deny?.includes(selected.id);
+
+  const toggle = async () => {
+    const current = agent?.tool_deny || [];
+    const next = allowed ? [...current, selected.id] : current.filter((t) => t !== selected.id);
+    try {
+      await api.setAgentTools(resolvedAgentId, next);
+      showToast("Tools saved");
+    } catch (err) {
+      showToast(`Error: ${err instanceof Error ? err.message : "Failed to save tools"}`, true);
+    }
+  };
+
+  return (
+    <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+      <div className="events-detail-header">
+        <div>
+          <h3 className="events-detail-name">{selected.label}</h3>
+          <span className="events-detail-pattern">
+            {selected.category} · {selected.id}
+          </span>
+        </div>
+        <button className={allowed ? "btn" : "btn btn-primary"} onClick={toggle}>
+          {allowed ? "Disable" : "Enable"}
+        </button>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 8 }}>
+        {selected.description}
+      </p>
+      <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-muted)" }}>
+        Status:{" "}
+        <span
+          className="agent-settings-status-dot"
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: allowed ? "var(--success)" : "var(--text-muted)",
+            marginRight: 6,
+            verticalAlign: "middle",
+          }}
+        />
+        {allowed ? "enabled for this agent" : "blocked for this agent"}
+      </div>
     </div>
   );
 }
@@ -304,97 +338,72 @@ function SettingsPanel({
   resolvedAgentId: string;
   showToast: (msg: string, isError?: boolean) => void;
 }) {
-  const [settingsTab, setSettingsTab] = useState<(typeof SETTINGS_TABS)[number]>("General");
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-      <div className="page-tabs" style={{ paddingLeft: 16 }}>
-        {SETTINGS_TABS.map((t) => (
-          <button
-            key={t}
-            className={`page-tab${settingsTab === t ? " active" : ""}`}
-            onClick={() => setSettingsTab(t)}
-          >
-            {t}
-          </button>
-        ))}
+    <div className="page-content">
+      <div className="agent-settings-section">
+        <h3 className="agent-settings-heading">Model</h3>
+        <input
+          className="agent-settings-input"
+          type="text"
+          defaultValue={agent?.model || ""}
+          placeholder="e.g. anthropic/claude-sonnet-4"
+          onBlur={async (e) => {
+            const val = e.target.value.trim();
+            try {
+              await api.setAgentModel(resolvedAgentId, val);
+              showToast("Model saved");
+            } catch (err) {
+              showToast(`Error: ${err instanceof Error ? err.message : "Failed to save"}`, true);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+        />
       </div>
 
-      {settingsTab === "General" && (
-        <div className="page-content">
-          <div className="agent-settings-section">
-            <h3 className="agent-settings-heading">Model</h3>
-            <input
-              className="agent-settings-input"
-              type="text"
-              defaultValue={agent?.model || ""}
-              placeholder="e.g. anthropic/claude-sonnet-4"
-              onBlur={async (e) => {
-                const val = e.target.value.trim();
-                try {
-                  await api.setAgentModel(resolvedAgentId, val);
-                  showToast("Model saved");
-                } catch (err) {
-                  showToast(
-                    `Error: ${err instanceof Error ? err.message : "Failed to save"}`,
-                    true,
-                  );
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-            />
+      <div className="agent-settings-section">
+        <h3 className="agent-settings-heading">Details</h3>
+        <div className="agent-settings-grid">
+          <div className="agent-settings-field">
+            <span className="agent-settings-label">Status</span>
+            <span className="agent-settings-value">
+              <span
+                className={`agent-settings-status-dot ${agent?.status === "active" ? "live" : ""}`}
+              />
+              {agent?.status || "unknown"}
+            </span>
           </div>
-
-          <div className="agent-settings-section">
-            <h3 className="agent-settings-heading">Details</h3>
-            <div className="agent-settings-grid">
-              <div className="agent-settings-field">
-                <span className="agent-settings-label">Status</span>
-                <span className="agent-settings-value">
-                  <span
-                    className={`agent-settings-status-dot ${agent?.status === "active" ? "live" : ""}`}
-                  />
-                  {agent?.status || "unknown"}
-                </span>
-              </div>
-              {agent?.execution_mode && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">Mode</span>
-                  <span className="agent-settings-value">{agent.execution_mode}</span>
-                </div>
-              )}
-              {agent?.workdir && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">Workdir</span>
-                  <span className="agent-settings-value agent-settings-mono">{agent.workdir}</span>
-                </div>
-              )}
-              <div className="agent-settings-field">
-                <span className="agent-settings-label">ID</span>
-                <span className="agent-settings-value agent-settings-mono">
-                  {agent?.id || agentId}
-                </span>
-              </div>
-              {agent?.created_at && (
-                <div className="agent-settings-field">
-                  <span className="agent-settings-label">Created</span>
-                  <span className="agent-settings-value">
-                    {new Date(agent.created_at).toLocaleDateString([], {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-              )}
+          {agent?.execution_mode && (
+            <div className="agent-settings-field">
+              <span className="agent-settings-label">Mode</span>
+              <span className="agent-settings-value">{agent.execution_mode}</span>
             </div>
+          )}
+          {agent?.workdir && (
+            <div className="agent-settings-field">
+              <span className="agent-settings-label">Workdir</span>
+              <span className="agent-settings-value agent-settings-mono">{agent.workdir}</span>
+            </div>
+          )}
+          <div className="agent-settings-field">
+            <span className="agent-settings-label">ID</span>
+            <span className="agent-settings-value agent-settings-mono">{agent?.id || agentId}</span>
           </div>
+          {agent?.created_at && (
+            <div className="agent-settings-field">
+              <span className="agent-settings-label">Created</span>
+              <span className="agent-settings-value">
+                {new Date(agent.created_at).toLocaleDateString([], {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+          )}
         </div>
-      )}
-
-      {settingsTab === "Channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
+      </div>
     </div>
   );
 }
