@@ -1,10 +1,10 @@
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
+import { useUIStore } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
 import { runtimeLabel } from "@/lib/runtime";
 import { timeAgo } from "@/lib/format";
 import type { Agent } from "@/lib/types";
-import BrandMark from "@/components/BrandMark";
 
 function formatUsd(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -25,6 +25,9 @@ export default function DashboardHome() {
   const cost = useDaemonStore((s) => s.cost);
   const events = useDaemonStore((s) => s.events);
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
+  const activeRoot = useUIStore((s) => s.activeRoot);
+  // Children of the root agent — what the user can actually delegate to.
+  const childAgents = agents.filter((a) => a.id !== activeRoot && a.parent_id);
 
   const activeQuests = quests.filter((q) => q.status === "in_progress");
   const blockedQuests = quests.filter((q) => q.status === "blocked");
@@ -47,19 +50,6 @@ export default function DashboardHome() {
 
   return (
     <div className="dash-home">
-      {/* Title */}
-      <div className="dash-home-header">
-        <h1 className="dash-home-title">
-          <BrandMark size={22} />
-          <span className="dash-home-dot">.ai</span>
-        </h1>
-        {agents.length > 0 ? (
-          <p className="dash-home-subtitle">Select an agent to start a session</p>
-        ) : (
-          <p className="dash-home-subtitle">The agent runtime.</p>
-        )}
-      </div>
-
       {/* Quick stats */}
       <div className="dash-home-stats">
         <div className="dash-stat">
@@ -98,7 +88,7 @@ export default function DashboardHome() {
       )}
 
       {/* Agent grid -- click to open session */}
-      {agents.length === 0 ? (
+      {childAgents.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
           <svg
             width="48"
@@ -173,7 +163,7 @@ export default function DashboardHome() {
           <div className="dash-home-section">
             <div className="dash-home-section-title">Agents</div>
             <div className="dash-agent-grid">
-              {agents.map((agent) => (
+              {childAgents.map((agent) => (
                 <div
                   key={agent.id}
                   className="dash-agent-card"

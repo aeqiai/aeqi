@@ -1,22 +1,34 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 
 const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
-  "/": { title: "Home" },
-  "/agents-list": { title: "Agents", create: { label: "New agent" } },
-  "/agents": { title: "Agents", create: { label: "New agent" } },
-  "/events": { title: "Events", create: { label: "New event" } },
-  "/quests": { title: "Quests", create: { label: "New quest" } },
-  "/ideas": { title: "Ideas", create: { label: "New idea" } },
-  "/settings": { title: "Settings" },
-  "/profile": { title: "Profile" },
+  agents: { title: "Agents", create: { label: "New agent" } },
+  events: { title: "Events", create: { label: "New event" } },
+  quests: { title: "Quests", create: { label: "New quest" } },
+  ideas: { title: "Ideas", create: { label: "New idea" } },
+  sessions: { title: "Sessions" },
+  settings: { title: "Settings" },
+  profile: { title: "Profile" },
+  tools: { title: "Tools" },
 };
 
 export default function ContentTopBar() {
   const location = useLocation();
-  const path = location.pathname;
+  const params = useParams<{ root?: string }>();
   const agents = useDaemonStore((s) => s.agents);
-  const config = PAGE_CONFIG[path] || { title: path.slice(1) || "Home" };
+
+  // Strip `/:root` prefix to get the section (e.g. "agents", "events", "" for home).
+  const rootId = params.root || "";
+  const section = location.pathname
+    .replace(new RegExp(`^/${rootId}/?`), "")
+    .split("/")[0];
+
+  let config = PAGE_CONFIG[section];
+  if (!config) {
+    // Home (empty section) — show the root agent's display name.
+    const root = agents.find((a) => a.id === rootId);
+    config = { title: root?.display_name || root?.name || "Home" };
+  }
 
   const activeAgents = agents.filter((a) => a.status === "active" || a.status === "running").length;
 
