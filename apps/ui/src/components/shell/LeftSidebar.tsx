@@ -131,7 +131,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           }}
         >
           <span className="sidebar-nav-avatar">
-            <RoundAvatar name={userName} size={16} src={user?.avatar_url} />
+            <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
           </span>
           <span className="sidebar-nav-label">{userName}</span>
         </a>
