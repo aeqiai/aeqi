@@ -152,8 +152,19 @@ export default function AgentTree() {
   const location = useLocation();
   const pathMatch = location.pathname.match(/\/agents\/([^/]+)/);
   const selectedId = pathMatch ? pathMatch[1] : null;
-  // Filter out root agents (parent_id === null) — only show children in the tree
-  const childAgents = allAgents.filter((a) => a.parent_id !== null);
+  // Only show agents that belong to the current root's tree
+  // (direct or indirect children of the root agent)
+  const rootId = window.location.pathname.split("/")[1] || "";
+  const childAgents = allAgents.filter((a) => {
+    if (!a.parent_id) return false; // exclude root agents
+    // Walk up the parent chain to check if this agent belongs to the current root
+    let current: Agent | undefined = a;
+    for (let i = 0; i < 20 && current; i++) {
+      if (current.parent_id === rootId || current.id === rootId) return true;
+      current = allAgents.find((p) => p.id === current?.parent_id);
+    }
+    return false;
+  });
   const tree = buildAgentTree(childAgents);
 
   const toggleNode = (id: string, e: React.MouseEvent) => {
