@@ -152,7 +152,9 @@ export default function AgentTree() {
   const location = useLocation();
   const pathMatch = location.pathname.match(/\/agents\/([^/]+)/);
   const selectedId = pathMatch ? pathMatch[1] : null;
-  const tree = buildAgentTree(allAgents);
+  // Filter out root agents (parent_id === null) — only show children in the tree
+  const childAgents = allAgents.filter((a) => a.parent_id !== null);
+  const tree = buildAgentTree(childAgents);
 
   const toggleNode = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -179,7 +181,7 @@ export default function AgentTree() {
           />
         ))}
 
-        {allAgents.length === 0 && <div className={styles.empty}>No agents yet</div>}
+        {childAgents.length === 0 && <div className={styles.empty}>No agents yet</div>}
       </div>
     </nav>
   );

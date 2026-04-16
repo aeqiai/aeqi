@@ -277,11 +277,11 @@ export default function AppLayout() {
 
           <nav className="sidebar-nav">
             <a
-              className={`sidebar-nav-item ${path === "/profile" ? "active" : ""}`}
-              href="/profile"
+              className={`sidebar-nav-item ${isActive("/profile") ? "active" : ""}`}
+              href={href("/profile")}
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/profile");
+                go("/profile");
               }}
             >
               <span className="sidebar-nav-avatar">
@@ -402,63 +402,45 @@ export default function AppLayout() {
               </svg>,
             )}
           </nav>
-          {/* Scope indicator — always shows current scope */}
-          <div className="sidebar-agent-scope">
-            {agentId ? (
-              <>
-                <a
-                  className="sidebar-back"
-                  href={href("/agents")}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go("/agents");
-                  }}
+          {/* Scope indicator — only when drilled into a child agent */}
+          {agentId && agentId !== rootId && (
+            <div className="sidebar-agent-scope">
+              <a
+                className="sidebar-back"
+                href={href("/agents")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go("/agents");
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
                 >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M7.5 2L3.5 6l4 4" />
-                  </svg>
-                  Back
-                </a>
-                <div className="sidebar-scope">
-                  <RoundAvatar
-                    name={
-                      agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId
-                    }
-                    size={18}
-                  />
-                  <span className="sidebar-scope-name">
-                    {agents.find((a) => a.id === agentId || a.name === agentId)?.display_name ||
-                      agents.find((a) => a.id === agentId || a.name === agentId)?.name ||
-                      agentId}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="sidebar-scope active">
+                  <path d="M7.5 2L3.5 6l4 4" />
+                </svg>
+                Back
+              </a>
+              <div className="sidebar-scope">
                 <RoundAvatar
                   name={
-                    agents.find((a) => a.id === rootId && !a.parent_id)?.display_name ||
-                    agents.find((a) => a.id === rootId && !a.parent_id)?.name ||
-                    rootId
+                    agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId
                   }
                   size={18}
                 />
                 <span className="sidebar-scope-name">
-                  {agents.find((a) => a.id === rootId && !a.parent_id)?.display_name ||
-                    agents.find((a) => a.id === rootId && !a.parent_id)?.name ||
-                    rootId}
+                  {agents.find((a) => a.id === agentId || a.name === agentId)?.display_name ||
+                    agents.find((a) => a.id === agentId || a.name === agentId)?.name ||
+                    agentId}
                 </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
@@ -467,7 +449,7 @@ export default function AppLayout() {
         {/* Main content */}
         <div className="content-column">
           <div className="content-area">
-            {agentId ? (
+            {agentId && agentId !== rootId ? (
               <AgentPage agentId={agentId} />
             ) : (
               <>
@@ -478,7 +460,7 @@ export default function AppLayout() {
               </>
             )}
           </div>
-          {agentId && (
+          {agentId && agentId !== rootId && (
             <div className="persistent-composer">
               <ChatComposer
                 input={composerInput}
