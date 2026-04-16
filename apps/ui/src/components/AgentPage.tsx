@@ -6,9 +6,12 @@ import { api } from "@/lib/api";
 import PageTabs from "./PageTabs";
 import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
+import AgentChannelsTab from "./AgentChannelsTab";
 import RoundAvatar from "./RoundAvatar";
 import { EmptyState } from "./ui/EmptyState";
 import type { Idea } from "@/lib/types";
+
+const SETTINGS_TABS = ["General", "Channels", "Hierarchy"] as const;
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -281,6 +284,54 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       )}
 
       {activeTab === "settings" && (
+        <SettingsPanel
+          agent={agent}
+          agentId={agentId}
+          resolvedAgentId={resolvedAgentId}
+          agents={agents}
+          childAgents={childAgents}
+          showToast={showToast}
+          go={go}
+        />
+      )}
+    </>
+  );
+}
+
+function SettingsPanel({
+  agent,
+  agentId,
+  resolvedAgentId,
+  agents,
+  childAgents,
+  showToast,
+  go,
+}: {
+  agent: ReturnType<typeof useDaemonStore.getState>["agents"][0] | undefined;
+  agentId: string;
+  resolvedAgentId: string;
+  agents: ReturnType<typeof useDaemonStore.getState>["agents"];
+  childAgents: ReturnType<typeof useDaemonStore.getState>["agents"];
+  showToast: (msg: string, isError?: boolean) => void;
+  go: (path: string) => void;
+}) {
+  const [settingsTab, setSettingsTab] = useState<(typeof SETTINGS_TABS)[number]>("General");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+      <div className="page-tabs" style={{ paddingLeft: 16 }}>
+        {SETTINGS_TABS.map((t) => (
+          <button
+            key={t}
+            className={`page-tab${settingsTab === t ? " active" : ""}`}
+            onClick={() => setSettingsTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {settingsTab === "General" && (
         <div className="page-content">
           <div className="agent-settings-section">
             <h3 className="agent-settings-heading">Model</h3>
@@ -351,39 +402,67 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          {(agents.some((a) => a.parent_id === agent?.id) ||
-            agent?.parent_id) && (
+      {settingsTab === "Channels" && (
+        <AgentChannelsTab agentId={resolvedAgentId} />
+      )}
+
+      {settingsTab === "Hierarchy" && (
+        <div className="page-content">
+          {agent?.parent_id && (
             <div className="agent-settings-section">
-              <h3 className="agent-settings-heading">Hierarchy</h3>
-              <div className="agent-settings-grid">
-                {agent?.parent_id && (
-                  <div className="agent-settings-field">
-                    <span className="agent-settings-label">Parent</span>
-                    <span
-                      className="agent-settings-value agent-settings-link"
-                      onClick={() => {
-                        const p = agents.find((a) => a.id === agent.parent_id);
-                        if (p) go(`/agents/${p.id}`);
-                      }}
-                    >
-                      {agents.find((a) => a.id === agent.parent_id)?.display_name ||
-                        agents.find((a) => a.id === agent.parent_id)?.name ||
-                        agent.parent_id}
-                    </span>
+              <h3 className="agent-settings-heading">Parent</h3>
+              <div
+                className="agent-child-card"
+                onClick={() => {
+                  const p = agents.find((a) => a.id === agent.parent_id);
+                  if (p) go(`/agents/${p.id}`);
+                }}
+              >
+                <RoundAvatar
+                  name={agents.find((a) => a.id === agent.parent_id)?.name || ""}
+                  size={28}
+                />
+                <div>
+                  <div className="agent-child-name">
+                    {agents.find((a) => a.id === agent.parent_id)?.display_name ||
+                      agents.find((a) => a.id === agent.parent_id)?.name ||
+                      agent.parent_id}
                   </div>
-                )}
-                {childAgents.length > 0 && (
-                  <div className="agent-settings-field">
-                    <span className="agent-settings-label">Children</span>
-                    <span className="agent-settings-value">{childAgents.length} agents</span>
+                  <div className="agent-child-status">
+                    {agents.find((a) => a.id === agent.parent_id)?.status}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
+
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Children ({childAgents.length})</h3>
+            {childAgents.length > 0 ? (
+              <div className="agent-children-grid">
+                {childAgents.map((child) => (
+                  <div
+                    key={child.id}
+                    className="agent-child-card"
+                    onClick={() => go(`/agents/${child.id}`)}
+                  >
+                    <RoundAvatar name={child.name} size={28} />
+                    <div>
+                      <div className="agent-child-name">{child.display_name || child.name}</div>
+                      <div className="agent-child-status">{child.status}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No children" description="This agent hasn't spawned sub-agents." />
+            )}
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
