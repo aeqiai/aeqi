@@ -283,7 +283,27 @@
   position: relative;
 }
 
-/* User messages — right-aligned, clean bubble, no avatar */
+/* User messages — right-aligned bubble, no avatar */
+.asv-msg-user {
+  justify-content: flex-end;
+}
+.asv-msg-user .asv-msg-body {
+  flex: 0 1 auto;
+  max-width: 75%;
+  padding: 8px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 4px 14px;
+  color: var(--text-primary);
+}
+.asv-msg-user .asv-msg-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.asv-msg-user .asv-msg-footer {
+  justify-content: flex-end;
+}
+
 /* Agent messages — full width, no container */
 .asv-msg-assistant .asv-msg-body {
   padding: 4px 0;
