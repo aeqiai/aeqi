@@ -1,9 +1,13 @@
 /* ── Shell — capped viewport like social apps ── */
+/* Background is intentionally transparent: body already paints
+   var(--bg-elevated), so repeating the rgba tint here would stack
+   alpha channels and leave the "between" area inside the shell
+   visibly darker than the body area outside the 1440px cap. */
 .shell {
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: transparent;
   max-width: 1440px;
   margin: 0 auto;
   border-left: 1px solid var(--border);
