@@ -33,7 +33,6 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const base = `/${encodeURIComponent(rootId)}`;
 
   const isActive = (p: string) => {
-    if (agentId) return false;
     const full = p === "/" ? base : `${base}${p}`;
     if (p === "/") return path === base || path === `${base}/`;
     return path === full || path.startsWith(`${full}/`);
