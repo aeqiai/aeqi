@@ -54,16 +54,15 @@
   text-align: center;
 }
 
-/* Agent row */
+/* Agent row — shares --sidebar-row-h rhythm with .sidebar-nav-item */
 .row {
-  height: 32px;
+  min-height: var(--sidebar-row-h);
   padding: 0 8px;
-  border: 1px solid transparent;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
-  transition: var(--transition-normal);
+  transition: all 0.1s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -80,7 +79,7 @@
   composes: row;
   color: var(--text-primary);
   background: var(--state-selected);
-  border-color: var(--border);
+  font-weight: 500;
 }
 
 .rowLabel {

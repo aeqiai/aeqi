@@ -196,12 +196,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: var(--radius-md);
-  transition: all 0.1s;
+  transition: all 0.1s ease;
 }
 .sidebar-nav-item:hover {
   color: var(--text-primary);

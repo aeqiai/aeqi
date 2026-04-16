@@ -78,6 +78,13 @@
   --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.04);
   --ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.06);
 
+  /* Sidebar row rhythm — one height for every row in the left rail
+     (nav items, agent tree, scope indicator). 32px is the Linear /
+     Notion / Raycast default for dense rails: 2× the 16px grid,
+     enough vertical space for a 22px avatar, still dense enough
+     to fit a long agent tree without scrolling. */
+  --sidebar-row-h: 32px;
+
   /* Brand font alias */
   --font-brand: var(--font-sans);
 
