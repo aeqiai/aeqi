@@ -89,46 +89,27 @@ export default function DashboardHome() {
 
       {/* Agent grid -- click to open session */}
       {childAgents.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 24px" }}>
+        <div className="dash-home-welcome">
           <svg
             width="48"
             height="48"
             viewBox="0 0 48 48"
             fill="none"
-            stroke="rgba(0,0,0,0.15)"
+            stroke="var(--text-muted)"
             strokeWidth="1.5"
             strokeLinecap="round"
           >
             <circle cx="24" cy="20" r="8" />
             <path d="M12 40c0-6.6 5.4-12 12-12s12 5.4 12 12" />
           </svg>
-          <h2
-            style={{
-              fontSize: 18,
-              fontWeight: 600,
-              color: "rgba(0,0,0,0.85)",
-              margin: "16px 0 6px",
-            }}
-          >
-            Welcome to your workspace
-          </h2>
-          <p
-            style={{
-              fontSize: 13,
-              color: "rgba(0,0,0,0.35)",
-              margin: "0 0 24px",
-              maxWidth: 340,
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
-          >
+          <h2 className="dash-home-welcome-title">Welcome to your workspace</h2>
+          <p className="dash-home-welcome-copy">
             Hire your first agent to get started. Agents research, code, review, and operate
             autonomously.
           </p>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary dash-home-welcome-cta"
             onClick={() => (window.location.href = href("/agents"))}
-            style={{ padding: "10px 24px" }}
           >
             Hire an agent
           </button>
@@ -136,24 +117,10 @@ export default function DashboardHome() {
       ) : (
         <>
           {quests.length === 0 && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "32px 24px 16px",
-                borderBottom: "1px solid rgba(0,0,0,0.06)",
-              }}
-            >
-              <p style={{ fontSize: 14, color: "rgba(0,0,0,0.5)", margin: 0 }}>
+            <div className="dash-home-nudge">
+              <p className="dash-home-nudge-copy">
                 Your agents are ready.{" "}
-                <a
-                  href={href("/quests")}
-                  style={{
-                    color: "rgba(0,0,0,0.85)",
-                    fontWeight: 500,
-                    textDecoration: "underline",
-                    textUnderlineOffset: 2,
-                  }}
-                >
+                <a href={href("/quests")} className="dash-home-nudge-link">
                   Create a quest
                 </a>{" "}
                 to put them to work.
