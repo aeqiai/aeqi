@@ -112,28 +112,30 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           {agent?.budget_usd != null && (
             <span className="content-topbar-meta">${agent.budget_usd.toFixed(2)}</span>
           )}
-          {activeTab === "sessions" && (
+        </div>
+        {activeTab === "sessions" && (
+          <div className="content-topbar-action">
             <button
-              className="content-topbar-btn"
+              className="content-topbar-action-btn"
               onClick={() => {
                 window.dispatchEvent(new CustomEvent("aeqi:new-session"));
               }}
-              title="New session"
             >
               <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.5"
                 strokeLinecap="round"
               >
-                <path d="M7 3v8M3 7h8" />
+                <path d="M6 2.5v7M2.5 6h7" />
               </svg>
+              New Chat
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Save feedback toast */}

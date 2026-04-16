@@ -907,6 +907,43 @@
   display: flex;
   align-items: center;
   gap: var(--space-3, 8px);
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+/* ── Header action section (aligned with session sidebar) ── */
+.content-topbar-action {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--border);
+  padding: 0 var(--space-3);
+}
+.content-topbar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.content-topbar-action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+.content-topbar-action-btn:active {
+  transform: scale(0.98);
 }
 .content-topbar-btn {
   display: flex;
