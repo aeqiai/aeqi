@@ -30,7 +30,12 @@ export default function ContentTopBar() {
     config = { title: root?.display_name || root?.name || "Home" };
   }
 
-  const activeAgents = agents.filter((a) => a.status === "active" || a.status === "running").length;
+  // Count active agents in this root's tree only (exclude root itself, which is the workspace).
+  const activeAgents = agents.filter((a) => {
+    if (a.id === rootId || !a.parent_id) return false;
+    const s = a.status;
+    return s === "active" || s === "running";
+  }).length;
 
   return (
     <div className="content-topbar">

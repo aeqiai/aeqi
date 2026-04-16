@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import CreateAgentModal from "@/components/CreateAgentModal";
 import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
 import { timeAgo } from "@/lib/format";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Agent } from "@/lib/types";
@@ -10,6 +11,7 @@ import styles from "./AgentsPage.module.css";
 export default function AgentsPage() {
   const { go } = useNav();
   const agents = useDaemonStore((s) => s.agents);
+  const activeRoot = useUIStore((s) => s.activeRoot);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -21,7 +23,10 @@ export default function AgentsPage() {
 
   const handleModalClose = () => setModalOpen(false);
 
-  const filtered = agents.filter(
+  // Scope to children of the current root (root agent itself is shown elsewhere).
+  const childAgents = agents.filter((a) => a.id !== activeRoot && a.parent_id);
+
+  const filtered = childAgents.filter(
     (a) =>
       !search ||
       a.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,47 +34,10 @@ export default function AgentsPage() {
       a.model?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const activeCount = agents.filter((a) => a.status === "active" || a.status === "running").length;
-
   return (
     <div className={`page-content ${styles.page}`}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <h1 className={styles.title}>Agents</h1>
-          <span className={styles.count}>{agents.length}</span>
-        </div>
-        <button className={styles.newBtn} onClick={() => setModalOpen(true)}>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M6 2.5v7M2.5 6h7" />
-          </svg>
-          New Agent
-        </button>
-      </div>
-
-      {/* Stats strip */}
-      {agents.length > 0 && (
-        <div className={styles.stats}>
-          <div className={styles.stat}>
-            <span className={styles.statDotActive} />
-            <span className={styles.statLabel}>{activeCount} active</span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabelMuted}>{agents.length - activeCount} idle</span>
-          </div>
-        </div>
-      )}
-
       {/* Search */}
-      {agents.length > 3 && (
+      {childAgents.length > 3 && (
         <div className={styles.search}>
           <svg
             className={styles.searchIcon}
@@ -108,7 +76,7 @@ export default function AgentsPage() {
       )}
 
       {/* Empty */}
-      {agents.length === 0 && (
+      {childAgents.length === 0 && (
         <div className={styles.empty}>
           <div className={styles.emptySigil}>ae</div>
           <h3 className={styles.emptyTitle}>No agents yet</h3>
