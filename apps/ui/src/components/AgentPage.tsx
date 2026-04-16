@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
-import PageTabs from "./PageTabs";
 import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
@@ -115,9 +114,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           )}
         </div>
       </div>
-
-      {/* Page tabs */}
-      <PageTabs tabs={TABS} defaultTab="sessions" />
 
       {/* Save feedback toast */}
       {toast && (
