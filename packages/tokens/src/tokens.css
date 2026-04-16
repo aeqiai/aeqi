@@ -158,6 +158,7 @@
   /* ── Layout ─────────────────────────────────────── */
 
   --touch-target-min: 44px;
+  --sidebar-panel-width: 200px;
 
   /* ── Elevation — opacity-based depth layers ─────── */
 

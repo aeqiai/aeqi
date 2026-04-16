@@ -54,7 +54,7 @@
 
 /* ── Session sidebar (right panel inside workspace) ── */
 .asv-sidebar {
-  width: 200px;
+  width: var(--sidebar-panel-width);
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   display: flex;
