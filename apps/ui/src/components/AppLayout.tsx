@@ -189,13 +189,16 @@ export default function AppLayout() {
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.5"
+                strokeWidth="1.3"
                 strokeLinecap="round"
+                strokeLinejoin="round"
               >
+                <rect x="1" y="2" width="14" height="12" rx="2" />
+                <path d="M6 2v12" />
                 {sidebarCollapsed ? (
-                  <><path d="M3 4h10M3 8h10M3 12h10" /></>
+                  <path d="M9.5 6.5L11.5 8L9.5 9.5" />
                 ) : (
-                  <><path d="M2 4h12M2 8h8M2 12h10" /></>
+                  <path d="M11.5 6.5L9.5 8L11.5 9.5" />
                 )}
               </svg>
             </button>
