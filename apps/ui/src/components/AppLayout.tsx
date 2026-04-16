@@ -348,13 +348,6 @@ export default function AppLayout() {
               </a>
             </nav>
           )}
-          <div className="sidebar-footer">
-            <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">
-              Docs
-            </a>
-            <span className="sidebar-footer-dot">·</span>
-            <span className="sidebar-footer-version">v{__APP_VERSION__}</span>
-          </div>
         </div>
 
         {/* Main content */}
