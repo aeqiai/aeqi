@@ -185,15 +185,17 @@ export default function AgentTree() {
       <div className={styles.list}>
         {/* Root agent — always at top of tree */}
         {rootAgent && (
-          <div
-            className={`${styles.node} ${isRootSelected ? styles.selected : ""}`}
-            onClick={() => go("/")}
-          >
-            <RoundAvatar name={rootAgent.name} size={22} />
-            <span className={styles.name}>
-              {rootAgent.display_name || rootAgent.name}
-            </span>
-            {rootAgent.status === "active" && <span className={styles.statusDot} />}
+          <div className={styles.node}>
+            <div
+              className={isRootSelected ? styles.rowActive : styles.row}
+              style={{ paddingLeft: "8px" }}
+              onClick={() => go("/")}
+            >
+              <RoundAvatar name={rootAgent.name} size={22} />
+              <span className={styles.rowLabel}>
+                {rootAgent.display_name || rootAgent.name}
+              </span>
+            </div>
           </div>
         )}
         {/* Children */}
