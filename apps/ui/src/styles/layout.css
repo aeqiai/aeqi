@@ -64,9 +64,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  height: 57px;
-  min-height: 57px;
+  padding: 8px 12px 0;
+  height: 49px;
+  box-sizing: content-box;
   flex-shrink: 0;
 }
 .left-sidebar.collapsed .sidebar-header {
