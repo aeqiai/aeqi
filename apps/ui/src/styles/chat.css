@@ -67,9 +67,16 @@
     display: none;
   }
 }
+/* Aligns visually with .content-topbar (same 49px height + border) so the
+   card reads as a single horizontal header spanning both columns. */
 .asv-sidebar-header {
-  padding: 10px 10px 8px;
-  border-bottom: 1px solid var(--color-border-faint);
+  height: 49px;
+  min-height: 49px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .asv-session-new-btn {
   display: flex;

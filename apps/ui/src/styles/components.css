@@ -814,7 +814,7 @@
   padding: 0;
 }
 .persistent-composer .asv-composer-inner {
-  background: var(--bg-surface);
+  background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
 }

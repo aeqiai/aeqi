@@ -36,6 +36,9 @@ jobs:
       - name: UI lint (eslint)
         run: npm --prefix apps/ui run lint
 
+      - name: UI test (vitest — smoke + unit)
+        run: npm --prefix apps/ui test
+
       - name: UI build
         run: npm --prefix apps/ui run build
 

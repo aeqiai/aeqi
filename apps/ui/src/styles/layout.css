@@ -328,14 +328,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-base);
 }
-/* The .asv-sidebar inside already provides the left border + bg, so the
-   wrapper stays transparent to avoid doubled borders. */
+/* The right rail uses the subtle in-between tint so it visually separates
+   from the white main content area without feeling heavy. */
 .content-cta-col .asv-sidebar {
   width: 100%;
   flex: 1;
   border-left: 1px solid var(--border);
+  background: var(--bg-surface);
 }
 
 /* Composer row: aligned with the card, but spacer on the right keeps the

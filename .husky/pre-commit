@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Pre-commit gate for apps/ui. Mirrors the frontend steps in CI so a
+# broken commit cannot reach main silently. Runtime errors like React
+# #185 (infinite render loop) are caught by the vitest smoke test.
+
+set -e
+
+# Only run the UI checks when apps/ui files are staged — otherwise the
+# hook is a no-op and rust-only commits stay fast.
+if git diff --cached --name-only | grep -q '^apps/ui/'; then
+  echo "[pre-commit] apps/ui changed — running check + lint + test"
+  npm --prefix apps/ui run check
+  npm --prefix apps/ui run lint
+  npm --prefix apps/ui test
+fi
