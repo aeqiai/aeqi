@@ -167,37 +167,6 @@ export default function AppLayout() {
           <nav className="sidebar-nav">
             {navLink("/", "Dashboard", homeIcon)}
             {navLink(
-              "/sessions",
-              "Sessions",
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              >
-                <path d="M2 3h10v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
-                <path d="M5 6h4M5 8.5h2" />
-              </svg>,
-            )}
-            {navLink(
-              "/tools",
-              "Tools",
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              >
-                <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
-              </svg>,
-            )}
-            {navLink(
               "/settings",
               "Settings",
               <svg
@@ -214,8 +183,24 @@ export default function AppLayout() {
               </svg>,
             )}
           </nav>
-          <div className="sidebar-section-label">æ</div>
+          <div className="sidebar-section-label">aeqi</div>
           <nav className="sidebar-nav">
+            {navLink(
+              "/sessions",
+              "Sessions",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              >
+                <path d="M2 3h10v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
+                <path d="M5 6h4M5 8.5h2" />
+              </svg>,
+            )}
             {navLink(
               "/agents",
               "Agents",
@@ -279,6 +264,21 @@ export default function AppLayout() {
                 />
               </svg>,
               "New idea",
+            )}
+            {navLink(
+              "/tools",
+              "Tools",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              >
+                <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
+              </svg>,
             )}
           </nav>
           <div className="sidebar-section-label">team</div>
