@@ -175,19 +175,35 @@
   color: var(--text-primary);
 }
 
-/* ── Section labels ──
-   Structural category headers in the rail (e.g. "Agents" above the
-   tree). Uppercase + letter-spacing is the SaaS convention (Linear,
-   Vercel, GitHub) — labels carry the weight of section breaks, so
-   we don't need dividers. Callers pass natural-case text. */
-.sidebar-section-label {
-  padding: var(--space-3) 16px var(--space-1);
+/* ── Section header ──
+   Structural category header in the rail — clickable, with an
+   optional + action button revealed on hover. Doubles as the
+   destination link to the section's index page (Linear / Notion /
+   Slack pattern: "the FAVORITES header IS the link to favorites").
+   Uppercase + letter-spacing carries the structural weight of a
+   section break, so we don't need a divider. */
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) 8px var(--space-1) 16px;
   font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-decoration: none;
   user-select: none;
+  cursor: pointer;
+  transition: color 0.1s ease;
+}
+.sidebar-section-header:hover {
+  color: var(--text-secondary);
+}
+.sidebar-section-header-label {
+  flex: 1;
+}
+.sidebar-section-header:hover .sidebar-nav-action {
+  opacity: 1;
 }
 
 /* ── Sidebar navigation ── */

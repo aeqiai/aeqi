@@ -184,22 +184,6 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
-          "/agents",
-          "Agents",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-          >
-            <circle cx="7" cy="5" r="2.5" />
-            <path d="M3 12.5c0-2.2 1.8-4 4-4s4 1.8 4 4" />
-          </svg>,
-          "New agent",
-        )}
-        {navLink(
           "/events",
           "Events",
           <svg
@@ -331,7 +315,38 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       )}
 
       <div className="left-sidebar-body">
-        <div className="sidebar-section-label">Agents</div>
+        <a
+          className="sidebar-section-header"
+          href={href("/agents")}
+          onClick={(e) => {
+            e.preventDefault();
+            go("/agents");
+          }}
+        >
+          <span className="sidebar-section-header-label">Agents</span>
+          <span
+            className="sidebar-nav-action"
+            title="New agent"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              go("/agents");
+              setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+          </span>
+        </a>
         <AgentTree />
       </div>
     </div>
