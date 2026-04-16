@@ -13,12 +13,13 @@
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
   /* Backgrounds
-     Dashboard override: --bg-elevated is an opaque cool off-white
-     (whisper of blue, ~2% saturation) instead of the shared token's
-     rgba(0,0,0,0.05). Soothing without being cozy — signals "precision
-     tech" rather than "paper." The white card now visibly elevates
-     off a quietly tinted canvas. */
-  --bg-base: var(--color-bg-base);
+     Dashboard overrides two tokens to establish a cohesive cool
+     palette: the canvas (--bg-elevated) is an opaque cool off-white
+     with a whisper of blue, and the card (--bg-base) is shifted to
+     a matching cool white instead of pure #ffffff. Same temperature
+     family, different elevations — the card reads as "same material,
+     lifted" rather than a spec-sheet white sitting on a tinted canvas. */
+  --bg-base: #fdfeff;
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: #f5f7fa;
   --bg-overlay: var(--color-bg-overlay);
