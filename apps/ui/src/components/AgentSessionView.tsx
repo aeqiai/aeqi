@@ -9,7 +9,6 @@ import { useWebSocketChat } from "./session/useWebSocketChat";
 import { useFileAttachments } from "./session/useFileAttachments";
 import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
-import SessionSidebar from "./session/SessionSidebar";
 import EmptyState from "./session/EmptyState";
 
 // ── Main Component ──
@@ -72,7 +71,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   });
 
   const {
-    sessions,
     messages,
     setMessages,
     activeSessionId,
@@ -80,7 +78,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     streamingRef,
     handleNewConversation: rawHandleNewConversation,
     handleFork,
-    handleSelectSession,
   } = sessionManager;
 
   const { streaming, liveSegments, thinkingStart, dispatchMessage, messageQueueRef } = wsChat;
@@ -279,13 +276,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           <div ref={messagesEnd} />
         </div>
       </div>
-
-      <SessionSidebar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onNewConversation={handleNewConversation}
-        onSelectSession={handleSelectSession}
-      />
     </div>
   );
 }

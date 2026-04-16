@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNav } from "@/hooks/useNav";
+import { useChatStore } from "@/store/chat";
 import { api } from "@/lib/api";
 import { type Message, type SessionInfo } from "./types";
 
@@ -48,6 +49,14 @@ export function useSessionManager({
       })
       .catch(() => setSessions([]));
   }, [agentId]);
+
+  // Mirror the session list into chat store so the unified right rail in
+  // AppLayout (ContentCTA) can render it without a duplicate fetch.
+  const setSessionsForAgent = useChatStore((s) => s.setSessionsForAgent);
+  useEffect(() => {
+    if (!agentId) return;
+    setSessionsForAgent(agentId, sessions);
+  }, [agentId, sessions, setSessionsForAgent]);
 
   // Track previous session for reload detection
   const prevSessionRef = useRef<string | null>(null);

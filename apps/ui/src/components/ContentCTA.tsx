@@ -1,4 +1,7 @@
 import { useLocation, useParams } from "react-router-dom";
+import { useChatStore } from "@/store/chat";
+import { useNav } from "@/hooks/useNav";
+import { sessionLabel } from "@/components/session/types";
 
 /** Page-keyed primary action shown at the top of the right rail. */
 const PAGE_ACTIONS: Record<string, { label: string; event: string } | null> = {
@@ -13,24 +16,46 @@ const PAGE_ACTIONS: Record<string, { label: string; event: string } | null> = {
 };
 
 /**
- * Right rail inside the content card. Mirrors the `asv-sidebar` pattern used
- * on the chat / events / channels screens so the layout reads consistently:
- * CTA button at the top, list area below (currently empty for non-chat pages
- * — chat pages render their own session list inside `AgentPage`).
+ * Unified right rail inside the content card. Mirrors the asv-sidebar pattern
+ * (CTA at top, list below). On chat pages it renders the sessions list backed
+ * by the same data the active AgentSessionView populates in chat store.
  */
 export default function ContentCTA() {
   const location = useLocation();
   const params = useParams<{ root?: string }>();
+  const { go, agentPath } = useNav();
 
   const rootId = params.root || "";
-  const section = location.pathname.replace(new RegExp(`^/${rootId}/?`), "").split("/")[0] || "";
+  const segments = location.pathname.split("/").filter(Boolean);
+  // segments after the root: [section, ...]
+  const section = segments[1] || "";
 
-  // On a child agent (`/:root/agents/:id/...`) infer the section from the URL tab.
-  const isAgentChild = section === "agents";
-  const childSection = isAgentChild ? location.pathname.split("/")[4] || "sessions" : null;
-  const effectiveSection = childSection || section;
+  // Resolve which agent owns the current chat view (root or child)
+  // Root chat: /:root/sessions(/:itemId)?
+  // Child chat: /:root/agents/:agentId/sessions(/:itemId)?
+  let chatAgentId: string | null = null;
+  let activeSessionId: string | null = null;
+  if (section === "sessions") {
+    chatAgentId = rootId;
+    activeSessionId = segments[2] || null;
+  } else if (section === "agents" && segments[3] === "sessions") {
+    chatAgentId = segments[2] || null;
+    activeSessionId = segments[4] || null;
+  }
 
+  const isChat = chatAgentId !== null;
+  // For non-chat agent tabs (events / channels / etc.) we show no list yet —
+  // those tabs render their own sidebar inside AgentPage during the
+  // transition. Only the chat (sessions) tab is unified into this rail.
+  const effectiveSection = isChat ? "sessions" : section === "agents" ? segments[3] || "" : section;
   const action = PAGE_ACTIONS[effectiveSection] ?? null;
+
+  const sessions = useChatStore((s) => (chatAgentId ? s.sessionsByAgent[chatAgentId] || [] : []));
+
+  const handleSelectSession = (sid: string) => {
+    if (!chatAgentId) return;
+    go(agentPath(chatAgentId, "sessions", sid), { replace: true });
+  };
 
   return (
     <div className="asv-sidebar">
@@ -55,7 +80,47 @@ export default function ContentCTA() {
           </button>
         </div>
       )}
-      <div className="asv-sidebar-list" />
+      <div className="asv-sidebar-list">
+        {isChat && sessions.length === 0 && (
+          <div className="asv-sidebar-empty">No sessions yet</div>
+        )}
+        {isChat &&
+          sessions.map((s) => {
+            const n = s.name?.toLowerCase() || "";
+            const transport = n.includes("telegram")
+              ? "TG"
+              : n.includes("whatsapp")
+                ? "WA"
+                : s.session_type === "web"
+                  ? "Web"
+                  : null;
+            return (
+              <div
+                key={s.id}
+                className={`asv-session-item${s.id === activeSessionId ? " active" : ""}`}
+                onClick={() => handleSelectSession(s.id)}
+              >
+                <div className="asv-session-item-top">
+                  <span className="asv-session-item-name">{sessionLabel(s)}</span>
+                  {transport && <span className="asv-session-item-transport">{transport}</span>}
+                </div>
+                {s.first_message && (
+                  <div className="asv-session-item-bottom">
+                    <span className="asv-session-item-preview">{s.first_message.slice(0, 40)}</span>
+                    <span className="asv-session-item-date">
+                      {s.created_at
+                        ? new Date(s.created_at).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
     </div>
   );
 }

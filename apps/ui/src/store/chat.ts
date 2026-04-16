@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AgentRef } from "@/lib/types";
+import type { SessionInfo } from "@/components/session/types";
 
 const SELECTED_AGENT_KEY = "aeqi_selected_agent";
 
@@ -39,6 +40,13 @@ interface ChatState {
   setSelectedAgent: (agent: AgentRef | null) => void;
   pendingMessage: PendingMessage | null;
   setPendingMessage: (msg: PendingMessage | null) => void;
+  /**
+   * Per-agent session list, populated by the active AgentSessionView so the
+   * unified right rail (rendered in AppLayout) can show the sessions list
+   * with the same data without re-fetching.
+   */
+  sessionsByAgent: Record<string, SessionInfo[]>;
+  setSessionsForAgent: (agentId: string, sessions: SessionInfo[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -49,4 +57,9 @@ export const useChatStore = create<ChatState>((set) => ({
   },
   pendingMessage: null,
   setPendingMessage: (msg) => set({ pendingMessage: msg }),
+  sessionsByAgent: {},
+  setSessionsForAgent: (agentId, sessions) =>
+    set((state) => ({
+      sessionsByAgent: { ...state.sessionsByAgent, [agentId]: sessions },
+    })),
 }));
