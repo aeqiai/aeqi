@@ -109,32 +109,36 @@ if ! $SKIP_RESTART; then
         done
     fi
 
-    # Restart the platform (it will re-spawn hosts on demand).
-    sudo systemctl restart aeqi-platform.service
-    echo "  -> aeqi-platform restarted"
-
-    # Wait for health.
-    sleep 3
-
-    # Verify platform.
-    PLATFORM_STATUS=$(systemctl is-active aeqi-platform 2>/dev/null || echo "failed")
-    PLATFORM_HEALTH=$(curl -sf https://app.aeqi.ai/api/health 2>/dev/null || echo '{"ok":false}')
-
-    echo ""
-    echo "Status:"
-    echo "  platform: $PLATFORM_STATUS  $PLATFORM_HEALTH"
-
-    # Wait for host to come back (platform respawns on first request).
-    sleep 2
-    HOST_STATUS=$(systemctl is-active aeqi-host-luca-eich 2>/dev/null || echo "not yet")
-    echo "  host:     $HOST_STATUS"
-
-    if [[ "$PLATFORM_STATUS" == "active" ]]; then
-        echo ""
-        echo "Deploy successful."
+    # Restart the platform. When invoked via webhook, the platform is our parent
+    # process — restarting it kills us. Use a delayed restart so we can exit first.
+    if [[ "${AEQI_WEBHOOK_DEPLOY:-}" == "1" ]]; then
+        # Webhook mode: schedule restart after this script exits.
+        echo "  -> scheduling platform restart (webhook mode)..."
+        nohup bash -c 'sleep 2 && sudo systemctl restart aeqi-platform.service' &>/dev/null &
     else
+        # Direct mode: restart immediately and verify.
+        sudo systemctl restart aeqi-platform.service
+        echo "  -> aeqi-platform restarted"
+
+        sleep 3
+        PLATFORM_STATUS=$(systemctl is-active aeqi-platform 2>/dev/null || echo "failed")
+        PLATFORM_HEALTH=$(curl -sf https://app.aeqi.ai/api/health 2>/dev/null || echo '{"ok":false}')
+
         echo ""
-        echo "FAILED: platform did not start!"
-        exit 1
+        echo "Status:"
+        echo "  platform: $PLATFORM_STATUS  $PLATFORM_HEALTH"
+
+        sleep 2
+        HOST_STATUS=$(systemctl is-active aeqi-host-luca-eich 2>/dev/null || echo "not yet")
+        echo "  host:     $HOST_STATUS"
+
+        if [[ "$PLATFORM_STATUS" == "active" ]]; then
+            echo ""
+            echo "Deploy successful."
+        else
+            echo ""
+            echo "FAILED: platform did not start!"
+            exit 1
+        fi
     fi
 fi
