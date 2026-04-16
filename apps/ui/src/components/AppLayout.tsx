@@ -281,7 +281,6 @@ export default function AppLayout() {
               </svg>,
             )}
           </nav>
-          <div className="sidebar-section-label">team</div>
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
