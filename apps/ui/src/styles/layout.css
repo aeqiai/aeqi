@@ -333,15 +333,14 @@
   flex-direction: column;
   overflow: hidden;
 }
-/* The right rail shares the body tint so outside-viewport, the frame
-   padding inside the shell, and the rail all read as one tone — the
-   white card alone reads as elevated. Light-mode convention: outer
-   surfaces darkest, the card lightest. */
+/* Rail is white, same as the main card. One continuous content surface
+   separated only by a 1px border — the Linear / Vercel / Stripe pattern.
+   Sessions + CTAs read as first-class, not secondary chrome. */
 .content-cta-col .asv-sidebar {
   width: 100%;
   flex: 1;
   border-left: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: var(--bg-base);
 }
 
 /* Composer row: aligned with the card, but spacer on the right keeps the
