@@ -15,7 +15,7 @@
   width: 220px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-elevated);
+  background: transparent;
   border-right: none;
   flex-shrink: 0;
   position: relative;
@@ -166,7 +166,6 @@
   flex-direction: column;
   gap: 1px;
   padding: 8px 8px 8px;
-  border-bottom: 1px solid var(--border);
 }
 .sidebar-nav-item {
   display: flex;
@@ -181,7 +180,7 @@
 }
 .sidebar-nav-item:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--bg-overlay);
 }
 .sidebar-nav-item.active {
   color: var(--text-primary);
