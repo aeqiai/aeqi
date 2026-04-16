@@ -9,7 +9,6 @@ import { useFileAttachments } from "./session/useFileAttachments";
 import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import SessionSidebar from "./session/SessionSidebar";
-import ChatComposer from "./session/ChatComposer";
 import EmptyState from "./session/EmptyState";
 
 // ── Main Component ──
@@ -43,8 +42,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     { id: string; name: string; status: string }[]
   >([]);
 
-  const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
 
   // ── Hooks ──
@@ -162,36 +159,30 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, liveSegments]);
 
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [agentId]);
+  // Internal send handler — used by both local calls and the event bridge
+  const handleSendText = useCallback(
+    (messageText: string) => {
+      if (!messageText.trim() || !token) return;
 
-  // User-facing send handler
-  const handleSend = useCallback(() => {
-    if (!input.trim() || !token) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "user",
+          content: messageText,
+          timestamp: Date.now(),
+          queued: streaming || undefined,
+        },
+      ]);
 
-    const messageText = input;
-    setInput("");
-    requestAnimationFrame(() => inputRef.current?.focus());
+      if (streaming) {
+        messageQueueRef.current.push(messageText);
+        return;
+      }
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        content: messageText,
-        timestamp: Date.now(),
-        queued: streaming || undefined,
-      },
-    ]);
-
-    if (streaming) {
-      messageQueueRef.current.push(messageText);
-      return;
-    }
-
-    void dispatchMessage(messageText);
-  }, [input, streaming, token, dispatchMessage, setMessages, messageQueueRef]);
+      void dispatchMessage(messageText);
+    },
+    [streaming, token, dispatchMessage, setMessages, messageQueueRef],
+  );
 
   const handleStop = useCallback(() => {
     wsChat.handleStop(sessionIdRef.current);
@@ -204,6 +195,31 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     },
     [dispatchMessage, setMessages],
   );
+
+  // ── Event bridge: composer in AppLayout communicates via custom events ──
+
+  useEffect(() => {
+    const onSend = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const { text, files, prompts, task } = detail;
+      if (prompts?.length) setSessionPrompts(prompts);
+      if (task) setSessionTask(task);
+      if (files?.length) fileAttachments.setAttachedFiles(files);
+      handleSendText(text);
+    };
+    const onStop = () => handleStop();
+    window.addEventListener("aeqi:send-message", onSend);
+    window.addEventListener("aeqi:stop-streaming", onStop);
+    return () => {
+      window.removeEventListener("aeqi:send-message", onSend);
+      window.removeEventListener("aeqi:stop-streaming", onStop);
+    };
+  }, [handleSendText, handleStop, fileAttachments, setSessionPrompts, setSessionTask]);
+
+  // Broadcast streaming state so the composer in AppLayout can reflect it
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("aeqi:streaming-state", { detail: { streaming } }));
+  }, [streaming]);
 
   if (!agentId) return null;
 
@@ -253,28 +269,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
           <div ref={messagesEnd} />
         </div>
-
-        <ChatComposer
-          input={input}
-          setInput={setInput}
-          streaming={streaming}
-          displayName={displayName}
-          sessionPrompts={sessionPrompts}
-          setSessionPrompts={setSessionPrompts}
-          sessionTask={sessionTask}
-          setSessionTask={setSessionTask}
-          attachedFiles={fileAttachments.attachedFiles}
-          setAttachedFiles={fileAttachments.setAttachedFiles}
-          setShowAttachPicker={setShowAttachPicker}
-          readFiles={fileAttachments.readFiles}
-          dragOver={fileAttachments.dragOver}
-          setDragOver={fileAttachments.setDragOver}
-          dragCounter={fileAttachments.dragCounter}
-          onSend={handleSend}
-          onStop={handleStop}
-          inputRef={inputRef}
-          fileInputRef={fileAttachments.fileInputRef}
-        />
       </div>
     </div>
   );

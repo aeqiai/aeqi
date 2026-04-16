@@ -10,7 +10,7 @@ interface SessionSidebarProps {
 export default function SessionSidebar({
   sessions,
   activeSessionId,
-  onNewConversation,
+  onNewConversation: _onNewConversation,
   onSelectSession,
 }: SessionSidebarProps) {
   return (

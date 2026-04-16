@@ -1,16 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams, useParams, Outlet } from "react-router-dom";
 import AgentTree from "./Sidebar";
 import ContextDrawer from "./ContextDrawer";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
-import CompanySwitcher from "./CompanySwitcher";
 import ContentTopBar from "./ContentTopBar";
+import ChatComposer from "./session/ChatComposer";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
-import { api } from "@/lib/api";
 import RoundAvatar from "./RoundAvatar";
 
 export default function AppLayout() {
@@ -80,6 +79,76 @@ export default function AppLayout() {
   };
   const go = (p: string) => navigate(p === "/" ? base : `${base}${p}`);
   const href = (p: string) => (p === "/" ? base : `${base}${p}`);
+
+  // ── Persistent composer state (event-based bridge to AgentSessionView) ──
+  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agentDisplayName = agent?.display_name || agent?.name || agentId || "";
+
+  const [composerInput, setComposerInput] = useState("");
+  const [composerStreaming, setComposerStreaming] = useState(false);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const composerFileRef = useRef<HTMLInputElement>(null);
+  const [composerFiles, setComposerFiles] = useState<
+    { name: string; content: string; size: number }[]
+  >([]);
+  const [composerPrompts, setComposerPrompts] = useState<string[]>([]);
+  const [composerTask, setComposerTask] = useState<{ id: string; name: string } | null>(null);
+  const [composerDragOver, setComposerDragOver] = useState(false);
+  const composerDragCounter = useRef(0);
+
+  const readComposerFiles = useCallback((files: FileList | File[]) => {
+    Array.from(files).forEach((file) => {
+      if (file.size > 512_000) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const content = reader.result as string;
+        setComposerFiles((prev) => {
+          if (prev.some((f) => f.name === file.name)) return prev;
+          return [...prev, { name: file.name, content, size: file.size }];
+        });
+      };
+      reader.readAsText(file);
+    });
+  }, []);
+
+  const handleComposerSend = useCallback(() => {
+    const text = composerInput.trim();
+    if (!text) return;
+    window.dispatchEvent(
+      new CustomEvent("aeqi:send-message", {
+        detail: {
+          text,
+          files: composerFiles.length > 0 ? composerFiles : undefined,
+          prompts: composerPrompts.length > 0 ? composerPrompts : undefined,
+          task: composerTask || undefined,
+        },
+      }),
+    );
+    setComposerInput("");
+    setComposerFiles([]);
+    setComposerPrompts([]);
+    setComposerTask(null);
+    requestAnimationFrame(() => composerInputRef.current?.focus());
+  }, [composerInput, composerFiles, composerPrompts, composerTask]);
+
+  const handleComposerStop = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));
+  }, []);
+
+  // Listen for streaming state from AgentSessionView
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setComposerStreaming(detail.streaming);
+    };
+    window.addEventListener("aeqi:streaming-state", handler);
+    return () => window.removeEventListener("aeqi:streaming-state", handler);
+  }, []);
+
+  // Reset composer streaming when agent changes
+  useEffect(() => {
+    setComposerStreaming(false);
+  }, [agentId]);
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
 
@@ -209,7 +278,10 @@ export default function AppLayout() {
           {agentId ? (
             <>
               <div className="sidebar-scope">
-                <RoundAvatar name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId} size={18} />
+                <RoundAvatar
+                  name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId}
+                  size={18}
+                />
                 <span className="sidebar-scope-name">
                   {agents.find((a) => a.id === agentId || a.name === agentId)?.display_name ||
                     agents.find((a) => a.id === agentId || a.name === agentId)?.name ||
@@ -392,7 +464,31 @@ export default function AppLayout() {
               </>
             )}
           </div>
-          {agentId && <AgentInput agentId={agentId} go={go} />}
+          {agentId && (
+            <div className="persistent-composer">
+              <ChatComposer
+                input={composerInput}
+                setInput={setComposerInput}
+                streaming={composerStreaming}
+                displayName={agentDisplayName}
+                sessionPrompts={composerPrompts}
+                setSessionPrompts={setComposerPrompts}
+                sessionTask={composerTask}
+                setSessionTask={setComposerTask}
+                attachedFiles={composerFiles}
+                setAttachedFiles={setComposerFiles}
+                setShowAttachPicker={() => {}}
+                readFiles={readComposerFiles}
+                dragOver={composerDragOver}
+                setDragOver={setComposerDragOver}
+                dragCounter={composerDragCounter}
+                onSend={handleComposerSend}
+                onStop={handleComposerStop}
+                inputRef={composerInputRef}
+                fileInputRef={composerFileRef}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right context drawer */}
@@ -400,58 +496,5 @@ export default function AppLayout() {
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
     </>
-  );
-}
-
-function AgentInput({ agentId, go }: { agentId: string; go: (path: string) => void }) {
-  const [input, setInput] = useState("");
-  const agents = useDaemonStore((s) => s.agents);
-  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-  const displayName = agent?.display_name || agent?.name || agentId;
-  const routeParams = useParams<{ tab?: string }>();
-  const activeTab = routeParams.tab || "sessions";
-
-  // Don't show on Sessions tab — it has its own composer
-  if (activeTab === "sessions") return null;
-
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    try {
-      const res = await api.createSession(agent?.id || agentId);
-      const newSessionId = (res as Record<string, unknown>).id as string;
-      go(`/agents/${agentId}/sessions/${newSessionId}`);
-    } catch {
-      // silently fail — session will show error
-    }
-  };
-
-  return (
-    <div className="agent-quick-input">
-      <textarea
-        className="agent-quick-input-field"
-        placeholder={`Message ${displayName}...`}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-          }
-        }}
-        rows={1}
-      />
-      <button
-        className="agent-quick-input-send"
-        onClick={handleSend}
-        disabled={!input.trim()}
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2L6 8" />
-          <path d="M12 2L8.5 12L6 8L2 5.5L12 2Z" />
-        </svg>
-      </button>
-    </div>
   );
 }
