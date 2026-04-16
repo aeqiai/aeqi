@@ -10,6 +10,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
+import { api } from "@/lib/api";
 import RoundAvatar from "./RoundAvatar";
 
 export default function AppLayout() {
@@ -378,17 +379,20 @@ export default function AppLayout() {
         </div>
 
         {/* Main content */}
-        <div className="content-area">
-          {agentId ? (
-            <AgentPage agentId={agentId} />
-          ) : (
-            <>
-              <ContentTopBar />
-              <div className="content-scroll">
-                <Outlet />
-              </div>
-            </>
-          )}
+        <div className="content-column">
+          <div className="content-area">
+            {agentId ? (
+              <AgentPage agentId={agentId} />
+            ) : (
+              <>
+                <ContentTopBar />
+                <div className="content-scroll">
+                  <Outlet />
+                </div>
+              </>
+            )}
+          </div>
+          {agentId && <AgentInput agentId={agentId} go={go} />}
         </div>
 
         {/* Right context drawer */}
@@ -396,5 +400,58 @@ export default function AppLayout() {
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
     </>
+  );
+}
+
+function AgentInput({ agentId, go }: { agentId: string; go: (path: string) => void }) {
+  const [input, setInput] = useState("");
+  const agents = useDaemonStore((s) => s.agents);
+  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const displayName = agent?.display_name || agent?.name || agentId;
+  const routeParams = useParams<{ tab?: string }>();
+  const activeTab = routeParams.tab || "sessions";
+
+  // Don't show on Sessions tab — it has its own composer
+  if (activeTab === "sessions") return null;
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput("");
+    try {
+      const res = await api.createSession(agent?.id || agentId);
+      const newSessionId = (res as Record<string, unknown>).id as string;
+      go(`/agents/${agentId}/sessions/${newSessionId}`);
+    } catch {
+      // silently fail — session will show error
+    }
+  };
+
+  return (
+    <div className="agent-quick-input">
+      <textarea
+        className="agent-quick-input-field"
+        placeholder={`Message ${displayName}...`}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        }}
+        rows={1}
+      />
+      <button
+        className="agent-quick-input-send"
+        onClick={handleSend}
+        disabled={!input.trim()}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2L6 8" />
+          <path d="M12 2L8.5 12L6 8L2 5.5L12 2Z" />
+        </svg>
+      </button>
+    </div>
   );
 }

@@ -91,26 +91,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const [quickInput, setQuickInput] = useState("");
-  const quickInputRef = useRef<HTMLTextAreaElement>(null);
-
-  const handleQuickSend = useCallback(async () => {
-    const text = quickInput.trim();
-    if (!text) return;
-    setQuickInput("");
-    try {
-      const res = await api.createSession(resolvedAgentId);
-      const newSessionId = (res as Record<string, unknown>).id as string;
-      go(`/agents/${agentId}/sessions/${newSessionId}`);
-      // The message will be typed in the session composer — we navigate there
-    } catch (err) {
-      showToast(
-        `Error: ${err instanceof Error ? err.message : "Failed to create session"}`,
-        true,
-      );
-    }
-  }, [quickInput, resolvedAgentId, agentId, go, showToast]);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Breadcrumb header */}
@@ -308,44 +288,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
         />
       )}
 
-      {/* Persistent input — shows on all tabs except sessions (which has its own composer) */}
-      {activeTab !== "sessions" && (
-        <div className="agent-quick-input">
-          <textarea
-            ref={quickInputRef}
-            className="agent-quick-input-field"
-            placeholder={`Message ${displayName}...`}
-            value={quickInput}
-            onChange={(e) => setQuickInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleQuickSend();
-              }
-            }}
-            rows={1}
-          />
-          <button
-            className="agent-quick-input-send"
-            onClick={handleQuickSend}
-            disabled={!quickInput.trim()}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2L6 8" />
-              <path d="M12 2L8.5 12L6 8L2 5.5L12 2Z" />
-            </svg>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

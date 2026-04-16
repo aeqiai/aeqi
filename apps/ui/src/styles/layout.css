@@ -267,8 +267,8 @@
   overflow: hidden;
   border-top: 1px solid var(--border);
 }
-/* ── Content wrapper (holds content card + persistent input) ── */
-.content-wrapper {
+/* ── Content column (holds content card + persistent input) ── */
+.content-column {
   flex: 1;
   min-width: 0;
   display: flex;
