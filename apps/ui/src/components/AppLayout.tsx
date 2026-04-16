@@ -400,43 +400,50 @@ export default function AppLayout() {
               </svg>,
             )}
           </nav>
-          {/* Agent scope — above the tree */}
-          {agentId && (
-            <div className="sidebar-agent-scope">
-              <a
-                className="sidebar-back"
-                href={href("/agents")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  go("/agents");
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
+          {/* Scope indicator — always shows current scope */}
+          <div className="sidebar-agent-scope">
+            {agentId ? (
+              <>
+                <a
+                  className="sidebar-back"
+                  href={href("/agents")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go("/agents");
+                  }}
                 >
-                  <path d="M7.5 2L3.5 6l4 4" />
-                </svg>
-                Back
-              </a>
-              <div className="sidebar-scope">
-                <RoundAvatar
-                  name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId}
-                  size={18}
-                />
-                <span className="sidebar-scope-name">
-                  {agents.find((a) => a.id === agentId || a.name === agentId)?.display_name ||
-                    agents.find((a) => a.id === agentId || a.name === agentId)?.name ||
-                    agentId}
-                </span>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M7.5 2L3.5 6l4 4" />
+                  </svg>
+                  Back
+                </a>
+                <div className="sidebar-scope">
+                  <RoundAvatar
+                    name={agents.find((a) => a.id === agentId || a.name === agentId)?.name || agentId}
+                    size={18}
+                  />
+                  <span className="sidebar-scope-name">
+                    {agents.find((a) => a.id === agentId || a.name === agentId)?.display_name ||
+                      agents.find((a) => a.id === agentId || a.name === agentId)?.name ||
+                      agentId}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="sidebar-scope active">
+                <RoundAvatar name={rootName} size={18} />
+                <span className="sidebar-scope-name">{rootName}</span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
           <div className="left-sidebar-body">
             <AgentTree />
           </div>

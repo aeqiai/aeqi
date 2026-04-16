@@ -147,6 +147,12 @@
 }
 
 /* ── Scope indicator ── */
+.sidebar-scope.active {
+  background: var(--bg-overlay);
+  border-radius: var(--radius-md);
+  margin: 0 8px;
+  padding: var(--space-2) 8px;
+}
 .sidebar-scope {
   display: flex;
   align-items: center;
