@@ -36,7 +36,7 @@
 
 .asv {
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: row;
   height: 100%;
   overflow: hidden;
 }
@@ -52,29 +52,20 @@
   outline-offset: -2px;
 }
 
-/* ── Session sidebar (right column) ── */
+/* ── Session sidebar (right panel inside workspace) ── */
 .asv-sidebar {
-  width: 220px;
+  width: 200px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: var(--bg-base);
+  overflow-y: auto;
+  background: var(--bg-surface);
 }
 @media (max-width: 768px) {
   .asv-sidebar {
     display: none;
   }
-}
-.asv-sidebar-header {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  height: 49px;
-  min-height: 49px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 .asv-session-new-btn {
   display: flex;
@@ -858,8 +849,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--elevation-2);
-  border-top: 1px solid var(--border);
+  background: var(--bg-base);
 }
 
 .asv-composer-inner {

@@ -15,26 +15,6 @@ export default function SessionSidebar({
 }: SessionSidebarProps) {
   return (
     <div className="asv-sidebar">
-      <div className="asv-sidebar-header">
-        <button
-          className="asv-session-new-btn"
-          onClick={onNewConversation}
-          title="New session (Cmd+N)"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M6 2.5v7M2.5 6h7" />
-          </svg>
-          New Chat
-        </button>
-      </div>
       <div className="asv-sidebar-list">
         {sessions.length === 0 && <div className="asv-sidebar-empty">No sessions yet</div>}
         {sessions.map((s) => {

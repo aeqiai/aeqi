@@ -149,7 +149,12 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    const newSessionHandler = () => handleNewConversation();
+    window.addEventListener("aeqi:new-session", newSessionHandler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("aeqi:new-session", newSessionHandler);
+    };
   }, [handleNewConversation]);
 
   // Auto-scroll
