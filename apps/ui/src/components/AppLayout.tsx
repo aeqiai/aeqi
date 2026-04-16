@@ -412,6 +412,22 @@ export default function AppLayout() {
               "New idea",
             )}
             {navLink(
+              "/drive",
+              "Drive",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 4.5a1 1 0 011-1h3l1.5 1.5H11a1 1 0 011 1V10a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5z" />
+              </svg>,
+            )}
+            {navLink(
               "/tools",
               "Tools",
               <svg
@@ -424,6 +440,24 @@ export default function AppLayout() {
                 strokeLinecap="round"
               >
                 <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
+              </svg>,
+            )}
+            {navLink(
+              "/apps",
+              "Apps",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="2" width="4" height="4" rx="0.5" />
+                <rect x="8" y="2" width="4" height="4" rx="0.5" />
+                <rect x="2" y="8" width="4" height="4" rx="0.5" />
+                <rect x="8" y="8" width="4" height="4" rx="0.5" />
               </svg>,
             )}
           </nav>

@@ -22,6 +22,8 @@ const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const DrivePage = lazy(() => import("@/pages/DrivePage"));
+const AppsPage = lazy(() => import("@/pages/AppsPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -102,6 +104,8 @@ export default function App() {
                     <Route path="events" element={<EventsPage />} />
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
+                    <Route path="drive" element={<DrivePage />} />
+                    <Route path="apps" element={<AppsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="profile" element={<ModeAwareProfileRoute />} />
                   </Route>
