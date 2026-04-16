@@ -275,11 +275,11 @@ export default function AppLayout() {
 
           <nav className="sidebar-nav">
             <a
-              className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`}
-              href={href("/account")}
+              className={`sidebar-nav-item ${path === "/profile" ? "active" : ""}`}
+              href="/profile"
               onClick={(e) => {
                 e.preventDefault();
-                go("/account");
+                navigate("/profile");
               }}
             >
               <span className="sidebar-nav-avatar">

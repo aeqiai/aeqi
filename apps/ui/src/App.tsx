@@ -20,7 +20,7 @@ const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const QuestsPage = lazy(() => import("@/pages/QuestsPage"));
 const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
-const AccountPage = lazy(() => import("@/pages/AccountPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
 
@@ -54,8 +54,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function RootRedirect() {
   const activeRoot = localStorage.getItem("aeqi_root");
-  if (activeRoot) {
+  // Only redirect if the saved root looks like a UUID (not an old name)
+  if (activeRoot && activeRoot.includes("-") && activeRoot.length > 30) {
     return <Navigate to={`/${encodeURIComponent(activeRoot)}`} replace />;
+  }
+  // Clear stale non-UUID values
+  if (activeRoot) {
+    localStorage.removeItem("aeqi_root");
   }
   return <EntitiesPage />;
 }
@@ -83,6 +88,9 @@ export default function App() {
                   <Route index element={<RootRedirect />} />
                   <Route path="new" element={<NewAgentPage />} />
 
+                  {/* User-level (not workspace-scoped) */}
+                  <Route path="profile" element={<ModeAwareProfileRoute />} />
+
                   {/* Root-scoped routes: /:root/... */}
                   <Route path=":root" element={<AppLayout />}>
                     <Route index element={<ModeAwareHome />} />
@@ -95,7 +103,6 @@ export default function App() {
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
                     <Route path="settings" element={<SettingsPage />} />
-                    <Route path="account" element={<ModeAwareAccountRoute />} />
                   </Route>
                 </Routes>
               </ProtectedRoute>
@@ -112,7 +119,7 @@ function ModeAwareHome() {
   return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
 }
 
-function ModeAwareAccountRoute() {
+function ModeAwareProfileRoute() {
   const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <AccountPage /> : <Navigate to="settings" replace />;
+  return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
 }

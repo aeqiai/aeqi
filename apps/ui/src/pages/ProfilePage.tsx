@@ -9,7 +9,7 @@ import PageTabs, { useActiveTab } from "@/components/PageTabs";
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
-  { id: "api", label: "API" },
+  { id: "api", label: "API keys" },
   { id: "invites", label: "Invites" },
   { id: "preferences", label: "Preferences" },
 ];
@@ -86,7 +86,7 @@ const GitHubIcon = () => (
   </svg>
 );
 
-export default function AccountPage() {
+export default function ProfilePage() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const authMode = useAuthStore((s) => s.authMode);
@@ -254,11 +254,46 @@ export default function AccountPage() {
   };
 
   const provider = (user?.provider as string) || "local";
-  const displayName = `${firstName} ${lastName}`.trim() || "Account";
+  const displayName = `${firstName} ${lastName}`.trim() || "Your profile";
   const email = (user?.email as string) || "";
 
   return (
-    <>
+    <div className="profile-shell">
+      <header className="profile-header">
+        <button
+          type="button"
+          className="profile-back"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M8.5 2.5L4 7l4.5 4.5" />
+          </svg>
+          Back
+        </button>
+        <h1 className="profile-title">Profile</h1>
+        {authMode !== "none" && (
+          <button
+            type="button"
+            className="profile-sign-out"
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
+          >
+            Sign out
+          </button>
+        )}
+      </header>
       <PageTabs tabs={TABS} defaultTab="profile" />
       <div className="account-page">
         {activeTab === "profile" && (
@@ -378,7 +413,7 @@ export default function AccountPage() {
                 autoComplete="tel"
               />
               <p className="account-field-desc">
-                Optional. Used for SMS verification in the future.
+                Optional. Used for account recovery and security alerts.
               </p>
             </div>
 
@@ -413,21 +448,6 @@ export default function AccountPage() {
               </div>
             )}
 
-            {authMode !== "none" && (
-              <>
-                <div className="account-divider" />
-                <button
-                  type="button"
-                  className="btn account-sign-out-btn"
-                  onClick={() => {
-                    logout();
-                    navigate("/login");
-                  }}
-                >
-                  Sign out
-                </button>
-              </>
-            )}
           </>
         )}
 
@@ -887,7 +907,7 @@ export default function AccountPage() {
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

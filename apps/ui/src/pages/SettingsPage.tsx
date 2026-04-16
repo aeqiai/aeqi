@@ -186,7 +186,7 @@ export default function SettingsPage() {
                     <>
                       {" "}
                       You'll also need your{" "}
-                      <Link to="/account?tab=api" className="key-link">
+                      <Link to="/profile?tab=api" className="key-link">
                         account API key
                       </Link>{" "}
                       (<code>ak_</code>) to identify yourself.
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                     style={{ marginTop: "var(--space-2)", fontSize: "0.78rem" }}
                   >
                     Pair this with your{" "}
-                    <Link to="/account?tab=api" className="key-link">
+                    <Link to="/profile?tab=api" className="key-link">
                       account API key
                     </Link>{" "}
                     (<code>AEQI_API_KEY</code>).

@@ -578,9 +578,71 @@
   max-width: 300px;
 }
 
+/* ── Profile page shell (top-level /profile, no AppLayout) ── */
+.profile-shell {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6) var(--space-12);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.profile-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 6px;
+  margin-left: -6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.profile-back:hover {
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+}
+
+.profile-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.profile-sign-out {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.profile-sign-out:hover {
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+}
+
 .account-page {
   padding: var(--space-6);
   max-width: 520px;
+}
+.profile-shell .account-page {
+  padding: var(--space-4) 0 0;
+  max-width: none;
 }
 
 .account-profile-header {

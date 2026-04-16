@@ -15,18 +15,23 @@ interface PageTabsProps {
 export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
   const { go } = useNav();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
-  const active =
-    currentTab && tabs.some((t) => t.id === currentTab)
-      ? currentTab
-      : defaultTab || tabs[0]?.id || "";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fallback = defaultTab || tabs[0]?.id || "";
+  const queryTab = searchParams.get("tab");
+  const pathTab = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : null;
+  const active = pathTab || (queryTab && tabs.some((t) => t.id === queryTab) ? queryTab : fallback);
 
   const setTab = (id: string) => {
-    if (!agentId) return;
-    if (id === (defaultTab || tabs[0]?.id)) {
-      go(`/agents/${agentId}`);
-    } else {
-      go(`/agents/${agentId}/${id}`);
+    if (agentId) {
+      if (id === fallback) go(`/agents/${agentId}`);
+      else go(`/agents/${agentId}/${id}`);
+      return;
     }
+    // No agentId → this is a page-level tab set. Drive via ?tab=.
+    const next = new URLSearchParams(searchParams);
+    if (id === fallback) next.delete("tab");
+    else next.set("tab", id);
+    setSearchParams(next, { replace: true });
   };
 
   return (
