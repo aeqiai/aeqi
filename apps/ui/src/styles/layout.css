@@ -333,13 +333,15 @@
   flex-direction: column;
   overflow: hidden;
 }
-/* The right rail uses the subtle in-between tint so it visually separates
-   from the white main content area without feeling heavy. */
+/* The right rail shares the body tint so outside-viewport, the frame
+   padding inside the shell, and the rail all read as one tone — the
+   white card alone reads as elevated. Light-mode convention: outer
+   surfaces darkest, the card lightest. */
 .content-cta-col .asv-sidebar {
   width: 100%;
   flex: 1;
   border-left: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
 }
 
 /* Composer row: aligned with the card, but spacer on the right keeps the
