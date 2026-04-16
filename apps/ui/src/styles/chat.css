@@ -890,7 +890,7 @@
   width: 100%;
   max-width: 720px;
   background: var(--bg-base);
-  border: 1.5px solid rgba(0, 0, 0, 0.25);
+  border: 1.5px solid var(--border-hover);
   border-radius: var(--radius-xl);
   padding: 14px 16px 8px;
   transition:
@@ -900,8 +900,8 @@
 }
 
 .asv-composer-inner:focus-within {
-  border-color: rgba(0, 0, 0, 0.35);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
 }
 
 /* Streaming: thin scanning line below composer */

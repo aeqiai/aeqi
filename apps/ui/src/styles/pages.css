@@ -91,7 +91,7 @@
 .auth-input:focus {
   background: var(--bg-base);
   border-color: var(--border-hover);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--ring-muted);
 }
 .auth-input:focus-visible {
   outline: 2px solid var(--accent);
@@ -103,7 +103,7 @@
 }
 .auth-input.has-error:focus {
   border-color: var(--error);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.06);
+  box-shadow: var(--ring-danger);
 }
 .auth-input::placeholder {
   color: var(--text-muted);
@@ -435,7 +435,7 @@
 }
 .verify-code-digit:focus {
   border-color: var(--border-accent);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--ring-muted);
 }
 .verify-code-digit:focus-visible {
   outline: 2px solid var(--accent);
@@ -446,7 +446,7 @@
 }
 .verify-code-digit.has-error:focus {
   border-color: var(--error);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.06);
+  box-shadow: var(--ring-danger);
 }
 
 /* Home */
@@ -1207,7 +1207,7 @@
 .view-btn.active {
   background: var(--bg-base);
   color: var(--text-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .view-btn:hover:not(.active) {

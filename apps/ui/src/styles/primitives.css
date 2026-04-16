@@ -57,6 +57,10 @@
   --shadow-glow: none;
   --shadow-glow-strong: none;
 
+  /* Focus rings — 3px halo used by inputs, code digits, etc. */
+  --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  --ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.06);
+
   /* Brand font alias */
   --font-brand: var(--font-sans);
 

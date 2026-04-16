@@ -71,6 +71,11 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       })
       .catch(() => setIdeas([]))
       .finally(() => setIdeasLoading(false));
+    // `selected` itself is intentionally omitted: its identity changes on
+    // every parent render, which would cause infinite refetches. The only
+    // fields we read are `.id` and `.idea_ids`, both of which are already
+    // tracked by `selected?.id` + `selectedIdeaIdsKey` below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selectedIdeaIdsKey]);
 
   const handleSearch = useCallback(async () => {
