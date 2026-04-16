@@ -35,3 +35,5 @@ projects/*/
 
 # Claude Code
 .claude/worktrees/
+apps/ui/dist-storybook/
+apps/ui/apps/
