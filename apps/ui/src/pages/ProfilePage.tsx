@@ -258,42 +258,7 @@ export default function ProfilePage() {
   const email = (user?.email as string) || "";
 
   return (
-    <div className="profile-shell">
-      <header className="profile-header">
-        <button
-          type="button"
-          className="profile-back"
-          onClick={() => navigate(-1)}
-          aria-label="Back"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8.5 2.5L4 7l4.5 4.5" />
-          </svg>
-          Back
-        </button>
-        <h1 className="profile-title">Profile</h1>
-        {authMode !== "none" && (
-          <button
-            type="button"
-            className="profile-sign-out"
-            onClick={() => {
-              logout();
-              navigate("/login");
-            }}
-          >
-            Sign out
-          </button>
-        )}
-      </header>
+    <>
       <PageTabs tabs={TABS} defaultTab="profile" />
       <div className="account-page">
         {activeTab === "profile" && (
@@ -446,6 +411,22 @@ export default function ProfilePage() {
               >
                 {profileFeedback.msg}
               </div>
+            )}
+
+            {authMode !== "none" && (
+              <>
+                <div className="account-divider" />
+                <button
+                  type="button"
+                  className="btn account-sign-out-btn"
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                  }}
+                >
+                  Sign out
+                </button>
+              </>
             )}
           </>
         )}
@@ -906,7 +887,7 @@ export default function ProfilePage() {
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
 

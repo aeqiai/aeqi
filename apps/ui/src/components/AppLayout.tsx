@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams, useParams, Outlet } from "react-router-dom";
 import AgentTree from "./Sidebar";
-import ContextDrawer from "./ContextDrawer";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
@@ -24,22 +23,25 @@ export default function AppLayout() {
     tab?: string;
     itemId?: string;
   }>();
-  const rootId = routeParams.root || "";
   const agentId = routeParams.agentId || params.get("agent");
   const path = location.pathname;
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
 
-  // Sync root from URL param into store + localStorage.
+  // Sync root from URL param into store + localStorage; on user-level pages
+  // (e.g. /profile) the param is absent, so fall back to the last active root
+  // so sidebar navigation still takes the user back to their workspace.
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const activeRoot = useUIStore((s) => s.activeRoot);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const rootId = routeParams.root || activeRoot || "";
   useEffect(() => {
-    if (rootId) {
-      setActiveRoot(rootId);
+    if (routeParams.root) {
+      setActiveRoot(routeParams.root);
     }
-  }, [rootId, setActiveRoot]);
+  }, [routeParams.root, setActiveRoot]);
 
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   const agents = useDaemonStore((s) => s.agents);
@@ -502,9 +504,6 @@ export default function AppLayout() {
             </div>
           )}
         </div>
-
-        {/* Right context drawer */}
-        <ContextDrawer agentId={agentId} sessionId={routeParams.itemId || null} />
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
     </>

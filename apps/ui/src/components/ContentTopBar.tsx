@@ -9,6 +9,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   "/quests": { title: "Quests", create: { label: "New quest" } },
   "/ideas": { title: "Ideas", create: { label: "New idea" } },
   "/settings": { title: "Settings" },
+  "/profile": { title: "Profile" },
 };
 
 export default function ContentTopBar() {

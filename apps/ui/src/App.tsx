@@ -88,8 +88,11 @@ export default function App() {
                   <Route index element={<RootRedirect />} />
                   <Route path="new" element={<NewAgentPage />} />
 
-                  {/* User-level (not workspace-scoped) */}
-                  <Route path="profile" element={<ModeAwareProfileRoute />} />
+                  {/* User-level page — lives inside AppLayout but outside :root.
+                      Sidebar falls back to activeRoot so workspace nav still works. */}
+                  <Route element={<AppLayout />}>
+                    <Route path="profile" element={<ModeAwareProfileRoute />} />
+                  </Route>
 
                   {/* Root-scoped routes: /:root/... */}
                   <Route path=":root" element={<AppLayout />}>
