@@ -25,16 +25,6 @@
 .left-sidebar.collapsed {
   width: 52px;
 }
-.left-sidebar.collapsed .sidebar-brand {
-  font-size: 16px;
-  padding: 12px 0 4px;
-  text-align: center;
-  font-size: 0;
-}
-.left-sidebar.collapsed .sidebar-brand::after {
-  content: "æ";
-  font-size: 18px;
-}
 .left-sidebar.collapsed .sidebar-scope {
   justify-content: center;
   padding: var(--space-2) 0;
@@ -69,13 +59,23 @@
   display: none;
 }
 
-/* ── Collapse toggle ── */
+/* ── Sidebar header ── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 0;
+  flex-shrink: 0;
+}
+.left-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 8px 0 0;
+}
+
+/* ── Collapse toggle (hamburger) ── */
 .sidebar-collapse-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,21 +84,15 @@
   color: var(--text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  opacity: 0;
   transition: all var(--transition-fast);
-  z-index: 1;
-}
-.left-sidebar:hover .sidebar-collapse-btn {
-  opacity: 1;
+  flex-shrink: 0;
 }
 .sidebar-collapse-btn:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--bg-overlay);
 }
-.left-sidebar.collapsed .sidebar-collapse-btn {
-  position: static;
-  opacity: 1;
-  margin: 4px auto;
+.left-sidebar.collapsed .sidebar-brand {
+  display: none;
 }
 
 /* ── Brand mark ── */
