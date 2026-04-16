@@ -15,8 +15,8 @@
   width: 220px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-right: none;
   flex-shrink: 0;
   position: relative;
   transition: width var(--transition-normal);
