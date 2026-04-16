@@ -18,6 +18,82 @@
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
   flex-shrink: 0;
+  position: relative;
+  transition: width var(--transition-normal);
+  overflow: hidden;
+}
+.left-sidebar.collapsed {
+  width: 52px;
+}
+.left-sidebar.collapsed .sidebar-brand {
+  font-size: 16px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+.left-sidebar.collapsed .sidebar-scope {
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+.left-sidebar.collapsed .sidebar-scope-name {
+  display: none;
+}
+.left-sidebar.collapsed .sidebar-back {
+  justify-content: center;
+  padding: var(--space-1) 0 var(--space-2);
+}
+.left-sidebar.collapsed .sidebar-back span:not(svg) {
+  display: none;
+}
+.left-sidebar.collapsed .sidebar-section-label {
+  text-align: center;
+  padding: var(--space-2) 0 0;
+  font-size: 8px;
+}
+.left-sidebar.collapsed .sidebar-nav-label,
+.left-sidebar.collapsed .sidebar-nav-action {
+  display: none;
+}
+.left-sidebar.collapsed .sidebar-nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+.left-sidebar.collapsed .sidebar-nav-item > svg {
+  width: 16px;
+}
+.left-sidebar.collapsed .left-sidebar-body {
+  display: none;
+}
+
+/* ── Collapse toggle ── */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+.left-sidebar:hover .sidebar-collapse-btn {
+  opacity: 1;
+}
+.sidebar-collapse-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.left-sidebar.collapsed .sidebar-collapse-btn {
+  position: static;
+  opacity: 1;
+  margin: 4px auto;
 }
 
 /* ── Brand mark ── */

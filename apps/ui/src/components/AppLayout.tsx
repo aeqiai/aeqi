@@ -34,6 +34,8 @@ export default function AppLayout() {
 
   // Sync company from URL param into store + localStorage.
   const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   useEffect(() => {
     if (company) {
       setActiveCompany(company);
@@ -163,7 +165,27 @@ export default function AppLayout() {
     <>
       <div className="shell">
         {/* Left sidebar */}
-        <div className="left-sidebar">
+        <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+          {/* Collapse toggle */}
+          <button
+            className="sidebar-collapse-btn"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              style={{ transform: sidebarCollapsed ? "rotate(180deg)" : undefined }}
+            >
+              <path d="M9 3L5 7l4 4" />
+            </svg>
+          </button>
+
           {/* Brand mark — click to go home */}
           <a
             className="sidebar-brand"
