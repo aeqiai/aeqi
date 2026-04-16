@@ -447,7 +447,6 @@ export default function ProfilePage() {
                 {profileFeedback.msg}
               </div>
             )}
-
           </>
         )}
 

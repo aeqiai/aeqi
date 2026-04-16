@@ -254,7 +254,8 @@ export const api = {
   },
 
   // Agents
-  getAgents: () => request<Record<string, unknown>>("/agents"),
+  getAgents: (params?: { root?: boolean }) =>
+    request<Record<string, unknown>>(params?.root ? "/agents?root=true" : "/agents"),
 
   // Activity stream (daemon events)
   getActivityStream: (params?: { last?: number; root?: string }) => {

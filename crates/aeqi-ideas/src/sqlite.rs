@@ -518,6 +518,13 @@ impl SqliteIdeas {
         } else {
             "0"
         };
+        let name_expr = if cols.contains("name") {
+            "name"
+        } else if cols.contains("key") {
+            "key"
+        } else {
+            "'unnamed'"
+        };
 
         conn.execute_batch("BEGIN IMMEDIATE;")?;
         let result = (|| -> Result<()> {
@@ -539,7 +546,7 @@ impl SqliteIdeas {
                     content_hash, source_kind, source_ref, managed
                  )
                  SELECT
-                    id, name, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
+                    id, {name_expr}, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
                     {expires_expr}, {injection_expr}, {inheritance_expr}, {tool_allow_expr}, {tool_deny_expr},
                     {content_hash_expr}, {source_kind_expr}, {source_ref_expr}, {managed_expr}
                  FROM ideas_legacy"

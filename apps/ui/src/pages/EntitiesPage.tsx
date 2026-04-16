@@ -47,6 +47,8 @@ export default function EntitiesPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
+
+    // Try platform API first, then runtime API, then daemon store
     api
       .getRoots()
       .then((data) => {
@@ -66,12 +68,28 @@ export default function EntitiesPage() {
               .filter((e) => e.id),
           );
         } else {
-          setEntities(deriveEntitiesFromAgents(agents));
+          // Fallback: fetch agents directly from runtime
+          return api.getAgents({ root: true }).then((agentData) => {
+            const agentList = (agentData?.agents || []) as Array<Record<string, unknown>>;
+            const roots = agentList.filter((a) => !a.parent_id);
+            if (roots.length > 0) {
+              setEntities(
+                roots.map((a) => ({
+                  id: (a.id as string) || "",
+                  name: (a.name as string) || "",
+                  display_name: a.display_name as string | undefined,
+                  agentCount: agentList.filter((c) => c.parent_id === a.id).length,
+                })),
+              );
+            } else {
+              setEntities(deriveEntitiesFromAgents(agents));
+            }
+          });
         }
       })
       .catch(() => {
         setEntities(deriveEntitiesFromAgents(agents));
-        setError("Could not load agents from the server. Showing local data.");
+        setError("Could not load agents. Showing local data.");
       })
       .finally(() => setLoading(false));
   }, [agents]);
