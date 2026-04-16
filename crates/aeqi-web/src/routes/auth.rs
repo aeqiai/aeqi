@@ -271,7 +271,7 @@ async fn signup_handler(
     let first_name = name.split_whitespace().next().unwrap_or(name);
     let suffix = &user.id[..std::cmp::min(4, user.id.len())];
     let root_name = format!("{first_name}-{suffix}");
-    // Await root agent creation so the user_roots link exists before the first API call.
+    // Await root agent creation so the user_access link exists before the first API call.
     // This ensures allowed_roots is populated when the auth middleware resolves scope.
     match state
         .ipc
@@ -283,7 +283,7 @@ async fn signup_handler(
     {
         Ok(resp) => {
             if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
-                if let Err(e) = accounts.add_root(&user.id, &root_name) {
+                if let Err(e) = accounts.add_director(&user.id, &root_name) {
                     tracing::warn!(
                         "signup: failed to link root agent '{}' to user {}: {e}",
                         root_name,

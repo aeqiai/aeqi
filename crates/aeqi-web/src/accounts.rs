@@ -57,10 +57,10 @@ impl AccountStore {
                 created_at      TEXT NOT NULL DEFAULT (datetime('now')),
                 last_login      TEXT
             );
-            CREATE TABLE IF NOT EXISTS user_roots (
+            CREATE TABLE IF NOT EXISTS user_access (
                 user_id    TEXT NOT NULL REFERENCES users(id),
-                root       TEXT NOT NULL,
-                PRIMARY KEY (user_id, root)
+                agent_id   TEXT NOT NULL,
+                PRIMARY KEY (user_id, agent_id)
             );
             CREATE TABLE IF NOT EXISTS invite_codes (
                 code        TEXT PRIMARY KEY,
@@ -75,8 +75,22 @@ impl AccountStore {
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
-        // Migration: rename user_companies -> user_roots.
-        let has_old_table: bool = conn
+        // Migration: user_roots / user_companies -> user_access.
+        let has_user_roots: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_roots'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if has_user_roots {
+            conn.execute_batch(
+                "INSERT OR IGNORE INTO user_access (user_id, agent_id) SELECT user_id, root FROM user_roots;
+                 DROP TABLE user_roots;",
+            )?;
+        }
+        let has_user_companies: bool = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_companies'",
                 [],
@@ -84,9 +98,9 @@ impl AccountStore {
             )
             .unwrap_or(0)
             > 0;
-        if has_old_table {
+        if has_user_companies {
             conn.execute_batch(
-                "INSERT OR IGNORE INTO user_roots (user_id, root) SELECT user_id, company FROM user_companies;
+                "INSERT OR IGNORE INTO user_access (user_id, agent_id) SELECT user_id, company FROM user_companies;
                  DROP TABLE user_companies;",
             )?;
         }
@@ -112,7 +126,7 @@ impl AccountStore {
     pub fn purge_all(&self) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute_batch(
-            "DELETE FROM invite_codes; DELETE FROM user_roots; DELETE FROM waitlist; DELETE FROM users;"
+            "DELETE FROM invite_codes; DELETE FROM user_access; DELETE FROM waitlist; DELETE FROM users;"
         )?;
         Ok(())
     }
@@ -297,7 +311,7 @@ impl AccountStore {
         let result = match user {
             Some(mut u) => {
                 let mut stmt =
-                    conn.prepare("SELECT root FROM user_roots WHERE user_id = ?1")?;
+                    conn.prepare("SELECT agent_id FROM user_access WHERE user_id = ?1")?;
                 let roots: Vec<String> = stmt
                     .query_map(params![u.id], |row| row.get(0))?
                     .filter_map(|r| r.ok())
@@ -332,17 +346,51 @@ impl AccountStore {
         }
     }
 
-    /// Add a root agent to a user. Invalidates the user cache so the updated
-    /// roots list is picked up immediately on the next lookup.
-    pub fn add_root(&self, user_id: &str, root: &str) -> anyhow::Result<()> {
+    /// Grant director access for a user to an agent. Invalidates the user
+    /// cache so the updated roots list is picked up immediately.
+    pub fn add_director(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT OR IGNORE INTO user_roots (user_id, root) VALUES (?1, ?2)",
-            params![user_id, root],
+            "INSERT OR IGNORE INTO user_access (user_id, agent_id) VALUES (?1, ?2)",
+            params![user_id, agent_id],
         )?;
         drop(conn);
         self.user_cache.invalidate(&user_id.to_owned());
         Ok(())
+    }
+
+    /// Revoke director access for a user from an agent. Invalidates the user cache.
+    pub fn remove_director(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM user_access WHERE user_id = ?1 AND agent_id = ?2",
+            params![user_id, agent_id],
+        )?;
+        drop(conn);
+        self.user_cache.invalidate(&user_id.to_owned());
+        Ok(())
+    }
+
+    /// Return all agent IDs this user directs.
+    pub fn get_user_agents(&self, user_id: &str) -> anyhow::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT agent_id FROM user_access WHERE user_id = ?1")?;
+        let agents: Vec<String> = stmt
+            .query_map(params![user_id], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(agents)
+    }
+
+    /// Return all user IDs who direct the given agent.
+    pub fn get_directors(&self, agent_id: &str) -> anyhow::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT user_id FROM user_access WHERE agent_id = ?1")?;
+        let users: Vec<String> = stmt
+            .query_map(params![agent_id], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(users)
     }
 
     // ── Invite codes ──────────────────────────────────

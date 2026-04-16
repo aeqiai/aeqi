@@ -53,7 +53,7 @@ async fn create_company(
         && let Some(user_id) = claims.user_id.as_deref()
         && let Some(name) = body.get("name").and_then(|v| v.as_str())
     {
-        let _ = accounts.add_root(user_id, name);
+        let _ = accounts.add_director(user_id, name);
     }
 
     resp
