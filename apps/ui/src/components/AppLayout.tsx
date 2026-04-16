@@ -173,7 +173,7 @@ export default function AppLayout() {
               go("/");
             }}
           >
-            aeqi
+            æq<span style={{ display: "inline-block", transform: "translateY(0.05em)" }}>i</span>
           </a>
 
           {/* Scope indicator */}
