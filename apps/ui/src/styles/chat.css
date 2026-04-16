@@ -52,11 +52,11 @@
   outline-offset: -2px;
 }
 
-/* ── Session sidebar (left column) ── */
+/* ── Session sidebar (right column) ── */
 .asv-sidebar {
   width: 220px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -67,7 +67,11 @@
   }
 }
 .asv-sidebar-header {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 49px;
+  min-height: 49px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
