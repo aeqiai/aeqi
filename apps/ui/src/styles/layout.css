@@ -20,6 +20,55 @@
   flex-shrink: 0;
 }
 
+/* ── Brand mark ── */
+.sidebar-brand {
+  display: block;
+  padding: 14px 16px 6px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  color: var(--text-primary);
+  text-decoration: none;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+.sidebar-brand:hover {
+  opacity: 0.8;
+}
+
+/* ── Scope indicator ── */
+.sidebar-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 16px;
+  min-height: 36px;
+}
+.sidebar-scope-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Back button ── */
+.sidebar-back {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 16px var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.sidebar-back:hover {
+  color: var(--text-primary);
+}
+
 /* ── Section labels ── */
 .sidebar-section-label {
   padding: var(--space-2) 16px 0;
