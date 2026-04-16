@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
+import BrandMark from "@/components/BrandMark";
 import RoundAvatar from "@/components/RoundAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -92,7 +93,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
             go("/");
           }}
         >
-          æq<span style={{ display: "inline-block", transform: "translateY(0.05em)" }}>i</span>
+          <BrandMark size={18} />
         </a>
         <button
           className="sidebar-collapse-btn"
