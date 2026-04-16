@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { api } from "@/lib/api";
 import type { AgentEvent, Idea } from "@/lib/types";
 
@@ -14,7 +15,7 @@ function eventTransport(ev: AgentEvent): string | null {
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const navigate = useNavigate();
+  const { go } = useCompanyNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
@@ -29,12 +30,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const setSelectedId = useCallback(
     (id: string | null) => {
       if (id) {
-        navigate(`/agents/${agentId}/events/${id}`, { replace: true });
+        go(`/agents/${agentId}/events/${id}`, { replace: true });
       } else {
-        navigate(`/agents/${agentId}/events`, { replace: true });
+        go(`/agents/${agentId}/events`, { replace: true });
       }
     },
-    [agentId, navigate],
+    [agentId, go],
   );
 
   const loadEvents = useCallback(async () => {

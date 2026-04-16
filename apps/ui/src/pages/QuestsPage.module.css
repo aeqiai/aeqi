@@ -1,0 +1,670 @@
+/* ── Quests Page ──────────────────────────────────────── */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Stats Bar ───────────────────────────────────────── */
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 0 16px;
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 20px 0 0;
+}
+.stat:first-child {
+  padding-left: 0;
+}
+
+.statDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.statWarning {
+  color: var(--warning);
+}
+
+.statSuccess {
+  color: var(--success);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+/* ── Toolbar ─────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 1px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.filterTabs {
+  display: flex;
+  gap: 0;
+}
+
+.filterTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+  margin-bottom: -1px;
+}
+.filterTab:hover {
+  color: var(--text-primary);
+}
+.filterTabActive {
+  composes: filterTab;
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}
+
+.filterTabCount {
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  min-width: 18px;
+  text-align: center;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 8px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search {
+  width: 180px;
+  padding: 5px 10px 5px 28px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    width var(--transition-smooth);
+}
+.search:focus {
+  border-color: var(--border-hover);
+  width: 240px;
+}
+.search::placeholder {
+  color: var(--text-muted);
+}
+
+.agentFilter {
+  padding: 5px 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+.agentFilter:hover,
+.agentFilter:focus {
+  border-color: var(--border-hover);
+}
+
+/* ── Primary Button ──────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnPrimary {
+  composes: btn;
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+  border-radius: 999px;
+}
+.btnPrimary:hover {
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.btnPrimary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  composes: btn;
+  background: none;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.btnGhost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--bg-surface);
+}
+
+/* ── List ────────────────────────────────────────────── */
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 0;
+}
+.emptyText {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.emptyHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+/* ── Group ───────────────────────────────────────────── */
+
+.group {
+  border-bottom: 1px solid var(--border);
+}
+.group:last-child {
+  border-bottom: none;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+.groupHeader:hover {
+  background: var(--bg-elevated);
+}
+
+.groupChevron {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+.groupChevronOpen {
+  composes: groupChevron;
+  transform: rotate(90deg);
+}
+
+.groupLabel {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.groupCount {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.groupBody {
+  /* empty — rows sit directly */
+}
+
+/* ── Quest Row ───────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px;
+  height: 40px;
+  border-top: 1px solid var(--bg-elevated);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.row:first-child {
+  border-top: none;
+}
+.row:hover {
+  background: var(--bg-elevated);
+}
+
+.rowClosed {
+  composes: row;
+  opacity: 0.55;
+}
+.rowClosed:hover {
+  opacity: 0.75;
+}
+
+.rowStatus {
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rowPriority {
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rowId {
+  width: 72px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSubject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 12px;
+}
+
+.rowTitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.rowLabels {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-right: 12px;
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-2xs);
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  border: 1px solid var(--border);
+}
+
+.rowSpacer {
+  flex: 0 0 auto;
+  min-width: 8px;
+}
+
+.rowAssignee {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  padding-right: 12px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowTime {
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  width: 52px;
+  text-align: right;
+}
+
+/* ── Status Dot ──────────────────────────────────────── */
+
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusPending {
+  composes: statusDot;
+  background: none;
+  border: 1.5px solid var(--text-muted);
+}
+
+.statusInProgress {
+  composes: statusDot;
+  background: var(--info);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.statusBlocked {
+  composes: statusDot;
+  background: var(--warning);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.statusDone {
+  composes: statusDot;
+  background: var(--success);
+}
+
+.statusCancelled {
+  composes: statusDot;
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* ── Priority Icon ───────────────────────────────────── */
+
+.priorityIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.priorityCritical {
+  composes: priorityIcon;
+  color: var(--error);
+}
+.priorityHigh {
+  composes: priorityIcon;
+  color: var(--warning);
+}
+.priorityNormal {
+  composes: priorityIcon;
+  color: var(--text-muted);
+}
+.priorityLow {
+  composes: priorityIcon;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ── Create Quest Modal ──────────────────────────────── */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: min(20vh, 160px);
+}
+
+.modal {
+  max-width: 520px;
+  width: calc(100% - 32px);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.modalHeader {
+  padding: 16px 20px 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modalBody {
+  padding: 12px 20px 0;
+}
+
+.modalTitleInput {
+  width: 100%;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  outline: none;
+}
+.modalTitleInput::placeholder {
+  color: var(--text-muted);
+}
+
+.modalDescInput {
+  width: 100%;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  outline: none;
+  resize: none;
+  line-height: 1.5;
+}
+.modalDescInput::placeholder {
+  color: var(--text-muted);
+}
+
+.modalFields {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modalField {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.modalFieldLabel {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  padding-top: 6px;
+}
+
+.modalPriorityGroup {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.modalPriorityBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-2xs);
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.modalPriorityBtn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+.modalPriorityBtnActive {
+  composes: modalPriorityBtn;
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+.modalPriorityBtnActiveCritical {
+  composes: modalPriorityBtnActive;
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.06);
+}
+.modalPriorityBtnActiveHigh {
+  composes: modalPriorityBtnActive;
+  border-color: var(--warning);
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.modalPriorityBtn .priorityIcon,
+.modalPriorityBtnActive .priorityIcon,
+.modalPriorityBtnActiveCritical .priorityIcon,
+.modalPriorityBtnActiveHigh .priorityIcon {
+  width: 12px;
+  height: 12px;
+}
+
+.modalSelect {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+.modalSelect:focus {
+  border-color: var(--border-hover);
+}
+
+.modalFieldDescInput {
+  composes: modalDescInput;
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-height: 48px;
+  transition: border-color var(--transition-fast);
+}
+.modalFieldDescInput:focus {
+  border-color: var(--border-hover);
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}

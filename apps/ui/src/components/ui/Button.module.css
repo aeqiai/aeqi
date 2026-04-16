@@ -1,0 +1,147 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Variants */
+
+.secondary {
+  background: var(--color-bg-base);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.secondary:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg-base);
+}
+
+.primary:hover {
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-md);
+}
+
+.primary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  opacity: 1;
+}
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.ghost:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.danger {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-bg-base);
+}
+
+.danger:hover {
+  opacity: 0.85;
+}
+
+.danger:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px var(--color-error);
+}
+
+/* Sizes */
+
+.sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-lg);
+}
+
+.md {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+}
+
+.lg {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-lg);
+}
+
+/* Active state — all variants */
+.button:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.98);
+  transition-duration: 50ms;
+}
+
+/* Loading */
+
+.loading {
+  position: relative;
+  color: transparent;
+}
+
+.loading > * {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: visible;
+}
+
+.spinner::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: btn-spin 0.6s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

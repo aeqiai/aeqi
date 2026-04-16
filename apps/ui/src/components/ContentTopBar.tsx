@@ -8,12 +8,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
   "/events": { title: "Events", create: { label: "New event" } },
   "/quests": { title: "Quests", create: { label: "New quest" } },
   "/ideas": { title: "Ideas", create: { label: "New idea" } },
-  "/drive": { title: "Drive" },
-  "/company": { title: "Company" },
-  "/treasury": { title: "Treasury" },
-  "/apps": { title: "Apps" },
-  "/market": { title: "Market" },
-  "/sessions": { title: "Sessions" },
+  "/settings": { title: "Settings" },
   "/account": { title: "Account" },
 };
 

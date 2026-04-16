@@ -794,7 +794,7 @@ mod tests {
     fn make_idea(id: &str, agent_id: &str, injection_mode: &str, inheritance: &str) -> Idea {
         Idea {
             id: id.into(),
-            key: format!("idea-{id}"),
+            name: format!("idea-{id}"),
             content: format!("Content for {id}"),
             tags: vec!["evergreen".to_string()],
             agent_id: Some(agent_id.into()),

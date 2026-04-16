@@ -158,152 +158,32 @@ export default function AppLayout() {
     </svg>
   );
 
-  const companyIcon = (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-    >
-      <rect x="2" y="4" width="10" height="8" rx="1" />
-      <path d="M5 4V3a2 2 0 014 0v1" />
-    </svg>
-  );
-
   return (
     <>
       <div className="shell">
         {/* Left sidebar */}
         <div className="left-sidebar">
           <CompanySwitcher />
-          {appMode === "platform" ? (
-            <>
-              <nav className="sidebar-nav">
-                {navLink("/", "Home", homeIcon)}
-                <a
-                  className={`sidebar-nav-item sidebar-nav-market ${isActive("/market") ? "active" : ""}`}
-                  href={href("/market")}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go("/market");
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                      width: 22,
-                      textAlign: "center" as const,
-                      flexShrink: 0,
-                      display: "inline-flex",
-                      justifyContent: "center",
-                    }}
-                  >
-                    æ
-                  </span>
-                  <span className="sidebar-nav-label">Market</span>
-                </a>
-              </nav>
-              <nav className="sidebar-nav">
-                {navLink("/settings", "Company", companyIcon, "New company")}
-                {navLink(
-                  "/treasury",
-                  "Treasury",
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  >
-                    <path d="M2 5l5-2.5L12 5" />
-                    <path d="M3 5.5v5M5.5 5.5v5M8.5 5.5v5M11 5.5v5" />
-                    <path d="M1.5 10.5h11" />
-                    <path d="M1 12h12" />
-                  </svg>,
-                  "New transaction",
-                )}
-                {navLink(
-                  "/drive",
-                  "Drive",
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  >
-                    <path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" />
-                  </svg>,
-                  "Upload file",
-                )}
-                {navLink(
-                  "/apps",
-                  "Apps",
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  >
-                    <rect x="2" y="2" width="4" height="4" rx="0.5" />
-                    <rect x="8" y="2" width="4" height="4" rx="0.5" />
-                    <rect x="2" y="8" width="4" height="4" rx="0.5" />
-                    <rect x="8" y="8" width="4" height="4" rx="0.5" />
-                  </svg>,
-                  "New app",
-                )}
-              </nav>
-            </>
-          ) : (
-            <nav className="sidebar-nav">
-              {navLink("/", "Home", homeIcon)}
-              <a
-                className={`sidebar-nav-item ${path === "/" ? "active" : ""}`}
-                href="/"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/");
-                }}
+          <nav className="sidebar-nav">
+            {navLink("/", "Home", homeIcon)}
+            {navLink(
+              "/sessions",
+              "Sessions",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
               >
-                {companyIcon}
-                <span className="sidebar-nav-label">Companies</span>
-                <span
-                  className="sidebar-nav-action"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigate("/new");
-                  }}
-                  title="New company"
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M6 2.5v7M2.5 6h7" />
-                  </svg>
-                </span>
-              </a>
-              {navLink("/settings", "Settings", companyIcon)}
-            </nav>
-          )}
+                <path d="M2 3h10v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
+                <path d="M5 6h4M5 8.5h2" />
+              </svg>,
+            )}
+          </nav>
+          <div className="sidebar-section-label">æ</div>
           <nav className="sidebar-nav">
             {navLink(
               "/agents",
@@ -333,10 +213,8 @@ export default function AppLayout() {
                 strokeWidth="1.3"
                 strokeLinecap="round"
               >
-                <rect x="2" y="2" width="10" height="10" rx="1.5" />
-                <path d="M2 8.5h3l1 1.5h2l1-1.5h3" />
+                <polyline points="1 7 4 4 7 9 10 3 13 7" />
               </svg>,
-              "New event",
             )}
             {navLink(
               "/quests",
@@ -371,9 +249,12 @@ export default function AppLayout() {
               </svg>,
               "New idea",
             )}
+          </nav>
+          <div className="sidebar-section-label">tools</div>
+          <nav className="sidebar-nav">
             {navLink(
-              "/sessions",
-              "Sessions",
+              "/tools",
+              "Tools",
               <svg
                 width="14"
                 height="14"
@@ -383,15 +264,31 @@ export default function AppLayout() {
                 strokeWidth="1.3"
                 strokeLinecap="round"
               >
-                <path d="M2.5 3.5h9v6h-5l-2.5 2v-2h-1.5z" />
+                <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
               </svg>,
             )}
           </nav>
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
-          {appMode === "platform" && (
-            <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
+          <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
+            {navLink(
+              "/settings",
+              "Settings",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+              </svg>,
+            )}
+            {appMode === "platform" && (
               <a
                 className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`}
                 href={href("/account")}
@@ -403,8 +300,8 @@ export default function AppLayout() {
                 <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
                 <span className="sidebar-nav-label">Account</span>
               </a>
-            </nav>
-          )}
+            )}
+          </nav>
           <div className="sidebar-footer">
             <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">
               Docs

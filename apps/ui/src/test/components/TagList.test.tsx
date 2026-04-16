@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import TagList from "@/components/ui/TagList";
+import { TagList } from "@/components/ui/TagList";
 
 describe("TagList", () => {
   it("renders all tag items", () => {

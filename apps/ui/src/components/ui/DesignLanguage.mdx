@@ -1,0 +1,117 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Design Language" />
+
+# aeqi design language
+
+The aeqi design system is built on restraint. Every element earns its place through function, not decoration. The interface recedes so the four primitives -- Agents, Events, Quests, Ideas -- can speak clearly.
+
+---
+
+## Principles
+
+### Monochromatic restraint
+
+Black on white. Opacity controls hierarchy, not color. The absence of chromatic noise keeps focus on structure and content.
+
+### Opacity as depth
+
+Instead of distinct grays, a single black at varying opacities creates a unified visual hierarchy:
+
+| Token                    | Value                  | Usage                      |
+| ------------------------ | ---------------------- | -------------------------- |
+| `--color-text-primary`   | `rgba(0, 0, 0, 0.85)`  | Body text, headings        |
+| `--color-text-secondary` | `rgba(0, 0, 0, 0.55)`  | Labels, descriptions       |
+| `--color-text-muted`     | `rgba(0, 0, 0, 0.35)`  | Hints, timestamps          |
+| `--color-border`         | `rgba(0, 0, 0, 0.08)`  | Panel borders, dividers    |
+| `--color-bg-surface`     | `rgba(0, 0, 0, 0.015)` | Subtle surface distinction |
+| `--color-bg-elevated`    | `rgba(0, 0, 0, 0.035)` | Hover, elevated panels     |
+
+### Precision over decoration
+
+No gratuitous gradients, shadows, or rounded corners. Components use sharp geometry and minimal chrome. When status color is needed (success, error, warning), it appears sparingly -- a dot, a tint -- never a full-bleed wash.
+
+### The four primitives
+
+Everything in aeqi maps to one of four primitives:
+
+- **A** -- Agents: autonomous entities with parent-child hierarchy
+- **E** -- Events: the audit/activity stream
+- **Q** -- Quests: work items agents pursue
+- **I** -- Ideas: knowledge, identity, instructions, memories
+
+---
+
+## The ae mark
+
+The **ae** ligature is the brand mark of aeqi. It appears in the product name, never as decoration. The mark uses the same monochromatic treatment as all other type -- `rgba(0, 0, 0, 0.85)` on light backgrounds.
+
+Usage rules:
+
+- Always lowercase: **aeqi**, never "AEQI" or "Aeqi" in UI text
+- The ligature character is reserved for the logo and brand references
+- Do not colorize, animate, or add effects to the mark
+
+---
+
+## Typography
+
+Two typefaces, each with a clear role:
+
+| Typeface       | Variable      | Usage                                    |
+| -------------- | ------------- | ---------------------------------------- |
+| Inter          | `--font-sans` | All UI text: labels, body, headings      |
+| JetBrains Mono | `--font-mono` | Code, IDs, model names, technical values |
+
+### Type scale
+
+| Token             | Size             | Usage                        |
+| ----------------- | ---------------- | ---------------------------- |
+| `--font-size-xs`  | 0.75rem (12px)   | Badges, timestamps, metadata |
+| `--font-size-sm`  | 0.8125rem (13px) | Secondary text, descriptions |
+| `--font-size-md`  | 0.875rem (14px)  | Body text, form labels       |
+| `--font-size-lg`  | 1rem (16px)      | Base / root size             |
+| `--font-size-xl`  | 1.125rem (18px)  | Section headings             |
+| `--font-size-2xl` | 1.5rem (24px)    | Page titles                  |
+
+Weights: 400 (regular), 500 (medium for labels), 600 (semibold for headings).
+
+---
+
+## Spacing
+
+A consistent spacing scale based on 4px increments:
+
+| Token       | Value | Usage                                    |
+| ----------- | ----- | ---------------------------------------- |
+| `--space-1` | 4px   | Tight gaps (badge padding, icon margins) |
+| `--space-2` | 8px   | Inline spacing, small gaps               |
+| `--space-3` | 12px  | Form field gaps, compact padding         |
+| `--space-4` | 16px  | Standard padding, section gaps           |
+| `--space-6` | 24px  | Panel padding, larger section gaps       |
+| `--space-8` | 32px  | Page-level spacing                       |
+
+---
+
+## Border radii
+
+| Token         | Value | Usage                        |
+| ------------- | ----- | ---------------------------- |
+| `--radius-sm` | 4px   | Badges, tags, small elements |
+| `--radius-md` | 6px   | Inputs, buttons              |
+| `--radius-lg` | 8px   | Panels, cards                |
+| `--radius-xl` | 12px  | Modals, large containers     |
+
+---
+
+## Status colors
+
+Status colors are the only exception to the monochromatic rule. They appear minimally -- as badge dots, tinted backgrounds, or subtle text colors:
+
+| Status  | Color     | Token             | Used for                   |
+| ------- | --------- | ----------------- | -------------------------- |
+| Success | `#22c55e` | `--color-success` | Done, active, healthy      |
+| Error   | `#ef4444` | `--color-error`   | Failed, validation errors  |
+| Warning | `#f59e0b` | `--color-warning` | Blocked, degraded          |
+| Info    | `#3b82f6` | `--color-info`    | In progress, informational |
+| Accent  | `#000000` | `--color-accent`  | Working, primary actions   |

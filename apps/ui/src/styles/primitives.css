@@ -40,6 +40,7 @@
   --info: var(--color-info);
 
   /* Borders */
+  --border-faint: var(--color-border-faint);
   --border: var(--color-border);
   --border-hover: var(--color-border-hover);
 
@@ -52,7 +53,7 @@
   --accent-glow: transparent;
   --accent-glow-strong: transparent;
   --success-glow: rgba(34, 197, 94, 0.08);
-  --border-accent: rgba(0, 0, 0, 0.15);
+  --border-accent: var(--color-border-hover);
   --shadow-glow: none;
   --shadow-glow-strong: none;
 

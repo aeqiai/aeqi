@@ -1,4 +1,6 @@
-interface PanelProps {
+import styles from "./Panel.module.css";
+
+export interface PanelProps {
   title?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
@@ -6,21 +8,17 @@ interface PanelProps {
   className?: string;
 }
 
-export default function Panel({
-  title,
-  actions,
-  children,
-  variant = "default",
-  className,
-}: PanelProps) {
-  const base = variant === "detail" ? "detail-panel" : "dash-panel";
-  const titleClass = variant === "detail" ? "detail-panel-title" : "dash-panel-title";
+export function Panel({ title, actions, children, variant = "default", className }: PanelProps) {
+  const panelCls = [variant === "detail" ? styles.detail : styles.panel, className]
+    .filter(Boolean)
+    .join(" ");
+  const titleCls = variant === "detail" ? styles.detailTitle : styles.title;
 
   return (
-    <div className={`${base}${className ? ` ${className}` : ""}`}>
+    <div className={panelCls}>
       {(title || actions) && (
-        <div className="dash-panel-header">
-          {title && <span className={titleClass}>{title}</span>}
+        <div className={styles.header}>
+          {title && <span className={titleCls}>{title}</span>}
           {actions}
         </div>
       )}
@@ -28,3 +26,5 @@ export default function Panel({
     </div>
   );
 }
+
+Panel.displayName = "Panel";

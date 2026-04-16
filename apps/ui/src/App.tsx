@@ -22,10 +22,6 @@ const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
-const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
-const DrivePage = lazy(() => import("@/pages/DrivePage"));
-const AppsPage = lazy(() => import("@/pages/AppsPage"));
-const MarketPage = lazy(() => import("@/pages/MarketPage"));
 const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
 
 const LoadingSpinner = () => (
@@ -87,17 +83,6 @@ export default function App() {
                   <Route index element={<CompanyRedirect />} />
                   <Route path="new" element={<NewCompanyPage />} />
 
-                  {/* Legacy flat routes → redirect to company-scoped */}
-                  <Route path="agents" element={<CompanyRedirect />} />
-                  <Route path="quests" element={<CompanyRedirect />} />
-                  <Route path="events" element={<CompanyRedirect />} />
-                  <Route path="ideas" element={<CompanyRedirect />} />
-                  <Route path="sessions" element={<CompanyRedirect />} />
-                  <Route path="companies" element={<CompanyRedirect />} />
-                  <Route path="company" element={<CompanyRedirect />} />
-                  <Route path="workspace" element={<CompanyRedirect />} />
-                  <Route path="settings" element={<ModeAwareSettingsRedirect />} />
-
                   {/* Company-scoped routes: /:company/... */}
                   <Route path=":company" element={<AppLayout />}>
                     <Route index element={<ModeAwareHome />} />
@@ -105,43 +90,11 @@ export default function App() {
                     <Route path="agents/:agentId" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
+                    <Route path="sessions" element={<SessionsPage />} />
                     <Route path="events" element={<EventsPage />} />
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
-                    <Route path="sessions" element={<SessionsPage />} />
                     <Route path="settings" element={<CompanyPage />} />
-                    <Route
-                      path="treasury"
-                      element={
-                        <PlatformOnlyRoute>
-                          <TreasuryPage />
-                        </PlatformOnlyRoute>
-                      }
-                    />
-                    <Route
-                      path="drive"
-                      element={
-                        <PlatformOnlyRoute>
-                          <DrivePage />
-                        </PlatformOnlyRoute>
-                      }
-                    />
-                    <Route
-                      path="apps"
-                      element={
-                        <PlatformOnlyRoute>
-                          <AppsPage />
-                        </PlatformOnlyRoute>
-                      }
-                    />
-                    <Route
-                      path="market"
-                      element={
-                        <PlatformOnlyRoute>
-                          <MarketPage />
-                        </PlatformOnlyRoute>
-                      }
-                    />
                     <Route path="account" element={<ModeAwareAccountRoute />} />
                   </Route>
                 </Routes>
@@ -162,16 +115,4 @@ function ModeAwareHome() {
 function ModeAwareAccountRoute() {
   const appMode = useAuthStore((s) => s.appMode);
   return appMode === "platform" ? <AccountPage /> : <Navigate to="settings" replace />;
-}
-
-function ModeAwareSettingsRedirect() {
-  const appMode = useAuthStore((s) => s.appMode);
-  const activeCompany = localStorage.getItem("aeqi_company");
-  const base = activeCompany ? `/${encodeURIComponent(activeCompany)}` : "/";
-  return <Navigate to={appMode === "platform" ? `${base}/account` : `${base}/settings`} replace />;
-}
-
-function PlatformOnlyRoute({ children }: { children: React.ReactNode }) {
-  const appMode = useAuthStore((s) => s.appMode);
-  return appMode === "platform" ? <>{children}</> : <Navigate to="settings" replace />;
 }

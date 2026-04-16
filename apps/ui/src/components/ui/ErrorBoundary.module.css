@@ -1,0 +1,22 @@
+.wrapper {
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.message {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  color: var(--color-error);
+  margin-top: var(--space-4);
+}
+
+.retry {
+  margin-top: var(--space-4);
+}

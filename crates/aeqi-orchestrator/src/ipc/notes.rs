@@ -71,7 +71,6 @@ pub async fn handle_get_notes(
         .unwrap_or("");
     let name = request
         .get("name")
-        .or_else(|| request.get("key"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
@@ -238,7 +237,6 @@ pub async fn handle_delete_notes(
         .unwrap_or("");
     let name = request
         .get("name")
-        .or_else(|| request.get("key"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
 

@@ -5,7 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Agent } from "@/lib/types";
-import "@/styles/agents-page.css";
+import styles from "./AgentsPage.module.css";
 
 export default function AgentsPage() {
   const { go } = useCompanyNav();
@@ -32,14 +32,14 @@ export default function AgentsPage() {
   const activeCount = agents.filter((a) => a.status === "active" || a.status === "running").length;
 
   return (
-    <div className="page-content ap">
+    <div className={`page-content ${styles.page}`}>
       {/* Header */}
-      <div className="ap-header">
-        <div className="ap-header-left">
-          <h1 className="ap-title">Agents</h1>
-          <span className="ap-count">{agents.length}</span>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <h1 className={styles.title}>Agents</h1>
+          <span className={styles.count}>{agents.length}</span>
         </div>
-        <button className="ap-new-btn" onClick={() => setModalOpen(true)}>
+        <button className={styles.newBtn} onClick={() => setModalOpen(true)}>
           <svg
             width="12"
             height="12"
@@ -57,24 +57,22 @@ export default function AgentsPage() {
 
       {/* Stats strip */}
       {agents.length > 0 && (
-        <div className="ap-stats">
-          <div className="ap-stat">
-            <span className="ap-stat-dot ap-stat-dot--active" />
-            <span className="ap-stat-label">{activeCount} active</span>
+        <div className={styles.stats}>
+          <div className={styles.stat}>
+            <span className={styles.statDotActive} />
+            <span className={styles.statLabel}>{activeCount} active</span>
           </div>
-          <div className="ap-stat">
-            <span className="ap-stat-label ap-stat-label--muted">
-              {agents.length - activeCount} idle
-            </span>
+          <div className={styles.stat}>
+            <span className={styles.statLabelMuted}>{agents.length - activeCount} idle</span>
           </div>
         </div>
       )}
 
       {/* Search */}
       {agents.length > 3 && (
-        <div className="ap-search">
+        <div className={styles.search}>
           <svg
-            className="ap-search-icon"
+            className={styles.searchIcon}
             width="13"
             height="13"
             viewBox="0 0 14 14"
@@ -87,7 +85,7 @@ export default function AgentsPage() {
             <path d="M9.5 9.5L13 13" />
           </svg>
           <input
-            className="ap-search-input"
+            className={styles.searchInput}
             type="text"
             placeholder="Filter agents..."
             value={search}
@@ -98,7 +96,7 @@ export default function AgentsPage() {
 
       {/* Grid */}
       {filtered.length > 0 && (
-        <div className="ap-grid">
+        <div className={styles.grid}>
           {filtered.map((agent) => (
             <AgentCard
               key={agent.id || agent.name}
@@ -111,11 +109,13 @@ export default function AgentsPage() {
 
       {/* Empty */}
       {agents.length === 0 && (
-        <div className="ap-empty">
-          <div className="ap-empty-sigil">æ</div>
-          <h3 className="ap-empty-title">No agents yet</h3>
-          <p className="ap-empty-desc">Agents research, code, review, and operate autonomously.</p>
-          <button className="ap-new-btn" onClick={() => setModalOpen(true)}>
+        <div className={styles.empty}>
+          <div className={styles.emptySigil}>ae</div>
+          <h3 className={styles.emptyTitle}>No agents yet</h3>
+          <p className={styles.emptyDesc}>
+            Agents research, code, review, and operate autonomously.
+          </p>
+          <button className={styles.newBtn} onClick={() => setModalOpen(true)}>
             Create your first agent
           </button>
         </div>
@@ -132,23 +132,23 @@ function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   const ideaCount = (agent as any).idea_ids?.length || (agent as any).ideas?.length || 0;
 
   return (
-    <div className="ap-card" onClick={onClick}>
-      <div className="ap-card-top">
+    <div className={styles.card} onClick={onClick}>
+      <div className={styles.cardTop}>
         <RoundAvatar name={agent.name} size={36} />
-        <span className={`ap-card-status ${isActive ? "ap-card-status--active" : ""}`} />
+        <span className={isActive ? styles.cardStatusActive : styles.cardStatus} />
       </div>
-      <div className="ap-card-name">{label}</div>
-      <div className="ap-card-meta">
-        <span className="ap-card-template">{agent.status}</span>
-        {agent.model && <span className="ap-card-model">{agent.model.split("/").pop()}</span>}
+      <div className={styles.cardName}>{label}</div>
+      <div className={styles.cardMeta}>
+        <span className={styles.cardTemplate}>{agent.status}</span>
+        {agent.model && <span className={styles.cardModel}>{agent.model.split("/").pop()}</span>}
       </div>
-      <div className="ap-card-footer">
+      <div className={styles.cardFooter}>
         {ideaCount > 0 && (
-          <span className="ap-card-tag">
+          <span className={styles.cardTag}>
             {ideaCount} idea{ideaCount !== 1 ? "s" : ""}
           </span>
         )}
-        {agent.created_at && <span className="ap-card-time">{timeAgo(agent.created_at)}</span>}
+        {agent.created_at && <span className={styles.cardTime}>{timeAgo(agent.created_at)}</span>}
       </div>
     </div>
   );

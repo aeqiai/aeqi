@@ -1,0 +1,91 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  min-height: 20px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* Size */
+
+.sm {
+  padding: 1px var(--space-1);
+  font-size: var(--font-size-2xs);
+  min-height: 16px;
+}
+
+.sm .dot {
+  width: 5px;
+  height: 5px;
+}
+
+/* Variants */
+
+.neutral {
+  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.06);
+}
+.neutral .dot {
+  background-color: var(--color-text-secondary);
+}
+
+.info {
+  color: var(--color-info);
+  background: var(--color-info-bg);
+}
+.info .dot {
+  background-color: var(--color-info);
+}
+
+.success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+.success .dot {
+  background-color: var(--color-success);
+}
+
+.warning {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+.warning .dot {
+  background-color: var(--color-warning);
+}
+
+.error {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+.error .dot {
+  background-color: var(--color-error);
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.04);
+}
+.muted .dot {
+  background-color: var(--color-text-muted);
+}
+
+.accent {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.accent .dot {
+  background-color: var(--color-accent);
+}

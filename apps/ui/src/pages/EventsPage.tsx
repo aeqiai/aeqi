@@ -3,6 +3,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { timeAgo } from "@/lib/format";
 import { DataState } from "@/components/ui";
+import styles from "./EventsPage.module.css";
 
 function formatDecisionType(type: string): string {
   return type.replace(/_/g, " ");
@@ -59,7 +60,7 @@ export default function EventsPage() {
     <div className="page-content">
       {selectedAgent && (
         <div className="filters">
-          <span className="filter-agent-badge">
+          <span className={styles.filterBadge}>
             Filtered: {selectedAgent.display_name || selectedAgent.name}
           </span>
         </div>
@@ -72,7 +73,7 @@ export default function EventsPage() {
         emptyDescription="No events recorded yet."
         loadingText="Loading events..."
       >
-        <div className="events-stream">
+        <div className={styles.stream}>
           {grouped.map((group) => (
             <div key={group.key}>
               <div
@@ -88,16 +89,18 @@ export default function EventsPage() {
                 {group.label}
               </div>
               {group.events.map((event: any, i: number) => (
-                <div key={event.id || i} className="event-row">
-                  <span className="event-time">{timeAgo(event.timestamp || event.created_at)}</span>
-                  <span className="event-type-badge">
+                <div key={event.id || i} className={styles.row}>
+                  <span className={styles.time}>
+                    {timeAgo(event.timestamp || event.created_at)}
+                  </span>
+                  <span className={styles.typeBadge}>
                     {formatDecisionType(event.decision_type || event.event_type || "event")}
                   </span>
-                  <span className="event-agent">{event.agent || "\u2014"}</span>
-                  <span className="event-summary">
+                  <span className={styles.agent}>{event.agent || "\u2014"}</span>
+                  <span className={styles.summary}>
                     {event.summary || event.reasoning || event.description || "\u2014"}
                   </span>
-                  {event.quest_id && <code className="event-quest-id">{event.quest_id}</code>}
+                  {event.quest_id && <code className={styles.questId}>{event.quest_id}</code>}
                 </div>
               ))}
             </div>

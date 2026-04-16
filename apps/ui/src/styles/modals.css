@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-scrim);
   backdrop-filter: blur(4px);
   animation: modal-fade-in 0.15s ease;
 }
@@ -169,60 +169,3 @@
 }
 
 /* ── Create Prompt Modal (cpm-) ── */
-
-.cpm-body-textarea {
-  font-family: var(--font-mono);
-  min-height: 200px;
-}
-
-.cpm-tags-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-}
-
-.cpm-tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  background: var(--accent-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  color: var(--text-secondary);
-}
-
-.cpm-preview-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  transition: color var(--transition-fast);
-}
-
-.cpm-preview-toggle:hover {
-  color: var(--text-primary);
-}
-
-.cpm-preview {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  margin-bottom: var(--space-4);
-}

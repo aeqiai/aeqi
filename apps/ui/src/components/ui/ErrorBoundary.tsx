@@ -1,19 +1,21 @@
 import { Component, type ReactNode } from "react";
+import { Button } from "./Button";
+import styles from "./ErrorBoundary.module.css";
 
-interface Props {
+export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
@@ -21,17 +23,16 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         this.props.fallback || (
-          <div style={{ padding: "2rem", textAlign: "center" }}>
-            <h2>Something went wrong</h2>
-            <pre style={{ fontSize: "0.85rem", color: "var(--error)", marginTop: "1rem" }}>
-              {this.state.error?.message}
-            </pre>
-            <button
+          <div className={styles.wrapper}>
+            <h2 className={styles.title}>Something went wrong</h2>
+            <pre className={styles.message}>{this.state.error?.message}</pre>
+            <Button
+              variant="secondary"
+              className={styles.retry}
               onClick={() => this.setState({ hasError: false, error: null })}
-              style={{ marginTop: "1rem" }}
             >
               Try again
-            </button>
+            </Button>
           </div>
         )
       );
@@ -39,3 +40,5 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+Object.defineProperty(ErrorBoundary, "displayName", { value: "ErrorBoundary" });

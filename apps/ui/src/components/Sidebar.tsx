@@ -5,6 +5,7 @@ import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "./RoundAvatar";
 import type { Agent, AgentRef } from "@/lib/types";
+import styles from "./Sidebar.module.css";
 
 function Chevron({ expanded }: { expanded: boolean }) {
   return (
@@ -100,9 +101,9 @@ function AgentNodeView({
   const descendantCount = countDescendants(node);
 
   return (
-    <div className="agent-tree-node">
+    <div className={styles.node}>
       <div
-        className={`agent-row${isActive ? " active" : ""}`}
+        className={isActive ? styles.rowActive : styles.row}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() =>
           onSelectAgent({
@@ -114,16 +115,16 @@ function AgentNodeView({
         }
       >
         <RoundAvatar name={node.name} size={22} />
-        <span className="agent-row-label">{label}</span>
+        <span className={styles.rowLabel}>{label}</span>
         {hasChildren && (
-          <span className="agent-tree-toggle" onClick={(e) => onToggle(node.id, e)}>
-            {isCollapsed && <span className="agent-tree-count">{descendantCount}</span>}
+          <span className={styles.toggle} onClick={(e) => onToggle(node.id, e)}>
+            {isCollapsed && <span className={styles.count}>{descendantCount}</span>}
             <Chevron expanded={!isCollapsed} />
           </span>
         )}
       </div>
       {hasChildren && !isCollapsed && (
-        <div className="agent-tree-children">
+        <div className={styles.children}>
           {node.children.map((child) => (
             <AgentNodeView
               key={child.id}
@@ -164,8 +165,8 @@ export default function AgentTree() {
   };
 
   return (
-    <nav className="agent-tree">
-      <div className="agent-tree-list">
+    <nav className={styles.tree}>
+      <div className={styles.list}>
         {tree.map((node) => (
           <AgentNodeView
             key={node.id}
@@ -178,7 +179,7 @@ export default function AgentTree() {
           />
         ))}
 
-        {allAgents.length === 0 && <div className="agent-tree-empty">No agents yet</div>}
+        {allAgents.length === 0 && <div className={styles.empty}>No agents yet</div>}
       </div>
     </nav>
   );

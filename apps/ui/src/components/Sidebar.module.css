@@ -1,0 +1,92 @@
+/* Agent tree — sidebar component */
+
+.tree {
+  flex: 1;
+  padding: 4px 8px;
+  overflow-y: auto;
+  font-family: var(--font-sans);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.node {
+  display: flex;
+  flex-direction: column;
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Chevron toggle + count -- pushed to the right */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 2px 4px;
+  transition: all 0.1s ease;
+}
+.toggle:hover {
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+}
+
+.count {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  padding: 12px 8px;
+  text-align: center;
+}
+
+/* Agent row */
+.row {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.row:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.rowActive {
+  composes: row;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.rowLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}

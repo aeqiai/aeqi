@@ -594,7 +594,6 @@ pub async fn handle_knowledge_store(
         .unwrap_or("");
     let name = request
         .get("name")
-        .or_else(|| request.get("key"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let content = request

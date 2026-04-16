@@ -1,13 +1,17 @@
-interface DetailFieldProps {
+import styles from "./DetailField.module.css";
+
+export interface DetailFieldProps {
   label: string;
   children: React.ReactNode;
 }
 
-export default function DetailField({ label, children }: DetailFieldProps) {
+export function DetailField({ label, children }: DetailFieldProps) {
   return (
-    <div className="detail-field">
-      <div className="detail-field-label">{label}</div>
-      <div className="detail-field-value">{children}</div>
+    <div className={styles.field}>
+      <div className={styles.label}>{label}</div>
+      <div className={styles.value}>{children}</div>
     </div>
   );
 }
+
+DetailField.displayName = "DetailField";

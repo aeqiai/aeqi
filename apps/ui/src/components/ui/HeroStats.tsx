@@ -1,26 +1,34 @@
-interface Stat {
+import React from "react";
+import styles from "./HeroStats.module.css";
+
+export interface Stat {
   value: string | number;
   label: string;
   color?: "default" | "muted" | "info" | "success" | "error" | "warning";
 }
 
-interface HeroStatsProps {
+export interface HeroStatsProps {
   stats: Stat[];
 }
 
-export default function HeroStats({ stats }: HeroStatsProps) {
+export function HeroStats({ stats }: HeroStatsProps) {
   return (
-    <div className="hero-stats">
+    <div className={styles.wrapper}>
       {stats.map((stat, i) => (
         <React.Fragment key={stat.label}>
-          {i > 0 && <div className="hero-stat-divider" />}
-          <div className="hero-stat">
+          {i > 0 && <div className={styles.divider} />}
+          <div className={styles.stat}>
             <div
-              className={`hero-stat-value${stat.color && stat.color !== "default" ? ` ${stat.color}` : ""}`}
+              className={[
+                styles.value,
+                stat.color && stat.color !== "default" ? styles[stat.color] : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               {stat.value}
             </div>
-            <div className="hero-stat-label">{stat.label}</div>
+            <div className={styles.label}>{stat.label}</div>
           </div>
         </React.Fragment>
       ))}
@@ -28,4 +36,4 @@ export default function HeroStats({ stats }: HeroStatsProps) {
   );
 }
 
-import React from "react";
+HeroStats.displayName = "HeroStats";

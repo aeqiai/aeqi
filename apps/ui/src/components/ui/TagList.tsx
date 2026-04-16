@@ -1,20 +1,24 @@
-interface TagListProps {
+import styles from "./TagList.module.css";
+
+export interface TagListProps {
   items: string[];
   empty?: string;
 }
 
-export default function TagList({ items, empty }: TagListProps) {
+export function TagList({ items, empty }: TagListProps) {
   if (!items || items.length === 0) {
-    return empty ? <span className="text-hint">{empty}</span> : null;
+    return empty ? <span className={styles.empty}>{empty}</span> : null;
   }
 
   return (
-    <div className="flex-wrap-tags">
+    <div className={styles.wrapper}>
       {items.map((item) => (
-        <span key={item} className="expertise-tag">
+        <span key={item} className={styles.tag}>
           {item}
         </span>
       ))}
     </div>
   );
 }
+
+TagList.displayName = "TagList";

@@ -228,7 +228,7 @@ impl SqliteIdeas {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS ideas (
                 id TEXT PRIMARY KEY,
-                key TEXT NOT NULL,
+                name TEXT NOT NULL,
                 content TEXT NOT NULL,
                 scope TEXT NOT NULL DEFAULT 'domain',
                 agent_id TEXT,
@@ -263,7 +263,7 @@ impl SqliteIdeas {
 
     fn ensure_idea_indexes(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(key);
+            "CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(name);
              CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
              CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
              CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
@@ -288,16 +288,16 @@ impl SqliteIdeas {
                 );
 
                 CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.name, new.content);
                 END;
 
                 CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.name, old.content);
                 END;
 
                 CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.key, old.content);
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.key, new.content);
+                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.name, old.content);
+                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.name, new.content);
                 END;
 
                 INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
@@ -534,12 +534,12 @@ impl SqliteIdeas {
 
             let copy_sql = format!(
                 "INSERT INTO ideas (
-                    id, key, content, scope, agent_id, session_id, created_at, updated_at,
+                    id, name, content, scope, agent_id, session_id, created_at, updated_at,
                     expires_at, injection_mode, inheritance, tool_allow, tool_deny,
                     content_hash, source_kind, source_ref, managed
                  )
                  SELECT
-                    id, key, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
+                    id, name, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
                     {expires_expr}, {injection_expr}, {inheritance_expr}, {tool_allow_expr}, {tool_deny_expr},
                     {content_hash_expr}, {source_kind_expr}, {source_ref_expr}, {managed_expr}
                  FROM ideas_legacy"
@@ -689,7 +689,7 @@ impl SqliteIdeas {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let now = Utc::now().to_rfc3339();
         let mut stmt = conn.prepare(
-            "SELECT id, key, content, agent_id, session_id, created_at
+            "SELECT id, name, content, agent_id, session_id, created_at
              FROM ideas
              WHERE expires_at IS NULL OR expires_at > ?1
              ORDER BY created_at DESC",
@@ -734,9 +734,9 @@ impl SqliteIdeas {
         let now = Utc::now().to_rfc3339();
         let like_pattern = format!("{prefix}%");
         let mut stmt = conn.prepare(
-            "SELECT id, key, content, agent_id, session_id, created_at
+            "SELECT id, name, content, agent_id, session_id, created_at
              FROM ideas
-             WHERE key LIKE ?1
+             WHERE name LIKE ?1
              AND (expires_at IS NULL OR expires_at > ?2)
              ORDER BY created_at DESC
              LIMIT ?3",
@@ -855,7 +855,7 @@ impl SqliteIdeas {
         let where_clause = conditions.join(" AND ");
 
         let sql = format!(
-            "SELECT m.id, m.key, m.content, m.agent_id,
+            "SELECT m.id, m.name, m.content, m.agent_id,
                     m.created_at, m.session_id, bm25(ideas_fts) as rank
              FROM ideas_fts f
              JOIN ideas m ON m.rowid = f.rowid
@@ -961,7 +961,7 @@ impl SqliteIdeas {
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT id, key, content, agent_id, created_at, session_id
+            "SELECT id, name, content, agent_id, created_at, session_id
              FROM ideas WHERE id IN ({placeholders})"
         );
         let params: Vec<&dyn rusqlite::types::ToSql> = ids
@@ -1078,14 +1078,14 @@ impl SqliteIdeas {
         };
         let count: i64 = if let Some(aid) = agent_id {
             conn.query_row(
-                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND agent_id = ?2 AND created_at > ?3",
+                "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id = ?2 AND created_at > ?3",
                 rusqlite::params![key, aid, cutoff],
                 |row| row.get(0),
             )
             .unwrap_or(0)
         } else {
             conn.query_row(
-                "SELECT COUNT(*) FROM ideas WHERE key = ?1 AND agent_id IS NULL AND created_at > ?2",
+                "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id IS NULL AND created_at > ?2",
                 rusqlite::params![key, cutoff],
                 |row| row.get(0),
             )
@@ -1516,7 +1516,7 @@ impl IdeaStore for SqliteIdeas {
 
             let conn = this.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
-                "INSERT INTO ideas (id, key, content, agent_id, created_at)
+                "INSERT INTO ideas (id, name, content, agent_id, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
                 rusqlite::params![id, key_owned, content_owned, agent_id_owned, now],
             )?;
@@ -1669,7 +1669,7 @@ impl IdeaStore for SqliteIdeas {
                 let now = Utc::now().to_rfc3339();
                 if let Some(ref key) = key {
                     conn.execute(
-                        "UPDATE ideas SET key = ?1, updated_at = ?2 WHERE id = ?3",
+                        "UPDATE ideas SET name = ?1, updated_at = ?2 WHERE id = ?3",
                         rusqlite::params![key, &now, &id_for_update],
                     )?;
                 }
@@ -1854,7 +1854,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, key, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -1894,7 +1894,7 @@ impl IdeaStore for SqliteIdeas {
     async fn get_injection_ideas(&self) -> Result<Vec<(String, String, Idea)>> {
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, key, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
                  FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
                  ORDER BY agent_id, created_at ASC",
             )?;
@@ -2075,7 +2075,7 @@ mod tests {
             conn.execute_batch(
                 "CREATE TABLE memories (
                     id TEXT PRIMARY KEY,
-                    key TEXT NOT NULL,
+                    name TEXT NOT NULL,
                     content TEXT NOT NULL,
                     category TEXT NOT NULL DEFAULT 'fact',
                     session_id TEXT,
@@ -2335,7 +2335,7 @@ mod tests {
             conn.execute_batch(
                 "CREATE TABLE memories (
                     id TEXT PRIMARY KEY,
-                    key TEXT NOT NULL,
+                    name TEXT NOT NULL,
                     content TEXT NOT NULL,
                     category TEXT NOT NULL DEFAULT 'fact',
                     scope TEXT NOT NULL DEFAULT 'domain',

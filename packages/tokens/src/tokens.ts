@@ -27,6 +27,7 @@ export const color = {
   },
 
   border: {
+    faint: "rgba(0, 0, 0, 0.04)",
     DEFAULT: "rgba(0, 0, 0, 0.08)",
     hover: "rgba(0, 0, 0, 0.15)",
   },
@@ -44,6 +45,8 @@ export const color = {
     warning: "rgba(245, 158, 11, 0.10)",
     info: "rgba(59, 130, 246, 0.10)",
   },
+
+  scrim: "rgba(0, 0, 0, 0.50)",
 
   glass: {
     bg: "rgba(255, 255, 255, 0.90)",
@@ -164,8 +167,45 @@ export const breakpoint = {
   "2xl": "1536px",
 } as const;
 
+export const elevation = {
+  0: "transparent",
+  1: "rgba(0, 0, 0, 0.015)",
+  2: "rgba(0, 0, 0, 0.035)",
+  3: "rgba(0, 0, 0, 0.08)",
+} as const;
+
+export const texture = {
+  grain: {
+    opacity: 0.03,
+    frequency: 0.9,
+  },
+  glass: {
+    blur: "24px",
+    bg: "rgba(255, 255, 255, 0.9)",
+    border: "rgba(0, 0, 0, 0.06)",
+  },
+} as const;
+
+export const interaction = {
+  hover: {
+    lift: "-1px",
+    bg: "rgba(0, 0, 0, 0.02)",
+  },
+  focusRing: "2px solid rgba(0, 0, 0, 0.15)",
+  activeScale: 0.98,
+} as const;
+
+export const prose = {
+  width: "48rem",
+  contentWidth: "56rem",
+  lineHeight: 1.75,
+} as const;
+
 /** Append hex opacity suffix to a hex color. */
-export function withOpacity(hex: string, percent: 5 | 10 | 20 | 30 | 50 | 80): string {
+export function withOpacity(
+  hex: string,
+  percent: 5 | 10 | 20 | 30 | 50 | 80,
+): string {
   const map: Record<number, string> = {
     5: "0D",
     10: "1A",

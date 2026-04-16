@@ -1,6 +1,17 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  @aeqi/tokens — single source of truth
- *  Every color, size, and spacing value lives here.
+ *  AEQI Design Language
+ *  ─────────────────────
+ *  Monochromatic restraint. Opacity as depth. Precision over decoration.
+ *  The name encodes the architecture: Agents, Events, Quests, Ideas.
+ *
+ *  Principles:
+ *  1. Black on white, opacity-based hierarchy — no brand color.
+ *     The restraint IS the brand.
+ *  2. Surfaces are layered via rgba(0,0,0,opacity), not distinct colors.
+ *  3. Grain, glass, and glitch provide visual interest instead of color.
+ *  4. Every value is intentional, not arbitrary.
+ *
+ *  @aeqi/tokens — single source of truth.
  *  Apps consume these via CSS import, Tailwind preset,
  *  or TypeScript constants.
  *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -10,9 +21,9 @@
 
   /* Backgrounds — monochromatic, opacity-based depth */
   --color-bg-base: #ffffff;
-  --color-bg-surface: rgba(0, 0, 0, 0.015);
-  --color-bg-elevated: rgba(0, 0, 0, 0.035);
-  --color-bg-overlay: rgba(0, 0, 0, 0.08);
+  --color-bg-surface: rgba(0, 0, 0, 0.025);
+  --color-bg-elevated: rgba(0, 0, 0, 0.05);
+  --color-bg-overlay: rgba(0, 0, 0, 0.1);
 
   /* Text */
   --color-text-primary: rgba(0, 0, 0, 0.85);
@@ -25,6 +36,7 @@
   --color-accent-bg: rgba(0, 0, 0, 0.04);
 
   /* Borders */
+  --color-border-faint: rgba(0, 0, 0, 0.04);
   --color-border: rgba(0, 0, 0, 0.08);
   --color-border-hover: rgba(0, 0, 0, 0.15);
 
@@ -39,6 +51,9 @@
   --color-error-bg: rgba(239, 68, 68, 0.1);
   --color-warning-bg: rgba(245, 158, 11, 0.1);
   --color-info-bg: rgba(59, 130, 246, 0.1);
+
+  /* Scrim — modal/overlay backdrop */
+  --color-scrim: rgba(0, 0, 0, 0.5);
 
   /* Glass / frosted */
   --color-glass-bg: rgba(255, 255, 255, 0.9);
@@ -67,7 +82,8 @@
 
   /* ── Typography ─────────────────────────────────── */
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
   --font-serif: "EB Garamond", "Georgia", serif;
 
@@ -119,7 +135,8 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 
   /* ── Transitions ────────────────────────────────── */
 
@@ -141,6 +158,34 @@
   /* ── Layout ─────────────────────────────────────── */
 
   --touch-target-min: 44px;
+
+  /* ── Elevation — opacity-based depth layers ─────── */
+
+  --elevation-0: transparent;
+  --elevation-1: rgba(0, 0, 0, 0.025);
+  --elevation-2: rgba(0, 0, 0, 0.05);
+  --elevation-3: rgba(0, 0, 0, 0.1);
+
+  /* ── Textures — grain, glass, glitch ───────────── */
+
+  --texture-grain-opacity: 0.03;
+  --texture-grain-frequency: 0.9;
+  --texture-glass-blur: 24px;
+  --texture-glass-bg: rgba(255, 255, 255, 0.9);
+  --texture-glass-border: rgba(0, 0, 0, 0.06);
+
+  /* ── Interaction states ─────────────────────────── */
+
+  --hover-lift: -1px;
+  --hover-bg: rgba(0, 0, 0, 0.02);
+  --focus-ring: 0 0 0 2px var(--color-bg-base), 0 0 0 4px rgba(0, 0, 0, 0.15);
+  --active-scale: 0.98;
+
+  /* ── Prose / content widths ─────────────────────── */
+
+  --prose-width: 48rem;
+  --content-width: 56rem;
+  --prose-line-height: 1.75;
 }
 
 /* ── Base resets ──────────────────────────────────── */

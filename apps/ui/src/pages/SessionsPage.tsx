@@ -5,6 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useCompanyNav } from "@/hooks/useCompanyNav";
 import { DataState } from "@/components/ui";
 import type { Agent } from "@/lib/types";
+import styles from "./SessionsPage.module.css";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -68,7 +69,7 @@ function agentAvatar(agents: Agent[], agentId: string): string | undefined {
 /* ── Status Indicator ───────────────────────────────── */
 
 function SessionStatusDot({ active }: { active: boolean }) {
-  return <span className={`ss-status-dot ${active ? "ss-status-active" : "ss-status-closed"}`} />;
+  return <span className={active ? styles.statusActive : styles.statusClosed} />;
 }
 
 /* ── Main Page ──────────────────────────────────────── */
@@ -174,49 +175,49 @@ export default function SessionsPage() {
   };
 
   return (
-    <div className="page-content ss-page">
+    <div className={`page-content ${styles.page}`}>
       {/* Stats bar */}
       {stats.total > 0 && (
-        <div className="ss-stats">
-          <div className="ss-stat">
-            <span className="ss-stat-value">{stats.total}</span>
-            <span className="ss-stat-label">Total</span>
+        <div className={styles.stats}>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{stats.total}</span>
+            <span className={styles.statLabel}>Total</span>
           </div>
-          <div className="ss-stat-divider" />
-          <div className="ss-stat">
-            <span className="ss-stat-value">{stats.active}</span>
-            <span className="ss-stat-label">Active</span>
+          <div className={styles.statDivider} />
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{stats.active}</span>
+            <span className={styles.statLabel}>Active</span>
           </div>
-          <div className="ss-stat-divider" />
-          <div className="ss-stat">
-            <span className="ss-stat-value ss-stat-muted">{stats.closed}</span>
-            <span className="ss-stat-label">Closed</span>
+          <div className={styles.statDivider} />
+          <div className={styles.stat}>
+            <span className={`${styles.statValue} ${styles.statMuted}`}>{stats.closed}</span>
+            <span className={styles.statLabel}>Closed</span>
           </div>
         </div>
       )}
 
       {/* Toolbar */}
       {stats.total > 0 && (
-        <div className="ss-toolbar">
-          <div className="ss-filter-tabs">
+        <div className={styles.toolbar}>
+          <div className={styles.filterTabs}>
             {statusFilters.map((f) => (
               <button
                 key={f.key}
-                className={`ss-filter-tab${statusFilter === f.key ? " active" : ""}`}
+                className={statusFilter === f.key ? styles.filterTabActive : styles.filterTab}
                 onClick={() => setStatusFilter(f.key)}
                 type="button"
               >
                 {f.label}
                 {f.key === "active" && stats.active > 0 && (
-                  <span className="ss-filter-tab-count">{stats.active}</span>
+                  <span className={styles.filterTabCount}>{stats.active}</span>
                 )}
               </button>
             ))}
           </div>
 
-          <div className="ss-toolbar-right">
-            <div className="ss-search-wrap">
-              <svg className="ss-search-icon" viewBox="0 0 16 16" fill="none">
+          <div className={styles.toolbarRight}>
+            <div className={styles.searchWrap}>
+              <svg className={styles.searchIcon} viewBox="0 0 16 16" fill="none">
                 <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
                 <path
                   d="M10.5 10.5L14 14"
@@ -227,7 +228,7 @@ export default function SessionsPage() {
               </svg>
               <input
                 ref={searchRef}
-                className="ss-search"
+                className={styles.search}
                 placeholder="Filter sessions..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -235,7 +236,7 @@ export default function SessionsPage() {
             </div>
 
             <select
-              className="ss-agent-filter"
+              className={styles.agentFilter}
               value={agentFilter}
               onChange={(e) => setAgentFilter(e.target.value)}
             >
@@ -251,7 +252,7 @@ export default function SessionsPage() {
       )}
 
       {/* List */}
-      <div className="ss-list">
+      <div className={styles.list}>
         <DataState
           loading={loading}
           empty={sorted.length === 0 && !loading}
@@ -263,14 +264,14 @@ export default function SessionsPage() {
           }
         >
           {/* Table header */}
-          <div className="ss-row ss-row-header">
-            <div className="ss-cell ss-cell-status" />
-            <div className="ss-cell ss-cell-agent">Agent</div>
-            <div className="ss-cell ss-cell-name">Session</div>
-            <div className="ss-cell ss-cell-status-label">Status</div>
-            <div className="ss-cell ss-cell-spacer" />
-            <div className="ss-cell ss-cell-duration">Duration</div>
-            <div className="ss-cell ss-cell-time">Created</div>
+          <div className={styles.rowHeader}>
+            <div className={styles.cellStatus} />
+            <div className={styles.cellAgent}>Agent</div>
+            <div className={styles.cellName}>Session</div>
+            <div className={styles.cellStatusLabel}>Status</div>
+            <div className={styles.cellSpacer} />
+            <div className={styles.cellDuration}>Duration</div>
+            <div className={styles.cellTime}>Created</div>
           </div>
 
           {/* Rows */}
@@ -282,35 +283,33 @@ export default function SessionsPage() {
             return (
               <div
                 key={s.id}
-                className={`ss-row ss-row-data${!active ? " ss-row-closed" : ""}`}
+                className={`${styles.rowData}${!active ? ` ${styles.rowClosed}` : ""}`}
                 onClick={() => handleRowClick(s)}
               >
-                <div className="ss-cell ss-cell-status">
+                <div className={styles.cellStatus}>
                   <SessionStatusDot active={active} />
                 </div>
-                <div className="ss-cell ss-cell-agent">
+                <div className={styles.cellAgent}>
                   {avatar ? (
-                    <img className="ss-agent-avatar" src={avatar} alt="" />
+                    <img className={styles.agentAvatar} src={avatar} alt="" />
                   ) : (
-                    <span className="ss-agent-avatar-fallback">
+                    <span className={styles.agentAvatarFallback}>
                       {agentDisplayName(agents, s.agent_id).charAt(0).toUpperCase()}
                     </span>
                   )}
-                  <span className="ss-agent-name">{agentDisplayName(agents, s.agent_id)}</span>
+                  <span className={styles.agentName}>{agentDisplayName(agents, s.agent_id)}</span>
                 </div>
-                <div className="ss-cell ss-cell-name">
-                  <span className="ss-session-name">{s.name || s.id.slice(0, 12)}</span>
+                <div className={styles.cellName}>
+                  <span className={styles.sessionName}>{s.name || s.id.slice(0, 12)}</span>
                 </div>
-                <div className="ss-cell ss-cell-status-label">
-                  <span
-                    className={`ss-status-badge${active ? " ss-badge-active" : " ss-badge-closed"}`}
-                  >
+                <div className={styles.cellStatusLabel}>
+                  <span className={active ? styles.badgeActive : styles.badgeClosed}>
                     {active ? "active" : "closed"}
                   </span>
                 </div>
-                <div className="ss-cell ss-cell-spacer" />
-                <div className="ss-cell ss-cell-duration">{formatDuration(duration)}</div>
-                <div className="ss-cell ss-cell-time">{timeAgo(s.created_at)}</div>
+                <div className={styles.cellSpacer} />
+                <div className={styles.cellDuration}>{formatDuration(duration)}</div>
+                <div className={styles.cellTime}>{timeAgo(s.created_at)}</div>
               </div>
             );
           })}

@@ -1,6 +1,8 @@
-import EmptyState from "@/components/EmptyState";
+import { Spinner } from "./Spinner";
+import { EmptyState } from "./EmptyState";
+import styles from "./DataState.module.css";
 
-interface DataStateProps {
+export interface DataStateProps {
   loading: boolean;
   empty: boolean;
   emptyTitle?: string;
@@ -9,15 +11,23 @@ interface DataStateProps {
   children: React.ReactNode;
 }
 
-export default function DataState({
+export function DataState({
   loading,
   empty,
   emptyTitle = "Nothing here",
   emptyDescription = "",
-  loadingText = "Loading...",
+  loadingText,
   children,
 }: DataStateProps) {
-  if (loading) return <div className="loading">{loadingText}</div>;
+  if (loading)
+    return (
+      <div className={styles.loading} role="status">
+        <Spinner size="md" />
+        {loadingText && <span className={styles.loadingText}>{loadingText}</span>}
+      </div>
+    );
   if (empty) return <EmptyState title={emptyTitle} description={emptyDescription} />;
   return <>{children}</>;
 }
+
+DataState.displayName = "DataState";

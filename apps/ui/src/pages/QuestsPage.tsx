@@ -1,28 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import "@/styles/quests.css";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import type { Quest, QuestStatus, QuestPriority } from "@/lib/types";
+import styles from "./QuestsPage.module.css";
 
 /* ── Icons ───────────────────────────────────────────── */
 
+const STATUS_STYLE: Record<QuestStatus, string> = {
+  pending: styles.statusPending,
+  in_progress: styles.statusInProgress,
+  blocked: styles.statusBlocked,
+  done: styles.statusDone,
+  cancelled: styles.statusCancelled,
+};
+
 function StatusDot({ status }: { status: QuestStatus }) {
-  return <span className={`q-status-dot q-status-${status}`} />;
+  return <span className={STATUS_STYLE[status] || styles.statusDot} />;
 }
 
+const PRIORITY_STYLE: Record<QuestPriority, string> = {
+  critical: styles.priorityCritical,
+  high: styles.priorityHigh,
+  normal: styles.priorityNormal,
+  low: styles.priorityLow,
+};
+
 function PriorityIcon({ priority }: { priority: QuestPriority }) {
+  const cls = PRIORITY_STYLE[priority] || styles.priorityIcon;
   if (priority === "critical")
     return (
-      <svg className="q-priority-icon q-priority-critical" viewBox="0 0 16 16" fill="none">
+      <svg className={cls} viewBox="0 0 16 16" fill="none">
         <path d="M8 3v6M8 11.5v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   if (priority === "high")
     return (
-      <svg className="q-priority-icon q-priority-high" viewBox="0 0 16 16" fill="none">
+      <svg className={cls} viewBox="0 0 16 16" fill="none">
         <path
           d="M4 10l4-4 4 4"
           stroke="currentColor"
@@ -34,7 +50,7 @@ function PriorityIcon({ priority }: { priority: QuestPriority }) {
     );
   if (priority === "low")
     return (
-      <svg className="q-priority-icon q-priority-low" viewBox="0 0 16 16" fill="none">
+      <svg className={cls} viewBox="0 0 16 16" fill="none">
         <path
           d="M4 6l4 4 4-4"
           stroke="currentColor"
@@ -46,7 +62,7 @@ function PriorityIcon({ priority }: { priority: QuestPriority }) {
     );
   // normal — horizontal bars
   return (
-    <svg className="q-priority-icon q-priority-normal" viewBox="0 0 16 16" fill="none">
+    <svg className={cls} viewBox="0 0 16 16" fill="none">
       <path d="M4 6h8M4 10h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
@@ -137,54 +153,56 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
 
   return (
     <div
-      className="q-modal-backdrop"
+      className={styles.modalBackdrop}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="q-modal" onKeyDown={handleKeyDown}>
-        <div className="q-modal-header">New Quest</div>
+      <div className={styles.modal} onKeyDown={handleKeyDown}>
+        <div className={styles.modalHeader}>New Quest</div>
 
-        <div className="q-modal-body">
+        <div className={styles.modalBody}>
           <input
             ref={subjectRef}
-            className="q-modal-title-input"
+            className={styles.modalTitleInput}
             placeholder="Quest title"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
           />
 
           <textarea
-            className="q-modal-desc-input"
+            className={styles.modalDescInput}
             placeholder="Add description..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
           />
 
-          <div className="q-modal-fields">
-            <div className="q-modal-field">
-              <span className="q-modal-field-label">Priority</span>
-              <div className="q-modal-priority-group">
-                {priorities.map((p) => (
-                  <button
-                    key={p}
-                    className={`q-modal-priority-btn${priority === p ? " active" : ""}`}
-                    data-priority={p}
-                    onClick={() => setPriority(p)}
-                    type="button"
-                  >
-                    <PriorityIcon priority={p} />
-                    <span>{p}</span>
-                  </button>
-                ))}
+          <div className={styles.modalFields}>
+            <div className={styles.modalField}>
+              <span className={styles.modalFieldLabel}>Priority</span>
+              <div className={styles.modalPriorityGroup}>
+                {priorities.map((p) => {
+                  let btnCls = styles.modalPriorityBtn;
+                  if (priority === p) {
+                    if (p === "critical") btnCls = styles.modalPriorityBtnActiveCritical;
+                    else if (p === "high") btnCls = styles.modalPriorityBtnActiveHigh;
+                    else btnCls = styles.modalPriorityBtnActive;
+                  }
+                  return (
+                    <button key={p} className={btnCls} onClick={() => setPriority(p)} type="button">
+                      <PriorityIcon priority={p} />
+                      <span>{p}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="q-modal-field">
-              <span className="q-modal-field-label">Assignee</span>
+            <div className={styles.modalField}>
+              <span className={styles.modalFieldLabel}>Assignee</span>
               <select
-                className="q-modal-select"
+                className={styles.modalSelect}
                 value={agentName}
                 onChange={(e) => setAgentName(e.target.value)}
               >
@@ -197,10 +215,10 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
               </select>
             </div>
 
-            <div className="q-modal-field">
-              <span className="q-modal-field-label">Acceptance criteria</span>
+            <div className={styles.modalField}>
+              <span className={styles.modalFieldLabel}>Acceptance criteria</span>
               <textarea
-                className="q-modal-desc-input"
+                className={styles.modalFieldDescInput}
                 placeholder="Define what done looks like..."
                 value={acceptance}
                 onChange={(e) => setAcceptance(e.target.value)}
@@ -210,12 +228,12 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
           </div>
         </div>
 
-        <div className="q-modal-footer">
-          <button className="q-btn q-btn-ghost" onClick={onClose} type="button">
+        <div className={styles.modalFooter}>
+          <button className={styles.btnGhost} onClick={onClose} type="button">
             Cancel
           </button>
           <button
-            className="q-btn q-btn-primary"
+            className={styles.btnPrimary}
             onClick={handleCreate}
             disabled={!subject.trim() || submitting}
             type="button"
@@ -234,31 +252,35 @@ function QuestRow({ quest }: { quest: Quest }) {
   const isClosed = quest.status === "done" || quest.status === "cancelled";
 
   return (
-    <div className={`q-row${isClosed ? " q-row-closed" : ""}`}>
-      <div className="q-row-status">
+    <div className={isClosed ? styles.rowClosed : styles.row}>
+      <div className={styles.rowStatus}>
         <StatusDot status={quest.status} />
       </div>
-      <div className="q-row-priority">
+      <div className={styles.rowPriority}>
         <PriorityIcon priority={quest.priority} />
       </div>
-      <div className="q-row-id">{quest.id}</div>
-      <div className="q-row-subject">
-        <span className={`q-row-title${quest.status === "cancelled" ? " q-struck" : ""}`}>
+      <div className={styles.rowId}>{quest.id}</div>
+      <div className={styles.rowSubject}>
+        <span
+          className={
+            quest.status === "cancelled" ? `${styles.rowTitle} ${styles.struck}` : styles.rowTitle
+          }
+        >
           {quest.subject}
         </span>
       </div>
       {quest.labels && quest.labels.length > 0 && (
-        <div className="q-row-labels">
+        <div className={styles.rowLabels}>
           {quest.labels.map((l) => (
-            <span key={l} className="q-label">
+            <span key={l} className={styles.label}>
               {l}
             </span>
           ))}
         </div>
       )}
-      <div className="q-row-spacer" />
-      {quest.agent_id && <div className="q-row-assignee">{quest.agent_id}</div>}
-      <div className="q-row-time">{timeAgo(quest.updated_at || quest.created_at)}</div>
+      <div className={styles.rowSpacer} />
+      {quest.agent_id && <div className={styles.rowAssignee}>{quest.agent_id}</div>}
+      <div className={styles.rowTime}>{timeAgo(quest.updated_at || quest.created_at)}</div>
     </div>
   );
 }
@@ -271,9 +293,13 @@ function QuestGroupSection({ group, defaultOpen }: { group: QuestGroup; defaultO
   if (group.quests.length === 0) return null;
 
   return (
-    <div className="q-group">
-      <button className="q-group-header" onClick={() => setOpen((v) => !v)} type="button">
-        <svg className={`q-group-chevron${open ? " open" : ""}`} viewBox="0 0 16 16" fill="none">
+    <div className={styles.group}>
+      <button className={styles.groupHeader} onClick={() => setOpen((v) => !v)} type="button">
+        <svg
+          className={open ? styles.groupChevronOpen : styles.groupChevron}
+          viewBox="0 0 16 16"
+          fill="none"
+        >
           <path
             d="M6 4l4 4-4 4"
             stroke="currentColor"
@@ -283,11 +309,11 @@ function QuestGroupSection({ group, defaultOpen }: { group: QuestGroup; defaultO
           />
         </svg>
         <StatusDot status={group.status} />
-        <span className="q-group-label">{group.label}</span>
-        <span className="q-group-count">{group.quests.length}</span>
+        <span className={styles.groupLabel}>{group.label}</span>
+        <span className={styles.groupCount}>{group.quests.length}</span>
       </button>
       {open && (
-        <div className="q-group-body">
+        <div className={styles.groupBody}>
           {group.quests.map((q) => (
             <QuestRow key={q.id} quest={q} />
           ))}
@@ -425,55 +451,55 @@ export default function QuestsPage() {
   ];
 
   return (
-    <div className="page-content q-page">
+    <div className={`page-content ${styles.page}`}>
       {/* Actions moved to ContentTopBar — no hero needed */}
 
       {stats.total > 0 && (
         <>
           {/* Stats */}
-          <div className="q-stats">
-            <div className="q-stat">
-              <span className="q-stat-value">{stats.inProgress}</span>
-              <span className="q-stat-label">In Progress</span>
+          <div className={styles.stats}>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{stats.inProgress}</span>
+              <span className={styles.statLabel}>In Progress</span>
             </div>
-            <div className="q-stat-divider" />
-            <div className="q-stat">
-              <span className="q-stat-value">{stats.pending}</span>
-              <span className="q-stat-label">Pending</span>
+            <div className={styles.statDivider} />
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{stats.pending}</span>
+              <span className={styles.statLabel}>Pending</span>
             </div>
-            <div className="q-stat-divider" />
-            <div className="q-stat">
-              <span className="q-stat-value q-stat-warning">{stats.blocked}</span>
-              <span className="q-stat-label">Blocked</span>
+            <div className={styles.statDivider} />
+            <div className={styles.stat}>
+              <span className={`${styles.statValue} ${styles.statWarning}`}>{stats.blocked}</span>
+              <span className={styles.statLabel}>Blocked</span>
             </div>
-            <div className="q-stat-divider" />
-            <div className="q-stat">
-              <span className="q-stat-value q-stat-success">{stats.completed}</span>
-              <span className="q-stat-label">Completed</span>
+            <div className={styles.statDivider} />
+            <div className={styles.stat}>
+              <span className={`${styles.statValue} ${styles.statSuccess}`}>{stats.completed}</span>
+              <span className={styles.statLabel}>Completed</span>
             </div>
           </div>
 
           {/* Toolbar */}
-          <div className="q-toolbar">
-            <div className="q-filter-tabs">
+          <div className={styles.toolbar}>
+            <div className={styles.filterTabs}>
               {viewFilters.map((f) => (
                 <button
                   key={f.key}
-                  className={`q-filter-tab${viewFilter === f.key ? " active" : ""}`}
+                  className={viewFilter === f.key ? styles.filterTabActive : styles.filterTab}
                   onClick={() => setViewFilter(f.key)}
                   type="button"
                 >
                   {f.label}
                   {f.key === "active" && totalActive > 0 && (
-                    <span className="q-filter-tab-count">{totalActive}</span>
+                    <span className={styles.filterTabCount}>{totalActive}</span>
                   )}
                 </button>
               ))}
             </div>
 
-            <div className="q-toolbar-right">
-              <div className="q-search-wrap">
-                <svg className="q-search-icon" viewBox="0 0 16 16" fill="none">
+            <div className={styles.toolbarRight}>
+              <div className={styles.searchWrap}>
+                <svg className={styles.searchIcon} viewBox="0 0 16 16" fill="none">
                   <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
                   <path
                     d="M10.5 10.5L14 14"
@@ -483,7 +509,7 @@ export default function QuestsPage() {
                   />
                 </svg>
                 <input
-                  className="q-search"
+                  className={styles.search}
                   placeholder="Filter..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -491,7 +517,7 @@ export default function QuestsPage() {
               </div>
 
               <select
-                className="q-agent-filter"
+                className={styles.agentFilter}
                 value={agentFilter}
                 onChange={(e) => setAgentFilter(e.target.value)}
               >
@@ -508,10 +534,10 @@ export default function QuestsPage() {
       )}
 
       {/* List */}
-      <div className="q-list">
+      <div className={styles.list}>
         {groups.length === 0 && stats.total === 0 && (
-          <div className="q-empty">
-            <div className="q-empty-hero">
+          <div className={styles.empty}>
+            <div className={styles.emptyHero}>
               <svg
                 width="48"
                 height="48"
@@ -546,7 +572,7 @@ export default function QuestsPage() {
                 Quests are units of work you assign to agents. Create one to get started.
               </p>
               <button
-                className="q-btn q-btn-primary"
+                className={styles.btnPrimary}
                 onClick={openModal}
                 style={{ padding: "10px 24px" }}
               >
@@ -569,8 +595,8 @@ export default function QuestsPage() {
           </div>
         )}
         {groups.length === 0 && stats.total > 0 && (
-          <div className="q-empty">
-            <span className="q-empty-text">No quests</span>
+          <div className={styles.empty}>
+            <span className={styles.emptyText}>No quests</span>
           </div>
         )}
         {groups.map((g) => (
