@@ -177,14 +177,31 @@ export default function AgentTree() {
     go(`/agents/${agent.id}`);
   };
 
+  const rootAgent = allAgents.find((a) => a.id === rootId);
+  const isRootSelected = !selectedId;
+
   return (
     <nav className={styles.tree}>
       <div className={styles.list}>
+        {/* Root agent — always at top of tree */}
+        {rootAgent && (
+          <div
+            className={`${styles.node} ${isRootSelected ? styles.selected : ""}`}
+            onClick={() => go("/")}
+          >
+            <RoundAvatar name={rootAgent.name} size={22} />
+            <span className={styles.name}>
+              {rootAgent.display_name || rootAgent.name}
+            </span>
+            {rootAgent.status === "active" && <span className={styles.statusDot} />}
+          </div>
+        )}
+        {/* Children */}
         {tree.map((node) => (
           <AgentNodeView
             key={node.id}
             node={node}
-            depth={0}
+            depth={1}
             selectedId={selectedId}
             collapsed={collapsed}
             onSelectAgent={handleSelectAgent}
@@ -192,7 +209,6 @@ export default function AgentTree() {
           />
         ))}
 
-        {childAgents.length === 0 && <div className={styles.empty}>No agents yet</div>}
       </div>
     </nav>
   );
