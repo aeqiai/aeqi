@@ -98,7 +98,7 @@
 /* ── Brand mark ── */
 .sidebar-brand {
   display: block;
-  padding: 14px 16px 6px;
+  padding: 0;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.05em;
