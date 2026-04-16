@@ -1,4 +1,4 @@
-import EmptyState from "@/components/EmptyState";
+import { EmptyState } from "@/components/ui";
 
 export default function MarketPage() {
   return (

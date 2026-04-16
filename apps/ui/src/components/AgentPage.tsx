@@ -7,7 +7,7 @@ import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import RoundAvatar from "./RoundAvatar";
-import { EmptyState } from "./ui/EmptyState";
+import { EmptyState } from "./ui";
 import type { Idea } from "@/lib/types";
 
 const SETTINGS_TABS = ["General", "Channels"] as const;
