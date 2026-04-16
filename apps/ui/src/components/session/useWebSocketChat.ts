@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import { getScopedCompany } from "@/lib/appMode";
+import { getScopedRoot } from "@/lib/appMode";
 import {
   type Message,
   type MessageSegment,
@@ -102,9 +102,9 @@ export function useWebSocketChat({
       }
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const company = getScopedCompany();
+      const root = getScopedRoot();
       const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/chat/stream?token=${token}&company=${encodeURIComponent(company)}`,
+        `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(root)}`,
       );
       wsRef.current = ws;
 

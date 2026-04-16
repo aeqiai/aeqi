@@ -10,14 +10,14 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
 }
 
 /**
- * Get the active company name. Reads from the URL path first (/:company/...),
+ * Get the active root agent name. Reads from the URL path first (/:root/...),
  * falls back to localStorage for contexts outside the router (WebSocket, etc).
  */
-export function getScopedCompany(): string {
-  // In the browser, extract from URL: /company-name/agents → "company-name"
+export function getScopedRoot(): string {
+  // In the browser, extract from URL: /root-name/agents → "root-name"
   const path = window.location.pathname;
   const segments = path.split("/").filter(Boolean);
-  // Skip known root-level routes that are NOT company names.
+  // Skip known root-level routes that are NOT root agent names.
   const rootRoutes = new Set([
     "login",
     "signup",
@@ -31,5 +31,14 @@ export function getScopedCompany(): string {
     return decodeURIComponent(segments[0]);
   }
   // Fallback for pre-navigation contexts.
-  return localStorage.getItem("aeqi_company") || "";
+  // Migration: read old key if new key doesn't exist.
+  let stored = localStorage.getItem("aeqi_root");
+  if (!stored) {
+    const legacy = localStorage.getItem("aeqi_company");
+    if (legacy) {
+      localStorage.setItem("aeqi_root", legacy);
+      stored = legacy;
+    }
+  }
+  return stored || "";
 }

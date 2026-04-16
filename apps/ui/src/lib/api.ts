@@ -1,5 +1,5 @@
 import { clearSessionData } from "@/lib/session";
-import { getScopedCompany, type AppMode } from "@/lib/appMode";
+import { getScopedRoot, type AppMode } from "@/lib/appMode";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -39,9 +39,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const company = getScopedCompany();
-  if (company && !path.startsWith("/auth/")) {
-    headers["X-Company"] = company;
+  const root = getScopedRoot();
+  if (root && !path.startsWith("/auth/")) {
+    headers["X-Root"] = root;
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -59,9 +59,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (res.status === 403 && !path.startsWith("/auth/")) {
-    localStorage.removeItem("aeqi_company");
-    localStorage.removeItem("aeqi_company_tagline");
-    localStorage.removeItem("aeqi_company_avatar");
+    localStorage.removeItem("aeqi_root");
+    localStorage.removeItem("aeqi_root_tagline");
+    localStorage.removeItem("aeqi_root_avatar");
   }
 
   if (!res.ok) {
@@ -231,11 +231,11 @@ export const api = {
     return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
-  // Companies
-  getCompanies: () => request<Record<string, unknown>>("/companies"),
-  createCompany: (data: { name: string; tagline?: string; prefix?: string }) =>
+  // Roots (root agents)
+  getRoots: () => request<Record<string, unknown>>("/companies"),
+  createRoot: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
-  updateCompany: (
+  updateRoot: (
     name: string,
     data: { display_name?: string; tagline?: string; logo_url?: string },
   ) =>
@@ -245,10 +245,10 @@ export const api = {
     }),
 
   // Quests
-  getQuests: (params?: { status?: string; company?: string }) => {
+  getQuests: (params?: { status?: string; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
-    if (params?.company) query.set("company", params.company);
+    if (params?.root) query.set("company", params.root);
     const qs = query.toString();
     return request<Record<string, unknown>>(`/quests${qs ? `?${qs}` : ""}`);
   },
@@ -257,18 +257,18 @@ export const api = {
   getAgents: () => request<Record<string, unknown>>("/agents"),
 
   // Activity stream (daemon events)
-  getActivityStream: (params?: { last?: number; company?: string }) => {
+  getActivityStream: (params?: { last?: number; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.last) query.set("last", String(params.last));
-    if (params?.company) query.set("company", params.company);
+    if (params?.root) query.set("company", params.root);
     const qs = query.toString();
     return request<Record<string, unknown>>(`/activity${qs ? `?${qs}` : ""}`);
   },
 
   // Notes
-  getNotes: (params?: { company?: string; limit?: number }) => {
+  getNotes: (params?: { root?: string; limit?: number }) => {
     const query = new URLSearchParams();
-    if (params?.company) query.set("company", params.company);
+    if (params?.root) query.set("company", params.root);
     if (params?.limit) query.set("limit", String(params.limit));
     const qs = query.toString();
     return request<Record<string, unknown>>(`/notes${qs ? `?${qs}` : ""}`);
@@ -286,9 +286,9 @@ export const api = {
   getCost: () => request<Record<string, unknown>>("/cost"),
 
   // Ideas
-  getIdeas: (params?: { company?: string; query?: string; limit?: number }) => {
+  getIdeas: (params?: { root?: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.company) q.set("company", params.company);
+    if (params?.root) q.set("company", params.root);
     if (params?.query) q.set("query", params.query);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
@@ -326,42 +326,48 @@ export const api = {
     }),
 
   // Idea graph & profile
-  getIdeaGraph: (params?: { company?: string; limit?: number }) => {
+  getIdeaGraph: (params?: { root?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.company) q.set("company", params.company);
+    if (params?.root) q.set("company", params.root);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
   },
 
-  getIdeaProfile: (params?: { company?: string }) => {
+  getIdeaProfile: (params?: { root?: string }) => {
     const q = new URLSearchParams();
-    if (params?.company) q.set("company", params.company);
+    if (params?.root) q.set("company", params.root);
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
-  // Company Knowledge
-  getCompanyKnowledge: (name: string) =>
+  // Root Agent Knowledge
+  getRootKnowledge: (name: string) =>
     request<Record<string, unknown>>(`/companies/${name}/knowledge`),
 
   // Knowledge CRUD
   storeKnowledge: (data: {
-    company: string;
+    root: string;
     name: string;
     content: string;
     tags?: string[];
     scope?: string;
   }) =>
-    request<{ ok: boolean }>("/knowledge/store", { method: "POST", body: JSON.stringify(data) }),
+    request<{ ok: boolean }>("/knowledge/store", {
+      method: "POST",
+      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
+    }),
 
-  deleteKnowledge: (data: { company: string; id: string }) =>
-    request<{ ok: boolean }>("/knowledge/delete", { method: "POST", body: JSON.stringify(data) }),
+  deleteKnowledge: (data: { root: string; id: string }) =>
+    request<{ ok: boolean }>("/knowledge/delete", {
+      method: "POST",
+      body: JSON.stringify({ company: data.root, id: data.id }),
+    }),
 
   // Channel Knowledge
-  getChannelKnowledge: (params: { company: string; query?: string; limit?: number }) => {
+  getChannelKnowledge: (params: { root: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    q.set("company", params.company);
+    q.set("company", params.root);
     if (params.query) q.set("query", params.query);
     if (params.limit) q.set("limit", String(params.limit));
     return request<Record<string, unknown>>(`/knowledge/channel?${q.toString()}`);
@@ -384,7 +390,7 @@ export const api = {
 
   // Write: Create Quest
   createQuest: (data: {
-    company: string;
+    root: string;
     subject: string;
     description?: string;
     priority?: string;
@@ -393,19 +399,21 @@ export const api = {
   }) =>
     request<Record<string, unknown>>("/quests", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
     }),
 
   // Write: Close Quest
-  closeQuest: (id: string, data?: { reason?: string; company?: string }) =>
+  closeQuest: (id: string, data?: { reason?: string; root?: string }) =>
     request<{ ok: boolean }>(`/quests/${id}/close`, {
       method: "POST",
-      body: JSON.stringify(data || {}),
+      body: JSON.stringify(
+        data ? { reason: data.reason, company: data.root } : {},
+      ),
     }),
 
   // Write: Post Note
   postNote: (data: {
-    company: string;
+    root: string;
     name: string;
     content: string;
     tags?: string[];
@@ -413,7 +421,7 @@ export const api = {
   }) =>
     request<{ ok: boolean }>("/notes", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
     }),
 
   // Single quest
@@ -508,17 +516,17 @@ export const api = {
       keys: Array<{
         id: string;
         prefix: string;
-        company: string;
+        root: string;
         name: string;
         created_at: string;
         last_used_at: string | null;
       }>;
     }>("/keys"),
 
-  createKey: (data: { company: string; name: string }) =>
+  createKey: (data: { root: string; name: string }) =>
     request<{ ok: boolean; id: string; secret_key: string }>("/keys", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ company: data.root, name: data.name }),
     }),
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),

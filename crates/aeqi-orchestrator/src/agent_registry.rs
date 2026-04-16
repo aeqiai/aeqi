@@ -1,6 +1,6 @@
 //! Agent Registry — the unified agent tree.
 //!
-//! Everything is an agent. A "company" is an agent with children.
+//! Everything is an agent. A root agent has parent_id IS NULL.
 //! A "worker" is an agent. The root agent (parent_id IS NULL) is the user's
 //! workspace — the single point of contact. Structure is emergent, not typed.
 //!
@@ -148,30 +148,6 @@ impl std::fmt::Display for AgentStatus {
     }
 }
 
-/// A company record — business identity stored in the companies table.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CompanyRecord {
-    pub name: String,
-    pub display_name: Option<String>,
-    pub prefix: String,
-    pub tagline: Option<String>,
-    pub logo_url: Option<String>,
-    pub primer: Option<String>,
-    pub repo: Option<String>,
-    pub model: Option<String>,
-    pub max_workers: u32,
-    pub execution_mode: String,
-    pub worker_timeout_secs: u64,
-    pub worktree_root: Option<String>,
-    pub max_steps: Option<u32>,
-    pub max_budget_usd: Option<f64>,
-    pub max_cost_per_day_usd: Option<f64>,
-    pub source: String,
-    pub agent_id: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
 /// A lightweight SQLite connection pool.
 ///
 /// A single execution record tracked in the `runs` table.
@@ -246,7 +222,7 @@ impl ConnectionPool {
 /// SQLite-backed registry — the single source of truth for the agent tree.
 ///
 /// Two databases:
-/// - `aeqi.db` (template — portable, copy = clone company): agents, events, ideas, quest_sequences
+/// - `aeqi.db` (template — portable, copy = clone agent tree): agents, events, ideas, quest_sequences
 /// - `sessions.db` (journal — per-instance, ephemeral): sessions, messages, activity, runs, quests
 pub struct AgentRegistry {
     db: Arc<ConnectionPool>,
@@ -846,7 +822,7 @@ impl AgentRegistry {
     }
 
     /// Get the root agent (parent_id IS NULL, status = active).
-    /// In a single-company runtime, this is the company's primary agent.
+    /// In a single-root runtime, this is the primary root agent.
     pub async fn get_root_agent(&self) -> Result<Option<Agent>> {
         let db = self.db.lock().await;
         db.query_row(
@@ -1133,6 +1109,16 @@ impl AgentRegistry {
         db.execute(
             "UPDATE agents SET model = ?1 WHERE id = ?2",
             params![model_val, id],
+        )?;
+        Ok(())
+    }
+
+    /// Set the display_name for an agent.
+    pub async fn update_display_name(&self, id: &str, display_name: Option<&str>) -> Result<()> {
+        let db = self.db.lock().await;
+        db.execute(
+            "UPDATE agents SET display_name = ?1 WHERE id = ?2",
+            params![display_name, id],
         )?;
         Ok(())
     }
@@ -2110,162 +2096,16 @@ impl AgentRegistry {
         Ok(total_affected)
     }
 
-    // -- Company CRUD ---------------------------------------------------------
-
-    /// Upsert a company from TOML config (overwrites existing TOML-sourced entries).
-    pub async fn upsert_company_from_toml(&self, record: &CompanyRecord) -> Result<()> {
+    /// List root agents (agents with no parent).
+    pub async fn list_root_agents(&self) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
-        db.execute(
-            "INSERT INTO companies (name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
-                max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,'toml',?16,?17,?17)
-             ON CONFLICT(name) DO UPDATE SET
-                prefix=?3, primer=?6, repo=?7, model=?8, max_workers=?9,
-                execution_mode=?10, worker_timeout_secs=?11, worktree_root=?12,
-                max_steps=?13, max_budget_usd=?14, max_cost_per_day_usd=?15,
-                agent_id=?16, updated_at=?17
-             WHERE source='toml'",
-            rusqlite::params![
-                record.name,
-                record.display_name,
-                record.prefix,
-                record.tagline,
-                record.logo_url,
-                record.primer,
-                record.repo,
-                record.model,
-                record.max_workers,
-                record.execution_mode,
-                record.worker_timeout_secs,
-                record.worktree_root,
-                record.max_steps,
-                record.max_budget_usd,
-                record.max_cost_per_day_usd,
-                record.agent_id,
-                chrono::Utc::now().to_rfc3339(),
-            ],
-        )?;
-        Ok(())
+        let mut stmt =
+            db.prepare("SELECT * FROM agents WHERE parent_id IS NULL ORDER BY name")?;
+        let agents = stmt
+            .query_map([], |row| Ok(row_to_agent(row)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(agents)
     }
-
-    /// Create a company via API (fails if name already exists).
-    pub async fn create_company(&self, record: &CompanyRecord) -> Result<()> {
-        let db = self.db.lock().await;
-        let now = chrono::Utc::now().to_rfc3339();
-        db.execute(
-            "INSERT INTO companies (name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                max_workers, execution_mode, worker_timeout_secs, source, agent_id, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'api',?12,?13,?13)",
-            rusqlite::params![
-                record.name, record.display_name, record.prefix, record.tagline,
-                record.logo_url, record.primer, record.repo, record.model,
-                record.max_workers, record.execution_mode, record.worker_timeout_secs,
-                record.agent_id, now,
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Get a company by name.
-    pub async fn get_company(&self, name: &str) -> Result<Option<CompanyRecord>> {
-        let db = self.db.lock().await;
-        let mut stmt = db.prepare(
-            "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
-                    max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
-             FROM companies WHERE name = ?1",
-        )?;
-        let result = stmt.query_row(rusqlite::params![name], row_to_company).ok();
-        Ok(result)
-    }
-
-    /// List all companies.
-    pub async fn list_companies(&self) -> Result<Vec<CompanyRecord>> {
-        let db = self.db.lock().await;
-        let mut stmt = db.prepare(
-            "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
-                    max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
-             FROM companies ORDER BY created_at",
-        )?;
-        let companies = stmt
-            .query_map([], row_to_company)?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(companies)
-    }
-
-    /// List companies created via API (not TOML).
-    pub async fn list_api_companies(&self) -> Result<Vec<CompanyRecord>> {
-        let db = self.db.lock().await;
-        let mut stmt = db.prepare(
-            "SELECT name, display_name, prefix, tagline, logo_url, primer, repo, model,
-                    max_workers, execution_mode, worker_timeout_secs, worktree_root, max_steps,
-                    max_budget_usd, max_cost_per_day_usd, source, agent_id, created_at, updated_at
-             FROM companies WHERE source = 'api' ORDER BY created_at",
-        )?;
-        let companies = stmt
-            .query_map([], row_to_company)?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(companies)
-    }
-
-    /// Update the agent_id link for a company.
-    /// Update mutable fields on a company (display_name, tagline, logo_url).
-    pub async fn update_company(
-        &self,
-        name: &str,
-        display_name: Option<&str>,
-        tagline: Option<&str>,
-        logo_url: Option<&str>,
-    ) -> Result<()> {
-        let db = self.db.lock().await;
-        let now = chrono::Utc::now().to_rfc3339();
-        db.execute(
-            "UPDATE companies SET display_name = COALESCE(?1, display_name), tagline = COALESCE(?2, tagline), logo_url = COALESCE(?3, logo_url), updated_at = ?4 WHERE name = ?5",
-            rusqlite::params![display_name, tagline, logo_url, now, name],
-        )?;
-        Ok(())
-    }
-
-    pub async fn update_company_agent_id(&self, name: &str, agent_id: &str) -> Result<()> {
-        let db = self.db.lock().await;
-        db.execute(
-            "UPDATE companies SET agent_id = ?1, updated_at = ?2 WHERE name = ?3",
-            rusqlite::params![agent_id, chrono::Utc::now().to_rfc3339(), name],
-        )?;
-        Ok(())
-    }
-}
-
-fn row_to_company(row: &rusqlite::Row) -> rusqlite::Result<CompanyRecord> {
-    Ok(CompanyRecord {
-        name: row.get(0)?,
-        display_name: row.get(1)?,
-        prefix: row.get(2)?,
-        tagline: row.get(3)?,
-        logo_url: row.get(4)?,
-        primer: row.get(5)?,
-        repo: row.get(6)?,
-        model: row.get(7)?,
-        max_workers: row.get::<_, u32>(8).unwrap_or(2),
-        execution_mode: row
-            .get::<_, String>(9)
-            .unwrap_or_else(|_| "agent".to_string()),
-        worker_timeout_secs: row.get::<_, u64>(10).unwrap_or(1800),
-        worktree_root: row.get(11)?,
-        max_steps: row.get(12)?,
-        max_budget_usd: row.get(13)?,
-        max_cost_per_day_usd: row.get(14)?,
-        source: row
-            .get::<_, String>(15)
-            .unwrap_or_else(|_| "api".to_string()),
-        agent_id: row.get(16)?,
-        created_at: row.get::<_, String>(17).unwrap_or_default(),
-        updated_at: row.get::<_, String>(18).unwrap_or_default(),
-    })
 }
 
 /// Convert a SQLite row to a Task.

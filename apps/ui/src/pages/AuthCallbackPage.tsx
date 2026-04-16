@@ -18,8 +18,8 @@ export default function AuthCallbackPage() {
       api
         .getMe()
         .then((me) => {
-          const companies = me.companies as unknown[] | undefined;
-          if (!companies || companies.length === 0) {
+          const roots = (me.roots || me.companies) as unknown[] | undefined;
+          if (!roots || roots.length === 0) {
             navigate("/new", { replace: true });
           } else {
             navigate("/", { replace: true });

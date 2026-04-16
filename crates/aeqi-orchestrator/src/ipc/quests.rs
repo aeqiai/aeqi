@@ -34,7 +34,7 @@ pub async fn handle_quests(
                     .list(None, None)
                     .await
                     .unwrap_or_default();
-                let company_ids: std::collections::HashSet<String> = all_agents
+                let root_ids: std::collections::HashSet<String> = all_agents
                     .iter()
                     .filter(|a| a.parent_id.is_none() && is_allowed(allowed, &a.name))
                     .map(|a| a.id.clone())
@@ -43,10 +43,10 @@ pub async fn handle_quests(
                     all_agents
                         .iter()
                         .filter(|a| {
-                            company_ids.contains(&a.id)
+                            root_ids.contains(&a.id)
                                 || a.parent_id
                                     .as_ref()
-                                    .map(|p| company_ids.contains(p))
+                                    .map(|p| root_ids.contains(p))
                                     .unwrap_or(false)
                         })
                         .map(|a| a.id.clone())

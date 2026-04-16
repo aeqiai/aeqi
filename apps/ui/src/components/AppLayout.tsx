@@ -19,28 +19,27 @@ export default function AppLayout() {
   const [searching, setSearching] = useState(false);
 
   const routeParams = useParams<{
-    company?: string;
+    root?: string;
     agentId?: string;
     tab?: string;
     itemId?: string;
   }>();
-  const company = routeParams.company || "";
+  const rootName = routeParams.root || "";
   const agentId = routeParams.agentId || params.get("agent");
   const path = location.pathname;
-  const appMode = useAuthStore((s) => s.appMode);
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const userName = user?.name || (authMode === "none" ? "Local" : "Account");
 
-  // Sync company from URL param into store + localStorage.
-  const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  // Sync root from URL param into store + localStorage.
+  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   useEffect(() => {
-    if (company) {
-      setActiveCompany(company);
+    if (rootName) {
+      setActiveRoot(rootName);
     }
-  }, [company, setActiveCompany]);
+  }, [rootName, setActiveRoot]);
 
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   const agents = useDaemonStore((s) => s.agents);
@@ -48,7 +47,7 @@ export default function AppLayout() {
     fetchAll();
     const i = setInterval(fetchAll, 30000);
     return () => clearInterval(i);
-  }, [fetchAll, company]);
+  }, [fetchAll, rootName]);
   useDaemonSocket();
 
   const openSearch = useCallback(() => setSearching(true), []);
@@ -69,8 +68,8 @@ export default function AppLayout() {
     return () => window.removeEventListener("keydown", handler);
   }, [searching, openSearch, closeSearch]);
 
-  // Company-scoped navigation helpers.
-  const base = `/${encodeURIComponent(company)}`;
+  // Root-scoped navigation helpers.
+  const base = `/${encodeURIComponent(rootName)}`;
   const isActive = (p: string) => {
     if (agentId) return false;
     const full = p === "/" ? base : `${base}${p}`;

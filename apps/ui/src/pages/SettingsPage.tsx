@@ -13,7 +13,7 @@ const TABS = [
 interface SecretKey {
   id: string;
   prefix: string;
-  company: string;
+  root: string;
   name: string;
   created_at: string;
   last_used_at: string | null;
@@ -98,10 +98,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export default function CompanyPage() {
+export default function SettingsPage() {
   const activeTab = useActiveTab(TABS, "overview");
   const appMode = useAuthStore((s) => s.appMode);
-  const company = useUIStore((s) => s.activeCompany);
+  const rootName = useUIStore((s) => s.activeRoot);
 
   const [keys, setKeys] = useState<SecretKey[]>([]);
   const [newKey, setNewKey] = useState<NewSecretKey | null>(null);
@@ -124,14 +124,14 @@ export default function CompanyPage() {
   }, [activeTab]);
 
   const handleCreate = async () => {
-    if (!company) {
-      setFeedback({ type: "error", msg: "No company selected." });
+    if (!rootName) {
+      setFeedback({ type: "error", msg: "No root agent selected." });
       return;
     }
     setCreating(true);
     setFeedback(null);
     try {
-      const data = await api.createKey({ company, name: keyName || "default" });
+      const data = await api.createKey({ root: rootName, name: keyName || "default" });
       setNewKey({ secret_key: data.secret_key });
       setKeyName("");
       fetchKeys();
@@ -164,13 +164,13 @@ export default function CompanyPage() {
         {activeTab === "overview" && (
           <>
             <p className="account-field-desc" style={{ marginBottom: "var(--space-4)" }}>
-              {company ? (
+              {rootName ? (
                 <>
-                  Active company: <strong>{company}</strong>
-                  {appMode === "platform" ? "" : ". This company lives directly in the runtime."}
+                  Active root agent: <strong>{rootName}</strong>
+                  {appMode === "platform" ? "" : ". This agent lives directly in the runtime."}
                 </>
               ) : (
-                "No company selected. Select one from the sidebar."
+                "No root agent selected. Select one from the sidebar."
               )}
             </p>
           </>
@@ -179,9 +179,9 @@ export default function CompanyPage() {
         {activeTab === "api-keys" && (
           <>
             <p className="account-field-desc">
-              {company ? (
+              {rootName ? (
                 <>
-                  Secret keys authenticate access to <strong>{company}</strong>'s runtime.
+                  Secret keys authenticate access to <strong>{rootName}</strong>'s runtime.
                   {appMode === "platform" ? (
                     <>
                       {" "}
@@ -192,19 +192,19 @@ export default function CompanyPage() {
                       (<code>ak_</code>) to identify yourself.
                     </>
                   ) : (
-                    <> In self-hosted mode, these keys are the company-level runtime credentials.</>
+                    <> In self-hosted mode, these keys are the runtime credentials.</>
                   )}
                 </>
               ) : (
-                "Select a company to manage runtime keys."
+                "Select a root agent to manage runtime keys."
               )}
             </p>
 
-            {/* New key display — shown once after creation */}
+            {/* New key display -- shown once after creation */}
             {newKey && (
               <div className="key-new-banner">
                 <div className="key-new-header">
-                  <KeyIcon /> Save this now — the secret key won't be shown again.
+                  <KeyIcon /> Save this now -- the secret key won't be shown again.
                 </div>
                 <div className="key-new-row">
                   <span className="key-new-label">Secret Key</span>

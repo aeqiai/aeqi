@@ -3,7 +3,7 @@ import { useDaemonStore } from "@/store/daemon";
 
 const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
   "/": { title: "Home" },
-  "/companies": { title: "Companies", create: { label: "New company" } },
+  "/agents-list": { title: "Agents", create: { label: "New agent" } },
   "/agents": { title: "Agents", create: { label: "New agent" } },
   "/events": { title: "Events", create: { label: "New event" } },
   "/quests": { title: "Quests", create: { label: "New quest" } },

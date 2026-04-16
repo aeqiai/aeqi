@@ -58,7 +58,7 @@ export default function IdeasPage() {
     api
       .getIdeas({
         query: debouncedSearch || undefined,
-        company: selectedAgent?.name || undefined,
+        root: selectedAgent?.name || undefined,
         limit: 200,
       })
       .then((d) => {
@@ -78,7 +78,7 @@ export default function IdeasPage() {
     setGraphLoading(true);
     api
       .getIdeaGraph({
-        company: selectedAgent?.name || undefined,
+        root: selectedAgent?.name || undefined,
         limit: 100,
       })
       .then((d) => {
@@ -124,7 +124,7 @@ export default function IdeasPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await api.deleteKnowledge({ company: selectedAgent?.name || "", id });
+      await api.deleteKnowledge({ root: selectedAgent?.name || "", id });
       setIdeas((prev) => prev.filter((m) => m.id !== id));
       if (selected?.id === id) setSelected(null);
     } catch {

@@ -18,7 +18,7 @@ pub struct User {
     pub google_id: Option<String>,
     pub email_verified: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub companies: Option<Vec<String>>,
+    pub roots: Option<Vec<String>>,
     pub subscription_status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscription_plan: Option<String>,
@@ -57,10 +57,10 @@ impl AccountStore {
                 created_at      TEXT NOT NULL DEFAULT (datetime('now')),
                 last_login      TEXT
             );
-            CREATE TABLE IF NOT EXISTS user_companies (
+            CREATE TABLE IF NOT EXISTS user_roots (
                 user_id    TEXT NOT NULL REFERENCES users(id),
-                company    TEXT NOT NULL,
-                PRIMARY KEY (user_id, company)
+                root       TEXT NOT NULL,
+                PRIMARY KEY (user_id, root)
             );
             CREATE TABLE IF NOT EXISTS invite_codes (
                 code        TEXT PRIMARY KEY,
@@ -75,6 +75,21 @@ impl AccountStore {
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
+        // Migration: rename user_companies -> user_roots.
+        let has_old_table: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_companies'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if has_old_table {
+            conn.execute_batch(
+                "INSERT OR IGNORE INTO user_roots (user_id, root) SELECT user_id, company FROM user_companies;
+                 DROP TABLE user_companies;",
+            )?;
+        }
         let user_cache = Cache::builder()
             .max_capacity(1000)
             .time_to_live(Duration::from_secs(60))
@@ -93,11 +108,11 @@ impl AccountStore {
         Ok(count == 0)
     }
 
-    /// Delete all users, invite codes, waitlist entries, and company links.
+    /// Delete all users, invite codes, waitlist entries, and root agent links.
     pub fn purge_all(&self) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute_batch(
-            "DELETE FROM invite_codes; DELETE FROM user_companies; DELETE FROM waitlist; DELETE FROM users;"
+            "DELETE FROM invite_codes; DELETE FROM user_roots; DELETE FROM waitlist; DELETE FROM users;"
         )?;
         Ok(())
     }
@@ -249,7 +264,7 @@ impl AccountStore {
         Ok(true)
     }
 
-    /// Get a user by ID with their companies. Results are served from an
+    /// Get a user by ID with their root agents. Results are served from an
     /// in-memory cache (TTL 60 s) to avoid hitting SQLite on every request.
     pub fn get_user_by_id(&self, id: &str) -> anyhow::Result<Option<User>> {
         // Fast path: cache hit.
@@ -270,7 +285,7 @@ impl AccountStore {
                     avatar_url: row.get(3)?,
                     google_id: row.get(4)?,
                     email_verified: row.get::<_, i32>(5)? != 0,
-                    companies: None,
+                    roots: None,
                     subscription_status: row.get(6)?,
                     subscription_plan: row.get(7)?,
                     trial_ends_at: row.get(8)?,
@@ -282,12 +297,12 @@ impl AccountStore {
         let result = match user {
             Some(mut u) => {
                 let mut stmt =
-                    conn.prepare("SELECT company FROM user_companies WHERE user_id = ?1")?;
-                let companies: Vec<String> = stmt
+                    conn.prepare("SELECT root FROM user_roots WHERE user_id = ?1")?;
+                let roots: Vec<String> = stmt
                     .query_map(params![u.id], |row| row.get(0))?
                     .filter_map(|r| r.ok())
                     .collect();
-                u.companies = Some(companies);
+                u.roots = Some(roots);
                 Some(u)
             }
             None => None,
@@ -317,13 +332,13 @@ impl AccountStore {
         }
     }
 
-    /// Add a company to a user. Invalidates the user cache so the updated
-    /// companies list is picked up immediately on the next lookup.
-    pub fn add_company(&self, user_id: &str, company: &str) -> anyhow::Result<()> {
+    /// Add a root agent to a user. Invalidates the user cache so the updated
+    /// roots list is picked up immediately on the next lookup.
+    pub fn add_root(&self, user_id: &str, root: &str) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT OR IGNORE INTO user_companies (user_id, company) VALUES (?1, ?2)",
-            params![user_id, company],
+            "INSERT OR IGNORE INTO user_roots (user_id, root) VALUES (?1, ?2)",
+            params![user_id, root],
         )?;
         drop(conn);
         self.user_cache.invalidate(&user_id.to_owned());

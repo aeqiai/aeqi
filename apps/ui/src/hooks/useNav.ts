@@ -2,13 +2,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useCallback, useMemo } from "react";
 
 /**
- * Navigate within the current company scope.
+ * Navigate within the current root agent scope.
  * Replaces hardcoded navigate("/agents/...") with go("/agents/...").
  */
-export function useCompanyNav() {
+export function useNav() {
   const navigate = useNavigate();
-  const { company } = useParams<{ company: string }>();
-  const base = useMemo(() => (company ? `/${encodeURIComponent(company)}` : ""), [company]);
+  const { root } = useParams<{ root: string }>();
+  const base = useMemo(() => (root ? `/${encodeURIComponent(root)}` : ""), [root]);
 
   const go = useCallback(
     (path: string, options?: { replace?: boolean }) => {
@@ -25,5 +25,5 @@ export function useCompanyNav() {
     [base],
   );
 
-  return { go, href, company: company || "", base };
+  return { go, href, root: root || "", base };
 }

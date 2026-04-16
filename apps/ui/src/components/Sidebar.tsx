@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import RoundAvatar from "./RoundAvatar";
@@ -143,12 +143,12 @@ function AgentNodeView({
 }
 
 export default function AgentTree() {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
   const allAgents = useDaemonStore((s) => s.agents);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Read agent ID from path: /:company/agents/:agentId/...
+  // Read agent ID from path: /:root/agents/:agentId/...
   const location = useLocation();
   const pathMatch = location.pathname.match(/\/agents\/([^/]+)/);
   const selectedId = pathMatch ? pathMatch[1] : null;

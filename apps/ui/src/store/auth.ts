@@ -6,12 +6,12 @@ import { clearSessionData } from "@/lib/session";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
 
-/** Set the active company from a server response into both localStorage and Zustand.
- * After login, the router reads from localStorage to redirect to /:company. */
-function applyCompany(companies?: string[], explicit?: string) {
-  const name = explicit || (companies && companies.length > 0 ? companies[0] : null);
+/** Set the active root agent from a server response into both localStorage and Zustand.
+ * After login, the router reads from localStorage to redirect to /:root. */
+function applyRoot(roots?: string[], explicit?: string) {
+  const name = explicit || (roots && roots.length > 0 ? roots[0] : null);
   if (name) {
-    useUIStore.getState().setActiveCompany(name);
+    useUIStore.getState().setActiveRoot(name);
   }
 }
 
@@ -21,7 +21,7 @@ interface User {
   name: string;
   avatar_url?: string;
   email_verified?: boolean;
-  companies?: string[];
+  roots?: string[];
 }
 
 interface AuthState {
@@ -149,7 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem("aeqi_token", resp.token);
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false });
-        applyCompany(user?.companies);
+        applyRoot(user?.roots);
         return "ok";
       }
       set({ loading: false, error: "Invalid email or password" });
@@ -178,8 +178,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       clearSessionData();
       const resp = await api.signup(email, password, name, inviteCode, template);
-      // Backend auto-creates a company (named after user's first name) + agent on signup.
-      const company = (resp as Record<string, unknown>).company as string | undefined;
+      // Backend auto-creates a root agent (named after user's first name) on signup.
+      const rootName = (resp as Record<string, unknown>).company as string | undefined;
       if (resp.ok && resp.pending_verification) {
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
@@ -193,13 +193,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } else {
           set({ loading: false, pendingEmail: email });
         }
-        applyCompany(undefined, company);
+        applyRoot(undefined, rootName);
         return "pending";
       }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
         set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
-        applyCompany(undefined, company);
+        applyRoot(undefined, rootName);
         return "verified";
       }
       set({ loading: false, error: "Signup failed" });
@@ -219,9 +219,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem("aeqi_token", resp.token);
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false, pendingEmail: null });
-        // Company was already set during signup — don't wipe it.
-        // If user object has companies, ensure one is selected.
-        if (user?.companies) applyCompany(user.companies);
+        // Root was already set during signup -- don't wipe it.
+        // If user object has roots, ensure one is selected.
+        if (user?.roots) applyRoot(user.roots);
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
@@ -251,7 +251,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem("aeqi_token", resp.token);
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false, pending2faEmail: null });
-        applyCompany(user?.companies);
+        applyRoot(user?.roots);
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
@@ -277,7 +277,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           loading: false,
           pending2faEmail: null,
         });
-        applyCompany(user?.companies);
+        applyRoot(user?.roots);
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
@@ -302,12 +302,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     clearSessionData();
     localStorage.setItem("aeqi_token", token);
     set({ token });
-    // Fetch user profile to get companies — OAuth doesn't return user inline.
+    // Fetch user profile to get roots -- OAuth doesn't return user inline.
     get()
       .fetchMe()
       .then(() => {
         const user = get().user;
-        if (user?.companies) applyCompany(user.companies);
+        if (user?.roots) applyRoot(user.roots);
       });
   },
 
@@ -324,7 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     clearSessionData();
     localStorage.removeItem("aeqi_app_mode");
     localStorage.removeItem("aeqi_auth_mode");
-    useUIStore.getState().setActiveCompany("");
+    useUIStore.getState().setActiveRoot("");
     set({
       token: null,
       user: null,
@@ -345,6 +345,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   needsOnboarding: () => {
     const { user } = get();
     if (!user) return false;
-    return !user.companies || user.companies.length === 0;
+    return !user.roots || user.roots.length === 0;
   },
 }));

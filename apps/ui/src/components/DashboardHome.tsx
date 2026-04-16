@@ -1,6 +1,6 @@
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { runtimeLabel } from "@/lib/runtime";
 import { timeAgo } from "@/lib/format";
 import type { Agent } from "@/lib/types";
@@ -19,7 +19,7 @@ function statusColor(status: string): string {
 }
 
 export default function DashboardHome() {
-  const { href } = useCompanyNav();
+  const { href } = useNav();
   const quests = useDaemonStore((s) => s.quests);
   const agents = useDaemonStore((s) => s.agents);
   const cost = useDaemonStore((s) => s.cost);
@@ -120,7 +120,7 @@ export default function DashboardHome() {
               margin: "16px 0 6px",
             }}
           >
-            Welcome to your company
+            Welcome to your workspace
           </h2>
           <p
             style={{

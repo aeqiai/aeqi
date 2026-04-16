@@ -23,26 +23,26 @@ pub async fn handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     // Validate token from query param, dispatching by auth mode.
-    // Also resolve user's companies for tenant scoping when in Accounts mode.
-    let mut user_companies: Option<Vec<String>> = None;
+    // Also resolve user's root agents for tenant scoping when in Accounts mode.
+    let mut user_roots: Option<Vec<String>> = None;
 
     match state.auth_mode {
         AuthMode::None => {
-            user_companies = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.companies);
+            user_roots = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.roots);
         }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");
             match auth::validate_token(token, secret) {
                 Ok(claims) => {
-                    // Resolve user's companies for tenant scoping.
+                    // Resolve user's root agents for tenant scoping.
                     if let Some(accounts) = &state.accounts {
                         let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
-                        user_companies = accounts
+                        user_roots = accounts
                             .get_user_by_id(user_id)
                             .ok()
                             .flatten()
-                            .and_then(|u| u.companies);
+                            .and_then(|u| u.roots);
                     }
                 }
                 Err(_) => {
@@ -55,21 +55,21 @@ pub async fn handler(
         }
     }
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state, user_companies))
+    ws.on_upgrade(move |socket| handle_socket(socket, state, user_roots))
 }
 
 async fn handle_socket(
     mut socket: axum::extract::ws::WebSocket,
     state: AppState,
-    user_companies: Option<Vec<String>>,
+    user_roots: Option<Vec<String>>,
 ) {
     use axum::extract::ws::Message;
 
     info!("WebSocket client connected");
 
     // Build a reusable scope params object for IPC calls.
-    let scope_params: serde_json::Value = match &user_companies {
-        Some(companies) => serde_json::json!({"allowed_companies": companies}),
+    let scope_params: serde_json::Value = match &user_roots {
+        Some(roots) => serde_json::json!({"allowed_roots": roots}),
         None => serde_json::json!({}),
     };
 
@@ -104,8 +104,8 @@ async fn handle_socket(
                     Some(cursor) => serde_json::json!({"cursor": cursor}),
                     None => serde_json::json!({}),
                 };
-                if let Some(ref companies) = user_companies {
-                    worker_req["allowed_companies"] = serde_json::json!(companies);
+                if let Some(ref roots) = user_roots {
+                    worker_req["allowed_roots"] = serde_json::json!(roots);
                 }
                 if let Ok(events_resp) = state.ipc.cmd_with("worker_events", worker_req).await {
                     if let Some(next_cursor) = events_resp.get("next_cursor").and_then(|v| v.as_u64()) {
@@ -143,8 +143,8 @@ async fn handle_socket(
                         // Handle client requests — inject tenant scope before forwarding.
                         if let Ok(mut req) = serde_json::from_str::<serde_json::Value>(&text) {
                             let cmd = req.get("cmd").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            if let Some(ref companies) = user_companies {
-                                req["allowed_companies"] = serde_json::json!(companies);
+                            if let Some(ref roots) = user_roots {
+                                req["allowed_roots"] = serde_json::json!(roots);
                             }
                             let result = state.ipc.request(&req).await;
                             let resp = match result {

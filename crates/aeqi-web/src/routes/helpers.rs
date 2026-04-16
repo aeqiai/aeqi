@@ -40,14 +40,14 @@ pub(super) async fn ipc_proxy(
     cmd: &str,
     params: serde_json::Value,
 ) -> Response {
-    // Merge allowed_companies into the params so the daemon can filter.
+    // Merge allowed_roots into the params so the daemon can filter.
     let params = if let Some(scope) = scope {
         let mut p = if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
             serde_json::json!({})
         } else {
             params
         };
-        p["allowed_companies"] = serde_json::json!(scope.companies);
+        p["allowed_roots"] = serde_json::json!(scope.roots);
         p
     } else {
         params
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn hosting_deny_if_scoped_returns_forbidden_for_scoped() {
         let scope = Scope(Some(UserScope {
-            companies: vec!["tenant-a".to_string()],
+            roots: vec!["tenant-a".to_string()],
         }));
         let response = hosting_deny_if_scoped(&scope).expect("should return a response");
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -109,7 +109,7 @@ mod tests {
     #[tokio::test]
     async fn hosting_deny_if_scoped_response_body_contains_error() {
         let scope = Scope(Some(UserScope {
-            companies: vec!["tenant-a".to_string()],
+            roots: vec!["tenant-a".to_string()],
         }));
         let response = hosting_deny_if_scoped(&scope).unwrap();
         let body = axum::body::to_bytes(response.into_body(), 1024)
@@ -121,9 +121,9 @@ mod tests {
     }
 
     #[test]
-    fn hosting_deny_if_scoped_empty_companies_still_denied() {
-        // Even with an empty companies list, the scope is Some, so access is denied.
-        let scope = Scope(Some(UserScope { companies: vec![] }));
+    fn hosting_deny_if_scoped_empty_roots_still_denied() {
+        // Even with an empty roots list, the scope is Some, so access is denied.
+        let scope = Scope(Some(UserScope { roots: vec![] }));
         let response = hosting_deny_if_scoped(&scope);
         assert!(response.is_some());
         assert_eq!(response.unwrap().status(), StatusCode::FORBIDDEN);

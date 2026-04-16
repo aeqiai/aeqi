@@ -30,7 +30,5 @@ pub use config::{
     discover_agents, load_agent_config,
 };
 pub use traits::provider::{Message, MessageContent, Role};
-/// Compat alias — old callers used `CompanyConfig`.
-pub type CompanyConfig = AgentSpawnConfig;
 pub use prompt::{AssembledPrompt, PromptEntry, PromptPosition, PromptScope, ToolRestrictions};
 pub use security::SecretStore;

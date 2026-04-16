@@ -13,7 +13,7 @@ interface Entity {
   agentCount?: number;
 }
 
-interface CompanyApiItem {
+interface RootApiItem {
   name?: string;
   company?: string;
   tagline?: string;
@@ -31,8 +31,8 @@ function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
 }
 
 export default function EntitiesPage() {
-  const activeCompany = useUIStore((s) => s.activeCompany);
-  const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const activeRoot = useUIStore((s) => s.activeRoot);
+  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const agents = useDaemonStore((s) => s.agents);
   const navigate = useNavigate();
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -43,10 +43,10 @@ export default function EntitiesPage() {
     setLoading(true);
     setError(null);
     api
-      .getCompanies()
+      .getRoots()
       .then((data) => {
         const raw = data?.companies || data?.projects || data?.agent_spawns || [];
-        const items: CompanyApiItem[] = Array.isArray(raw) ? raw : [];
+        const items: RootApiItem[] = Array.isArray(raw) ? raw : [];
         if (items.length > 0) {
           setEntities(
             items
@@ -64,7 +64,7 @@ export default function EntitiesPage() {
       })
       .catch(() => {
         setEntities(deriveEntitiesFromAgents(agents));
-        setError("Could not load companies from the server. Showing local data.");
+        setError("Could not load agents from the server. Showing local data.");
       })
       .finally(() => setLoading(false));
   }, [agents]);
@@ -76,7 +76,7 @@ export default function EntitiesPage() {
   }, [navigate]);
 
   const selectEntity = (name: string) => {
-    setActiveCompany(name);
+    setActiveRoot(name);
     navigate(`/${encodeURIComponent(name)}`);
   };
 
@@ -91,7 +91,7 @@ export default function EntitiesPage() {
         }}
       >
         <h2 style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 600, margin: 0 }}>
-          Companies
+          Agents
         </h2>
         <button
           onClick={() => navigate("/new")}
@@ -106,7 +106,7 @@ export default function EntitiesPage() {
             cursor: "pointer",
           }}
         >
-          New company
+          New agent
         </button>
       </div>
 
@@ -135,7 +135,7 @@ export default function EntitiesPage() {
             textAlign: "center",
           }}
         >
-          Loading companies...
+          Loading agents...
         </div>
       ) : entities.length === 0 ? (
         <div
@@ -146,7 +146,7 @@ export default function EntitiesPage() {
             textAlign: "center",
           }}
         >
-          No companies yet. Create your first company to get started.
+          No agents yet. Create your first agent to get started.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -154,13 +154,13 @@ export default function EntitiesPage() {
             <button
               key={entity.name}
               onClick={() => selectEntity(entity.name)}
-              aria-pressed={entity.name === activeCompany}
+              aria-pressed={entity.name === activeRoot}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 12px",
-                background: entity.name === activeCompany ? "var(--bg-elevated)" : "transparent",
+                background: entity.name === activeRoot ? "var(--bg-elevated)" : "transparent",
                 border: "none",
                 borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
@@ -169,11 +169,11 @@ export default function EntitiesPage() {
                 transition: "background 0.1s",
               }}
               onMouseEnter={(e) => {
-                if (entity.name !== activeCompany)
+                if (entity.name !== activeRoot)
                   e.currentTarget.style.background = "var(--bg-surface)";
               }}
               onMouseLeave={(e) => {
-                if (entity.name !== activeCompany) e.currentTarget.style.background = "transparent";
+                if (entity.name !== activeRoot) e.currentTarget.style.background = "transparent";
               }}
             >
               <BlockAvatar name={entity.name} size={32} />
@@ -211,7 +211,7 @@ export default function EntitiesPage() {
                     {entity.tier}
                   </span>
                 )}
-                {entity.name === activeCompany && (
+                {entity.name === activeRoot && (
                   <svg
                     width="14"
                     height="14"

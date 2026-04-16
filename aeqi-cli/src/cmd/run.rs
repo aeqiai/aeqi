@@ -23,17 +23,17 @@ pub(crate) async fn cmd_run(
 
     let model = model_override
         .map(String::from)
-        .or_else(|| project_name.map(|r| config.model_for_company(r)))
+        .or_else(|| project_name.map(|r| config.model_for_project(r)))
         .unwrap_or_else(|| config.model_for_agent(&execution_agent));
 
     let provider = build_provider_for_one_shot(&config, project_name)?;
     let workdir = project_name
-        .and_then(|r| config.company(r))
+        .and_then(|r| config.agent_spawn(r))
         .map(|r| PathBuf::from(&r.repo))
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     let tools = if let Some(rn) = project_name {
         let worktree_root = config
-            .company(rn)
+            .agent_spawn(rn)
             .and_then(|r| r.worktree_root.as_ref())
             .map(PathBuf::from);
         build_project_tools(&workdir, worktree_root.as_ref())

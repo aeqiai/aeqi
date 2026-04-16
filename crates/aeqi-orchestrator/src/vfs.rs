@@ -99,10 +99,10 @@ impl VfsTree {
             ["agents"] => self.list_agents().await?,
             ["agents", name] => self.list_agent_detail(name).await?,
             ["agents", name, "sessions"] => self.list_agent_sessions(name).await?,
-            ["companies"] => self.list_companies().await?,
-            ["companies", name] => self.list_company_detail(name).await?,
-            ["companies", name, "knowledge"] => self.list_company_knowledge(name).await?,
-            ["companies", name, "quests"] => self.list_company_quests(name).await?,
+            ["companies"] => self.list_root_agents_vfs().await?,
+            ["companies", name] => self.list_root_agent_detail(name).await?,
+            ["companies", name, "knowledge"] => self.list_root_agent_knowledge(name).await?,
+            ["companies", name, "quests"] => self.list_root_agent_quests(name).await?,
             ["skills"] => self.list_skills().await?,
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,
@@ -123,7 +123,7 @@ impl VfsTree {
         match segments.as_slice() {
             ["agents", name, "identity.md"] => self.read_agent_identity(name).await,
             ["agents", name, "stats.json"] => self.read_agent_stats(name).await,
-            ["companies", name, "info.json"] => self.read_company_info(name).await,
+            ["companies", name, "info.json"] => self.read_root_agent_info(name).await,
             ["sessions", id, "transcript.json"] => self.read_session_transcript(id).await,
             ["sessions", id, "messages.json"] => self.read_session_messages(id).await,
             ["config", "aeqi.toml"] => self.read_config().await,
@@ -150,7 +150,7 @@ impl VfsTree {
             }
         }
 
-        // Search companies (agents with "company" template)
+        // Search root agents.
         if let Ok(agents) = self.agent_registry.list(None, None).await {
             for a in &agents {
                 if a.parent_id.is_none() && a.name.to_lowercase().contains(&q) {
@@ -277,9 +277,9 @@ impl VfsTree {
         Ok(nodes)
     }
 
-    // --- Companies (backed by agents with "company" template) ---
+    // --- Root agents (companies VFS path kept for compatibility) ---
 
-    async fn list_companies(&self) -> anyhow::Result<Vec<VfsNode>> {
+    async fn list_root_agents_vfs(&self) -> anyhow::Result<Vec<VfsNode>> {
         let mut nodes = Vec::new();
         if let Ok(agents) = self.agent_registry.list(None, None).await {
             for a in &agents {
@@ -296,7 +296,7 @@ impl VfsTree {
         Ok(nodes)
     }
 
-    async fn list_company_detail(&self, name: &str) -> anyhow::Result<Vec<VfsNode>> {
+    async fn list_root_agent_detail(&self, name: &str) -> anyhow::Result<Vec<VfsNode>> {
         Ok(vec![
             file_node(
                 "info.json",
@@ -319,13 +319,13 @@ impl VfsTree {
         ])
     }
 
-    async fn list_company_knowledge(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
-        // Company knowledge now lives in the idea store, not notes.
+    async fn list_root_agent_knowledge(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
+        // Knowledge now lives in the idea store, not notes.
         Ok(vec![])
     }
 
-    async fn list_company_quests(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
-        // Company quests were backed by CompanyRegistry projects; now a no-op.
+    async fn list_root_agent_quests(&self, _name: &str) -> anyhow::Result<Vec<VfsNode>> {
+        // Quests are agent-scoped; stub for VFS compatibility.
         Ok(vec![])
     }
 
@@ -479,8 +479,8 @@ impl VfsTree {
         })
     }
 
-    async fn read_company_info(&self, name: &str) -> anyhow::Result<VfsReadResponse> {
-        // Look up the agent with "company" template matching this name.
+    async fn read_root_agent_info(&self, name: &str) -> anyhow::Result<VfsReadResponse> {
+        // Look up the root agent matching this name.
         let info = if let Ok(agents) = self.agent_registry.list(None, None).await {
             agents
                 .iter()
@@ -492,9 +492,9 @@ impl VfsTree {
                         "model": a.model,
                     })
                 })
-                .unwrap_or_else(|| serde_json::json!({"error": "Company not found"}))
+                .unwrap_or_else(|| serde_json::json!({"error": "root agent not found"}))
         } else {
-            serde_json::json!({"error": "Company not found"})
+            serde_json::json!({"error": "root agent not found"})
         };
         Ok(VfsReadResponse {
             path: format!("/companies/{name}/info.json"),

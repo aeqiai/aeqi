@@ -29,9 +29,9 @@ async fn status(State(state): State<AppState>, scope: Scope) -> Response {
 }
 
 async fn dashboard(State(state): State<AppState>, scope: Scope) -> Response {
-    // Inject allowed_companies into each sub-query for tenant scoping.
+    // Inject allowed_roots into each sub-query for tenant scoping.
     let scope_params = match scope.as_ref() {
-        Some(s) => serde_json::json!({"allowed_companies": s.companies}),
+        Some(s) => serde_json::json!({"allowed_roots": s.roots}),
         None => serde_json::json!({}),
     };
     let mut activity_params = serde_json::json!({"last": 10});

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import CreateAgentModal from "@/components/CreateAgentModal";
 import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
@@ -8,7 +8,7 @@ import type { Agent } from "@/lib/types";
 import styles from "./AgentsPage.module.css";
 
 export default function AgentsPage() {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");

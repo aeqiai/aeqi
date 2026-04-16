@@ -6,9 +6,9 @@ import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
 import "@/styles/welcome.css";
 
-export default function NewCompanyPage() {
+export default function NewAgentPage() {
   const navigate = useNavigate();
-  const setActiveCompany = useUIStore((s) => s.setActiveCompany);
+  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
 
   const [name, setName] = useState("");
@@ -23,17 +23,17 @@ export default function NewCompanyPage() {
     setCreating(true);
     setError("");
     try {
-      await api.createCompany({
+      await api.createRoot({
         name: name.trim(),
         tagline: tagline.trim() || undefined,
       });
-      const companyName = name.trim();
-      setActiveCompany(companyName);
-      // Backend auto-creates an agent for the company — fetch it immediately
+      const rootName = name.trim();
+      setActiveRoot(rootName);
+      // Backend auto-creates an agent -- fetch it immediately
       await fetchAgents();
-      navigate(`/${encodeURIComponent(companyName)}`);
+      navigate(`/${encodeURIComponent(rootName)}`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create company");
+      setError(e instanceof Error ? e.message : "Failed to create agent");
       setCreating(false);
     }
   };
@@ -83,7 +83,7 @@ export default function NewCompanyPage() {
             <div
               className="new-co-avatar"
               onClick={() => fileRef.current?.click()}
-              title="Upload logo"
+              title="Upload avatar"
             >
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="new-co-avatar-img" />
@@ -107,7 +107,7 @@ export default function NewCompanyPage() {
             <div className="new-co-identity-fields">
               <input
                 className="new-co-name-input"
-                placeholder="Company name"
+                placeholder="Agent name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
@@ -139,13 +139,13 @@ export default function NewCompanyPage() {
             "Creating..."
           ) : (
             <>
-              Create company <kbd className="new-co-kbd">↵</kbd>
+              Create agent <kbd className="new-co-kbd">↵</kbd>
             </>
           )}
         </button>
 
         <p className="new-co-hint">
-          You can change the name, logo, and tagline anytime from your company settings.
+          You can change the name, avatar, and tagline anytime from settings.
         </p>
       </div>
     </div>

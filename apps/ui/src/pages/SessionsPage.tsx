@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import { useDaemonStore } from "@/store/daemon";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { DataState } from "@/components/ui";
 import type { Agent } from "@/lib/types";
 import styles from "./SessionsPage.module.css";
@@ -77,7 +77,7 @@ function SessionStatusDot({ active }: { active: boolean }) {
 export default function SessionsPage() {
   const agents = useDaemonStore((s) => s.agents);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
-  const { go } = useCompanyNav();
+  const { go } = useNav();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);

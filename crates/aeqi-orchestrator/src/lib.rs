@@ -43,7 +43,7 @@ pub mod vfs;
 pub use activity::{Activity, ActivityStream};
 pub use activity_log::ActivityLog;
 pub use agent_registry::RunRecord;
-pub use agent_registry::{Agent, CompanyRecord};
+pub use agent_registry::Agent;
 pub use agent_router::{AgentRouter, RouteDecision};
 pub use agent_worker::{AgentWorker, WorkerState};
 pub use checkpoint::AgentCheckpoint;

@@ -123,7 +123,7 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
     setSubmitting(true);
     try {
       await api.createQuest({
-        company: agentName || selectedAgent?.name || "default",
+        root: agentName || selectedAgent?.name || "default",
         subject: subject.trim(),
         description: description.trim() || undefined,
         priority,

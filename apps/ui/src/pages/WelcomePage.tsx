@@ -63,7 +63,7 @@ const ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
-  company: (
+  settings: (
     <svg
       width="16"
       height="16"
@@ -131,51 +131,51 @@ const PRIMARY_ITEMS = [
 
 const SECONDARY_ITEMS = [
   { key: "ideas", name: "Ideas", route: "/ideas" },
-  { key: "company", name: "Company", route: "/company" },
+  { key: "settings", name: "Settings", route: "/settings" },
   { key: "drive", name: "Drive", route: "/drive" },
   { key: "apps", name: "Apps", route: "/apps" },
 ];
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { company } = useParams<{ company: string }>();
-  const activeCompany = useUIStore((s) => s.activeCompany);
+  const { root } = useParams<{ root: string }>();
+  const activeRoot = useUIStore((s) => s.activeRoot);
   const agents = useDaemonStore((s) => s.agents);
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(activeCompany);
+  const [nameDraft, setNameDraft] = useState(activeRoot);
   const [tagline, setTagline] = useState(
-    () => localStorage.getItem("aeqi_company_tagline") || "The agent runtime.",
+    () => localStorage.getItem("aeqi_root_tagline") || "The agent runtime.",
   );
   const [editingTagline, setEditingTagline] = useState(false);
   const [taglineDraft, setTaglineDraft] = useState(tagline);
   const [avatarUrl, setAvatarUrl] = useState(
-    () => localStorage.getItem("aeqi_company_avatar") || "",
+    () => localStorage.getItem("aeqi_root_avatar") || "",
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveName = () => {
     const val = nameDraft.trim();
-    if (val && activeCompany) {
-      api.updateCompany(activeCompany, { display_name: val }).catch(() => {});
+    if (val && activeRoot) {
+      api.updateRoot(activeRoot, { display_name: val }).catch(() => {});
     }
     setEditingName(false);
   };
   const saveTagline = () => {
     const val = taglineDraft.trim() || "The agent runtime.";
     setTagline(val);
-    localStorage.setItem("aeqi_company_tagline", val);
-    if (activeCompany) {
-      api.updateCompany(activeCompany, { tagline: val }).catch(() => {});
+    localStorage.setItem("aeqi_root_tagline", val);
+    if (activeRoot) {
+      api.updateRoot(activeRoot, { tagline: val }).catch(() => {});
     }
     setEditingTagline(false);
   };
 
-  const displayName = activeCompany || "aeqi";
+  const displayName = activeRoot || "aeqi";
 
   // AppLayout handles the full-screen loading state.
   // By the time WelcomePage renders, initialLoaded is true.
 
-  // Company has agents — show the dashboard
+  // Root has agents -- show the dashboard
   if (agents.length > 0) {
     return <DashboardHome />;
   }
@@ -196,7 +196,7 @@ export default function WelcomePage() {
             reader.onload = () => {
               const url = reader.result as string;
               setAvatarUrl(url);
-              localStorage.setItem("aeqi_company_avatar", url);
+              localStorage.setItem("aeqi_root_avatar", url);
             };
             reader.readAsDataURL(file);
             e.target.value = "";
@@ -238,7 +238,7 @@ export default function WelcomePage() {
                   if (e.key === "Enter") saveName();
                   if (e.key === "Escape") {
                     setEditingName(false);
-                    setNameDraft(activeCompany);
+                    setNameDraft(activeRoot);
                   }
                 }}
                 autoFocus
@@ -248,7 +248,7 @@ export default function WelcomePage() {
                 className="welcome-name"
                 onClick={() => {
                   setEditingName(true);
-                  setNameDraft(activeCompany);
+                  setNameDraft(activeRoot);
                 }}
                 title="Click to rename"
               >
@@ -307,7 +307,7 @@ export default function WelcomePage() {
           </div>
           <button
             className="btn btn-primary"
-            onClick={() => navigate(`/${company}/agents`)}
+            onClick={() => navigate(`/${root}/agents`)}
             style={{ padding: "6px 16px", fontSize: 12 }}
           >
             Hire agent
@@ -349,9 +349,9 @@ export default function WelcomePage() {
           ))}
         </div>
 
-        {/* New company */}
+        {/* New agent */}
         <button className="welcome-new-co" onClick={() => navigate("/new")}>
-          + New company
+          + New agent
         </button>
 
         {/* Footer */}

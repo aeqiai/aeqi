@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getScopedCompany } from "@/lib/appMode";
+import { getScopedRoot } from "@/lib/appMode";
 
 export type LayoutMode = "focus" | "split" | "stack";
 
@@ -10,7 +10,7 @@ interface UIState {
   splitRatio: number;
   drawerOpen: boolean;
   drawerMode: "context" | "activity";
-  activeCompany: string;
+  activeRoot: string;
   toggleSidebar: () => void;
   setLayout: (mode: LayoutMode) => void;
   setSplitRatio: (ratio: number) => void;
@@ -18,7 +18,7 @@ interface UIState {
   closeLayoutPicker: () => void;
   toggleDrawer: () => void;
   setDrawerMode: (mode: "context" | "activity") => void;
-  setActiveCompany: (name: string) => void;
+  setActiveRoot: (name: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -45,14 +45,14 @@ export const useUIStore = create<UIState>((set) => ({
   closeLayoutPicker: () => set({ layoutPickerOpen: false }),
   drawerOpen: localStorage.getItem("aeqi_drawer_open") !== "false",
   drawerMode: "context",
-  activeCompany: getScopedCompany(),
-  setActiveCompany: (name) => {
+  activeRoot: getScopedRoot(),
+  setActiveRoot: (name) => {
     if (name) {
-      localStorage.setItem("aeqi_company", name);
+      localStorage.setItem("aeqi_root", name);
     } else {
-      localStorage.removeItem("aeqi_company");
+      localStorage.removeItem("aeqi_root");
     }
-    set({ activeCompany: name });
+    set({ activeRoot: name });
   },
   toggleDrawer: () =>
     set((s) => {

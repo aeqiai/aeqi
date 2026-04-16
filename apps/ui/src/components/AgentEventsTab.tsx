@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import type { AgentEvent, Idea } from "@/lib/types";
 
@@ -15,7 +15,7 @@ function eventTransport(ev: AgentEvent): string | null {
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 

@@ -26,6 +26,7 @@ pub fn routes() -> Router<AppState> {
 #[derive(Deserialize, Serialize, Default)]
 struct AgentsQuery {
     status: Option<String>,
+    root: Option<bool>,
 }
 
 async fn agents(

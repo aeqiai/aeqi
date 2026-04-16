@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import AgentSessionView from "./AgentSessionView";
@@ -47,7 +47,7 @@ function formatTokens(n?: number): string {
 }
 
 export default function AgentPage({ agentId }: { agentId: string }) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const { tab: routeTab, itemId } = useParams<{
     tab?: string;
     itemId?: string;

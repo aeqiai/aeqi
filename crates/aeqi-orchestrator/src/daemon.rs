@@ -969,8 +969,10 @@ impl Daemon {
                 .unwrap_or("unknown");
 
             // Extract tenancy scope from IPC params (injected by web layer).
-            let allowed_companies: Option<Vec<String>> = request
-                .get("allowed_companies")
+            // Accept both `allowed_roots` and `allowed_companies` for transition.
+            let allowed_roots: Option<Vec<String>> = request
+                .get("allowed_roots")
+                .or_else(|| request.get("allowed_companies"))
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -979,7 +981,7 @@ impl Daemon {
                 });
 
             // Pre-check: if request has a `project` or `company` param, validate against scope.
-            if let Some(denied) = crate::ipc::tenancy::check_project(&allowed_companies, &request) {
+            if let Some(denied) = crate::ipc::tenancy::check_project(&allowed_roots, &request) {
                 let _ = writer.write_all(denied.to_string().as_bytes()).await;
                 let _ = writer.write_all(b"\n").await;
                 let _ = writer.flush().await;
@@ -987,14 +989,14 @@ impl Daemon {
             }
 
             // Pre-check: validate write operations against tenant scope.
-            // Commands that use `name` to identify an agent (which maps to company name).
-            if allowed_companies.is_some() {
+            // Commands that use `name` to identify an agent (which maps to root agent name).
+            if allowed_roots.is_some() {
                 let name_field = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let needs_name_check =
                     matches!(cmd, "save_agent_file" | "agent_identity" | "agent_info");
                 if needs_name_check
                     && !name_field.is_empty()
-                    && !crate::ipc::tenancy::is_allowed(&allowed_companies, name_field)
+                    && !crate::ipc::tenancy::is_allowed(&allowed_roots, name_field)
                 {
                     let denied = serde_json::json!({"ok": false, "error": "access denied"});
                     let _ = writer.write_all(denied.to_string().as_bytes()).await;
@@ -1023,108 +1025,108 @@ impl Daemon {
             };
 
             let response = match cmd {
-                "ping" => crate::ipc::status::handle_ping(&ctx, &request, &allowed_companies).await,
+                "ping" => crate::ipc::status::handle_ping(&ctx, &request, &allowed_roots).await,
                 "status" => {
-                    crate::ipc::status::handle_status(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_status(&ctx, &request, &allowed_roots).await
                 }
                 "readiness" => {
                     crate::ipc::status::handle_readiness(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                         &readiness,
                     )
                     .await
                 }
 
                 "worker_progress" => {
-                    crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_companies)
+                    crate::ipc::status::handle_worker_progress(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "worker_events" => {
-                    crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_companies)
+                    crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "companies" => {
-                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_companies)
+                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_roots)
                         .await
                 }
 
                 "create_company" => {
-                    crate::ipc::companies::handle_create_company(&ctx, &request, &allowed_companies)
+                    crate::ipc::companies::handle_create_company(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "update_company" => {
-                    crate::ipc::companies::handle_update_company(&ctx, &request, &allowed_companies)
+                    crate::ipc::companies::handle_update_company(&ctx, &request, &allowed_roots)
                         .await
                 }
 
                 "metrics" => {
-                    crate::ipc::status::handle_metrics(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_metrics(&ctx, &request, &allowed_roots).await
                 }
-                "cost" => crate::ipc::status::handle_cost(&ctx, &request, &allowed_companies).await,
+                "cost" => crate::ipc::status::handle_cost(&ctx, &request, &allowed_roots).await,
                 "activity" | "audit" => {
-                    crate::ipc::status::handle_activity(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_activity(&ctx, &request, &allowed_roots).await
                 }
                 "expertise" => {
-                    crate::ipc::status::handle_expertise(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_expertise(&ctx, &request, &allowed_roots).await
                 }
                 "rate_limit" => {
-                    crate::ipc::status::handle_rate_limit(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_rate_limit(&ctx, &request, &allowed_roots).await
                 }
                 "skills" => {
-                    crate::ipc::status::handle_skills(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_skills(&ctx, &request, &allowed_roots).await
                 }
                 "pipelines" => {
-                    crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_companies).await
+                    crate::ipc::status::handle_pipelines(&ctx, &request, &allowed_roots).await
                 }
                 "notes" => {
-                    crate::ipc::notes::handle_notes(&ctx, &request, &allowed_companies).await
+                    crate::ipc::notes::handle_notes(&ctx, &request, &allowed_roots).await
                 }
                 "get_notes" => {
-                    crate::ipc::notes::handle_get_notes(&ctx, &request, &allowed_companies).await
+                    crate::ipc::notes::handle_get_notes(&ctx, &request, &allowed_roots).await
                 }
                 "claim_notes" => {
-                    crate::ipc::notes::handle_claim_notes(&ctx, &request, &allowed_companies).await
+                    crate::ipc::notes::handle_claim_notes(&ctx, &request, &allowed_roots).await
                 }
                 "release_notes" => {
-                    crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_companies)
+                    crate::ipc::notes::handle_release_notes(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "delete_notes" => {
-                    crate::ipc::notes::handle_delete_notes(&ctx, &request, &allowed_companies).await
+                    crate::ipc::notes::handle_delete_notes(&ctx, &request, &allowed_roots).await
                 }
                 "check_claim" => {
-                    crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_companies).await
+                    crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_roots).await
                 }
 
                 "quests" => {
-                    crate::ipc::quests::handle_quests(&ctx, &request, &allowed_companies).await
+                    crate::ipc::quests::handle_quests(&ctx, &request, &allowed_roots).await
                 }
                 "create_quest" => {
-                    crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_companies)
+                    crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "get_quest" => {
-                    crate::ipc::quests::handle_get_quest(&ctx, &request, &allowed_companies).await
+                    crate::ipc::quests::handle_get_quest(&ctx, &request, &allowed_roots).await
                 }
                 "update_quest" => {
-                    crate::ipc::quests::handle_update_quest(&ctx, &request, &allowed_companies)
+                    crate::ipc::quests::handle_update_quest(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "close_quest" => {
-                    crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_companies).await
+                    crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_roots).await
                 }
 
                 "post_notes" => {
-                    crate::ipc::chat::handle_post_notes(&ctx, &request, &allowed_companies).await
+                    crate::ipc::chat::handle_post_notes(&ctx, &request, &allowed_roots).await
                 }
-                "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_companies).await,
+                "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_roots).await,
                 "session_message" => {
                     match crate::ipc::chat::handle_session_message(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                     )
                     .await
                     {
@@ -1144,31 +1146,31 @@ impl Daemon {
                     }
                 }
                 "chat_poll" => {
-                    crate::ipc::chat::handle_chat_poll(&ctx, &request, &allowed_companies).await
+                    crate::ipc::chat::handle_chat_poll(&ctx, &request, &allowed_roots).await
                 }
                 "chat_history" => {
-                    crate::ipc::chat::handle_chat_history(&ctx, &request, &allowed_companies).await
+                    crate::ipc::chat::handle_chat_history(&ctx, &request, &allowed_roots).await
                 }
                 "chat_timeline" => {
-                    crate::ipc::chat::handle_chat_timeline(&ctx, &request, &allowed_companies).await
+                    crate::ipc::chat::handle_chat_timeline(&ctx, &request, &allowed_roots).await
                 }
                 "chat_channels" => {
-                    crate::ipc::chat::handle_chat_channels(&ctx, &request, &allowed_companies).await
+                    crate::ipc::chat::handle_chat_channels(&ctx, &request, &allowed_roots).await
                 }
 
                 "agents_registry" => {
-                    crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_agents_registry(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "agent_children" => {
-                    crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_agent_children(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "agent_spawn" => {
-                    crate::ipc::agents::handle_agent_spawn(&ctx, &request, &allowed_companies).await
+                    crate::ipc::agents::handle_agent_spawn(&ctx, &request, &allowed_roots).await
                 }
                 "agent_set_status" => {
-                    crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "agent_set_model" => {
@@ -1204,103 +1206,103 @@ impl Daemon {
                     }
                 }
                 "agent_info" => {
-                    crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_companies).await
+                    crate::ipc::agents::handle_agent_info(&ctx, &request, &allowed_roots).await
                 }
                 "agent_identity" => {
-                    crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_agent_identity(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "save_agent_file" => {
-                    crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_save_agent_file(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "budget_policies" => {
-                    crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_budget_policies(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "create_budget_policy" => {
                     crate::ipc::agents::handle_create_budget_policy(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                     )
                     .await
                 }
                 "approvals" => {
-                    crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_companies).await
+                    crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_roots).await
                 }
                 "resolve_approval" => {
-                    crate::ipc::agents::handle_resolve_approval(&ctx, &request, &allowed_companies)
+                    crate::ipc::agents::handle_resolve_approval(&ctx, &request, &allowed_roots)
                         .await
                 }
 
                 "seed_ideas" => {
-                    crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_companies).await
+                    crate::ipc::prompts::handle_seed_ideas(&ctx, &request, &allowed_roots).await
                 }
                 "list_ideas" => {
-                    crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_roots).await
                 }
                 "store_idea" => {
-                    crate::ipc::ideas::handle_store_idea(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_store_idea(&ctx, &request, &allowed_roots).await
                 }
                 "update_idea" => {
-                    crate::ipc::ideas::handle_update_idea(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_update_idea(&ctx, &request, &allowed_roots).await
                 }
                 "delete_idea" => {
-                    crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_roots).await
                 }
                 "search_ideas" => {
-                    crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_roots).await
                 }
 
                 "list_events" => {
-                    crate::ipc::events::handle_list_events(&ctx, &request, &allowed_companies).await
+                    crate::ipc::events::handle_list_events(&ctx, &request, &allowed_roots).await
                 }
                 "create_event" => {
-                    crate::ipc::events::handle_create_event(&ctx, &request, &allowed_companies)
+                    crate::ipc::events::handle_create_event(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "update_event" => {
-                    crate::ipc::events::handle_update_event(&ctx, &request, &allowed_companies)
+                    crate::ipc::events::handle_update_event(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "delete_event" => {
-                    crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_companies)
+                    crate::ipc::events::handle_delete_event(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "trigger_event" => {
-                    crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_companies)
+                    crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_roots)
                         .await
                 }
 
                 "list_sessions" => {
-                    crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_companies)
+                    crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "list_channel_sessions" => {
                     crate::ipc::sessions::handle_list_channel_sessions(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                     )
                     .await
                 }
                 "sessions" => {
-                    crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_companies).await
+                    crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_roots).await
                 }
                 "create_session" => {
-                    crate::ipc::sessions::handle_create_session(&ctx, &request, &allowed_companies)
+                    crate::ipc::sessions::handle_create_session(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "close_session" => {
-                    crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_companies)
+                    crate::ipc::sessions::handle_close_session(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "session_messages" => {
                     match crate::ipc::sessions::handle_session_messages(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                     )
                     .await
                     {
@@ -1323,7 +1325,7 @@ impl Daemon {
                     match crate::ipc::sessions::handle_session_children(
                         &ctx,
                         &request,
-                        &allowed_companies,
+                        &allowed_roots,
                     )
                     .await
                     {
@@ -1386,13 +1388,13 @@ impl Daemon {
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
 
-                    // Tenancy check: verify agent belongs to allowed company.
-                    let send_allowed = if allowed_companies.is_none() {
+                    // Tenancy check: verify agent belongs to an allowed root agent.
+                    let send_allowed = if allowed_roots.is_none() {
                         true
                     } else if let Some(ref aid) = agent_id_direct {
                         crate::ipc::tenancy::check_agent_access(
                             &agent_registry,
-                            &allowed_companies,
+                            &allowed_roots,
                             aid,
                         )
                         .await
@@ -1401,7 +1403,7 @@ impl Daemon {
                             Ok(Some(agent)) => {
                                 crate::ipc::tenancy::check_agent_access(
                                     &agent_registry,
-                                    &allowed_companies,
+                                    &allowed_roots,
                                     &agent.id,
                                 )
                                 .await
@@ -2106,31 +2108,31 @@ impl Daemon {
 
                 // Canonical idea commands.
                 "ideas" | "memories" => {
-                    crate::ipc::ideas::handle_ideas_search(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_ideas_search(&ctx, &request, &allowed_roots).await
                 }
                 "idea_profile" | "memory_profile" => {
-                    crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_roots).await
                 }
                 "idea_graph" | "memory_graph" => {
-                    crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_roots).await
                 }
                 "idea_prefix" | "memory_prefix" => {
-                    crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_companies).await
+                    crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_roots).await
                 }
-                "company_knowledge" => {
-                    crate::ipc::ideas::handle_company_knowledge(&ctx, &request, &allowed_companies)
+                "company_knowledge" | "project_knowledge" => {
+                    crate::ipc::ideas::handle_company_knowledge(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "channel_knowledge" => {
-                    crate::ipc::ideas::handle_channel_knowledge(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_channel_knowledge(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "knowledge_store" => {
-                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "knowledge_delete" => {
-                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_companies)
+                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "ideas_by_ids" => {
@@ -2167,13 +2169,13 @@ impl Daemon {
                 }
 
                 "vfs_list" => {
-                    crate::ipc::vfs::handle_vfs_list(&ctx, &request, &allowed_companies).await
+                    crate::ipc::vfs::handle_vfs_list(&ctx, &request, &allowed_roots).await
                 }
                 "vfs_read" => {
-                    crate::ipc::vfs::handle_vfs_read(&ctx, &request, &allowed_companies).await
+                    crate::ipc::vfs::handle_vfs_read(&ctx, &request, &allowed_roots).await
                 }
                 "vfs_search" => {
-                    crate::ipc::vfs::handle_vfs_search(&ctx, &request, &allowed_companies).await
+                    crate::ipc::vfs::handle_vfs_search(&ctx, &request, &allowed_roots).await
                 }
 
                 _ => serde_json::json!({"ok": false, "error": format!("unknown command: {cmd}")}),

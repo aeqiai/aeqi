@@ -2,7 +2,7 @@ use aeqi_core::SecretStore;
 use aeqi_core::traits::Channel;
 use aeqi_gates::{TelegramChannel, TelegramGateway};
 use aeqi_orchestrator::{
-    AEQIMetrics, ActivityLog, AgentRouter, CompanyRecord, Daemon, GatewayManager, Scheduler,
+    AEQIMetrics, ActivityLog, AgentRouter, Daemon, GatewayManager, Scheduler,
     SchedulerConfig, SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
@@ -153,7 +153,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             }
 
             // -----------------------------------------------------------
-            // Spawn companies as agents in the registry and build the
+            // Spawn root agents in the registry and build the
             // global Scheduler.
             // -----------------------------------------------------------
             let total_max_workers: u32 = config.agent_spawns.iter().map(|c| c.max_workers).sum();
@@ -173,7 +173,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 warn!(
                                     project = %project_cfg.name,
                                     error = %e,
-                                    "failed to spawn agent for company, skipping"
+                                    "failed to spawn root agent, skipping"
                                 );
                                 skipped_projects.push(project_cfg.name.clone());
                                 continue;
@@ -199,45 +199,15 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     warn!(
                         project = %project_cfg.name,
                         error = %e,
-                        "failed to set operational fields on company agent"
+                        "failed to set operational fields on root agent"
                     );
                 } else {
                     info!(
                         project = %project_cfg.name,
                         agent_id = %agent.id,
-                        "company agent registered in agent registry"
+                        "root agent registered in agent registry"
                     );
                 }
-
-                // Sync company identity to the companies table.
-                let exec_mode = match project_cfg.execution_mode {
-                    aeqi_core::config::ExecutionMode::Agent => "agent",
-                    aeqi_core::config::ExecutionMode::ClaudeCode => "claude_code",
-                };
-                let now = chrono::Utc::now().to_rfc3339();
-                let _ = agent_reg
-                    .upsert_company_from_toml(&CompanyRecord {
-                        name: project_cfg.name.clone(),
-                        display_name: None,
-                        prefix: project_cfg.prefix.clone(),
-                        tagline: None,
-                        logo_url: None,
-                        primer: project_cfg.primer.clone(),
-                        repo: Some(repo_path.to_string_lossy().to_string()),
-                        model: project_cfg.model.clone(),
-                        max_workers: project_cfg.max_workers,
-                        execution_mode: exec_mode.to_string(),
-                        worker_timeout_secs: project_cfg.worker_timeout_secs,
-                        worktree_root: project_cfg.worktree_root.clone(),
-                        max_steps: project_cfg.max_steps,
-                        max_budget_usd: project_cfg.max_budget_usd,
-                        max_cost_per_day_usd: project_cfg.max_cost_per_day_usd,
-                        source: "toml".to_string(),
-                        agent_id: Some(agent.id.clone()),
-                        created_at: now.clone(),
-                        updated_at: now,
-                    })
-                    .await;
             }
 
             // Also register advisor agents the same way.
@@ -326,7 +296,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let default_model = config
                 .agent_spawns
                 .first()
-                .map(|c| config.model_for_company(&c.name))
+                .map(|c| config.model_for_project(&c.name))
                 .or_else(|| {
                     config
                         .default_provider_kind()

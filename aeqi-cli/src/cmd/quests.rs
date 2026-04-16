@@ -12,7 +12,7 @@ pub(crate) async fn cmd_assign(
     priority: Option<&str>,
 ) -> Result<()> {
     let (config, _) = load_config(config_path)?;
-    let prefix = if let Some(pcfg) = config.company(project_name) {
+    let prefix = if let Some(pcfg) = config.agent_spawn(project_name) {
         pcfg.prefix.clone()
     } else if let Some(acfg) = config.agent(project_name) {
         acfg.prefix.clone()

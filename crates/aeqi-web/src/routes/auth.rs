@@ -266,27 +266,27 @@ async fn signup_handler(
     }
     let _ = accounts.generate_invite_codes(&user.id, state.auth_config.invite_codes_per_user);
 
-    // Auto-create a company for the user.
+    // Auto-create a root agent for the user.
     // Use first name + short user ID suffix to avoid collisions ("Alice-a3f1").
     let first_name = name.split_whitespace().next().unwrap_or(name);
     let suffix = &user.id[..std::cmp::min(4, user.id.len())];
-    let company_name = format!("{first_name}-{suffix}");
-    // Await company creation so the user_companies link exists before the first API call.
-    // This ensures allowed_companies is populated when the auth middleware resolves scope.
+    let root_name = format!("{first_name}-{suffix}");
+    // Await root agent creation so the user_roots link exists before the first API call.
+    // This ensures allowed_roots is populated when the auth middleware resolves scope.
     match state
         .ipc
         .cmd_with(
             "create_company",
-            serde_json::json!({ "name": company_name }),
+            serde_json::json!({ "name": root_name }),
         )
         .await
     {
         Ok(resp) => {
             if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
-                if let Err(e) = accounts.add_company(&user.id, &company_name) {
+                if let Err(e) = accounts.add_root(&user.id, &root_name) {
                     tracing::warn!(
-                        "signup: failed to link company '{}' to user {}: {e}",
-                        company_name,
+                        "signup: failed to link root agent '{}' to user {}: {e}",
+                        root_name,
                         user.id
                     );
                 }
@@ -296,15 +296,15 @@ async fn signup_handler(
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown");
                 tracing::warn!(
-                    "signup: create_company '{}' for user {} failed: {err}",
-                    company_name,
+                    "signup: create root agent '{}' for user {} failed: {err}",
+                    root_name,
                     user.id
                 );
             }
         }
         Err(e) => {
             tracing::warn!(
-                "signup: create_company IPC failed for user {}: {e}",
+                "signup: create root agent IPC failed for user {}: {e}",
                 user.id
             );
         }
@@ -338,7 +338,7 @@ async fn signup_handler(
             "token": token,
             "pending_verification": true,
             "user": user,
-            "company": &company_name,
+            "company": &root_name,
         }))
         .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

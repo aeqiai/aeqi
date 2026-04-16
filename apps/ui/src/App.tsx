@@ -14,14 +14,14 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 // App pages -- lazy-loaded for route-level code splitting
 const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
 const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
-const NewCompanyPage = lazy(() => import("@/pages/NewCompanyPage"));
+const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const QuestsPage = lazy(() => import("@/pages/QuestsPage"));
 const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
-const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
 
 const LoadingSpinner = () => (
@@ -52,10 +52,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function CompanyRedirect() {
-  const activeCompany = localStorage.getItem("aeqi_company");
-  if (activeCompany) {
-    return <Navigate to={`/${encodeURIComponent(activeCompany)}`} replace />;
+function RootRedirect() {
+  const activeRoot = localStorage.getItem("aeqi_root");
+  if (activeRoot) {
+    return <Navigate to={`/${encodeURIComponent(activeRoot)}`} replace />;
   }
   return <EntitiesPage />;
 }
@@ -79,12 +79,12 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Routes>
-                  {/* Root: company selector or redirect to active company */}
-                  <Route index element={<CompanyRedirect />} />
-                  <Route path="new" element={<NewCompanyPage />} />
+                  {/* Root: agent selector or redirect to active root */}
+                  <Route index element={<RootRedirect />} />
+                  <Route path="new" element={<NewAgentPage />} />
 
-                  {/* Company-scoped routes: /:company/... */}
-                  <Route path=":company" element={<AppLayout />}>
+                  {/* Root-scoped routes: /:root/... */}
+                  <Route path=":root" element={<AppLayout />}>
                     <Route index element={<ModeAwareHome />} />
                     <Route path="agents" element={<AgentsPage />} />
                     <Route path="agents/:agentId" element={<AgentsPage />} />
@@ -94,7 +94,7 @@ export default function App() {
                     <Route path="events" element={<EventsPage />} />
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
-                    <Route path="settings" element={<CompanyPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
                     <Route path="account" element={<ModeAwareAccountRoute />} />
                   </Route>
                 </Routes>

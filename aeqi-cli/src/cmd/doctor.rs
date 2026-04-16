@@ -123,7 +123,7 @@ pub(crate) async fn cmd_doctor(
             }
 
             for pcfg in &config.agent_spawns {
-                let runtime = config.runtime_for_company(&pcfg.name);
+                let runtime = config.runtime_for_project(&pcfg.name);
                 let mode = config.execution_mode_for_project(&pcfg.name);
                 let repo_ok = PathBuf::from(&pcfg.repo).exists();
                 println!(
@@ -133,7 +133,7 @@ pub(crate) async fn cmd_doctor(
                     pcfg.repo,
                     runtime.provider,
                     mode,
-                    config.model_for_company(&pcfg.name),
+                    config.model_for_project(&pcfg.name),
                 );
                 if !repo_ok {
                     issues_found += 1;

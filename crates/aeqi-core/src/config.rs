@@ -1017,7 +1017,7 @@ impl AEQIConfig {
         }
     }
 
-    pub fn runtime_for_company(&self, project_name: &str) -> RuntimePresetConfig {
+    pub fn runtime_for_project(&self, project_name: &str) -> RuntimePresetConfig {
         let project = self.agent_spawn(project_name);
         let fallback_mode = project
             .map(|p| p.execution_mode.clone())
@@ -1038,7 +1038,7 @@ impl AEQIConfig {
     }
 
     pub fn execution_mode_for_project(&self, project_name: &str) -> ExecutionMode {
-        self.runtime_for_company(project_name)
+        self.runtime_for_project(project_name)
             .execution_mode
             .unwrap_or_default()
     }
@@ -1174,19 +1174,14 @@ impl AEQIConfig {
         self.agent_spawns.iter().find(|r| r.name == name)
     }
 
-    /// Compat alias — old callers used `.company(name)`.
-    pub fn company(&self, name: &str) -> Option<&AgentSpawnConfig> {
-        self.agent_spawn(name)
-    }
-
     /// Get agent config by name.
     pub fn agent(&self, name: &str) -> Option<&PeerAgentConfig> {
         self.agents.iter().find(|a| a.name == name)
     }
 
     /// Get the default model for a project, falling back to provider default.
-    pub fn model_for_company(&self, project_name: &str) -> String {
-        let runtime = self.runtime_for_company(project_name);
+    pub fn model_for_project(&self, project_name: &str) -> String {
+        let runtime = self.runtime_for_project(project_name);
         self.agent_spawn(project_name)
             .and_then(|r| r.model.clone())
             .or(runtime.model)
@@ -1203,7 +1198,7 @@ impl AEQIConfig {
     }
 
     /// Get the effective orchestrator config for a project (project override or global).
-    pub fn orchestrator_for_company(&self, project_name: &str) -> OrchestratorConfig {
+    pub fn orchestrator_for_project(&self, project_name: &str) -> OrchestratorConfig {
         self.agent_spawn(project_name)
             .and_then(|p| p.orchestrator.clone())
             .unwrap_or_else(|| self.orchestrator.clone())
@@ -1986,14 +1981,14 @@ repo = "/tmp/aeqi"
 "#;
         let config = AEQIConfig::parse(toml).unwrap();
 
-        let project_runtime = config.runtime_for_company("aeqi");
+        let project_runtime = config.runtime_for_project("aeqi");
         assert_eq!(project_runtime.provider, ProviderKind::Anthropic);
         assert_eq!(
             config.execution_mode_for_project("aeqi"),
             ExecutionMode::Agent
         );
         assert_eq!(
-            config.model_for_company("aeqi"),
+            config.model_for_project("aeqi"),
             "claude-sonnet-4-20250514".to_string()
         );
 

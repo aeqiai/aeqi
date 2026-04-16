@@ -58,7 +58,7 @@ pub(crate) async fn cmd_pipeline(
             vars,
         } => {
             let project_cfg = config
-                .company(&company)
+                .agent_spawn(&company)
                 .context(format!("company not found: {company}"))?;
             let project_dir = find_project_dir(&company)?;
             let pipelines = discover_project_pipelines(&project_dir)?;

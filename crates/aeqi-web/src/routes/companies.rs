@@ -48,12 +48,12 @@ async fn create_company(
     )
     .await;
 
-    // Link company to user in accounts store.
+    // Link root agent to user in accounts store.
     if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
         && let Some(user_id) = claims.user_id.as_deref()
         && let Some(name) = body.get("name").and_then(|v| v.as_str())
     {
-        let _ = accounts.add_company(user_id, name);
+        let _ = accounts.add_root(user_id, name);
     }
 
     resp

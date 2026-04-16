@@ -2,7 +2,7 @@
 
 use crate::agent_registry::AgentRegistry;
 
-/// Check if a company/project name is in the allowed list.
+/// Check if a root agent name is in the allowed list.
 pub fn is_allowed(allowed: &Option<Vec<String>>, name: &str) -> bool {
     match allowed {
         None => true,
@@ -10,7 +10,7 @@ pub fn is_allowed(allowed: &Option<Vec<String>>, name: &str) -> bool {
     }
 }
 
-/// Validate project/company field in the request against scope.
+/// Validate project field in the request against scope.
 /// Returns an error JSON if access is denied.
 pub fn check_project(
     allowed: &Option<Vec<String>>,
@@ -28,7 +28,7 @@ pub fn check_project(
     None
 }
 
-/// Walk the agent's parent chain up to a company agent and check if it's allowed.
+/// Walk the agent's parent chain up to a root agent and check if it's allowed.
 /// Handles arbitrary nesting depth (safety limit of 10 levels).
 pub async fn check_agent_access(
     registry: &AgentRegistry,
@@ -58,7 +58,7 @@ pub async fn check_agent_access(
     false
 }
 
-/// Build the set of agent IDs belonging to allowed companies.
+/// Build the set of agent IDs belonging to allowed root agents.
 /// Used for filtering lists of quests, approvals, etc.
 pub async fn allowed_agent_ids(
     registry: &AgentRegistry,
@@ -66,13 +66,13 @@ pub async fn allowed_agent_ids(
 ) -> Option<std::collections::HashSet<String>> {
     let allowed = allowed.as_ref()?;
     let all_agents = registry.list(None, None).await.unwrap_or_default();
-    let company_ids: std::collections::HashSet<String> = all_agents
+    let root_ids: std::collections::HashSet<String> = all_agents
         .iter()
         .filter(|a| a.parent_id.is_none() && allowed.iter().any(|c| c == &a.name))
         .map(|a| a.id.clone())
         .collect();
     // Iteratively expand to include all descendants.
-    let mut ids = company_ids.clone();
+    let mut ids = root_ids.clone();
     loop {
         let before = ids.len();
         for a in &all_agents {

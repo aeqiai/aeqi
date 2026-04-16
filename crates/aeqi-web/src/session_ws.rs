@@ -35,26 +35,26 @@ pub async fn handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     // Validate token from query param, dispatching by auth mode.
-    // Also resolve user's companies for tenant scoping when in Accounts mode.
-    let mut user_companies: Option<Vec<String>> = None;
+    // Also resolve user's root agents for tenant scoping when in Accounts mode.
+    let mut user_roots: Option<Vec<String>> = None;
 
     match state.auth_mode {
         AuthMode::None => {
-            user_companies = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.companies);
+            user_roots = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.roots);
         }
         AuthMode::Secret | AuthMode::Accounts => {
             let secret = auth::signing_secret(&state);
             let token = q.token.as_deref().unwrap_or("");
             match auth::validate_token(token, secret) {
                 Ok(claims) => {
-                    // Resolve user's companies for tenant scoping.
+                    // Resolve user's root agents for tenant scoping.
                     if let Some(accounts) = &state.accounts {
                         let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
-                        user_companies = accounts
+                        user_roots = accounts
                             .get_user_by_id(user_id)
                             .ok()
                             .flatten()
-                            .and_then(|u| u.companies);
+                            .and_then(|u| u.roots);
                     }
                 }
                 Err(_) => {
@@ -67,13 +67,13 @@ pub async fn handler(
         }
     }
 
-    ws.on_upgrade(move |socket| handle_session_socket(socket, state, user_companies))
+    ws.on_upgrade(move |socket| handle_session_socket(socket, state, user_roots))
 }
 
 async fn handle_session_socket(
     mut socket: axum::extract::ws::WebSocket,
     state: AppState,
-    user_companies: Option<Vec<String>>,
+    user_roots: Option<Vec<String>>,
 ) {
     use axum::extract::ws::Message;
 
@@ -138,8 +138,8 @@ async fn handle_session_socket(
         if let Some(ref sid) = req_session_id {
             session_req["session_id"] = serde_json::json!(sid);
         }
-        if let Some(ref companies) = user_companies {
-            session_req["allowed_companies"] = serde_json::json!(companies);
+        if let Some(ref roots) = user_roots {
+            session_req["allowed_roots"] = serde_json::json!(roots);
         }
 
         // Open a raw IPC connection and stream events directly to WebSocket.

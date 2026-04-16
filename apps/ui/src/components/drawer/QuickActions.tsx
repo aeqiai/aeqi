@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 
 export default function QuickActions({
@@ -9,7 +9,7 @@ export default function QuickActions({
   agentId: string;
   agentName: string;
 }) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const [creating, setCreating] = useState(false);
 
   const handleNewQuest = () => {

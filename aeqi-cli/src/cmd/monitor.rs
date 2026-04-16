@@ -106,13 +106,13 @@ async fn build_monitor_report(
     let daemon = load_daemon_monitor(config_path).await;
     let mut projects = Vec::new();
     for project in projects_cfg {
-        let runtime = config.runtime_for_company(&project.name);
+        let runtime = config.runtime_for_project(&project.name);
         projects.push(build_project_monitor(
             &config,
             &project.name,
             &project.repo,
             &runtime.provider.to_string(),
-            &config.model_for_company(&project.name),
+            &config.model_for_project(&project.name),
         ));
     }
 

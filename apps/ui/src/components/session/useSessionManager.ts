@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { type Message, type SessionInfo } from "./types";
 
@@ -18,7 +18,7 @@ export function useSessionManager({
   urlSessionId,
   processRawMessages,
 }: UseSessionManagerOptions) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const streamingRef = useRef(false);

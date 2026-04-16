@@ -1,4 +1,4 @@
-//! Company management IPC handlers.
+//! Root agent management IPC handlers (legacy "companies" commands).
 
 use super::tenancy::is_allowed;
 
@@ -7,57 +7,51 @@ pub async fn handle_companies(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let companies = ctx
+    let agents = ctx
         .agent_registry
-        .list_companies()
+        .list_root_agents()
         .await
         .unwrap_or_default();
-    let companies: Vec<_> = if allowed.is_some() {
-        companies
+    let agents: Vec<_> = if allowed.is_some() {
+        agents
             .into_iter()
-            .filter(|c| is_allowed(allowed, &c.name))
+            .filter(|a| is_allowed(allowed, &a.name))
             .collect()
     } else {
-        companies
+        agents
     };
     let mut result: Vec<serde_json::Value> = Vec::new();
-    for company in &companies {
-        let task_counts = if let Some(ref aid) = company.agent_id {
-            ctx.agent_registry
-                .list_tasks(None, Some(aid))
-                .await
-                .map(|tasks| {
-                    let total = tasks.len();
-                    let open = tasks.iter().filter(|t| !t.is_closed()).count();
-                    let pending = tasks
-                        .iter()
-                        .filter(|t| t.status == aeqi_quests::QuestStatus::Pending)
-                        .count();
-                    let in_progress = tasks
-                        .iter()
-                        .filter(|t| t.status == aeqi_quests::QuestStatus::InProgress)
-                        .count();
-                    let done = tasks
-                        .iter()
-                        .filter(|t| t.status == aeqi_quests::QuestStatus::Done)
-                        .count();
-                    let cancelled = tasks
-                        .iter()
-                        .filter(|t| t.status == aeqi_quests::QuestStatus::Cancelled)
-                        .count();
-                    (total, open, pending, in_progress, done, cancelled)
-                })
-                .unwrap_or_default()
-        } else {
-            (0, 0, 0, 0, 0, 0)
-        };
+    for agent in &agents {
+        let task_counts = ctx
+            .agent_registry
+            .list_tasks(None, Some(&agent.id))
+            .await
+            .map(|tasks| {
+                let total = tasks.len();
+                let open = tasks.iter().filter(|t| !t.is_closed()).count();
+                let pending = tasks
+                    .iter()
+                    .filter(|t| t.status == aeqi_quests::QuestStatus::Pending)
+                    .count();
+                let in_progress = tasks
+                    .iter()
+                    .filter(|t| t.status == aeqi_quests::QuestStatus::InProgress)
+                    .count();
+                let done = tasks
+                    .iter()
+                    .filter(|t| t.status == aeqi_quests::QuestStatus::Done)
+                    .count();
+                let cancelled = tasks
+                    .iter()
+                    .filter(|t| t.status == aeqi_quests::QuestStatus::Cancelled)
+                    .count();
+                (total, open, pending, in_progress, done, cancelled)
+            })
+            .unwrap_or_default();
         result.push(serde_json::json!({
-            "name": company.name,
-            "display_name": company.display_name,
-            "prefix": company.prefix,
-            "tagline": company.tagline,
-            "logo_url": company.logo_url,
-            "source": company.source,
+            "name": agent.name,
+            "display_name": agent.display_name,
+            "prefix": agent.quest_prefix,
             "open_tasks": task_counts.1,
             "total_tasks": task_counts.0,
             "pending_tasks": task_counts.2,
@@ -84,7 +78,7 @@ pub async fn handle_create_company(
         && !name.starts_with('.')
         && name.len() <= 128;
     if !is_safe_name {
-        return serde_json::json!({"ok": false, "error": "invalid company name"});
+        return serde_json::json!({"ok": false, "error": "invalid name"});
     }
 
     let prefix = request
@@ -92,69 +86,11 @@ pub async fn handle_create_company(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| name.chars().take(2).collect::<String>().to_lowercase());
-    let tagline = request
-        .get("tagline")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-    let now = chrono::Utc::now().to_rfc3339();
-    let record = crate::agent_registry::CompanyRecord {
-        name: name.to_string(),
-        display_name: None,
-        prefix: prefix.clone(),
-        tagline,
-        logo_url: None,
-        primer: None,
-        repo: None,
-        model: None,
-        max_workers: 2,
-        execution_mode: "agent".to_string(),
-        worker_timeout_secs: 1800,
-        worktree_root: None,
-        max_steps: Some(25),
-        max_budget_usd: None,
-        max_cost_per_day_usd: None,
-        source: "api".to_string(),
-        agent_id: None,
-        created_at: now.clone(),
-        updated_at: now,
-    };
-    match ctx.agent_registry.create_company(&record).await {
-        Ok(()) => {
-            let _identity_content = format!(
-                "You are the lead agent for **{name}**.\n\n\
-                 ## Role\n\n\
-                 You coordinate all work for this company. You receive tasks, \
-                 decompose them, delegate to specialist child agents when appropriate, \
-                 and ensure quality output.\n\n\
-                 ## Behavior\n\n\
-                 - Assess task complexity. Simple tasks: do it yourself. Complex tasks: spawn focused child agents.\n\
-                 - Maintain situational awareness through memory. Store decisions and project context.\n\
-                 - When blocked, escalate clearly. When done, close the quest with a summary.\n\
-                 - Be direct, specific, and action-oriented."
-            );
-            let identity_tags = vec!["identity".to_string(), "company".to_string()];
 
-            let agent = ctx.agent_registry.spawn(name, Some(name), None, None).await;
-            match &agent {
-                Ok(a) => {
-                    // Link agent to company.
-                    if let Err(e) = ctx
-                        .agent_registry
-                        .update_company_agent_id(name, &a.id)
-                        .await
-                    {
-                        tracing::warn!(
-                            "create_company: failed to link agent to company '{}': {e}",
-                            name
-                        );
-                    }
-                    // prompt CRUD removed — identity tags managed via ideas.db now.
-                    let _ = &identity_tags;
-                }
-                Err(e) => {
-                    tracing::warn!("create_company: failed to spawn agent for '{}': {e}", name);
-                }
-            }
+    // Spawn a root agent (parent_id = None).
+    let agent = ctx.agent_registry.spawn(name, Some(name), None, None).await;
+    match agent {
+        Ok(_a) => {
             if let Ok(cwd) = std::env::current_dir() {
                 let project_dir = cwd.join("projects").join(name);
                 let _ = std::fs::create_dir_all(&project_dir);
@@ -176,15 +112,26 @@ pub async fn handle_update_company(
     } else if allowed.is_some() && !is_allowed(allowed, name) {
         serde_json::json!({"ok": false, "error": "access denied"})
     } else {
-        let display_name = request.get("display_name").and_then(|v| v.as_str());
-        let tagline = request.get("tagline").and_then(|v| v.as_str());
-        let logo_url = request.get("logo_url").and_then(|v| v.as_str());
-        match ctx
-            .agent_registry
-            .update_company(name, display_name, tagline, logo_url)
-            .await
-        {
-            Ok(()) => serde_json::json!({"ok": true}),
+        let display_name = request
+            .get("display_name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        // Find the root agent by name and update it.
+        match ctx.agent_registry.list_root_agents().await {
+            Ok(agents) => {
+                if let Some(agent) = agents.iter().find(|a| a.name == name) {
+                    match ctx
+                        .agent_registry
+                        .update_display_name(&agent.id, display_name.as_deref())
+                        .await
+                    {
+                        Ok(()) => serde_json::json!({"ok": true}),
+                        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                    }
+                } else {
+                    serde_json::json!({"ok": false, "error": "root agent not found"})
+                }
+            }
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
     }

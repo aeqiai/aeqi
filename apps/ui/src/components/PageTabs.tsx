@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 
 interface Tab {
   id: string;
@@ -13,7 +13,7 @@ interface PageTabsProps {
 }
 
 export default function PageTabs({ tabs, defaultTab }: PageTabsProps) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
   const active =
     currentTab && tabs.some((t) => t.id === currentTab)

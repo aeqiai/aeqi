@@ -210,8 +210,8 @@ pub(crate) fn build_provider_for_project(
     config: &AEQIConfig,
     project_name: &str,
 ) -> Result<Arc<dyn Provider>> {
-    let runtime = config.runtime_for_company(project_name);
-    let model = config.model_for_company(project_name);
+    let runtime = config.runtime_for_project(project_name);
+    let model = config.model_for_project(project_name);
     build_provider_for_runtime(config, runtime.provider, Some(&model))
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 
 interface ChannelEntry {
@@ -38,7 +38,7 @@ function fieldKey(label: string): string {
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
-  const { go } = useCompanyNav();
+  const { go } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 

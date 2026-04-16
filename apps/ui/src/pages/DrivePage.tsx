@@ -5,7 +5,7 @@ export default function DrivePage() {
     <div className="page-content">
       <EmptyState
         title="Drive"
-        description="Upload, organize, and manage files shared across your company."
+        description="Upload, organize, and manage files shared across your agents."
       />
     </div>
   );

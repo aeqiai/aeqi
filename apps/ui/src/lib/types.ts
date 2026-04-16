@@ -139,7 +139,7 @@ export interface User {
   name: string;
   avatar_url?: string;
   email_verified?: boolean;
-  companies?: string[];
+  roots?: string[];
   phone?: string;
   phishing_code?: string;
 }
@@ -173,7 +173,7 @@ export interface WorkerEvent {
   event_type: string;
   quest_id?: string;
   agent?: string;
-  company?: string;
+  root?: string;
   steps?: number;
   cost_usd?: number;
   outcome?: string;

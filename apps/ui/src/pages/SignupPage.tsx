@@ -34,16 +34,16 @@ const GithubIcon = () => (
 
 const POINTS = [
   "Agents that write code, review PRs, and ship autonomously",
-  "Companies as persistent systems with shared memory",
+  "Agents as persistent systems with shared memory",
   "Real-time sessions — chat with agents as they work",
   "Knowledge that compounds across every task",
 ];
 
 const TEMPLATE_LABELS: Record<string, string> = {
-  software: "Software Company",
-  research: "Research Firm",
-  content: "Content Studio",
-  services: "Services Business",
+  software: "Software Agent",
+  research: "Research Agent",
+  content: "Content Agent",
+  services: "Services Agent",
 };
 
 export default function SignupPage() {
@@ -221,7 +221,7 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Get early access</h1>
-          <p className="auth-subheading">Join the waitlist for autonomous company infrastructure</p>
+          <p className="auth-subheading">Join the waitlist for autonomous agent infrastructure</p>
           <form className="auth-form" onSubmit={handleWaitlistSubmit}>
             <input
               className="auth-input"
@@ -491,9 +491,9 @@ export default function SignupPage() {
 
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <h2 className="signup-pitch-heading">Autonomous infrastructure for the next company</h2>
+          <h2 className="signup-pitch-heading">Autonomous agent infrastructure</h2>
           <p className="signup-pitch-sub">
-            Deploy agents that operate your company — engineering, research, design, operations —
+            Deploy agents that operate autonomously — engineering, research, design, operations —
             continuously and in parallel.
           </p>
           <ul className="signup-points">

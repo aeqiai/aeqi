@@ -45,18 +45,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           action: () => go("/"),
         },
         {
-          id: "nav-companies",
-          label: "Companies",
-          hint: "Select a company",
+          id: "nav-agents-list",
+          label: "Agents",
+          hint: "Select a root agent",
           section: "Navigate",
-          action: () => go("/companies"),
-        },
-        {
-          id: "nav-company",
-          label: "Company",
-          hint: "Active company settings",
-          section: "Navigate",
-          action: () => go("/company"),
+          action: () => go("/"),
         },
         {
           id: "nav-quests",
@@ -88,10 +81,10 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         },
         {
           id: "nav-settings",
-          label: appMode === "platform" ? "Settings" : "Company",
-          hint: appMode === "platform" ? "Configuration" : "Active company settings",
+          label: "Settings",
+          hint: "Configuration",
           section: "Navigate",
-          action: () => go(appMode === "platform" ? "/settings" : "/company"),
+          action: () => go("/settings"),
         },
       ];
 

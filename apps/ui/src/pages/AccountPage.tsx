@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCompanyNav } from "@/hooks/useCompanyNav";
+import { useNav } from "@/hooks/useNav";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
@@ -763,7 +763,7 @@ export default function AccountPage() {
                 onClick={() => {
                   if (
                     window.confirm(
-                      "Are you sure? This will permanently delete your account, all companies you own, and all data. This cannot be undone.",
+                      "Are you sure? This will permanently delete your account, all agents you own, and all data. This cannot be undone.",
                     )
                   ) {
                     if (window.prompt("Type DELETE to confirm") === "DELETE") {
@@ -894,7 +894,7 @@ export default function AccountPage() {
 // ── API Key Tab (account-level ak_ key) ──────────────
 
 function ApiKeyTab() {
-  const { href } = useCompanyNav();
+  const { href } = useNav();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -943,8 +943,8 @@ function ApiKeyTab() {
   return (
     <>
       <p className="account-field-desc">
-        Your API key (<code>ak_</code>) identifies your account across all companies. Use it
-        alongside a company secret key (<code>sk_</code>) for MCP and API access.
+        Your API key (<code>ak_</code>) identifies your account across all agents. Use it
+        alongside a secret key (<code>sk_</code>) for MCP and API access.
       </p>
       <p className="account-field-desc">
         Only one account API key is active at a time. Generating a new key rotates the previous one
@@ -986,7 +986,7 @@ function ApiKeyTab() {
             </button>
           </div>
           <p className="account-field-desc" style={{ marginTop: "var(--space-2)" }}>
-            Active across all companies for your account until you rotate it.
+            Active across all agents for your account until you rotate it.
           </p>
           <div style={{ marginTop: "var(--space-3)" }}>
             <button
@@ -1020,9 +1020,9 @@ function ApiKeyTab() {
 
       <div style={{ marginTop: "var(--space-6)" }}>
         <p className="account-field-desc">
-          To create secret keys for a specific company, go to{" "}
-          <a href={href("/company?tab=api-keys")} className="key-link">
-            Company &rarr; API Keys
+          To create secret keys for a specific agent, go to{" "}
+          <a href={href("/settings?tab=api-keys")} className="key-link">
+            Settings &rarr; API Keys
           </a>
           .
         </p>

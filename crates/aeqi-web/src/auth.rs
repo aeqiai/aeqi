@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::server::AppState;
 
-/// User's allowed companies, resolved from the account store during auth.
+/// User's allowed root agents, resolved from the account store during auth.
 /// Inserted into request extensions for downstream handlers to scope IPC calls.
 #[derive(Debug, Clone)]
 pub struct UserScope {
-    pub companies: Vec<String>,
+    pub roots: Vec<String>,
 }
 
-const PROXY_SCOPE_COMPANIES_HEADER: &str = "x-aeqi-allowed-companies";
+const PROXY_SCOPE_ROOTS_HEADER: &str = "x-aeqi-allowed-roots";
 const PROXY_SCOPE_TOKEN_HEADER: &str = "x-aeqi-scope-token";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -81,10 +81,10 @@ pub fn signing_secret(state: &AppState) -> &str {
 
 pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option<UserScope> {
     let scope_header = headers
-        .get(PROXY_SCOPE_COMPANIES_HEADER)?
-        .to_str()
-        .ok()?
-        .trim();
+        .get(PROXY_SCOPE_ROOTS_HEADER)
+        .or_else(|| headers.get("x-aeqi-allowed-companies"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim())?;
     if scope_header.is_empty() {
         return None;
     }
@@ -103,17 +103,17 @@ pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option
         return None;
     }
 
-    let companies: Vec<String> = scope_header
+    let roots: Vec<String> = scope_header
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned)
         .collect();
-    if companies.is_empty() {
+    if roots.is_empty() {
         return None;
     }
 
-    Some(UserScope { companies })
+    Some(UserScope { roots })
 }
 
 #[cfg(test)]
@@ -220,11 +220,11 @@ mod tests {
     }
 
     #[test]
-    fn proxy_scope_from_headers_returns_companies_for_valid_token() {
+    fn proxy_scope_from_headers_returns_roots_for_valid_token() {
         let state = test_state(Some("scope-secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static("aeqi, founder-lab"),
         );
         headers.insert(
@@ -233,7 +233,7 @@ mod tests {
         );
 
         let scope = proxy_scope_from_headers(&state, &headers).expect("scope should resolve");
-        assert_eq!(scope.companies, vec!["aeqi", "founder-lab"]);
+        assert_eq!(scope.roots, vec!["aeqi", "founder-lab"]);
     }
 
     #[test]
@@ -241,7 +241,7 @@ mod tests {
         let state = test_state(Some("scope-secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static("aeqi"),
         );
         headers.insert(
@@ -356,33 +356,33 @@ mod tests {
     // ── Proxy scope edge cases ───────────────────────────────
 
     #[test]
-    fn proxy_scope_no_companies_header_returns_none() {
+    fn proxy_scope_no_roots_header_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let headers = HeaderMap::new();
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
 
     #[test]
-    fn proxy_scope_empty_companies_header_returns_none() {
+    fn proxy_scope_empty_roots_header_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
-        headers.insert(PROXY_SCOPE_COMPANIES_HEADER, HeaderValue::from_static(""));
+        headers.insert(PROXY_SCOPE_ROOTS_HEADER, HeaderValue::from_static(""));
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
 
     #[test]
-    fn proxy_scope_whitespace_only_companies_returns_none() {
+    fn proxy_scope_whitespace_only_roots_returns_none() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static("   "),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
         // After trim, it becomes empty -> None
         // But the filter(|s| !s.is_empty()) removes empty entries from split
-        // so companies list is empty -> None
+        // so roots list is empty -> None
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
 
@@ -391,8 +391,8 @@ mod tests {
         let state = test_state(None);
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
-            HeaderValue::from_static("company-a"),
+            PROXY_SCOPE_ROOTS_HEADER,
+            HeaderValue::from_static("root-a"),
         );
         headers.insert(
             PROXY_SCOPE_TOKEN_HEADER,
@@ -407,8 +407,8 @@ mod tests {
         let state = test_state(Some("".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
-            HeaderValue::from_static("company-a"),
+            PROXY_SCOPE_ROOTS_HEADER,
+            HeaderValue::from_static("root-a"),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static(""));
         // Empty auth_secret -> proxy scope is ignored
@@ -420,8 +420,8 @@ mod tests {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
-            HeaderValue::from_static("company-a"),
+            PROXY_SCOPE_ROOTS_HEADER,
+            HeaderValue::from_static("root-a"),
         );
         // No PROXY_SCOPE_TOKEN_HEADER -> provided_token defaults to ""
         // which != "secret" -> None
@@ -429,17 +429,17 @@ mod tests {
     }
 
     #[test]
-    fn proxy_scope_trims_company_names() {
+    fn proxy_scope_trims_root_names() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static("  alpha ,  beta  , gamma  "),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
-        assert_eq!(scope.companies, vec!["alpha", "beta", "gamma"]);
+        assert_eq!(scope.roots, vec!["alpha", "beta", "gamma"]);
     }
 
     #[test]
@@ -447,27 +447,27 @@ mod tests {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static("a,,b,,,c"),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
-        assert_eq!(scope.companies, vec!["a", "b", "c"]);
+        assert_eq!(scope.roots, vec!["a", "b", "c"]);
     }
 
     #[test]
-    fn proxy_scope_single_company() {
+    fn proxy_scope_single_root() {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
-            HeaderValue::from_static("solo-company"),
+            PROXY_SCOPE_ROOTS_HEADER,
+            HeaderValue::from_static("solo-root"),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
 
         let scope = proxy_scope_from_headers(&state, &headers).unwrap();
-        assert_eq!(scope.companies, vec!["solo-company"]);
+        assert_eq!(scope.roots, vec!["solo-root"]);
     }
 
     #[test]
@@ -475,11 +475,11 @@ mod tests {
         let state = test_state(Some("secret".to_string()));
         let mut headers = HeaderMap::new();
         headers.insert(
-            PROXY_SCOPE_COMPANIES_HEADER,
+            PROXY_SCOPE_ROOTS_HEADER,
             HeaderValue::from_static(",,,"),
         );
         headers.insert(PROXY_SCOPE_TOKEN_HEADER, HeaderValue::from_static("secret"));
-        // All segments empty after split+trim+filter -> companies is empty -> None
+        // All segments empty after split+trim+filter -> roots is empty -> None
         assert!(proxy_scope_from_headers(&state, &headers).is_none());
     }
 
@@ -654,12 +654,12 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             };
             match validate_token(token, secret) {
                 Ok(claims) => {
-                    // Resolve user's companies for tenant scoping.
+                    // Resolve user's root agents for tenant scoping.
                     if let Some(accounts) = &state.accounts {
                         let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
                         if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
-                            let companies = user.companies.unwrap_or_default();
-                            req.extensions_mut().insert(UserScope { companies });
+                            let roots = user.roots.unwrap_or_default();
+                            req.extensions_mut().insert(UserScope { roots });
                         }
                     }
                     req.extensions_mut().insert(claims);

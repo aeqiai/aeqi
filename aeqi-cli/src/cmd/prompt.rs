@@ -77,7 +77,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             prompt,
         } => {
             let project_cfg = config
-                .company(&company)
+                .agent_spawn(&company)
                 .context(format!("company not found: {company}"))?;
             let project_dir = find_project_dir(&company)?;
             let prompts = discover_project_prompts(&project_dir)?;
@@ -115,7 +115,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             };
 
             let observer: Arc<dyn Observer> = Arc::new(LogObserver);
-            let model = config.model_for_company(&company);
+            let model = config.model_for_project(&company);
 
             let agent_config = AgentConfig {
                 model,
