@@ -279,6 +279,10 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-base);
+  border-top-left-radius: var(--radius-xl);
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
 }
 
 /* ── Page Content ── */
