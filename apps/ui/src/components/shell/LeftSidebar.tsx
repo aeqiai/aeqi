@@ -331,6 +331,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       )}
 
       <div className="left-sidebar-body">
+        <div className="sidebar-section-label">Agents</div>
         <AgentTree />
       </div>
     </div>

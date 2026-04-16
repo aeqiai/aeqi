@@ -175,13 +175,18 @@
   color: var(--text-primary);
 }
 
-/* ── Section labels ── */
+/* ── Section labels ──
+   Structural category headers in the rail (e.g. "Agents" above the
+   tree). Uppercase + letter-spacing is the SaaS convention (Linear,
+   Vercel, GitHub) — labels carry the weight of section breaks, so
+   we don't need dividers. Callers pass natural-case text. */
 .sidebar-section-label {
-  padding: var(--space-2) 16px 0;
+  padding: var(--space-3) 16px var(--space-1);
   font-size: var(--font-size-2xs);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   user-select: none;
 }
 
