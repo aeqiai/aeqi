@@ -288,10 +288,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           agent={agent}
           agentId={agentId}
           resolvedAgentId={resolvedAgentId}
-          agents={agents}
-          childAgents={childAgents}
           showToast={showToast}
-          go={go}
         />
       )}
     </>
@@ -302,18 +299,12 @@ function SettingsPanel({
   agent,
   agentId,
   resolvedAgentId,
-  agents,
-  childAgents,
   showToast,
-  go,
 }: {
   agent: ReturnType<typeof useDaemonStore.getState>["agents"][0] | undefined;
   agentId: string;
   resolvedAgentId: string;
-  agents: ReturnType<typeof useDaemonStore.getState>["agents"];
-  childAgents: ReturnType<typeof useDaemonStore.getState>["agents"];
   showToast: (msg: string, isError?: boolean) => void;
-  go: (path: string) => void;
 }) {
   const [settingsTab, setSettingsTab] = useState<(typeof SETTINGS_TABS)[number]>("General");
 
