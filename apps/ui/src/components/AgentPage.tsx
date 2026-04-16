@@ -11,7 +11,7 @@ import RoundAvatar from "./RoundAvatar";
 import { EmptyState } from "./ui/EmptyState";
 import type { Idea } from "@/lib/types";
 
-const SETTINGS_TABS = ["General", "Channels", "Hierarchy"] as const;
+const SETTINGS_TABS = ["General", "Channels"] as const;
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -409,60 +409,6 @@ function SettingsPanel({
         <AgentChannelsTab agentId={resolvedAgentId} />
       )}
 
-      {settingsTab === "Hierarchy" && (
-        <div className="page-content">
-          {agent?.parent_id && (
-            <div className="agent-settings-section">
-              <h3 className="agent-settings-heading">Parent</h3>
-              <div
-                className="agent-child-card"
-                onClick={() => {
-                  const p = agents.find((a) => a.id === agent.parent_id);
-                  if (p) go(`/agents/${p.id}`);
-                }}
-              >
-                <RoundAvatar
-                  name={agents.find((a) => a.id === agent.parent_id)?.name || ""}
-                  size={28}
-                />
-                <div>
-                  <div className="agent-child-name">
-                    {agents.find((a) => a.id === agent.parent_id)?.display_name ||
-                      agents.find((a) => a.id === agent.parent_id)?.name ||
-                      agent.parent_id}
-                  </div>
-                  <div className="agent-child-status">
-                    {agents.find((a) => a.id === agent.parent_id)?.status}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="agent-settings-section">
-            <h3 className="agent-settings-heading">Children ({childAgents.length})</h3>
-            {childAgents.length > 0 ? (
-              <div className="agent-children-grid">
-                {childAgents.map((child) => (
-                  <div
-                    key={child.id}
-                    className="agent-child-card"
-                    onClick={() => go(`/agents/${child.id}`)}
-                  >
-                    <RoundAvatar name={child.name} size={28} />
-                    <div>
-                      <div className="agent-child-name">{child.display_name || child.name}</div>
-                      <div className="agent-child-status">{child.status}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title="No children" description="This agent hasn't spawned sub-agents." />
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
