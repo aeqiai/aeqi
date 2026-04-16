@@ -4,6 +4,9 @@ import { render } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import ContentCTA from "@/components/ContentCTA";
 import DashboardHome from "@/components/DashboardHome";
+import LeftSidebar from "@/components/shell/LeftSidebar";
+import ComposerRow from "@/components/shell/ComposerRow";
+import BootLoader from "@/components/shell/BootLoader";
 import { useDaemonStore } from "@/store/daemon";
 
 /**
@@ -158,6 +161,81 @@ describe("DashboardHome smoke", () => {
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
             <Route path=":root/*" element={<DashboardHome />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+});
+
+describe("shell components smoke", () => {
+  it("BootLoader renders the splash", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <BootLoader />
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("LeftSidebar renders at the root scope", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1"]}>
+          <Routes>
+            <Route
+              path=":root/*"
+              element={<LeftSidebar rootId="root-1" agentId={null} path="/root-1" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("LeftSidebar renders with a drilled-in child agent (scope indicator visible)", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1/agents/child-1/sessions"]}>
+          <Routes>
+            <Route
+              path=":root/*"
+              element={
+                <LeftSidebar
+                  rootId="root-1"
+                  agentId="child-1"
+                  path="/root-1/agents/child-1/sessions"
+                />
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("ComposerRow renders without a mounted chat (pending-message path)", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1"]}>
+          <Routes>
+            <Route path=":root/*" element={<ComposerRow agentId={null} base="/root-1" />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("ComposerRow renders with a mounted chat (event-bridge path)", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1/sessions"]}>
+          <Routes>
+            <Route path=":root/*" element={<ComposerRow agentId="root-1" base="/root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
