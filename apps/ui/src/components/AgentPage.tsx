@@ -11,12 +11,14 @@ import { EmptyState } from "./ui/EmptyState";
 import type { Idea } from "@/lib/types";
 
 const TABS = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "sessions", label: "Sessions" },
+  { id: "tools", label: "Tools" },
+  { id: "settings", label: "Settings" },
   { id: "agents", label: "Agents" },
   { id: "quests", label: "Quests" },
   { id: "ideas", label: "Ideas" },
   { id: "events", label: "Events" },
-  { id: "tools", label: "Tools" },
 ];
 
 const ALL_TOOLS = [
@@ -108,20 +110,6 @@ export default function AgentPage({ agentId }: { agentId: string }) {
           {agent?.budget_usd != null && (
             <span className="content-topbar-meta">${agent.budget_usd.toFixed(2)}</span>
           )}
-          <button className="content-topbar-btn" title="Settings">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -145,6 +133,49 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       )}
 
       {/* Tab content */}
+      {activeTab === "dashboard" && (
+        <div className="page-content">
+          <div className="agent-stats-row">
+            <div className="agent-stat">
+              <span className="agent-stat-value">{agent?.session_count ?? 0}</span>
+              <span className="agent-stat-label">sessions</span>
+            </div>
+            <div className="agent-stat">
+              <span className="agent-stat-value">
+                {agentQuests.filter((q) => (q as Record<string, unknown>).status === "done").length}
+              </span>
+              <span className="agent-stat-label">completed</span>
+            </div>
+            <div className="agent-stat">
+              <span className="agent-stat-value">
+                {agentQuests.filter((q) => (q as Record<string, unknown>).status === "in_progress").length}
+              </span>
+              <span className="agent-stat-label">in progress</span>
+            </div>
+            <div className="agent-stat">
+              <span className="agent-stat-value">{formatTokens(agent?.total_tokens)}</span>
+              <span className="agent-stat-label">tokens</span>
+            </div>
+            <div className="agent-stat">
+              <span className="agent-stat-value">
+                {agent?.budget_usd != null ? `$${agent.budget_usd.toFixed(0)}` : "—"}
+              </span>
+              <span className="agent-stat-label">budget</span>
+            </div>
+            <div className="agent-stat">
+              <span className="agent-stat-value">{childAgents.length}</span>
+              <span className="agent-stat-label">children</span>
+            </div>
+          </div>
+          {agent?.idea_ids && agent.idea_ids.length > 0 && (
+            <div className="agent-settings-section">
+              <h3 className="agent-settings-heading">Ideas ({agent.idea_ids.length})</h3>
+              <div className="agent-settings-mono">{agent.idea_ids.join(", ")}</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === "sessions" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
@@ -218,7 +249,7 @@ export default function AgentPage({ agentId }: { agentId: string }) {
       )}
 
       {activeTab === "tools" && (
-        <div className="page-content" style={{ padding: "16px" }}>
+        <div className="page-content">
           <div className="tools-grid">
             {ALL_TOOLS.map((tool) => {
               const allowed = !agent?.tool_deny?.includes(tool);
@@ -246,6 +277,111 @@ export default function AgentPage({ agentId }: { agentId: string }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {activeTab === "settings" && (
+        <div className="page-content">
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Model</h3>
+            <input
+              className="agent-settings-input"
+              type="text"
+              defaultValue={agent?.model || ""}
+              placeholder="e.g. anthropic/claude-sonnet-4"
+              onBlur={async (e) => {
+                const val = e.target.value.trim();
+                try {
+                  await api.setAgentModel(resolvedAgentId, val);
+                  showToast("Model saved");
+                } catch (err) {
+                  showToast(
+                    `Error: ${err instanceof Error ? err.message : "Failed to save"}`,
+                    true,
+                  );
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+            />
+          </div>
+
+          <div className="agent-settings-section">
+            <h3 className="agent-settings-heading">Details</h3>
+            <div className="agent-settings-grid">
+              <div className="agent-settings-field">
+                <span className="agent-settings-label">Status</span>
+                <span className="agent-settings-value">
+                  <span
+                    className={`agent-settings-status-dot ${agent?.status === "active" ? "live" : ""}`}
+                  />
+                  {agent?.status || "unknown"}
+                </span>
+              </div>
+              {agent?.execution_mode && (
+                <div className="agent-settings-field">
+                  <span className="agent-settings-label">Mode</span>
+                  <span className="agent-settings-value">{agent.execution_mode}</span>
+                </div>
+              )}
+              {agent?.workdir && (
+                <div className="agent-settings-field">
+                  <span className="agent-settings-label">Workdir</span>
+                  <span className="agent-settings-value agent-settings-mono">{agent.workdir}</span>
+                </div>
+              )}
+              <div className="agent-settings-field">
+                <span className="agent-settings-label">ID</span>
+                <span className="agent-settings-value agent-settings-mono">
+                  {agent?.id || agentId}
+                </span>
+              </div>
+              {agent?.created_at && (
+                <div className="agent-settings-field">
+                  <span className="agent-settings-label">Created</span>
+                  <span className="agent-settings-value">
+                    {new Date(agent.created_at).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(agents.some((a) => a.parent_id === agent?.id) ||
+            agent?.parent_id) && (
+            <div className="agent-settings-section">
+              <h3 className="agent-settings-heading">Hierarchy</h3>
+              <div className="agent-settings-grid">
+                {agent?.parent_id && (
+                  <div className="agent-settings-field">
+                    <span className="agent-settings-label">Parent</span>
+                    <span
+                      className="agent-settings-value agent-settings-link"
+                      onClick={() => {
+                        const p = agents.find((a) => a.id === agent.parent_id);
+                        if (p) go(`/agents/${p.id}`);
+                      }}
+                    >
+                      {agents.find((a) => a.id === agent.parent_id)?.display_name ||
+                        agents.find((a) => a.id === agent.parent_id)?.name ||
+                        agent.parent_id}
+                    </span>
+                  </div>
+                )}
+                {childAgents.length > 0 && (
+                  <div className="agent-settings-field">
+                    <span className="agent-settings-label">Children</span>
+                    <span className="agent-settings-value">{childAgents.length} agents</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

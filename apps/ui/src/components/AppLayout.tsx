@@ -165,7 +165,7 @@ export default function AppLayout() {
         <div className="left-sidebar">
           <CompanySwitcher />
           <nav className="sidebar-nav">
-            {navLink("/", "Home", homeIcon)}
+            {navLink("/", "Dashboard", homeIcon)}
             {navLink(
               "/sessions",
               "Sessions",
@@ -180,6 +180,37 @@ export default function AppLayout() {
               >
                 <path d="M2 3h10v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
                 <path d="M5 6h4M5 8.5h2" />
+              </svg>,
+            )}
+            {navLink(
+              "/tools",
+              "Tools",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              >
+                <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
+              </svg>,
+            )}
+            {navLink(
+              "/settings",
+              "Settings",
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
               </svg>,
             )}
           </nav>
@@ -250,45 +281,11 @@ export default function AppLayout() {
               "New idea",
             )}
           </nav>
-          <div className="sidebar-section-label">tools</div>
-          <nav className="sidebar-nav">
-            {navLink(
-              "/tools",
-              "Tools",
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              >
-                <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
-              </svg>,
-            )}
-          </nav>
           <div className="left-sidebar-body">
             <AgentTree />
           </div>
-          <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
-            {navLink(
-              "/settings",
-              "Settings",
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-              </svg>,
-            )}
-            {appMode === "platform" && (
+          {appMode === "platform" && (
+            <nav className="sidebar-nav" style={{ marginTop: "auto" }}>
               <a
                 className={`sidebar-nav-item ${isActive("/account") ? "active" : ""}`}
                 href={href("/account")}
@@ -300,8 +297,8 @@ export default function AppLayout() {
                 <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
                 <span className="sidebar-nav-label">Account</span>
               </a>
-            )}
-          </nav>
+            </nav>
+          )}
           <div className="sidebar-footer">
             <a href="https://aeqi.ai/docs" target="_blank" rel="noopener">
               Docs
