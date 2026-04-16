@@ -113,6 +113,40 @@
   opacity: 0.8;
 }
 
+/* ── Account row ── */
+.sidebar-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 14px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+.sidebar-account:hover {
+  color: var(--text-primary);
+}
+.sidebar-account-name {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.left-sidebar.collapsed .sidebar-account-name {
+  display: none;
+}
+.left-sidebar.collapsed .sidebar-account {
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+/* ── Agent scope (above tree) ── */
+.sidebar-agent-scope {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-1);
+}
+
 /* ── Scope indicator ── */
 .sidebar-scope {
   display: flex;
