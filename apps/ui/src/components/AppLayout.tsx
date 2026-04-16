@@ -449,7 +449,7 @@ export default function AppLayout() {
         {/* Main content */}
         <div className="content-column">
           <div className="content-area">
-            {agentId && agentId !== rootId ? (
+            {agentId ? (
               <AgentPage agentId={agentId} />
             ) : (
               <>
@@ -460,7 +460,7 @@ export default function AppLayout() {
               </>
             )}
           </div>
-          {agentId && agentId !== rootId && (
+          {agentId && (
             <div className="persistent-composer">
               <ChatComposer
                 input={composerInput}

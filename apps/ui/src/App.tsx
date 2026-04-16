@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import AppLayout from "@/components/AppLayout";
@@ -22,7 +22,6 @@ const IdeasPage = lazy(() => import("@/pages/IdeasPage"));
 const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -95,7 +94,7 @@ export default function App() {
                     <Route path="agents/:agentId" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab" element={<AgentsPage />} />
                     <Route path="agents/:agentId/:tab/:itemId" element={<AgentsPage />} />
-                    <Route path="sessions" element={<SessionsPage />} />
+                    <Route path="sessions" element={<RootSessionsRedirect />} />
                     <Route path="events" element={<EventsPage />} />
                     <Route path="quests" element={<QuestsPage />} />
                     <Route path="ideas" element={<IdeasPage />} />
@@ -120,4 +119,10 @@ function ModeAwareHome() {
 function ModeAwareProfileRoute() {
   const appMode = useAuthStore((s) => s.appMode);
   return appMode === "platform" ? <ProfilePage /> : <Navigate to="/" replace />;
+}
+
+// `/:root/sessions` opens the root agent's chat — same view as a child agent's chat.
+function RootSessionsRedirect() {
+  const { root } = useParams<{ root: string }>();
+  return <Navigate to={`/${root}/agents/${root}/sessions`} replace />;
 }
