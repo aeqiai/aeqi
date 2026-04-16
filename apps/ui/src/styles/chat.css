@@ -59,7 +59,7 @@
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--bg-base);
 }
 @media (max-width: 768px) {
