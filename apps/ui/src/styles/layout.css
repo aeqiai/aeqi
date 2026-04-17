@@ -1137,16 +1137,21 @@
 .agent-settings-input {
   font-family: var(--font-mono);
   font-size: 12px;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg-base);
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  background: var(--input-bg);
   color: var(--text-primary);
   outline: none;
   width: 300px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .agent-settings-input:focus {
-  border-color: var(--text-muted);
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
 }
 
 /* Stats row */
@@ -1300,15 +1305,20 @@
   flex: 1;
   font-family: var(--font-sans);
   font-size: 12px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-base);
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  background: var(--input-bg);
   color: var(--text-primary);
   outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .events-link-input:focus {
-  border-color: var(--text-muted);
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
 }
 .events-link-search-btn {
   font-size: 11px;

@@ -468,18 +468,23 @@
 }
 
 .filter-input {
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  height: var(--input-h);
+  padding: 0 var(--input-px);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .filter-input:focus {
   outline: none;
-  border-color: var(--border-hover);
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
 }
 
 /* Empty state */
@@ -804,7 +809,11 @@
   color: var(--text-primary);
 }
 
-/* ── Persistent composer (below content card in shell) ── */
+/* ── Persistent composer (below content card in shell) ──
+   The inner box already inherits the shared input language from
+   chat.css; the only override here is to strip the outer .asv-composer
+   padding so the composer sits flush against the shell's 8px gap
+   (the shell handles spacing at the layout level, not here). */
 .persistent-composer {
   width: 100%;
   max-width: 760px;
@@ -812,9 +821,4 @@
 .persistent-composer .asv-composer {
   background: transparent;
   padding: 0;
-}
-.persistent-composer .asv-composer-inner {
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
 }

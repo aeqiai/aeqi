@@ -872,7 +872,7 @@
 /* ── Composer ── */
 
 .asv-composer {
-  padding: 16px 24px 20px;
+  padding: 16px 24px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -880,24 +880,30 @@
   background: var(--bg-base);
 }
 
+/* Composer inherits the shared input language: 1px border, --radius-md,
+   --input-bg. Taller than --input-h because it's a multiline surface,
+   but every other visual choice matches .agent-settings-input and the
+   other form inputs so they read as one family. Padding is symmetric
+   top/bottom (12px) — the previous 14/8 asymmetry made the textarea
+   sit visibly too high. */
 .asv-composer-inner {
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 720px;
-  background: var(--bg-base);
-  border: 1.5px solid var(--border-hover);
-  border-radius: var(--radius-xl);
-  padding: 14px 16px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  padding: 12px 16px;
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+    border-color 0.15s,
+    box-shadow 0.15s;
   position: relative;
 }
 
 .asv-composer-inner:focus-within {
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-md);
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
 }
 
 /* Streaming: thin scanning line below composer */

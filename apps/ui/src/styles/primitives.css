@@ -85,6 +85,25 @@
      to fit a long agent tree without scrolling. */
   --sidebar-row-h: 32px;
 
+  /* ── Input field language ──
+     One set of tokens drives every text input, textarea, and composer
+     in the app. Six ad-hoc rules (.agent-settings-input, .auth-input,
+     .filter-input, .events-link-input, .asv-composer-inner, …) were all
+     solving the same problem with different numbers; these tokens are
+     now the source of truth.
+
+     --input-h mirrors --sidebar-row-h so inputs and nav rows share the
+     same vertical rhythm. The composer is taller (multiline) but keeps
+     the same border/radius/colors so it reads as a member of the same
+     family rather than a separate widget. */
+  --input-h: 32px;
+  --input-px: 12px;
+  --input-radius: var(--radius-md);
+  --input-bg: var(--bg-base);
+  --input-border: var(--border);
+  --input-border-focus: var(--border-hover);
+  --input-ring-focus: var(--ring-muted);
+
   /* Brand font alias */
   --font-brand: var(--font-sans);
 
