@@ -9,6 +9,6 @@
     "ui:preview": "npm --prefix apps/ui run preview"
   },
   "devDependencies": {
-    "playwright": "^1.52.0"
+    "playwright": "^1.59.1"
   }
 }
