@@ -8,14 +8,15 @@ Parameters
 Licensor:             AEQI Contributors
 Licensed Work:        AEQI
                       The Licensed Work is (c) 2025 AEQI Contributors.
-Additional Use Grant: You may make use of the Licensed Work, provided that
-                      you may not use the Licensed Work for a Commercial
-                      Purpose. A "Commercial Purpose" means use by or on
-                      behalf of a company, organization, or other entity
-                      with more than one individual, for revenue-generating,
-                      business, or production purposes. Use by a single
-                      individual for any purpose, including commercial, is
-                      permitted.
+Additional Use Grant: You may make production use of the Licensed Work,
+                      provided that your use does not include offering the
+                      Licensed Work to third parties on a hosted or embedded
+                      basis in order to compete with Licensor's paid version(s)
+                      of the Licensed Work. For purposes of this license, a
+                      "hosted or embedded basis" means (a) providing the
+                      Licensed Work as a managed service to third parties, or
+                      (b) embedding the Licensed Work in an application or
+                      service that is offered to third parties.
 Change Date:          April 5, 2030
 Change License:       Apache License, Version 2.0
 

@@ -1,0 +1,66 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more detail you give, the faster it gets fixed.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened? What did you expect to happen?
+      placeholder: |
+        When I did X, I expected Y, but instead Z happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, numbered steps. Include commands, config, or payloads.
+      placeholder: |
+        1. `aeqi start`
+        2. Run `aeqi chat --agent ...`
+        3. Observe error
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AEQI version / commit
+      description: Output of `aeqi --version` or the commit SHA you're on.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - runtime / orchestrator
+        - web UI
+        - channels (telegram / discord / slack)
+        - quests / events / ideas
+        - deploy / platform
+        - CLI
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Linux 6.8.0 / macOS 14.5 / ..."
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Relevant log lines, stack traces, or screenshots. Redact secrets.
+      render: shell
