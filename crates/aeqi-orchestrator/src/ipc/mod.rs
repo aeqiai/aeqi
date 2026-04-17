@@ -4,8 +4,10 @@
 //! and a `serde_json::Value` request, returning a `serde_json::Value` response.
 
 pub mod agents;
+pub mod channels;
 pub mod chat;
 pub mod events;
+pub mod files;
 pub mod ideas;
 pub mod notes;
 pub mod prompts;

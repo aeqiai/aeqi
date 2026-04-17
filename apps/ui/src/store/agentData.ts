@@ -13,10 +13,14 @@ import type { AgentEvent } from "@/lib/types";
 
 export interface ChannelEntry {
   id: string;
-  key: string;
-  content: string;
-  channel_type: string;
+  agent_id: string;
+  kind: string;
   config: Record<string, unknown>;
+  enabled: boolean;
+  /** Whitelisted external chat ids (telegram chat_id, slack channel, etc.).
+   *  Empty = no restriction. Lives in the `channel_allowed_chats` table
+   *  server-side; joined into the channel row on read. */
+  allowed_chats: string[];
 }
 
 interface AgentDataState {
@@ -32,6 +36,8 @@ interface AgentDataState {
   removeEvent: (agentId: string, id: string) => void;
   /** Drop a channel from the list (after delete). */
   removeChannel: (agentId: string, id: string) => void;
+  /** Replace a single channel in-place (optimistic update). */
+  patchChannel: (agentId: string, id: string, patch: Partial<ChannelEntry>) => void;
 }
 
 export const useAgentDataStore = create<AgentDataState>((set, get) => ({
@@ -53,28 +59,30 @@ export const useAgentDataStore = create<AgentDataState>((set, get) => ({
     if (!agentId) return;
     try {
       const data = await api.getAgentChannels(agentId);
-      const ideas = (data.ideas || []) as Array<Record<string, unknown>>;
-      const channels: ChannelEntry[] = ideas
-        .filter((i) => typeof i.name === "string" && (i.name as string).startsWith("channel:"))
-        .map((i) => {
-          const key = i.name as string;
-          let config: Record<string, unknown> = {};
-          try {
-            config = JSON.parse(i.content as string);
-          } catch {
-            config = { raw: i.content };
-          }
-          return {
-            id: i.id as string,
-            key,
-            content: i.content as string,
-            channel_type: key.replace("channel:", ""),
-            config,
-          };
-        });
+      const rows = (data.channels || []) as Array<Record<string, unknown>>;
+      const channels: ChannelEntry[] = rows.map((r) => {
+        const config = (r.config as Record<string, unknown>) || {};
+        const kind = (r.kind as string) || (config.kind as string) || "unknown";
+        const allowed = (r.allowed_chats as unknown[]) || [];
+        return {
+          id: r.id as string,
+          agent_id: r.agent_id as string,
+          kind,
+          config,
+          enabled: (r.enabled as boolean) ?? true,
+          allowed_chats: allowed.map((v) => String(v)),
+        };
+      });
       set((s) => ({ channelsByAgent: { ...s.channelsByAgent, [agentId]: channels } }));
     } catch {
-      set((s) => ({ channelsByAgent: { ...s.channelsByAgent, [agentId]: [] } }));
+      // Don't wipe the list on a transient fetch failure — that renders
+      // "No channels" (empty-state), indistinguishable from success. Leave
+      // whatever is cached. Only initialize to [] if nothing was loaded yet
+      // so the detail pane can render its empty state on first-visit errors.
+      set((s) => {
+        if (s.channelsByAgent[agentId] !== undefined) return s;
+        return { channelsByAgent: { ...s.channelsByAgent, [agentId]: [] } };
+      });
     }
   },
 
@@ -107,6 +115,17 @@ export const useAgentDataStore = create<AgentDataState>((set, get) => ({
       channelsByAgent: {
         ...s.channelsByAgent,
         [agentId]: current.filter((c) => c.id !== id),
+      },
+    }));
+  },
+
+  patchChannel: (agentId, id, patch) => {
+    const current = get().channelsByAgent[agentId];
+    if (!current) return;
+    set((s) => ({
+      channelsByAgent: {
+        ...s.channelsByAgent,
+        [agentId]: current.map((c) => (c.id === id ? { ...c, ...patch } : c)),
       },
     }));
   },

@@ -10,6 +10,7 @@ pub mod activity_log;
 pub mod agent_registry;
 pub mod agent_router;
 pub mod agent_worker;
+pub mod channel_registry;
 pub mod checkpoint;
 pub mod claude_code;
 pub mod context_budget;
@@ -19,6 +20,7 @@ pub mod event_handler;
 pub mod event_matcher;
 pub mod executor;
 pub mod failure_analysis;
+pub mod file_store;
 pub mod gateway_manager;
 pub mod hook;
 pub mod idea_assembly;
@@ -46,6 +48,10 @@ pub use agent_registry::Agent;
 pub use agent_registry::RunRecord;
 pub use agent_router::{AgentRouter, RouteDecision};
 pub use agent_worker::{AgentWorker, WorkerState};
+pub use channel_registry::{
+    Channel, ChannelConfig, ChannelKind, ChannelStore, NewChannel, TelegramConfig,
+    migrate_channel_ideas, migrate_inline_allowed_chats,
+};
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;

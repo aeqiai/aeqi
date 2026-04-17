@@ -146,8 +146,8 @@ export default function ContentCTA() {
       header = { label: "Add channel", event: "aeqi:new-channel" };
       items = channels.map((c) => ({
         id: c.id,
-        name: c.channel_type,
-        badge: c.channel_type.toUpperCase(),
+        name: c.kind,
+        badge: c.kind.toUpperCase(),
         preview: "Connected",
       }));
       emptyText = "No channels";

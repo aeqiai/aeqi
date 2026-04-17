@@ -1,8 +1,10 @@
 mod agents;
 pub mod auth;
+mod channels;
 mod chat;
 mod dashboard;
 mod events;
+mod files;
 mod helpers;
 mod hosting;
 mod ideas;
@@ -31,6 +33,8 @@ pub fn api_routes() -> Router<AppState> {
         .merge(chat::routes())
         .merge(ideas::routes())
         .merge(events::routes())
+        .merge(files::routes())
+        .merge(channels::routes())
         .merge(vfs::routes())
         .merge(hosting::routes())
 }

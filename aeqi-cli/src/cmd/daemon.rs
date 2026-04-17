@@ -1,6 +1,4 @@
 use aeqi_core::SecretStore;
-use aeqi_core::traits::Channel;
-use aeqi_gates::{TelegramChannel, TelegramGateway};
 use aeqi_orchestrator::{
     AEQIMetrics, ActivityLog, AgentRouter, Daemon, GatewayManager, Scheduler, SchedulerConfig,
     SessionManager, SessionStore,
@@ -483,71 +481,50 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             info!(total_max_workers, "global scheduler initialized");
 
-            // ── Agent-driven Telegram gateways ──
-            // Scan all agents' ideas for `channel:telegram` configs.
-            // Each config contains {token, allowed_chats} and binds a poller
-            // to that agent.
-            let mut tg_gateway_count = 0u32;
-            if let Some(ref idea_store) = shared_idea_store {
-                match idea_store.search_by_prefix("channel:telegram", 100) {
-                    Ok(ideas) => {
-                        for idea in ideas {
-                            let Some(ref owner_agent_id) = idea.agent_id else {
-                                warn!(name = %idea.name, "channel:telegram idea has no agent_id, skipping");
-                                continue;
-                            };
-                            let tg_cfg: serde_json::Value = match serde_json::from_str(
-                                &idea.content,
-                            ) {
-                                Ok(v) => v,
-                                Err(e) => {
-                                    warn!(name = %idea.name, error = %e, "invalid JSON in channel:telegram idea");
-                                    continue;
-                                }
-                            };
-                            let token = match tg_cfg.get("token").and_then(|v| v.as_str()) {
-                                Some(t) if !t.is_empty() => t.to_string(),
-                                _ => {
-                                    warn!(name = %idea.name, "channel:telegram idea missing token");
-                                    continue;
-                                }
-                            };
-                            let allowed_chats: Vec<i64> = tg_cfg
-                                .get("allowed_chats")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
-                                .unwrap_or_default();
+            // ── Channel gateways ──
+            // Channels are a first-class primitive (aeqi.db `channels` table)
+            // with typed configs per kind. The dispatcher in
+            // `channel_gateways::dispatch` owns the match on kind → spawner;
+            // this block just handles migrations and iterates the DB rows.
+            let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
+            if let Some(ref idea_store) = shared_idea_store
+                && let Err(e) =
+                    aeqi_orchestrator::migrate_channel_ideas(&channel_store, idea_store.as_ref())
+                        .await
+            {
+                warn!(error = %e, "channel idea → channels table migration failed");
+            }
+            // B2: extract inline `allowed_chats` from existing channel rows
+            // into the dedicated `channel_allowed_chats` table. Idempotent via
+            // applied_migrations; no-op after first successful run.
+            if let Err(e) = aeqi_orchestrator::migrate_inline_allowed_chats(&channel_store).await {
+                warn!(error = %e, "inline allowed_chats → table migration failed");
+            }
 
-                            let agent_id = owner_agent_id.clone();
-                            let tg_channel =
-                                Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
-                            let sm = daemon.session_manager.clone();
-                            let ar = agent_reg.clone();
-                            let provider = daemon.default_provider.clone();
-
-                            tokio::spawn(start_agent_telegram_gateway(
-                                agent_id.clone(),
-                                allowed_chats,
-                                sm,
-                                ar,
-                                provider,
-                                tg_channel,
-                                daemon.session_store.clone(),
-                                daemon.gateway_manager.clone(),
-                            ));
-                            tg_gateway_count += 1;
-                            info!(agent_id = %agent_id, "started agent telegram gateway from idea");
+            let spawn_ctx = crate::cmd::channel_gateways::SpawnContext {
+                session_manager: daemon.session_manager.clone(),
+                agent_registry: agent_reg.clone(),
+                default_provider: daemon.default_provider.clone(),
+                session_store: daemon.session_store.clone(),
+                gateway_manager: daemon.gateway_manager.clone(),
+            };
+            let mut gateway_count = 0u32;
+            match channel_store.list_enabled().await {
+                Ok(channels) => {
+                    for ch in channels {
+                        if crate::cmd::channel_gateways::dispatch(ch, &spawn_ctx) {
+                            gateway_count += 1;
                         }
                     }
-                    Err(e) => {
-                        warn!(error = %e, "failed to scan ideas for channel:telegram configs");
-                    }
+                }
+                Err(e) => {
+                    warn!(error = %e, "failed to list channels");
                 }
             }
 
             // Legacy fallback: if [channels.telegram] is configured in aeqi.toml,
             // start a single gateway bound to the root agent.
-            if tg_gateway_count == 0
+            if gateway_count == 0
                 && let Some(ref tg_config) = config.channels.telegram
             {
                 let secret_store_path = config
@@ -572,26 +549,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                             .unwrap_or_else(|| "root".to_string())
                                     }
                                 };
-                                let allowed_chats = tg_config.allowed_chats.clone();
-                                let tg_channel =
-                                    Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
-                                let sm = daemon.session_manager.clone();
-                                let ar = agent_reg.clone();
-                                let provider = daemon.default_provider.clone();
-
-                                tokio::spawn(start_agent_telegram_gateway(
-                                    root_agent_id.clone(),
-                                    allowed_chats,
-                                    sm,
-                                    ar,
-                                    provider,
-                                    tg_channel,
-                                    daemon.session_store.clone(),
-                                    daemon.gateway_manager.clone(),
-                                ));
-                                info!(
-                                    agent_id = %root_agent_id,
-                                    "started legacy telegram gateway from [channels.telegram]"
+                                crate::cmd::channel_gateways::telegram::spawn_legacy_telegram_gateway(
+                                    root_agent_id,
+                                    token,
+                                    tg_config.allowed_chats.clone(),
+                                    spawn_ctx.clone(),
                                 );
                             }
                             _ => {
@@ -750,219 +712,4 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
         }
     }
     Ok(())
-}
-
-/// Agent-driven Telegram gateway.
-///
-/// Starts a poller for the given TelegramChannel, routes incoming messages
-/// through the session_manager bound to the specified agent_id. Each
-/// (agent_id, chat_id) pair gets a persistent session.
-#[allow(clippy::too_many_arguments)]
-async fn start_agent_telegram_gateway(
-    agent_id: String,
-    allowed_chats: Vec<i64>,
-    session_manager: Arc<SessionManager>,
-    agent_registry: Arc<aeqi_orchestrator::agent_registry::AgentRegistry>,
-    default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
-    tg_channel: Arc<TelegramChannel>,
-    session_store: Option<Arc<SessionStore>>,
-    gateway_manager: Arc<GatewayManager>,
-) {
-    let mut rx = match Channel::start(tg_channel.as_ref()).await {
-        Ok(rx) => rx,
-        Err(e) => {
-            warn!(agent_id = %agent_id, error = %e, "failed to start telegram poller");
-            return;
-        }
-    };
-
-    // Resolve agent name (used for logging; response recording handled by gateway).
-    let _agent_name = match agent_registry.get(&agent_id).await {
-        Ok(Some(agent)) => agent.name,
-        _ => agent_id.clone(),
-    };
-
-    info!(agent_id = %agent_id, "telegram gateway polling started");
-
-    // Register persistent gateways for all known channel_sessions.
-    // This ensures web-initiated messages on Telegram-bound sessions
-    // also deliver responses to Telegram.
-    if let Ok(channel_sessions) = agent_registry.list_channel_sessions(&agent_id).await {
-        for (channel_key, session_id, _created_at) in &channel_sessions {
-            if let Some(chat_id_str) = channel_key.split(':').nth(2)
-                && let Ok(chat_id) = chat_id_str.parse::<i64>()
-            {
-                let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
-                    Arc::new(TelegramGateway::new(tg_channel.clone(), chat_id, &agent_id));
-                gateway_manager.register_persistent(session_id, tg_gw).await;
-                info!(session_id = %session_id, chat_id, "restored persistent telegram gateway");
-            }
-        }
-    }
-
-    while let Some(msg) = rx.recv().await {
-        let chat_id = msg
-            .metadata
-            .get("chat_id")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        if chat_id == 0 {
-            continue;
-        }
-        let message_id = msg
-            .metadata
-            .get("message_id")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-
-        // Whitelist check.
-        if !allowed_chats.is_empty() && !allowed_chats.contains(&chat_id) {
-            continue;
-        }
-
-        let user_text = msg.text;
-        if user_text.is_empty() {
-            continue;
-        }
-
-        let sender_name = msg.sender.clone();
-        let telegram_user_id = msg
-            .metadata
-            .get("from_id")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-
-        // Get or create session for this (agent, chat) pair.
-        let channel_key = format!("telegram:{}:{}", agent_id, chat_id);
-        let session_id = match agent_registry
-            .get_or_create_channel_session(&channel_key, &agent_id)
-            .await
-        {
-            Ok(sid) => sid,
-            Err(e) => {
-                warn!(error = %e, channel_key = %channel_key, "failed to resolve channel session");
-                continue;
-            }
-        };
-
-        // Route through session_manager.
-        let tg = tg_channel.clone();
-        let sm = session_manager.clone();
-        let gm = gateway_manager.clone();
-        let provider = default_provider.clone();
-        let aid = agent_id.clone();
-        let session_store_clone = session_store.clone();
-
-        tokio::spawn(async move {
-            let _ = tg.send_typing(chat_id).await;
-
-            // Resolve the Telegram user sender identity.
-            let user_sender_id =
-                if let Some(ref ss) = session_store_clone {
-                    let sender = ss
-                        .resolve_sender(
-                            "telegram",
-                            &telegram_user_id.to_string(),
-                            &sender_name,
-                            None,
-                            None,
-                            Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
-                        )
-                        .await
-                        .ok();
-
-                    // Record the user's inbound message with sender identity.
-                    if let Some(ref s) = sender {
-                        let _ = ss.record_message(
-                        &session_id,
-                        &s.id,
-                        "telegram",
-                        "user",
-                        &user_text,
-                        Some(&serde_json::json!({"chat_id": chat_id, "message_id": message_id})),
-                    ).await;
-                    }
-                    sender.map(|s| s.id)
-                } else {
-                    None
-                };
-
-            // Register TelegramGateway for this session (deduplicated by gateway_id).
-            let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
-                Arc::new(TelegramGateway::new(tg.clone(), chat_id, &aid));
-
-            // Store as persistent so web-originated messages also deliver to Telegram.
-            gm.register_persistent(&session_id, tg_gw.clone()).await;
-
-            if sm.is_running(&session_id).await {
-                // Session already alive — register gateway and inject message.
-                // GatewayManager's dispatcher delivers the response to Telegram.
-                if let Some(stream_sender) = sm.get_stream_sender(&session_id).await {
-                    gm.register(&session_id, tg_gw, &stream_sender).await;
-                }
-                if let Err(e) = sm.send_streaming(&session_id, &user_text).await {
-                    warn!(error = %e, session_id = %session_id, "session send failed");
-                    let out = aeqi_core::traits::OutgoingMessage {
-                        channel: "telegram".to_string(),
-                        recipient: String::new(),
-                        text: format!("Error: {}", e),
-                        metadata: serde_json::json!({ "chat_id": chat_id }),
-                    };
-                    let _ = tg.send(out).await;
-                }
-            } else {
-                // No running session — spawn a new interactive session.
-                let Some(provider) = provider else {
-                    let out = aeqi_core::traits::OutgoingMessage {
-                        channel: "telegram".to_string(),
-                        recipient: String::new(),
-                        text: "No provider configured.".to_string(),
-                        metadata: serde_json::json!({ "chat_id": chat_id }),
-                    };
-                    let _ = tg.send(out).await;
-                    return;
-                };
-
-                let mut opts = aeqi_orchestrator::session_manager::SpawnOptions::interactive()
-                    .with_session_id(session_id.clone())
-                    .with_name(format!("telegram:{}", chat_id))
-                    .with_transport("telegram".to_string());
-                // Pass sender_id so spawn_session records the initial prompt with identity.
-                if let Some(ref sid) = user_sender_id {
-                    opts = opts.with_sender_id(sid.clone());
-                }
-                // The initial prompt is already recorded above with sender identity,
-                // so skip the default recording in spawn_session.
-                opts = opts.without_initial_prompt_record();
-
-                match sm.spawn_session(&aid, &user_text, provider, opts).await {
-                    Ok(spawned) => {
-                        info!(
-                            session_id = %spawned.session_id,
-                            agent_id = %aid,
-                            "spawned telegram session"
-                        );
-                        // Pre-subscribe before registering to avoid missing early events.
-                        let pre_rx = spawned.stream_sender.subscribe();
-                        gm.register_with_rx(&session_id, tg_gw, pre_rx).await;
-                    }
-                    Err(e) => {
-                        warn!(error = %e, "failed to spawn session for telegram");
-                        let out = aeqi_core::traits::OutgoingMessage {
-                            channel: "telegram".to_string(),
-                            recipient: String::new(),
-                            text: format!("Error: {}", e),
-                            metadata: serde_json::json!({ "chat_id": chat_id }),
-                        };
-                        let _ = tg.send(out).await;
-                    }
-                }
-            }
-
-            // React with thumbs up.
-            if message_id > 0 {
-                let _ = tg.react(chat_id, message_id, "\u{1f44d}").await;
-            }
-        });
-    }
 }

@@ -1079,6 +1079,47 @@ impl Daemon {
                     crate::ipc::notes::handle_check_claim(&ctx, &request, &allowed_roots).await
                 }
 
+                "files_list" => {
+                    crate::ipc::files::handle_files_list(&ctx, &request, &allowed_roots).await
+                }
+                "files_upload" => {
+                    crate::ipc::files::handle_files_upload(&ctx, &request, &allowed_roots).await
+                }
+                "files_read" => {
+                    crate::ipc::files::handle_files_read(&ctx, &request, &allowed_roots).await
+                }
+                "files_delete" => {
+                    crate::ipc::files::handle_files_delete(&ctx, &request, &allowed_roots).await
+                }
+
+                "channels_list" => {
+                    crate::ipc::channels::handle_channels_list(&ctx, &request, &allowed_roots).await
+                }
+                "channels_upsert" => {
+                    crate::ipc::channels::handle_channels_upsert(&ctx, &request, &allowed_roots)
+                        .await
+                }
+                "channels_delete" => {
+                    crate::ipc::channels::handle_channels_delete(&ctx, &request, &allowed_roots)
+                        .await
+                }
+                "channels_set_enabled" => {
+                    crate::ipc::channels::handle_channels_set_enabled(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "channels_set_allowed_chats" => {
+                    crate::ipc::channels::handle_channels_set_allowed_chats(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+
                 "quests" => crate::ipc::quests::handle_quests(&ctx, &request, &allowed_roots).await,
                 "create_quest" => {
                     crate::ipc::quests::handle_create_quest(&ctx, &request, &allowed_roots).await

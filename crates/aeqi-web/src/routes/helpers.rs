@@ -60,7 +60,25 @@ pub(super) async fn ipc_proxy(
     };
 
     match result {
-        Ok(resp) => Json(resp).into_response(),
+        Ok(resp) => {
+            // Map structured error codes from the IPC layer to appropriate
+            // HTTP statuses so clients can use plain `response.status` instead
+            // of string-matching the error payload. Currently: `conflict` →
+            // 409; extend with more codes as needed. Unknown/absent codes fall
+            // through to 200 with the existing `{ok: false, error}` shape.
+            if resp.get("ok") == Some(&serde_json::Value::Bool(false))
+                && let Some(code) = resp.get("code").and_then(|v| v.as_str())
+            {
+                let status = match code {
+                    "conflict" => Some(StatusCode::CONFLICT),
+                    _ => None,
+                };
+                if let Some(status) = status {
+                    return (status, Json(resp)).into_response();
+                }
+            }
+            Json(resp).into_response()
+        }
         Err(e) => (
             StatusCode::BAD_GATEWAY,
             Json(serde_json::json!({"ok": false, "error": e.to_string()})),

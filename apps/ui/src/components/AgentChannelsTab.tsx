@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore, type ChannelEntry } from "@/store/agentData";
-import { EmptyState } from "./ui";
+import { Button, EmptyState } from "./ui";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_CHANNELS: ChannelEntry[] = [];
@@ -24,14 +24,33 @@ const CHANNEL_TYPES = [
 const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?: string }[]> = {
   telegram: [{ label: "Bot Token", placeholder: "Paste token from @BotFather", type: "password" }],
   whatsapp: [
-    { label: "Account SID", placeholder: "Twilio Account SID" },
-    { label: "Auth Token", placeholder: "Twilio Auth Token", type: "password" },
-    { label: "Phone Number", placeholder: "+1234567890" },
+    { label: "Phone Number ID", placeholder: "Meta WhatsApp Phone Number ID" },
+    { label: "Access Token", placeholder: "Meta Graph API access token", type: "password" },
   ],
 };
 
 function fieldKey(label: string): string {
   return label.toLowerCase().replace(/\s+/g, "_");
+}
+
+/** Convert the form's flat {field: value} dict into the tagged config
+ *  the backend expects (`{kind: "telegram", token: "..."}`). */
+function buildConfig(
+  kind: string,
+  fields: Record<string, string>,
+): Record<string, unknown> & { kind: string } {
+  switch (kind) {
+    case "telegram":
+      return { kind, token: fields.bot_token ?? "" };
+    case "whatsapp":
+      return {
+        kind,
+        phone_number_id: fields.phone_number_id ?? "",
+        access_token: fields.access_token ?? "",
+      };
+    default:
+      return { kind, ...fields };
+  }
 }
 
 /**
@@ -47,13 +66,21 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const channels = useAgentDataStore((s) => s.channelsByAgent[agentId] ?? NO_CHANNELS);
   const loadChannels = useAgentDataStore((s) => s.loadChannels);
   const removeChannel = useAgentDataStore((s) => s.removeChannel);
+  const patchChannel = useAgentDataStore((s) => s.patchChannel);
 
   const [channelSessions, setChannelSessions] = useState<ChannelSession[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChannelType, setNewChannelType] = useState("telegram");
   const [newChannelFields, setNewChannelFields] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Monotonic seq for whitelist PATCHes. Rapid clicks fire overlapping
+  // requests; only the response from the latest click should win (older
+  // responses arrive stale and would flip the UI back). We bump the seq on
+  // each call and compare on completion — late responses are dropped.
+  const allowedSeqRef = useRef(0);
 
   useEffect(() => {
     loadChannels(agentId);
@@ -77,6 +104,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       setShowAddForm(true);
       setError(null);
       setNewChannelFields({});
+      setSaving(false); // Reset stale "Connecting..." if a prior submit hung.
     };
     window.addEventListener("aeqi:new-channel", handler);
     return () => window.removeEventListener("aeqi:new-channel", handler);
@@ -97,8 +125,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     try {
       await api.createAgentChannel({
         agent_id: agentId,
-        channel_type: newChannelType,
-        config: newChannelFields,
+        config: buildConfig(newChannelType, newChannelFields),
       });
       setShowAddForm(false);
       setNewChannelFields({});
@@ -110,20 +137,38 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  const getChats = (ch: ChannelEntry) =>
-    channelSessions.filter((s) => s.transport === ch.channel_type);
-  const getAllowed = (ch: ChannelEntry): number[] => {
-    const ac = ch.config.allowed_chats;
-    if (Array.isArray(ac)) return ac.map(Number).filter((n) => !isNaN(n));
-    return [];
-  };
-  const updateAllowed = async (ch: ChannelEntry, ids: number[]) => {
-    const newConfig = { ...ch.config, allowed_chats: ids };
-    // Optimistic: reload after patching via the store (simpler than manual splice).
-    api
-      .updateIdea(ch.id, { content: JSON.stringify(newConfig) })
-      .then(() => loadChannels(agentId))
-      .catch(() => {});
+  const getChats = (ch: ChannelEntry) => channelSessions.filter((s) => s.transport === ch.kind);
+  const getAllowed = (ch: ChannelEntry): number[] =>
+    ch.allowed_chats.map(Number).filter((n) => !isNaN(n));
+  /**
+   * Apply a change to the allowed_chats whitelist. Takes a reducer that's
+   * evaluated against the latest store state at the moment of the call —
+   * NOT against a snapshot captured in the JSX closure. That distinction
+   * matters: rapid clicks on different rows would otherwise both read the
+   * same pre-click `allowed` and one update would clobber the other.
+   * On error we don't try to hand-roll a rollback (concurrent successful
+   * calls make that hard to get right); we refetch from the server, which
+   * is the one source of truth and costs one extra round-trip on the
+   * (rare) failure path.
+   */
+  const updateAllowed = async (channelId: string, reducer: (current: string[]) => string[]) => {
+    const storeState = useAgentDataStore.getState();
+    const ch = storeState.channelsByAgent[agentId]?.find((c) => c.id === channelId);
+    if (!ch) return;
+    const next = reducer(ch.allowed_chats);
+    patchChannel(agentId, channelId, { allowed_chats: next });
+    // Rapid clicks fire overlapping PATCHes. Record our seq at dispatch and
+    // ignore our error handler if a newer call has already fired — old
+    // failures would otherwise trigger a refetch that races the newer call.
+    const mySeq = ++allowedSeqRef.current;
+    try {
+      await api.setChannelAllowedChats(channelId, next);
+    } catch (e) {
+      if (mySeq !== allowedSeqRef.current) return; // superseded
+      setError(e instanceof Error ? e.message : "Failed to update whitelist");
+      // Refetch — authoritative truth trumps guessing at rollback state.
+      loadChannels(agentId);
+    }
   };
 
   if (showAddForm) {
@@ -164,18 +209,18 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         })}
         {error && <div className="channel-form-error">{error}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button className="btn btn-primary" onClick={handleAdd} disabled={saving}>
+          <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
             {saving ? "Connecting..." : "Connect"}
-          </button>
-          <button
-            className="btn"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => {
               setShowAddForm(false);
               setError(null);
             }}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -198,21 +243,60 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+      {error && (
+        <div
+          className="channel-form-error"
+          role="alert"
+          style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 8 }}
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+              padding: 0,
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="events-detail-header">
         <div>
-          <h3 className="events-detail-name">{selected.channel_type}</h3>
-          <span className="events-detail-pattern">channel:{selected.channel_type}</span>
+          <h3 className="events-detail-name">{selected.kind}</h3>
+          <span className="events-detail-pattern">channel:{selected.kind}</span>
         </div>
-        <button
-          className="btn channel-disconnect-btn"
+        <Button
+          variant="secondary"
+          size="sm"
+          className="channel-disconnect-btn"
+          aria-label={`Disconnect ${selected.kind} channel`}
+          disabled={deleting}
+          loading={deleting}
           onClick={async () => {
-            await api.deleteAgentChannel(selected.id);
-            removeChannel(agentId, selected.id);
-            goAgent(agentId, "channels", undefined, { replace: true });
+            if (deleting) return;
+            setDeleting(true);
+            setError(null);
+            try {
+              await api.deleteAgentChannel(selected.id);
+              removeChannel(agentId, selected.id);
+              goAgent(agentId, "channels", undefined, { replace: true });
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Failed to disconnect");
+              setDeleting(false);
+            }
+            // On success the component unmounts via navigation, so no need
+            // to reset deleting — setting it would warn about unmounted
+            // state updates.
           }}
         >
-          Disconnect
-        </button>
+          {deleting ? "Disconnecting..." : "Disconnect"}
+        </Button>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -254,12 +338,22 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 checked={whitelist}
                 onChange={(e) => {
                   if (e.target.checked) {
-                    updateAllowed(
-                      selected,
-                      chats.map((s) => Number(s.chat_id)).filter((n) => !isNaN(n)),
-                    );
+                    const allChats = chats
+                      .map((s) => String(Number(s.chat_id)))
+                      .filter((n) => n !== "NaN");
+                    updateAllowed(selected.id, () => allChats);
                   } else {
-                    updateAllowed(selected, []);
+                    // Turning whitelist OFF clears the entire server-side
+                    // list — confirm first if there was a non-empty one.
+                    if (
+                      selected.allowed_chats.length > 0 &&
+                      !window.confirm(
+                        `Turn off whitelist for ${selected.kind}? This will clear ${selected.allowed_chats.length} allowed chat(s).`,
+                      )
+                    ) {
+                      return;
+                    }
+                    updateAllowed(selected.id, () => []);
                   }
                 }}
               />
@@ -291,9 +385,10 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                       type="checkbox"
                       checked={isAllowed}
                       onChange={(e) => {
-                        updateAllowed(
-                          selected,
-                          e.target.checked ? [...allowed, n] : allowed.filter((id) => id !== n),
+                        const add = e.target.checked;
+                        const asStr = String(n);
+                        updateAllowed(selected.id, (current) =>
+                          add ? [...current, asStr] : current.filter((v) => v !== asStr),
                         );
                       }}
                     />{" "}

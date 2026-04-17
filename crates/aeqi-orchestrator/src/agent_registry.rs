@@ -227,6 +227,8 @@ impl ConnectionPool {
 pub struct AgentRegistry {
     db: Arc<ConnectionPool>,
     sessions_db: Arc<ConnectionPool>,
+    /// Data directory containing the SQLite databases + the `files/` blob store.
+    data_dir: std::path::PathBuf,
 }
 
 impl AgentRegistry {
@@ -332,6 +334,72 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id);
              CREATE INDEX IF NOT EXISTS idx_events_pattern ON events(pattern);
              CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
+        )?;
+
+        // Channels table — connector wiring (Telegram, Discord, Slack, WhatsApp).
+        // Each row holds the typed config for one channel kind bound to one agent.
+        // Config is stored as JSON whose shape is validated by the channel_registry
+        // typed structs, not as free-form text (contrast with the legacy
+        // `channel:*` ideas convention this replaces).
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS channels (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 kind TEXT NOT NULL,
+                 config TEXT NOT NULL,
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT,
+                 UNIQUE(agent_id, kind)
+             );
+             CREATE INDEX IF NOT EXISTS idx_channels_agent ON channels(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_channels_kind ON channels(kind);",
+        )?;
+
+        // Applied-migrations ledger — one row per one-shot data migration that
+        // has already run successfully. Lets us guard runtime migration passes
+        // so they don't scan/rewrite data on every boot forever.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS applied_migrations (
+                 name TEXT PRIMARY KEY,
+                 applied_at TEXT NOT NULL
+             );",
+        )?;
+
+        // Per-channel chat whitelist. Each row is one allowed chat binding
+        // for a channel. Stored separately from the channel config blob so
+        // toggling a single chat doesn't rewrite (and risk corrupting) the
+        // token, and so the whitelist has an audit trail.
+        //
+        // `chat_id` is TEXT (not INTEGER) to stay transport-agnostic — Telegram
+        // uses i64 chat IDs but Discord channel IDs are snowflake strings, and
+        // future transports may use UUIDs or phone numbers.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS channel_allowed_chats (
+                 channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+                 chat_id TEXT NOT NULL,
+                 added_at TEXT NOT NULL,
+                 PRIMARY KEY (channel_id, chat_id)
+             );
+             CREATE INDEX IF NOT EXISTS idx_channel_allowed_chats_channel
+                 ON channel_allowed_chats(channel_id);",
+        )?;
+
+        // Files table — Drive storage, scoped to an agent. Access follows the
+        // agent's visibility; deleting an agent removes its files.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS files (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 name TEXT NOT NULL,
+                 mime TEXT NOT NULL DEFAULT 'application/octet-stream',
+                 size_bytes INTEGER NOT NULL DEFAULT 0,
+                 storage_path TEXT NOT NULL,
+                 uploaded_by TEXT,
+                 uploaded_at TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_files_agent ON files(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_files_uploaded ON files(uploaded_at);",
         )?;
 
         // Ideas live in the shared tags-only schema maintained by aeqi-ideas.
@@ -509,7 +577,15 @@ impl AgentRegistry {
         Ok(Self {
             db: Arc::new(pool),
             sessions_db: Arc::new(sessions_pool),
+            data_dir: data_dir.to_path_buf(),
         })
+    }
+
+    /// Path where per-agent file blobs are stored (`{data_dir}/files/`).
+    /// The directory is not created here — the file-storage module ensures it
+    /// on first write.
+    pub fn files_dir(&self) -> std::path::PathBuf {
+        self.data_dir.join("files")
     }
 
     /// Migrate tables from aeqi.db to sessions.db if they exist in the old location.
@@ -2104,6 +2180,89 @@ impl AgentRegistry {
             .query_map([], |row| Ok(row_to_agent(row)))?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(agents)
+    }
+
+    // ── Drive / files ──────────────────────────────────────────────────────
+    //
+    // Files are scoped to a single agent. Access follows the agent's visibility
+    // (enforced at the IPC layer via `allowed_roots`). The blob lives on disk
+    // at `{data_dir}/files/{id}`; the row here is the metadata.
+
+    /// Insert a file metadata row. Call `file_store::write_blob` first to land
+    /// the bytes on disk — this function does not touch the blob store.
+    pub async fn create_file(
+        &self,
+        id: &str,
+        agent_id: &str,
+        name: &str,
+        mime: &str,
+        size_bytes: u64,
+        storage_path: &str,
+        uploaded_by: Option<&str>,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        db.execute(
+            "INSERT INTO files (id, agent_id, name, mime, size_bytes, storage_path, uploaded_by, uploaded_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![id, agent_id, name, mime, size_bytes as i64, storage_path, uploaded_by, now],
+        )?;
+        Ok(())
+    }
+
+    /// List files for a specific agent, newest upload first.
+    pub async fn list_files_for_agent(&self, agent_id: &str) -> Result<Vec<serde_json::Value>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, agent_id, name, mime, size_bytes, uploaded_by, uploaded_at \
+             FROM files WHERE agent_id = ?1 ORDER BY uploaded_at DESC",
+        )?;
+        let files = stmt
+            .query_map(params![agent_id], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, String>(0)?,
+                    "agent_id": row.get::<_, String>(1)?,
+                    "name": row.get::<_, String>(2)?,
+                    "mime": row.get::<_, String>(3)?,
+                    "size_bytes": row.get::<_, i64>(4)?,
+                    "uploaded_by": row.get::<_, Option<String>>(5)?,
+                    "uploaded_at": row.get::<_, String>(6)?,
+                }))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(files)
+    }
+
+    /// Fetch a single file's metadata by id. Returns None if not found.
+    pub async fn get_file(&self, id: &str) -> Result<Option<serde_json::Value>> {
+        let db = self.db.lock().await;
+        let row = db
+            .query_row(
+                "SELECT id, agent_id, name, mime, size_bytes, uploaded_by, uploaded_at \
+                 FROM files WHERE id = ?1",
+                params![id],
+                |row| {
+                    Ok(serde_json::json!({
+                        "id": row.get::<_, String>(0)?,
+                        "agent_id": row.get::<_, String>(1)?,
+                        "name": row.get::<_, String>(2)?,
+                        "mime": row.get::<_, String>(3)?,
+                        "size_bytes": row.get::<_, i64>(4)?,
+                        "uploaded_by": row.get::<_, Option<String>>(5)?,
+                        "uploaded_at": row.get::<_, String>(6)?,
+                    }))
+                },
+            )
+            .optional()?;
+        Ok(row)
+    }
+
+    /// Delete the metadata row. Caller is responsible for calling
+    /// `file_store::delete_blob` to remove bytes from disk.
+    pub async fn delete_file(&self, id: &str) -> Result<bool> {
+        let db = self.db.lock().await;
+        let affected = db.execute("DELETE FROM files WHERE id = ?1", params![id])?;
+        Ok(affected > 0)
     }
 }
 

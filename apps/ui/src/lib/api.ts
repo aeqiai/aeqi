@@ -299,25 +299,40 @@ export const api = {
   // Skills (ideas tagged with "skill")
   getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
-  // Agent Channels (stored as ideas with key prefix "channel:")
+  // Agent Channels — typed connector config, first-class rows in the
+  // `channels` table. `config` is a tagged enum validated server-side.
   getAgentChannels: (agentId: string) =>
-    request<Record<string, unknown>>(`/ideas?agent_id=${encodeURIComponent(agentId)}`),
+    request<Record<string, unknown>>(`/agents/${encodeURIComponent(agentId)}/channels`),
   createAgentChannel: (params: {
     agent_id: string;
-    channel_type: string;
-    config: Record<string, string>;
+    config: Record<string, unknown> & { kind: string };
   }) =>
-    request<Record<string, unknown>>("/ideas", {
+    request<Record<string, unknown>>(`/agents/${encodeURIComponent(params.agent_id)}/channels`, {
       method: "POST",
-      body: JSON.stringify({
-        key: `channel:${params.channel_type}`,
-        content: JSON.stringify(params.config),
-        tags: ["fact"],
-        agent_id: params.agent_id,
-      }),
+      body: JSON.stringify({ config: params.config }),
     }),
+  updateAgentChannel: (params: {
+    agent_id: string;
+    config: Record<string, unknown> & { kind: string };
+  }) =>
+    // Upsert replaces the existing row for (agent_id, kind).
+    request<Record<string, unknown>>(`/agents/${encodeURIComponent(params.agent_id)}/channels`, {
+      method: "POST",
+      body: JSON.stringify({ config: params.config }),
+    }),
+  // Tenancy is resolved server-side from the row's owner — no agent_id body.
   deleteAgentChannel: (id: string) =>
-    request<Record<string, unknown>>(`/ideas/${id}`, { method: "DELETE" }),
+    request<Record<string, unknown>>(`/channels/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  // Replace the channel's allowed_chats whitelist. Empty array = no
+  // restriction. Writes to the dedicated `channel_allowed_chats` table —
+  // does not touch the config blob.
+  setChannelAllowedChats: (id: string, chatIds: string[]) =>
+    request<Record<string, unknown>>(`/channels/${encodeURIComponent(id)}/allowed-chats`, {
+      method: "PATCH",
+      body: JSON.stringify({ chat_ids: chatIds }),
+    }),
   getChannelSessions: (agentId: string) =>
     request<Record<string, unknown>>(`/channel-sessions?agent_id=${encodeURIComponent(agentId)}`),
   updateIdea: (id: string, body: Record<string, unknown>) =>
@@ -528,6 +543,55 @@ export const api = {
     }),
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
+
+  // Drive — per-agent file storage. Access follows the agent's visibility:
+  // if you can see the agent, you can see its files.
+  listDriveFiles: (agentId: string) =>
+    request<{
+      ok: boolean;
+      files: Array<{
+        id: string;
+        agent_id: string;
+        name: string;
+        mime: string;
+        size_bytes: number;
+        uploaded_by: string | null;
+        uploaded_at: string;
+      }>;
+    }>(`/agents/${encodeURIComponent(agentId)}/drive`),
+
+  /** Upload a single file to an agent's drive. Reads the File as a
+   * base64 string client-side and POSTs JSON — the server decodes and
+   * stores. Limit: 25 MiB per file (enforced server-side). */
+  uploadDriveFile: async (agentId: string, file: File) => {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // Chunked base64 encode — avoids the "argument list too long" stack error
+    // btoa() throws on for single-shot large TypedArrays.
+    let binary = "";
+    const CHUNK = 32_768;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    const content_b64 = btoa(binary);
+    return request<{ ok: boolean; file?: unknown; error?: string }>(
+      `/agents/${encodeURIComponent(agentId)}/drive`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: file.name,
+          mime: file.type || "application/octet-stream",
+          content_b64,
+        }),
+      },
+    );
+  },
+
+  driveDownloadUrl: (fid: string) => `${BASE_URL}/drive/${encodeURIComponent(fid)}`,
+
+  deleteDriveFile: (fid: string) =>
+    request<{ ok: boolean; deleted?: boolean }>(`/drive/${encodeURIComponent(fid)}`, {
+      method: "DELETE",
+    }),
 };
 
 export { ApiError };
