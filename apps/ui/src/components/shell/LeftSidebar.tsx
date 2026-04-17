@@ -223,6 +223,22 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>,
         )}
         {navLink(
+          "channels",
+          "Channels",
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2H6l-3 2v-2H4a2 2 0 01-2-2V4z" />
+          </svg>,
+        )}
+        {navLink(
           "quests",
           "Quests",
           <svg

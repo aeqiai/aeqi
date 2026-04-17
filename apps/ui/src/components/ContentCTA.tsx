@@ -127,8 +127,7 @@ export default function ContentCTA() {
       break;
 
     case "events":
-      // No "+new" button: events are pattern-matched system hooks; users
-      // enable/disable them rather than creating ad-hoc ones from the rail.
+      header = { label: "New event", event: "aeqi:new-event" };
       items = events.map((ev) => {
         const transport = eventTransport(ev);
         return {
@@ -188,8 +187,12 @@ export default function ContentCTA() {
 
   return (
     <div className="asv-sidebar">
-      {header && (
-        <div className="asv-sidebar-header">
+      {/* Always render the header row — even when the tab has no +new
+          action — so the rail's top edge aligns with the main pane's
+          content-topbar (49px tall). Prevents the "rail jumps up 49px
+          on tools tab" effect. */}
+      <div className="asv-sidebar-header">
+        {header && (
           <button
             className="asv-session-new-btn"
             onClick={() => window.dispatchEvent(new CustomEvent(header!.event))}
@@ -207,8 +210,8 @@ export default function ContentCTA() {
             </svg>
             {header.label}
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <div className="asv-sidebar-list">
         {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}
         {items.map((item) => (

@@ -27,6 +27,48 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     loadEvents(agentId);
   }, [agentId, loadEvents]);
 
+  // Rail's "New event" button dispatches `aeqi:new-event`.
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPattern, setNewPattern] = useState("session:message");
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = () => {
+      setShowAddForm(true);
+      setNewName("");
+      setNewPattern("session:message");
+      setCreateError(null);
+    };
+    window.addEventListener("aeqi:new-event", handler);
+    return () => window.removeEventListener("aeqi:new-event", handler);
+  }, []);
+
+  const handleCreateEvent = async () => {
+    setCreateError(null);
+    if (!newName.trim() || !newPattern.trim()) {
+      setCreateError("Name and pattern are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.createEvent({
+        agent_id: agentId,
+        name: newName.trim(),
+        pattern: newPattern.trim(),
+        idea_ids: [],
+        enabled: true,
+      });
+      setShowAddForm(false);
+      loadEvents(agentId);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "Failed to create event");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +130,51 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     patchEvent(agentId, selected.id, { idea_ids: newIds });
     setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
   };
+
+  if (showAddForm) {
+    return (
+      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+        <h3 className="events-detail-name">New Event</h3>
+        <div style={{ marginTop: 12, marginBottom: 10 }}>
+          <label className="agent-settings-label">Name</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="on_session_start"
+            value={newName}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Pattern</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="session:message or telegram:update"
+            value={newPattern}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewPattern(e.target.value)}
+          />
+        </div>
+        {createError && <div className="channel-form-error">{createError}</div>}
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button className="btn btn-primary" onClick={handleCreateEvent} disabled={saving}>
+            {saving ? "Creating..." : "Create"}
+          </button>
+          <button
+            className="btn"
+            onClick={() => {
+              setShowAddForm(false);
+              setCreateError(null);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!selected) {
     return (
