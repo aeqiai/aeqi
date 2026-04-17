@@ -68,18 +68,22 @@
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
    (nav padding 8px + item padding 8px), so wordmark sits directly
    above the icon column. */
+/* Header treated as a nav-row-equivalent: 32px inner content band with 8px
+   top padding (mirrors .sidebar-nav's 8px container pad + 32px row), so the
+   brand's icon sits on the same vertical rhythm as the nav item icons
+   below. Total band is 40px to match .content-topbar on the right. */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 16px;
+  padding: 8px 16px 0 16px;
   height: 40px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
 .left-sidebar.collapsed .sidebar-header {
   justify-content: center;
-  padding: 0;
+  padding: 8px 0 0;
 }
 
 /* ── Collapse toggle (hamburger) ── */
