@@ -12,6 +12,7 @@ members = [
     "crates/aeqi-web",
     "crates/aeqi-graph",
     "crates/aeqi-hosting",
+    "crates/aeqi-test-support",
 ]
 
 [workspace.package]
@@ -115,6 +116,7 @@ aeqi-gates = { path = "crates/aeqi-gates" }
 aeqi-web = { path = "crates/aeqi-web" }
 aeqi-graph = { path = "crates/aeqi-graph" }
 aeqi-hosting = { path = "crates/aeqi-hosting" }
+aeqi-test-support = { path = "crates/aeqi-test-support" }
 
 
 [profile.release]

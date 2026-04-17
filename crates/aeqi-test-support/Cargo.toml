@@ -1,0 +1,18 @@
+[package]
+name = "aeqi-test-support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared test fixtures and builders for the AEQI workspace. Used as a dev-dependency only."
+repository.workspace = true
+
+# Internal-only crate; do not publish to crates.io.
+publish = false
+
+[dependencies]
+aeqi-core = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }

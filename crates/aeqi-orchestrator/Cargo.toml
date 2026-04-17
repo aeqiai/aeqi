@@ -33,3 +33,4 @@ rand = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+aeqi-test-support = { workspace = true }

@@ -679,8 +679,7 @@ fn parse_legacy_config(kind: ChannelKind, content: &str) -> Result<LegacyConfig>
 mod tests {
     use super::*;
     use crate::agent_registry::AgentRegistry;
-    use aeqi_core::traits::{Idea, IdeaQuery, IdeaStore};
-    use std::sync::Mutex;
+    use aeqi_test_support::{IdeaBuilder, InMemoryIdeaStore};
 
     async fn test_registry() -> AgentRegistry {
         let dir = tempfile::tempdir().unwrap();
@@ -693,72 +692,21 @@ mod tests {
         })
     }
 
-    /// In-memory IdeaStore that seeds a prefix-searchable set and tracks
-    /// which ids got deleted during the migration. No FTS, no scoring —
-    /// just enough for the migration's read/delete flow.
-    struct FakeIdeaStore {
-        ideas: Mutex<Vec<Idea>>,
-        deleted: Mutex<Vec<String>>,
-    }
-
-    impl FakeIdeaStore {
-        fn new(ideas: Vec<Idea>) -> Self {
-            Self {
-                ideas: Mutex::new(ideas),
-                deleted: Mutex::new(Vec::new()),
-            }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl IdeaStore for FakeIdeaStore {
-        async fn store(
-            &self,
-            _name: &str,
-            _content: &str,
-            _tags: &[String],
-            _agent_id: Option<&str>,
-        ) -> anyhow::Result<String> {
-            Ok("stub".into())
-        }
-        async fn search(&self, _query: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
-            Ok(Vec::new())
-        }
-        fn search_by_prefix(&self, prefix: &str, _limit: usize) -> anyhow::Result<Vec<Idea>> {
-            Ok(self
-                .ideas
-                .lock()
-                .unwrap()
-                .iter()
-                .filter(|i| i.name.starts_with(prefix))
-                .cloned()
-                .collect())
-        }
-        async fn delete(&self, id: &str) -> anyhow::Result<()> {
-            self.deleted.lock().unwrap().push(id.to_string());
-            self.ideas.lock().unwrap().retain(|i| i.id != id);
-            Ok(())
-        }
-        fn name(&self) -> &str {
-            "fake"
-        }
-    }
-
-    fn legacy_idea(id: &str, agent_id: &str, kind: &str, content: &str) -> Idea {
-        Idea {
-            id: id.into(),
-            name: format!("channel:{kind}"),
-            content: content.into(),
-            tags: vec![],
-            agent_id: Some(agent_id.into()),
-            created_at: Utc::now(),
-            session_id: None,
-            score: 1.0,
-            injection_mode: None,
-            inheritance: "self".into(),
-            tool_allow: Vec::new(),
-            tool_deny: Vec::new(),
-        }
+    /// Construct a `channel:<kind>` idea the way the legacy writer did, so
+    /// the migration path can be exercised. Expressed in terms of the shared
+    /// [`IdeaBuilder`] — if the `Idea` struct grows fields, this keeps working.
+    fn legacy_channel_idea(
+        id: &str,
+        agent_id: &str,
+        kind: &str,
+        content: &str,
+    ) -> aeqi_core::traits::Idea {
+        IdeaBuilder::new()
+            .id(id)
+            .name(format!("channel:{kind}"))
+            .content(content)
+            .agent(agent_id)
+            .build()
     }
 
     /// Regression guard: `get_by_id` must return the channel's real owner so
@@ -833,7 +781,7 @@ mod tests {
         let alice = reg.spawn("alice", None, None, None).await.unwrap();
         let store = ChannelStore::new(reg.db());
 
-        let idea = legacy_idea(
+        let idea = legacy_channel_idea(
             "i1",
             &alice.id,
             "telegram",
@@ -841,12 +789,12 @@ mod tests {
         );
         // Plant a ghost idea that would get re-migrated on every boot if the
         // done-marker weren't in place.
-        let idea_store = FakeIdeaStore::new(vec![idea]);
+        let idea_store = InMemoryIdeaStore::seeded(vec![idea]);
 
         // First run: migrates the one idea.
         let n = migrate_channel_ideas(&store, &idea_store).await.unwrap();
         assert_eq!(n, 1);
-        assert_eq!(idea_store.deleted.lock().unwrap().len(), 1);
+        assert_eq!(idea_store.deleted_ids().len(), 1);
 
         // Simulate a stray legacy idea appearing AFTER the migration was
         // marked done (e.g. a buggy caller writes one). The marker means we
@@ -854,7 +802,7 @@ mod tests {
         // can notice and clean up. Without the marker, the migration would
         // happily keep sucking channel:* ideas into the channels table on
         // every boot indefinitely.
-        idea_store.ideas.lock().unwrap().push(legacy_idea(
+        idea_store.push(legacy_channel_idea(
             "i2",
             &alice.id,
             "telegram",
@@ -864,7 +812,7 @@ mod tests {
         let n2 = migrate_channel_ideas(&store, &idea_store).await.unwrap();
         assert_eq!(n2, 0, "marker should short-circuit subsequent runs");
         // The ghost idea was not deleted.
-        assert_eq!(idea_store.deleted.lock().unwrap().len(), 1);
+        assert_eq!(idea_store.deleted_ids().len(), 1);
     }
 
     /// Create is keyed on `(agent_id, kind)` — a caller who owns agent X

@@ -156,6 +156,7 @@ dependencies = [
  "aeqi-ideas",
  "aeqi-providers",
  "aeqi-quests",
+ "aeqi-test-support",
  "aeqi-tools",
  "anyhow",
  "async-trait",
@@ -211,6 +212,17 @@ dependencies = [
  "thiserror",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "aeqi-test-support"
+version = "0.5.0"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "tokio",
 ]
 
 [[package]]
