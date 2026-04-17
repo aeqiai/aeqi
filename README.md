@@ -7,8 +7,8 @@
 **An agent runtime built on four primitives.** A tree of agents that grows from conversation, remembers everything, acts autonomously, and reshapes itself from within.
 
 ```
-aeqi start              # daemon + dashboard on :8400
-aeqi chat --agent cto   # talk to an agent
+aeqi start    # daemon + dashboard on :8400
+aeqi chat     # talk to your root agent
 ```
 
 **[Website](https://aeqi.ai)** -- **[Documentation](https://aeqi.ai/docs)** -- **[Changelog](https://aeqi.ai/changelog)**
@@ -150,8 +150,10 @@ All state lives in `~/.aeqi/`:
 
 | File | Contents |
 |------|----------|
-| `aeqi.db` | Agent registry, quests, events, sessions, budget policies, approvals, activity |
+| `aeqi.db` | Agent registry, quests, events, budget policies, approvals, activity |
+| `sessions.db` | Session journal and transcripts (FTS5) |
 | `ideas.db` | Ideas + knowledge graph + vector embeddings |
+| `accounts.db` | Web UI accounts and auth (when `aeqi-web` is enabled) |
 | `codegraph/*.db` | Code graph per repository |
 | `ipc.sock` | Unix IPC socket |
 
@@ -186,7 +188,7 @@ The dashboard, API, and daemon all run from a single binary. SQLite databases ar
 
 ```bash
 aeqi start                     # daemon + web server + embedded dashboard
-aeqi chat --agent cto          # interactive TUI chat
+aeqi chat                      # interactive TUI chat (auto-selects root agent)
 aeqi agent list                # list all registered agents
 aeqi event create ...          # schedule, pattern, or webhook event
 aeqi assign "quest description"
@@ -220,6 +222,12 @@ cargo fmt --check
 ```
 
 Pre-push hook runs all three automatically.
+
+## Contributing
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) -- setup, commit conventions, PR flow
+- [SECURITY.md](SECURITY.md) -- private vulnerability disclosure
+- Issue and PR templates live in `.github/`
 
 ## Docs
 
