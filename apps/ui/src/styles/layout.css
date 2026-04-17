@@ -14,7 +14,11 @@
   border-right: 1px solid var(--border);
 }
 
-/* ── Left Sidebar (agent tree) ── */
+/* ── Left Sidebar (agent tree) ──
+   padding-top: 8px matches .content-column's 8px top pad so the sidebar
+   header's band starts at the exact same y as the content card's topbar.
+   Without this, the brand sits 8px higher than the content-topbar → the
+   "top strip" looks staggered. */
 .left-sidebar {
   width: 220px;
   display: flex;
@@ -25,6 +29,7 @@
   position: relative;
   transition: width var(--transition-normal);
   overflow: hidden;
+  padding-top: 8px;
 }
 .left-sidebar.collapsed {
   width: 52px;
@@ -68,22 +73,22 @@
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
    (nav padding 8px + item padding 8px), so wordmark sits directly
    above the icon column. */
-/* Header treated as a nav-row-equivalent: 32px inner content band with 8px
-   top padding (mirrors .sidebar-nav's 8px container pad + 32px row), so the
-   brand's icon sits on the same vertical rhythm as the nav item icons
-   below. Total band is 40px to match .content-topbar on the right. */
+/* 40px band matches .content-topbar on the right. Vertical centering is
+   trivial here because .left-sidebar itself has the 8px top pad that
+   mirrors .content-column, so the band's y=0 already aligns with the
+   content card's topbar y=0. */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px 0 16px;
+  padding: 0 12px 0 16px;
   height: 40px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
 .left-sidebar.collapsed .sidebar-header {
   justify-content: center;
-  padding: 8px 0 0;
+  padding: 0;
 }
 
 /* ── Collapse toggle (hamburger) ── */
