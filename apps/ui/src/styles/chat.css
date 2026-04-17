@@ -104,10 +104,16 @@
   overflow-y: auto;
   scrollbar-width: thin;
 }
+/* Row rhythm: min-height 48px ties the rail to --sidebar-row-h × 1.5
+   (32 × 1.5 = 48). Two-line rows fit at 48; single-line rows pad up
+   to 48 so the rail has a consistent cadence. */
 .asv-session-item {
+  position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
+  min-height: 48px;
   padding: 8px 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--color-border-faint);
@@ -116,8 +122,20 @@
 .asv-session-item:hover {
   background: var(--state-hover);
 }
+/* Active state: a 2px accent bar on the left + the --state-selected
+   bg overlay. No font-weight change — the previous 450→550 jump
+   caused a layout shift on selection (text got visibly wider). */
 .asv-session-item.active {
   background: var(--state-selected);
+}
+.asv-session-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
 }
 .asv-session-item-top {
   display: flex;
@@ -136,11 +154,12 @@
   flex: 1;
   min-width: 0;
 }
-.asv-session-item.active .asv-session-item-name {
-  font-weight: 550;
-}
+/* Dimmed rows (disabled events, denied tools) at 0.55 — 0.4 was too
+   faint to read; 0.55 reads as "muted but legible". The OFF / !enabled
+   state is already conveyed by the badge chip for tools, so opacity is
+   a supporting cue, not the whole story. */
 .asv-session-item--disabled {
-  opacity: 0.4;
+  opacity: 0.55;
 }
 .asv-session-item-transport {
   font-family: var(--font-mono);
