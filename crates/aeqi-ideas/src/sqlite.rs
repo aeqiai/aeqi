@@ -275,6 +275,29 @@ impl SqliteIdeas {
     }
 
     fn ensure_fts(conn: &Connection) -> Result<()> {
+        // Detect legacy FTS schema: the FTS5 virtual table used to declare
+        // its external-content column as `key`, but the ideas table's real
+        // column is `name`. FTS5's 'rebuild' command runs
+        // `SELECT T.key, T.content FROM ideas AS T` and fails with
+        // "no such column: T.key". Drop the broken table + triggers so the
+        // correct schema gets recreated below.
+        let has_legacy_key_col: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('ideas_fts') WHERE name='key'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n > 0)
+            .unwrap_or(false);
+        if has_legacy_key_col {
+            conn.execute_batch(
+                "DROP TRIGGER IF EXISTS ideas_ai;
+                 DROP TRIGGER IF EXISTS ideas_ad;
+                 DROP TRIGGER IF EXISTS ideas_au;
+                 DROP TABLE IF EXISTS ideas_fts;",
+            )?;
+        }
+
         let fts_exists: bool = conn.query_row(
             "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
             [],
@@ -284,20 +307,20 @@ impl SqliteIdeas {
         if !fts_exists {
             conn.execute_batch(
                 "CREATE VIRTUAL TABLE ideas_fts USING fts5(
-                    key, content, content=ideas, content_rowid=rowid
+                    name, content, content=ideas, content_rowid=rowid
                 );
 
                 CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.name, new.content);
+                    INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
                 END;
 
                 CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.name, old.content);
+                    INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
                 END;
 
                 CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, key, content) VALUES('delete', old.rowid, old.name, old.content);
-                    INSERT INTO ideas_fts(rowid, key, content) VALUES (new.rowid, new.name, new.content);
+                    INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
+                    INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
                 END;
 
                 INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
@@ -2092,7 +2115,7 @@ mod tests {
             )
             .unwrap();
             conn.execute(
-                "INSERT INTO memories (id, key, content, category, created_at) VALUES ('old-1', 'test', 'old data', 'fact', '2025-01-01T00:00:00Z')",
+                "INSERT INTO memories (id, name, content, category, created_at) VALUES ('old-1', 'test', 'old data', 'fact', '2025-01-01T00:00:00Z')",
                 [],
             ).unwrap();
         }
