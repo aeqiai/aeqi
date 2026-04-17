@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { IconButton } from "@/components/ui";
 
 interface ChatComposerProps {
   input: string;
@@ -139,49 +140,42 @@ export default function ChatComposer({
             {/* Footer — attach actions left, send right */}
             <div className="asv-composer-footer">
               <div className="asv-attach-row">
-                <button
+                <IconButton
+                  variant="ghost"
+                  size="sm"
                   className="asv-attach-btn"
                   onClick={() => setShowAttachPicker("prompt")}
+                  aria-label="Attach idea"
                   title="Attach idea (Cmd+P)"
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                  >
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
                     <path
                       d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
                       strokeLinecap="round"
                     />
                   </svg>
-                </button>
-                <button
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
                   className="asv-attach-btn"
                   onClick={() => setShowAttachPicker("quest")}
+                  aria-label="Attach quest"
                   title="Attach quest (Cmd+Q)"
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                  >
+                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
                     <path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" />
                   </svg>
-                </button>
-                <button
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
                   className="asv-attach-btn"
                   onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach file"
                   title="Attach file"
                 >
                   <svg
-                    width="14"
-                    height="14"
                     viewBox="0 0 14 14"
                     fill="none"
                     stroke="currentColor"
@@ -190,7 +184,7 @@ export default function ChatComposer({
                   >
                     <path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" />
                   </svg>
-                </button>
+                </IconButton>
               </div>
               {streaming && !input.trim() ? (
                 <button className="asv-send busy" onClick={onStop} title="Stop execution">

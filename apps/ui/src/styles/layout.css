@@ -91,25 +91,7 @@
   padding: 0;
 }
 
-/* ── Collapse toggle (hamburger) ── */
-.sidebar-collapse-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-.sidebar-collapse-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-overlay);
-}
+/* ── Collapse toggle (hamburger) — styling comes from IconButton primitive. ── */
 .left-sidebar.collapsed .sidebar-brand {
   display: none;
 }
@@ -1014,34 +996,6 @@
 .content-topbar-action:active {
   background: var(--bg-elevated);
 }
-.content-topbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  color: var(--text-secondary);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.1s;
-}
-.content-topbar-btn:hover {
-  border-color: var(--border-hover);
-  color: var(--text-primary);
-}
-.content-topbar-btn.primary {
-  background: var(--text-primary);
-  color: var(--bg-base);
-  border-color: var(--text-primary);
-}
-.content-topbar-btn.primary:hover {
-  opacity: 0.85;
-}
-
 /* Breadcrumb elements */
 .content-topbar-breadcrumb {
   font-size: 13px;
@@ -1069,6 +1023,74 @@
 .content-topbar-status.live {
   background: var(--success);
   opacity: 1;
+}
+
+/* ── Budget meter ──
+   Compact $spent / $cap pill with a slim progress bar under the
+   numbers. Lives in the chat topbar right slot, replacing the
+   older green-dot + raw-tokens readout. Tabular numbers so digits
+   don't jitter as the spend ticks up. */
+.budget-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 92px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs, 11px);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.budget-meter-text {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.budget-meter-num {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.budget-meter-sep {
+  color: var(--text-muted);
+}
+.budget-meter-cap {
+  color: var(--text-secondary);
+}
+.budget-meter-label {
+  color: var(--text-muted);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.budget-meter-track {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  /* Slight ink tint so the empty part of the meter is visible on the
+     off-white page canvas — bg-elevated was invisible against itself. */
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.budget-meter-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.budget-meter--warn .budget-meter-fill {
+  background: var(--warning);
+}
+.budget-meter--over .budget-meter-fill {
+  background: var(--error);
+}
+.budget-meter--over .budget-meter-num {
+  color: var(--error);
+}
+.budget-meter--uncapped {
+  flex-direction: row;
+  gap: 4px;
+  align-items: baseline;
+  min-width: 0;
 }
 
 /* Agent page */
@@ -1628,12 +1650,6 @@
   .content-area {
     flex: 1;
     min-height: 0;
-  }
-
-  /* Touch-friendly topbar buttons */
-  .content-topbar-btn {
-    min-height: var(--touch-target-min);
-    padding: 8px 14px;
   }
 
   .content-topbar {

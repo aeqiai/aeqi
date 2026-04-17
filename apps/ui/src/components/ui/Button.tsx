@@ -5,16 +5,28 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
+  /** Stretch to fill the container width (auth forms, modal CTAs). */
+  fullWidth?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "secondary", size = "md", loading = false, className, children, disabled, ...rest },
+  {
+    variant = "secondary",
+    size = "md",
+    loading = false,
+    fullWidth = false,
+    className,
+    children,
+    disabled,
+    ...rest
+  },
   ref,
 ) {
   const cls = [
     styles.button,
     styles[variant],
     styles[size],
+    fullWidth ? styles.fullWidth : "",
     loading ? styles.loading : "",
     className,
   ]

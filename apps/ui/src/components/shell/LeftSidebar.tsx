@@ -3,8 +3,8 @@ import AgentTree from "@/components/Sidebar";
 import BrandMark from "@/components/BrandMark";
 import RoundAvatar from "@/components/RoundAvatar";
 import { useAuthStore } from "@/store/auth";
-import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
+import { IconButton } from "@/components/ui";
 
 interface LeftSidebarProps {
   /** The current root agent (derived from URL agent's ancestry). */
@@ -29,13 +29,11 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const authMode = useAuthStore((s) => s.authMode);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const agents = useDaemonStore((s) => s.agents);
 
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
   const currentId = agentId || rootId;
   const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
   const rootBase = rootId ? `/${encodeURIComponent(rootId)}` : "";
-  const currentAgent = agents.find((a) => a.id === currentId || a.name === currentId);
   const isOnRoot = !!currentId && currentId === rootId;
 
   /**
@@ -119,14 +117,15 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         >
           <BrandMark size={18} />
         </a>
-        <button
+        <IconButton
+          variant="ghost"
+          size="sm"
           className="sidebar-collapse-btn"
           onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg
-            width="16"
-            height="16"
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
@@ -142,7 +141,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
               <path d="M11.5 6.5L9.5 8L11.5 9.5" />
             )}
           </svg>
-        </button>
+        </IconButton>
       </div>
 
       <nav className="sidebar-nav">
@@ -161,7 +160,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         </a>
         {navLink(
           "",
-          currentAgent?.display_name || currentAgent?.name || "Home",
+          "Home",
           <svg
             width="14"
             height="14"

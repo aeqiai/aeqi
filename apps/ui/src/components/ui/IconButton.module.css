@@ -1,0 +1,98 @@
+/* IconButton — a square button containing only an icon.
+   Used for inline actions (copy, collapse, close, attach, etc.).
+   Heights align with the app's row rhythm so it sits naturally in toolbars. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.button:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.95);
+  transition-duration: 50ms;
+}
+
+/* Variants */
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ghost:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.bordered {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+}
+
+.bordered:hover {
+  border-color: var(--input-border-hover);
+  color: var(--color-text-primary);
+}
+
+.danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--color-error);
+}
+
+/* Sizes — square, pinned to row rhythm. */
+
+.xs {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+}
+
+.sm {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+}
+
+.md {
+  width: var(--input-h);
+  height: var(--input-h);
+  border-radius: var(--radius-md);
+}
+
+/* Icon sizing */
+
+.xs > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sm > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.md > svg {
+  width: 16px;
+  height: 16px;
+}

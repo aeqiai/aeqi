@@ -7,7 +7,8 @@ import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import RoundAvatar from "./RoundAvatar";
-import { EmptyState } from "./ui";
+import BudgetMeter from "./BudgetMeter";
+import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 import type { Idea } from "@/lib/types";
 
@@ -48,6 +49,7 @@ export default function AgentPage({
 
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
+  const cost = useDaemonStore((s) => s.cost);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const displayName = agent?.display_name || agent?.name || agentId;
 
@@ -89,16 +91,15 @@ export default function AgentPage({
         <div className="content-topbar-left">
           <RoundAvatar name={agent?.name || agentId} size={18} />
           <span className="content-topbar-title">{displayName}</span>
-          {agent?.status && (
-            <span className={`content-topbar-status ${agent.status === "active" ? "live" : ""}`} />
+          {agent?.model && (
+            <span className="content-topbar-meta">{agent.model.split("/").pop()}</span>
           )}
         </div>
         <div className="content-topbar-right">
-          <span className="content-topbar-meta">{agent?.model?.split("/").pop()}</span>
-          <span className="content-topbar-meta">{formatTokens(agent?.total_tokens)} tokens</span>
-          {agent?.budget_usd != null && (
-            <span className="content-topbar-meta">${agent.budget_usd.toFixed(2)}</span>
-          )}
+          <BudgetMeter
+            spent={(cost?.spent_today_usd as number) ?? 0}
+            cap={agent?.budget_usd ?? (cost?.daily_budget_usd as number) ?? 0}
+          />
         </div>
       </div>
 
@@ -300,9 +301,9 @@ function ToolsDetail({
             {selected.category} · {selected.id}
           </span>
         </div>
-        <button className={allowed ? "btn" : "btn btn-primary"} onClick={toggle}>
+        <Button variant={allowed ? "secondary" : "primary"} onClick={toggle}>
           {allowed ? "Disable" : "Enable"}
-        </button>
+        </Button>
       </div>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 8 }}>
         {selected.description}

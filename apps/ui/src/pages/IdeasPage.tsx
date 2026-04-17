@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DataState } from "@/components/ui";
+import { Button, DataState, IconButton } from "@/components/ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "@/components/IdeaGraph";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
@@ -291,9 +291,11 @@ export default function IdeasPage() {
           <div className="ideas-detail">
             <div className="detail-header">
               <code className="detail-key">{selected.name}</code>
-              <button className="detail-close" onClick={() => setSelected(null)}>
-                ×
-              </button>
+              <IconButton aria-label="Close detail panel" onClick={() => setSelected(null)}>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+                </svg>
+              </IconButton>
             </div>
 
             <span
@@ -360,9 +362,14 @@ export default function IdeasPage() {
               </div>
             </div>
 
-            <button className="detail-delete" onClick={() => handleDelete(selected.id)}>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleDelete(selected.id)}
+              style={{ marginTop: "auto" }}
+            >
               Delete idea
-            </button>
+            </Button>
           </div>
         )}
       </div>

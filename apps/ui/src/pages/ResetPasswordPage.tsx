@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
+import { Button } from "@/components/ui";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -92,13 +93,16 @@ export default function ResetPasswordPage() {
                 {error}
               </div>
             )}
-            <button
-              className="auth-btn-primary"
+            <Button
+              variant="primary"
+              size="lg"
               type="submit"
+              fullWidth
+              loading={loading}
               disabled={loading || !password || !confirmPassword}
             >
               {loading ? "Resetting..." : "Reset password"}
-            </button>
+            </Button>
           </form>
         )}
 

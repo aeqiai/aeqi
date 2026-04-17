@@ -219,7 +219,10 @@ describe("shell components smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
-            <Route path=":agentId/*" element={<ComposerRow agentId={null} base="/root-1" />} />
+            <Route
+              path=":agentId/*"
+              element={<ComposerRow agentId={null} base="/root-1" sessionsMounted={false} />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -232,7 +235,10 @@ describe("shell components smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1/sessions"]}>
           <Routes>
-            <Route path=":agentId/*" element={<ComposerRow agentId="root-1" base="/root-1" />} />
+            <Route
+              path=":agentId/*"
+              element={<ComposerRow agentId="root-1" base="/root-1" sessionsMounted={true} />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

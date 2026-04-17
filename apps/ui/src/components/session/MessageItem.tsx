@@ -1,6 +1,7 @@
 import { useState, memo } from "react";
 import Markdown from "react-markdown";
 import RoundAvatar from "../RoundAvatar";
+import { IconButton } from "@/components/ui";
 import {
   type Message,
   type MessageSegment,
@@ -152,11 +153,16 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <button className="asv-copy" onClick={handleCopy} title={copied ? "Copied" : "Copy"}>
+    <IconButton
+      variant="ghost"
+      size="sm"
+      className="asv-copy"
+      onClick={handleCopy}
+      aria-label={copied ? "Copied" : "Copy message"}
+      title={copied ? "Copied" : "Copy"}
+    >
       {copied ? (
         <svg
-          width="14"
-          height="14"
           viewBox="0 0 16 16"
           fill="none"
           stroke="currentColor"
@@ -168,8 +174,6 @@ function CopyButton({ text }: { text: string }) {
         </svg>
       ) : (
         <svg
-          width="14"
-          height="14"
           viewBox="0 0 16 16"
           fill="none"
           stroke="currentColor"
@@ -181,7 +185,7 @@ function CopyButton({ text }: { text: string }) {
           <path d="M5 11H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v1" />
         </svg>
       )}
-    </button>
+    </IconButton>
   );
 }
 
@@ -320,14 +324,15 @@ const MessageItem = memo(function MessageItem({
           <div className="asv-msg-actions">
             <CopyButton text={msg.content} />
             {msg.messageId && onFork && (
-              <button
+              <IconButton
+                variant="ghost"
+                size="sm"
                 className="asv-msg-action-btn"
                 onClick={() => onFork(msg.messageId!)}
+                aria-label="Fork from here"
                 title="Fork from here"
               >
                 <svg
-                  width="14"
-                  height="14"
                   viewBox="0 0 16 16"
                   fill="none"
                   stroke="currentColor"
@@ -339,7 +344,7 @@ const MessageItem = memo(function MessageItem({
                   <circle cx="4" cy="12" r="1.5" />
                   <path d="M4 5.5V10.5M5.5 4H10.5" />
                 </svg>
-              </button>
+              </IconButton>
             )}
           </div>
         )}

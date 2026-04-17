@@ -68,9 +68,7 @@
   margin-bottom: var(--space-1);
 }
 
-.modal-input,
-.modal-select,
-.modal-textarea {
+.modal-select {
   width: 100%;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -82,23 +80,9 @@
   transition: border-color var(--transition-fast);
 }
 
-.modal-input:focus,
-.modal-select:focus,
-.modal-textarea:focus {
+.modal-select:focus {
   outline: none;
   border-color: var(--border-hover);
-}
-
-.modal-textarea {
-  resize: vertical;
-  min-height: 80px;
-  line-height: 1.5;
-}
-
-.modal-input::placeholder,
-.modal-textarea::placeholder {
-  color: var(--text-muted);
-  opacity: 0.6;
 }
 
 .modal-hint {
@@ -129,34 +113,6 @@
 
 .modal-actions {
   margin-top: var(--space-6);
-}
-
-.modal-btn-primary {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 10px var(--space-4);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: all var(--transition-smooth);
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--bg-base);
-}
-
-.modal-btn-primary:hover {
-  opacity: 0.85;
-}
-
-.modal-btn-primary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 /* ── Create Agent Modal (cam-) ── */

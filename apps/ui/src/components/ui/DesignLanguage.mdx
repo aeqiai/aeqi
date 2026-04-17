@@ -115,3 +115,47 @@ Status colors are the only exception to the monochromatic rule. They appear mini
 | Warning | `#f59e0b` | `--color-warning` | Blocked, degraded          |
 | Info    | `#3b82f6` | `--color-info`    | In progress, informational |
 | Accent  | `#000000` | `--color-accent`  | Working, primary actions   |
+
+---
+
+## Row rhythm (32px)
+
+The app uses a single row height, `--input-h: 32px`, for every dense interactive surface: sidebar nav rows, inputs, buttons (`md` size), the scope indicator. This is also `--sidebar-row-h`. Buttons and inputs placed on the same row line up without tweaks. The composer is taller (multi-line) but borrows the same border/radius/colors so it reads as a member of the same family.
+
+Do not introduce new row heights. If a surface needs to feel denser, use `sm` (28px). If it needs to feel weightier (hero, auth), use `lg` (40px).
+
+---
+
+## Using the primitives
+
+**Rule: reach for `components/ui/` first.** A new ad-hoc class is the last resort, not the default. If the thing you want doesn't exist as a primitive, propose adding it to the library before writing a one-off class in a page-level stylesheet.
+
+### Which primitive to use when
+
+| Need                                  | Primitive                    | Don't write                                                 |
+| ------------------------------------- | ---------------------------- | ----------------------------------------------------------- |
+| Any `<button>`                        | `<Button variant size>`      | `.btn`, `.auth-btn-*`, `.modal-btn-*`, `.newBtn`            |
+| Any single-line text field            | `<Input size>`               | `.auth-input`, `.filter-input`, `.agent-settings-input`     |
+| Any multi-line text field             | `<Textarea>`                 | `.modal-textarea`, bespoke `<textarea>` rules               |
+| Status / tag chip                     | `<Badge>` / `<StatusBadge>`  | Hand-rolled status dot + span                               |
+| Bordered container (agent, event row) | `<Card variant padding>`     | `.agent-card`, `.event-row`, `.tool-card`, `.welcome-card`  |
+| Detail panel with title bar           | `<Panel title actions>`      | Hand-rolled `.detail-panel` + `<h2>` header                 |
+| Empty list / no-results state         | `<EmptyState>`               | Hand-rolled "No results" div                                |
+| Loading + error + empty tri-state     | `<DataState>`                | Three nested ternaries in the page                          |
+| Hover explainer                       | `<Tooltip>`                  | `title` attribute (inaccessible, ugly on mobile)            |
+| Modal dialog                          | `<Modal>`                    | `position: fixed` divs                                      |
+
+### Token rules
+
+- `--input-*` tokens are the source of truth for **every field-like surface**. `<Input>`, `<Textarea>`, the composer, and the few remaining class-based inputs (`.filter-input`, `.agent-settings-input`, `.events-link-input`) all consume them. Edit once, update everywhere.
+- Never hardcode `#ffffff`, `rgba(0, 0, 0, 0.x)`, or hex colors in component CSS. Use a token. If the token you need doesn't exist, add it in `primitives.css` first.
+- Never hardcode radius values. `--radius-md` for inputs/buttons, `--radius-lg` for cards/panels, `--radius-xl` for modals.
+
+### Adding a new primitive
+
+1. Start from an existing one (`Input.tsx` / `Input.module.css` are the cleanest template).
+2. Props: `variant`, `size`, `className`, then role-specific props. Always accept `className` and forward it last so call sites can extend.
+3. CSS module: use `--input-*`, `--space-*`, `--radius-*`, `--text-*` tokens only.
+4. Add a Storybook story showing every variant and every size.
+5. Export from `index.ts`.
+6. Document it in the table above.

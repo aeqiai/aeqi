@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import PageTabs, { useActiveTab } from "@/components/PageTabs";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
+import { Button, IconButton, Input } from "@/components/ui";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -92,9 +93,15 @@ function CopyButton({ text }: { text: string }) {
   };
 
   return (
-    <button type="button" className="key-copy-btn" onClick={copy} title="Copy to clipboard">
+    <IconButton
+      variant="bordered"
+      size="sm"
+      aria-label="Copy to clipboard"
+      title="Copy to clipboard"
+      onClick={copy}
+    >
       {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
+    </IconButton>
   );
 }
 
@@ -227,34 +234,38 @@ export default function SettingsPage() {
                     (<code>AEQI_API_KEY</code>).
                   </p>
                 )}
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost key-new-dismiss"
+                  variant="ghost"
+                  size="sm"
+                  className="key-new-dismiss"
                   onClick={() => setNewKey(null)}
                 >
                   I've saved this key
-                </button>
+                </Button>
               </div>
             )}
 
             {/* Create key form */}
             <div className="key-create-form">
-              <input
-                type="text"
-                className="auth-input key-name-input"
-                placeholder="Key name (e.g. claude-code, ci-pipeline)"
-                value={keyName}
-                onChange={(e) => setKeyName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              />
-              <button
+              <div style={{ maxWidth: 320, width: "100%" }}>
+                <Input
+                  type="text"
+                  placeholder="Key name (e.g. claude-code, ci-pipeline)"
+                  value={keyName}
+                  onChange={(e) => setKeyName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                />
+              </div>
+              <Button
                 type="button"
-                className="btn btn-primary"
+                variant="primary"
                 onClick={handleCreate}
+                loading={creating}
                 disabled={creating}
               >
                 {creating ? "Creating..." : "Create Key"}
-              </button>
+              </Button>
             </div>
 
             {feedback && (
@@ -281,14 +292,15 @@ export default function SettingsPage() {
                     <span className="key-list-meta">
                       {k.last_used_at ? timeAgo(k.last_used_at) : "never"}
                     </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-danger-text key-revoke-btn"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="key-revoke-btn"
                       onClick={() => handleRevoke(k.id)}
-                      disabled={revoking === k.id}
+                      loading={revoking === k.id}
                     >
-                      {revoking === k.id ? "..." : "Revoke"}
-                    </button>
+                      Revoke
+                    </Button>
                   </div>
                 ))}
               </div>

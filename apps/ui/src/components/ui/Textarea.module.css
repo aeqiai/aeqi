@@ -1,7 +1,6 @@
-/* Input primitive
-   Uses the app-wide --input-* tokens (defined in primitives.css) so <Input />
-   renders identically to .filter-input, .agent-settings-input, .events-link-input,
-   and the composer. One source of truth: edit tokens once, every input updates. */
+/* Textarea primitive — same visual language as Input but multi-line.
+   Uses the app --input-* tokens so it matches the composer, modal fields,
+   and any future long-form input. */
 
 .wrapper {
   display: flex;
@@ -15,36 +14,38 @@
   color: var(--text-primary);
 }
 
-.input {
+.textarea {
   width: 100%;
-  height: var(--input-h);
-  padding: 0 var(--input-px);
+  min-height: 80px;
+  padding: 10px var(--input-px);
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--input-radius);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
+  line-height: 1.5;
+  resize: vertical;
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
 }
 
-.input:hover:not(:disabled):not(.hasError) {
+.textarea:hover:not(:disabled):not(.hasError) {
   border-color: var(--input-border-focus);
 }
 
-.input:focus-visible {
+.textarea:focus-visible {
   outline: none;
   border-color: var(--input-border-focus);
   box-shadow: var(--input-ring-focus);
 }
 
-.input::placeholder {
+.textarea::placeholder {
   color: var(--text-muted);
 }
 
-.input:disabled {
+.textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -67,25 +68,4 @@
   font-size: var(--font-size-xs);
   color: var(--error);
   font-weight: var(--font-weight-medium);
-}
-
-/* Size variants — md is the default (matches --input-h, the row rhythm).
-   sm for dense contexts (filter bars, table headers).
-   lg for hero/auth surfaces where the field should feel weighted. */
-
-.sm {
-  height: 28px;
-  padding: 0 10px;
-  font-size: var(--font-size-xs);
-}
-
-.md {
-  height: var(--input-h);
-  padding: 0 var(--input-px);
-}
-
-.lg {
-  height: 40px;
-  padding: 0 14px;
-  font-size: var(--font-size-base);
 }

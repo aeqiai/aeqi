@@ -4,6 +4,7 @@ import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
+import { Button, Input } from "@/components/ui";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24">
@@ -221,10 +222,10 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Get early access</h1>
-          <p className="auth-subheading">Join the waitlist for autonomous agent infrastructure</p>
+          <p className="auth-subheading">AEQI is the OS for autonomous agents. Be first in line.</p>
           <form className="auth-form" onSubmit={handleWaitlistSubmit}>
-            <input
-              className="auth-input"
+            <Input
+              size="lg"
               type="email"
               placeholder="Email address"
               aria-label="Email address"
@@ -232,9 +233,15 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
             />
-            <button className="auth-btn-primary" type="submit" disabled={!email.trim() || loading}>
+            <Button
+              variant="primary"
+              size="lg"
+              type="submit"
+              fullWidth
+              disabled={!email.trim() || loading}
+            >
               Join waitlist
-            </button>
+            </Button>
           </form>
           <p
             style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginTop: 8 }}
@@ -275,8 +282,8 @@ export default function SignupPage() {
             )}
           </p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
-            <input
-              className="auth-input"
+            <Input
+              size="lg"
               type="email"
               name="email"
               autoComplete="email"
@@ -295,29 +302,45 @@ export default function SignupPage() {
                 useAuthStore.setState({ error: null });
               }}
             />
-            <button
-              className="auth-btn-primary"
+            <Button
+              variant="primary"
+              size="lg"
               type="submit"
+              fullWidth
               disabled={!email.trim() || password.length < 8}
             >
               Continue
-            </button>
+            </Button>
           </form>
           {(googleOAuth || githubOAuth) && (
             <>
               <div className="auth-divider">
                 <span>or</span>
               </div>
-              {googleOAuth && (
-                <button className="auth-btn-oauth" onClick={handleGoogle} type="button">
-                  <GoogleIcon /> Continue with Google
-                </button>
-              )}
-              {githubOAuth && (
-                <button className="auth-btn-oauth" onClick={handleGithub} type="button">
-                  <GithubIcon /> Continue with GitHub
-                </button>
-              )}
+              <div className="auth-oauth-group">
+                {googleOAuth && (
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    onClick={handleGoogle}
+                    type="button"
+                  >
+                    <GoogleIcon /> Continue with Google
+                  </Button>
+                )}
+                {githubOAuth && (
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    onClick={handleGithub}
+                    type="button"
+                  >
+                    <GithubIcon /> Continue with GitHub
+                  </Button>
+                )}
+              </div>
             </>
           )}
           {waitlist && (
@@ -349,8 +372,8 @@ export default function SignupPage() {
           <p className="auth-subheading">{email}</p>
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="auth-name-row">
-              <input
-                className="auth-input"
+              <Input
+                size="lg"
                 type="text"
                 placeholder="First name"
                 aria-label="First name"
@@ -358,8 +381,8 @@ export default function SignupPage() {
                 onChange={(e) => setFirstName(e.target.value)}
                 autoFocus
               />
-              <input
-                className="auth-input"
+              <Input
+                size="lg"
                 type="text"
                 placeholder="Last name"
                 aria-label="Last name"
@@ -368,8 +391,8 @@ export default function SignupPage() {
               />
             </div>
             {waitlist && (
-              <input
-                className="auth-input auth-input-code"
+              <Input
+                size="lg"
                 type="text"
                 placeholder="Invite code"
                 aria-label="Invite code"
@@ -382,15 +405,18 @@ export default function SignupPage() {
                 {error}
               </div>
             )}
-            <button
-              className="auth-btn-primary"
+            <Button
+              variant="primary"
+              size="lg"
               type="submit"
+              fullWidth
+              loading={loading}
               disabled={
                 loading || !firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())
               }
             >
               {loading ? "Creating account..." : "Create account"}
-            </button>
+            </Button>
           </form>
           <p className="auth-switch">
             <a

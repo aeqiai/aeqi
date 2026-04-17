@@ -55,6 +55,16 @@
   opacity: 1;
 }
 
+/* Disabled primary reads as "not ready" — drop the heavy fill
+   so the eye moves to the inputs that still need attention. */
+.primary:disabled,
+.primary[aria-disabled="true"] {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: transparent;
+  color: rgba(0, 0, 0, 0.35);
+  opacity: 1;
+}
+
 .ghost {
   background: transparent;
   border-color: transparent;
@@ -83,24 +93,33 @@
     0 0 0 4px var(--color-error);
 }
 
-/* Sizes */
+/* Sizes — heights pinned to the app's row rhythm so Button + Input line up.
+   sm = 28px, md = 32px (matches --input-h / --sidebar-row-h), lg = 40px. */
 
 .sm {
-  padding: var(--space-1) var(--space-3);
+  height: 28px;
+  padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .md {
-  padding: var(--space-2) var(--space-4);
+  height: var(--input-h);
+  padding: 0 var(--space-4);
   font-size: var(--font-size-sm);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .lg {
-  padding: var(--space-3) var(--space-5);
+  height: 40px;
+  padding: 0 var(--space-5);
   font-size: var(--font-size-base);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+}
+
+/* Modifier — full-width button for auth/modal primary actions. */
+.fullWidth {
+  width: 100%;
 }
 
 /* Active state — all variants */

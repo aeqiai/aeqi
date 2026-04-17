@@ -1,0 +1,89 @@
+/* Card primitive — the plain bordered container.
+   Panel is for opinionated detail views with a title bar;
+   Card is the blank canvas for everything else (agent cards,
+   event rows, tool tiles, nav cards). */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+  min-width: 0;
+}
+
+/* Variants — background only. Borders and radius stay constant
+   so all cards share the same silhouette. */
+
+.default {
+  background: var(--bg-base);
+}
+
+.surface {
+  background: var(--bg-surface);
+}
+
+.flat {
+  background: transparent;
+  border-color: var(--border-faint);
+}
+
+/* Padding — three steps matching the app's density ladder.
+   sm = compact rows, md = default, lg = hero cards. */
+
+.padSm {
+  padding: var(--space-3);
+}
+
+.padMd {
+  padding: var(--space-4);
+}
+
+.padLg {
+  padding: var(--space-5);
+}
+
+.padNone {
+  padding: 0;
+}
+
+/* Interactive — hover lift for clickable cards (list items, nav tiles). */
+
+.interactive {
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.interactive:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-surface);
+}
+
+.interactive:focus-visible {
+  outline: none;
+  border-color: var(--border-hover);
+  box-shadow: var(--ring-muted);
+}
+
+/* Slots — optional header/body/footer when a card needs internal rhythm. */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.footer {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-faint);
+}

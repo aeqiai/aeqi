@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { Button, Input, Textarea } from "@/components/ui";
 import "@/styles/modals.css";
 
 interface Skill {
@@ -128,8 +129,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
             <div className="modal-hint">Loading templates...</div>
           ) : useFallback ? (
             <>
-              <input
-                className="modal-input"
+              <Input
                 type="text"
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
@@ -158,8 +158,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
         {/* Display name */}
         <div className="modal-field">
           <label className="modal-label">Display Name</label>
-          <input
-            className="modal-input"
+          <Input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -187,8 +186,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
         {/* System prompt */}
         <div className="modal-field">
           <label className="modal-label">System Prompt</label>
-          <textarea
-            className="modal-textarea"
+          <Textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             placeholder="Override or customize the template's system prompt..."
@@ -198,13 +196,15 @@ export default function CreateAgentModal({ open, onClose }: Props) {
 
         {/* Submit */}
         <div className="modal-actions">
-          <button
-            className="modal-btn-primary"
+          <Button
+            variant="primary"
+            fullWidth
             onClick={handleSubmit}
+            loading={submitting}
             disabled={submitting || success || !template.trim()}
           >
             {submitting ? "Spawning..." : "Create Agent"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

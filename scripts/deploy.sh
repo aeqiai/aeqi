@@ -62,6 +62,16 @@ if $BUILD_RUNTIME; then
     step "Building aeqi runtime binary..."
     cargo build --release -p aeqi 2>&1 | tail -3
 
+    # Stop the local runtime service (aeqi-runtime.service serves :8400 for
+    # the legacy placement → it holds the $AEQI_ROOT/target/release/aeqi
+    # binary open. Without this stop, the running process keeps using the
+    # old (now-deleted) inode and never picks up new routes. See
+    # aeqi#drive-404 incident, 2026-04-17.)
+    if systemctl list-unit-files aeqi-runtime.service &>/dev/null; then
+        echo "  -> stopping aeqi-runtime for binary swap"
+        sudo systemctl stop aeqi-runtime.service 2>/dev/null || true
+    fi
+
     # Stage binary for platform (tenant hosts use this copy).
     # Must stop hosts first — the binary is locked while in use.
     if [ -d "$PLATFORM_ROOT/runtime/bin" ]; then
@@ -74,6 +84,15 @@ if $BUILD_RUNTIME; then
         done
         # Also kill any lingering aeqi processes using the staged binary.
         sudo fuser -k "$PLATFORM_ROOT/runtime/bin/aeqi" 2>/dev/null || true
+        # Backstop: kill any other aeqi process whose executable has been
+        # deleted on disk (marker of an in-place binary swap where systemd
+        # didn't cover that process). Prevents silent route drift.
+        for pid in $(pgrep -f 'target/release/aeqi start' 2>/dev/null); do
+            if sudo readlink "/proc/$pid/exe" 2>/dev/null | grep -q '(deleted)'; then
+                echo "  -> killing stale aeqi pid=$pid (binary deleted)"
+                sudo kill -TERM "$pid" 2>/dev/null || true
+            fi
+        done
         sleep 2
         # Clean stale PID/socket files.
         for pidfile in /var/lib/aeqi/hosts/*/rm.pid; do
@@ -109,6 +128,13 @@ if ! $SKIP_RESTART; then
         done
     fi
 
+    # Restart local runtime (serves port 8400 for the legacy placement).
+    # Must come back up before platform so the platform can reach it.
+    if systemctl list-unit-files aeqi-runtime.service &>/dev/null; then
+        sudo systemctl restart aeqi-runtime.service
+        echo "  -> aeqi-runtime restarted"
+    fi
+
     # Restart the platform. When invoked via webhook, the platform is our parent
     # process — restarting it kills us. Use a delayed restart so we can exit first.
     if [[ "${AEQI_WEBHOOK_DEPLOY:-}" == "1" ]]; then
@@ -135,6 +161,13 @@ if ! $SKIP_RESTART; then
         if [[ "$PLATFORM_STATUS" == "active" ]]; then
             echo ""
             echo "Deploy successful."
+
+            # Post-deploy smoke checks — advisory, does not block deploy.
+            if [ -x "$AEQI_ROOT/scripts/smoke-prod.sh" ]; then
+                echo ""
+                "$AEQI_ROOT/scripts/smoke-prod.sh" || \
+                    echo "  (smoke checks reported issues — investigate at app.aeqi.ai)"
+            fi
         else
             echo ""
             echo "FAILED: platform did not start!"

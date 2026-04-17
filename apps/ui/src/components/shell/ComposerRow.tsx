@@ -9,6 +9,8 @@ interface ComposerRowProps {
   agentId: string | null;
   /** Base path for this root scope (e.g. "/root-1"). Used for navigation. */
   base: string;
+  /** True iff AgentSessionView is mounted and listening for send events. */
+  sessionsMounted: boolean;
 }
 
 /**
@@ -19,12 +21,14 @@ interface ComposerRowProps {
  *
  * The composer owns all of its own local state (input, attachments, prompt
  * picker, drag overlay). The send flow is:
- *   1. If a chat is mounted, fire `aeqi:send-message` — the active view
- *      picks it up and dispatches it through its websocket.
- *   2. If not, stash the payload in chat store and navigate to /sessions.
- *      The chat view drains `pendingMessage` on mount.
+ *   1. If AgentSessionView is mounted, fire `aeqi:send-message` — the
+ *      active view picks it up and dispatches it through its websocket.
+ *   2. Otherwise (user is on /:agent/quests, /events, etc.) stash the
+ *      payload in chat store and navigate to /:agent/sessions. The chat
+ *      view drains `pendingMessage` on mount and the send continues
+ *      seamlessly.
  */
-export default function ComposerRow({ agentId, base }: ComposerRowProps) {
+export default function ComposerRow({ agentId, base, sessionsMounted }: ComposerRowProps) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
@@ -66,7 +70,7 @@ export default function ComposerRow({ agentId, base }: ComposerRowProps) {
       prompts: prompts.length > 0 ? prompts : undefined,
       task: task || undefined,
     };
-    if (agentId) {
+    if (sessionsMounted) {
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
       setPendingMessage(detail);
@@ -77,7 +81,7 @@ export default function ComposerRow({ agentId, base }: ComposerRowProps) {
     setPrompts([]);
     setTask(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [input, files, prompts, task, agentId, setPendingMessage, navigate, base]);
+  }, [input, files, prompts, task, sessionsMounted, setPendingMessage, navigate, base]);
 
   const handleStop = useCallback(() => {
     window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));

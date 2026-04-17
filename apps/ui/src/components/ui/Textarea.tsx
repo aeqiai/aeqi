@@ -1,36 +1,34 @@
 import { forwardRef, useId } from "react";
-import styles from "./Input.module.css";
+import styles from "./Textarea.module.css";
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   hint?: string;
   error?: string;
-  /** Row height. md (32px) matches the app's --input-h / --sidebar-row-h rhythm. */
-  size?: "sm" | "md" | "lg";
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, hint, error, size = "md", className, id, ...rest },
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  { label, hint, error, className, id, ...rest },
   ref,
 ) {
   const autoId = useId();
-  const inputId = id || autoId;
-  const hintId = hint ? `${inputId}-hint` : undefined;
-  const errorId = error ? `${inputId}-error` : undefined;
+  const textareaId = id || autoId;
+  const hintId = hint ? `${textareaId}-hint` : undefined;
+  const errorId = error ? `${textareaId}-error` : undefined;
 
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className={styles.wrapper}>
       {label && (
-        <label className={styles.label} htmlFor={inputId}>
+        <label className={styles.label} htmlFor={textareaId}>
           {label}
         </label>
       )}
-      <input
+      <textarea
         ref={ref}
-        id={inputId}
-        className={[styles.input, styles[size], error ? styles.hasError : "", className]
+        id={textareaId}
+        className={[styles.textarea, error ? styles.hasError : "", className]
           .filter(Boolean)
           .join(" ")}
         aria-invalid={error ? true : undefined}
@@ -51,4 +49,4 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   );
 });
 
-Input.displayName = "Input";
+Textarea.displayName = "Textarea";

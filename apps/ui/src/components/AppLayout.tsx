@@ -136,8 +136,12 @@ export default function AppLayout() {
   const usesTopBar = rootDefault || rootOnly;
   // Profile owns its own header + tabs and is user-scoped — composer and
   // CTA right rail are noise there.
-  const showComposer = !isProfile;
+  const showComposer = !isProfile && !!agentId;
   const showCTA = !isProfile;
+  // AgentSessionView only mounts when AgentPage is rendered AND the active
+  // tab resolves to "sessions" (which is the fallback when tab is absent).
+  // Everything else must stash + navigate — the window event has no listener.
+  const sessionsMounted = !rootDefault && !rootOnly && !isProfile && (!tab || tab === "sessions");
 
   return (
     <>
@@ -164,7 +168,9 @@ export default function AppLayout() {
               </aside>
             )}
           </div>
-          {showComposer && <ComposerRow agentId={agentId || null} base={base} />}
+          {showComposer && (
+            <ComposerRow agentId={agentId || null} base={base} sessionsMounted={sessionsMounted} />
+          )}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

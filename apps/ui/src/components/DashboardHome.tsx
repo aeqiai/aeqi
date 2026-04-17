@@ -2,6 +2,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { useUIStore } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
+import { Button } from "@/components/ui";
 import { runtimeLabel } from "@/lib/runtime";
 import { timeAgo } from "@/lib/format";
 import type { Agent } from "@/lib/types";
@@ -102,17 +103,17 @@ export default function DashboardHome() {
             <circle cx="24" cy="20" r="8" />
             <path d="M12 40c0-6.6 5.4-12 12-12s12 5.4 12 12" />
           </svg>
-          <h2 className="dash-home-welcome-title">Welcome to your workspace</h2>
+          <h2 className="dash-home-welcome-title">Your workspace is ready</h2>
           <p className="dash-home-welcome-copy">
-            Hire your first agent to get started. Agents research, code, review, and operate
-            autonomously.
+            Agents research, code, and ship. Hire your first one to get started.
           </p>
-          <button
-            className="btn btn-primary dash-home-welcome-cta"
+          <Button
+            variant="primary"
+            className="dash-home-welcome-cta"
             onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
           >
             Hire an agent
-          </button>
+          </Button>
         </div>
       ) : (
         <>

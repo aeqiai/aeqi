@@ -58,7 +58,7 @@ All design tokens live in `src/styles/primitives.css` as CSS custom properties:
 |------|------|-------------|
 | Dashboard | `/` | Stats, active quests, activity feed |
 | Quests | `/quests` | Linear-style grouped list, filterable by status and agent |
-| Sessions | `/sessions` | Split pane: session list + transcript, WebSocket chat |
+| Sessions | `/sessions` | Chat history and live transcript with the selected agent via WebSocket |
 | Events | `/events` | Audit/activity event stream |
 | Ideas | `/ideas` | Agent knowledge and idea search |
 | Agent Detail | `/agents/:name` | Identity, files, activity |

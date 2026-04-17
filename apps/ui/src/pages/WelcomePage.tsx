@@ -6,6 +6,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import BlockAvatar from "@/components/BlockAvatar";
 import DashboardHome from "@/components/DashboardHome";
+import { Button } from "@/components/ui";
 import "@/styles/welcome.css";
 
 // Same SVGs as sidebar
@@ -306,13 +307,9 @@ export default function WelcomePage() {
               Create your first agent or assign a quest
             </p>
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => go("/agents")}
-            style={{ padding: "6px 16px", fontSize: 12 }}
-          >
+          <Button variant="primary" size="sm" onClick={() => go("/agents")}>
             Hire agent
-          </button>
+          </Button>
         </div>
 
         {/* Primary navigation grid */}

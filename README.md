@@ -18,11 +18,10 @@ aeqi chat --agent cto   # talk to an agent
 ## Four Primitives
 
 ```
-Company (workspace)
- └── Agent tree
-      ├── Agent has Ideas
-      ├── Agent has Events
-      └── Agent does Quests
+Agent tree (root agent = workspace)
+ ├── Agent has Ideas
+ ├── Agent has Events
+ └── Agent does Quests
 ```
 
 ### Agent -- persistent identity in a tree

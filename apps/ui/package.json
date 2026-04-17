@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src/",
     "check": "tsc --noEmit && prettier --check \"src/**/*.{ts,tsx,css}\"",

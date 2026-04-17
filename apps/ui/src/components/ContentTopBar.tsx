@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
+import { Button } from "@/components/ui";
 
 const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
   agents: { title: "Agents", create: { label: "New agent" } },
@@ -25,9 +26,9 @@ export default function ContentTopBar() {
   const section = tab || "";
   let config = PAGE_CONFIG[section];
   if (!config) {
-    // Home (no tab) — show the agent's display name.
-    const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-    config = { title: agent?.display_name || agent?.name || "Home" };
+    // Home (no tab) — the agent's own name shows in the left rail/avatar,
+    // so keep this label generic instead of repeating it.
+    config = { title: "Home" };
   }
 
   // Count active agents in this tree (exclude the root itself, which is the workspace).
@@ -45,8 +46,9 @@ export default function ContentTopBar() {
       </div>
       <div className="content-topbar-right">
         {config.create && (
-          <button
-            className="content-topbar-btn"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
           >
             <svg
@@ -61,7 +63,7 @@ export default function ContentTopBar() {
               <path d="M6 2.5v7M2.5 6h7" />
             </svg>
             {config.create.label}
-          </button>
+          </Button>
         )}
       </div>
     </div>

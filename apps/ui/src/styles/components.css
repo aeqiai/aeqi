@@ -514,53 +514,6 @@
 }
 
 /* Quest table */
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 8px 16px;
-  border-radius: var(--radius-lg);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border: 1px solid var(--border);
-  background: var(--bg-base);
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
-.btn:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-elevated);
-}
-
-.btn:focus-visible {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 2px;
-}
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg-base);
-  border-radius: var(--radius-full);
-  font-weight: 500;
-  transition: all var(--transition-smooth);
-}
-
-.btn-primary:hover {
-  background: var(--color-accent-dim);
-  border-color: var(--color-accent-dim);
-  box-shadow: var(--shadow-md);
-}
 
 /* ── Utility & Semantic Classes ── */
 
@@ -679,6 +632,10 @@
   gap: 0;
   border-bottom: 1px solid var(--border);
   padding: 0 16px;
+  /* Match .content-topbar height so the tab strip lines up with the
+     comparable header on non-tabbed pages. */
+  height: 40px;
+  min-height: 40px;
   flex-shrink: 0;
 }
 .page-tab {
@@ -686,7 +643,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);

@@ -67,7 +67,7 @@
   display: flex;
   gap: var(--space-2);
 }
-.auth-name-row .auth-input {
+.auth-name-row > * {
   flex: 1;
   min-width: 0;
 }
@@ -150,58 +150,13 @@
   /* Screen readers announce on appearance */
 }
 
-.auth-btn-primary {
-  width: 100%;
-  padding: 10px var(--space-5);
-  margin-top: var(--space-1);
-  background: var(--accent);
-  color: var(--bg-base);
-  border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.auth-btn-primary:hover {
-  opacity: 0.85;
-}
-.auth-btn-primary:active {
-  opacity: 0.7;
-}
-.auth-btn-primary:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
-}
-
-.auth-btn-oauth {
+/* OAuth button stack — wraps the Google/GitHub buttons so the gap
+   between them matches the rhythm above/below the -or- divider
+   (`.auth-divider` has margin var(--space-5) 0). */
+.auth-oauth-group {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: 10px var(--space-5);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.auth-btn-oauth:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-surface);
-}
-.auth-btn-oauth:active {
-  background: var(--bg-elevated);
-}
-.auth-btn-oauth + .auth-btn-oauth {
-  margin-top: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .auth-divider {
@@ -418,13 +373,14 @@
   margin-bottom: var(--space-5);
 }
 .verify-code-digit {
-  width: 44px;
-  height: 48px;
+  width: 48px;
+  height: 52px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: var(--font-size-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   outline: none;
@@ -521,7 +477,7 @@
   align-items: center;
 }
 
-.account-field-row .auth-input {
+.account-field-row > * {
   flex: 1;
   min-width: 0;
 }
@@ -1307,20 +1263,6 @@
   color: var(--accent);
 }
 
-.detail-close {
-  border: none;
-  background: none;
-  font-size: var(--font-size-xl);
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.detail-close:hover {
-  color: var(--text-primary);
-}
-
 .detail-content {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
@@ -1404,24 +1346,6 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-}
-
-.detail-delete {
-  margin-top: auto;
-  padding: var(--space-2);
-  border: 1px solid var(--error);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--error);
-  font-size: var(--font-size-xs);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.detail-delete:hover {
-  background: var(--error);
-  color: white;
 }
 
 /* Graph container */
@@ -1695,7 +1619,7 @@
 
 .dash-activity-summary {
   flex: 1;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1730,10 +1654,6 @@
   gap: var(--space-3);
   align-items: center;
   margin: var(--space-4) 0;
-}
-
-.key-name-input {
-  max-width: 320px;
 }
 
 .key-new-banner {
@@ -1802,23 +1722,6 @@
   font-size: 0.82rem;
 }
 
-.key-copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.key-copy-btn:hover {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
 .key-list {
   margin-top: var(--space-4);
   border: 1px solid var(--border);
@@ -1865,14 +1768,11 @@
 }
 
 .key-revoke-btn {
-  font-size: 0.78rem;
-}
-
-.btn-danger-text {
   color: var(--error, #ef4444);
 }
-.btn-danger-text:hover {
+.key-revoke-btn:hover {
   background: rgba(239, 68, 68, 0.08);
+  color: var(--error, #ef4444);
 }
 
 .key-empty {

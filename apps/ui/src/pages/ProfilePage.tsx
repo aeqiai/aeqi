@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
 import PageTabs, { useActiveTab } from "@/components/PageTabs";
+import { Button, IconButton, Input } from "@/components/ui";
 
 const TABS = [
   { id: "profile", label: "Profile" },
@@ -325,9 +326,9 @@ export default function ProfilePage() {
                 <label className="account-field-label" htmlFor="account-first-name">
                   First name
                 </label>
-                <input
+                <Input
                   id="account-first-name"
-                  className="auth-input"
+                  size="lg"
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -339,9 +340,9 @@ export default function ProfilePage() {
                 <label className="account-field-label" htmlFor="account-last-name">
                   Last name
                 </label>
-                <input
+                <Input
                   id="account-last-name"
-                  className="auth-input"
+                  size="lg"
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -355,22 +356,16 @@ export default function ProfilePage() {
               <label className="account-field-label" htmlFor="account-email">
                 Email
               </label>
-              <input
-                id="account-email"
-                className="auth-input account-disabled-input"
-                type="email"
-                value={email}
-                disabled
-              />
+              <Input id="account-email" size="lg" type="email" value={email} disabled />
             </div>
 
             <div className="account-field-md">
               <label className="account-field-label" htmlFor="account-phone">
                 Phone
               </label>
-              <input
+              <Input
                 id="account-phone"
-                className="auth-input"
+                size="lg"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -395,14 +390,15 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
-              className="btn btn-primary"
+              variant="primary"
               onClick={handleProfileSave}
+              loading={profileSaving}
               disabled={profileSaving}
             >
               {profileSaving ? "Saving..." : "Save"}
-            </button>
+            </Button>
             {profileFeedback && (
               <div
                 className={`account-feedback account-feedback-${profileFeedback.type}`}
@@ -416,16 +412,18 @@ export default function ProfilePage() {
             {authMode !== "none" && (
               <>
                 <div className="account-divider" />
-                <button
+                <Button
                   type="button"
-                  className="btn account-sign-out-btn"
+                  variant="ghost"
+                  size="sm"
+                  className="account-sign-out-btn"
                   onClick={() => {
                     logout();
                     navigate("/login");
                   }}
                 >
                   Sign out
-                </button>
+                </Button>
               </>
             )}
           </>
@@ -440,9 +438,11 @@ export default function ProfilePage() {
                 <div className="account-totp-status">
                   <div className="account-status-dot" aria-hidden="true" />
                   <span className="account-totp-status-text">Authenticator app enabled</span>
-                  <button
+                  <Button
                     type="button"
-                    className="btn account-totp-disable-btn"
+                    variant="secondary"
+                    size="sm"
+                    className="account-totp-disable-btn"
                     onClick={async () => {
                       const pw = window.prompt("Enter your password to disable TOTP");
                       const code = window.prompt("Enter your authenticator code");
@@ -458,7 +458,7 @@ export default function ProfilePage() {
                     }}
                   >
                     Disable
-                  </button>
+                  </Button>
                 </div>
               ) : totpSetup ? (
                 <div>
@@ -491,9 +491,10 @@ export default function ProfilePage() {
                       placeholder="6-digit code"
                       aria-label="Authenticator code"
                     />
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-primary"
+                      variant="primary"
+                      loading={totpLoading}
                       disabled={totpLoading || totpCode.length !== 6}
                       onClick={async () => {
                         setTotpLoading(true);
@@ -514,7 +515,7 @@ export default function ProfilePage() {
                       }}
                     >
                       {totpLoading ? "..." : "Verify"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -523,9 +524,9 @@ export default function ProfilePage() {
                     Add an authenticator app for stronger login security. When enabled, you'll enter
                     an app code instead of an email code.
                   </p>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary"
+                    variant="primary"
                     onClick={async () => {
                       try {
                         const res = await api.setupTotp();
@@ -541,7 +542,7 @@ export default function ProfilePage() {
                     }}
                   >
                     Set up authenticator
-                  </button>
+                  </Button>
                 </div>
               )}
               {totpBackupCodes.length > 0 && (
@@ -582,9 +583,9 @@ export default function ProfilePage() {
                 email isn't from us.
               </p>
               <div className="account-field-row">
-                <input
+                <Input
                   id="account-phishing-code"
-                  className="auth-input"
+                  size="lg"
                   type="text"
                   value={phishingCode}
                   onChange={(e) => {
@@ -594,14 +595,15 @@ export default function ProfilePage() {
                   placeholder="e.g., blue ocean 42"
                   maxLength={100}
                 />
-                <button
+                <Button
                   type="button"
-                  className="btn btn-primary"
+                  variant="primary"
                   onClick={handlePhishingSave}
+                  loading={phishingSaving}
                   disabled={phishingSaving}
                 >
                   {phishingSaving ? "..." : "Save"}
-                </button>
+                </Button>
               </div>
               {phishingFeedback && (
                 <div
@@ -700,13 +702,14 @@ export default function ProfilePage() {
                     {passwordFeedback.msg}
                   </div>
                 )}
-                <button
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                  loading={passwordSaving}
+                  disabled={!currentPassword || !newPassword || !confirmPassword}
                 >
-                  {passwordSaving ? "Updating..." : "Update password"}
-                </button>
+                  Update password
+                </Button>
               </form>
             </div>
 
@@ -721,15 +724,15 @@ export default function ProfilePage() {
                     <CheckIcon />
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn account-connect-btn"
+                  <Button
+                    variant="secondary"
+                    className="account-connect-btn"
                     onClick={() => {
                       window.location.href = "/api/auth/google";
                     }}
                   >
                     <GoogleIcon /> Connect Google
-                  </button>
+                  </Button>
                 )}
                 {provider === "github" ? (
                   <div className="account-connected-item account-connected-active">
@@ -738,15 +741,15 @@ export default function ProfilePage() {
                     <CheckIcon />
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn account-connect-btn"
+                  <Button
+                    variant="secondary"
+                    className="account-connect-btn"
                     onClick={() => {
                       window.location.href = "/api/auth/github";
                     }}
                   >
                     <GitHubIcon /> Connect GitHub
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -757,9 +760,9 @@ export default function ProfilePage() {
               <p className="account-field-desc">
                 Permanently delete your account and all associated data. This cannot be undone.
               </p>
-              <button
-                type="button"
-                className="btn account-danger-btn"
+              <Button
+                variant="danger"
+                className="account-danger-btn"
                 onClick={() => {
                   if (
                     window.confirm(
@@ -779,7 +782,7 @@ export default function ProfilePage() {
                 }}
               >
                 Delete account
-              </button>
+              </Button>
             </div>
 
             {/* Activity Log */}
@@ -856,13 +859,14 @@ export default function ProfilePage() {
                     {inv.used ? (
                       <span className="account-invite-used-label">Used</span>
                     ) : (
-                      <button
-                        type="button"
-                        className="btn account-invite-copy-btn"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="account-invite-copy-btn"
                         onClick={() => copyCode(inv.code)}
                       >
                         {copiedCode === inv.code ? "Copied!" : "Copy"}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ))}
@@ -956,11 +960,15 @@ function ApiKeyTab() {
           <label className="account-field-label">API Key</label>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <code className="key-new-value">{apiKey}</code>
-            <button type="button" className="key-copy-btn" onClick={copy} title="Copy">
+            <IconButton
+              variant="bordered"
+              size="sm"
+              aria-label="Copy API key"
+              title="Copy"
+              onClick={copy}
+            >
               {copied ? (
                 <svg
-                  width="14"
-                  height="14"
                   viewBox="0 0 16 16"
                   fill="none"
                   stroke="var(--success, #22c55e)"
@@ -971,8 +979,6 @@ function ApiKeyTab() {
                 </svg>
               ) : (
                 <svg
-                  width="14"
-                  height="14"
                   viewBox="0 0 16 16"
                   fill="none"
                   stroke="currentColor"
@@ -983,32 +989,22 @@ function ApiKeyTab() {
                   <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" />
                 </svg>
               )}
-            </button>
+            </IconButton>
           </div>
           <p className="account-field-desc" style={{ marginTop: "var(--space-2)" }}>
             Active across all agents for your account until you rotate it.
           </p>
           <div style={{ marginTop: "var(--space-3)" }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleGenerate}
-              disabled={loading}
-            >
-              {loading ? "Rotating..." : "Rotate API Key"}
-            </button>
+            <Button variant="secondary" onClick={handleGenerate} loading={loading}>
+              Rotate API Key
+            </Button>
           </div>
         </div>
       ) : (
         <div style={{ marginTop: "var(--space-4)" }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleGenerate}
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate API Key"}
-          </button>
+          <Button variant="primary" onClick={handleGenerate} loading={loading}>
+            Generate API Key
+          </Button>
         </div>
       )}
 

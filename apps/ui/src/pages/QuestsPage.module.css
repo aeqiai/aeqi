@@ -85,7 +85,7 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 500;
@@ -176,51 +176,6 @@
   border-color: var(--border-hover);
 }
 
-/* ── Primary Button ──────────────────────────────────── */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.btnPrimary {
-  composes: btn;
-  background: #000000;
-  color: #ffffff;
-  border-color: #000000;
-  border-radius: 999px;
-}
-.btnPrimary:hover {
-  background: rgba(0, 0, 0, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-.btnPrimary:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.btnGhost {
-  composes: btn;
-  background: none;
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-.btnGhost:hover {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--bg-surface);
-}
-
 /* ── List ────────────────────────────────────────────── */
 
 .list {
@@ -236,7 +191,7 @@
   padding: 64px 0;
 }
 .emptyText {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 

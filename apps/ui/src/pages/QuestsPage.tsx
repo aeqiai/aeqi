@@ -5,6 +5,7 @@ import { useChatStore } from "@/store/chat";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import type { Quest, QuestStatus, QuestPriority } from "@/lib/types";
+import { Button } from "@/components/ui";
 import styles from "./QuestsPage.module.css";
 
 /* ── Icons ───────────────────────────────────────────── */
@@ -229,17 +230,18 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
         </div>
 
         <div className={styles.modalFooter}>
-          <button className={styles.btnGhost} onClick={onClose} type="button">
+          <Button variant="ghost" onClick={onClose} type="button">
             Cancel
-          </button>
-          <button
-            className={styles.btnPrimary}
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleCreate}
-            disabled={!subject.trim() || submitting}
+            disabled={!subject.trim()}
+            loading={submitting}
             type="button"
           >
             {submitting ? "Creating..." : "Create quest"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -571,13 +573,9 @@ export default function QuestsPage() {
               >
                 Quests are units of work you assign to agents. Create one to get started.
               </p>
-              <button
-                className={styles.btnPrimary}
-                onClick={openModal}
-                style={{ padding: "10px 24px" }}
-              >
+              <Button variant="primary" size="lg" onClick={openModal}>
                 Create your first quest
-              </button>
+              </Button>
               <p style={{ fontSize: 11, color: "rgba(0,0,0,0.2)", marginTop: 12 }}>
                 or press{" "}
                 <kbd

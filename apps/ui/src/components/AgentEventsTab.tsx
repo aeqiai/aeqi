@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
-import { EmptyState } from "./ui";
+import { Button, EmptyState } from "./ui";
 import type { AgentEvent, Idea } from "@/lib/types";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
@@ -159,18 +159,18 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
         {createError && <div className="channel-form-error">{createError}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button className="btn btn-primary" onClick={handleCreateEvent} disabled={saving}>
+          <Button variant="primary" onClick={handleCreateEvent} loading={saving} disabled={saving}>
             {saving ? "Creating..." : "Create"}
-          </button>
-          <button
-            className="btn"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => {
               setShowAddForm(false);
               setCreateError(null);
             }}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -195,8 +195,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           <span className="events-detail-pattern">{selected.pattern}</span>
         </div>
         <div className="events-detail-actions">
-          <button
-            className="btn"
+          <Button
+            variant="secondary"
             onClick={async () => {
               const next = !selected.enabled;
               await api.updateEvent(selected.id, { enabled: next });
@@ -204,10 +204,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             }}
           >
             {selected.enabled ? "Disable" : "Enable"}
-          </button>
+          </Button>
           {!selected.system && !selected.pattern.startsWith("session:") && (
-            <button
-              className="btn channel-disconnect-btn"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="channel-disconnect-btn"
               onClick={async () => {
                 await api.deleteEvent(selected.id);
                 removeEvent(agentId, selected.id);
@@ -215,7 +217,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
               }}
             >
               Delete
-            </button>
+            </Button>
           )}
         </div>
       </div>
