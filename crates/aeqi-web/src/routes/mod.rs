@@ -1,13 +1,13 @@
 mod agents;
 pub mod auth;
 mod chat;
-mod companies;
 mod dashboard;
 mod events;
 mod helpers;
 mod hosting;
 mod ideas;
 mod quests;
+mod roots;
 mod sessions;
 mod vfs;
 mod webhooks;
@@ -24,7 +24,7 @@ pub fn webhook_routes() -> Router<AppState> {
 pub fn api_routes() -> Router<AppState> {
     Router::new()
         .merge(dashboard::routes())
-        .merge(companies::routes())
+        .merge(roots::routes())
         .merge(quests::routes())
         .merge(agents::routes())
         .merge(sessions::routes())

@@ -13,22 +13,19 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/companies", get(projects).post(create_company))
-        .route(
-            "/companies/{name}",
-            axum::routing::put(update_company_handler),
-        )
-        .route("/companies/{name}/knowledge", get(project_knowledge))
+        .route("/roots", get(list_roots).post(create_root))
+        .route("/roots/{name}", axum::routing::put(update_root_handler))
+        .route("/roots/{name}/knowledge", get(root_knowledge))
         .route("/knowledge/channel", get(channel_knowledge))
         .route("/knowledge/store", post(knowledge_store))
         .route("/knowledge/delete", post(knowledge_delete))
 }
 
-async fn projects(State(state): State<AppState>, scope: Scope) -> Response {
-    ipc_proxy(state, scope.as_ref(), "companies", serde_json::Value::Null).await
+async fn list_roots(State(state): State<AppState>, scope: Scope) -> Response {
+    ipc_proxy(state, scope.as_ref(), "roots", serde_json::Value::Null).await
 }
 
-async fn create_company(
+async fn create_root(
     State(state): State<AppState>,
     scope: Scope,
     req: axum::extract::Request,
@@ -40,13 +37,7 @@ async fn create_company(
         Err(_) => serde_json::Value::Null,
     };
 
-    let resp = ipc_proxy(
-        state.clone(),
-        scope.as_ref(),
-        "create_company",
-        body.clone(),
-    )
-    .await;
+    let resp = ipc_proxy(state.clone(), scope.as_ref(), "create_root", body.clone()).await;
 
     // Link root agent to user in accounts store.
     if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
@@ -59,7 +50,7 @@ async fn create_company(
     resp
 }
 
-async fn update_company_handler(
+async fn update_root_handler(
     State(state): State<AppState>,
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,
@@ -67,10 +58,10 @@ async fn update_company_handler(
 ) -> Response {
     let mut params = body;
     params["name"] = serde_json::Value::String(name);
-    ipc_proxy(state, scope.as_ref(), "update_company", params).await
+    ipc_proxy(state, scope.as_ref(), "update_root", params).await
 }
 
-async fn project_knowledge(
+async fn root_knowledge(
     State(state): State<AppState>,
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,

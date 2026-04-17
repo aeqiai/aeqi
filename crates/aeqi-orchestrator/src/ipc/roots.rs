@@ -1,8 +1,8 @@
-//! Root agent management IPC handlers (legacy "companies" commands).
+//! Root agent management IPC handlers.
 
 use super::tenancy::is_allowed;
 
-pub async fn handle_companies(
+pub async fn handle_roots(
     ctx: &super::CommandContext,
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
@@ -61,10 +61,10 @@ pub async fn handle_companies(
             "cancelled_tasks": task_counts.5,
         }));
     }
-    serde_json::json!({"ok": true, "companies": result})
+    serde_json::json!({"ok": true, "roots": result})
 }
 
-pub async fn handle_create_company(
+pub async fn handle_create_root(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
@@ -96,13 +96,13 @@ pub async fn handle_create_company(
                 let project_dir = cwd.join("projects").join(name);
                 let _ = std::fs::create_dir_all(&project_dir);
             }
-            serde_json::json!({"ok": true, "id": a.id, "company": {"name": name, "prefix": prefix}})
+            serde_json::json!({"ok": true, "id": a.id, "root": {"name": name, "prefix": prefix}})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
 
-pub async fn handle_update_company(
+pub async fn handle_update_root(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,

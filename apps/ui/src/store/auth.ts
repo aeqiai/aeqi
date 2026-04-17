@@ -181,7 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Backend auto-creates a root agent on signup, returns its UUID (or name as fallback).
       const rootId =
         ((resp as Record<string, unknown>).root_id as string | undefined) ||
-        ((resp as Record<string, unknown>).company as string | undefined);
+        ((resp as Record<string, unknown>).root as string | undefined);
       if (resp.ok && resp.pending_verification) {
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);

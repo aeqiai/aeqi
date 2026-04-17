@@ -82,7 +82,6 @@ pub fn signing_secret(state: &AppState) -> &str {
 pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option<UserScope> {
     let scope_header = headers
         .get(PROXY_SCOPE_ROOTS_HEADER)
-        .or_else(|| headers.get("x-aeqi-allowed-companies"))
         .and_then(|v| v.to_str().ok())
         .map(|s| s.trim())?;
     if scope_header.is_empty() {

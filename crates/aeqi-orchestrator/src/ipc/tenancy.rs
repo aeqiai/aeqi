@@ -18,13 +18,11 @@ pub fn check_project(
     request: &serde_json::Value,
 ) -> Option<serde_json::Value> {
     allowed.as_ref()?;
-    for field in &["project", "company"] {
-        if let Some(val) = request.get(*field).and_then(|v| v.as_str())
-            && !val.is_empty()
-            && !is_allowed(allowed, val)
-        {
-            return Some(serde_json::json!({"ok": false, "error": "access denied"}));
-        }
+    if let Some(val) = request.get("project").and_then(|v| v.as_str())
+        && !val.is_empty()
+        && !is_allowed(allowed, val)
+    {
+        return Some(serde_json::json!({"ok": false, "error": "access denied"}));
     }
     None
 }

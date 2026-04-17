@@ -516,7 +516,7 @@ pub async fn handle_idea_prefix(
     }
 }
 
-pub async fn handle_company_knowledge(
+pub async fn handle_project_knowledge(
     _ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,

@@ -18,7 +18,7 @@ interface Entity {
 interface RootApiItem {
   id?: string;
   name?: string;
-  company?: string;
+  root?: string;
   display_name?: string;
   tagline?: string;
   tier?: string;
@@ -52,14 +52,14 @@ export default function EntitiesPage() {
     api
       .getRoots()
       .then((data) => {
-        const raw = data?.companies || data?.projects || data?.agent_spawns || [];
+        const raw = data?.roots || data?.projects || data?.agent_spawns || [];
         const items: RootApiItem[] = Array.isArray(raw) ? raw : [];
         if (items.length > 0) {
           setEntities(
             items
               .map((c) => ({
-                id: c.id || c.name || c.company || "",
-                name: c.name || c.company || "",
+                id: c.id || c.name || c.root || "",
+                name: c.name || c.root || "",
                 display_name: c.display_name,
                 tagline: c.tagline,
                 tier: c.tier || "Free",

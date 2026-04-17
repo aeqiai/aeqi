@@ -204,7 +204,7 @@
   color: var(--text-secondary);
 }
 
-/* New company page */
+/* New agent page */
 @keyframes ws-fade-in {
   from {
     opacity: 0;

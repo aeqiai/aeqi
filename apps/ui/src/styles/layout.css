@@ -261,7 +261,7 @@
   color: var(--text-primary);
   background: var(--bg-base);
 }
-/* ── Shared sidebar menu (company + profile) ── */
+/* ── Shared sidebar menu (root + profile) ── */
 /* Popup (shared between dropdown + dropup) */
 /* Compat aliases */
 .co-switcher {

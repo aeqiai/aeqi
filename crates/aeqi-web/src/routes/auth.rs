@@ -276,7 +276,7 @@ async fn signup_handler(
     let mut root_id: Option<String> = None;
     match state
         .ipc
-        .cmd_with("create_company", serde_json::json!({ "name": root_name }))
+        .cmd_with("create_root", serde_json::json!({ "name": root_name }))
         .await
     {
         Ok(resp) => {
@@ -343,7 +343,7 @@ async fn signup_handler(
             "token": token,
             "pending_verification": true,
             "user": user,
-            "company": &root_name,
+            "root": &root_name,
             "root_id": root_id,
         }))
         .into_response(),

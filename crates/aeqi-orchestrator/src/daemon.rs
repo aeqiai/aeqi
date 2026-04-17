@@ -969,10 +969,8 @@ impl Daemon {
                 .unwrap_or("unknown");
 
             // Extract tenancy scope from IPC params (injected by web layer).
-            // Accept both `allowed_roots` and `allowed_companies` for transition.
             let allowed_roots: Option<Vec<String>> = request
                 .get("allowed_roots")
-                .or_else(|| request.get("allowed_companies"))
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -980,7 +978,7 @@ impl Daemon {
                         .collect()
                 });
 
-            // Pre-check: if request has a `project` or `company` param, validate against scope.
+            // Pre-check: if request has a `project` param, validate against scope.
             if let Some(denied) = crate::ipc::tenancy::check_project(&allowed_roots, &request) {
                 let _ = writer.write_all(denied.to_string().as_bytes()).await;
                 let _ = writer.write_all(b"\n").await;
@@ -1038,17 +1036,13 @@ impl Daemon {
                 "worker_events" => {
                     crate::ipc::status::handle_worker_events(&ctx, &request, &allowed_roots).await
                 }
-                "companies" => {
-                    crate::ipc::companies::handle_companies(&ctx, &request, &allowed_roots).await
-                }
+                "roots" => crate::ipc::roots::handle_roots(&ctx, &request, &allowed_roots).await,
 
-                "create_company" => {
-                    crate::ipc::companies::handle_create_company(&ctx, &request, &allowed_roots)
-                        .await
+                "create_root" => {
+                    crate::ipc::roots::handle_create_root(&ctx, &request, &allowed_roots).await
                 }
-                "update_company" => {
-                    crate::ipc::companies::handle_update_company(&ctx, &request, &allowed_roots)
-                        .await
+                "update_root" => {
+                    crate::ipc::roots::handle_update_root(&ctx, &request, &allowed_roots).await
                 }
 
                 "metrics" => {
@@ -2081,8 +2075,8 @@ impl Daemon {
                 "idea_prefix" | "memory_prefix" => {
                     crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_roots).await
                 }
-                "company_knowledge" | "project_knowledge" => {
-                    crate::ipc::ideas::handle_company_knowledge(&ctx, &request, &allowed_roots)
+                "project_knowledge" => {
+                    crate::ipc::ideas::handle_project_knowledge(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "channel_knowledge" => {

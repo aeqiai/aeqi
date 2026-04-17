@@ -4,7 +4,7 @@
 //! events referencing the ideas directly. No injection_mode involved.
 
 /// Seed ideas into a tenant's idea store + spawn agents + wire events.
-/// Called by the platform after company provisioning.
+/// Called by the platform after root agent provisioning.
 ///
 /// Request shape:
 /// ```json

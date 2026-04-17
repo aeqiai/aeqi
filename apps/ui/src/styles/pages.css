@@ -1711,7 +1711,7 @@
   }
 }
 
-/* ── Create Company Modal ── */
+/* ── Create Root Modal ── */
 @keyframes modal-slide-in {
   from {
     opacity: 0;

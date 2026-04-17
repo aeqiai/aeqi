@@ -232,14 +232,14 @@ export const api = {
   },
 
   // Roots (root agents)
-  getRoots: () => request<Record<string, unknown>>("/companies"),
+  getRoots: () => request<Record<string, unknown>>("/roots"),
   createRoot: (data: { name: string; tagline?: string; prefix?: string }) =>
-    request<Record<string, unknown>>("/companies", { method: "POST", body: JSON.stringify(data) }),
+    request<Record<string, unknown>>("/roots", { method: "POST", body: JSON.stringify(data) }),
   updateRoot: (
     name: string,
     data: { display_name?: string; tagline?: string; logo_url?: string },
   ) =>
-    request<{ ok: boolean }>(`/companies/${encodeURIComponent(name)}`, {
+    request<{ ok: boolean }>(`/roots/${encodeURIComponent(name)}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
@@ -248,7 +248,7 @@ export const api = {
   getQuests: (params?: { status?: string; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
-    if (params?.root) query.set("company", params.root);
+    if (params?.root) query.set("root", params.root);
     const qs = query.toString();
     return request<Record<string, unknown>>(`/quests${qs ? `?${qs}` : ""}`);
   },
@@ -261,7 +261,7 @@ export const api = {
   getActivityStream: (params?: { last?: number; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.last) query.set("last", String(params.last));
-    if (params?.root) query.set("company", params.root);
+    if (params?.root) query.set("root", params.root);
     const qs = query.toString();
     return request<Record<string, unknown>>(`/activity${qs ? `?${qs}` : ""}`);
   },
@@ -269,7 +269,7 @@ export const api = {
   // Notes
   getNotes: (params?: { root?: string; limit?: number }) => {
     const query = new URLSearchParams();
-    if (params?.root) query.set("company", params.root);
+    if (params?.root) query.set("root", params.root);
     if (params?.limit) query.set("limit", String(params.limit));
     const qs = query.toString();
     return request<Record<string, unknown>>(`/notes${qs ? `?${qs}` : ""}`);
@@ -289,7 +289,7 @@ export const api = {
   // Ideas
   getIdeas: (params?: { root?: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.root) q.set("company", params.root);
+    if (params?.root) q.set("root", params.root);
     if (params?.query) q.set("query", params.query);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
@@ -329,7 +329,7 @@ export const api = {
   // Idea graph & profile
   getIdeaGraph: (params?: { root?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.root) q.set("company", params.root);
+    if (params?.root) q.set("root", params.root);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
@@ -337,14 +337,13 @@ export const api = {
 
   getIdeaProfile: (params?: { root?: string }) => {
     const q = new URLSearchParams();
-    if (params?.root) q.set("company", params.root);
+    if (params?.root) q.set("root", params.root);
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
   // Root Agent Knowledge
-  getRootKnowledge: (name: string) =>
-    request<Record<string, unknown>>(`/companies/${name}/knowledge`),
+  getRootKnowledge: (name: string) => request<Record<string, unknown>>(`/roots/${name}/knowledge`),
 
   // Knowledge CRUD
   storeKnowledge: (data: {
@@ -356,19 +355,19 @@ export const api = {
   }) =>
     request<{ ok: boolean }>("/knowledge/store", {
       method: "POST",
-      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
+      body: JSON.stringify(data),
     }),
 
   deleteKnowledge: (data: { root: string; id: string }) =>
     request<{ ok: boolean }>("/knowledge/delete", {
       method: "POST",
-      body: JSON.stringify({ company: data.root, id: data.id }),
+      body: JSON.stringify({ root: data.root, id: data.id }),
     }),
 
   // Channel Knowledge
   getChannelKnowledge: (params: { root: string; query?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    q.set("company", params.root);
+    q.set("root", params.root);
     if (params.query) q.set("query", params.query);
     if (params.limit) q.set("limit", String(params.limit));
     return request<Record<string, unknown>>(`/knowledge/channel?${q.toString()}`);
@@ -400,14 +399,14 @@ export const api = {
   }) =>
     request<Record<string, unknown>>("/quests", {
       method: "POST",
-      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
+      body: JSON.stringify(data),
     }),
 
   // Write: Close Quest
   closeQuest: (id: string, data?: { reason?: string; root?: string }) =>
     request<{ ok: boolean }>(`/quests/${id}/close`, {
       method: "POST",
-      body: JSON.stringify(data ? { reason: data.reason, company: data.root } : {}),
+      body: JSON.stringify(data ? { reason: data.reason, root: data.root } : {}),
     }),
 
   // Write: Post Note
@@ -420,7 +419,7 @@ export const api = {
   }) =>
     request<{ ok: boolean }>("/notes", {
       method: "POST",
-      body: JSON.stringify({ ...data, company: data.root, root: undefined }),
+      body: JSON.stringify(data),
     }),
 
   // Single quest
@@ -525,7 +524,7 @@ export const api = {
   createKey: (data: { root: string; name: string }) =>
     request<{ ok: boolean; id: string; secret_key: string }>("/keys", {
       method: "POST",
-      body: JSON.stringify({ company: data.root, name: data.name }),
+      body: JSON.stringify({ root: data.root, name: data.name }),
     }),
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),

@@ -75,7 +75,7 @@ impl AccountStore {
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
-        // Migration: user_roots / user_companies -> user_access.
+        // Migration: user_roots -> user_access.
         let has_user_roots: bool = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_roots'",
@@ -88,20 +88,6 @@ impl AccountStore {
             conn.execute_batch(
                 "INSERT OR IGNORE INTO user_access (user_id, agent_id) SELECT user_id, root FROM user_roots;
                  DROP TABLE user_roots;",
-            )?;
-        }
-        let has_user_companies: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_companies'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .unwrap_or(0)
-            > 0;
-        if has_user_companies {
-            conn.execute_batch(
-                "INSERT OR IGNORE INTO user_access (user_id, agent_id) SELECT user_id, company FROM user_companies;
-                 DROP TABLE user_companies;",
             )?;
         }
         let user_cache = Cache::builder()

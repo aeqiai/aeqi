@@ -30,7 +30,7 @@ export default function NewAgentPage() {
       // Use the agent UUID returned by the backend; fall back to name for compat.
       const rootId =
         (resp as Record<string, unknown>).id ||
-        (resp as Record<string, unknown>).company ||
+        (resp as Record<string, unknown>).root ||
         name.trim();
       setActiveRoot(rootId as string);
       // Backend auto-creates an agent -- fetch it immediately
