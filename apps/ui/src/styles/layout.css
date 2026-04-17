@@ -1,8 +1,10 @@
-/* ── Shell — capped viewport like social apps ── */
-/* Background is intentionally transparent: body already paints
-   var(--bg-elevated), so repeating the rgba tint here would stack
-   alpha channels and leave the "between" area inside the shell
-   visibly darker than the body area outside the 1440px cap. */
+/* ── Shell — capped viewport like social apps ──
+   Background is intentionally transparent: body already paints
+   var(--bg-elevated). No side borders — the shell bg and the outer
+   body bg are the same color, so the borders just drew a visible
+   seam on wide screens / when zoomed out. The 1440px cap alone is
+   enough to convey the "capped app canvas" pattern; the card inside
+   is what carries the visual frame. */
 .shell {
   display: flex;
   height: 100vh;
@@ -10,8 +12,6 @@
   background: transparent;
   max-width: 1440px;
   margin: 0 auto;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
 }
 
 /* ── Left Sidebar (agent tree) ──
