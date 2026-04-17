@@ -67,41 +67,37 @@
     display: none;
   }
 }
-/* Aligns visually with .content-topbar (same 49px height + border) so the
+/* Aligns visually with .content-topbar (same 40px height + border) so the
    card reads as a single horizontal header spanning both columns. */
 .asv-sidebar-header {
-  height: 49px;
-  min-height: 49px;
+  height: 40px;
+  min-height: 40px;
   padding: 0 12px;
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+/* Flat row action (no nested button box) — the header row is now compact
+   enough that a bordered button inside it feels heavy. */
 .asv-session-new-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
+  height: 100%;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   background: none;
-  border: 1px solid var(--border);
+  border: none;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition:
-    color 0.1s,
-    background 0.1s,
-    border-color 0.1s;
+  padding: 0;
+  transition: color 0.1s;
 }
 .asv-session-new-btn:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
-  border-color: var(--text-muted);
 }
 .asv-sidebar-list {
   flex: 1;

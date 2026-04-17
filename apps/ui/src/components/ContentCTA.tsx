@@ -189,8 +189,8 @@ export default function ContentCTA() {
     <div className="asv-sidebar">
       {/* Always render the header row — even when the tab has no +new
           action — so the rail's top edge aligns with the main pane's
-          content-topbar (49px tall). Prevents the "rail jumps up 49px
-          on tools tab" effect. */}
+          content-topbar (40px tall). Prevents the "rail jumps up on
+          tools tab" effect. */}
       <div className="asv-sidebar-header">
         {header && (
           <button

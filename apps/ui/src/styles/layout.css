@@ -942,13 +942,14 @@
   white-space: nowrap;
 }
 
-/* Content top bar — matches sidebar header height */
+/* Content top bar — matches page-tab bar height so the top strip reads as a
+   single thin horizontal band instead of a chunky header. */
 .content-topbar {
   display: flex;
   align-items: center;
   padding: 0 0 0 16px;
-  height: 49px;
-  min-height: 49px;
+  height: 40px;
+  min-height: 40px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
