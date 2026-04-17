@@ -72,14 +72,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 0 16px;
-  height: 49px;
-  box-sizing: content-box;
+  padding: 0 12px 0 16px;
+  height: 40px;
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 .left-sidebar.collapsed .sidebar-header {
   justify-content: center;
-  padding: 8px 0 0;
+  padding: 0;
 }
 
 /* ── Collapse toggle (hamburger) ── */
