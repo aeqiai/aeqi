@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea } from "@/lib/types";
+import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
 
@@ -46,6 +47,8 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
   const removeIdea = useAgentDataStore((s) => s.removeIdea);
   const addIdea = useAgentDataStore((s) => s.addIdea);
+  const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId]);
+  const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
 
   const isEdit = !!idea;
   const [name, setName] = useState(idea?.name ?? "");
@@ -54,8 +57,12 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Body editing mode: in `edit`, the textarea is active; in `view`, the
+  // rendered markdown is shown. Compose mode (no idea yet) starts in edit.
+  const [bodyMode, setBodyMode] = useState<"view" | "edit">(isEdit ? "view" : "edit");
 
   const titleRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<number | null>(null);
   const flashRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
@@ -72,8 +79,16 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     setSaveState("idle");
     setError(null);
     setConfirmDelete(false);
+    setBodyMode(idea?.id ? "view" : "edit");
     dirtyRef.current = false;
   }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
+
+  // Focus the textarea whenever we enter edit mode on an existing idea.
+  useEffect(() => {
+    if (bodyMode === "edit" && isEdit) {
+      requestAnimationFrame(() => bodyRef.current?.focus());
+    }
+  }, [bodyMode, isEdit]);
 
   // Focus the title when this mount shows the compose canvas.
   useEffect(() => {
@@ -265,21 +280,36 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
         }}
       />
 
-      <textarea
-        className="ideas-canvas-body"
-        placeholder="Start typing… use #hashtags inline."
-        value={content}
-        onChange={(e) => {
-          setContent(e.target.value);
-          scheduleSave();
-        }}
-        onBlur={() => {
-          if (isEdit && dirtyRef.current) {
-            if (debounceRef.current) window.clearTimeout(debounceRef.current);
-            flushSave();
-          }
-        }}
-      />
+      {bodyMode === "edit" || !isEdit ? (
+        <textarea
+          ref={bodyRef}
+          className="ideas-canvas-body"
+          placeholder="Start typing… #hashtags, [[mentions]], ![[embeds]]."
+          value={content}
+          onChange={(e) => {
+            setContent(e.target.value);
+            scheduleSave();
+          }}
+          onBlur={() => {
+            if (isEdit && dirtyRef.current) {
+              if (debounceRef.current) window.clearTimeout(debounceRef.current);
+              flushSave();
+            }
+            if (isEdit) setBodyMode("view");
+          }}
+        />
+      ) : (
+        <div
+          className="ideas-canvas-body ideas-canvas-body-rendered"
+          onClick={() => setBodyMode("edit")}
+        >
+          {content.trim() ? (
+            <RichMarkdown body={content} ideasByName={ideasByName} agentId={agentId} />
+          ) : (
+            <span className="ideas-canvas-body-empty">Click to write…</span>
+          )}
+        </div>
+      )}
 
       <div className="ideas-canvas-footer">
         <div className="ideas-canvas-status">

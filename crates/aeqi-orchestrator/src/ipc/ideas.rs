@@ -107,12 +107,19 @@ async fn reconcile_inline_edges_in_scope(
             .unwrap_or_default(),
     };
 
-    let lookup: Arc<HashMap<String, String>> = Arc::new(
-        scope
-            .into_iter()
-            .map(|i| (i.name.to_lowercase(), i.id))
-            .collect(),
-    );
+    let mut lookup: HashMap<String, String> = HashMap::with_capacity(scope.len());
+    for i in scope {
+        let key = i.name.to_lowercase();
+        if let Some(existing) = lookup.insert(key.clone(), i.id.clone()) {
+            tracing::warn!(
+                name = %i.name,
+                kept_id = %i.id,
+                displaced_id = %existing,
+                "duplicate idea name in resolver scope; later idea wins"
+            );
+        }
+    }
+    let lookup = Arc::new(lookup);
 
     let lookup_cloned = Arc::clone(&lookup);
     let resolver =

@@ -848,10 +848,6 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
-.asv-event-fire-icon {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
 .asv-event-fire-name {
   background: none;
   border: none;

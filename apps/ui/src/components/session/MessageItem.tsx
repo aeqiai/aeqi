@@ -1,8 +1,8 @@
-import { useEffect, useState, memo } from "react";
-import Markdown from "react-markdown";
+import { useEffect, useMemo, useState, memo } from "react";
 import { IconButton } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
+import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
 import {
   type Message,
   type MessageSegment,
@@ -101,50 +101,12 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
   );
 }
 
-/** Code block with language label + copy button */
-function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
-  const [copied, setCopied] = useState(false);
-  const lang = className?.replace("language-", "") || "";
-  const code = String(children).replace(/\n$/, "");
-  return (
-    <div className="asv-codeblock">
-      <div className="asv-codeblock-header">
-        <span className="asv-codeblock-lang">{lang}</span>
-        <button
-          className="asv-codeblock-copy"
-          onClick={() => {
-            navigator.clipboard.writeText(code);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
-        >
-          {copied ? "copied" : "copy"}
-        </button>
-      </div>
-      <pre>
-        <code className={className}>{children}</code>
-      </pre>
-    </div>
-  );
+function SessionMarkdown({ body }: { body: string }) {
+  const { agentId } = useNav();
+  const ideas = useAgentDataStore((s) => (agentId ? s.ideasByAgent[agentId] : undefined));
+  const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
+  return <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={agentId} />;
 }
-
-/** Custom markdown components — code blocks get headers */
-const markdownComponents: any = {
-  code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
-    const isBlock = className?.startsWith("language-");
-    if (isBlock) {
-      return <CodeBlock className={className}>{children}</CodeBlock>;
-    }
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
-  },
-  pre({ children }: { children?: React.ReactNode }) {
-    return <>{children}</>;
-  },
-};
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -231,7 +193,7 @@ export function SegmentRenderer({
       {groups.map((group, gi) =>
         group.kind === "text" ? (
           <div key={gi} className="asv-msg-content">
-            <Markdown components={markdownComponents}>{group.text}</Markdown>
+            <SessionMarkdown body={group.text} />
           </div>
         ) : group.kind === "step" ? (
           <div key={gi} className="asv-step-sep">
@@ -272,7 +234,6 @@ function EventFireItem({ msg }: { msg: Message }) {
 
   return (
     <div className="asv-event-fire">
-      <span className="asv-event-fire-icon">{"\u2728"}</span>
       <button
         type="button"
         className="asv-event-fire-name"
@@ -357,7 +318,7 @@ const MessageItem = memo(function MessageItem({
         ) : (
           <div className="asv-msg-content">
             {msg.role === "assistant" ? (
-              <Markdown components={markdownComponents}>{msg.content}</Markdown>
+              <SessionMarkdown body={msg.content} />
             ) : (
               <span>{msg.content}</span>
             )}
