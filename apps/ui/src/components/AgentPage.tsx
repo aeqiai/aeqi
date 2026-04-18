@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
@@ -6,11 +6,11 @@ import { api } from "@/lib/api";
 import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
+import AgentIdeasTab from "./AgentIdeasTab";
 import BrandMark from "./BrandMark";
 import BudgetMeter from "./BudgetMeter";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
-import type { Idea } from "@/lib/types";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -60,20 +60,6 @@ export default function AgentPage({
 
   // Quests scoped to this agent
   const agentQuests = quests.filter((q) => (q as Record<string, unknown>).agent_id === agent?.id);
-
-  // Ideas scoped to this agent: self + descendants + globals (agent_id IS NULL).
-  // Driven server-side by agent_ancestry; no need to hand a pre-linked id list.
-  const [agentIdeas, setAgentIdeas] = useState<Idea[]>([]);
-  useEffect(() => {
-    if (activeTab !== "ideas" || !resolvedAgentId) {
-      setAgentIdeas([]);
-      return;
-    }
-    api
-      .getIdeas({ agent_id: resolvedAgentId })
-      .then((res) => setAgentIdeas((res.ideas as Idea[]) || []))
-      .catch(() => setAgentIdeas([]));
-  }, [activeTab, resolvedAgentId]);
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -214,20 +200,7 @@ export default function AgentPage({
         </div>
       )}
 
-      {activeTab === "ideas" && (
-        <div className="page-content" style={{ padding: "16px" }}>
-          {agentIdeas.length > 0 ? (
-            agentIdeas.map((idea) => (
-              <div key={idea.id} className="scoped-quest-row">
-                <span className="scoped-quest-status">{idea.tags?.join(", ") || "idea"}</span>
-                <span className="scoped-quest-subject">{idea.name}</span>
-              </div>
-            ))
-          ) : (
-            <EmptyState title="No ideas" description="No ideas attached to this agent." />
-          )}
-        </div>
-      )}
+      {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 

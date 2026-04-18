@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
-import type { AgentEvent } from "@/lib/types";
+import type { AgentEvent, Idea } from "@/lib/types";
 
 /**
  * Shared per-agent data for the master/detail rail pattern.
@@ -26,9 +26,11 @@ export interface ChannelEntry {
 interface AgentDataState {
   eventsByAgent: Record<string, AgentEvent[]>;
   channelsByAgent: Record<string, ChannelEntry[]>;
+  ideasByAgent: Record<string, Idea[]>;
 
   loadEvents: (agentId: string) => Promise<void>;
   loadChannels: (agentId: string) => Promise<void>;
+  loadIdeas: (agentId: string) => Promise<void>;
 
   /** Replace a single event in-place (after edit) without a full refetch. */
   patchEvent: (agentId: string, id: string, patch: Partial<AgentEvent>) => void;
@@ -38,11 +40,18 @@ interface AgentDataState {
   removeChannel: (agentId: string, id: string) => void;
   /** Replace a single channel in-place (optimistic update). */
   patchChannel: (agentId: string, id: string, patch: Partial<ChannelEntry>) => void;
+  /** Replace a single idea in-place (after edit) without a full refetch. */
+  patchIdea: (agentId: string, id: string, patch: Partial<Idea>) => void;
+  /** Drop an idea from the list (after delete). */
+  removeIdea: (agentId: string, id: string) => void;
+  /** Prepend a freshly-created idea (after create). */
+  addIdea: (agentId: string, idea: Idea) => void;
 }
 
 export const useAgentDataStore = create<AgentDataState>((set, get) => ({
   eventsByAgent: {},
   channelsByAgent: {},
+  ideasByAgent: {},
 
   loadEvents: async (agentId) => {
     if (!agentId) return;
@@ -82,6 +91,20 @@ export const useAgentDataStore = create<AgentDataState>((set, get) => ({
       set((s) => {
         if (s.channelsByAgent[agentId] !== undefined) return s;
         return { channelsByAgent: { ...s.channelsByAgent, [agentId]: [] } };
+      });
+    }
+  },
+
+  loadIdeas: async (agentId) => {
+    if (!agentId) return;
+    try {
+      const data = await api.getIdeas({ agent_id: agentId });
+      const ideas = ((data.ideas as Idea[]) || []).slice();
+      set((s) => ({ ideasByAgent: { ...s.ideasByAgent, [agentId]: ideas } }));
+    } catch {
+      set((s) => {
+        if (s.ideasByAgent[agentId] !== undefined) return s;
+        return { ideasByAgent: { ...s.ideasByAgent, [agentId]: [] } };
       });
     }
   },
@@ -126,6 +149,38 @@ export const useAgentDataStore = create<AgentDataState>((set, get) => ({
       channelsByAgent: {
         ...s.channelsByAgent,
         [agentId]: current.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      },
+    }));
+  },
+
+  patchIdea: (agentId, id, patch) => {
+    const current = get().ideasByAgent[agentId];
+    if (!current) return;
+    set((s) => ({
+      ideasByAgent: {
+        ...s.ideasByAgent,
+        [agentId]: current.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+      },
+    }));
+  },
+
+  removeIdea: (agentId, id) => {
+    const current = get().ideasByAgent[agentId];
+    if (!current) return;
+    set((s) => ({
+      ideasByAgent: {
+        ...s.ideasByAgent,
+        [agentId]: current.filter((i) => i.id !== id),
+      },
+    }));
+  },
+
+  addIdea: (agentId, idea) => {
+    const current = get().ideasByAgent[agentId] ?? [];
+    set((s) => ({
+      ideasByAgent: {
+        ...s.ideasByAgent,
+        [agentId]: [idea, ...current],
       },
     }));
   },

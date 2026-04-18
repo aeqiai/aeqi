@@ -6,13 +6,14 @@ import { useAgentDataStore } from "@/store/agentData";
 import { useNav } from "@/hooks/useNav";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { ALL_TOOLS } from "@/lib/tools";
-import type { AgentEvent, Agent } from "@/lib/types";
+import type { AgentEvent, Agent, Idea } from "@/lib/types";
 
 // Stable empty-array reference. Returning a fresh `[]` from a Zustand
 // selector on every render triggers React error #185 (infinite update loop).
 const NO_SESSIONS: SessionInfo[] = [];
 const NO_EVENTS: AgentEvent[] = [];
 const NO_CHANNELS: import("@/store/agentData").ChannelEntry[] = [];
+const NO_IDEAS: Idea[] = [];
 
 /** A single row in the rail. Uniform across every tab. */
 interface RailItem {
@@ -87,6 +88,15 @@ export default function ContentCTA() {
   useEffect(() => {
     if (section === "channels" && agentId) loadChannels(agentId);
   }, [section, agentId, loadChannels]);
+
+  // --- Ideas --------------------------------------------------------------
+  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
+  const ideas = useAgentDataStore((s) =>
+    section === "ideas" && agentId ? s.ideasByAgent[agentId] || NO_IDEAS : NO_IDEAS,
+  );
+  useEffect(() => {
+    if (section === "ideas" && agentId) loadIdeas(agentId);
+  }, [section, agentId, loadIdeas]);
 
   // --- Tools --------------------------------------------------------------
   const agent: Agent | undefined = useDaemonStore((s) =>
@@ -171,7 +181,24 @@ export default function ContentCTA() {
       header = { label: "New quest", event: "aeqi:create" };
       break;
     case "ideas":
-      header = { label: "New idea", event: "aeqi:create" };
+      header = { label: "New idea", event: "aeqi:new-idea" };
+      items = ideas.map((idea) => {
+        const firstTag = idea.tags && idea.tags.length > 0 ? idea.tags[0] : undefined;
+        const meta =
+          idea.tags && idea.tags.length > 1
+            ? `+${idea.tags.length - 1}`
+            : idea.agent_id
+              ? undefined
+              : "global";
+        return {
+          id: idea.id,
+          name: idea.name,
+          badge: firstTag ? firstTag.toUpperCase() : undefined,
+          preview: idea.content.slice(0, 60),
+          meta,
+        };
+      });
+      emptyText = "No ideas yet";
       break;
     case "agents":
       header = { label: "New agent", event: "aeqi:create" };
