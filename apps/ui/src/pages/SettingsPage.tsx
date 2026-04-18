@@ -4,7 +4,9 @@ import { api } from "@/lib/api";
 import PageTabs, { useActiveTab } from "@/components/PageTabs";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
+import { useDaemonStore } from "@/store/daemon";
 import { Button, IconButton, Input } from "@/components/ui";
+import { ALL_TOOLS } from "@/lib/tools";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -105,6 +107,14 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function Feedback({ type, msg }: { type: "success" | "error"; msg: string }) {
+  return (
+    <div className={`account-feedback account-feedback-${type}`} role="status" aria-live="polite">
+      {msg}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const activeTab = useActiveTab(TABS, "overview");
   const appMode = useAuthStore((s) => s.appMode);
@@ -168,20 +178,7 @@ export default function SettingsPage() {
     <>
       <PageTabs tabs={TABS} defaultTab="overview" />
       <div className="account-page" style={{ maxWidth: 640 }}>
-        {activeTab === "overview" && (
-          <>
-            <p className="account-field-desc" style={{ marginBottom: "var(--space-4)" }}>
-              {rootName ? (
-                <>
-                  Active root agent: <strong>{rootName}</strong>
-                  {appMode === "platform" ? "" : ". This agent lives directly in the runtime."}
-                </>
-              ) : (
-                "No root agent selected. Select one from the sidebar."
-              )}
-            </p>
-          </>
-        )}
+        {activeTab === "overview" && <OverviewTab rootName={rootName} appMode={appMode} />}
 
         {activeTab === "api-keys" && (
           <>
@@ -207,11 +204,10 @@ export default function SettingsPage() {
               )}
             </p>
 
-            {/* New key display -- shown once after creation */}
             {newKey && (
               <div className="key-new-banner">
                 <div className="key-new-header">
-                  <KeyIcon /> Save this now -- the secret key won't be shown again.
+                  <KeyIcon /> Save this now — the secret key won't be shown again.
                 </div>
                 <div className="key-new-row">
                   <span className="key-new-label">Secret Key</span>
@@ -246,7 +242,6 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Create key form */}
             <div className="key-create-form">
               <div style={{ maxWidth: 320, width: "100%" }}>
                 <Input
@@ -268,13 +263,8 @@ export default function SettingsPage() {
               </Button>
             </div>
 
-            {feedback && (
-              <div className={`account-feedback account-feedback-${feedback.type}`} role="status">
-                {feedback.msg}
-              </div>
-            )}
+            {feedback && <Feedback type={feedback.type} msg={feedback.msg} />}
 
-            {/* Key list */}
             {keys.length > 0 ? (
               <div className="key-list">
                 <div className="key-list-header">
@@ -310,6 +300,190 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+    </>
+  );
+}
+
+function OverviewTab({
+  rootName,
+  appMode,
+}: {
+  rootName: string;
+  appMode: "runtime" | "platform" | null;
+}) {
+  const status = useDaemonStore((s) => s.status);
+  const agents = useDaemonStore((s) => s.agents);
+  const rootAgent = agents.find((a) => a.name === rootName);
+  const resolvedId = rootAgent?.id ?? rootName;
+
+  const [modelValue, setModelValue] = useState(rootAgent?.model ?? "");
+  const [modelFeedback, setModelFeedback] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
+
+  const [toolDeny, setToolDeny] = useState<string[]>(rootAgent?.tool_deny ?? []);
+  const [toolFeedback, setToolFeedback] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setModelValue(rootAgent?.model ?? "");
+    setToolDeny(rootAgent?.tool_deny ?? []);
+  }, [rootAgent?.model, rootAgent?.tool_deny]);
+
+  const saveModel = async (val: string) => {
+    if (!resolvedId) return;
+    setModelFeedback(null);
+    try {
+      await api.setAgentModel(resolvedId, val.trim());
+      setModelFeedback({ type: "success", msg: "Model saved." });
+      setTimeout(() => setModelFeedback(null), 3000);
+    } catch (e: unknown) {
+      setModelFeedback({
+        type: "error",
+        msg: e instanceof Error ? e.message : "Failed to save model.",
+      });
+    }
+  };
+
+  const toggleTool = async (toolId: string) => {
+    if (!resolvedId) return;
+    const next = toolDeny.includes(toolId)
+      ? toolDeny.filter((t) => t !== toolId)
+      : [...toolDeny, toolId];
+    setToolDeny(next);
+    setToolFeedback(null);
+    try {
+      await api.setAgentTools(resolvedId, next);
+      setToolFeedback({ type: "success", msg: "Tool preferences saved." });
+      setTimeout(() => setToolFeedback(null), 3000);
+    } catch (e: unknown) {
+      setToolDeny(toolDeny);
+      setToolFeedback({
+        type: "error",
+        msg: e instanceof Error ? e.message : "Failed to save tools.",
+      });
+    }
+  };
+
+  const costToday = (status?.cost_today_usd as number) ?? null;
+  const dailyBudget = (status?.daily_budget_usd as number) ?? null;
+  const budgetRemaining = (status?.budget_remaining_usd as number) ?? null;
+  const activeWorkers = (status?.scheduler_active_workers as number) ?? null;
+
+  return (
+    <>
+      <div className="settings-status-grid">
+        <div className="settings-stat">
+          <span className="settings-stat-label">Cost today</span>
+          <span className="settings-stat-value">
+            {costToday != null ? `$${costToday.toFixed(2)}` : "—"}
+          </span>
+        </div>
+        <div className="settings-stat">
+          <span className="settings-stat-label">Daily budget</span>
+          <span className="settings-stat-value">
+            {dailyBudget != null ? `$${dailyBudget.toFixed(0)}` : "—"}
+          </span>
+        </div>
+        <div className="settings-stat">
+          <span className="settings-stat-label">Remaining</span>
+          <span className="settings-stat-value">
+            {budgetRemaining != null ? `$${budgetRemaining.toFixed(2)}` : "—"}
+          </span>
+        </div>
+        <div className="settings-stat">
+          <span className="settings-stat-label">Active workers</span>
+          <span className="settings-stat-value">{activeWorkers ?? "—"}</span>
+        </div>
+      </div>
+
+      {!rootName ? (
+        <p className="account-field-desc" style={{ marginTop: "var(--space-4)" }}>
+          No root agent selected. Select one from the sidebar to configure it here.
+        </p>
+      ) : (
+        <>
+          <div className="account-divider" />
+
+          <div className="account-field-lg">
+            <label className="account-field-label">
+              Active root: <strong>{rootName}</strong>
+              {appMode === "runtime" && (
+                <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>
+                  {" "}
+                  · self-hosted runtime
+                </span>
+              )}
+            </label>
+            <p className="account-field-desc">
+              The root agent's model and tool defaults apply to all sessions unless overridden
+              per-agent.
+            </p>
+          </div>
+
+          <div className="account-field-md">
+            <label className="account-field-label" htmlFor="settings-model">
+              Model
+            </label>
+            <p className="account-field-desc">
+              Provider-qualified model name (e.g. <code>anthropic/claude-sonnet-4</code>,{" "}
+              <code>openrouter/deepseek/deepseek-v3</code>, <code>ollama/llama3.2</code>).
+            </p>
+            <div className="account-field-row">
+              <Input
+                id="settings-model"
+                type="text"
+                value={modelValue}
+                onChange={(e) => setModelValue(e.target.value)}
+                placeholder="e.g. anthropic/claude-sonnet-4"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveModel(modelValue);
+                }}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => saveModel(modelValue)}
+                disabled={!modelValue.trim()}
+              >
+                Save
+              </Button>
+            </div>
+            {modelFeedback && <Feedback type={modelFeedback.type} msg={modelFeedback.msg} />}
+          </div>
+
+          <div className="account-field-lg">
+            <label className="account-field-label">Tool access</label>
+            <p className="account-field-desc">
+              Denied tools are blocked for this agent and all child agents unless re-enabled.{" "}
+              {toolDeny.length === 0
+                ? "All tools are currently enabled."
+                : `${toolDeny.length} tool${toolDeny.length === 1 ? "" : "s"} blocked.`}
+            </p>
+            <div className="settings-tool-grid">
+              {ALL_TOOLS.map((tool) => {
+                const denied = toolDeny.includes(tool.id);
+                return (
+                  <label key={tool.id} className="settings-tool-row">
+                    <input
+                      type="checkbox"
+                      checked={!denied}
+                      onChange={() => toggleTool(tool.id)}
+                      className="settings-tool-checkbox"
+                    />
+                    <span className="settings-tool-label">{tool.label}</span>
+                    <span className="settings-tool-category">{tool.category}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {toolFeedback && <Feedback type={toolFeedback.type} msg={toolFeedback.msg} />}
+          </div>
+        </>
+      )}
     </>
   );
 }
