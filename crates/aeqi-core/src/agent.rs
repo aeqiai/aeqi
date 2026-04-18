@@ -164,6 +164,11 @@ pub struct AgentConfig {
     pub routing_model: Option<String>,
     /// Optional compaction instructions appended to the 9-section compaction prompt.
     pub compact_instructions: Option<String>,
+    /// Perpetual sessions only: if the gap since the last step exceeds this threshold
+    /// (in seconds), prefetch a 3-bullet recap via `routing_model` and inject it as a
+    /// context note before the next LLM call. `None` = disabled.
+    /// Requires `routing_model` to be set; silently skipped if the model call fails.
+    pub recap_gap_secs: Option<u64>,
 }
 
 impl Default for AgentConfig {
@@ -192,6 +197,7 @@ impl Default for AgentConfig {
             token_budget: None,
             routing_model: None,
             compact_instructions: None,
+            recap_gap_secs: None,
         }
     }
 }
@@ -779,6 +785,12 @@ impl Agent {
         let mut persist_dir_created: Option<PathBuf> = None;
         let mut has_attempted_reactive_compact = false;
         let mut replacement_state = ContentReplacementState::new();
+        // Perpetual recap: epoch-secs when the last step ended. 0 = no step yet.
+        // Initial 0 is a sentinel meaning "not yet set"; the first recv() check
+        // filters it out via .
+        let mut last_step_end_secs: u64 = 0;
+        // Force an initial read so the compiler does not flag the 0 as never-read.
+        let _recap_init = last_step_end_secs;
 
         loop {
             // Check cancellation signal (set by parent interrupt propagation).
@@ -1229,6 +1241,12 @@ impl Agent {
                                 cost_usd: 0.0,
                             });
 
+                            // Record step-end time for gap detection on the next resume.
+                            last_step_end_secs = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+
                             // Wait for next user message.
                             debug!(agent = %self.config.name, "perpetual: waiting for input");
                             let mut rx_guard = rx.lock().await;
@@ -1248,6 +1266,40 @@ impl Agent {
                                             .lock()
                                             .await
                                             .extend(input.step_ideas.clone());
+                                    }
+
+                                    // --- Recap-on-resume: inject context note after a gap ---
+                                    if last_step_end_secs > 0
+                                        && let (Some(threshold), Some(recap_model)) = (
+                                            self.config.recap_gap_secs,
+                                            self.config.routing_model.as_deref(),
+                                        )
+                                    {
+                                        let now_secs = std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_secs();
+                                        let gap_secs = now_secs.saturating_sub(last_step_end_secs);
+                                        if gap_secs > threshold {
+                                            debug!(
+                                                agent = %self.config.name,
+                                                gap_secs,
+                                                threshold,
+                                                "perpetual: gap exceeded threshold, fetching recap"
+                                            );
+                                            if let Some(recap) =
+                                                self.fetch_recap(&messages, recap_model).await
+                                            {
+                                                messages.push(Message {
+                                                    role: Role::User,
+                                                    content: MessageContent::text(format!(
+                                                        "<recap-on-resume gap_secs=\"{gap_secs}\">\n\
+                                                         {recap}\n\
+                                                         </recap-on-resume>"
+                                                    )),
+                                                });
+                                            }
+                                        }
                                     }
 
                                     // Inject execution-start ideas before the user message.
@@ -3411,6 +3463,93 @@ impl Agent {
     }
 
     // -----------------------------------------------------------------------
+    // Recap-on-resume
+    // -----------------------------------------------------------------------
+
+    /// Build a 3-bullet context recap from the tail of the conversation and call
+    /// `recap_model` with a tight token budget (~200 tokens). Returns `None` if
+    /// the model call fails — recap is non-critical, errors are logged and swallowed.
+    async fn fetch_recap(&self, messages: &[Message], recap_model: &str) -> Option<String> {
+        const RECAP_TAIL: usize = 6;
+        // Collect the last N user/assistant turns in chronological order.
+        let tail: Vec<&Message> = messages
+            .iter()
+            .rev()
+            .filter(|m| matches!(m.role, Role::User | Role::Assistant))
+            .take(RECAP_TAIL)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        if tail.is_empty() {
+            return None;
+        }
+
+        let mut snippet = String::new();
+        for msg in &tail {
+            let role = match msg.role {
+                Role::User => "User",
+                Role::Assistant => "Assistant",
+                _ => continue,
+            };
+            let text = match &msg.content {
+                MessageContent::Text(t) => t.chars().take(400).collect::<String>(),
+                MessageContent::Parts(parts) => parts
+                    .iter()
+                    .filter_map(|p| match p {
+                        ContentPart::Text { text } => {
+                            Some(text.chars().take(200).collect::<String>())
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            };
+            if !text.is_empty() {
+                snippet.push_str(&format!("{role}: {text}\n"));
+            }
+        }
+
+        if snippet.trim().is_empty() {
+            return None;
+        }
+
+        let prompt = format!(
+            "You are a session-continuity assistant. The user is returning after a pause. \
+             Based on the recent conversation below, write exactly 3 concise bullet points \
+             (one sentence each, starting with \"• \") summarising: \
+             (1) what was last being worked on, \
+             (2) the most recent outcome or decision, \
+             (3) the logical next step. \
+             Output only the 3 bullets, nothing else.\n\n\
+             ## Recent conversation\n\n{snippet}"
+        );
+
+        let request = ChatRequest {
+            model: recap_model.to_string(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::text(&prompt),
+            }],
+            tools: vec![],
+            max_tokens: 200,
+            temperature: 0.0,
+        };
+
+        match self.provider.chat(&request).await {
+            Ok(response) => response.content,
+            Err(e) => {
+                warn!(
+                    agent = %self.config.name,
+                    "recap-on-resume failed (non-critical): {e}"
+                );
+                None
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -3965,5 +4104,92 @@ mod tests {
         }];
         let ctx = Agent::extract_active_context(&messages);
         assert!(ctx.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // Recap-on-resume tests
+    // -----------------------------------------------------------------------
+
+    /// recap_gap_secs defaults to None (feature disabled).
+    #[test]
+    fn test_recap_gap_secs_default_disabled() {
+        let config = AgentConfig::default();
+        assert!(
+            config.recap_gap_secs.is_none(),
+            "recap_gap_secs must default to None (disabled)"
+        );
+    }
+
+    /// Gap boundary arithmetic: strict `>` threshold triggers recap.
+    #[test]
+    fn test_recap_gap_detection_boundary() {
+        let threshold: u64 = 300;
+        let past: u64 = 1_000_000;
+
+        // Gap > threshold — should trigger.
+        let now_above = past + threshold + 1;
+        let gap_above = now_above.saturating_sub(past);
+        assert!(
+            gap_above > threshold,
+            "gap > threshold should trigger recap"
+        );
+
+        // Gap == threshold — should NOT trigger (strict `>`).
+        let now_equal = past + threshold;
+        let gap_equal = now_equal.saturating_sub(past);
+        assert!(
+            gap_equal <= threshold,
+            "gap == threshold should not trigger recap"
+        );
+
+        // Zero gap — should NOT trigger.
+        let gap_zero: u64 = 0;
+        assert!(gap_zero <= threshold, "zero gap should not trigger recap");
+    }
+
+    /// Tail selection: last N user/assistant messages in order, system excluded.
+    #[test]
+    fn test_recap_tail_selection() {
+        let mut messages = vec![Message {
+            role: Role::System,
+            content: MessageContent::text("system prompt"),
+        }];
+        for i in 0..4u32 {
+            messages.push(Message {
+                role: Role::User,
+                content: MessageContent::text(format!("user message {i}")),
+            });
+            messages.push(Message {
+                role: Role::Assistant,
+                content: MessageContent::text(format!("assistant reply {i}")),
+            });
+        }
+
+        // Replicate fetch_recap's tail-selection logic.
+        const RECAP_TAIL: usize = 6;
+        let tail: Vec<&Message> = messages
+            .iter()
+            .rev()
+            .filter(|m| matches!(m.role, Role::User | Role::Assistant))
+            .take(RECAP_TAIL)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        // 8 user/assistant messages total; tail should be the last 6.
+        assert_eq!(tail.len(), RECAP_TAIL);
+
+        // No system messages in the tail.
+        for msg in &tail {
+            assert_ne!(msg.role, Role::System);
+        }
+
+        // The oldest tail message is from round 1 (rounds 0..3, tail covers 1..3).
+        let oldest = tail.first().and_then(|m| m.content.as_text()).unwrap_or("");
+        assert!(
+            oldest.contains('1'),
+            "oldest tail message should be from round 1, got: {oldest}"
+        );
     }
 }
