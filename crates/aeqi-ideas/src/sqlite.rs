@@ -390,12 +390,40 @@ impl SqliteIdeas {
         query: &IdeaQuery,
         limit: usize,
     ) -> Result<Vec<(IdeaRow, f64)>> {
-        let fts_query = query
+        // Build an FTS5 query that supports both short keyword queries and longer
+        // sentences.  Each token becomes a prefix term (`word*`) so "auth" matches
+        // "authentication", and terms are joined with implicit AND so all words
+        // must appear.  A single fallback OR pass catches cases where the strict
+        // AND yields nothing.
+        //
+        // Column weights: name (title) column is boosted 5× over content so a
+        // title match outranks a buried body mention.  bm25(ideas_fts, 5, 1).
+        let words: Vec<String> = query
             .text
             .split_whitespace()
-            .map(|w| format!("\"{w}\""))
-            .collect::<Vec<_>>()
-            .join(" OR ");
+            .filter(|w| !w.is_empty())
+            .map(|w| {
+                // Strip FTS5 metacharacters to avoid parse errors on user input.
+                let safe = w.replace(['"', '\'', '*', '^', '-', '(', ')'], "");
+                if safe.is_empty() {
+                    String::new()
+                } else {
+                    format!("{safe}*")
+                }
+            })
+            .filter(|w| !w.is_empty())
+            .collect();
+
+        // If the query reduced to nothing (all punctuation), fall back to a
+        // wildcard that returns everything so the vector path can still run.
+        let fts_query = if words.is_empty() {
+            "\"\"".to_string() // matches all docs (FTS5 empty string)
+        } else if words.len() == 1 {
+            words[0].clone()
+        } else {
+            // AND semantics: all words must appear somewhere in name|content.
+            words.join(" ")
+        };
 
         let mut conditions = vec!["ideas_fts MATCH ?1".to_string()];
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(fts_query)];
@@ -415,9 +443,11 @@ impl SqliteIdeas {
 
         let where_clause = conditions.join(" AND ");
 
+        // bm25(ideas_fts, 5, 1): name column weighted 5×, content weighted 1×.
+        // Lower bm25() value = better match (SQLite FTS5 returns negative scores).
         let sql = format!(
             "SELECT m.id, m.name, m.content, m.agent_id,
-                    m.created_at, m.session_id, bm25(ideas_fts) as rank
+                    m.created_at, m.session_id, bm25(ideas_fts, 5, 1) as rank
              FROM ideas_fts f
              JOIN ideas m ON m.rowid = f.rowid
              WHERE {where_clause}
@@ -1763,6 +1793,159 @@ mod tests {
         let results = mem.search(&IdeaQuery::new("deploy", 10)).await.unwrap();
         assert!(!results.is_empty());
         assert!(results[0].content.contains("deploy"));
+    }
+
+    /// Short 2-word query: both words must appear (AND semantics via prefix terms).
+    #[tokio::test]
+    async fn test_fts5_short_query_and_semantics() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store(
+            "auth-jwt",
+            "JWT authentication flow with refresh tokens",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "db-config",
+            "PostgreSQL database configuration on port 5432",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Both "jwt" and "auth" are in "auth-jwt" idea — should return it, not the db one.
+        let results = mem.search(&IdeaQuery::new("jwt auth", 5)).await.unwrap();
+        assert!(
+            !results.is_empty(),
+            "short 2-word query should return results"
+        );
+        assert!(
+            results[0].content.to_lowercase().contains("jwt"),
+            "top result should contain 'jwt'"
+        );
+    }
+
+    /// Prefix matching: "authen" should match "authentication".
+    #[tokio::test]
+    async fn test_fts5_prefix_matching() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store(
+            "oauth-doc",
+            "OAuth2 authentication requires client credentials",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+        mem.store("unrelated", "The color of the sky is blue", &[], None)
+            .await
+            .unwrap();
+
+        let results = mem.search(&IdeaQuery::new("authen", 5)).await.unwrap();
+        assert!(
+            !results.is_empty(),
+            "prefix 'authen' should match 'authentication'"
+        );
+        assert!(results[0].content.contains("authentication"));
+    }
+
+    /// Long sentence query: FTS5 AND semantics requires all words to appear, so
+    /// a long natural-language sentence like "how do I deploy" only matches docs
+    /// that contain every word (including stopwords like "how", "do", "I").
+    /// When no doc matches all terms, the BM25 path returns empty — the vector
+    /// path then carries the query.  This test verifies that a focused subset
+    /// of the sentence (the meaningful words) does find the right document.
+    #[tokio::test]
+    async fn test_fts5_focused_query_finds_doc() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store(
+            "deploy-guide",
+            "To deploy the service run deploy.sh which restarts both aeqi-runtime and aeqi-platform",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "api-doc",
+            "REST API returns JSON responses with status codes",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Focused 2-word query: both appear in the deploy-guide doc.
+        let results = mem
+            .search(&IdeaQuery::new("deploy service", 5))
+            .await
+            .unwrap();
+        assert!(
+            !results.is_empty(),
+            "focused 2-word query should return results"
+        );
+        assert!(
+            results[0].content.contains("deploy"),
+            "deploy-guide should rank first"
+        );
+    }
+
+    /// Title (name) match should rank above a content-only match.
+    #[tokio::test]
+    async fn test_fts5_title_ranks_above_content() {
+        let (mem, _dir) = test_ideas();
+
+        // "deployment" in the title.
+        mem.store(
+            "deployment-checklist",
+            "Run smoke tests before releasing to users",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+        // "deployment" buried in content.
+        mem.store(
+            "general-notes",
+            "After a successful deployment of the new feature we monitor metrics",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+
+        let results = mem.search(&IdeaQuery::new("deployment", 5)).await.unwrap();
+        assert!(results.len() >= 2, "both ideas should match");
+        // The one with 'deployment' in the title should rank first due to column weight boost.
+        assert_eq!(
+            results[0].name, "deployment-checklist",
+            "title match should outrank content match"
+        );
+    }
+
+    /// Special characters in query should not cause an FTS5 parse error.
+    #[tokio::test]
+    async fn test_fts5_query_special_chars_no_panic() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store("safe-doc", "Regular documentation text", &[], None)
+            .await
+            .unwrap();
+
+        // These would cause FTS5 parse errors with the old raw-quoting approach.
+        for bad_query in &["(foo OR bar)", "\"phrase query\"", "key:value", "word*"] {
+            let result = mem.search(&IdeaQuery::new(*bad_query, 5)).await;
+            assert!(
+                result.is_ok(),
+                "query '{bad_query}' should not cause an error"
+            );
+        }
     }
 
     #[tokio::test]

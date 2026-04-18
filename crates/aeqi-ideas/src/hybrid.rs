@@ -12,58 +12,53 @@ pub struct ScoredResult {
     pub combined_score: f64,
 }
 
-/// Merge keyword (BM25) results with vector similarity results.
-/// `keyword_weight` + `vector_weight` should sum to 1.0.
+/// Merge keyword (BM25) results with vector similarity results using
+/// Reciprocal Rank Fusion (RRF).
+///
+/// RRF is rank-based, so it handles the different score magnitudes of BM25
+/// (large negative floats) and cosine similarity ([0, 1]) without needing
+/// normalization.  The constant `k` (default 60) smooths the impact of
+/// top-ranked results.
+///
+/// `keyword_weight` and `vector_weight` control how much each ranked list
+/// contributes.  They need not sum to 1.0 — they act as multipliers.
 pub fn merge_scores(
-    keyword_results: &[(String, f64)], // (idea_id, bm25_score)
-    vector_results: &[(String, f64)],  // (idea_id, cosine_similarity)
+    keyword_results: &[(String, f64)], // (idea_id, bm25_score) — already sorted best-first
+    vector_results: &[(String, f64)],  // (idea_id, cosine_similarity) — already sorted best-first
     keyword_weight: f64,
     vector_weight: f64,
 ) -> Vec<ScoredResult> {
+    // RRF constant: 60 is the standard default from the original paper.
+    // Higher k → flatter distribution (rank-1 bonus less pronounced).
+    const RRF_K: f64 = 60.0;
+
     let mut scores: HashMap<String, ScoredResult> = HashMap::new();
 
-    // Normalize keyword scores to [0, 1].
-    let max_kw = keyword_results
-        .iter()
-        .map(|(_, s)| *s)
-        .fold(0.0f64, f64::max);
-    let norm_kw = if max_kw > 0.0 { max_kw } else { 1.0 };
-
-    for (id, score) in keyword_results {
-        let normalized = score / norm_kw;
-        scores
-            .entry(id.clone())
-            .or_insert_with(|| ScoredResult {
-                idea_id: id.clone(),
-                keyword_score: 0.0,
-                vector_score: 0.0,
-                combined_score: 0.0,
-            })
-            .keyword_score = normalized;
+    for (rank, (id, kw_score)) in keyword_results.iter().enumerate() {
+        let rrf = keyword_weight / (RRF_K + rank as f64 + 1.0);
+        let entry = scores.entry(id.clone()).or_insert_with(|| ScoredResult {
+            idea_id: id.clone(),
+            keyword_score: *kw_score,
+            vector_score: 0.0,
+            combined_score: 0.0,
+        });
+        entry.keyword_score = *kw_score;
+        entry.combined_score += rrf;
     }
 
-    // Vector scores are already in [0, 1] (cosine similarity).
-    for (id, score) in vector_results {
-        scores
-            .entry(id.clone())
-            .or_insert_with(|| ScoredResult {
-                idea_id: id.clone(),
-                keyword_score: 0.0,
-                vector_score: 0.0,
-                combined_score: 0.0,
-            })
-            .vector_score = *score;
+    for (rank, (id, vec_score)) in vector_results.iter().enumerate() {
+        let rrf = vector_weight / (RRF_K + rank as f64 + 1.0);
+        let entry = scores.entry(id.clone()).or_insert_with(|| ScoredResult {
+            idea_id: id.clone(),
+            keyword_score: 0.0,
+            vector_score: *vec_score,
+            combined_score: 0.0,
+        });
+        entry.vector_score = *vec_score;
+        entry.combined_score += rrf;
     }
 
-    // Compute combined scores.
-    let mut results: Vec<ScoredResult> = scores
-        .into_values()
-        .map(|mut r| {
-            r.combined_score = keyword_weight * r.keyword_score + vector_weight * r.vector_score;
-            r
-        })
-        .collect();
-
+    let mut results: Vec<ScoredResult> = scores.into_values().collect();
     results.sort_by(|a, b| {
         b.combined_score
             .partial_cmp(&a.combined_score)
@@ -135,14 +130,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_merge_scores() {
+    fn test_merge_scores_rrf_top_result() {
+        // mem-1 appears in both lists (rank 0 in each) → highest RRF score.
+        // mem-2 is rank-1 keyword only; mem-3 is rank-1 vector only.
         let kw = vec![("mem-1".to_string(), 5.0), ("mem-2".to_string(), 3.0)];
         let vec_results = vec![("mem-1".to_string(), 0.9), ("mem-3".to_string(), 0.8)];
 
         let merged = merge_scores(&kw, &vec_results, 0.4, 0.6);
         assert!(!merged.is_empty());
-        // mem-1 should be top (appears in both).
+        // mem-1 should be top: it accumulates RRF from both lists.
         assert_eq!(merged[0].idea_id, "mem-1");
+    }
+
+    #[test]
+    fn test_merge_scores_rrf_single_list() {
+        // When only one list has results the top ranked item should still win.
+        let kw = vec![
+            ("a".to_string(), 10.0),
+            ("b".to_string(), 5.0),
+            ("c".to_string(), 1.0),
+        ];
+        let merged = merge_scores(&kw, &[], 1.0, 0.0);
+        assert_eq!(merged.len(), 3);
+        // "a" is rank-0 in keyword list → highest RRF score.
+        assert_eq!(merged[0].idea_id, "a");
+    }
+
+    #[test]
+    fn test_merge_scores_rrf_rank_beats_score() {
+        // RRF is rank-based: a doc that is rank-0 keyword + rank-0 vector should
+        // beat a doc with a higher raw score but lower rank.
+        let kw = vec![
+            ("popular".to_string(), 100.0), // rank 0 keyword
+            ("niche".to_string(), 99.0),    // rank 1 keyword
+        ];
+        let vec_results = vec![
+            ("popular".to_string(), 0.95), // rank 0 vector
+            ("other".to_string(), 0.94),   // rank 1 vector
+        ];
+        let merged = merge_scores(&kw, &vec_results, 0.5, 0.5);
+        // "popular" appears at rank-0 in both lists → should win.
+        assert_eq!(merged[0].idea_id, "popular");
     }
 
     #[test]
