@@ -175,19 +175,17 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "action": {
                         "type": "string",
                         "enum": ["store", "search", "update", "delete"],
-                        "description": "store: save knowledge (needs key, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus key/content/tags). delete: remove an idea by ID (needs id)."
+                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id)."
                     },
-                    "project": {"type": "string", "description": "Project name to scope ideas to"},
                     "id": {"type": "string", "description": "Idea ID (for update, delete)"},
-                    "key": {"type": "string", "description": "Short slug key, e.g. 'auth/jwt-rotation' (for store, update). Same key+agent within 24h is deduplicated on store."},
+                    "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update). Same name+agent within 24h is deduplicated on store."},
                     "content": {"type": "string", "description": "The knowledge to store or replace (for store, update)"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
-                    "scope": {"type": "string", "enum": ["domain", "system", "entity"], "default": "domain", "description": "domain = project-level (default), system = cross-project, entity = per-agent"},
-                    "agent_id": {"type": "string", "description": "Agent ID — required when scope is 'entity'"},
+                    "agent_id": {"type": "string", "description": "Agent ID to scope the idea to. Defaults to the session's AEQI_AGENT_ID (entity scope). Omit to create/search global (agent_id=NULL) ideas."},
                     "query": {"type": "string", "description": "Natural language search query (for search). Uses full-text search + optional vector similarity."},
                     "limit": {"type": "integer", "description": "Max results (for search, default: 5)"}
                 },
-                "required": ["action", "project"]
+                "required": ["action"]
             }),
         },
         // ── Quests (unified: create | list | show | update | close | cancel) ──
@@ -292,7 +290,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     ];
 
     // Recall result cache: avoids redundant IPC queries within a session.
-    // Key = "project\0query\0scope\0limit", Value = (timestamp, result).
     // Entries older than 5 minutes are treated as stale.
     let mut recall_cache: HashMap<String, (Instant, serde_json::Value)> = HashMap::new();
     const RECALL_CACHE_TTL_SECS: u64 = 300;
@@ -355,46 +352,29 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         match action {
                             "store" => {
                                 let mut ipc = args.clone();
-                                ipc["cmd"] = serde_json::json!("knowledge_store");
-                                if ipc
-                                    .get("scope")
-                                    .and_then(|v| v.as_str())
-                                    .is_none_or(|s| s.is_empty())
-                                {
-                                    ipc["scope"] = serde_json::json!("domain");
-                                }
-                                // Auto-scope to AEQI_AGENT_ID if not specified.
+                                ipc["cmd"] = serde_json::json!("store_idea");
                                 if ipc.get("agent_id").and_then(|v| v.as_str()).is_none()
                                     && let Some(ref aid) = agent_id
                                 {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                // Invalidate recall cache — new memories change results.
-                                if let Some(project) = args.get("project").and_then(|v| v.as_str())
-                                {
-                                    let prefix = format!("{project}\0");
-                                    recall_cache.retain(|k, _| !k.starts_with(&prefix));
-                                }
+                                recall_cache.clear();
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "search" => {
-                                let project =
-                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                                 let query =
                                     args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-                                let scope = args
-                                    .get("scope")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("domain");
-                                let agent_id = args
+                                let search_agent_id = args
                                     .get("agent_id")
                                     .and_then(|v| v.as_str())
                                     .or(agent_id.as_deref());
                                 let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
-                                let agent_key = agent_id.unwrap_or("");
+                                let agent_key = search_agent_id.unwrap_or("");
+                                let tags_key =
+                                    args.get("tags").map(|v| v.to_string()).unwrap_or_default();
                                 let cache_key =
-                                    format!("{project}\0{query}\0{scope}\0{agent_key}\0{limit}");
+                                    format!("{query}\0{agent_key}\0{tags_key}\0{limit}");
 
                                 let cached_hit =
                                     recall_cache.get(&cache_key).and_then(|(ts, val)| {
@@ -410,14 +390,15 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 } else {
                                     recall_cache.remove(&cache_key);
                                     let mut ipc = serde_json::json!({
-                                        "cmd": "ideas",
-                                        "project": project,
+                                        "cmd": "search_ideas",
                                         "query": query,
-                                        "scope": scope,
-                                        "limit": limit,
+                                        "top_k": limit,
                                     });
-                                    if let Some(aid) = agent_id {
+                                    if let Some(aid) = search_agent_id {
                                         ipc["agent_id"] = serde_json::json!(aid);
+                                    }
+                                    if let Some(tags) = args.get("tags") {
+                                        ipc["tags"] = tags.clone();
                                     }
                                     let r = ipc_request_sync(&sock_path, &ipc);
                                     if let Ok(ref val) = r {
@@ -428,14 +409,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                             }
                             "update" => {
-                                let project =
-                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
                                 let mut ipc = serde_json::json!({
                                     "cmd": "update_idea",
                                     "id": args.get("id").and_then(|v| v.as_str()).unwrap_or(""),
                                 });
-                                if let Some(key) = args.get("key").and_then(|v| v.as_str()) {
-                                    ipc["key"] = serde_json::json!(key);
+                                if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
+                                    ipc["name"] = serde_json::json!(name);
                                 }
                                 if let Some(content) = args.get("content").and_then(|v| v.as_str())
                                 {
@@ -444,23 +423,17 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(tags) = args.get("tags") {
                                     ipc["tags"] = tags.clone();
                                 }
-                                let prefix = format!("{project}\0");
-                                recall_cache.retain(|k, _| !k.starts_with(&prefix));
+                                recall_cache.clear();
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "delete" => {
                                 let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                let project =
-                                    args.get("project").and_then(|v| v.as_str()).unwrap_or("");
-                                // Invalidate recall cache.
-                                let prefix = format!("{project}\0");
-                                recall_cache.retain(|k, _| !k.starts_with(&prefix));
+                                recall_cache.clear();
                                 ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
-                                        "cmd": "knowledge_delete",
+                                        "cmd": "delete_idea",
                                         "id": id,
-                                        "project": project,
                                     }),
                                 )
                             }

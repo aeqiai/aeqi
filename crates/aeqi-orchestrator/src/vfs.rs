@@ -310,12 +310,7 @@ impl VfsTree {
                 Some("🧠"),
                 None,
             ),
-            dir_node(
-                "quests",
-                &format!("/roots/{name}/quests"),
-                Some("📋"),
-                None,
-            ),
+            dir_node("quests", &format!("/roots/{name}/quests"), Some("📋"), None),
         ])
     }
 

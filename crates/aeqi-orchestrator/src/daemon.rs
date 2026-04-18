@@ -781,22 +781,25 @@ impl Daemon {
         };
         for w in &ready {
             if let Some(mem) = engine.idea_store.as_ref() {
-                match mem.store(&w.name, &w.content, &w.tags, None).await {
+                match mem
+                    .store(&w.name, &w.content, &w.tags, w.agent_id.as_deref())
+                    .await
+                {
                     Ok(id) => debug!(
-                        project = %w.project,
+                        agent_id = ?w.agent_id,
                         id = %id,
                         name = %w.name,
                         "debounced write persisted"
                     ),
                     Err(e) => warn!(
-                        project = %w.project,
+                        agent_id = ?w.agent_id,
                         name = %w.name,
                         "debounced write failed: {e}"
                     ),
                 }
             } else {
                 debug!(
-                    project = %w.project,
+                    agent_id = ?w.agent_id,
                     name = %w.name,
                     "no idea store available — write dropped"
                 );
@@ -2103,32 +2106,14 @@ impl Daemon {
                     }
                 }
 
-                // Canonical idea commands.
-                "ideas" | "memories" => {
-                    crate::ipc::ideas::handle_ideas_search(&ctx, &request, &allowed_roots).await
-                }
-                "idea_profile" | "memory_profile" => {
+                "idea_profile" => {
                     crate::ipc::ideas::handle_idea_profile(&ctx, &request, &allowed_roots).await
                 }
-                "idea_graph" | "memory_graph" => {
+                "idea_graph" => {
                     crate::ipc::ideas::handle_idea_graph(&ctx, &request, &allowed_roots).await
                 }
-                "idea_prefix" | "memory_prefix" => {
+                "idea_prefix" => {
                     crate::ipc::ideas::handle_idea_prefix(&ctx, &request, &allowed_roots).await
-                }
-                "project_knowledge" => {
-                    crate::ipc::ideas::handle_project_knowledge(&ctx, &request, &allowed_roots)
-                        .await
-                }
-                "channel_knowledge" => {
-                    crate::ipc::ideas::handle_channel_knowledge(&ctx, &request, &allowed_roots)
-                        .await
-                }
-                "knowledge_store" => {
-                    crate::ipc::ideas::handle_knowledge_store(&ctx, &request, &allowed_roots).await
-                }
-                "knowledge_delete" => {
-                    crate::ipc::ideas::handle_knowledge_delete(&ctx, &request, &allowed_roots).await
                 }
                 "ideas_by_ids" => {
                     let ids: Vec<String> = request

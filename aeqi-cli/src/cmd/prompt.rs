@@ -71,11 +71,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             }
         }
 
-        PromptAction::Run {
-            name,
-            root,
-            prompt,
-        } => {
+        PromptAction::Run { name, root, prompt } => {
             let project_cfg = config
                 .agent_spawn(&root)
                 .context(format!("root not found: {root}"))?;

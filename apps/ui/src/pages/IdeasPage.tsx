@@ -124,7 +124,7 @@ export default function IdeasPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await api.deleteKnowledge({ root: selectedAgent?.name || "", id });
+      await api.deleteIdea(id);
       setIdeas((prev) => prev.filter((m) => m.id !== id));
       if (selected?.id === id) setSelected(null);
     } catch {

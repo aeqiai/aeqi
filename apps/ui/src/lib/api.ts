@@ -287,11 +287,12 @@ export const api = {
   getCost: () => request<Record<string, unknown>>("/cost"),
 
   // Ideas
-  getIdeas: (params?: { root?: string; query?: string; limit?: number }) => {
+  getIdeas: (params?: { root?: string; query?: string; limit?: number; agent_id?: string }) => {
     const q = new URLSearchParams();
     if (params?.root) q.set("root", params.root);
     if (params?.query) q.set("query", params.query);
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.agent_id) q.set("agent_id", params.agent_id);
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas${qs ? `?${qs}` : ""}`);
   },
@@ -357,36 +358,16 @@ export const api = {
     return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
-  // Root Agent Knowledge
-  getRootKnowledge: (name: string) => request<Record<string, unknown>>(`/roots/${name}/knowledge`),
-
-  // Knowledge CRUD
-  storeKnowledge: (data: {
-    root: string;
-    name: string;
-    content: string;
-    tags?: string[];
-    scope?: string;
-  }) =>
-    request<{ ok: boolean }>("/knowledge/store", {
+  storeIdea: (data: { name: string; content: string; tags?: string[]; agent_id?: string }) =>
+    request<{ ok: boolean; id: string }>("/ideas", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  deleteKnowledge: (data: { root: string; id: string }) =>
-    request<{ ok: boolean }>("/knowledge/delete", {
-      method: "POST",
-      body: JSON.stringify({ root: data.root, id: data.id }),
+  deleteIdea: (id: string) =>
+    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(id)}`, {
+      method: "DELETE",
     }),
-
-  // Channel Knowledge
-  getChannelKnowledge: (params: { root: string; query?: string; limit?: number }) => {
-    const q = new URLSearchParams();
-    q.set("root", params.root);
-    if (params.query) q.set("query", params.query);
-    if (params.limit) q.set("limit", String(params.limit));
-    return request<Record<string, unknown>>(`/knowledge/channel?${q.toString()}`);
-  },
 
   // Agent Identity
   getAgentIdentity: (name: string) => request<Record<string, unknown>>(`/agents/${name}/identity`),

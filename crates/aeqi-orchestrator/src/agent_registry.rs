@@ -336,6 +336,24 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
         )?;
 
+        // Agent ancestry closure table — materialised parent chain.
+        // One row per (descendant, ancestor, depth). Self-row at depth=0 is
+        // always present, so visibility queries ("X sees agent_id Y") can be
+        // expressed as a single JOIN / IN over this table without walking
+        // parent_id recursively on every call.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS agent_ancestry (
+                 descendant_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 ancestor_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 depth INTEGER NOT NULL,
+                 PRIMARY KEY (descendant_id, ancestor_id)
+             );
+             CREATE INDEX IF NOT EXISTS idx_agent_ancestry_ancestor
+                 ON agent_ancestry(ancestor_id);
+             CREATE INDEX IF NOT EXISTS idx_agent_ancestry_descendant
+                 ON agent_ancestry(descendant_id);",
+        )?;
+
         // Channels table — connector wiring (Telegram, Discord, Slack, WhatsApp).
         // Each row holds the typed config for one channel kind bound to one agent.
         // Config is stored as JSON whose shape is validated by the channel_registry
@@ -423,6 +441,13 @@ impl AgentRegistry {
             "DROP TABLE IF EXISTS events_fts;
              DROP TABLE IF EXISTS triggers;",
         )?;
+
+        // Phase-1 data migrations. These populate the new closure/join tables
+        // from the old parent_id walk and idea_ids JSON, then collapse the
+        // duplicate-ideas that earlier lifecycle auto-create passes produced.
+        // Each is guarded by applied_migrations so it runs exactly once per
+        // database.
+        run_phase1_backfills(&conn)?;
 
         // Stamp current schema version.
         const AEQI_SCHEMA_VERSION: i32 = 1;
@@ -844,6 +869,20 @@ impl AgentRegistry {
             ],
         )?;
 
+        // Maintain closure table: self-row at depth 0, then parent chain at depth+1.
+        db.execute(
+            "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth) VALUES (?1, ?1, 0)",
+            params![agent.id],
+        )?;
+        if let Some(pid) = parent_id {
+            db.execute(
+                "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth)
+                 SELECT ?1, ancestor_id, depth + 1
+                 FROM agent_ancestry WHERE descendant_id = ?2",
+                params![agent.id, pid],
+            )?;
+        }
+
         info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");
         drop(db);
 
@@ -1059,6 +1098,107 @@ impl AgentRegistry {
         Ok(agents)
     }
 
+    /// Ideas visible to an agent. Scope rule:
+    ///   self + any descendant + any global (`agent_id IS NULL`).
+    /// Parents do NOT flow down (covered by the descendant leg from the parent's
+    /// own view), so a child never sees private ideas of its parent.
+    pub async fn list_ideas_visible_to(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<aeqi_core::traits::Idea>> {
+        // Tuple of (id, name, content, agent_id, session_id, created_at,
+        // injection_mode, inheritance, tool_allow, tool_deny). Local to this
+        // method so the complex row shape doesn't leak into the module.
+        type IdeaRow = (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+        );
+
+        let db = self.db.lock().await;
+        let rows: Vec<IdeaRow> = {
+            let mut stmt = db.prepare(
+                "SELECT id, name, content, agent_id, session_id, created_at,
+                        injection_mode, inheritance, tool_allow, tool_deny
+                 FROM ideas
+                 WHERE agent_id IS NULL
+                    OR agent_id IN (
+                        SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1
+                    )
+                 ORDER BY created_at DESC",
+            )?;
+            stmt.query_map(params![agent_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+
+        // Hydrate tags per idea (secondary query; tag set tends to be tiny).
+        let mut out = Vec::with_capacity(rows.len());
+        for (
+            id,
+            name,
+            content,
+            aid,
+            session_id,
+            created_at,
+            injection_mode,
+            inheritance,
+            tool_allow,
+            tool_deny,
+        ) in rows
+        {
+            let tags: Vec<String> = {
+                let mut tag_stmt =
+                    db.prepare("SELECT tag FROM idea_tags WHERE idea_id = ?1 ORDER BY tag")?;
+                tag_stmt
+                    .query_map(params![id], |r| r.get::<_, String>(0))?
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at)
+                .map(|d| d.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
+            out.push(aeqi_core::traits::Idea {
+                id,
+                name,
+                content,
+                tags,
+                agent_id: aid,
+                session_id,
+                created_at,
+                score: 1.0,
+                injection_mode,
+                inheritance,
+                tool_allow: tool_allow
+                    .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+                    .unwrap_or_default(),
+                tool_deny: tool_deny
+                    .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+                    .unwrap_or_default(),
+            });
+        }
+        Ok(out)
+    }
+
     /// Move an agent to a new parent (reparent).
     pub async fn move_agent(&self, agent_id: &str, new_parent_id: Option<&str>) -> Result<()> {
         // Prevent cycles: new parent must not be a descendant of agent_id.
@@ -1077,6 +1217,25 @@ impl AgentRegistry {
         if updated == 0 {
             anyhow::bail!("agent '{agent_id}' not found");
         }
+
+        // Closure-table reparent: drop stale ancestor links for the moved subtree,
+        // then re-link the subtree under the new parent's ancestors.
+        db.execute(
+            "DELETE FROM agent_ancestry
+             WHERE descendant_id IN (SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1)
+               AND ancestor_id NOT IN (SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1)",
+            params![agent_id],
+        )?;
+        if let Some(pid) = new_parent_id {
+            db.execute(
+                "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth)
+                 SELECT d.descendant_id, x.ancestor_id, d.depth + x.depth + 1
+                 FROM agent_ancestry d, agent_ancestry x
+                 WHERE d.ancestor_id = ?1 AND x.descendant_id = ?2",
+                params![agent_id, pid],
+            )?;
+        }
+
         info!(agent_id = %agent_id, new_parent_id = ?new_parent_id, "agent reparented");
         Ok(())
     }
@@ -2397,6 +2556,274 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Phase-1 migrations — run at open() against the raw aeqi.db connection.
+//
+// These three migrations populate the new closure/join tables from the old
+// parent_id walk and `events.idea_ids` JSON, then collapse duplicate ideas
+// that earlier lifecycle auto-create passes produced. Each is guarded by a
+// row in `applied_migrations` so it runs exactly once per database, and the
+// unique index that seals `(agent_id, name)` is only created after collapse.
+// ---------------------------------------------------------------------------
+
+fn run_phase1_backfills(conn: &Connection) -> Result<()> {
+    const AGENT_ANCESTRY_BACKFILL: &str = "agent_ancestry_backfill_v1";
+    const IDEAS_COLLAPSE_DUPES: &str = "ideas_collapse_duplicates_v1";
+    const LIFECYCLE_IDEAS_GLOBALIZE: &str = "lifecycle_ideas_globalize_v1";
+
+    if !is_migration_applied_sync(conn, AGENT_ANCESTRY_BACKFILL)? {
+        backfill_agent_ancestry(conn)?;
+        mark_migration_applied_sync(conn, AGENT_ANCESTRY_BACKFILL)?;
+    }
+    if !is_migration_applied_sync(conn, IDEAS_COLLAPSE_DUPES)? {
+        collapse_duplicate_ideas(conn)?;
+        mark_migration_applied_sync(conn, IDEAS_COLLAPSE_DUPES)?;
+    }
+    if !is_migration_applied_sync(conn, LIFECYCLE_IDEAS_GLOBALIZE)? {
+        globalize_lifecycle_ideas(conn)?;
+        mark_migration_applied_sync(conn, LIFECYCLE_IDEAS_GLOBALIZE)?;
+    }
+
+    // Seal the invariant: (COALESCE(agent_id, ''), name) is unique forever.
+    // Creating the index after collapse means existing rows satisfy it; from
+    // here on, duplicate writes fail at INSERT time instead of accumulating.
+    conn.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_unique
+             ON ideas(COALESCE(agent_id, ''), name);",
+    )?;
+
+    Ok(())
+}
+
+fn is_migration_applied_sync(conn: &Connection, name: &str) -> Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM applied_migrations WHERE name = ?1",
+        params![name],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+fn mark_migration_applied_sync(conn: &Connection, name: &str) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO applied_migrations (name, applied_at) VALUES (?1, ?2)",
+        params![name, Utc::now().to_rfc3339()],
+    )?;
+    Ok(())
+}
+
+/// Walk every agent's parent_id chain and populate agent_ancestry with
+/// (self, ancestor, depth) rows. Self-row at depth=0 is always inserted, so
+/// a single query over the closure gives visibility + self.
+fn backfill_agent_ancestry(conn: &Connection) -> Result<()> {
+    // Start fresh — if a prior partial run left rows, they'd collide with the
+    // INSERT below (PK violation) on agents that still have the same ancestry.
+    conn.execute("DELETE FROM agent_ancestry", [])?;
+
+    let parents: std::collections::HashMap<String, Option<String>> = {
+        let mut stmt = conn.prepare("SELECT id, parent_id FROM agents")?;
+        stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+        .into_iter()
+        .collect()
+    };
+
+    let mut inserted = 0usize;
+    for id in parents.keys() {
+        let mut depth: i64 = 0;
+        let mut cur: Option<String> = Some(id.clone());
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        while let Some(cid) = cur {
+            if !seen.insert(cid.clone()) {
+                tracing::warn!(agent_id = %id, "cycle detected during ancestry backfill");
+                break;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO agent_ancestry (descendant_id, ancestor_id, depth)
+                 VALUES (?1, ?2, ?3)",
+                params![id, cid, depth],
+            )?;
+            inserted += 1;
+            cur = parents.get(&cid).cloned().flatten();
+            depth += 1;
+        }
+    }
+    tracing::info!(rows = inserted, "agent_ancestry backfilled");
+    Ok(())
+}
+
+/// Collapse duplicate ideas by (COALESCE(agent_id,''), name). Earlier lifecycle
+/// auto-create passes bypassed IdeaStore.store() dedup, so many databases have
+/// 20+ rows per agent with identical name+content. For each dupe group we keep
+/// the MAX(created_at) row, rewrite events.idea_ids JSON + idea_tags to point
+/// at the winner, then delete the losers. After this runs, CREATE UNIQUE INDEX
+/// can safely seal the invariant.
+fn collapse_duplicate_ideas(conn: &Connection) -> Result<()> {
+    // (coalesced_agent_id, name) → Vec<(id, created_at)>, descending by time.
+    let mut groups: std::collections::HashMap<(String, String), Vec<(String, String)>> =
+        std::collections::HashMap::new();
+    {
+        let mut stmt =
+            conn.prepare("SELECT id, COALESCE(agent_id, ''), name, created_at FROM ideas")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        for r in rows {
+            let (id, aid, name, created_at) = r?;
+            groups
+                .entry((aid, name))
+                .or_default()
+                .push((id, created_at));
+        }
+    }
+
+    let mut losers_deleted = 0usize;
+    for (_key, mut members) in groups {
+        if members.len() < 2 {
+            continue;
+        }
+        // Winner = most-recently created. Ties broken by id lex order (stable).
+        members.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(&a.0)));
+        let winner = members[0].0.clone();
+        for (loser, _) in members.iter().skip(1) {
+            // Rewrite events.idea_ids JSON: swap loser -> winner wherever it appears,
+            // de-duplicating in place so one event can't list the winner twice.
+            rewrite_event_idea_ref(conn, loser, &winner)?;
+            // Redirect tag pointers.
+            conn.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
+                 SELECT ?1, tag FROM idea_tags WHERE idea_id = ?2",
+                params![winner, loser],
+            )?;
+            conn.execute("DELETE FROM idea_tags WHERE idea_id = ?1", params![loser])?;
+            // Drop the loser row.
+            conn.execute("DELETE FROM ideas WHERE id = ?1", params![loser])?;
+            losers_deleted += 1;
+        }
+    }
+    tracing::info!(
+        losers_deleted,
+        "collapsed duplicate ideas by (agent_id, name)"
+    );
+    Ok(())
+}
+
+/// Promote the 6 lifecycle seed ideas (session:start, session:quest-start,
+/// session:quest-end, session:quest-result, session:execution-start,
+/// session:step-start) to globals (agent_id IS NULL) and redirect every
+/// existing event.idea_ids reference to the canonical global row.
+///
+/// Old behavior: each spawn created 6 per-agent copies. New behavior: the 6
+/// seed ideas live once, with agent_id IS NULL, visible via the ancestry
+/// + NULL scope rule to every agent. Per-agent copies become orphans and are
+///   deleted. events rows themselves stay per-agent — only the idea pointers
+///   shift to the shared globals.
+fn globalize_lifecycle_ideas(conn: &Connection) -> Result<()> {
+    let lifecycle_keys: &[&str] = &[
+        "session:start",
+        "session:quest-start",
+        "session:quest-end",
+        "session:quest-result",
+        "session:execution-start",
+        "session:step-start",
+    ];
+    for key in lifecycle_keys {
+        // Find or promote a global (agent_id IS NULL) row for this key.
+        let global_id: Option<String> = conn
+            .query_row(
+                "SELECT id FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let global_id = if let Some(id) = global_id {
+            id
+        } else {
+            // Promote an existing per-agent row (keeping content + tags) by
+            // flipping its agent_id to NULL. Pick the most-recently-created.
+            let promotee: Option<(String, String)> = conn
+                .query_row(
+                    "SELECT id, agent_id FROM ideas
+                     WHERE agent_id IS NOT NULL AND name = ?1
+                     ORDER BY created_at DESC LIMIT 1",
+                    params![key],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                )
+                .optional()?;
+            match promotee {
+                Some((id, _)) => {
+                    conn.execute(
+                        "UPDATE ideas SET agent_id = NULL WHERE id = ?1",
+                        params![id],
+                    )?;
+                    id
+                }
+                None => continue, // No row to promote — nothing to migrate for this key.
+            }
+        };
+
+        // Redirect every remaining per-agent copy of `key` to the global id,
+        // then delete it. `rewrite_event_idea_ref` keeps events.idea_ids JSON
+        // coherent; idea_tags are also migrated.
+        let losers: Vec<String> = {
+            let mut stmt =
+                conn.prepare("SELECT id FROM ideas WHERE name = ?1 AND agent_id IS NOT NULL")?;
+            stmt.query_map(params![key], |r| r.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        for loser in &losers {
+            rewrite_event_idea_ref(conn, loser, &global_id)?;
+            conn.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
+                 SELECT ?1, tag FROM idea_tags WHERE idea_id = ?2",
+                params![global_id, loser],
+            )?;
+            conn.execute("DELETE FROM idea_tags WHERE idea_id = ?1", params![loser])?;
+            conn.execute("DELETE FROM ideas WHERE id = ?1", params![loser])?;
+        }
+        tracing::info!(key = %key, promoted_to = %global_id, losers = losers.len(), "lifecycle idea globalized");
+    }
+    Ok(())
+}
+
+/// Swap every occurrence of `from_id` in `events.idea_ids` JSON arrays with
+/// `to_id`, de-duplicating the array in place. Called from collapse to keep
+/// referential coherence without a join table.
+fn rewrite_event_idea_ref(conn: &Connection, from_id: &str, to_id: &str) -> Result<()> {
+    let rows: Vec<(String, String)> = {
+        let mut stmt =
+            conn.prepare("SELECT id, idea_ids FROM events WHERE idea_ids LIKE '%' || ?1 || '%'")?;
+        stmt.query_map(params![from_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    for (event_id, json) in rows {
+        let ids: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+        let mut rewritten: Vec<String> = Vec::with_capacity(ids.len());
+        for id in ids {
+            let swapped = if id == from_id { to_id.to_string() } else { id };
+            if !rewritten.contains(&swapped) {
+                rewritten.push(swapped);
+            }
+        }
+        let new_json = serde_json::to_string(&rewritten).unwrap_or_else(|_| "[]".to_string());
+        conn.execute(
+            "UPDATE events SET idea_ids = ?1 WHERE id = ?2",
+            params![new_json, event_id],
+        )?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

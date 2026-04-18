@@ -1,8 +1,4 @@
 //! Idea CRUD and search IPC handlers.
-//!
-//! Consolidates the former `memory` module handlers under the canonical `idea`
-//! naming.  The daemon dispatch keeps `"memories"` etc. as backward-compat
-//! aliases that route into these same functions.
 
 use std::path::PathBuf;
 
@@ -13,24 +9,27 @@ pub async fn handle_list_ideas(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
+    // Agent-scoped path goes through AgentRegistry so it can join agent_ancestry
+    // and include globals (agent_id IS NULL) + self + descendants. The trait
+    // IdeaStore doesn't know about ancestry.
+    if let Some(aid) = request_field(request, "agent_id") {
+        match ctx.agent_registry.list_ideas_visible_to(aid).await {
+            Ok(ideas) => {
+                let items: Vec<serde_json::Value> = ideas.iter().map(idea_to_json).collect();
+                return serde_json::json!({"ok": true, "ideas": items});
+            }
+            Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        }
+    }
+
     let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": false, "error": "idea store not available"});
     };
 
-    let agent_id = request_field(request, "agent_id");
-
-    // Use prefix search with empty prefix to list all ideas.
+    // Unscoped: return everything (admin-ish view — typically the /ideas page).
     match idea_store.search_by_prefix("", 1000) {
         Ok(ideas) => {
-            let filtered: Vec<_> = if let Some(aid) = agent_id {
-                ideas
-                    .into_iter()
-                    .filter(|i| i.agent_id.as_deref() == Some(aid))
-                    .collect()
-            } else {
-                ideas
-            };
-            let items: Vec<serde_json::Value> = filtered.iter().map(idea_to_json).collect();
+            let items: Vec<serde_json::Value> = ideas.iter().map(idea_to_json).collect();
             serde_json::json!({"ok": true, "ideas": items})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -179,70 +178,6 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
         "tool_allow": idea.tool_allow,
         "tool_deny": idea.tool_deny,
     })
-}
-
-// ── Handlers migrated from the former `memory` IPC module ─────────────────
-
-pub async fn handle_ideas_search(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let query = request.get("query").and_then(|v| v.as_str()).unwrap_or("");
-    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-    let scope = request
-        .get("scope")
-        .and_then(|v| v.as_str())
-        .unwrap_or("domain");
-    let agent_id_param = request.get("agent_id").and_then(|v| v.as_str());
-
-    if allowed.is_some() && (project.is_empty() || project == "*") {
-        return serde_json::json!({"ok": true, "ideas": [], "count": 0});
-    }
-
-    if let Some(ref mem) = ctx.idea_store {
-        let mut mq = aeqi_core::traits::IdeaQuery::new(query, limit);
-        match scope {
-            "entity" => {
-                if let Some(aid) = agent_id_param {
-                    mq = mq.with_agent(aid);
-                }
-            }
-            "system" => {}
-            _ => {
-                if let Some(aid) = agent_id_param {
-                    mq = mq.with_agent(aid);
-                }
-            }
-        }
-        match mem.search(&mq).await {
-            Ok(entries) => {
-                let rows: Vec<serde_json::Value> = entries
-                    .iter()
-                    .map(|e| {
-                        serde_json::json!({
-                            "id": e.id,
-                            "name": e.name,
-                            "content": e.content,
-                            "tags": e.tags,
-                            "agent_id": e.agent_id,
-                            "created_at": e.created_at.to_rfc3339(),
-                        })
-                    })
-                    .collect();
-                serde_json::json!({"ok": true, "ideas": rows, "count": rows.len()})
-            }
-            Err(e) => {
-                serde_json::json!({"ok": false, "error": format!("search failed: {e}")})
-            }
-        }
-    } else {
-        serde_json::json!({"ok": true, "ideas": []})
-    }
 }
 
 pub async fn handle_idea_profile(
@@ -513,149 +448,5 @@ pub async fn handle_idea_prefix(
             serde_json::json!({"ok": true, "ideas": ideas, "count": ideas.len()})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-    }
-}
-
-pub async fn handle_project_knowledge(
-    _ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if project.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project required"});
-    }
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let project_dir = cwd.join("projects").join(project);
-    let mut files = serde_json::Map::new();
-    let knowledge_files = ["KNOWLEDGE.md", "AGENTS.md", "HEARTBEAT.md", "project.toml"];
-    for filename in &knowledge_files {
-        let path = project_dir.join(filename);
-        if path.exists()
-            && let Ok(content) = std::fs::read_to_string(&path)
-        {
-            files.insert(filename.to_string(), serde_json::Value::String(content));
-        }
-    }
-    serde_json::json!({"ok": true, "project": project, "files": files})
-}
-
-pub async fn handle_channel_knowledge(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let query = request.get("query").and_then(|v| v.as_str()).unwrap_or("");
-    let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(15) as usize;
-
-    if project.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project required"});
-    }
-
-    let mut items: Vec<serde_json::Value> = Vec::new();
-
-    if let Some(ref mem) = ctx.idea_store {
-        let q = if query.is_empty() { project } else { query };
-        let mq = aeqi_core::traits::IdeaQuery::new(q, limit);
-        if let Ok(results) = mem.search(&mq).await {
-            for entry in results {
-                items.push(serde_json::json!({
-                    "id": entry.id,
-                    "name": entry.name,
-                    "content": entry.content,
-                    "tags": entry.tags,
-                    "agent_id": entry.agent_id,
-                    "source": "ideas",
-                    "created_at": entry.created_at.to_rfc3339(),
-                    "project": project,
-                }));
-            }
-        }
-    }
-
-    serde_json::json!({"ok": true, "items": items, "count": items.len()})
-}
-
-pub async fn handle_knowledge_store(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let name = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let content = request
-        .get("content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let tags: Vec<String> = request
-        .get("tags")
-        .and_then(|v| v.as_array())
-        .map(|tags_val| {
-            tags_val
-                .iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_else(|| vec!["fact".to_string()]);
-    let scope = request
-        .get("scope")
-        .and_then(|v| v.as_str())
-        .unwrap_or("domain");
-
-    if project.is_empty() || name.is_empty() || content.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project, name, and content required"});
-    }
-
-    if let Some(ref mem) = ctx.idea_store {
-        let raw_agent_id = request.get("agent_id").and_then(|v| v.as_str());
-        let agent_id = match scope {
-            "system" => None,
-            _ => raw_agent_id,
-        };
-        let ttl_secs = request.get("ttl_secs").and_then(|v| v.as_u64());
-        match mem
-            .store_with_ttl(name, content, &tags, agent_id, ttl_secs)
-            .await
-        {
-            Ok(id) => serde_json::json!({"ok": true, "id": id}),
-            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-        }
-    } else {
-        serde_json::json!({"ok": false, "error": "idea store not available"})
-    }
-}
-
-pub async fn handle_knowledge_delete(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let id = request.get("id").and_then(|v| v.as_str()).unwrap_or("");
-
-    if project.is_empty() || id.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project and id required"});
-    }
-
-    if let Some(ref mem) = ctx.idea_store {
-        match mem.delete(id).await {
-            Ok(_) => serde_json::json!({"ok": true}),
-            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-        }
-    } else {
-        serde_json::json!({"ok": false, "error": "idea store not available"})
     }
 }

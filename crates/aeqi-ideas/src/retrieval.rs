@@ -42,8 +42,6 @@ pub struct RetrievalConfig {
     pub confidence_weight: f32,
     /// Weight for graph boost (connectivity to high-relevance nodes) component.
     pub graph_boost_weight: f32,
-    /// Whether to search across project boundaries.
-    pub enable_cross_project: bool,
     /// Optional temporal cutoff: only include memories created before this time.
     pub temporal_cutoff: Option<DateTime<Utc>>,
 }
@@ -57,7 +55,6 @@ impl Default for RetrievalConfig {
             hotness_weight: 0.10,
             confidence_weight: 0.10,
             graph_boost_weight: 0.10,
-            enable_cross_project: false,
             temporal_cutoff: None,
         }
     }
@@ -97,8 +94,6 @@ pub struct RetrievalResult {
     pub components: ScoreComponents,
     /// Optional provenance description (agent + task).
     pub provenance: Option<String>,
-    /// Which project this memory came from (for cross-project results).
-    pub source_project: Option<String>,
     /// When this memory was created.
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -241,7 +236,6 @@ mod tests {
             final_score: 0.5,
             components: ScoreComponents::default(),
             provenance: None,
-            source_project: None,
             created_at,
         }
     }
@@ -266,7 +260,6 @@ mod tests {
     fn default_config_values() {
         let cfg = RetrievalConfig::default();
         assert_eq!(cfg.max_results, 20);
-        assert!(!cfg.enable_cross_project);
         assert!(cfg.temporal_cutoff.is_none());
     }
 

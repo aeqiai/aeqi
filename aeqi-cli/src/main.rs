@@ -100,16 +100,12 @@ async fn main() -> Result<()> {
             cmd::quests::cmd_close(&cli.config, &id, &reason).await
         }
         Some(Commands::Daemon { action }) => cmd::daemon::cmd_daemon(&cli.config, action).await,
-        Some(Commands::Recall {
-            query,
-            root,
-            top_k,
-        }) => cmd::memory::cmd_recall(&cli.config, &query, root.as_deref(), top_k).await,
-        Some(Commands::Remember {
-            key,
-            content,
-            root,
-        }) => cmd::memory::cmd_remember(&cli.config, &key, &content, root.as_deref()).await,
+        Some(Commands::Recall { query, root, top_k }) => {
+            cmd::memory::cmd_recall(&cli.config, &query, root.as_deref(), top_k).await
+        }
+        Some(Commands::Remember { key, content, root }) => {
+            cmd::memory::cmd_remember(&cli.config, &key, &content, root.as_deref()).await
+        }
         Some(Commands::Memory { action }) => cmd::memory::cmd_memory(&cli.config, action).await,
         Some(Commands::Pipeline { action }) => {
             cmd::pipeline::cmd_pipeline(&cli.config, action).await
@@ -125,16 +121,12 @@ async fn main() -> Result<()> {
         Some(Commands::Done { quest_id, reason }) => {
             cmd::quests::cmd_done(&cli.config, &quest_id, &reason).await
         }
-        Some(Commands::Team { root }) => {
-            cmd::team::cmd_team(&cli.config, root.as_deref()).await
-        }
+        Some(Commands::Team { root }) => cmd::team::cmd_team(&cli.config, root.as_deref()).await,
         Some(Commands::Config { action }) => cmd::config::cmd_config(&cli.config, action).await,
         Some(Commands::Agent { action }) => cmd::agent::cmd_agent(&cli.config, action).await,
-        Some(Commands::Audit {
-            root,
-            quest,
-            last,
-        }) => cmd::audit::cmd_audit(&cli.config, root.as_deref(), quest.as_deref(), last).await,
+        Some(Commands::Audit { root, quest, last }) => {
+            cmd::audit::cmd_audit(&cli.config, root.as_deref(), quest.as_deref(), last).await
+        }
         Some(Commands::Notes { action }) => cmd::notes::cmd_notes(&cli.config, action).await,
         Some(Commands::Deps { root, apply }) => {
             cmd::deps::cmd_deps(&cli.config, &root, apply).await

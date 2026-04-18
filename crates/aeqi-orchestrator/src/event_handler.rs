@@ -402,24 +402,39 @@ pub async fn create_default_lifecycle_events(
     let now = chrono::Utc::now().to_rfc3339();
 
     for &(name, pattern, idea_key, idea_content) in defaults {
-        // Create the seed idea.
-        let idea_id = uuid::Uuid::new_v4().to_string();
-        {
+        // Seed ideas are globals (agent_id IS NULL) — one row total, shared by
+        // every agent's lifecycle events. Resolve or create the canonical row
+        // here so the event's idea_ids JSON points at the shared id.
+        let idea_id = {
             let db = store.db.lock().await;
-            db.execute(
-                "INSERT OR IGNORE INTO ideas (id, name, content, scope, agent_id, created_at)
-                 VALUES (?1, ?2, ?3, 'domain', ?4, ?5)",
-                rusqlite::params![idea_id, idea_key, idea_content, agent_id, now],
-            )
-            .map_err(|e| anyhow::anyhow!("failed to insert seed idea {idea_key}: {e}"))?;
-            db.execute(
-                "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, 'procedure')",
-                rusqlite::params![idea_id],
-            )
-            .map_err(|e| anyhow::anyhow!("failed to tag seed idea {idea_key}: {e}"))?;
-        }
+            let existing: Option<String> = db
+                .query_row(
+                    "SELECT id FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                    rusqlite::params![idea_key],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|e| anyhow::anyhow!("failed to check seed idea {idea_key}: {e}"))?;
+            if let Some(id) = existing {
+                id
+            } else {
+                let new_id = uuid::Uuid::new_v4().to_string();
+                db.execute(
+                    "INSERT INTO ideas (id, name, content, scope, agent_id, created_at)
+                     VALUES (?1, ?2, ?3, 'domain', NULL, ?4)",
+                    rusqlite::params![new_id, idea_key, idea_content, now],
+                )
+                .map_err(|e| anyhow::anyhow!("failed to insert seed idea {idea_key}: {e}"))?;
+                db.execute(
+                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, 'procedure')",
+                    rusqlite::params![new_id],
+                )
+                .map_err(|e| anyhow::anyhow!("failed to tag seed idea {idea_key}: {e}"))?;
+                new_id
+            }
+        };
 
-        // Create the event referencing the idea.
+        // Create the event referencing the shared idea.
         store
             .create(&NewEvent {
                 agent_id: agent_id.to_string(),
@@ -432,7 +447,7 @@ pub async fn create_default_lifecycle_events(
             .await?;
     }
 
-    info!(agent_id = %agent_id, "created 12 default lifecycle events with seed ideas");
+    info!(agent_id = %agent_id, "created 6 default lifecycle events pointing at global seed ideas");
     Ok(())
 }
 

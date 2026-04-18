@@ -101,11 +101,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 eprintln!("Error: {error}");
             }
         }
-        NotesAction::Query {
-            root,
-            tags,
-            limit,
-        } => {
+        NotesAction::Query { root, tags, limit } => {
             let resp = ipc_request(
                 &data_dir,
                 &serde_json::json!({

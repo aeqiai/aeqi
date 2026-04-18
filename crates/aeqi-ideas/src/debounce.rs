@@ -2,9 +2,9 @@
 //!
 //! During agent execution, multiple reflections may produce overlapping or
 //! redundant memory writes in quick succession.  The [`WriteQueue`] batches
-//! these writes and deduplicates by `{project}:{key}`, keeping only the
-//! most recent version.  Writes are flushed after a configurable debounce
-//! window (default 30 seconds).
+//! these writes and deduplicates by idea name, keeping only the most recent
+//! version.  Writes are flushed after a configurable debounce window
+//! (default 30 seconds).
 //!
 //! This prevents memory thrashing and reduces embedding API calls.
 
@@ -24,10 +24,8 @@ pub struct DebouncedWrite {
     pub content: String,
     /// Memory tags (e.g. ["fact"], ["decision", "planning"]).
     pub tags: Vec<String>,
-    /// Memory scope (e.g. "domain", "system").
-    pub scope: String,
-    /// Project this write belongs to.
-    pub project: String,
+    /// Optional agent scope. `None` means a global idea.
+    pub agent_id: Option<String>,
     /// When this write was queued (or last replaced).
     pub queued_at: DateTime<Utc>,
 }
@@ -36,11 +34,11 @@ pub struct DebouncedWrite {
 
 /// Debounced write queue that batches and deduplicates memory writes.
 ///
-/// Writes are keyed by `"{project}:{key}"` — a newer write with the same
+/// Writes are keyed by `"{agent_id}:{name}"` — a newer write with the same
 /// composite key replaces the older one.  The [`drain_ready`] method returns
 /// writes whose debounce window has elapsed.
 pub struct WriteQueue {
-    /// Pending writes keyed by `"{project}:{key}"`.
+    /// Pending writes keyed by `"{agent_id}:{name}"`.
     queue: HashMap<String, DebouncedWrite>,
     /// Debounce window in milliseconds (default 30,000 = 30 seconds).
     pub debounce_ms: u64,
@@ -66,11 +64,11 @@ impl WriteQueue {
 
     /// Push a write into the queue.
     ///
-    /// If a write with the same `{project}:{key}` already exists, it is
+    /// If a write with the same `{agent_id}:{name}` already exists, it is
     /// replaced — the newer content wins and the `queued_at` timestamp
     /// is updated.
     pub fn push(&mut self, write: DebouncedWrite) {
-        let composite_key = format!("{}:{}", write.project, write.name);
+        let composite_key = format!("{}:{}", write.agent_id.as_deref().unwrap_or(""), write.name);
         debug!(
             key = %composite_key,
             "debounce queue: push (replace if exists)"
@@ -130,7 +128,7 @@ mod tests {
     use chrono::Duration;
 
     fn make_write(
-        project: &str,
+        agent_id: Option<&str>,
         name: &str,
         content: &str,
         queued_at: DateTime<Utc>,
@@ -139,8 +137,7 @@ mod tests {
             name: name.to_string(),
             content: content.to_string(),
             tags: vec!["fact".to_string()],
-            scope: "domain".to_string(),
-            project: project.to_string(),
+            agent_id: agent_id.map(|s| s.to_string()),
             queued_at,
         }
     }
@@ -150,12 +147,17 @@ mod tests {
         let mut queue = WriteQueue::default();
         let now = Utc::now();
 
-        queue.push(make_write("aeqi", "auth/jwt", "rotation every 24h", now));
+        queue.push(make_write(
+            Some("a1"),
+            "auth/jwt",
+            "rotation every 24h",
+            now,
+        ));
         assert_eq!(queue.pending_count(), 1);
 
-        // Push again with same project:key — should replace.
+        // Push again with same agent:name — should replace.
         queue.push(make_write(
-            "aeqi",
+            Some("a1"),
             "auth/jwt",
             "rotation every 12h with refresh",
             now,
@@ -173,12 +175,17 @@ mod tests {
         let mut queue = WriteQueue::default();
         let now = Utc::now();
 
-        queue.push(make_write("aeqi", "auth/jwt", "jwt rotation", now));
-        queue.push(make_write("aeqi", "deploy/docker", "docker config", now));
+        queue.push(make_write(Some("a1"), "auth/jwt", "jwt rotation", now));
         queue.push(make_write(
-            "algostaking",
+            Some("a1"),
+            "deploy/docker",
+            "docker config",
+            now,
+        ));
+        queue.push(make_write(
+            Some("a2"),
             "auth/jwt",
-            "different project jwt",
+            "different agent jwt",
             now,
         ));
 
@@ -192,8 +199,13 @@ mod tests {
         let old = now - Duration::seconds(60); // 60 seconds ago — ready
         let recent = now - Duration::seconds(10); // 10 seconds ago — not ready
 
-        queue.push(make_write("aeqi", "old-write", "old content", old));
-        queue.push(make_write("aeqi", "recent-write", "new content", recent));
+        queue.push(make_write(Some("a1"), "old-write", "old content", old));
+        queue.push(make_write(
+            Some("a1"),
+            "recent-write",
+            "new content",
+            recent,
+        ));
 
         let ready = queue.drain_ready(now);
         assert_eq!(ready.len(), 1, "only the old write should be ready");
@@ -209,7 +221,7 @@ mod tests {
         let now = Utc::now();
         let recent = now - Duration::seconds(5);
 
-        queue.push(make_write("aeqi", "fresh", "just added", recent));
+        queue.push(make_write(Some("a1"), "fresh", "just added", recent));
 
         let ready = queue.drain_ready(now);
         assert!(ready.is_empty(), "nothing should be ready yet");
@@ -222,8 +234,8 @@ mod tests {
         let now = Utc::now();
         let old = now - Duration::seconds(5);
 
-        queue.push(make_write("aeqi", "key-1", "content 1", old));
-        queue.push(make_write("aeqi", "key-2", "content 2", old));
+        queue.push(make_write(Some("a1"), "key-1", "content 1", old));
+        queue.push(make_write(Some("a1"), "key-2", "content 2", old));
 
         assert_eq!(queue.pending_count(), 2);
 
@@ -238,7 +250,7 @@ mod tests {
         assert_eq!(queue.pending_count(), 0);
         assert!(queue.is_empty());
 
-        queue.push(make_write("aeqi", "key", "content", Utc::now()));
+        queue.push(make_write(Some("a1"), "key", "content", Utc::now()));
         assert_eq!(queue.pending_count(), 1);
         assert!(!queue.is_empty());
     }
@@ -248,9 +260,9 @@ mod tests {
         let mut queue = WriteQueue::default();
         let now = Utc::now();
 
-        queue.push(make_write("aeqi", "k1", "c1", now));
-        queue.push(make_write("aeqi", "k2", "c2", now));
-        queue.push(make_write("algostaking", "k3", "c3", now));
+        queue.push(make_write(Some("a1"), "k1", "c1", now));
+        queue.push(make_write(Some("a1"), "k2", "c2", now));
+        queue.push(make_write(None, "k3", "c3", now));
 
         assert_eq!(queue.pending_count(), 3);
 
