@@ -1818,6 +1818,13 @@
   gap: 4px;
   min-height: 18px;
 }
+.ideas-canvas-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
 .ideas-canvas-actions {
   display: flex;
   align-items: center;
@@ -1832,6 +1839,191 @@
 .ideas-canvas-error {
   font-size: 11px;
   color: var(--destructive, #e55);
+}
+
+/* Unified save/delete buttons on the canvas footer — inline, subtle. */
+.ideas-canvas-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+.ideas-canvas-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+.ideas-canvas-btn.primary {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+.ideas-canvas-btn.primary:hover {
+  filter: brightness(1.05);
+}
+.ideas-canvas-btn.ghost {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+.ideas-canvas-btn.ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.ideas-canvas-btn.danger {
+  color: var(--text-muted);
+}
+.ideas-canvas-btn.danger:hover {
+  color: var(--destructive, #e55);
+  border-color: var(--destructive, #e55);
+}
+.ideas-canvas-btn.danger.confirm {
+  color: #fff;
+  background: var(--destructive, #e55);
+  border-color: var(--destructive, #e55);
+}
+.ideas-canvas-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Save indicator — Apple Notes style: tiny dot + quiet label, pulses while saving */
+.ideas-canvas-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  transition: opacity 0.25s;
+  min-height: 16px;
+}
+.ideas-canvas-save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  transition:
+    background 0.25s,
+    transform 0.25s;
+}
+.ideas-canvas-save-indicator.state-pending .ideas-canvas-save-dot {
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+.ideas-canvas-save-indicator.state-saving .ideas-canvas-save-dot {
+  background: var(--accent);
+  animation: ideas-save-pulse 1s ease-in-out infinite;
+}
+.ideas-canvas-save-indicator.state-saved {
+  color: var(--accent);
+}
+.ideas-canvas-save-indicator.state-saved .ideas-canvas-save-dot {
+  background: var(--accent);
+}
+.ideas-canvas-save-indicator.state-error {
+  color: var(--destructive, #e55);
+}
+.ideas-canvas-save-indicator.state-error .ideas-canvas-save-dot {
+  background: var(--destructive, #e55);
+}
+@keyframes ideas-save-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.55;
+  }
+}
+
+/* Inline chip-row tag editor ------------------------------------- */
+.ideas-tags-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+  min-height: 22px;
+}
+.ideas-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  transition:
+    border-color 0.15s,
+    filter 0.15s;
+}
+.ideas-tag-chip.removable:hover {
+  filter: brightness(1.05);
+}
+.ideas-tag-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.ideas-tag-chip-x:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+.ideas-tag-add {
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.ideas-tag-add:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.ideas-tag-input {
+  min-width: 60px;
+  max-width: 140px;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  outline: none;
 }
 
 /* ------------------------------------------------------------------
