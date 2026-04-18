@@ -1,6 +1,5 @@
 import { useState, memo } from "react";
 import Markdown from "react-markdown";
-import RoundAvatar from "../RoundAvatar";
 import { IconButton } from "@/components/ui";
 import {
   type Message,
@@ -252,16 +251,12 @@ export function SegmentRenderer({
 
 const MessageItem = memo(function MessageItem({
   msg,
-  agentName,
-  userName: _userName,
-  userAvatarUrl: _userAvatarUrl,
   onFork,
+  onEdit,
 }: {
   msg: Message;
-  agentName: string;
-  userName: string;
-  userAvatarUrl: string | null;
   onFork?: (messageId: number) => void;
+  onEdit?: (messageId: number, text: string) => void;
 }) {
   if (msg.role === "quest_event") {
     return (
@@ -303,11 +298,6 @@ const MessageItem = memo(function MessageItem({
   ].filter(Boolean) as string[];
   return (
     <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
-      {msg.role === "assistant" && (
-        <div className="asv-msg-avatar">
-          <RoundAvatar name={agentName} size={24} />
-        </div>
-      )}
       <div className="asv-msg-body">
         {msg.segments && msg.segments.length > 0 ? (
           <SegmentRenderer segments={msg.segments} />
@@ -343,6 +333,33 @@ const MessageItem = memo(function MessageItem({
                   <circle cx="12" cy="4" r="1.5" />
                   <circle cx="4" cy="12" r="1.5" />
                   <path d="M4 5.5V10.5M5.5 4H10.5" />
+                </svg>
+              </IconButton>
+            )}
+          </div>
+        )}
+        {msg.role === "user" && msg.content.trim().length > 0 && (
+          <div className="asv-msg-actions">
+            <CopyButton text={msg.content} />
+            {msg.messageId && onEdit && (
+              <IconButton
+                variant="ghost"
+                size="sm"
+                className="asv-msg-action-btn"
+                onClick={() => onEdit(msg.messageId!, msg.content)}
+                aria-label="Edit and resend"
+                title="Edit and resend (forks the session)"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11.5 1.8l2.7 2.7-8.5 8.5L2 14l1-3.7 8.5-8.5z" />
+                  <path d="M10.2 3.1l2.7 2.7" />
                 </svg>
               </IconButton>
             )}

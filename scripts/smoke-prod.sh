@@ -69,7 +69,7 @@ echo
 check "platform/health"   "$BASE/api/health"             200 '"ok":true'
 
 # UI shell must load — catches dist/ staging failures.
-check "ui/index"          "$BASE/"                        200 "<!DOCTYPE html>"
+check "ui/index"          "$BASE/"                        200 "<html"
 
 # Static assets resolve — catches missing /assets/ bundle.
 # We just verify the HTML references an index-*.js and that it 200s.

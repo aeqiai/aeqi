@@ -97,6 +97,27 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     return () => window.removeEventListener("aeqi:streaming-state", handler);
   }, []);
 
+  // "Edit and resend" hands the composer the original user text so it can
+  // be revised in place. Forking happens upstream; we only manage input.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const text = (detail?.text as string) || "";
+      setInput(text);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.style.height = "auto";
+        el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      });
+    };
+    window.addEventListener("aeqi:set-composer-input", handler);
+    return () => window.removeEventListener("aeqi:set-composer-input", handler);
+  }, []);
+
   // Reset streaming indicator whenever the active chat changes.
   useEffect(() => {
     setStreaming(false);

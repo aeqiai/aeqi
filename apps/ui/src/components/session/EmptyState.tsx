@@ -1,4 +1,4 @@
-import RoundAvatar from "../RoundAvatar";
+import BrandMark from "../BrandMark";
 
 interface EmptyStateProps {
   agentName: string;
@@ -8,7 +8,7 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({
-  agentName,
+  agentName: _agentName,
   displayName,
   activeSessionId,
   onSuggestionClick,
@@ -16,7 +16,7 @@ export default function EmptyState({
   return (
     <div className="asv-empty">
       <div className="asv-empty-icon">
-        <RoundAvatar name={agentName} size={40} />
+        <BrandMark size={40} />
       </div>
       <div className="asv-empty-title">{displayName}</div>
       <div className="asv-empty-hint">

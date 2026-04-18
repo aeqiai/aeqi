@@ -20,16 +20,12 @@ interface AgentSessionProps {
 
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
   const token = useAuthStore((s) => s.token);
-  const authMode = useAuthStore((s) => s.authMode);
-  const user = useAuthStore((s) => s.user);
   const agents = useDaemonStore((s) => s.agents);
 
   // Resolve agent info from the store
   const agentInfo = agents.find((a) => a.id === agentId || a.name === agentId);
   const agentName = agentInfo?.name || agentId;
   const displayName = agentInfo?.display_name || agentName;
-  const userName = user?.name || (authMode === "none" ? "Local" : "Account");
-  const userAvatarUrl = user?.avatar_url || null;
 
   // Attachment state
   const [sessionPrompts, setSessionPrompts] = useState<string[]>([]);
@@ -90,6 +86,25 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     wsChat.resetLiveSegments();
     rawHandleNewConversation();
   }, [wsChat, rawHandleNewConversation]);
+
+  // Edit a user message: fork the session at the *previous* message so the
+  // user's original line is excluded from the new branch, then push the
+  // original text into the composer for editing. If this is the first
+  // message in the session there's nothing to fork — start a fresh session
+  // instead of producing an empty fork.
+  const handleEdit = useCallback(
+    async (messageId: number, text: string) => {
+      const idx = messages.findIndex((m) => m.messageId === messageId);
+      const prev = idx > 0 ? messages[idx - 1] : null;
+      if (prev?.messageId) {
+        await handleFork(prev.messageId);
+      } else {
+        handleNewConversation();
+      }
+      window.dispatchEvent(new CustomEvent("aeqi:set-composer-input", { detail: { text } }));
+    },
+    [messages, handleFork, handleNewConversation],
+  );
 
   // Fetch available prompts and quests when picker opens
   useEffect(() => {
@@ -256,14 +271,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           )}
 
           {messages.map((msg, i) => (
-            <MessageItem
-              key={i}
-              msg={msg}
-              agentName={agentName}
-              userName={userName}
-              userAvatarUrl={userAvatarUrl}
-              onFork={handleFork}
-            />
+            <MessageItem key={i} msg={msg} onFork={handleFork} onEdit={handleEdit} />
           ))}
 
           <StreamingMessage

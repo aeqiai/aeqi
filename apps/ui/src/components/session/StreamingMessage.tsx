@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import RoundAvatar from "../RoundAvatar";
 import { SegmentRenderer } from "./MessageItem";
 import {
   type MessageSegment,
@@ -36,7 +35,7 @@ interface StreamingMessageProps {
 }
 
 export default function StreamingMessage({
-  agentName,
+  agentName: _agentName,
   liveSegments,
   thinkingStart,
   streaming,
@@ -54,9 +53,6 @@ export default function StreamingMessage({
 
   return (
     <div className="asv-msg asv-msg-assistant asv-msg-streaming">
-      <div className="asv-msg-avatar">
-        <RoundAvatar name={agentName} size={24} />
-      </div>
       <div className="asv-msg-body">
         <SegmentRenderer segments={liveSegments} live />
         {showLiveThinking && <ThinkingStatus toolName={runningToolName} />}

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
-import RoundAvatar from "./RoundAvatar";
+import BrandMark from "./BrandMark";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
 
@@ -119,7 +119,7 @@ function AgentNodeView({
           })
         }
       >
-        <RoundAvatar name={node.name} size={22} />
+        <BrandMark size={16} />
         <span className={styles.rowLabel}>{label}</span>
         {hasChildren && (
           <span className={styles.toggle} onClick={(e) => onToggle(node.id, e)}>

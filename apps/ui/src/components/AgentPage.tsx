@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
-import RoundAvatar from "./RoundAvatar";
+import BrandMark from "./BrandMark";
 import BudgetMeter from "./BudgetMeter";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
@@ -61,18 +61,19 @@ export default function AgentPage({
   // Quests scoped to this agent
   const agentQuests = quests.filter((q) => (q as Record<string, unknown>).agent_id === agent?.id);
 
-  // Ideas scoped to this agent
+  // Ideas scoped to this agent: self + descendants + globals (agent_id IS NULL).
+  // Driven server-side by agent_ancestry; no need to hand a pre-linked id list.
   const [agentIdeas, setAgentIdeas] = useState<Idea[]>([]);
   useEffect(() => {
-    if (activeTab !== "ideas" || !agent?.idea_ids?.length) {
+    if (activeTab !== "ideas" || !resolvedAgentId) {
       setAgentIdeas([]);
       return;
     }
     api
-      .getIdeasByIds(agent.idea_ids)
-      .then((res) => setAgentIdeas(res.ideas || []))
+      .getIdeas({ agent_id: resolvedAgentId })
+      .then((res) => setAgentIdeas((res.ideas as Idea[]) || []))
       .catch(() => setAgentIdeas([]));
-  }, [activeTab, agent?.idea_ids]);
+  }, [activeTab, resolvedAgentId]);
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -89,7 +90,7 @@ export default function AgentPage({
       {/* Breadcrumb header */}
       <div className="content-topbar">
         <div className="content-topbar-left">
-          <RoundAvatar name={agent?.name || agentId} size={18} />
+          <BrandMark size={14} />
           <span className="content-topbar-title">{displayName}</span>
           {agent?.model && (
             <span className="content-topbar-meta">{agent.model.split("/").pop()}</span>
@@ -178,7 +179,7 @@ export default function AgentPage({
             <div className="agent-children-grid">
               {childAgents.map((child) => (
                 <div key={child.id} className="agent-child-card" onClick={() => goAgent(child.id)}>
-                  <RoundAvatar name={child.name} size={28} />
+                  <BrandMark size={22} />
                   <div>
                     <div className="agent-child-name">{child.display_name || child.name}</div>
                     <div className="agent-child-status">{child.status}</div>

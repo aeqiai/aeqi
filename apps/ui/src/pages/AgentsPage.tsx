@@ -4,7 +4,7 @@ import CreateAgentModal from "@/components/CreateAgentModal";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { timeAgo } from "@/lib/format";
-import RoundAvatar from "@/components/RoundAvatar";
+import BrandMark from "@/components/BrandMark";
 import type { Agent } from "@/lib/types";
 import styles from "./AgentsPage.module.css";
 
@@ -102,7 +102,7 @@ function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   return (
     <div className={styles.card} onClick={onClick}>
       <div className={styles.cardTop}>
-        <RoundAvatar name={agent.name} size={36} />
+        <BrandMark size={28} />
         <span className={isActive ? styles.cardStatusActive : styles.cardStatus} />
       </div>
       <div className={styles.cardName}>{label}</div>
