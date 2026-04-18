@@ -181,6 +181,7 @@ export interface SessionInfo {
 
 export interface AgentEvent {
   id: string;
+  agent_id?: string | null;
   name: string;
   pattern: string;
   idea_ids: string[];

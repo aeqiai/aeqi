@@ -224,24 +224,48 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     );
   }
 
+  const isGlobal = selected.agent_id == null;
+
   return (
     <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
       <div className="events-detail-header">
         <div>
-          <h3 className="events-detail-name">{selected.name}</h3>
+          <h3 className="events-detail-name">
+            {selected.name}
+            {isGlobal && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "rgba(0,0,0,0.08)",
+                  color: "rgba(0,0,0,0.6)",
+                  letterSpacing: "0.05em",
+                  verticalAlign: "middle",
+                }}
+                title="Global event — inherited by every agent"
+              >
+                GLOBAL
+              </span>
+            )}
+          </h3>
           <span className="events-detail-pattern">{selected.pattern}</span>
         </div>
         <div className="events-detail-actions">
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              const next = !selected.enabled;
-              await api.updateEvent(selected.id, { enabled: next });
-              patchEvent(agentId, selected.id, { enabled: next });
-            }}
-          >
-            {selected.enabled ? "Disable" : "Enable"}
-          </Button>
+          {!isGlobal && (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                const next = !selected.enabled;
+                await api.updateEvent(selected.id, { enabled: next });
+                patchEvent(agentId, selected.id, { enabled: next });
+              }}
+            >
+              {selected.enabled ? "Disable" : "Enable"}
+            </Button>
+          )}
           {!selected.system && !selected.pattern.startsWith("session:") && (
             <Button
               variant="secondary"
@@ -259,6 +283,23 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
       </div>
 
+      {isGlobal && (
+        <div
+          style={{
+            marginTop: 8,
+            marginBottom: 8,
+            padding: "8px 10px",
+            fontSize: 12,
+            background: "rgba(0,0,0,0.04)",
+            borderRadius: 4,
+            color: "rgba(0,0,0,0.65)",
+          }}
+        >
+          Inherited global event — fires for every agent at this lifecycle moment. Manage from
+          Settings; per-agent edits are disabled.
+        </div>
+      )}
+
       {selected.fire_count > 0 && (
         <div className="events-detail-stats">
           Fired {selected.fire_count} times
@@ -266,34 +307,40 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <EventQueryTemplateEditor
-        key={selected.id}
-        event={selected}
-        onSave={async (fields) => {
-          await api.updateEvent(selected.id, fields);
-          patchEvent(agentId, selected.id, fields);
-        }}
-      />
+      {!isGlobal && (
+        <EventQueryTemplateEditor
+          key={selected.id}
+          event={selected}
+          onSave={async (fields) => {
+            await api.updateEvent(selected.id, fields);
+            patchEvent(agentId, selected.id, fields);
+          }}
+        />
+      )}
 
       <div className="events-detail-ideas-header">Injected Ideas ({selected.idea_ids.length})</div>
 
       {ideasLoading ? (
         <div className="events-detail-loading">Loading ideas...</div>
       ) : ideas.length === 0 && selected.idea_ids.length === 0 ? (
-        <div className="events-detail-loading">No ideas linked. Search below to add one.</div>
+        <div className="events-detail-loading">
+          {isGlobal ? "No ideas linked." : "No ideas linked. Search below to add one."}
+        </div>
       ) : (
         <div className="events-detail-ideas">
           {ideas.map((idea) => (
             <div key={idea.id} className="event-idea-card">
               <div className="event-idea-header">
                 <span className="event-idea-key">{idea.name}</span>
-                <button
-                  className="event-idea-unlink"
-                  onClick={() => handleUnlinkIdea(idea.id)}
-                  title="Unlink"
-                >
-                  &times;
-                </button>
+                {!isGlobal && (
+                  <button
+                    className="event-idea-unlink"
+                    onClick={() => handleUnlinkIdea(idea.id)}
+                    title="Unlink"
+                  >
+                    &times;
+                  </button>
+                )}
               </div>
               <div className="event-idea-content">{idea.content}</div>
               {idea.tags && idea.tags.length > 0 && (
@@ -310,37 +357,39 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <div className="events-link-section">
-        <div className="events-link-search">
-          <input
-            className="events-link-input"
-            type="text"
-            placeholder="Search ideas to link..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSearch();
-            }}
-          />
-          <button className="events-link-search-btn" onClick={handleSearch} disabled={searching}>
-            {searching ? "..." : "Search"}
-          </button>
-        </div>
-        {searchResults.length > 0 && (
-          <div className="events-link-results">
-            {searchResults.map((idea) => (
-              <div
-                key={idea.id}
-                className="events-link-result"
-                onClick={() => handleLinkIdea(idea.id)}
-              >
-                <span className="events-link-result-key">{idea.name}</span>
-                <span className="events-link-result-preview">{idea.content.slice(0, 80)}</span>
-              </div>
-            ))}
+      {!isGlobal && (
+        <div className="events-link-section">
+          <div className="events-link-search">
+            <input
+              className="events-link-input"
+              type="text"
+              placeholder="Search ideas to link..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+            />
+            <button className="events-link-search-btn" onClick={handleSearch} disabled={searching}>
+              {searching ? "..." : "Search"}
+            </button>
           </div>
-        )}
-      </div>
+          {searchResults.length > 0 && (
+            <div className="events-link-results">
+              {searchResults.map((idea) => (
+                <div
+                  key={idea.id}
+                  className="events-link-result"
+                  onClick={() => handleLinkIdea(idea.id)}
+                >
+                  <span className="events-link-result-key">{idea.name}</span>
+                  <span className="events-link-result-preview">{idea.content.slice(0, 80)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

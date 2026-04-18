@@ -232,10 +232,11 @@ export default function ContentCTA() {
       header = { label: "New event", event: "aeqi:new-event" };
       items = events.map((ev) => {
         const transport = eventTransport(ev);
+        const isGlobal = ev.agent_id == null;
         return {
           id: ev.id,
           name: eventLabel(ev),
-          badge: transport || undefined,
+          badge: isGlobal ? "GLOBAL" : transport || undefined,
           preview: ev.pattern,
           meta: ev.idea_ids.length > 0 ? `${ev.idea_ids.length} ideas` : undefined,
           dimmed: !ev.enabled,
