@@ -19,6 +19,8 @@ pub fn routes() -> Router<AppState> {
             "/quests/presets/feature-dev",
             post(create_feature_dev_preset),
         )
+        .route("/quests/presets/bug-fix", post(create_bug_fix_preset))
+        .route("/quests/presets/refactor", post(create_refactor_preset))
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -98,6 +100,52 @@ struct FeatureDevPresetBody {
     agent_id: Option<String>,
 }
 
+/// Body for `POST /api/quests/presets/bug-fix`. `symptom` describes the user-visible failure.
+#[derive(Deserialize)]
+struct BugFixPresetBody {
+    subject: String,
+    project: String,
+    symptom: String,
+    #[serde(default)]
+    agent: Option<String>,
+    #[serde(default)]
+    agent_id: Option<String>,
+}
+
+/// Body for `POST /api/quests/presets/refactor`. `motivation` is why the refactor is worth the risk.
+#[derive(Deserialize)]
+struct RefactorPresetBody {
+    subject: String,
+    project: String,
+    motivation: String,
+    #[serde(default)]
+    agent: Option<String>,
+    #[serde(default)]
+    agent_id: Option<String>,
+}
+
+fn preset_params(
+    preset: aeqi_quests::QuestPreset,
+    project: String,
+    agent: Option<String>,
+    agent_id: Option<String>,
+) -> serde_json::Value {
+    let mut params = serde_json::json!({
+        "project": project,
+        "subject": preset.subject,
+        "description": preset.description,
+        "acceptance_criteria": preset.acceptance_criteria,
+        "labels": preset.labels,
+    });
+    if let Some(a) = agent {
+        params["agent"] = serde_json::Value::String(a);
+    }
+    if let Some(a) = agent_id {
+        params["agent_id"] = serde_json::Value::String(a);
+    }
+    params
+}
+
 /// Create a quest using the `feature-dev` preset template.
 ///
 /// The preset pre-fills `description` and `acceptance_criteria` with the
@@ -117,21 +165,28 @@ async fn create_feature_dev_preset(
     Json(body): Json<FeatureDevPresetBody>,
 ) -> Response {
     let preset = aeqi_quests::feature_dev_preset(&body.subject);
+    let params = preset_params(preset, body.project, body.agent, body.agent_id);
+    ipc_proxy(state, scope.as_ref(), "create_quest", params).await
+}
 
-    let mut params = serde_json::json!({
-        "project": body.project,
-        "subject": preset.subject,
-        "description": preset.description,
-        "acceptance_criteria": preset.acceptance_criteria,
-        "labels": preset.labels,
-    });
+/// Create a quest using the `bug-fix` preset template (6 phases, root-cause biased).
+async fn create_bug_fix_preset(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<BugFixPresetBody>,
+) -> Response {
+    let preset = aeqi_quests::bug_fix_preset(&body.subject, &body.symptom);
+    let params = preset_params(preset, body.project, body.agent, body.agent_id);
+    ipc_proxy(state, scope.as_ref(), "create_quest", params).await
+}
 
-    if let Some(agent) = body.agent {
-        params["agent"] = serde_json::Value::String(agent);
-    }
-    if let Some(agent_id) = body.agent_id {
-        params["agent_id"] = serde_json::Value::String(agent_id);
-    }
-
+/// Create a quest using the `refactor` preset template (5 phases, behaviour-preserving).
+async fn create_refactor_preset(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<RefactorPresetBody>,
+) -> Response {
+    let preset = aeqi_quests::refactor_preset(&body.subject, &body.motivation);
+    let params = preset_params(preset, body.project, body.agent, body.agent_id);
     ipc_proxy(state, scope.as_ref(), "create_quest", params).await
 }

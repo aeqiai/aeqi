@@ -13,7 +13,7 @@ pub mod quest;
 pub mod store;
 
 pub use dependency_inference::{InferredDependency, infer_dependencies};
-pub use presets::{QuestPreset, feature_dev_preset};
+pub use presets::{QuestPreset, bug_fix_preset, feature_dev_preset, refactor_preset};
 pub use query::QuestQuery;
 pub use quest::{
     Checkpoint, Priority, Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus,
