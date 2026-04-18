@@ -514,119 +514,74 @@ pub async fn handle_add_idea_edge(
 }
 
 pub async fn handle_remove_idea_edge(
-    _ctx: &super::CommandContext,
+    ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
     let source_id = match request_field(request, "source_id") {
-        Some(v) => v.to_string(),
+        Some(v) => v,
         None => return serde_json::json!({"ok": false, "error": "source_id is required"}),
     };
     let target_id = match request_field(request, "target_id") {
-        Some(v) => v.to_string(),
+        Some(v) => v,
         None => return serde_json::json!({"ok": false, "error": "target_id is required"}),
     };
-    let relation = request_field(request, "relation").map(|s| s.to_string());
+    let relation = request_field(request, "relation");
 
-    let aeqi_data_dir = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join(".aeqi"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    let db_path = aeqi_data_dir.join("aeqi.db");
-
-    let result = tokio::task::spawn_blocking(move || -> rusqlite::Result<usize> {
-        let conn = rusqlite::Connection::open(&db_path)?;
-        if let Some(rel) = relation {
-            conn.execute(
-                "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
-                rusqlite::params![source_id, target_id, rel],
-            )
-        } else {
-            conn.execute(
-                "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2",
-                rusqlite::params![source_id, target_id],
-            )
-        }
-    })
-    .await;
-
-    match result {
-        Ok(Ok(_)) => serde_json::json!({"ok": true}),
-        Ok(Err(e)) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    match idea_store
+        .remove_idea_edge(source_id, target_id, relation)
+        .await
+    {
+        Ok(removed) => serde_json::json!({"ok": true, "removed": removed}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
 
 pub async fn handle_idea_edges(
-    _ctx: &super::CommandContext,
+    ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
     let idea_id = match request_field(request, "idea_id") {
-        Some(id) => id.to_string(),
+        Some(id) => id,
         None => return serde_json::json!({"ok": false, "error": "idea_id is required"}),
     };
 
-    let aeqi_data_dir = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join(".aeqi"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    let db_path = aeqi_data_dir.join("aeqi.db");
-    if !db_path.exists() {
-        return serde_json::json!({"ok": true, "links": [], "backlinks": []});
-    }
-
-    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
-        return serde_json::json!({"ok": true, "links": [], "backlinks": []});
+    let edges = match idea_store.idea_edges(idea_id).await {
+        Ok(e) => e,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 
-    // Outgoing = this idea is the source. Join to ideas for the target's name.
-    let links: Vec<serde_json::Value> = conn
-        .prepare(
-            "SELECT e.target_id, i.name, e.relation, e.strength \
-             FROM memory_edges e \
-             LEFT JOIN ideas i ON i.id = e.target_id \
-             WHERE e.source_id = ?1 \
-             ORDER BY e.strength DESC, e.created_at DESC",
-        )
-        .ok()
-        .map(|mut stmt| {
-            stmt.query_map(rusqlite::params![idea_id], |row| {
-                Ok(serde_json::json!({
-                    "target_id": row.get::<_, String>(0)?,
-                    "name": row.get::<_, Option<String>>(1)?,
-                    "relation": row.get::<_, String>(2)?,
-                    "strength": row.get::<_, f64>(3)?,
-                }))
+    let links: Vec<serde_json::Value> = edges
+        .links
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "target_id": r.other_id,
+                "name": r.other_name,
+                "relation": r.relation,
+                "strength": r.strength,
             })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
         })
-        .unwrap_or_default();
-
-    // Incoming = this idea is the target. Source's name for display.
-    let backlinks: Vec<serde_json::Value> = conn
-        .prepare(
-            "SELECT e.source_id, i.name, e.relation, e.strength \
-             FROM memory_edges e \
-             LEFT JOIN ideas i ON i.id = e.source_id \
-             WHERE e.target_id = ?1 \
-             ORDER BY e.strength DESC, e.created_at DESC",
-        )
-        .ok()
-        .map(|mut stmt| {
-            stmt.query_map(rusqlite::params![idea_id], |row| {
-                Ok(serde_json::json!({
-                    "source_id": row.get::<_, String>(0)?,
-                    "name": row.get::<_, Option<String>>(1)?,
-                    "relation": row.get::<_, String>(2)?,
-                    "strength": row.get::<_, f64>(3)?,
-                }))
+        .collect();
+    let backlinks: Vec<serde_json::Value> = edges
+        .backlinks
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "source_id": r.other_id,
+                "name": r.other_name,
+                "relation": r.relation,
+                "strength": r.strength,
             })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
         })
-        .unwrap_or_default();
+        .collect();
 
     serde_json::json!({
         "ok": true,

@@ -1873,6 +1873,79 @@ impl IdeaStore for SqliteIdeas {
             .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
     }
 
+    async fn remove_idea_edge(
+        &self,
+        source_id: &str,
+        target_id: &str,
+        relation: Option<&str>,
+    ) -> Result<usize> {
+        let source = source_id.to_string();
+        let target = target_id.to_string();
+        let relation = relation.map(str::to_string);
+        self.blocking(move |conn| {
+            let rows = if let Some(rel) = relation {
+                conn.execute(
+                    "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
+                    rusqlite::params![source, target, rel],
+                )?
+            } else {
+                conn.execute(
+                    "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2",
+                    rusqlite::params![source, target],
+                )?
+            };
+            Ok(rows)
+        })
+        .await
+    }
+
+    async fn idea_edges(&self, idea_id: &str) -> Result<aeqi_core::traits::IdeaEdges> {
+        use aeqi_core::traits::{IdeaEdgeRow, IdeaEdges};
+        let idea_id = idea_id.to_string();
+        self.blocking(move |conn| {
+            let mut links_stmt = conn.prepare(
+                "SELECT e.target_id, i.name, e.relation, e.strength \
+                 FROM memory_edges e \
+                 LEFT JOIN ideas i ON i.id = e.target_id \
+                 WHERE e.source_id = ?1 \
+                 ORDER BY e.strength DESC, e.created_at DESC",
+            )?;
+            let links: Vec<IdeaEdgeRow> = links_stmt
+                .query_map(rusqlite::params![idea_id], |row| {
+                    Ok(IdeaEdgeRow {
+                        other_id: row.get(0)?,
+                        other_name: row.get(1)?,
+                        relation: row.get(2)?,
+                        strength: row.get::<_, f64>(3)? as f32,
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            let mut backlinks_stmt = conn.prepare(
+                "SELECT e.source_id, i.name, e.relation, e.strength \
+                 FROM memory_edges e \
+                 LEFT JOIN ideas i ON i.id = e.source_id \
+                 WHERE e.target_id = ?1 \
+                 ORDER BY e.strength DESC, e.created_at DESC",
+            )?;
+            let backlinks: Vec<IdeaEdgeRow> = backlinks_stmt
+                .query_map(rusqlite::params![idea_id], |row| {
+                    Ok(IdeaEdgeRow {
+                        other_id: row.get(0)?,
+                        other_name: row.get(1)?,
+                        relation: row.get(2)?,
+                        strength: row.get::<_, f64>(3)? as f32,
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            Ok(IdeaEdges { links, backlinks })
+        })
+        .await
+    }
+
     async fn get_by_ids(&self, ids: &[String]) -> Result<Vec<Idea>> {
         if ids.is_empty() {
             return Ok(Vec::new());
@@ -2391,5 +2464,97 @@ mod tests {
             .query_row([], |row| row.get(0))
             .unwrap();
         assert!(has_hash, "content_hash column should exist after migration");
+    }
+
+    #[tokio::test]
+    async fn test_idea_edges_roundtrip() {
+        let (mem, _dir) = test_ideas();
+
+        let a = mem
+            .store("auth-design", "JWT auth module", &[], None)
+            .await
+            .unwrap();
+        let b = mem
+            .store("session-design", "Session token storage", &[], None)
+            .await
+            .unwrap();
+        let c = mem
+            .store("legacy-auth", "Old cookie auth", &[], None)
+            .await
+            .unwrap();
+
+        mem.store_idea_edge(&a, &b, "supports", 0.8).await.unwrap();
+        mem.store_idea_edge(&a, &c, "supersedes", 1.0)
+            .await
+            .unwrap();
+        mem.store_idea_edge(&c, &a, "related_to", 0.5)
+            .await
+            .unwrap();
+
+        let edges = mem.idea_edges(&a).await.unwrap();
+        assert_eq!(edges.links.len(), 2, "a has two outgoing edges");
+        assert_eq!(edges.backlinks.len(), 1, "a has one incoming edge");
+
+        // Outgoing edges should be ordered by strength DESC — supersedes (1.0) first.
+        assert_eq!(edges.links[0].other_id, c);
+        assert_eq!(edges.links[0].relation, "supersedes");
+        assert_eq!(edges.links[0].other_name.as_deref(), Some("legacy-auth"));
+        assert_eq!(edges.links[1].other_id, b);
+        assert_eq!(edges.links[1].relation, "supports");
+
+        // Incoming: c → a related_to.
+        assert_eq!(edges.backlinks[0].other_id, c);
+        assert_eq!(edges.backlinks[0].relation, "related_to");
+    }
+
+    #[tokio::test]
+    async fn test_idea_edges_remove_specific_relation() {
+        let (mem, _dir) = test_ideas();
+
+        let a = mem.store("a", "A", &[], None).await.unwrap();
+        let b = mem.store("b", "B", &[], None).await.unwrap();
+
+        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "contradicts", 1.0)
+            .await
+            .unwrap();
+
+        let removed = mem
+            .remove_idea_edge(&a, &b, Some("supports"))
+            .await
+            .unwrap();
+        assert_eq!(removed, 1);
+
+        let edges = mem.idea_edges(&a).await.unwrap();
+        assert_eq!(edges.links.len(), 1);
+        assert_eq!(edges.links[0].relation, "contradicts");
+    }
+
+    #[tokio::test]
+    async fn test_idea_edges_remove_all_between_pair() {
+        let (mem, _dir) = test_ideas();
+
+        let a = mem.store("a", "A", &[], None).await.unwrap();
+        let b = mem.store("b", "B", &[], None).await.unwrap();
+
+        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "related_to", 0.5)
+            .await
+            .unwrap();
+
+        let removed = mem.remove_idea_edge(&a, &b, None).await.unwrap();
+        assert_eq!(removed, 2);
+
+        let edges = mem.idea_edges(&a).await.unwrap();
+        assert!(edges.links.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_idea_edges_for_unknown_idea_returns_empty() {
+        let (mem, _dir) = test_ideas();
+
+        let edges = mem.idea_edges("nonexistent-id").await.unwrap();
+        assert!(edges.links.is_empty());
+        assert!(edges.backlinks.is_empty());
     }
 }

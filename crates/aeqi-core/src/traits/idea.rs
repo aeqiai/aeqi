@@ -263,4 +263,39 @@ pub trait IdeaStore: Send + Sync {
     ) -> anyhow::Result<()> {
         Ok(())
     }
+
+    /// Remove one or more idea graph edges. If `relation` is Some, deletes only
+    /// edges with that exact relation; if None, deletes all edges between the
+    /// two ideas. Returns the number of rows removed.
+    async fn remove_idea_edge(
+        &self,
+        _source_id: &str,
+        _target_id: &str,
+        _relation: Option<&str>,
+    ) -> anyhow::Result<usize> {
+        Ok(0)
+    }
+
+    /// Fetch outgoing and incoming edges for an idea.
+    /// `links` are edges where this idea is the source; `backlinks` where it is the target.
+    /// Each tuple: (other_idea_id, other_idea_name, relation, strength).
+    async fn idea_edges(&self, _idea_id: &str) -> anyhow::Result<IdeaEdges> {
+        Ok(IdeaEdges::default())
+    }
+}
+
+/// Outgoing and incoming edges for a single idea.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct IdeaEdges {
+    pub links: Vec<IdeaEdgeRow>,
+    pub backlinks: Vec<IdeaEdgeRow>,
+}
+
+/// One row in an edge list — the "other side" of the edge.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdeaEdgeRow {
+    pub other_id: String,
+    pub other_name: Option<String>,
+    pub relation: String,
+    pub strength: f32,
 }

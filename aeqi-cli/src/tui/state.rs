@@ -104,7 +104,6 @@ pub struct AppState {
     pub steps: u32,
     pub start_time: Instant,
     pub should_quit: bool,
-    pub auto_scroll: bool,
     pub agent_id: Option<String>,
     pub project: Option<String>,
     pub streaming_text: String,
@@ -130,7 +129,6 @@ impl AppState {
             steps: 0,
             start_time: Instant::now(),
             should_quit: false,
-            auto_scroll: true,
             agent_id: None,
             project: None,
             streaming_text: String::new(),
@@ -147,7 +145,6 @@ impl AppState {
         });
         self.history.push(text.to_string());
         self.history_index = None;
-        self.auto_scroll = true;
     }
 
     pub fn open_response_box(&mut self) {
