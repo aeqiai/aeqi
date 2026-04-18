@@ -6,6 +6,14 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Whether a file was newly created or an existing file was modified.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileOperation {
+    Created,
+    Modified,
+}
+
 /// A streaming event emitted during chat-based agent execution.
 ///
 /// Events are ordered and should be rendered incrementally by the client.
@@ -74,11 +82,35 @@ pub enum ChatStreamEvent {
         idea_ids: Vec<String>,
     },
 
+    /// A file on disk was created or modified by the agent.
+    FileChanged {
+        tool_use_id: String,
+        path: String,
+        operation: FileOperation,
+        bytes: u64,
+    },
+
+    /// A file was removed by the agent.
+    FileDeleted { tool_use_id: String, path: String },
+
+    /// A tool's output exceeded the size threshold and was summarized by the
+    /// runtime before being injected back into the conversation. The `summary`
+    /// field replaces the full output for display purposes.
+    ToolSummarized {
+        tool_use_id: String,
+        tool_name: String,
+        original_bytes: u64,
+        summary: String,
+    },
+
     /// Context was compacted.
     Compacted {
         original_messages: usize,
         remaining_messages: usize,
         compaction_number: u32,
+        /// Paths re-read from disk after compaction stripped earlier file-read
+        /// tool outputs. The UI shows a chip for each restored file.
+        restored_files: Vec<String>,
     },
 
     /// The agent's step is complete (model returned end_turn).
@@ -141,5 +173,168 @@ impl std::fmt::Debug for ChatStreamSender {
         f.debug_struct("ChatStreamSender")
             .field("subscribers", &self.tx.receiver_count())
             .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn round_trip(event: &ChatStreamEvent) -> ChatStreamEvent {
+        let json = serde_json::to_string(event).expect("serialize");
+        serde_json::from_str(&json).expect("deserialize")
+    }
+
+    fn assert_json_type(event: &ChatStreamEvent, expected_type: &str) {
+        let v: serde_json::Value = serde_json::to_value(event).expect("to_value");
+        assert_eq!(
+            v["type"].as_str().unwrap_or(""),
+            expected_type,
+            "event type tag mismatch"
+        );
+    }
+
+    #[test]
+    fn file_changed_created_round_trip() {
+        let event = ChatStreamEvent::FileChanged {
+            tool_use_id: "tu_123".to_string(),
+            path: "/workspace/src/main.rs".to_string(),
+            operation: FileOperation::Created,
+            bytes: 1024,
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::FileChanged {
+                tool_use_id,
+                path,
+                operation,
+                bytes,
+            } => {
+                assert_eq!(tool_use_id, "tu_123");
+                assert_eq!(path, "/workspace/src/main.rs");
+                assert!(matches!(operation, FileOperation::Created));
+                assert_eq!(bytes, 1024);
+            }
+            _ => panic!("expected FileChanged"),
+        }
+        assert_json_type(&event, "FileChanged");
+    }
+
+    #[test]
+    fn file_changed_modified_round_trip() {
+        let event = ChatStreamEvent::FileChanged {
+            tool_use_id: "tu_456".to_string(),
+            path: "src/lib.rs".to_string(),
+            operation: FileOperation::Modified,
+            bytes: 2048,
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::FileChanged { operation, .. } => {
+                assert!(matches!(operation, FileOperation::Modified));
+            }
+            _ => panic!("expected FileChanged"),
+        }
+        // Verify operation serializes as lowercase.
+        let v: serde_json::Value = serde_json::to_value(&event).expect("to_value");
+        assert_eq!(v["operation"].as_str().unwrap_or(""), "modified");
+    }
+
+    #[test]
+    fn file_operation_serializes_lowercase() {
+        let created = serde_json::to_value(FileOperation::Created).unwrap();
+        let modified = serde_json::to_value(FileOperation::Modified).unwrap();
+        assert_eq!(created.as_str().unwrap(), "created");
+        assert_eq!(modified.as_str().unwrap(), "modified");
+    }
+
+    #[test]
+    fn file_deleted_round_trip() {
+        let event = ChatStreamEvent::FileDeleted {
+            tool_use_id: "tu_789".to_string(),
+            path: "/workspace/old.rs".to_string(),
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::FileDeleted { tool_use_id, path } => {
+                assert_eq!(tool_use_id, "tu_789");
+                assert_eq!(path, "/workspace/old.rs");
+            }
+            _ => panic!("expected FileDeleted"),
+        }
+        assert_json_type(&event, "FileDeleted");
+    }
+
+    #[test]
+    fn tool_summarized_round_trip() {
+        let event = ChatStreamEvent::ToolSummarized {
+            tool_use_id: "tu_abc".to_string(),
+            tool_name: "shell".to_string(),
+            original_bytes: 50_000,
+            summary: "Command output showed 3 errors in build log.".to_string(),
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::ToolSummarized {
+                tool_use_id,
+                tool_name,
+                original_bytes,
+                summary,
+            } => {
+                assert_eq!(tool_use_id, "tu_abc");
+                assert_eq!(tool_name, "shell");
+                assert_eq!(original_bytes, 50_000);
+                assert!(summary.contains("errors"));
+            }
+            _ => panic!("expected ToolSummarized"),
+        }
+        assert_json_type(&event, "ToolSummarized");
+    }
+
+    #[test]
+    fn compacted_with_restored_files_round_trip() {
+        let event = ChatStreamEvent::Compacted {
+            original_messages: 42,
+            remaining_messages: 10,
+            compaction_number: 1,
+            restored_files: vec!["src/main.rs".to_string(), "src/lib.rs".to_string()],
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::Compacted {
+                original_messages,
+                remaining_messages,
+                compaction_number,
+                restored_files,
+            } => {
+                assert_eq!(original_messages, 42);
+                assert_eq!(remaining_messages, 10);
+                assert_eq!(compaction_number, 1);
+                assert_eq!(restored_files.len(), 2);
+                assert!(restored_files.contains(&"src/main.rs".to_string()));
+            }
+            _ => panic!("expected Compacted"),
+        }
+    }
+
+    #[test]
+    fn compacted_empty_restored_files_round_trip() {
+        let event = ChatStreamEvent::Compacted {
+            original_messages: 20,
+            remaining_messages: 5,
+            compaction_number: 0,
+            restored_files: Vec::new(),
+        };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::Compacted { restored_files, .. } => {
+                assert!(restored_files.is_empty());
+            }
+            _ => panic!("expected Compacted"),
+        }
     }
 }

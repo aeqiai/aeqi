@@ -1,3 +1,4 @@
+use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender, FileOperation};
 use aeqi_core::traits::{ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -6,11 +7,21 @@ use tracing::debug;
 
 pub struct FileEditTool {
     workspace: PathBuf,
+    chat_stream: Option<ChatStreamSender>,
 }
 
 impl FileEditTool {
     pub fn new(workspace: PathBuf) -> Self {
-        Self { workspace }
+        Self {
+            workspace,
+            chat_stream: None,
+        }
+    }
+
+    /// Attach a chat stream sender for emitting `FileChanged` events.
+    pub fn with_chat_stream(mut self, sender: ChatStreamSender) -> Self {
+        self.chat_stream = Some(sender);
+        self
     }
 
     fn resolve_path(&self, path: &str) -> Result<PathBuf> {
@@ -98,6 +109,14 @@ impl aeqi_core::traits::Tool for FileEditTool {
             let updated = content.replace(old_string, new_string);
             tokio::fs::write(&resolved, &updated).await?;
             debug!(path = %resolved.display(), count, "replaced all occurrences");
+            if let Some(ref tx) = self.chat_stream {
+                tx.send(ChatStreamEvent::FileChanged {
+                    tool_use_id: String::new(),
+                    path: resolved.display().to_string(),
+                    operation: FileOperation::Modified,
+                    bytes: updated.len() as u64,
+                });
+            }
             return Ok(ToolResult::success(format!(
                 "replaced {count} occurrences in {}",
                 resolved.display()
@@ -139,6 +158,14 @@ impl aeqi_core::traits::Tool for FileEditTool {
         tokio::fs::write(&resolved, &updated).await?;
 
         debug!(path = %resolved.display(), "edited file");
+        if let Some(ref tx) = self.chat_stream {
+            tx.send(ChatStreamEvent::FileChanged {
+                tool_use_id: String::new(),
+                path: resolved.display().to_string(),
+                operation: FileOperation::Modified,
+                bytes: updated.len() as u64,
+            });
+        }
         Ok(ToolResult::success(format!(
             "edited {}",
             resolved.display()

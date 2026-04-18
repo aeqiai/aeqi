@@ -11,11 +11,33 @@ export interface ToolEvent {
   timestamp: number;
 }
 
+export type FileOperation = "created" | "modified";
+
+export interface FileChangedEvent {
+  path: string;
+  operation: FileOperation;
+  bytes: number;
+}
+
+export interface FileDeletedEvent {
+  path: string;
+}
+
+export interface ToolSummarizedEvent {
+  tool_use_id: string;
+  tool_name: string;
+  original_bytes: number;
+  summary: string;
+}
+
 export type MessageSegment =
   | { kind: "text"; text: string }
   | { kind: "tool"; event: ToolEvent }
   | { kind: "step"; step: number }
-  | { kind: "status"; text: string };
+  | { kind: "status"; text: string }
+  | { kind: "file_changed"; event: FileChangedEvent }
+  | { kind: "file_deleted"; event: FileDeletedEvent }
+  | { kind: "tool_summarized"; event: ToolSummarizedEvent };
 
 export interface EventFire {
   eventId: string;

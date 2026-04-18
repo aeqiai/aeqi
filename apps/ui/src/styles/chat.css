@@ -889,6 +889,128 @@
   opacity: 0.5;
 }
 
+/* ── File-change chips ── */
+
+.asv-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  margin: 2px 0;
+  border: 1px solid transparent;
+}
+.asv-file-chip--created {
+  color: var(--color-success, #22a360);
+  background: rgba(34, 163, 96, 0.06);
+  border-color: rgba(34, 163, 96, 0.15);
+}
+.asv-file-chip--modified {
+  color: var(--color-warning, #b45309);
+  background: rgba(180, 83, 9, 0.06);
+  border-color: rgba(180, 83, 9, 0.15);
+}
+.asv-file-chip--deleted {
+  color: var(--error, #dc2626);
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.15);
+}
+.asv-file-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.7;
+}
+.asv-file-chip-op {
+  opacity: 0.7;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.asv-file-chip-path {
+  font-weight: 500;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asv-file-chip-size {
+  opacity: 0.55;
+  font-size: 9px;
+}
+
+/* ── Tool-summarized chip ── */
+
+.asv-tool-summarized-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+}
+.asv-tool-summarized-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.asv-tool-summarized-header:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-hover, rgba(0, 0, 0, 0.15));
+}
+.asv-tool-summarized-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+.asv-tool-summarized-name {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.asv-tool-summarized-label {
+  opacity: 0.6;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.asv-tool-summarized-size {
+  opacity: 0.5;
+  font-size: 9px;
+}
+.asv-tool-summarized-chevron {
+  margin-left: auto;
+  opacity: 0.5;
+  font-size: 8px;
+}
+.asv-tool-summarized-body {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
+  border-left: 2px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
 /* ── Thinking indicator ── */
 
 .asv-thinking {
