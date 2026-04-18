@@ -6,7 +6,47 @@ import { useAgentDataStore } from "@/store/agentData";
 import { useNav } from "@/hooks/useNav";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { ALL_TOOLS } from "@/lib/tools";
-import type { AgentEvent, Agent, Idea } from "@/lib/types";
+import type { AgentEvent, Agent, Idea, Quest } from "@/lib/types";
+
+/**
+ * Extract a short preview snippet from `text`, centered on the first
+ * occurrence of any query word.  Falls back to the leading 80 chars.
+ *
+ * @param text    Full content string.
+ * @param query   The user's current search string (may be empty).
+ * @param length  Max snippet length (default 80).
+ */
+function snippetFor(text: string, query: string, length = 80): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!query) return flat.slice(0, length);
+
+  const words = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length); // longest word first for best anchor
+
+  const lower = flat.toLowerCase();
+  let matchIdx = -1;
+  for (const w of words) {
+    const i = lower.indexOf(w);
+    if (i !== -1) {
+      matchIdx = i;
+      break;
+    }
+  }
+
+  if (matchIdx === -1) return flat.slice(0, length);
+
+  // Centre the window on the match, but keep it in-bounds.
+  const half = Math.floor(length / 2);
+  const start = Math.max(0, matchIdx - half);
+  const end = Math.min(flat.length, start + length);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < flat.length ? "…" : "";
+  return prefix + flat.slice(start, end) + suffix;
+}
 
 // Stable empty-array reference. Returning a fresh `[]` from a Zustand
 // selector on every render triggers React error #185 (infinite update loop).
@@ -14,6 +54,7 @@ const NO_SESSIONS: SessionInfo[] = [];
 const NO_EVENTS: AgentEvent[] = [];
 const NO_CHANNELS: import("@/store/agentData").ChannelEntry[] = [];
 const NO_IDEAS: Idea[] = [];
+const NO_QUESTS: Quest[] = [];
 
 /** A single row in the rail. Uniform across every tab. */
 interface RailItem {
@@ -88,6 +129,22 @@ export default function ContentCTA() {
   useEffect(() => {
     if (section === "channels" && agentId) loadChannels(agentId);
   }, [section, agentId, loadChannels]);
+
+  // --- Quests -------------------------------------------------------------
+  const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
+  const agents = useDaemonStore((s) => s.agents);
+  const questAgent = useMemo(
+    () =>
+      section === "quests" && agentId
+        ? agents.find((a) => a.id === agentId || a.name === agentId)
+        : undefined,
+    [section, agents, agentId],
+  );
+  const scopedQuests = useMemo(() => {
+    if (section !== "quests") return NO_QUESTS;
+    if (!questAgent) return NO_QUESTS;
+    return allQuests.filter((q) => q.agent_id === questAgent.id);
+  }, [section, allQuests, questAgent]);
 
   // --- Ideas --------------------------------------------------------------
   const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
@@ -214,6 +271,18 @@ export default function ContentCTA() {
 
     case "quests":
       header = { label: "New quest", event: "aeqi:create" };
+      items = scopedQuests.map((q) => {
+        const isClosed = q.status === "done" || q.status === "cancelled";
+        return {
+          id: q.id,
+          name: q.subject,
+          badge: q.status === "in_progress" ? "●" : q.status === "blocked" ? "!" : undefined,
+          preview: q.description ? q.description.slice(0, 50) : undefined,
+          meta: q.priority !== "normal" ? q.priority : undefined,
+          dimmed: isClosed,
+        };
+      });
+      emptyText = "No quests";
       break;
     case "ideas":
       header = { label: "New idea", event: "aeqi:new-idea" };
@@ -229,7 +298,7 @@ export default function ContentCTA() {
           id: idea.id,
           name: idea.name,
           badge: firstTag ? firstTag.toUpperCase() : undefined,
-          preview: idea.content.slice(0, 60),
+          preview: snippetFor(idea.content, ideasSearch),
           meta,
         };
       });

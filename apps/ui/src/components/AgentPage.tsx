@@ -7,6 +7,7 @@ import AgentSessionView from "./AgentSessionView";
 import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
+import AgentQuestsTab from "./AgentQuestsTab";
 import BrandMark from "./BrandMark";
 import BudgetMeter from "./BudgetMeter";
 import { Button, EmptyState } from "./ui";
@@ -58,7 +59,7 @@ export default function AgentPage({
   // Child agents for the "agents" tab
   const childAgents = agents.filter((a) => a.parent_id === agent?.id);
 
-  // Quests scoped to this agent
+  // Quest counts for the dashboard tab (lightweight — just IDs + status)
   const agentQuests = quests.filter((q) => (q as Record<string, unknown>).agent_id === agent?.id);
 
   // Save feedback toast
@@ -182,23 +183,7 @@ export default function AgentPage({
         </div>
       )}
 
-      {activeTab === "quests" && (
-        <div className="page-content" style={{ padding: "16px" }}>
-          {agentQuests.length > 0 ? (
-            agentQuests.map((quest) => {
-              const q = quest as Record<string, unknown>;
-              return (
-                <div key={q.id as string} className="scoped-quest-row">
-                  <span className="scoped-quest-status">{q.status as string}</span>
-                  <span className="scoped-quest-subject">{q.subject as string}</span>
-                </div>
-              );
-            })
-          ) : (
-            <EmptyState title="No quests" description="No work items assigned to this agent." />
-          )}
-        </div>
-      )}
+      {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
 
       {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
 
