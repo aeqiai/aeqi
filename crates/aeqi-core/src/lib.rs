@@ -11,6 +11,7 @@ pub mod chat_stream;
 pub mod checkpoint;
 pub mod config;
 pub mod frontmatter;
+pub mod hooks;
 pub mod prompt;
 pub mod sanitize;
 pub mod security;
@@ -28,6 +29,9 @@ pub use config::{
     AEQIConfig, AgentPromptConfig, AgentSpawnConfig, AgentTriggerConfig, ContextBudgetConfig,
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
+};
+pub use hooks::{
+    HookAction, HookRule, HookTrigger, HooksObserver, load_hooks_from_dir, match_hooks,
 };
 pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
 pub use security::SecretStore;

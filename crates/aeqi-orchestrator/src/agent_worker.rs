@@ -1298,7 +1298,14 @@ impl AgentWorker {
         task_context: &str,
         system_prompt: &str,
     ) -> Result<aeqi_core::AgentResult> {
-        let observer: Arc<dyn Observer> = if let Some(ref chain) = self.middleware_chain {
+        // Load user-defined hook rules from <project_dir>/.aeqi/hooks/*.md.
+        let hooks_observer = if let Some(ref dir) = self.project_dir {
+            aeqi_core::HooksObserver::load(dir, self.persistent_agent_id.clone()).await
+        } else {
+            aeqi_core::HooksObserver::from_rules(Vec::new(), None)
+        };
+
+        let base_observer: Arc<dyn Observer> = if let Some(ref chain) = self.middleware_chain {
             let mut worker_ctx = crate::middleware::WorkerContext::new(
                 self.hook
                     .as_ref()
@@ -1321,6 +1328,9 @@ impl AgentWorker {
         } else {
             Arc::new(LogObserver)
         };
+
+        let observer: Arc<dyn Observer> =
+            Arc::new(CompositeObserver::new(hooks_observer, base_observer));
 
         // Resolve context window from model name.
         let context_window = aeqi_providers::context_window_for_model(model);
@@ -1920,5 +1930,91 @@ fn truncate_str(s: &str, max_chars: usize) -> String {
             end -= 1;
         }
         format!("{}...", &s[..end])
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CompositeObserver — chains two observers, hooks fires first
+// ---------------------------------------------------------------------------
+
+/// Chains a [`HooksObserver`] (user hook rules) in front of an existing observer.
+///
+/// For `before_tool` / `after_tool`: if hooks returns `Halt` or `Inject`, that
+/// result is returned immediately without calling the inner observer. For
+/// `Continue`, the inner observer is consulted.
+///
+/// All other lifecycle methods delegate only to the inner observer.
+struct CompositeObserver {
+    hooks: aeqi_core::HooksObserver,
+    inner: Arc<dyn Observer>,
+}
+
+impl CompositeObserver {
+    fn new(hooks: aeqi_core::HooksObserver, inner: Arc<dyn Observer>) -> Self {
+        Self { hooks, inner }
+    }
+}
+
+#[async_trait::async_trait]
+impl Observer for CompositeObserver {
+    fn name(&self) -> &str {
+        "composite"
+    }
+
+    async fn record(&self, event: Event) {
+        self.inner.record(event).await;
+    }
+
+    async fn before_model(&self, iteration: u32) -> LoopAction {
+        self.inner.before_model(iteration).await
+    }
+
+    async fn after_model(
+        &self,
+        iteration: u32,
+        prompt_tokens: u32,
+        completion_tokens: u32,
+    ) -> LoopAction {
+        self.inner
+            .after_model(iteration, prompt_tokens, completion_tokens)
+            .await
+    }
+
+    async fn before_tool(&self, tool_name: &str, input: &serde_json::Value) -> LoopAction {
+        let hook_action = self.hooks.before_tool(tool_name, input).await;
+        match hook_action {
+            LoopAction::Continue => self.inner.before_tool(tool_name, input).await,
+            other => other,
+        }
+    }
+
+    async fn after_tool(&self, tool_name: &str, output: &str, is_error: bool) -> LoopAction {
+        let hook_action = self.hooks.after_tool(tool_name, output, is_error).await;
+        match hook_action {
+            LoopAction::Continue => self.inner.after_tool(tool_name, output, is_error).await,
+            other => other,
+        }
+    }
+
+    async fn on_error(&self, iteration: u32, error: &str) -> LoopAction {
+        self.inner.on_error(iteration, error).await
+    }
+
+    async fn after_step(
+        &self,
+        iteration: u32,
+        response_text: &str,
+        stop_reason: &str,
+    ) -> LoopAction {
+        self.inner
+            .after_step(iteration, response_text, stop_reason)
+            .await
+    }
+
+    async fn collect_attachments(
+        &self,
+        iteration: u32,
+    ) -> Vec<aeqi_core::traits::ContextAttachment> {
+        self.inner.collect_attachments(iteration).await
     }
 }
