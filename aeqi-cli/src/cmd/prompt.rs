@@ -9,8 +9,7 @@ use std::sync::Arc;
 use crate::cli::PromptAction;
 use crate::helpers::{
     augment_prompt_with_org_context, build_project_tools, build_provider_for_project,
-    find_agent_dir, find_project_dir, load_config, load_system_prompt, load_system_prompt_from_dir,
-    one_shot_agent_name, open_ideas,
+    find_project_dir, load_config, open_ideas,
 };
 
 fn discover_project_prompts(project_dir: &Path) -> Result<Vec<Prompt>> {
@@ -96,12 +95,8 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
                 .collect();
 
             // Build system prompt with prompt overlay.
-            let execution_agent = one_shot_agent_name(&config, Some(&root));
-            let base_prompt = find_agent_dir(&execution_agent)
-                .ok()
-                .map(|agent_dir| load_system_prompt(&agent_dir, Some(&project_dir)))
-                .unwrap_or_else(|| load_system_prompt_from_dir(&project_dir));
-            let base_prompt = augment_prompt_with_org_context(&config, &base_prompt);
+            let base_prompt =
+                augment_prompt_with_org_context(&config, "You are a helpful AI agent.");
             let final_prompt = matched.system_prompt(&base_prompt);
 
             let user_prompt = if let Some(ref p) = prompt {

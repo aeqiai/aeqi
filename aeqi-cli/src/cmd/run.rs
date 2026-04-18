@@ -7,8 +7,7 @@ use tracing::{info, warn};
 
 use crate::helpers::{
     augment_prompt_with_org_context, build_project_tools, build_provider_for_one_shot, build_tools,
-    find_agent_dir, find_project_dir, load_config, load_system_prompt, load_system_prompt_from_dir,
-    one_shot_agent_name, open_ideas,
+    load_config, one_shot_agent_name, open_ideas,
 };
 
 pub(crate) async fn cmd_run(
@@ -40,23 +39,7 @@ pub(crate) async fn cmd_run(
     } else {
         build_tools(&workdir)
     };
-    // Load system prompt from agent identity files + optional project context.
-    let system_prompt = if let Some(rn) = project_name {
-        let project_dir = find_project_dir(rn).ok();
-        let agent_dir = find_agent_dir(&execution_agent).ok();
-        match (agent_dir, project_dir) {
-            (Some(a), Some(d)) => load_system_prompt(&a, Some(&d)),
-            (Some(a), None) => load_system_prompt(&a, None),
-            (None, Some(d)) => load_system_prompt_from_dir(&d),
-            (None, None) => "You are a helpful AI agent.".to_string(),
-        }
-    } else {
-        find_agent_dir(&execution_agent)
-            .ok()
-            .map(|d| load_system_prompt(&d, None))
-            .unwrap_or_else(|| "You are a helpful AI agent.".to_string())
-    };
-    let system_prompt = augment_prompt_with_org_context(&config, &system_prompt);
+    let system_prompt = augment_prompt_with_org_context(&config, "You are a helpful AI agent.");
     let observer: Arc<dyn Observer> = Arc::new(LogObserver);
 
     let agent_config = AgentConfig {

@@ -2312,5 +2312,4 @@ mod tests {
             "unresolved names must not create edges"
         );
     }
-
 }

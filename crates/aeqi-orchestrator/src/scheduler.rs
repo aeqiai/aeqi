@@ -71,8 +71,6 @@ pub struct SchedulerConfig {
     pub worker_max_budget_usd: f64,
     /// Global daily budget cap (replaces CostLedger daily budget).
     pub daily_budget_usd: f64,
-    /// Shared primer injected into ALL agents.
-    pub shared_primer: Option<String>,
     /// Model for post-execution reflection.
     pub reflect_model: String,
     /// Enable adaptive retry with failure analysis.
@@ -90,7 +88,6 @@ impl Default for SchedulerConfig {
             default_timeout_secs: 3600,
             worker_max_budget_usd: 5.0,
             daily_budget_usd: 50.0,
-            shared_primer: None,
             reflect_model: String::new(),
             adaptive_retry: false,
             failure_analysis_model: String::new(),

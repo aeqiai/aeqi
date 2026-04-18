@@ -265,8 +265,6 @@ pub struct SessionManager {
     default_model: String,
     activity_stream: Option<Arc<ActivityStream>>,
     activity_log: Option<Arc<ActivityLog>>,
-    shared_primer: Option<String>,
-    project_primer: Option<String>,
     idea_store: Option<Arc<dyn IdeaStore>>,
     default_project: String,
     /// Sandbox configuration. When set, sessions are sandboxed in git worktrees.
@@ -288,8 +286,6 @@ impl SessionManager {
             default_model: String::new(),
             activity_stream: None,
             activity_log: None,
-            shared_primer: None,
-            project_primer: None,
             idea_store: None,
             default_project: String::new(),
             sandbox_config: None,
@@ -310,11 +306,7 @@ impl SessionManager {
         activity_log: Arc<ActivityLog>,
         idea_store: Option<Arc<dyn IdeaStore>>,
         default_project: String,
-        shared_primer: Option<String>,
-        project_primer: Option<String>,
     ) {
-        self.shared_primer = shared_primer;
-        self.project_primer = project_primer;
         self.agent_registry = Some(agent_registry);
         self.session_store = Some(session_store);
         self.default_model = default_model;
@@ -322,13 +314,6 @@ impl SessionManager {
         self.activity_log = Some(activity_log);
         self.idea_store = idea_store;
         self.default_project = default_project;
-    }
-
-    /// Set primers directly without going through configure().
-    /// Call after `configure()` to override, or standalone.
-    pub fn set_primers(&mut self, shared_primer: Option<String>, project_primer: Option<String>) {
-        self.shared_primer = shared_primer;
-        self.project_primer = project_primer;
     }
 
     /// Enable session sandboxing. When set, each session gets a git worktree
@@ -421,15 +406,7 @@ impl SessionManager {
                 assembled.system
             }
         } else {
-            // Unknown agent (no UUID) — use default + primers.
-            let mut parts = vec!["You are a helpful AI agent.".to_string()];
-            if let Some(ref sp) = self.shared_primer {
-                parts.push(sp.clone());
-            }
-            if let Some(ref pp) = self.project_primer {
-                parts.push(pp.clone());
-            }
-            parts.join("\n\n---\n\n")
+            "You are a helpful AI agent.".to_string()
         };
 
         // 3. Resolve workdir — use agent registry or fall back to cwd.

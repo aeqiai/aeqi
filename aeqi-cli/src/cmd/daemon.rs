@@ -258,7 +258,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .first()
                     .and_then(|c| c.max_budget_usd)
                     .unwrap_or(5.0),
-                shared_primer: config.shared_primer.clone(),
                 reflect_model: config
                     .default_model_for_provider(aeqi_core::config::ProviderKind::OpenRouter),
                 adaptive_retry: config.orchestrator.adaptive_retry,
@@ -357,8 +356,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     activity_log.clone(),
                     shared_idea_store.clone(),
                     sm_default_project,
-                    config.shared_primer.clone(),
-                    config.agent_spawns.first().and_then(|c| c.primer.clone()),
                 );
                 session_manager.set_data_dir(config.data_dir());
                 info!("session manager configured for spawn_session");
@@ -395,10 +392,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 daemon.gateway_manager =
                     Arc::new(GatewayManager::new().with_session_store(ss.clone()));
             }
-            // Primers are now seeded via ideas.db — prompt store import removed.
-            // Still set in-memory primers for backward compat during migration.
-            daemon.shared_primer = config.shared_primer.clone();
-            daemon.project_primer = config.agent_spawns.first().and_then(|c| c.primer.clone());
             daemon.activity_stream = activity_stream;
             daemon.message_router = message_router;
             daemon.default_provider = default_provider;
