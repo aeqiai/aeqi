@@ -63,6 +63,17 @@ pub enum ChatStreamEvent {
         preview: String,
     },
 
+    /// An event handler fired during session lifecycle (e.g. session:start),
+    /// injecting one or more ideas into the agent's context. The frontend
+    /// renders this as an inline "event → ideas" chip row so the user can
+    /// see exactly what context was added and by which event.
+    EventFired {
+        event_id: String,
+        event_name: String,
+        pattern: String,
+        idea_ids: Vec<String>,
+    },
+
     /// Context was compacted.
     Compacted {
         original_messages: usize,

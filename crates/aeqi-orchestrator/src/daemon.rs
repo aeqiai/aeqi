@@ -1855,6 +1855,20 @@ impl Daemon {
                                         .await;
 
                                     let mut rx = spawned.stream_sender.subscribe();
+
+                                    // Forward pre-subscription events (session:start
+                                    // idea injection, etc.) to the wire before the
+                                    // rx loop begins — otherwise they're invisible
+                                    // until the next page reload.
+                                    if stream_mode {
+                                        for ev in &spawned.initial_events {
+                                            if let Ok(ev_bytes) = serde_json::to_vec(ev) {
+                                                let mut bytes = ev_bytes;
+                                                bytes.push(b'\n');
+                                                let _ = writer.write_all(&bytes).await;
+                                            }
+                                        }
+                                    }
                                     let mut step_text = String::new();
                                     let mut full_text = String::new();
                                     let mut iterations = 0u32;

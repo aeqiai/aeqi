@@ -230,6 +230,19 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             // Show spinner during tool execution.
             render::print_thinking(stdout, state);
         }
+        ChatStreamEvent::EventFired {
+            event_name,
+            pattern,
+            idea_ids,
+            ..
+        } => {
+            let label = if event_name.is_empty() {
+                pattern
+            } else {
+                event_name
+            };
+            state.push_system(&format!("event {label} → {} idea(s)", idea_ids.len()));
+        }
     }
 }
 

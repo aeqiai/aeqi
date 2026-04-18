@@ -207,6 +207,24 @@ export function useWebSocketChat({
               setLiveSegments([...segments]);
               break;
             }
+            case "EventFired": {
+              const ideaIds: string[] = Array.isArray(event.idea_ids)
+                ? event.idea_ids.map(String)
+                : [];
+              const fireMsg: Message = {
+                role: "event_fire",
+                content: "",
+                timestamp: Date.now(),
+                eventFire: {
+                  eventId: String(event.event_id ?? ""),
+                  eventName: String(event.event_name ?? ""),
+                  pattern: String(event.pattern ?? ""),
+                  ideaIds,
+                },
+              };
+              setMessages((prev) => [...prev, fireMsg]);
+              break;
+            }
             case "DelegateStart": {
               segments.push({
                 kind: "status",
