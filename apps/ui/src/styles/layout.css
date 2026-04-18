@@ -1769,6 +1769,17 @@
   padding: 24px 32px 16px;
   overflow: hidden;
 }
+.ideas-canvas-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ideas-canvas-head .ideas-canvas-title {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
 .ideas-canvas-title {
   width: 100%;
   padding: 0;
@@ -1780,6 +1791,81 @@
   border: none;
   outline: none;
   font-family: inherit;
+}
+
+/* Top-right ⋯ kebab — destructive actions hide here (Notion-style) */
+.ideas-canvas-menu {
+  position: relative;
+  flex: 0 0 auto;
+  padding-top: 4px;
+}
+.ideas-canvas-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.55;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+.ideas-canvas-menu-trigger:hover,
+.ideas-canvas-menu-trigger[aria-expanded="true"] {
+  opacity: 1;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border-color: var(--border);
+}
+.ideas-canvas-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-panel, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+}
+.ideas-canvas-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.ideas-canvas-menu-item:hover {
+  background: var(--bg-base);
+}
+.ideas-canvas-menu-item.danger {
+  color: var(--destructive, #e55);
+}
+.ideas-canvas-menu-item.danger:hover {
+  color: #fff;
+  background: var(--destructive, #e55);
+}
+.ideas-canvas-menu-item.danger.confirm {
+  color: #fff;
+  background: var(--destructive, #e55);
 }
 .ideas-canvas-title::placeholder {
   color: var(--text-muted);

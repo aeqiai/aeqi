@@ -2,26 +2,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
-import type { Idea, IdeaEdges, IdeaBacklink, IdeaRelation } from "@/lib/types";
+import type { Idea, IdeaEdges, IdeaBacklink, IdeaLink, IdeaRelation } from "@/lib/types";
 
 const NO_EDGES: IdeaEdges = { ok: true, links: [], backlinks: [] };
 const NO_IDEAS: Idea[] = [];
 
-// Short labels for the chip dot tooltip and the picker menu.
+// Runtime behavior differs per relation, so the labels should reflect what
+// the user will actually see in their agent's context.
 const RELATION_LABEL: Record<IdeaRelation, string> = {
-  related_to: "related",
-  supports: "supports",
-  contradicts: "contradicts",
-  supersedes: "supersedes",
-  caused_by: "caused by",
-  derived_from: "derived from",
+  mentions: "mentions",
+  embeds: "embeds",
+  adjacent: "adjacent",
+};
+
+const RELATION_HINT: Record<IdeaRelation, string> = {
+  mentions: "inline [[link]] in the body",
+  embeds: "inline ![[transclusion]] in the body",
+  adjacent: "also see — not in body",
 };
 
 /**
- * Links + Referenced-by UI for a single idea. Outgoing edges are owned by
- * the viewer (can add / remove); backlinks are read-only (remove them from
- * the other side). The picker is a prefix-matched popover scoped to the
- * current agent's visible idea set.
+ * Outgoing edges + backlinks for a single idea. Edge taxonomy:
+ *   - mentions / embeds — derived from `[[X]]` / `![[X]]` in the body
+ *     (read-only here; removed by editing the body)
+ *   - adjacent — explicit picker links ("+ Link" button)
+ *
+ * The picker only creates `adjacent` edges. Body parsing (backend side)
+ * reconciles mentions/embeds on every save.
  */
 export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; agentId: string }) {
   const { goAgent } = useNav();
@@ -55,9 +62,10 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
     if (picking) requestAnimationFrame(() => pickerInputRef.current?.focus());
   }, [picking]);
 
-  // Ideas available to link to: everything visible to this agent, minus
-  // self and already-linked targets. Substring match for the picker.
-  const linkedIds = useMemo(() => new Set(edges.links.map((l) => l.target_id)), [edges.links]);
+  const linkedIds = useMemo(
+    () => new Set(edges.links.filter((l) => l.relation === "adjacent").map((l) => l.target_id)),
+    [edges.links],
+  );
   const pickerResults = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
     return ideas
@@ -68,7 +76,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const addLink = async (targetId: string) => {
     try {
-      await api.addIdeaEdge(ideaId, targetId, "related_to");
+      await api.addIdeaEdge(ideaId, targetId, "adjacent");
       setPicking(false);
       setPickerQuery("");
       await loadEdges();
@@ -88,83 +96,136 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const goTo = (id: string) => goAgent(agentId, "ideas", id);
 
-  const hasLinks = edges.links.length > 0;
+  // Bucket outgoing edges by relation for separate rows.
+  const buckets = useMemo(() => {
+    const out: Record<IdeaRelation, IdeaLink[]> = { mentions: [], embeds: [], adjacent: [] };
+    for (const l of edges.links) {
+      const r = (l.relation in out ? l.relation : "adjacent") as IdeaRelation;
+      out[r].push(l);
+    }
+    return out;
+  }, [edges.links]);
+
+  const hasAnyLink = edges.links.length > 0;
   const hasBacklinks = edges.backlinks.length > 0;
 
-  if (loading && !hasLinks && !hasBacklinks) return null;
+  if (loading && !hasAnyLink && !hasBacklinks) return null;
 
   return (
     <div className="idea-links-panel">
-      <div className="idea-links-row">
-        <span className="idea-links-label">Links</span>
-        <div className="idea-links-chips">
-          {edges.links.map((l) => (
+      {buckets.mentions.length > 0 && (
+        <LinkRow
+          label="Mentions"
+          hint={RELATION_HINT.mentions}
+          chips={buckets.mentions.map((l) => (
             <LinkChip
-              key={`${l.target_id}-${l.relation}`}
-              id={l.target_id}
+              key={`m-${l.target_id}`}
               name={l.name}
-              relation={l.relation}
+              id={l.target_id}
+              relation="mentions"
               onClick={() => goTo(l.target_id)}
-              onRemove={() => removeLink(l.target_id, l.relation)}
-              removable
             />
           ))}
-          {picking ? (
-            <div className="idea-link-picker">
-              <input
-                ref={pickerInputRef}
-                className="idea-link-picker-input"
-                type="text"
-                placeholder="Search ideas…"
-                value={pickerQuery}
-                onChange={(e) => setPickerQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setPicking(false);
-                    setPickerQuery("");
-                  }
-                }}
-              />
-              <div className="idea-link-picker-list">
-                {pickerResults.length === 0 ? (
-                  <div className="idea-link-picker-empty">No matches</div>
-                ) : (
-                  pickerResults.map((r) => (
-                    <button
-                      type="button"
-                      key={r.id}
-                      className="idea-link-picker-item"
-                      onClick={() => addLink(r.id)}
-                    >
-                      {r.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : (
-            <button type="button" className="idea-link-add" onClick={() => setPicking(true)}>
-              + Link
-            </button>
-          )}
-        </div>
-      </div>
-      {hasBacklinks && (
-        <div className="idea-links-row">
-          <span className="idea-links-label">Referenced by</span>
-          <div className="idea-links-chips">
-            {edges.backlinks.map((b: IdeaBacklink) => (
+        />
+      )}
+      {buckets.embeds.length > 0 && (
+        <LinkRow
+          label="Embeds"
+          hint={RELATION_HINT.embeds}
+          chips={buckets.embeds.map((l) => (
+            <LinkChip
+              key={`e-${l.target_id}`}
+              name={l.name}
+              id={l.target_id}
+              relation="embeds"
+              onClick={() => goTo(l.target_id)}
+            />
+          ))}
+        />
+      )}
+      <LinkRow
+        label="Adjacent"
+        hint={RELATION_HINT.adjacent}
+        chips={
+          <>
+            {buckets.adjacent.map((l) => (
               <LinkChip
-                key={`${b.source_id}-${b.relation}`}
-                id={b.source_id}
-                name={b.name}
-                relation={b.relation}
-                onClick={() => goTo(b.source_id)}
+                key={`a-${l.target_id}`}
+                name={l.name}
+                id={l.target_id}
+                relation="adjacent"
+                onClick={() => goTo(l.target_id)}
+                onRemove={() => removeLink(l.target_id, "adjacent")}
+                removable
               />
             ))}
-          </div>
-        </div>
+            {picking ? (
+              <div className="idea-link-picker">
+                <input
+                  ref={pickerInputRef}
+                  className="idea-link-picker-input"
+                  type="text"
+                  placeholder="Search ideas…"
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setPicking(false);
+                      setPickerQuery("");
+                    }
+                  }}
+                />
+                <div className="idea-link-picker-list">
+                  {pickerResults.length === 0 ? (
+                    <div className="idea-link-picker-empty">No matches</div>
+                  ) : (
+                    pickerResults.map((r) => (
+                      <button
+                        type="button"
+                        key={r.id}
+                        className="idea-link-picker-item"
+                        onClick={() => addLink(r.id)}
+                      >
+                        {r.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="idea-link-add" onClick={() => setPicking(true)}>
+                + Link
+              </button>
+            )}
+          </>
+        }
+      />
+      {hasBacklinks && (
+        <LinkRow
+          label="Referenced by"
+          hint="Incoming — any relation"
+          chips={edges.backlinks.map((b: IdeaBacklink) => (
+            <LinkChip
+              key={`b-${b.source_id}-${b.relation}`}
+              name={b.name}
+              id={b.source_id}
+              relation={(b.relation in RELATION_LABEL ? b.relation : "adjacent") as IdeaRelation}
+              onClick={() => goTo(b.source_id)}
+            />
+          ))}
+        />
       )}
+    </div>
+  );
+}
+
+function LinkRow({ label, hint, chips }: { label: string; hint: string; chips: React.ReactNode }) {
+  return (
+    <div className="idea-links-row">
+      <span className="idea-links-label" title={hint}>
+        {label}
+      </span>
+      <div className="idea-links-chips">{chips}</div>
     </div>
   );
 }
@@ -186,7 +247,7 @@ function LinkChip({
 }) {
   const label = name ?? id.slice(0, 8);
   return (
-    <span className={`idea-link-chip rel-${relation}`} title={RELATION_LABEL[relation] ?? relation}>
+    <span className={`idea-link-chip rel-${relation}`} title={RELATION_HINT[relation] ?? relation}>
       <span className="idea-link-chip-dot" />
       <button type="button" className="idea-link-chip-label" onClick={onClick}>
         {label}

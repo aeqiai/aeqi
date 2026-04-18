@@ -220,23 +220,32 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
 
   return (
     <div className="asv-main ideas-canvas">
-      <input
-        ref={titleRef}
-        className="ideas-canvas-title"
-        type="text"
-        placeholder="Title"
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          scheduleSave();
-        }}
-        onBlur={() => {
-          if (isEdit && dirtyRef.current) {
-            if (debounceRef.current) window.clearTimeout(debounceRef.current);
-            flushSave();
-          }
-        }}
-      />
+      <div className="ideas-canvas-head">
+        <input
+          ref={titleRef}
+          className="ideas-canvas-title"
+          type="text"
+          placeholder="Title"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            scheduleSave();
+          }}
+          onBlur={() => {
+            if (isEdit && dirtyRef.current) {
+              if (debounceRef.current) window.clearTimeout(debounceRef.current);
+              flushSave();
+            }
+          }}
+        />
+        {isEdit && (
+          <IdeaMenu
+            confirmDelete={confirmDelete}
+            onDelete={handleDelete}
+            onCancelConfirm={() => setConfirmDelete(false)}
+          />
+        )}
+      </div>
 
       <TagsEditor
         tags={inlineTags}
@@ -277,33 +286,92 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           <SaveIndicator state={saveState} />
           {error && <span className="ideas-canvas-error">{error}</span>}
         </div>
-        <div className="ideas-canvas-actions">
-          {!isEdit ? (
-            <>
-              <span className="ideas-canvas-hint">⌘ + Enter</span>
-              <button
-                type="button"
-                className="ideas-canvas-btn primary"
-                onClick={handleCreate}
-                disabled={saveState === "saving"}
-              >
-                {saveState === "saving" ? "Saving…" : "Save"}
-              </button>
-            </>
-          ) : (
+        {!isEdit && (
+          <div className="ideas-canvas-actions">
+            <span className="ideas-canvas-hint">⌘ + Enter</span>
             <button
               type="button"
-              className={`ideas-canvas-btn ghost danger${confirmDelete ? " confirm" : ""}`}
-              onClick={handleDelete}
-              onBlur={() => setConfirmDelete(false)}
+              className="ideas-canvas-btn primary"
+              onClick={handleCreate}
+              disabled={saveState === "saving"}
             >
-              {confirmDelete ? "Confirm delete?" : "Delete"}
+              {saveState === "saving" ? "Saving…" : "Save"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
+    </div>
+  );
+}
+
+/**
+ * Notion-style kebab menu in the canvas head — destructive actions hide
+ * here so they're out of the reader's flow but one click away. Two-step
+ * confirm lives inside the popover to avoid an accidental delete.
+ */
+function IdeaMenu({
+  confirmDelete,
+  onDelete,
+  onCancelConfirm,
+}: {
+  confirmDelete: boolean;
+  onDelete: () => void;
+  onCancelConfirm: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+        onCancelConfirm();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        onCancelConfirm();
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onCancelConfirm]);
+
+  return (
+    <div className="ideas-canvas-menu" ref={rootRef}>
+      <button
+        type="button"
+        className="ideas-canvas-menu-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More actions"
+        aria-expanded={open}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="3" cy="8" r="1.4" />
+          <circle cx="8" cy="8" r="1.4" />
+          <circle cx="13" cy="8" r="1.4" />
+        </svg>
+      </button>
+      {open && (
+        <div className="ideas-canvas-menu-popover" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={`ideas-canvas-menu-item danger${confirmDelete ? " confirm" : ""}`}
+            onClick={onDelete}
+          >
+            {confirmDelete ? "Confirm delete?" : "Delete idea"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

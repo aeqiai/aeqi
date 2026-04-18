@@ -370,7 +370,7 @@ export const api = {
   getIdeaEdges: (id: string) =>
     request<import("./types").IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`),
 
-  addIdeaEdge: (sourceId: string, targetId: string, relation: string = "related_to") =>
+  addIdeaEdge: (sourceId: string, targetId: string, relation: string = "adjacent") =>
     request<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
       method: "POST",
       body: JSON.stringify({ target_id: targetId, relation }),

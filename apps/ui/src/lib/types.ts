@@ -92,13 +92,7 @@ export interface Idea {
   score?: number;
 }
 
-export type IdeaRelation =
-  | "related_to"
-  | "supports"
-  | "contradicts"
-  | "supersedes"
-  | "caused_by"
-  | "derived_from";
+export type IdeaRelation = "mentions" | "embeds" | "adjacent";
 
 export interface IdeaLink {
   target_id: string;
