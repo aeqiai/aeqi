@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
@@ -98,6 +98,41 @@ export default function ContentCTA() {
     if (section === "ideas" && agentId) loadIdeas(agentId);
   }, [section, agentId, loadIdeas]);
 
+  // Ideas-only filter state. The rail is the index column, so filters live
+  // here. State stays resident across section switches — cheap and keeps
+  // the user's in-flight filters when they flip back.
+  const [ideasSearch, setIdeasSearch] = useState("");
+  type IdeasScope = "all" | "mine" | "global" | "inherited";
+  const [ideasScope, setIdeasScope] = useState<IdeasScope>("all");
+  const [ideasTag, setIdeasTag] = useState<string | null>(null);
+
+  const tagCounts = useMemo(() => {
+    if (section !== "ideas") return [] as Array<[string, number]>;
+    const counts: Record<string, number> = {};
+    for (const idea of ideas) {
+      for (const t of idea.tags || []) counts[t] = (counts[t] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [ideas, section]);
+
+  const filteredIdeas = useMemo(() => {
+    if (section !== "ideas") return ideas;
+    const q = ideasSearch.trim().toLowerCase();
+    return ideas.filter((idea) => {
+      if (ideasScope === "mine" && idea.agent_id !== agentId) return false;
+      if (ideasScope === "global" && idea.agent_id != null) return false;
+      if (ideasScope === "inherited" && (idea.agent_id == null || idea.agent_id === agentId))
+        return false;
+      if (ideasTag && !(idea.tags || []).includes(ideasTag)) return false;
+      if (q) {
+        const inName = idea.name.toLowerCase().includes(q);
+        const inContent = idea.content.toLowerCase().includes(q);
+        if (!inName && !inContent) return false;
+      }
+      return true;
+    });
+  }, [ideas, section, ideasSearch, ideasScope, ideasTag, agentId]);
+
   // --- Tools --------------------------------------------------------------
   const agent: Agent | undefined = useDaemonStore((s) =>
     section === "tools" && agentId
@@ -182,7 +217,7 @@ export default function ContentCTA() {
       break;
     case "ideas":
       header = { label: "New idea", event: "aeqi:new-idea" };
-      items = ideas.map((idea) => {
+      items = filteredIdeas.map((idea) => {
         const firstTag = idea.tags && idea.tags.length > 0 ? idea.tags[0] : undefined;
         const meta =
           idea.tags && idea.tags.length > 1
@@ -198,7 +233,7 @@ export default function ContentCTA() {
           meta,
         };
       });
-      emptyText = "No ideas yet";
+      emptyText = ideas.length === 0 ? "No ideas yet" : "No matches";
       break;
     case "agents":
       header = { label: "New agent", event: "aeqi:create" };
@@ -239,6 +274,41 @@ export default function ContentCTA() {
           </button>
         )}
       </div>
+      {section === "ideas" && (
+        <div className="ideas-rail-filters">
+          <input
+            className="ideas-rail-search"
+            type="text"
+            placeholder="Search…"
+            value={ideasSearch}
+            onChange={(e) => setIdeasSearch(e.target.value)}
+          />
+          <div className="ideas-rail-scope">
+            {(["all", "mine", "global", "inherited"] as IdeasScope[]).map((s) => (
+              <button
+                key={s}
+                className={`ideas-rail-scope-btn${ideasScope === s ? " active" : ""}`}
+                onClick={() => setIdeasScope(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          {tagCounts.length > 0 && (
+            <div className="ideas-rail-tags">
+              {tagCounts.slice(0, 12).map(([t, n]) => (
+                <button
+                  key={t}
+                  className={`ideas-rail-tag${ideasTag === t ? " active" : ""}`}
+                  onClick={() => setIdeasTag(ideasTag === t ? null : t)}
+                >
+                  {t} <span className="ideas-rail-tag-count">{n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="asv-sidebar-list">
         {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}
         {items.map((item) => (

@@ -1671,3 +1671,242 @@
     min-width: 0;
   }
 }
+
+/* ------------------------------------------------------------------
+   Ideas rail — search + scope + tag facets
+   ------------------------------------------------------------------ */
+.ideas-rail-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ideas-rail-search {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ideas-rail-search:focus {
+  border-color: var(--accent);
+}
+.ideas-rail-scope {
+  display: flex;
+  gap: 4px;
+}
+.ideas-rail-scope-btn {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+.ideas-rail-scope-btn:hover {
+  color: var(--text-primary);
+}
+.ideas-rail-scope-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+.ideas-rail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ideas-rail-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.ideas-rail-tag:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-dim);
+}
+.ideas-rail-tag.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+.ideas-rail-tag-count {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------
+   Ideas compose canvas — Apple-Notes feel when no idea is selected
+   ------------------------------------------------------------------ */
+.ideas-canvas {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 32px 16px;
+  overflow: hidden;
+}
+.ideas-canvas-title {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+.ideas-canvas-title::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.ideas-canvas-body {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+}
+.ideas-canvas-body::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+.ideas-canvas-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.ideas-canvas-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 18px;
+}
+.ideas-canvas-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ideas-canvas-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.ideas-canvas-error {
+  font-size: 11px;
+  color: var(--destructive, #e55);
+}
+
+/* ------------------------------------------------------------------
+   Markdown render inside idea detail pane
+   ------------------------------------------------------------------ */
+.ideas-markdown {
+  white-space: normal !important;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+.ideas-markdown h1,
+.ideas-markdown h2,
+.ideas-markdown h3,
+.ideas-markdown h4 {
+  margin: 1.2em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.ideas-markdown h1 {
+  font-size: 1.5em;
+}
+.ideas-markdown h2 {
+  font-size: 1.3em;
+}
+.ideas-markdown h3 {
+  font-size: 1.1em;
+}
+.ideas-markdown p {
+  margin: 0.6em 0;
+}
+.ideas-markdown ul,
+.ideas-markdown ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+.ideas-markdown li {
+  margin: 0.2em 0;
+}
+.ideas-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.ideas-markdown pre {
+  padding: 10px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+.ideas-markdown pre code {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.ideas-markdown blockquote {
+  margin: 0.8em 0;
+  padding: 4px 12px;
+  color: var(--text-muted);
+  border-left: 3px solid var(--accent-dim);
+  background: var(--bg-base);
+}
+.ideas-markdown a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ideas-markdown a:hover {
+  text-decoration: underline;
+}
+.ideas-markdown hr {
+  margin: 1.2em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
