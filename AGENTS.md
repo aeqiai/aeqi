@@ -51,6 +51,27 @@ mcp__aeqi__events   -- list configured events
 mcp__aeqi__code     -- code intelligence queries
 ```
 
+## User-writable hook surface
+
+Drop markdown files in `.aeqi/hooks/` at the repo root to intercept tool calls.
+
+```markdown
+---
+on: PreToolUse          # or PostToolUse
+tool: shell             # optional — omit to match all tools
+agent: agent-abc123     # optional — omit to match all agents
+action: block           # block | warn | allow
+message: "Direct shell access is disabled in this project."
+---
+
+Human-readable description of why this rule exists.
+```
+
+Actions: **block** returns an error to the LLM and halts the tool call.
+**warn** injects a warning into the agent's next message and continues.
+**allow** is a no-op explicit pass (stops processing further rules).
+Rules are evaluated in file order; the first match wins.
+
 ## Coding standards
 
 See [CLAUDE.md](CLAUDE.md). Zero warnings, zero clippy lints, no dead code.
