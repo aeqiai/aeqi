@@ -100,7 +100,7 @@
    Color is pinned to the canonical brand shade (rgba(0,0,0,0.5)) rather
    than a text token — identity shouldn't drift if body copy is tuned.
    Hover lifts to 0.65, matching the landing nav wordmark. Font/size/
-   weight/tracking live in <BrandMark> itself so the spec can't diverge. */
+   weight/tracking live in <Wordmark> itself so the spec can't diverge. */
 .sidebar-brand {
   display: block;
   padding: 0;

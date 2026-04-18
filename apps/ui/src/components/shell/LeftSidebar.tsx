@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
-import BrandMark from "@/components/BrandMark";
+import Wordmark from "@/components/Wordmark";
 import RoundAvatar from "@/components/RoundAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
@@ -115,7 +115,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
             navigate(rootBase || "/");
           }}
         >
-          <BrandMark size={18} />
+          <Wordmark size={18} />
         </a>
         <IconButton
           variant="ghost"

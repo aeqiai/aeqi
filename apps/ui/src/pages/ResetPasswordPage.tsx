@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import BrandMark from "@/components/BrandMark";
+import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import { Button } from "@/components/ui";
 
@@ -58,7 +58,7 @@ export default function ResetPasswordPage() {
     <main className="auth-page">
       <div className="auth-container">
         <div className="auth-logo">
-          <BrandMark size={36} color="rgba(0,0,0,0.5)" />
+          <Wordmark size={36} color="rgba(0,0,0,0.5)" />
         </div>
         <h1 className="auth-heading">Reset password</h1>
         <p className="auth-subheading">

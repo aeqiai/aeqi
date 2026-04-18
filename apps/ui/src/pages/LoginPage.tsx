@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
-import BrandMark from "@/components/BrandMark";
+import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import { Button, Input } from "@/components/ui";
 
@@ -282,7 +282,7 @@ export default function LoginPage() {
       <main className="auth-page">
         <div className="auth-container">
           <div className="auth-logo">
-            <BrandMark size={36} color="rgba(0,0,0,0.5)" />
+            <Wordmark size={36} color="rgba(0,0,0,0.5)" />
           </div>
           <h1 className="auth-heading">Welcome back</h1>
           <p className="auth-subheading">Enter your access key to continue</p>
@@ -337,7 +337,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-container" role="region" aria-live="polite">
         <div className="auth-logo">
-          <BrandMark size={36} color="rgba(0,0,0,0.5)" />
+          <Wordmark size={36} color="rgba(0,0,0,0.5)" />
         </div>
         <h1 className="auth-heading">
           {step === "credentials"
