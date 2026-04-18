@@ -42,15 +42,6 @@ const CHARS_PER_TOKEN_STRUCTURED: usize = 3;
 /// Maximum compaction attempts per agent run to prevent infinite loops.
 const MAX_COMPACTIONS_PER_RUN: u32 = 3;
 
-/// Minimum total prompt tokens before session memory extraction starts.
-const SESSION_MEMORY_MIN_TOKENS: u32 = 50_000;
-
-/// Key prefix for session memory entries.
-const SESSION_MEMORY_KEY: &str = "session-notes";
-
-/// Maximum mid-loop memory recalls.
-const MAX_MID_LOOP_RECALLS: u32 = 2;
-
 /// Microcompact: keep the N most recent compactable tool results.
 const MICROCOMPACT_KEEP_RECENT: usize = 5;
 
@@ -780,7 +771,6 @@ impl Agent {
                 });
             }
         }
-        let mut mid_loop_recalls = 0u32;
         let mut output_recovery_count = 0u32;
         let mut stop_reason = AgentStopReason::EndTurn;
         let mut transition = LoopTransition::Initial;
@@ -928,38 +918,6 @@ impl Agent {
                 step: iterations,
                 model: request.model.clone(),
             });
-
-            // --- Memory prefetch: spawn search in parallel with API call ---
-            // After iteration 1, speculatively search memory using the last
-            // user message while the LLM streams. Results are merged after
-            // tool execution completes, avoiding sequential latency.
-            let prefetch_handle = if iterations > 1 {
-                if let Some(ref mem) = self.idea_store {
-                    let last_user_text = messages
-                        .iter()
-                        .rev()
-                        .find(|m| m.role == Role::User || m.role == Role::Tool)
-                        .and_then(|m| m.content.as_text())
-                        .unwrap_or("")
-                        .to_string();
-                    if last_user_text.len() > 50 {
-                        let mem_clone = Arc::clone(mem);
-                        let ancestors = self.config.ancestor_ids.clone();
-                        Some(tokio::spawn(async move {
-                            mem_clone
-                                .hierarchical_search(&last_user_text, &ancestors, 5)
-                                .await
-                                .unwrap_or_default()
-                        }))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
 
             // --- Call provider (streaming with early tool execution) ---
             let response;
@@ -1312,7 +1270,6 @@ impl Agent {
                                     output_recovery_count = 0;
                                     consecutive_low_output = 0;
                                     consecutive_errors = 0;
-                                    mid_loop_recalls = 0;
                                     has_attempted_reactive_compact = false;
                                     transition = LoopTransition::Initial;
                                     debug!(
@@ -1662,101 +1619,6 @@ impl Agent {
                     content: MessageContent::text(summary),
                 });
             }
-
-            // --- Mid-loop memory recall ---
-            if mid_loop_recalls < MAX_MID_LOOP_RECALLS
-                && let Some(ref mem) = self.idea_store
-            {
-                let tool_output: String = processed
-                    .iter()
-                    .filter(|r| !r.is_error)
-                    .map(|r| r.output.as_str())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-
-                if tool_output.len() > 200 && Self::has_novel_terms(&tool_output, prompt) {
-                    let all_entries = mem
-                        .hierarchical_search(&tool_output, &self.config.ancestor_ids, 5)
-                        .await
-                        .unwrap_or_default();
-
-                    if !all_entries.is_empty() {
-                        let ctx = all_entries
-                            .iter()
-                            .map(|e| format!("{}: {}", e.name, e.content))
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        let preview = all_entries
-                            .iter()
-                            .map(|e| e.name.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
-                            action: "recalled".into(),
-                            name: format!("{} insights", all_entries.len()),
-                            preview,
-                        });
-                        messages.push(Message {
-                            role: Role::System,
-                            content: MessageContent::text(format!(
-                                "# Updated Memory Recall\n{ctx}"
-                            )),
-                        });
-                        mid_loop_recalls += 1;
-                        debug!(
-                            agent = %self.config.name,
-                            recall = mid_loop_recalls,
-                            entries = all_entries.len(),
-                            "mid-loop memory recall injected"
-                        );
-                    }
-                }
-            }
-
-            // --- Consume memory prefetch results ---
-            // Merge any entries from the prefetch task that was spawned before
-            // the API call. Deduplicates against the synchronous mid-loop recall
-            // that may have already injected memory above.
-            if let Some(handle) = prefetch_handle
-                && let Ok(prefetched) = handle.await
-                && !prefetched.is_empty()
-                && mid_loop_recalls < MAX_MID_LOOP_RECALLS
-            {
-                let ctx = prefetched
-                    .iter()
-                    .map(|e| format!("{}: {}", e.name, e.content))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                let preview = prefetched
-                    .iter()
-                    .map(|e| e.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                self.emit(crate::chat_stream::ChatStreamEvent::IdeaActivity {
-                    action: "prefetched".into(),
-                    name: format!("{} insights", prefetched.len()),
-                    preview,
-                });
-                messages.push(Message {
-                    role: Role::System,
-                    content: MessageContent::text(format!("# Prefetched Memory\n{ctx}")),
-                });
-                mid_loop_recalls += 1;
-                debug!(
-                    agent = %self.config.name,
-                    entries = prefetched.len(),
-                    "prefetched memory results merged"
-                );
-            }
-
-            // --- Session idea extraction (fire-and-forget background task) ---
-            Self::maybe_extract_session_ideas(
-                &self.idea_store,
-                &messages,
-                &tracker,
-                &self.config.name,
-                &self.config.agent_id,
-            );
 
             // --- Detect file changes since last read (mid-step enrichment) ---
             let file_change_msgs = Self::detect_file_changes(&recent_files).await;
@@ -2534,52 +2396,6 @@ impl Agent {
         }
 
         messages
-    }
-
-    /// Fire-and-forget session idea extraction. Runs in background after
-    /// tool-use steps when enough context has accumulated. Stores a running
-    /// session summary as an idea for cheaper compaction.
-    fn maybe_extract_session_ideas(
-        idea_store: &Option<Arc<dyn IdeaStore>>,
-        messages: &[Message],
-        tracker: &ContextTracker,
-        agent_name: &str,
-        config_agent_id: &Option<String>,
-    ) {
-        let Some(mem) = idea_store.clone() else {
-            return;
-        };
-        if tracker.total_prompt_tokens < SESSION_MEMORY_MIN_TOKENS {
-            return;
-        }
-
-        let transcript =
-            Self::build_compaction_transcript(&messages[messages.len().saturating_sub(20)..]);
-        if transcript.len() < 200 {
-            return;
-        }
-
-        let name = agent_name.to_string();
-        let agent_id = config_agent_id.clone();
-
-        tokio::spawn(async move {
-            let summary = format!(
-                "Session working notes (auto-extracted):\n{}",
-                &transcript[..transcript.len().min(8000)]
-            );
-            match mem
-                .store(
-                    SESSION_MEMORY_KEY,
-                    &summary,
-                    &["context".to_string()],
-                    agent_id.as_deref(),
-                )
-                .await
-            {
-                Ok(_) => debug!(agent = %name, len = summary.len(), "session ideas extracted"),
-                Err(e) => debug!(agent = %name, "session idea extraction failed: {e}"),
-            }
-        });
     }
 
     /// Detect files that changed externally since we last read them.
@@ -3598,23 +3414,6 @@ impl Agent {
     // Helpers
     // -----------------------------------------------------------------------
 
-    fn has_novel_terms(tool_output: &str, original_prompt: &str) -> bool {
-        let prompt_words: std::collections::HashSet<&str> = original_prompt
-            .split_whitespace()
-            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
-            .filter(|w| w.len() > 5)
-            .collect();
-
-        let novel_count = tool_output
-            .split_whitespace()
-            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
-            .filter(|w| w.len() > 5 && !prompt_words.contains(w))
-            .take(3)
-            .count();
-
-        novel_count >= 3
-    }
-
     /// Format tool input args into a human-readable preview string.
     /// E.g., shell: "ls -la /home/..." → "ls -la /home/..."
     ///       read_file: {"file_path": "/foo/bar.rs"} → "/foo/bar.rs"
@@ -3771,28 +3570,6 @@ impl Agent {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_has_novel_terms_true() {
-        let prompt = "Fix the authentication bug in login.rs";
-        let output = "Found DatabaseConnection, TransactionPool, and ConnectionManager \
-                       types in the codebase that handle connection lifecycle";
-        assert!(Agent::has_novel_terms(output, prompt));
-    }
-
-    #[test]
-    fn test_has_novel_terms_false_same_words() {
-        let prompt = "Fix authentication and login handling";
-        let output = "Checked authentication and login handling";
-        assert!(!Agent::has_novel_terms(output, prompt));
-    }
-
-    #[test]
-    fn test_has_novel_terms_false_short_output() {
-        let prompt = "Fix the bug";
-        let output = "ok done";
-        assert!(!Agent::has_novel_terms(output, prompt));
-    }
 
     #[test]
     fn test_truncate_result_below_limit() {
