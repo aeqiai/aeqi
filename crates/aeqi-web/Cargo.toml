@@ -12,6 +12,7 @@ embed-ui = ["dep:rust-embed", "dep:mime_guess"]
 [dependencies]
 aeqi-core = { workspace = true }
 aeqi-hosting = { workspace = true }
+aeqi-quests = { workspace = true }
 
 tokio = { workspace = true }
 tower = { workspace = true }

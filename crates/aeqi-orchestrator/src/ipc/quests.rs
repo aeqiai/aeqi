@@ -124,6 +124,10 @@ pub async fn handle_create_quest(
         })
         .unwrap_or_default();
     let parent_id = request.get("parent").and_then(|v| v.as_str());
+    let acceptance_criteria = request
+        .get("acceptance_criteria")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
     if project.is_empty() || subject.is_empty() {
         return serde_json::json!({"ok": false, "error": "project and subject are required"});
@@ -197,7 +201,21 @@ pub async fn handle_create_quest(
                 )
                 .await
             {
-                Ok(quest) => {
+                Ok(mut quest) => {
+                    // Persist acceptance_criteria if supplied (e.g. from a preset).
+                    if let Some(ref ac) = acceptance_criteria {
+                        let quest_id = quest.id.0.clone();
+                        let ac_clone = ac.clone();
+                        if let Ok(updated) = ctx
+                            .agent_registry
+                            .update_task(&quest_id, |q| {
+                                q.acceptance_criteria = Some(ac_clone);
+                            })
+                            .await
+                        {
+                            quest = updated;
+                        }
+                    }
                     let _ = ctx
                         .activity_log
                         .emit(
@@ -222,6 +240,7 @@ pub async fn handle_create_quest(
                             "status": quest.status.to_string(),
                             "agent_id": quest.agent_id,
                             "project": project,
+                            "acceptance_criteria": quest.acceptance_criteria,
                         }
                     })
                 }
