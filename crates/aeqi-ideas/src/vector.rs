@@ -60,7 +60,8 @@ impl VectorStore {
             "CREATE TABLE IF NOT EXISTS idea_embeddings (
                 idea_id TEXT PRIMARY KEY,
                 embedding BLOB NOT NULL,
-                dimensions INTEGER NOT NULL
+                dimensions INTEGER NOT NULL,
+                content_hash TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_idea_embeddings_id ON idea_embeddings(idea_id);",
         )

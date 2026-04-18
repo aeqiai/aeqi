@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::agent_registry::ConnectionPool;
 
@@ -69,8 +69,7 @@ impl ChannelConfig {
 
 /// Telegram bot token only. Whitelist lives in `channel_allowed_chats` —
 /// toggling a single chat must not require rewriting (and risking
-/// corruption of) the token blob. Serde drops any extra fields on legacy
-/// rows during the one-shot migration.
+/// corruption of) the token blob.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TelegramConfig {
     pub token: String,
@@ -208,31 +207,6 @@ impl ChannelStore {
             .map_err(ChannelError::Storage)?
             .context("channel create produced no row")
             .map_err(ChannelError::Storage)
-    }
-
-    /// Replace-or-insert. Used only by the legacy-idea migration where the
-    /// intent is explicitly to overwrite stale state — never call this from
-    /// user-driven code paths (use `create` instead).
-    async fn replace(&self, c: &NewChannel) -> Result<Channel> {
-        let kind = c.config.kind();
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = Utc::now();
-        let config_json = serde_json::to_string(&c.config)?;
-        {
-            let db = self.db.lock().await;
-            db.execute(
-                "INSERT INTO channels (id, agent_id, kind, config, enabled, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 1, ?5)
-                 ON CONFLICT(agent_id, kind) DO UPDATE SET
-                     config = excluded.config,
-                     enabled = 1,
-                     updated_at = excluded.created_at",
-                params![id, c.agent_id, kind.as_str(), config_json, now.to_rfc3339(),],
-            )?;
-        }
-        self.get_by_agent_kind(&c.agent_id, kind)
-            .await?
-            .context("channel replace produced no row")
     }
 
     pub async fn get_by_agent_kind(
@@ -397,39 +371,6 @@ impl ChannelStore {
         tx.commit()?;
         Ok(())
     }
-
-    /// Atomic per-row migration step: replace the allowed_chats set AND
-    /// rewrite the config blob in a single transaction, so a crash can't
-    /// leave the row half-migrated (inline field still present while the
-    /// joined table also has the rows). Used only by
-    /// `migrate_inline_allowed_chats`.
-    async fn extract_inline_allowed_chats_tx(
-        &self,
-        channel_id: &str,
-        chat_ids: &[String],
-        new_config_json: &str,
-    ) -> Result<()> {
-        let mut db = self.db.lock().await;
-        let tx = db.transaction()?;
-        tx.execute(
-            "DELETE FROM channel_allowed_chats WHERE channel_id = ?1",
-            params![channel_id],
-        )?;
-        let now = Utc::now().to_rfc3339();
-        for chat_id in chat_ids {
-            tx.execute(
-                "INSERT OR IGNORE INTO channel_allowed_chats (channel_id, chat_id, added_at)
-                 VALUES (?1, ?2, ?3)",
-                params![channel_id, chat_id, now],
-            )?;
-        }
-        tx.execute(
-            "UPDATE channels SET config = ?1 WHERE id = ?2",
-            params![new_config_json, channel_id],
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
 }
 
 /// Turn a batch of per-row `Result<Channel>` into `Vec<Channel>`, logging
@@ -478,208 +419,10 @@ fn row_to_channel(row: &rusqlite::Row<'_>) -> Result<Channel> {
     })
 }
 
-/// Name of the done-marker for the channel-ideas → channels-table migration.
-/// Present in `applied_migrations` ⇒ we never scan ideas for `channel:*`
-/// again, no matter how many times the daemon boots.
-const CHANNELS_FROM_IDEAS_MIGRATION: &str = "channels_from_ideas_v1";
-
-/// Done-marker for extracting inline `allowed_chats` out of channel config
-/// blobs (pre-B2 writes) into the `channel_allowed_chats` table.
-const INLINE_ALLOWED_CHATS_MIGRATION: &str = "channel_allowed_chats_extraction_v1";
-
-/// One-shot migration: copy legacy `channel:*` ideas into the channels
-/// table, then delete the ideas. Guarded by a row in `applied_migrations`
-/// so it runs exactly once across the daemon's lifetime — after that, the
-/// function is a cheap SELECT that returns 0.
-///
-/// Handles both schema shapes seen in the wild:
-///   - { "token": "...", "allowed_chats": [...] }   (daemon's reader)
-///   - { "bot_token": "...", "allowed_chats": [...] } (UI's writer)
-pub async fn migrate_channel_ideas(
-    store: &ChannelStore,
-    idea_store: &dyn aeqi_core::traits::IdeaStore,
-) -> Result<usize> {
-    if is_migration_applied(&store.db, CHANNELS_FROM_IDEAS_MIGRATION).await? {
-        return Ok(0);
-    }
-    // Propagate errors instead of swallowing with `.unwrap_or_default()` —
-    // an idea-store outage at boot should fail loudly, not silently skip
-    // migration and then happily mark it done.
-    let ideas = idea_store
-        .search_by_prefix("channel:", 200)
-        .context("failed to scan ideas for channel:* migration")?;
-    let mut migrated = 0usize;
-    for idea in ideas {
-        let Some(agent_id) = idea.agent_id.clone() else {
-            warn!(name = %idea.name, "channel:* idea with no agent_id, skipping");
-            continue;
-        };
-        let kind_str = idea.name.strip_prefix("channel:").unwrap_or("");
-        let Some(kind) = ChannelKind::parse(kind_str) else {
-            warn!(name = %idea.name, "unknown channel kind, skipping");
-            continue;
-        };
-        let legacy = match parse_legacy_config(kind, &idea.content) {
-            Ok(c) => c,
-            Err(e) => {
-                warn!(name = %idea.name, error = %e, "failed to parse legacy channel config");
-                continue;
-            }
-        };
-        let new = NewChannel {
-            agent_id: agent_id.clone(),
-            config: legacy.config,
-        };
-        let channel = match store.replace(&new).await {
-            Ok(c) => c,
-            Err(e) => {
-                // Don't abort the whole batch on one bad row — match the per-item
-                // best-effort convention used elsewhere in this loop.
-                warn!(name = %idea.name, error = %e, "channel replace failed during migration");
-                continue;
-            }
-        };
-        // Copy the legacy inline whitelist into the new allowed_chats table.
-        if !legacy.allowed_chats.is_empty() {
-            let chat_ids: Vec<String> =
-                legacy.allowed_chats.iter().map(|n| n.to_string()).collect();
-            if let Err(e) = store.set_allowed_chats(&channel.id, &chat_ids).await {
-                warn!(channel_id = %channel.id, error = %e, "failed to migrate allowed_chats");
-            }
-        }
-        // Delete the source idea so the migration is one-way.
-        if let Err(e) = idea_store.delete(&idea.id).await {
-            warn!(id = %idea.id, error = %e, "failed to delete migrated channel idea");
-        } else {
-            migrated += 1;
-            info!(agent_id = %agent_id, kind = %kind.as_str(), "migrated channel:* idea to channels table");
-        }
-    }
-    mark_migration_applied(&store.db, CHANNELS_FROM_IDEAS_MIGRATION).await?;
-    Ok(migrated)
-}
-
-/// One-shot migration: for every channel row whose config blob still has an
-/// inline `allowed_chats` array (pre-B2 writes), move those ids into the
-/// `channel_allowed_chats` table and strip the field from the blob. Idempotent
-/// via `applied_migrations`. Safe to run even if no rows have inline chats.
-pub async fn migrate_inline_allowed_chats(store: &ChannelStore) -> Result<usize> {
-    if is_migration_applied(&store.db, INLINE_ALLOWED_CHATS_MIGRATION).await? {
-        return Ok(0);
-    }
-    // Collect (id, raw_config_json) pairs, then process outside the lock so
-    // `set_allowed_chats` can re-acquire the connection.
-    let rows: Vec<(String, String)> = {
-        let conn = store.db.lock().await;
-        let mut stmt = conn.prepare("SELECT id, config FROM channels")?;
-        let iter = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-        iter.collect::<std::result::Result<Vec<_>, _>>()?
-    };
-    let mut migrated = 0usize;
-    for (id, raw) in rows {
-        let mut value: serde_json::Value = match serde_json::from_str(&raw) {
-            Ok(v) => v,
-            Err(e) => {
-                warn!(channel_id = %id, error = %e, "skipping channel with unparseable config");
-                continue;
-            }
-        };
-        let Some(obj) = value.as_object_mut() else {
-            continue;
-        };
-        let Some(arr) = obj.remove("allowed_chats") else {
-            continue; // nothing to extract
-        };
-        let chat_ids: Vec<String> = match arr {
-            serde_json::Value::Array(items) => items
-                .iter()
-                .filter_map(|v| match v {
-                    serde_json::Value::String(s) => Some(s.clone()),
-                    serde_json::Value::Number(n) => Some(n.to_string()),
-                    _ => None,
-                })
-                .collect(),
-            _ => continue,
-        };
-        // One transaction for the chats-write AND the blob-strip, so a crash
-        // can't leave the row half-migrated. On re-run, `applied_migrations`
-        // won't be set yet, so we'd reprocess — with the single-tx guarantee
-        // the reprocess is clean (either both committed or neither did).
-        let new_raw = serde_json::to_string(&value)?;
-        if let Err(e) = store
-            .extract_inline_allowed_chats_tx(&id, &chat_ids, &new_raw)
-            .await
-        {
-            warn!(channel_id = %id, error = %e, "failed to migrate inline allowed_chats");
-            continue;
-        }
-        migrated += 1;
-        info!(channel_id = %id, count = chat_ids.len(), "extracted inline allowed_chats");
-    }
-    mark_migration_applied(&store.db, INLINE_ALLOWED_CHATS_MIGRATION).await?;
-    Ok(migrated)
-}
-
-async fn is_migration_applied(db: &ConnectionPool, name: &str) -> Result<bool> {
-    let conn = db.lock().await;
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM applied_migrations WHERE name = ?1",
-        params![name],
-        |row| row.get(0),
-    )?;
-    Ok(count > 0)
-}
-
-async fn mark_migration_applied(db: &ConnectionPool, name: &str) -> Result<()> {
-    let conn = db.lock().await;
-    conn.execute(
-        "INSERT OR IGNORE INTO applied_migrations (name, applied_at) VALUES (?1, ?2)",
-        params![name, Utc::now().to_rfc3339()],
-    )?;
-    Ok(())
-}
-
-/// Legacy config bundle: the typed config *plus* any inline allowed_chats
-/// array that used to live in the JSON blob. Returned from the legacy-idea
-/// migration so we can write both sides in one pass.
-struct LegacyConfig {
-    config: ChannelConfig,
-    allowed_chats: Vec<i64>,
-}
-
-fn parse_legacy_config(kind: ChannelKind, content: &str) -> Result<LegacyConfig> {
-    let v: serde_json::Value = serde_json::from_str(content)?;
-    let allowed_chats = v
-        .get("allowed_chats")
-        .and_then(|x| x.as_array())
-        .map(|arr| arr.iter().filter_map(|x| x.as_i64()).collect::<Vec<_>>())
-        .unwrap_or_default();
-    let config = match kind {
-        ChannelKind::Telegram => {
-            // Accept either `token` (daemon's shape) or `bot_token` (UI's shape).
-            let token = v
-                .get("token")
-                .or_else(|| v.get("bot_token"))
-                .and_then(|x| x.as_str())
-                .context("telegram config missing token/bot_token")?
-                .to_string();
-            ChannelConfig::Telegram(TelegramConfig { token })
-        }
-        ChannelKind::Discord => ChannelConfig::Discord(serde_json::from_value(v)?),
-        ChannelKind::Slack => ChannelConfig::Slack(serde_json::from_value(v)?),
-        ChannelKind::Whatsapp => ChannelConfig::Whatsapp(serde_json::from_value(v)?),
-    };
-    Ok(LegacyConfig {
-        config,
-        allowed_chats,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::agent_registry::AgentRegistry;
-    use aeqi_test_support::{IdeaBuilder, InMemoryIdeaStore};
 
     async fn test_registry() -> AgentRegistry {
         let dir = tempfile::tempdir().unwrap();
@@ -690,23 +433,6 @@ mod tests {
         ChannelConfig::Telegram(TelegramConfig {
             token: token.into(),
         })
-    }
-
-    /// Construct a `channel:<kind>` idea the way the legacy writer did, so
-    /// the migration path can be exercised. Expressed in terms of the shared
-    /// [`IdeaBuilder`] — if the `Idea` struct grows fields, this keeps working.
-    fn legacy_channel_idea(
-        id: &str,
-        agent_id: &str,
-        kind: &str,
-        content: &str,
-    ) -> aeqi_core::traits::Idea {
-        IdeaBuilder::new()
-            .id(id)
-            .name(format!("channel:{kind}"))
-            .content(content)
-            .agent(agent_id)
-            .build()
     }
 
     /// Regression guard: `get_by_id` must return the channel's real owner so
@@ -770,49 +496,6 @@ mod tests {
         let channels = store.list_enabled().await.unwrap();
         assert_eq!(channels.len(), 1);
         assert_eq!(channels[0].agent_id, alice.id);
-    }
-
-    /// First call migrates the legacy idea; second call is a cheap no-op
-    /// because the `applied_migrations` row blocks re-entry. This is what
-    /// stops the daemon from re-scanning ideas on every boot forever.
-    #[tokio::test]
-    async fn migrate_channel_ideas_runs_exactly_once() {
-        let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
-        let store = ChannelStore::new(reg.db());
-
-        let idea = legacy_channel_idea(
-            "i1",
-            &alice.id,
-            "telegram",
-            r#"{"token":"legacy-token","allowed_chats":[]}"#,
-        );
-        // Plant a ghost idea that would get re-migrated on every boot if the
-        // done-marker weren't in place.
-        let idea_store = InMemoryIdeaStore::seeded(vec![idea]);
-
-        // First run: migrates the one idea.
-        let n = migrate_channel_ideas(&store, &idea_store).await.unwrap();
-        assert_eq!(n, 1);
-        assert_eq!(idea_store.deleted_ids().len(), 1);
-
-        // Simulate a stray legacy idea appearing AFTER the migration was
-        // marked done (e.g. a buggy caller writes one). The marker means we
-        // don't touch it — it stays in the idea store, where an observer
-        // can notice and clean up. Without the marker, the migration would
-        // happily keep sucking channel:* ideas into the channels table on
-        // every boot indefinitely.
-        idea_store.push(legacy_channel_idea(
-            "i2",
-            &alice.id,
-            "telegram",
-            r#"{"token":"ghost-token"}"#,
-        ));
-
-        let n2 = migrate_channel_ideas(&store, &idea_store).await.unwrap();
-        assert_eq!(n2, 0, "marker should short-circuit subsequent runs");
-        // The ghost idea was not deleted.
-        assert_eq!(idea_store.deleted_ids().len(), 1);
     }
 
     /// Create is keyed on `(agent_id, kind)` — a caller who owns agent X
@@ -883,59 +566,5 @@ mod tests {
             ),
             "expected Conflict, got {err:?}"
         );
-    }
-
-    /// Legacy channel rows written pre-B2 carried `allowed_chats` inline in
-    /// the config blob. The one-shot extraction migration must lift them into
-    /// the `channel_allowed_chats` table and strip the field from the blob,
-    /// and must not run twice.
-    #[tokio::test]
-    async fn migrate_inline_allowed_chats_extracts_and_is_idempotent() {
-        let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
-        let store = ChannelStore::new(reg.db());
-
-        // Insert a pre-B2 shape directly: valid telegram config PLUS inline
-        // `allowed_chats`. Serde would ignore the field on read, but the
-        // bytes are still sitting in the column.
-        {
-            let db = reg.db();
-            let conn = db.lock().await;
-            conn.execute(
-                "INSERT INTO channels (id, agent_id, kind, config, enabled, created_at)
-                 VALUES ('legacy-row', ?1, 'telegram',
-                   '{\"kind\":\"telegram\",\"token\":\"t\",\"allowed_chats\":[\"111\",222]}',
-                   1, '2026-01-01T00:00:00Z')",
-                params![alice.id],
-            )
-            .unwrap();
-        }
-
-        let n = migrate_inline_allowed_chats(&store).await.unwrap();
-        assert_eq!(n, 1);
-
-        let chats = store.list_allowed_chats("legacy-row").await.unwrap();
-        let mut sorted = chats.clone();
-        sorted.sort();
-        assert_eq!(sorted, vec!["111".to_string(), "222".to_string()]);
-
-        // Blob no longer carries allowed_chats — so a subsequent run is a no-op.
-        let raw: String = {
-            let db = reg.db();
-            let conn = db.lock().await;
-            conn.query_row(
-                "SELECT config FROM channels WHERE id = 'legacy-row'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap()
-        };
-        assert!(
-            !raw.contains("allowed_chats"),
-            "config blob should be stripped, got: {raw}"
-        );
-
-        let n2 = migrate_inline_allowed_chats(&store).await.unwrap();
-        assert_eq!(n2, 0, "marker should short-circuit subsequent runs");
     }
 }

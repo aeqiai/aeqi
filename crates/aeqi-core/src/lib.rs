@@ -29,6 +29,6 @@ pub use config::{
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
 };
-pub use prompt::{AssembledPrompt, PromptEntry, PromptPosition, PromptScope, ToolRestrictions};
+pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
 pub use security::SecretStore;
 pub use traits::provider::{Message, MessageContent, Role};

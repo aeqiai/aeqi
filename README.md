@@ -32,15 +32,14 @@ Agents are stored in the database. There are no agent definition files on disk -
 
 ### Idea -- unified knowledge store
 
-An idea is a piece of knowledge attached to an agent. Ideas replace what were previously separate concepts (system prompts, skills, memories, knowledge docs). Three activation modes:
+An idea is a piece of knowledge attached to an agent. Ideas replace what were previously separate concepts (system prompts, skills, memories, knowledge docs). Ideas don't carry positioning metadata — activation is decided by events, and scope (`self` vs `descendants`) controls inheritance through the agent tree.
 
-| Mode | Mechanism | Use case |
-|------|-----------|----------|
-| **Injection** | `injection_mode` set | Always in agent context (identity, instructions, expertise) |
-| **Event-activated** | Referenced by an event rule | Loaded when a matching event fires |
-| **Recalled** | Semantic search | Retrieved on demand via hybrid search (BM25 + vector + graph) |
+| Mechanism | How it fires | Use case |
+|-----------|--------------|----------|
+| **Event-activated** | An event references the idea by id; assembling context walks matching events and pulls their ideas in | Identity, instructions, expertise, per-lifecycle-phase guidance |
+| **Recalled** | Semantic search over the idea store | Retrieved on demand via hybrid search (BM25 + vector + graph) |
 
-A "skill" is an idea with `injection_mode`. A "memory" is an idea without it. A "system prompt" is an idea with `injection_mode = system`. Same primitive, different usage.
+A "skill" is an idea an event activates. A "memory" is an idea no event references. A "system prompt" is the concatenation of every idea activated by `session:start`. Same primitive, different usage.
 
 ### Quest -- unit of work
 
@@ -65,7 +64,7 @@ An event defines *when* an agent acts: when pattern X fires on agent Y's scope, 
 | **Once** | Fire at a specific time, auto-disable |
 | **Webhook** | `POST /api/webhooks/:id` with optional HMAC-SHA256 |
 
-Events are tree-scoped: they can fire on the agent itself, its children, or all descendants.
+Events either belong to a specific agent or are **global** (`agent_id IS NULL`) — global events fire for every agent. The six session lifecycle events (`session:start`, `session:quest_start`, `session:quest_end`, `session:quest_result`, `session:execution_start`, `session:step_start`) ship as globals that point at shared seed ideas, so every agent inherits them for free.
 
 ### Activity (infrastructure)
 
@@ -199,7 +198,7 @@ aeqi monitor                   # live terminal dashboard
 
 ## Extending
 
-**Add an idea** -- store via the API or MCP tools. Ideas with `injection_mode` become part of the agent's permanent context.
+**Add an idea** -- store via the API or MCP tools. Reference the idea from an event (e.g. `session:start`) to make it part of the agent's permanent context.
 
 **Add an event** -- via CLI (`aeqi event create`), API, or at runtime through the `events_manage` tool.
 

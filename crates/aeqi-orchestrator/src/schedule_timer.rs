@@ -70,6 +70,13 @@ impl ScheduleTimer {
     }
 
     async fn fire_schedule(&self, event: &crate::event_handler::Event) {
+        // Schedule events need a concrete agent to spawn a session on — globals
+        // (agent_id IS NULL) have no target and are skipped here.
+        let Some(agent_id) = event.agent_id.as_deref() else {
+            warn!(event = %event.name, "global schedule event has no target agent, skipping");
+            return;
+        };
+
         if let Err(e) = self.event_store.advance_before_execute(&event.id).await {
             warn!(event = %event.name, error = %e, "failed to advance schedule event");
             return;
@@ -92,7 +99,7 @@ impl ScheduleTimer {
 
         match self
             .session_manager
-            .spawn_session(&event.agent_id, &prompt, provider.clone(), opts)
+            .spawn_session(agent_id, &prompt, provider.clone(), opts)
             .await
         {
             Ok(spawned) => {
@@ -100,7 +107,7 @@ impl ScheduleTimer {
                     .activity_log
                     .emit(
                         "event.fired",
-                        Some(&event.agent_id),
+                        Some(agent_id),
                         None,
                         None,
                         &serde_json::json!({
@@ -116,7 +123,7 @@ impl ScheduleTimer {
 
                 info!(
                     event = %event.name,
-                    agent = %event.agent_id,
+                    agent = %agent_id,
                     session_id = %spawned.session_id,
                     "schedule event fired → session spawned"
                 );
@@ -307,7 +314,7 @@ mod tests {
     fn event_idea_ids_deduplicates() {
         let event = crate::event_handler::Event {
             id: "e1".into(),
-            agent_id: "a1".into(),
+            agent_id: Some("a1".into()),
             name: "test".into(),
             pattern: "schedule:every 60s".into(),
             idea_ids: vec!["a".into(), "b".into(), "a".into(), "".into()],

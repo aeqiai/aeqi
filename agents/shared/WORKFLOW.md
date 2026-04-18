@@ -163,8 +163,8 @@ If you genuinely cannot determine something from the codebase:
 
 ## Build & Deploy
 
-Build, test, and deploy commands are specified in your agent ideas with injection_mode.
-Follow those exactly.
+Build, test, and deploy commands are specified in ideas referenced by your
+`session:start` event. Follow those exactly.
 
 ## Safety
 

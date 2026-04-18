@@ -93,91 +93,6 @@ impl SessionStore {
 
     /// Create the session-related tables and indexes. Called during AgentRegistry::open().
     pub fn create_tables(conn: &Connection) -> Result<()> {
-        // ── Migration: Rename legacy tables if they exist ──
-
-        // Rename conversations → session_messages (idempotent).
-        {
-            let has_conversations: bool = conn
-                .prepare(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'",
-                )?
-                .query_map([], |_row| Ok(()))?
-                .next()
-                .is_some();
-            if has_conversations {
-                let _ = conn.execute_batch("ALTER TABLE conversations RENAME TO session_messages;");
-            }
-        }
-
-        // Rename conversation_summaries → session_summaries (idempotent).
-        {
-            let has_conv_summaries: bool = conn
-                .prepare(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_summaries'",
-                )?
-                .query_map([], |_row| Ok(()))?
-                .next()
-                .is_some();
-            if has_conv_summaries {
-                let _ = conn.execute_batch(
-                    "ALTER TABLE conversation_summaries RENAME TO session_summaries;",
-                );
-            }
-        }
-
-        // ── Fix: make chat_id nullable (was NOT NULL from legacy conversations table) ──
-        // SQLite doesn't support ALTER COLUMN, so we recreate the table.
-        {
-            let chat_id_notnull: bool = conn
-                .prepare("PRAGMA table_info(session_messages)")
-                .ok()
-                .map(|mut stmt| {
-                    stmt.query_map([], |row| {
-                        Ok((row.get::<_, String>(1)?, row.get::<_, bool>(3)?))
-                    })
-                    .ok()
-                    .map(|rows| {
-                        rows.filter_map(|r| r.ok())
-                            .any(|(name, notnull)| name == "chat_id" && notnull)
-                    })
-                    .unwrap_or(false)
-                })
-                .unwrap_or(false);
-
-            if chat_id_notnull {
-                // Drop FTS triggers first (they reference session_messages).
-                let _ = conn.execute_batch(
-                    "DROP TRIGGER IF EXISTS session_messages_ai;
-                     DROP TRIGGER IF EXISTS session_messages_ad;
-                     DROP TRIGGER IF EXISTS session_messages_au;
-                     DROP TRIGGER IF EXISTS conversations_ai;
-                     DROP TRIGGER IF EXISTS conversations_ad;
-                     DROP TRIGGER IF EXISTS conversations_au;
-                     DROP TABLE IF EXISTS messages_fts;
-                     DROP TABLE IF EXISTS session_messages_new;",
-                );
-                let _ = conn.execute_batch(
-                    "CREATE TABLE session_messages_new (
-                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         chat_id INTEGER,
-                         session_id TEXT,
-                         role TEXT NOT NULL,
-                         content TEXT NOT NULL,
-                         timestamp TEXT NOT NULL,
-                         summarized INTEGER DEFAULT 0,
-                         source TEXT DEFAULT NULL,
-                         event_type TEXT NOT NULL DEFAULT 'message',
-                         metadata TEXT DEFAULT NULL
-                     );
-                     INSERT INTO session_messages_new (id, chat_id, session_id, role, content, timestamp, summarized, source, event_type, metadata)
-                         SELECT id, chat_id, session_id, role, content, timestamp, summarized, source, event_type, metadata FROM session_messages;
-                     DROP TABLE session_messages;
-                     ALTER TABLE session_messages_new RENAME TO session_messages;",
-                );
-            }
-        }
-
-        // ── Create session_messages table (new schema) ──
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS session_messages (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -189,69 +104,24 @@ impl SessionStore {
                  summarized INTEGER DEFAULT 0,
                  source TEXT DEFAULT NULL,
                  event_type TEXT NOT NULL DEFAULT 'message',
-                 metadata TEXT DEFAULT NULL
-             );",
-        )
-        .context("failed to initialize session_messages schema")?;
+                 metadata TEXT DEFAULT NULL,
+                 sender_id TEXT,
+                 transport TEXT DEFAULT 'unknown'
+             );
+             CREATE INDEX IF NOT EXISTS idx_session_msgs_session ON session_messages(session_id);
+             CREATE INDEX IF NOT EXISTS idx_session_msgs_ts ON session_messages(timestamp);
+             CREATE INDEX IF NOT EXISTS idx_session_msgs_chat ON session_messages(chat_id);
 
-        // Legacy column migrations (idempotent — columns may already exist).
-        let _ =
-            conn.execute_batch("ALTER TABLE session_messages ADD COLUMN source TEXT DEFAULT NULL;");
-        let _ = conn.execute_batch(
-            "ALTER TABLE session_messages ADD COLUMN event_type TEXT DEFAULT 'message';",
-        );
-        let _ = conn
-            .execute_batch("ALTER TABLE session_messages ADD COLUMN metadata TEXT DEFAULT NULL;");
-        // Add session_id column for tables migrated from conversations.
-        let _ = conn
-            .execute_batch("ALTER TABLE session_messages ADD COLUMN session_id TEXT DEFAULT NULL;");
-        // Preserve legacy chat_id column so old data isn't lost.
-        let _ = conn.execute_batch("ALTER TABLE session_messages ADD COLUMN chat_id INTEGER;");
-        // Legacy index (may already exist under old name).
-        let _ = conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_conv_chat ON session_messages(chat_id);",
-        );
-        // Indexes that depend on columns added above.
-        let _ = conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_session_msgs_session ON session_messages(session_id);
-             CREATE INDEX IF NOT EXISTS idx_session_msgs_ts ON session_messages(timestamp);",
-        );
-
-        // ── session_summaries table ──
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS session_summaries (
+             CREATE TABLE IF NOT EXISTS session_summaries (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  chat_id INTEGER,
+                 session_id TEXT,
                  summary TEXT NOT NULL,
                  covers_until TEXT NOT NULL
-             );",
-        )
-        .context("failed to create session_summaries table")?;
-        // Add session_id column (idempotent — may already exist).
-        let _ = conn.execute_batch(
-            "ALTER TABLE session_summaries ADD COLUMN session_id TEXT DEFAULT NULL;",
-        );
-        let _ = conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_summ_session ON session_summaries(session_id);",
-        );
+             );
+             CREATE INDEX IF NOT EXISTS idx_summ_session ON session_summaries(session_id);
 
-        // ── Legacy channels table — keep for migration reads, but do NOT create new rows ──
-        // (table may exist from old schema; we don't create it fresh)
-
-        // Drop old FTS triggers that reference 'conversations' BEFORE creating new ones.
-        let _ = conn.execute_batch(
-            "DROP TRIGGER IF EXISTS conversations_ai;
-             DROP TRIGGER IF EXISTS conversations_ad;
-             DROP TRIGGER IF EXISTS conversations_au;",
-        );
-
-        // Drop old FTS table if it points to wrong content table, then recreate.
-        // (FTS5 content table can't be changed after creation)
-        let _ = conn.execute_batch("DROP TABLE IF EXISTS messages_fts;");
-
-        // FTS5 virtual table for full-text search across transcripts.
-        let _ = conn.execute_batch(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+             CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
                  content,
                  content=session_messages,
                  content_rowid=id
@@ -265,129 +135,26 @@ impl SessionStore {
              CREATE TRIGGER IF NOT EXISTS session_messages_au AFTER UPDATE ON session_messages BEGIN
                  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
                  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-             END;",
-        );
+             END;
 
-        // ── 4A-migrate: Rename old `unified_sessions` → `sessions` if needed ──
-        {
-            let has_old: bool = conn
-                .prepare(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='unified_sessions'",
-                )?
-                .query_map([], |_row| Ok(()))?
-                .next()
-                .is_some();
-            if has_old {
-                conn.execute_batch("ALTER TABLE unified_sessions RENAME TO sessions;")?;
-                let _ = conn.execute_batch(
-                    "DROP INDEX IF EXISTS idx_usess_agent;
-                     DROP INDEX IF EXISTS idx_usess_project;
-                     DROP INDEX IF EXISTS idx_usess_type;
-                     DROP INDEX IF EXISTS idx_sess_project;
-                     CREATE INDEX IF NOT EXISTS idx_sess_agent ON sessions(agent_id);
-                     CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);",
-                );
-            }
-        }
-
-        // ── Sessions table ──
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS sessions (
+             CREATE TABLE IF NOT EXISTS sessions (
                  id TEXT PRIMARY KEY,
                  agent_id TEXT,
                  session_type TEXT NOT NULL,
                  name TEXT NOT NULL,
                  status TEXT NOT NULL DEFAULT 'active',
                  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-                 closed_at TEXT
+                 closed_at TEXT,
+                 parent_id TEXT,
+                 quest_id TEXT,
+                 first_message TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_sess_agent ON sessions(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);",
-        )
-        .context("failed to create sessions table")?;
+             CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);
+             CREATE INDEX IF NOT EXISTS idx_sess_parent ON sessions(parent_id);
+             CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);
 
-        // Legacy migration: add legacy_chat_id for existing DBs that still need backfill.
-        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN legacy_chat_id INTEGER;");
-
-        // ── Phase A: Add parent_id and task_id to sessions ──
-        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN parent_id TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN task_id TEXT;");
-        let _ = conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_sess_parent ON sessions(parent_id);
-             CREATE INDEX IF NOT EXISTS idx_sess_task ON sessions(task_id);",
-        );
-
-        // ── Phase 4: Rename task_id → quest_id ──
-        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN quest_id TEXT;");
-        let _ = conn.execute_batch(
-            "UPDATE sessions SET quest_id = task_id WHERE quest_id IS NULL AND task_id IS NOT NULL;",
-        );
-        let _ =
-            conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);");
-
-        // ── Phase 5: Add first_message column for meaningful session names ──
-        let _ = conn.execute_batch("ALTER TABLE sessions ADD COLUMN first_message TEXT;");
-
-        // ── Backfill session_id into session_messages from sessions.legacy_chat_id ──
-        let _ = conn.execute_batch(
-            "UPDATE session_messages SET session_id = (
-                 SELECT s.id FROM sessions s WHERE s.legacy_chat_id = session_messages.chat_id
-             ) WHERE session_id IS NULL AND chat_id IS NOT NULL;",
-        );
-
-        // ── Backfill session_id into session_summaries from sessions.legacy_chat_id ──
-        let _ = conn.execute_batch(
-            "UPDATE session_summaries SET session_id = (
-                 SELECT s.id FROM sessions s WHERE s.legacy_chat_id = session_summaries.chat_id
-             ) WHERE session_id IS NULL AND chat_id IS NOT NULL;",
-        );
-
-        // ── 4B: Backfill sessions from channels (legacy) ──
-        {
-            let has_channels: bool = conn
-                .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='channels'")?
-                .query_map([], |_row| Ok(()))?
-                .next()
-                .is_some();
-            if has_channels {
-                let _ = conn.execute_batch(
-                    "INSERT OR IGNORE INTO sessions (id, legacy_chat_id, agent_id, session_type, name, status, created_at)
-                     SELECT
-                         lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
-                         chat_id,
-                         agent_id,
-                         channel_type,
-                         name,
-                         'active',
-                         created_at
-                     FROM channels
-                     WHERE chat_id NOT IN (SELECT legacy_chat_id FROM sessions WHERE legacy_chat_id IS NOT NULL);",
-                );
-            }
-        }
-
-        // ── 4C: Backfill from agent_sessions (if it exists) ──
-        {
-            let has_agent_sessions: bool = conn
-                .prepare(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
-                )?
-                .query_map([], |_row| Ok(()))?
-                .next()
-                .is_some();
-            if has_agent_sessions {
-                let _ = conn.execute_batch(
-                    "INSERT OR IGNORE INTO sessions (id, agent_id, session_type, name, status, created_at, closed_at)
-                     SELECT id, agent_id, 'perpetual', 'Permanent Session', status, created_at, closed_at
-                     FROM agent_sessions
-                     WHERE id NOT IN (SELECT id FROM sessions);",
-                );
-            }
-        }
-
-        // ── Senders table (identity registry — who sent a message) ──
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS senders (
+             CREATE TABLE IF NOT EXISTS senders (
                  id           TEXT PRIMARY KEY,
                  transport    TEXT NOT NULL,
                  transport_id TEXT NOT NULL,
@@ -399,13 +166,9 @@ impl SessionStore {
                  last_seen_at TEXT,
                  UNIQUE(transport, transport_id)
              );
-             CREATE INDEX IF NOT EXISTS idx_sender_transport ON senders(transport, transport_id);",
-        )
-        .context("failed to create senders table")?;
+             CREATE INDEX IF NOT EXISTS idx_sender_transport ON senders(transport, transport_id);
 
-        // ── Session traces (execution events, separate from messages) ──
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS session_traces (
+             CREATE TABLE IF NOT EXISTS session_traces (
                  id         INTEGER PRIMARY KEY AUTOINCREMENT,
                  session_id TEXT NOT NULL,
                  trace_type TEXT NOT NULL,
@@ -414,12 +177,9 @@ impl SessionStore {
                  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
                  metadata   TEXT
              );
-             CREATE INDEX IF NOT EXISTS idx_st_session ON session_traces(session_id);",
-        )
-        .context("failed to create session_traces table")?;
+             CREATE INDEX IF NOT EXISTS idx_st_session ON session_traces(session_id);
 
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS session_gateways (
+             CREATE TABLE IF NOT EXISTS session_gateways (
                  id           TEXT PRIMARY KEY,
                  session_id   TEXT NOT NULL,
                  gateway_type TEXT NOT NULL,
@@ -430,13 +190,7 @@ impl SessionStore {
              );
              CREATE INDEX IF NOT EXISTS idx_sg_session ON session_gateways(session_id);",
         )
-        .context("failed to create session_gateways table")?;
-
-        // ── Add sender_id and transport columns to session_messages ──
-        let _ = conn.execute_batch("ALTER TABLE session_messages ADD COLUMN sender_id TEXT;");
-        let _ = conn.execute_batch(
-            "ALTER TABLE session_messages ADD COLUMN transport TEXT DEFAULT 'unknown';",
-        );
+        .context("failed to create session store tables")?;
 
         debug!("session store tables created");
 
@@ -817,38 +571,6 @@ impl SessionStore {
     }
 
     // ── Session methods (UUID-based) ──
-
-    /// Get or create a session UUID for a legacy chat_id.
-    pub async fn ensure_session(
-        &self,
-        chat_id: i64,
-        session_type: &str,
-        name: &str,
-        agent_id: Option<&str>,
-    ) -> Result<String> {
-        let db = self.db.lock().await;
-        // Check if session exists for this chat_id.
-        let existing: Option<String> = db
-            .query_row(
-                "SELECT id FROM sessions WHERE legacy_chat_id = ?1",
-                params![chat_id],
-                |row| row.get(0),
-            )
-            .optional()?;
-
-        if let Some(id) = existing {
-            return Ok(id);
-        }
-
-        // Create new.
-        let id = uuid::Uuid::new_v4().to_string();
-        db.execute(
-            "INSERT INTO sessions (id, legacy_chat_id, session_type, name, agent_id)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![id, chat_id, session_type, name, agent_id],
-        )?;
-        Ok(id)
-    }
 
     /// Record a message by session UUID — inserts directly into session_messages with session_id.
     pub async fn record_by_session(
@@ -1628,40 +1350,6 @@ mod tests {
     }
 
     // ── Session tests ──
-
-    #[tokio::test]
-    async fn test_ensure_session_creates_and_returns() {
-        let store = test_store().await;
-
-        let id1 = store
-            .ensure_session(100, "web", "test-session", None)
-            .await
-            .unwrap();
-        assert!(!id1.is_empty());
-        assert!(id1.contains('-')); // UUID format
-
-        // Calling again returns the same ID.
-        let id2 = store
-            .ensure_session(100, "web", "test-session", None)
-            .await
-            .unwrap();
-        assert_eq!(id1, id2);
-    }
-
-    #[tokio::test]
-    async fn test_ensure_session_with_agent() {
-        let store = test_store().await;
-
-        let id = store
-            .ensure_session(200, "web", "agent-session", Some("agent-uuid-1"))
-            .await
-            .unwrap();
-
-        let sessions = store.list_sessions(Some("agent-uuid-1"), 10).await.unwrap();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].id, id);
-        assert_eq!(sessions[0].agent_id.as_deref(), Some("agent-uuid-1"));
-    }
 
     #[tokio::test]
     async fn test_record_and_history_by_session() {

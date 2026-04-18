@@ -392,9 +392,6 @@ impl Daemon {
         self.spawn_ipc_listener();
         self.load_persisted_state().await;
 
-        // Migrate injection_mode ideas to event-based activation.
-        self.run_injection_mode_migration().await;
-
         // Crash recovery: reset stale in_progress quests from previous run.
         match self.agent_registry.reset_stale_in_progress().await {
             Ok(count) if count > 0 => {
@@ -622,44 +619,6 @@ impl Daemon {
     /// Load persisted state from disk.
     async fn load_persisted_state(&self) {
         // Cost entries and events are stored in ActivityLog (SQLite) — no load needed.
-    }
-
-    /// Migrate injection_mode ideas to event-based activation (idempotent).
-    ///
-    /// Runs once at daemon startup. For each agent with injection_mode ideas,
-    /// creates or updates an `on_session_start` event referencing those idea IDs.
-    async fn run_injection_mode_migration(&self) {
-        let event_store = match self.event_handler_store.as_ref() {
-            Some(s) => s,
-            None => return,
-        };
-
-        let idea_store = match self
-            .message_router
-            .as_ref()
-            .and_then(|mr| mr.idea_store.as_ref())
-        {
-            Some(s) => s,
-            None => return,
-        };
-
-        match crate::event_handler::migrate_injection_mode_to_events(
-            idea_store.as_ref(),
-            event_store,
-        )
-        .await
-        {
-            Ok(count) if count > 0 => {
-                info!(
-                    count,
-                    "migrated injection_mode ideas to event-based activation"
-                );
-            }
-            Err(e) => {
-                warn!(error = %e, "injection_mode migration failed");
-            }
-            _ => {}
-        }
     }
 
     /// Prune orphaned worktrees from crashed executions.
@@ -1860,15 +1819,9 @@ impl Daemon {
                             let agent_id_or_hint =
                                 agent_id_direct.as_deref().unwrap_or(&agent_hint);
 
-                            let extra_prompts: Vec<aeqi_core::PromptEntry> = request
-                                .get("extra_prompts")
-                                .and_then(|v| serde_json::from_value(v.clone()).ok())
-                                .unwrap_or_default();
-
                             let mut spawn_opts =
                                 crate::session_manager::SpawnOptions::interactive()
                                     .with_transport("web".to_string());
-                            spawn_opts.extra_prompts = extra_prompts;
                             if let Some(ref sid) = web_sender_id {
                                 spawn_opts = spawn_opts.with_sender_id(sid.clone());
                             }

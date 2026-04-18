@@ -50,12 +50,11 @@ pub use agent_router::{AgentRouter, RouteDecision};
 pub use agent_worker::{AgentWorker, WorkerState};
 pub use channel_registry::{
     Channel, ChannelConfig, ChannelKind, ChannelStore, NewChannel, TelegramConfig,
-    migrate_channel_ideas, migrate_inline_allowed_chats,
 };
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;
-pub use event_handler::{Event, EventHandlerStore, NewEvent, migrate_injection_mode_to_events};
+pub use event_handler::{Event, EventHandlerStore, NewEvent};
 pub use event_matcher::event_idea_ids;
 pub use executor::QuestOutcome;
 pub use gateway_manager::GatewayManager;

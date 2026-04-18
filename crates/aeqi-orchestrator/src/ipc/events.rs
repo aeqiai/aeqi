@@ -38,12 +38,13 @@ pub async fn handle_create_event(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
-    let agent_id = request_field(request, "agent_id").unwrap_or("");
+    // `agent_id` may be null/missing → global event.
+    let agent_id_opt = request_field(request, "agent_id").map(|s| s.to_string());
     let name = request_field(request, "name").unwrap_or("");
     let pattern = request_field(request, "pattern").unwrap_or("");
 
-    if agent_id.is_empty() || name.is_empty() || pattern.is_empty() {
-        return serde_json::json!({"ok": false, "error": "agent_id, name, and pattern are required"});
+    if name.is_empty() || pattern.is_empty() {
+        return serde_json::json!({"ok": false, "error": "name and pattern are required"});
     }
 
     let cooldown_secs = request
@@ -61,7 +62,7 @@ pub async fn handle_create_event(
     };
 
     let new_event = NewEvent {
-        agent_id: agent_id.to_string(),
+        agent_id: agent_id_opt,
         name: name.to_string(),
         pattern: pattern.to_string(),
         idea_ids,
@@ -181,12 +182,12 @@ pub async fn handle_trigger_event(
         ctx.idea_store.as_ref(),
         event_store,
         &agent_id,
-        &[], // no task prompts for external triggers
+        &[],
         pattern,
     )
     .await;
 
-    let system_prompt = assembled.full_system_prompt();
+    let system_prompt = assembled.system;
 
     // Also return the matched events for visibility.
     let matched_events = event_store.get_events_for_pattern(&agent_id, pattern).await;

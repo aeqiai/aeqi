@@ -234,13 +234,7 @@ pub struct AgentRegistry {
 impl AgentRegistry {
     /// Open or create the registry database.
     pub fn open(data_dir: &Path) -> Result<Self> {
-        // Migration: rename legacy agents.db → aeqi.db.
-        let legacy_path = data_dir.join("agents.db");
         let db_path = data_dir.join("aeqi.db");
-        if legacy_path.exists() && !db_path.exists() {
-            std::fs::rename(&legacy_path, &db_path)?;
-            tracing::info!("migrated agents.db → aeqi.db");
-        }
         let conn = Connection::open(&db_path)?;
 
         conn.execute_batch(
@@ -249,14 +243,8 @@ impl AgentRegistry {
              PRAGMA foreign_keys = ON;",
         )?;
 
-        // Schema versioning via PRAGMA user_version.
-        let schema_version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-        tracing::debug!(schema_version, db = "aeqi.db", "schema version");
-
         conn.execute_batch(
-            "
-
-             CREATE TABLE IF NOT EXISTS agents (
+            "CREATE TABLE IF NOT EXISTS agents (
                  id TEXT PRIMARY KEY,
                  name TEXT NOT NULL,
                  display_name TEXT,
@@ -271,39 +259,18 @@ impl AgentRegistry {
                  avatar TEXT,
                  faces TEXT,
                  max_concurrent INTEGER NOT NULL DEFAULT 1,
-                 session_id TEXT
+                 session_id TEXT,
+                 workdir TEXT,
+                 budget_usd REAL,
+                 execution_mode TEXT,
+                 quest_prefix TEXT,
+                 worker_timeout_secs INTEGER,
+                 tool_deny TEXT NOT NULL DEFAULT '[]'
              );
              CREATE INDEX IF NOT EXISTS idx_agents_parent ON agents(parent_id);
              CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
-             CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
-
-             -- Legacy tables purged.
-             DROP TABLE IF EXISTS prompts;
-             DROP TABLE IF EXISTS budget_policies;
-             DROP TABLE IF EXISTS approvals;
-             DROP TABLE IF EXISTS sandboxes;
-             DROP TABLE IF EXISTS companies;",
+             CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);",
         )?;
-
-        // Idempotent migration: add agent columns for existing DBs.
-        let agent_columns = [
-            ("workdir", "TEXT"),
-            ("budget_usd", "REAL"),
-            ("execution_mode", "TEXT"),
-            ("quest_prefix", "TEXT"),
-            ("worker_timeout_secs", "INTEGER"),
-            ("tool_deny", "TEXT DEFAULT '[]'"),
-        ];
-        for (col, typ) in &agent_columns {
-            let has_col: bool = conn
-                .prepare("PRAGMA table_info(agents)")?
-                .query_map([], |row| row.get::<_, String>(1))?
-                .filter_map(|r| r.ok())
-                .any(|c| c == *col);
-            if !has_col {
-                conn.execute_batch(&format!("ALTER TABLE agents ADD COLUMN {col} {typ};"))?;
-            }
-        }
 
         // Quest sequences table (ID generation config — stays in aeqi.db).
         conn.execute_batch(
@@ -314,10 +281,13 @@ impl AgentRegistry {
         )?;
 
         // Events table — reaction rules (the fourth primitive).
+        // agent_id is nullable: NULL rows are global events visible to every agent.
+        // Uniqueness is enforced by a COALESCE-based index so two globals can't
+        // share a name and a global and a per-agent row can't collide either.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS events (
                  id TEXT PRIMARY KEY,
-                 agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                 agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
                  name TEXT NOT NULL,
                  pattern TEXT NOT NULL,
                  scope TEXT NOT NULL DEFAULT 'self',
@@ -328,19 +298,18 @@ impl AgentRegistry {
                  fire_count INTEGER NOT NULL DEFAULT 0,
                  total_cost_usd REAL NOT NULL DEFAULT 0.0,
                  system INTEGER NOT NULL DEFAULT 0,
-                 created_at TEXT NOT NULL,
-                 UNIQUE(agent_id, name)
+                 created_at TEXT NOT NULL
              );
              CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id);
              CREATE INDEX IF NOT EXISTS idx_events_pattern ON events(pattern);
-             CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);",
+             CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);
+             CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique_name
+                 ON events(COALESCE(agent_id, ''), name);",
         )?;
 
         // Agent ancestry closure table — materialised parent chain.
-        // One row per (descendant, ancestor, depth). Self-row at depth=0 is
-        // always present, so visibility queries ("X sees agent_id Y") can be
-        // expressed as a single JOIN / IN over this table without walking
-        // parent_id recursively on every call.
+        // Self-row at depth=0 is always present, so visibility queries
+        // resolve via a single JOIN / IN without walking parent_id recursively.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS agent_ancestry (
                  descendant_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
@@ -355,10 +324,6 @@ impl AgentRegistry {
         )?;
 
         // Channels table — connector wiring (Telegram, Discord, Slack, WhatsApp).
-        // Each row holds the typed config for one channel kind bound to one agent.
-        // Config is stored as JSON whose shape is validated by the channel_registry
-        // typed structs, not as free-form text (contrast with the legacy
-        // `channel:*` ideas convention this replaces).
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS channels (
                  id TEXT PRIMARY KEY,
@@ -374,24 +339,8 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_channels_kind ON channels(kind);",
         )?;
 
-        // Applied-migrations ledger — one row per one-shot data migration that
-        // has already run successfully. Lets us guard runtime migration passes
-        // so they don't scan/rewrite data on every boot forever.
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS applied_migrations (
-                 name TEXT PRIMARY KEY,
-                 applied_at TEXT NOT NULL
-             );",
-        )?;
-
-        // Per-channel chat whitelist. Each row is one allowed chat binding
-        // for a channel. Stored separately from the channel config blob so
-        // toggling a single chat doesn't rewrite (and risk corrupting) the
-        // token, and so the whitelist has an audit trail.
-        //
-        // `chat_id` is TEXT (not INTEGER) to stay transport-agnostic — Telegram
-        // uses i64 chat IDs but Discord channel IDs are snowflake strings, and
-        // future transports may use UUIDs or phone numbers.
+        // Per-channel chat whitelist. `chat_id` is TEXT so every transport fits:
+        // Telegram i64, Discord snowflake strings, UUIDs, phone numbers.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS channel_allowed_chats (
                  channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
@@ -403,8 +352,7 @@ impl AgentRegistry {
                  ON channel_allowed_chats(channel_id);",
         )?;
 
-        // Files table — Drive storage, scoped to an agent. Access follows the
-        // agent's visibility; deleting an agent removes its files.
+        // Files table — Drive storage, scoped to an agent.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS files (
                  id TEXT PRIMARY KEY,
@@ -423,44 +371,12 @@ impl AgentRegistry {
         // Ideas live in the shared tags-only schema maintained by aeqi-ideas.
         SqliteIdeas::prepare_schema(&conn)?;
 
-        // Idempotent migrations for existing databases.
-        // Events: add idea_ids if missing (legacy DBs had idea_id singular + content).
-        let has_event_idea_ids: bool = conn
-            .prepare("PRAGMA table_info(events)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == "idea_ids");
-        if !has_event_idea_ids {
-            conn.execute_batch(
-                "ALTER TABLE events ADD COLUMN idea_ids TEXT NOT NULL DEFAULT '[]';",
-            )?;
-        }
-
-        // Purge legacy tables.
+        // Seal the ideas invariant: (COALESCE(agent_id, ''), name) is unique.
         conn.execute_batch(
-            "DROP TABLE IF EXISTS events_fts;
-             DROP TABLE IF EXISTS triggers;",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_unique
+                 ON ideas(COALESCE(agent_id, ''), name);",
         )?;
 
-        // Phase-1 data migrations. These populate the new closure/join tables
-        // from the old parent_id walk and idea_ids JSON, then collapse the
-        // duplicate-ideas that earlier lifecycle auto-create passes produced.
-        // Each is guarded by applied_migrations so it runs exactly once per
-        // database.
-        run_phase1_backfills(&conn)?;
-
-        // Stamp current schema version.
-        const AEQI_SCHEMA_VERSION: i32 = 1;
-        if schema_version < AEQI_SCHEMA_VERSION {
-            conn.execute_batch(&format!("PRAGMA user_version = {AEQI_SCHEMA_VERSION};"))?;
-            tracing::info!(
-                from = schema_version,
-                to = AEQI_SCHEMA_VERSION,
-                "aeqi.db schema upgraded"
-            );
-        }
-
-        // Close the aeqi.db migration connection and open a pool.
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
         info!(path = %db_path.display(), pool_size = 4, "aeqi.db opened");
@@ -473,8 +389,6 @@ impl AgentRegistry {
              PRAGMA busy_timeout = 5000;
              PRAGMA foreign_keys = ON;",
         )?;
-        let sessions_schema_version: i32 =
-            sconn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
 
         // Quests table (live work state — lives in sessions.db).
         sconn.execute_batch(
@@ -506,24 +420,6 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);",
         )?;
 
-        // Quests: add columns for existing sessions.db.
-        for (col, typ) in &[
-            ("outcome", "TEXT"),
-            ("worktree_branch", "TEXT"),
-            ("worktree_path", "TEXT"),
-            ("idea_ids", "TEXT NOT NULL DEFAULT '[]'"),
-            ("creator_session_id", "TEXT"),
-        ] {
-            let has: bool = sconn
-                .prepare("PRAGMA table_info(quests)")?
-                .query_map([], |row| row.get::<_, String>(1))?
-                .filter_map(|r| r.ok())
-                .any(|c| c == *col);
-            if !has {
-                sconn.execute_batch(&format!("ALTER TABLE quests ADD COLUMN {col} {typ};"))?;
-            }
-        }
-
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
 
@@ -544,29 +440,16 @@ impl AgentRegistry {
                  cost_usd REAL NOT NULL DEFAULT 0,
                  tokens_used INTEGER NOT NULL DEFAULT 0,
                  turns INTEGER NOT NULL DEFAULT 0,
-                 outcome TEXT
+                 outcome TEXT,
+                 prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                 completion_tokens INTEGER NOT NULL DEFAULT 0,
+                 duration_ms INTEGER
              );
              CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id);
              CREATE INDEX IF NOT EXISTS idx_runs_quest ON runs(quest_id);
              CREATE INDEX IF NOT EXISTS idx_runs_agent ON runs(agent_id);
              CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);",
         )?;
-
-        // Runs: add columns for detailed execution tracking.
-        for (col, typ) in &[
-            ("prompt_tokens", "INTEGER NOT NULL DEFAULT 0"),
-            ("completion_tokens", "INTEGER NOT NULL DEFAULT 0"),
-            ("duration_ms", "INTEGER"),
-        ] {
-            let has: bool = sconn
-                .prepare("PRAGMA table_info(runs)")?
-                .query_map([], |row| row.get::<_, String>(1))?
-                .filter_map(|r| r.ok())
-                .any(|c| c == *col);
-            if !has {
-                sconn.execute_batch(&format!("ALTER TABLE runs ADD COLUMN {col} {typ};"))?;
-            }
-        }
 
         // Channel sessions table — maps channel_key (e.g. "telegram:agent_id:chat_id")
         // to a persistent session_id for session-based channel routing.
@@ -580,21 +463,6 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_channel_sessions_agent ON channel_sessions(agent_id);",
         )?;
 
-        // ── Migration: move data from aeqi.db → sessions.db if needed ──
-        Self::migrate_tables_to_sessions(&db_path, &sessions_path)?;
-
-        // Stamp sessions.db schema version.
-        const SESSIONS_SCHEMA_VERSION: i32 = 1;
-        if sessions_schema_version < SESSIONS_SCHEMA_VERSION {
-            sconn.execute_batch(&format!("PRAGMA user_version = {SESSIONS_SCHEMA_VERSION};"))?;
-            tracing::info!(
-                from = sessions_schema_version,
-                to = SESSIONS_SCHEMA_VERSION,
-                "sessions.db schema upgraded"
-            );
-        }
-
-        // Close the sessions.db migration connection and open a pool.
         drop(sconn);
         let sessions_pool = ConnectionPool::open(&sessions_path, 4)?;
         info!(path = %sessions_path.display(), pool_size = 4, "sessions.db opened");
@@ -611,121 +479,6 @@ impl AgentRegistry {
     /// on first write.
     pub fn files_dir(&self) -> std::path::PathBuf {
         self.data_dir.join("files")
-    }
-
-    /// Migrate tables from aeqi.db to sessions.db if they exist in the old location.
-    ///
-    /// Detects quests, activity, sessions, session_messages, session_summaries,
-    /// runs tables in aeqi.db and copies their data to sessions.db, then drops
-    /// them from aeqi.db.
-    fn migrate_tables_to_sessions(aeqi_path: &Path, sessions_path: &Path) -> Result<()> {
-        let src = Connection::open(aeqi_path)?;
-        src.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA busy_timeout = 5000;",
-        )?;
-
-        // Check if quests table exists in aeqi.db (our canary for needing migration).
-        let has_quests: bool = src
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='quests'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .unwrap_or(0)
-            > 0;
-
-        if !has_quests {
-            return Ok(());
-        }
-
-        info!("migrating journal tables from aeqi.db → sessions.db");
-
-        // Attach sessions.db to the aeqi.db connection for cross-db INSERT.
-        src.execute_batch(&format!(
-            "ATTACH DATABASE '{}' AS sdb;",
-            sessions_path.display()
-        ))?;
-
-        // Tables to migrate: (table_name).
-        let tables = [
-            "quests",
-            "activity",
-            "sessions",
-            "session_messages",
-            "session_summaries",
-            "messages_fts",
-            "runs",
-        ];
-
-        for table in &tables {
-            let exists: bool = src
-                .query_row(
-                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-                    params![table],
-                    |row| row.get::<_, i64>(0),
-                )
-                .unwrap_or(0)
-                > 0;
-
-            if !exists {
-                continue;
-            }
-
-            // Check if target table in sessions.db already has data (skip if so).
-            let target_exists: bool = src
-                .query_row(
-                    &format!("SELECT COUNT(*) FROM sdb.sqlite_master WHERE type='table' AND name='{table}'"),
-                    [],
-                    |row| row.get::<_, i64>(0),
-                )
-                .unwrap_or(0)
-                > 0;
-
-            if target_exists {
-                let target_count: i64 = src
-                    .query_row(&format!("SELECT COUNT(*) FROM sdb.{table}"), [], |row| {
-                        row.get(0)
-                    })
-                    .unwrap_or(0);
-
-                if target_count > 0 {
-                    // Target already has data — just drop from source.
-                    info!(table = %table, "sessions.db already has data, dropping from aeqi.db");
-                    let _ = src.execute_batch(&format!("DROP TABLE IF EXISTS main.{table};"));
-                    continue;
-                }
-            }
-
-            // Copy data from aeqi.db → sessions.db.
-            let count: i64 = src
-                .query_row(&format!("SELECT COUNT(*) FROM main.{table}"), [], |row| {
-                    row.get(0)
-                })
-                .unwrap_or(0);
-
-            if count > 0 && target_exists {
-                // FTS tables can't be INSERT INTO ... SELECT'd easily, skip data copy for them.
-                if *table == "messages_fts" {
-                    info!(table = %table, "skipping FTS data migration (will be rebuilt)");
-                } else {
-                    let _ = src.execute_batch(&format!(
-                        "INSERT OR IGNORE INTO sdb.{table} SELECT * FROM main.{table};"
-                    ));
-                    info!(table = %table, rows = count, "migrated to sessions.db");
-                }
-            }
-
-            // Drop from aeqi.db.
-            let _ = src.execute_batch(&format!("DROP TABLE IF EXISTS main.{table};"));
-        }
-
-        // Also drop activity_fts from aeqi.db if present.
-        let _ = src.execute_batch("DROP TABLE IF EXISTS main.activity_fts;");
-
-        src.execute_batch("DETACH DATABASE sdb;")?;
-        info!("journal table migration complete");
-        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -797,7 +550,7 @@ impl AgentRegistry {
                 };
                 let _ = event_store
                     .create(&crate::event_handler::NewEvent {
-                        agent_id: agent.id.clone(),
+                        agent_id: Some(agent.id.clone()),
                         name: t.name.clone(),
                         pattern,
                         idea_ids: Vec::new(),
@@ -886,9 +639,8 @@ impl AgentRegistry {
         info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");
         drop(db);
 
-        // Create default lifecycle events for the new agent.
-        let ehs = crate::event_handler::EventHandlerStore::new(self.db.clone());
-        crate::event_handler::create_default_lifecycle_events(&ehs, &agent.id).await?;
+        // Lifecycle events are global (seeded once at daemon boot) — nothing
+        // per-agent to create here.
 
         Ok(agent)
     }
@@ -1107,8 +859,8 @@ impl AgentRegistry {
         agent_id: &str,
     ) -> Result<Vec<aeqi_core::traits::Idea>> {
         // Tuple of (id, name, content, agent_id, session_id, created_at,
-        // injection_mode, inheritance, tool_allow, tool_deny). Local to this
-        // method so the complex row shape doesn't leak into the module.
+        // inheritance, tool_allow, tool_deny). Local to this method so the
+        // complex row shape doesn't leak into the module.
         type IdeaRow = (
             String,
             String,
@@ -1116,7 +868,6 @@ impl AgentRegistry {
             Option<String>,
             Option<String>,
             String,
-            Option<String>,
             String,
             Option<String>,
             Option<String>,
@@ -1126,7 +877,7 @@ impl AgentRegistry {
         let rows: Vec<IdeaRow> = {
             let mut stmt = db.prepare(
                 "SELECT id, name, content, agent_id, session_id, created_at,
-                        injection_mode, inheritance, tool_allow, tool_deny
+                        inheritance, tool_allow, tool_deny
                  FROM ideas
                  WHERE agent_id IS NULL
                     OR agent_id IN (
@@ -1142,10 +893,9 @@ impl AgentRegistry {
                     row.get::<_, Option<String>>(3)?,
                     row.get::<_, Option<String>>(4)?,
                     row.get::<_, String>(5)?,
-                    row.get::<_, Option<String>>(6)?,
-                    row.get::<_, String>(7)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, Option<String>>(7)?,
                     row.get::<_, Option<String>>(8)?,
-                    row.get::<_, Option<String>>(9)?,
                 ))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?
@@ -1153,18 +903,8 @@ impl AgentRegistry {
 
         // Hydrate tags per idea (secondary query; tag set tends to be tiny).
         let mut out = Vec::with_capacity(rows.len());
-        for (
-            id,
-            name,
-            content,
-            aid,
-            session_id,
-            created_at,
-            injection_mode,
-            inheritance,
-            tool_allow,
-            tool_deny,
-        ) in rows
+        for (id, name, content, aid, session_id, created_at, inheritance, tool_allow, tool_deny) in
+            rows
         {
             let tags: Vec<String> = {
                 let mut tag_stmt =
@@ -1186,7 +926,6 @@ impl AgentRegistry {
                 session_id,
                 created_at,
                 score: 1.0,
-                injection_mode,
                 inheritance,
                 tool_allow: tool_allow
                     .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
@@ -2556,274 +2295,6 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),
     }
-}
-
-// ---------------------------------------------------------------------------
-// Phase-1 migrations — run at open() against the raw aeqi.db connection.
-//
-// These three migrations populate the new closure/join tables from the old
-// parent_id walk and `events.idea_ids` JSON, then collapse duplicate ideas
-// that earlier lifecycle auto-create passes produced. Each is guarded by a
-// row in `applied_migrations` so it runs exactly once per database, and the
-// unique index that seals `(agent_id, name)` is only created after collapse.
-// ---------------------------------------------------------------------------
-
-fn run_phase1_backfills(conn: &Connection) -> Result<()> {
-    const AGENT_ANCESTRY_BACKFILL: &str = "agent_ancestry_backfill_v1";
-    const IDEAS_COLLAPSE_DUPES: &str = "ideas_collapse_duplicates_v1";
-    const LIFECYCLE_IDEAS_GLOBALIZE: &str = "lifecycle_ideas_globalize_v1";
-
-    if !is_migration_applied_sync(conn, AGENT_ANCESTRY_BACKFILL)? {
-        backfill_agent_ancestry(conn)?;
-        mark_migration_applied_sync(conn, AGENT_ANCESTRY_BACKFILL)?;
-    }
-    if !is_migration_applied_sync(conn, IDEAS_COLLAPSE_DUPES)? {
-        collapse_duplicate_ideas(conn)?;
-        mark_migration_applied_sync(conn, IDEAS_COLLAPSE_DUPES)?;
-    }
-    if !is_migration_applied_sync(conn, LIFECYCLE_IDEAS_GLOBALIZE)? {
-        globalize_lifecycle_ideas(conn)?;
-        mark_migration_applied_sync(conn, LIFECYCLE_IDEAS_GLOBALIZE)?;
-    }
-
-    // Seal the invariant: (COALESCE(agent_id, ''), name) is unique forever.
-    // Creating the index after collapse means existing rows satisfy it; from
-    // here on, duplicate writes fail at INSERT time instead of accumulating.
-    conn.execute_batch(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_unique
-             ON ideas(COALESCE(agent_id, ''), name);",
-    )?;
-
-    Ok(())
-}
-
-fn is_migration_applied_sync(conn: &Connection, name: &str) -> Result<bool> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM applied_migrations WHERE name = ?1",
-        params![name],
-        |row| row.get(0),
-    )?;
-    Ok(count > 0)
-}
-
-fn mark_migration_applied_sync(conn: &Connection, name: &str) -> Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO applied_migrations (name, applied_at) VALUES (?1, ?2)",
-        params![name, Utc::now().to_rfc3339()],
-    )?;
-    Ok(())
-}
-
-/// Walk every agent's parent_id chain and populate agent_ancestry with
-/// (self, ancestor, depth) rows. Self-row at depth=0 is always inserted, so
-/// a single query over the closure gives visibility + self.
-fn backfill_agent_ancestry(conn: &Connection) -> Result<()> {
-    // Start fresh — if a prior partial run left rows, they'd collide with the
-    // INSERT below (PK violation) on agents that still have the same ancestry.
-    conn.execute("DELETE FROM agent_ancestry", [])?;
-
-    let parents: std::collections::HashMap<String, Option<String>> = {
-        let mut stmt = conn.prepare("SELECT id, parent_id FROM agents")?;
-        stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?
-        .into_iter()
-        .collect()
-    };
-
-    let mut inserted = 0usize;
-    for id in parents.keys() {
-        let mut depth: i64 = 0;
-        let mut cur: Option<String> = Some(id.clone());
-        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-        while let Some(cid) = cur {
-            if !seen.insert(cid.clone()) {
-                tracing::warn!(agent_id = %id, "cycle detected during ancestry backfill");
-                break;
-            }
-            conn.execute(
-                "INSERT OR IGNORE INTO agent_ancestry (descendant_id, ancestor_id, depth)
-                 VALUES (?1, ?2, ?3)",
-                params![id, cid, depth],
-            )?;
-            inserted += 1;
-            cur = parents.get(&cid).cloned().flatten();
-            depth += 1;
-        }
-    }
-    tracing::info!(rows = inserted, "agent_ancestry backfilled");
-    Ok(())
-}
-
-/// Collapse duplicate ideas by (COALESCE(agent_id,''), name). Earlier lifecycle
-/// auto-create passes bypassed IdeaStore.store() dedup, so many databases have
-/// 20+ rows per agent with identical name+content. For each dupe group we keep
-/// the MAX(created_at) row, rewrite events.idea_ids JSON + idea_tags to point
-/// at the winner, then delete the losers. After this runs, CREATE UNIQUE INDEX
-/// can safely seal the invariant.
-fn collapse_duplicate_ideas(conn: &Connection) -> Result<()> {
-    // (coalesced_agent_id, name) → Vec<(id, created_at)>, descending by time.
-    let mut groups: std::collections::HashMap<(String, String), Vec<(String, String)>> =
-        std::collections::HashMap::new();
-    {
-        let mut stmt =
-            conn.prepare("SELECT id, COALESCE(agent_id, ''), name, created_at FROM ideas")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-            ))
-        })?;
-        for r in rows {
-            let (id, aid, name, created_at) = r?;
-            groups
-                .entry((aid, name))
-                .or_default()
-                .push((id, created_at));
-        }
-    }
-
-    let mut losers_deleted = 0usize;
-    for (_key, mut members) in groups {
-        if members.len() < 2 {
-            continue;
-        }
-        // Winner = most-recently created. Ties broken by id lex order (stable).
-        members.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(&a.0)));
-        let winner = members[0].0.clone();
-        for (loser, _) in members.iter().skip(1) {
-            // Rewrite events.idea_ids JSON: swap loser -> winner wherever it appears,
-            // de-duplicating in place so one event can't list the winner twice.
-            rewrite_event_idea_ref(conn, loser, &winner)?;
-            // Redirect tag pointers.
-            conn.execute(
-                "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
-                 SELECT ?1, tag FROM idea_tags WHERE idea_id = ?2",
-                params![winner, loser],
-            )?;
-            conn.execute("DELETE FROM idea_tags WHERE idea_id = ?1", params![loser])?;
-            // Drop the loser row.
-            conn.execute("DELETE FROM ideas WHERE id = ?1", params![loser])?;
-            losers_deleted += 1;
-        }
-    }
-    tracing::info!(
-        losers_deleted,
-        "collapsed duplicate ideas by (agent_id, name)"
-    );
-    Ok(())
-}
-
-/// Promote the 6 lifecycle seed ideas (session:start, session:quest-start,
-/// session:quest-end, session:quest-result, session:execution-start,
-/// session:step-start) to globals (agent_id IS NULL) and redirect every
-/// existing event.idea_ids reference to the canonical global row.
-///
-/// Old behavior: each spawn created 6 per-agent copies. New behavior: the 6
-/// seed ideas live once, with agent_id IS NULL, visible via the ancestry
-/// + NULL scope rule to every agent. Per-agent copies become orphans and are
-///   deleted. events rows themselves stay per-agent — only the idea pointers
-///   shift to the shared globals.
-fn globalize_lifecycle_ideas(conn: &Connection) -> Result<()> {
-    let lifecycle_keys: &[&str] = &[
-        "session:start",
-        "session:quest-start",
-        "session:quest-end",
-        "session:quest-result",
-        "session:execution-start",
-        "session:step-start",
-    ];
-    for key in lifecycle_keys {
-        // Find or promote a global (agent_id IS NULL) row for this key.
-        let global_id: Option<String> = conn
-            .query_row(
-                "SELECT id FROM ideas WHERE agent_id IS NULL AND name = ?1",
-                params![key],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let global_id = if let Some(id) = global_id {
-            id
-        } else {
-            // Promote an existing per-agent row (keeping content + tags) by
-            // flipping its agent_id to NULL. Pick the most-recently-created.
-            let promotee: Option<(String, String)> = conn
-                .query_row(
-                    "SELECT id, agent_id FROM ideas
-                     WHERE agent_id IS NOT NULL AND name = ?1
-                     ORDER BY created_at DESC LIMIT 1",
-                    params![key],
-                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
-                )
-                .optional()?;
-            match promotee {
-                Some((id, _)) => {
-                    conn.execute(
-                        "UPDATE ideas SET agent_id = NULL WHERE id = ?1",
-                        params![id],
-                    )?;
-                    id
-                }
-                None => continue, // No row to promote — nothing to migrate for this key.
-            }
-        };
-
-        // Redirect every remaining per-agent copy of `key` to the global id,
-        // then delete it. `rewrite_event_idea_ref` keeps events.idea_ids JSON
-        // coherent; idea_tags are also migrated.
-        let losers: Vec<String> = {
-            let mut stmt =
-                conn.prepare("SELECT id FROM ideas WHERE name = ?1 AND agent_id IS NOT NULL")?;
-            stmt.query_map(params![key], |r| r.get::<_, String>(0))?
-                .filter_map(|r| r.ok())
-                .collect()
-        };
-        for loser in &losers {
-            rewrite_event_idea_ref(conn, loser, &global_id)?;
-            conn.execute(
-                "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
-                 SELECT ?1, tag FROM idea_tags WHERE idea_id = ?2",
-                params![global_id, loser],
-            )?;
-            conn.execute("DELETE FROM idea_tags WHERE idea_id = ?1", params![loser])?;
-            conn.execute("DELETE FROM ideas WHERE id = ?1", params![loser])?;
-        }
-        tracing::info!(key = %key, promoted_to = %global_id, losers = losers.len(), "lifecycle idea globalized");
-    }
-    Ok(())
-}
-
-/// Swap every occurrence of `from_id` in `events.idea_ids` JSON arrays with
-/// `to_id`, de-duplicating the array in place. Called from collapse to keep
-/// referential coherence without a join table.
-fn rewrite_event_idea_ref(conn: &Connection, from_id: &str, to_id: &str) -> Result<()> {
-    let rows: Vec<(String, String)> = {
-        let mut stmt =
-            conn.prepare("SELECT id, idea_ids FROM events WHERE idea_ids LIKE '%' || ?1 || '%'")?;
-        stmt.query_map(params![from_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?
-    };
-    for (event_id, json) in rows {
-        let ids: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
-        let mut rewritten: Vec<String> = Vec::with_capacity(ids.len());
-        for id in ids {
-            let swapped = if id == from_id { to_id.to_string() } else { id };
-            if !rewritten.contains(&swapped) {
-                rewritten.push(swapped);
-            }
-        }
-        let new_json = serde_json::to_string(&rewritten).unwrap_or_else(|_| "[]".to_string());
-        conn.execute(
-            "UPDATE events SET idea_ids = ?1 WHERE id = ?2",
-            params![new_json, event_id],
-        )?;
-    }
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------

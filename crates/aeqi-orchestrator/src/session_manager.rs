@@ -139,8 +139,6 @@ pub struct SpawnOptions {
     pub quest_id: Option<String>,
     /// Session prompts to inject (prompt + tool filter). Multiple allowed.
     pub skills: Vec<String>,
-    /// Extra prompt entries injected at session creation time (from UI, delegation, etc).
-    pub extra_prompts: Vec<aeqi_core::PromptEntry>,
     /// Close session automatically when agent.run() completes.
     /// Default: true. Set false for persistent/interactive sessions.
     pub auto_close: bool,
@@ -162,7 +160,6 @@ impl Default for SpawnOptions {
             parent_id: None,
             quest_id: None,
             skills: Vec::new(),
-            extra_prompts: Vec::new(),
             auto_close: true,
             record_initial_prompt: true,
             name: None,
@@ -231,11 +228,6 @@ impl SpawnOptions {
 
     pub fn with_transport(mut self, transport: impl Into<String>) -> Self {
         self.transport = Some(transport.into());
-        self
-    }
-
-    pub fn with_extra_prompts(mut self, prompts: Vec<aeqi_core::PromptEntry>) -> Self {
-        self.extra_prompts.extend(prompts);
         self
     }
 
@@ -407,9 +399,8 @@ impl SessionManager {
             Vec::new()
         };
 
-        // 2. Assemble prompts from ancestor chain + extra session prompts.
+        // 2. Assemble prompt from ancestor chain.
         //    Event-driven: events define which ideas activate at session start.
-        //    Falls back to injection_mode ideas during migration.
         let event_store = self
             .event_store
             .clone()
@@ -420,15 +411,14 @@ impl SessionManager {
                 self.idea_store.as_ref(),
                 &event_store,
                 id,
-                &opts.extra_prompts,
+                &[],
             )
             .await;
-            let full = assembled.full_system_prompt();
             // Safety net: if assembly returned empty, use a sensible default.
-            if full.trim().is_empty() {
+            if assembled.system.trim().is_empty() {
                 "You are a helpful AI agent.".to_string()
             } else {
-                full
+                assembled.system
             }
         } else {
             // Unknown agent (no UUID) — use default + primers.

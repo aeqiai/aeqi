@@ -47,13 +47,14 @@ Agents are persistent identities in SQLite (`agents` table):
 
 Ideas attached to the agent provide its instructions, personality, expertise, and accumulated knowledge. There is no separate identity struct.
 
-## Ideas -- Three Activation Modes
+## Ideas -- Two Activation Modes
 
 | Mode | How | Use case |
 |------|-----|----------|
-| `injection_mode` set | Always in context | Identity, system prompt, expertise, instructions |
-| Referenced by event | Loaded on event fire | Automated behaviors, scheduled work |
-| Neither | Semantic search recall | Accumulated knowledge, memories, learned facts |
+| Referenced by event | Loaded on event fire | Identity, system prompt, lifecycle guidance, scheduled behaviors |
+| Not referenced | Semantic search recall | Accumulated knowledge, memories, learned facts |
+
+Ideas carry no positioning metadata. Activation is decided entirely by events: the `session:start` event references the ideas that should always be in an agent's context, `session:quest_start` references ideas for the quest-opening phase, and so on. Scope (`self` vs `descendants`) on each idea controls whether an ancestor's idea reaches the target agent.
 
 Ideas are stored in `ideas.db` with SQLite FTS5 full-text search and optional vector embeddings for hybrid retrieval.
 
@@ -67,9 +68,9 @@ Idea searches walk the agent tree upward: an agent sees its own ideas, its paren
 
 Events define when agents act autonomously. Types: schedule (cron/interval), pattern (quest_completed, etc.), once (fire-at-time), webhook (HTTP with HMAC).
 
-Events are tree-scoped: they can fire on the agent itself (`self`), its direct children, or all descendants.
+Events belong to a specific agent (row with `agent_id` set) or are **global** (`agent_id IS NULL`). Global events fire for every agent — that is how the six session lifecycle events ship: one row per phase, shared by every agent in the tree. Per-agent events handle everything else.
 
-When an event fires, it creates a quest loaded with the referenced idea.
+When an event fires, it activates its referenced ideas; those ideas are concatenated (in walk order: root ancestor → … → self → task ideas) into the system prompt, and their tool allow/deny lists merge into the session's tool restrictions.
 
 ## Entry Points
 

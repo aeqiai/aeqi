@@ -9,8 +9,9 @@ How an agent's input context is assembled when it wakes on a quest.
 An agent sees context through exactly two paths:
 
 **System prompt** (static for the session lifetime):
-- Assembled from the agent ancestor chain by walking ideas with injection_mode set
-- Root ancestor ideas (scope=descendants) -> parent ideas -> self ideas -> event-activated ideas
+- Assembled from the agent ancestor chain by walking events that match the target pattern (e.g. `session:start`) and pulling their referenced ideas
+- Walk order: root ancestor → ... → parent → self → task ideas; each idea's `scope` (`self` vs `descendants`) controls whether an ancestor's idea reaches the target agent
+- Tool allow/deny lists on activated ideas merge into the session's tool restrictions (intersection of allows, union of denies)
 - This is the agent's identity, inherited instructions, and role definition
 
 **User message** (the first message in the conversation — the "quest context"):

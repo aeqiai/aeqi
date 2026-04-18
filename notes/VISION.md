@@ -74,15 +74,16 @@ siblings. Context flows through the tree like thought through a nervous system.
 
 Skills don't exist as a separate concept. Templates don't exist. System
 prompts, primers, personas, role definitions -- none of these are distinct
-types. They're all ideas with different activation modes:
+types. They're all ideas, and activation is decided by events:
 
-- An idea with `injection_mode` = always in context (identity, instructions)
-- An idea referenced by an event = loaded when the event fires
-- An idea with neither = recalled via semantic search on demand
+- An idea referenced by a `session:start` event = always in context (identity, instructions)
+- An idea referenced by any other event = loaded when that event fires
+- An idea no event references = recalled via semantic search on demand
 
-A "skill" is an idea with injection_mode loaded onto a quest. A "template"
-is ideas loaded onto a new agent. A "primer" is an idea on an ancestor
-with scope=descendants. The primitive is the idea.
+A "skill" is an idea an event activates on a quest. A "template" is ideas
+loaded onto a new agent. A "primer" is an idea on an ancestor with
+inheritance=descendants. The primitive is the idea; the event decides
+when it fires.
 
 This means the AI writes its own instructions. It creates ideas for agents
 that don't exist yet, spawns them, and the new agents start working
@@ -92,11 +93,14 @@ you want one.
 ## Events, not triggers
 
 Events define when agents act autonomously. A schedule, a pattern match,
-a webhook -- all events. They're tree-scoped: an event can fire on the
-agent itself, its children, or all descendants.
+a webhook -- all events. An event belongs to a specific agent or is
+**global** (agent_id IS NULL) -- globals fire for every agent, which is
+how the six session lifecycle events ship: one row per phase, shared by
+every agent in the tree.
 
-When an event fires, it creates a quest loaded with the referenced idea.
-The scheduler spawns a worker. The loop continues.
+When an event fires, its referenced ideas are concatenated into the
+session's system prompt (in walk order: root ancestor → ... → self →
+task ideas) and the scheduler spawns a worker. The loop continues.
 
 ## Activity, not stores
 

@@ -423,45 +423,16 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 sm.set_event_store(event_handler_store.clone());
             }
 
-            // Seed default lifecycle events for existing agents that have none.
-            // create_default_lifecycle_events is idempotent — only runs if 0 events exist.
-            if let Ok(agents) = agent_reg.list_active().await {
-                for agent in &agents {
-                    let existing = event_handler_store
-                        .list_for_agent(&agent.id)
-                        .await
-                        .unwrap_or_default();
-                    if existing.is_empty() {
-                        if let Err(e) =
-                            aeqi_orchestrator::event_handler::create_default_lifecycle_events(
-                                &event_handler_store,
-                                &agent.id,
-                            )
-                            .await
-                        {
-                            warn!(agent = %agent.name, error = %e, "failed to seed lifecycle events");
-                        } else {
-                            info!(agent = %agent.name, "seeded default lifecycle events");
-                        }
-                    }
-                }
-            }
-
-            // Seed lifecycle events for all active agents that don't have the full set.
-            if let Ok(agents) = agent_reg.list_active().await {
-                for agent in &agents {
-                    let existing = event_handler_store
-                        .list_for_agent(&agent.id)
-                        .await
-                        .unwrap_or_default();
-                    if existing.len() < 12 {
-                        let _ = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
-                            &event_handler_store,
-                            &agent.id,
-                        )
-                        .await;
-                    }
-                }
+            // Seed the six global lifecycle events (agent_id NULL). Every agent
+            // inherits them through the event store's global-fallback queries.
+            // Idempotent — the COALESCE-based unique index on (agent_id, name)
+            // makes re-runs a no-op.
+            if let Err(e) = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
+                &event_handler_store,
+            )
+            .await
+            {
+                warn!(error = %e, "failed to seed global lifecycle events");
             }
 
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
@@ -481,25 +452,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             info!(total_max_workers, "global scheduler initialized");
 
-            // ── Channel gateways ──
-            // Channels are a first-class primitive (aeqi.db `channels` table)
-            // with typed configs per kind. The dispatcher in
-            // `channel_gateways::dispatch` owns the match on kind → spawner;
-            // this block just handles migrations and iterates the DB rows.
             let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
-            if let Some(ref idea_store) = shared_idea_store
-                && let Err(e) =
-                    aeqi_orchestrator::migrate_channel_ideas(&channel_store, idea_store.as_ref())
-                        .await
-            {
-                warn!(error = %e, "channel idea → channels table migration failed");
-            }
-            // B2: extract inline `allowed_chats` from existing channel rows
-            // into the dedicated `channel_allowed_chats` table. Idempotent via
-            // applied_migrations; no-op after first successful run.
-            if let Err(e) = aeqi_orchestrator::migrate_inline_allowed_chats(&channel_store).await {
-                warn!(error = %e, "inline allowed_chats → table migration failed");
-            }
 
             let spawn_ctx = crate::cmd::channel_gateways::SpawnContext {
                 session_manager: daemon.session_manager.clone(),

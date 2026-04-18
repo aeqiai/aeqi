@@ -1146,7 +1146,7 @@ impl Tool for EventsTool {
                 match self
                     .event_handler_store
                     .create(&crate::event_handler::NewEvent {
-                        agent_id: self.agent_id.clone(),
+                        agent_id: Some(self.agent_id.clone()),
                         name: name.to_string(),
                         pattern: pattern.clone(),
                         idea_ids,

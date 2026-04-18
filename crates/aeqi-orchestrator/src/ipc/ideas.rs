@@ -298,7 +298,6 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
         "created_at": idea.created_at.to_rfc3339(),
         "session_id": idea.session_id,
         "score": idea.score,
-        "injection_mode": idea.injection_mode,
         "inheritance": idea.inheritance,
         "tool_allow": idea.tool_allow,
         "tool_deny": idea.tool_deny,

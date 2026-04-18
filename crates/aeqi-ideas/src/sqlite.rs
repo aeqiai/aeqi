@@ -112,225 +112,12 @@ impl SqliteIdeas {
     }
 
     pub fn prepare_schema(conn: &Connection) -> Result<()> {
-        // Migrate: rename memories → insights → ideas for existing databases.
-        Self::migrate_table_rename(conn)?;
-        Self::migrate_insights_to_ideas(conn)?;
-
-        // Migrate: rename memory_edges / memory_embeddings → idea_edges /
-        // idea_embeddings. Must run before ensure_edge_table and VectorStore::open
-        // so the new names are in place when those CREATE TABLE IF NOT EXISTS
-        // statements run.
-        Self::migrate_memory_tables_to_ideas(conn)?;
-
-        Self::ensure_ideas_table(conn)?;
-        Self::ensure_idea_tags_table(conn)?;
-        Self::migrate(conn)?;
-
-        // Always ensure embeddings table exists for future use.
-        VectorStore::open(conn, 1536)?;
-
-        // Migrate: add optional TTL + injection metadata columns when opening
-        // legacy databases that predate the unified schema.
-        Self::migrate_ttl(conn)?;
-        Self::migrate_embedding_hash(conn)?;
-        Self::migrate_injection_columns(conn)?;
-
         Self::ensure_ideas_table(conn)?;
         Self::ensure_idea_tags_table(conn)?;
         Self::ensure_idea_indexes(conn)?;
         Self::ensure_fts(conn)?;
         Self::ensure_edge_table(conn)?;
-
-        // Collapse the legacy 6-relation taxonomy to the 3-relation one
-        // (mentions/embeds/adjacent). Must run after ensure_edge_table so
-        // the table is guaranteed to exist. Idempotent.
-        Self::migrate_relations_to_adjacent(conn)?;
-
-        Ok(())
-    }
-
-    /// Collapse legacy `idea_edges.relation` values to `adjacent`.
-    ///
-    /// The old taxonomy had six relations
-    /// (`related_to`, `supports`, `contradicts`, `supersedes`, `caused_by`,
-    /// `derived_from`). All of those are now collapsed to `adjacent`. Inline
-    /// `mentions` / `embeds` edges are re-created by the body parser on the
-    /// next idea save.
-    ///
-    /// Idempotent — only touches rows whose relation is not already in the
-    /// new set (`mentions`, `embeds`, `adjacent`).
-    fn migrate_relations_to_adjacent(conn: &Connection) -> Result<()> {
-        // Quick early-out: nothing outside the new set means no work.
-        let stale: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM idea_edges \
-             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
-            [],
-            |row| row.get(0),
-        )?;
-        if stale == 0 {
-            return Ok(());
-        }
-
-        // A plain UPDATE can hit the (source_id, target_id, relation) PK
-        // when an `adjacent` row already exists for the same pair. Do it in
-        // a transaction with INSERT OR IGNORE + DELETE so duplicates are
-        // absorbed cleanly.
-        let tx = conn.unchecked_transaction()?;
-        tx.execute(
-            "INSERT OR IGNORE INTO idea_edges \
-                (source_id, target_id, relation, strength, agent, task_id, created_at) \
-             SELECT source_id, target_id, 'adjacent', strength, agent, task_id, created_at \
-             FROM idea_edges \
-             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
-            [],
-        )?;
-        let deleted = tx.execute(
-            "DELETE FROM idea_edges \
-             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
-            [],
-        )?;
-        tx.commit()?;
-        debug!(
-            deleted,
-            "migrated: collapsed legacy idea_edges.relation values to 'adjacent'"
-        );
-        Ok(())
-    }
-
-    /// Migrate legacy `memory_edges` / `memory_embeddings` tables (with the
-    /// `memory_id` column) to their renamed counterparts `idea_edges` /
-    /// `idea_embeddings` (with `idea_id`). Uses `ALTER TABLE RENAME` so all
-    /// row data is preserved in-place (SQLite 3.25+).
-    fn migrate_memory_tables_to_ideas(conn: &Connection) -> Result<()> {
-        // memory_edges → idea_edges.
-        let has_memory_edges = Self::table_exists(conn, "memory_edges")?;
-        let has_idea_edges = Self::table_exists(conn, "idea_edges")?;
-        if has_memory_edges && !has_idea_edges {
-            conn.execute_batch(
-                "ALTER TABLE memory_edges RENAME TO idea_edges;
-                 DROP INDEX IF EXISTS idx_edges_source;
-                 DROP INDEX IF EXISTS idx_edges_target;
-                 CREATE INDEX IF NOT EXISTS idx_idea_edges_source ON idea_edges(source_id);
-                 CREATE INDEX IF NOT EXISTS idx_idea_edges_target ON idea_edges(target_id);",
-            )?;
-            debug!("migrated: renamed memory_edges → idea_edges (and indexes)");
-        }
-
-        // memory_embeddings → idea_embeddings (and rename memory_id → idea_id).
-        let has_memory_embeddings = Self::table_exists(conn, "memory_embeddings")?;
-        let has_idea_embeddings = Self::table_exists(conn, "idea_embeddings")?;
-        if has_memory_embeddings && !has_idea_embeddings {
-            conn.execute_batch(
-                "ALTER TABLE memory_embeddings RENAME TO idea_embeddings;
-                 ALTER TABLE idea_embeddings RENAME COLUMN memory_id TO idea_id;
-                 DROP INDEX IF EXISTS idx_embed_id;
-                 DROP INDEX IF EXISTS idx_embed_hash;
-                 CREATE INDEX IF NOT EXISTS idx_idea_embeddings_id ON idea_embeddings(idea_id);",
-            )?;
-            // Recreate the content_hash index only if the column exists on
-            // this legacy schema (older DBs predate the column).
-            let has_content_hash: bool = conn
-                .prepare(
-                    "SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'",
-                )?
-                .query_row([], |row| row.get::<_, i64>(0))?
-                > 0;
-            if has_content_hash {
-                conn.execute_batch(
-                    "CREATE INDEX IF NOT EXISTS idx_idea_embeddings_hash ON idea_embeddings(content_hash);",
-                )?;
-            }
-            debug!(
-                "migrated: renamed memory_embeddings → idea_embeddings (memory_id → idea_id, and indexes)"
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Migrate: rename `memories` table to `insights` for existing databases.
-    fn migrate_table_rename(conn: &Connection) -> Result<()> {
-        let has_memories: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='memories'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_memories {
-            return Ok(());
-        }
-
-        // Drop old FTS triggers and virtual table (they reference 'memories').
-        conn.execute_batch(
-            "DROP TRIGGER IF EXISTS memories_ai;
-             DROP TRIGGER IF EXISTS memories_ad;
-             DROP TRIGGER IF EXISTS memories_au;
-             DROP TABLE IF EXISTS ideas_fts;",
-        )?;
-
-        // Rename the main table.
-        conn.execute_batch("ALTER TABLE memories RENAME TO ideas;")?;
-
-        // Rename indexes (SQLite doesn't support ALTER INDEX, so drop + recreate).
-        conn.execute_batch(
-            "DROP INDEX IF EXISTS idx_memories_key;
-             DROP INDEX IF EXISTS idx_memories_category;
-             DROP INDEX IF EXISTS idx_memories_created;
-             DROP INDEX IF EXISTS idx_memories_entity;
-             DROP INDEX IF EXISTS idx_memories_scope;
-             DROP INDEX IF EXISTS idx_memories_companion;",
-        )?;
-
-        debug!("migrated: renamed memories table → insights");
-        Ok(())
-    }
-
-    /// Migrate: rename `insights` table to `ideas` for existing databases.
-    fn migrate_insights_to_ideas(conn: &Connection) -> Result<()> {
-        let has_insights: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='insights'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_insights {
-            return Ok(());
-        }
-
-        let has_ideas: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas'",
-            [],
-            |row| row.get(0),
-        )?;
-
-        if has_ideas {
-            // Both tables exist — ideas was already created, drop the old one.
-            conn.execute_batch("DROP TABLE IF EXISTS insights;")?;
-        } else {
-            // Only insights exists — rename it.
-            conn.execute_batch("ALTER TABLE insights RENAME TO ideas;")?;
-        }
-
-        // Drop old FTS table and triggers (will be recreated by main init).
-        conn.execute_batch(
-            "DROP TRIGGER IF EXISTS insights_ai;
-             DROP TRIGGER IF EXISTS insights_ad;
-             DROP TRIGGER IF EXISTS insights_au;
-             DROP TABLE IF EXISTS insights_fts;",
-        )?;
-
-        // Drop old indexes (recreated by main init with ideas_ prefix).
-        conn.execute_batch(
-            "DROP INDEX IF EXISTS idx_insights_key;
-             DROP INDEX IF EXISTS idx_insights_category;
-             DROP INDEX IF EXISTS idx_insights_created;
-             DROP INDEX IF EXISTS idx_insights_agent_id;
-             DROP INDEX IF EXISTS idx_insights_scope;
-             DROP INDEX IF EXISTS idx_insights_expires;
-             DROP INDEX IF EXISTS idx_insights_injection;
-             DROP INDEX IF EXISTS idx_insights_content_hash;
-             DROP INDEX IF EXISTS idx_insights_source;",
-        )?;
-
-        debug!("migrated: renamed insights table → ideas");
+        VectorStore::open(conn, 1536)?;
         Ok(())
     }
 
@@ -346,7 +133,6 @@ impl SqliteIdeas {
                 created_at TEXT NOT NULL,
                 updated_at TEXT,
                 expires_at TEXT,
-                injection_mode TEXT,
                 inheritance TEXT NOT NULL DEFAULT 'self',
                 tool_allow TEXT NOT NULL DEFAULT '[]',
                 tool_deny TEXT NOT NULL DEFAULT '[]',
@@ -377,7 +163,6 @@ impl SqliteIdeas {
              CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
              CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
              CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
-             CREATE INDEX IF NOT EXISTS idx_ideas_injection ON ideas(injection_mode);
              CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
              CREATE INDEX IF NOT EXISTS idx_ideas_source ON ideas(source_kind, source_ref);",
         )?;
@@ -385,58 +170,21 @@ impl SqliteIdeas {
     }
 
     fn ensure_fts(conn: &Connection) -> Result<()> {
-        // Detect legacy FTS schema: the FTS5 virtual table used to declare
-        // its external-content column as `key`, but the ideas table's real
-        // column is `name`. FTS5's 'rebuild' command runs
-        // `SELECT T.key, T.content FROM ideas AS T` and fails with
-        // "no such column: T.key". Drop the broken table + triggers so the
-        // correct schema gets recreated below.
-        let has_legacy_key_col: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('ideas_fts') WHERE name='key'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .map(|n| n > 0)
-            .unwrap_or(false);
-        if has_legacy_key_col {
-            conn.execute_batch(
-                "DROP TRIGGER IF EXISTS ideas_ai;
-                 DROP TRIGGER IF EXISTS ideas_ad;
-                 DROP TRIGGER IF EXISTS ideas_au;
-                 DROP TABLE IF EXISTS ideas_fts;",
-            )?;
-        }
-
-        let fts_exists: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='ideas_fts'",
-            [],
-            |row| row.get(0),
+        conn.execute_batch(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS ideas_fts USING fts5(
+                name, content, content=ideas, content_rowid=rowid
+             );
+             CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
+                 INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
+             END;
+             CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
+                 INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
+             END;
+             CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
+                 INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
+                 INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
+             END;",
         )?;
-
-        if !fts_exists {
-            conn.execute_batch(
-                "CREATE VIRTUAL TABLE ideas_fts USING fts5(
-                    name, content, content=ideas, content_rowid=rowid
-                );
-
-                CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
-                    INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
-                    INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-                    INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-                END;
-
-                INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild');",
-            )?;
-        }
-
         Ok(())
     }
 
@@ -458,25 +206,6 @@ impl SqliteIdeas {
         Ok(())
     }
 
-    fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
-        conn.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name = ?1",
-            rusqlite::params![table],
-            |row| row.get(0),
-        )
-        .map_err(Into::into)
-    }
-
-    fn table_columns(conn: &Connection, table: &str) -> Result<HashSet<String>> {
-        let pragma = format!("PRAGMA table_info({table})");
-        let cols = conn
-            .prepare(&pragma)?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(cols)
-    }
-
     fn normalize_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
         let mut seen = HashSet::new();
         let mut normalized = Vec::new();
@@ -493,314 +222,6 @@ impl SqliteIdeas {
             normalized.push("fact".to_string());
         }
         normalized
-    }
-
-    fn parse_legacy_tags(raw: &str) -> Vec<String> {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            return Vec::new();
-        }
-        if let Ok(tags) = serde_json::from_str::<Vec<String>>(trimmed) {
-            return tags;
-        }
-        if let Ok(tag) = serde_json::from_str::<String>(trimmed) {
-            return vec![tag];
-        }
-        trimmed
-            .split([',', '\u{1f}', '|'])
-            .map(str::trim)
-            .filter(|tag| !tag.is_empty())
-            .map(ToString::to_string)
-            .collect()
-    }
-
-    fn migrate_legacy_ideas_schema(conn: &Connection) -> Result<()> {
-        let cols = Self::table_columns(conn, "ideas")?;
-        let has_category = cols.contains("category");
-        let has_legacy_tags = cols.contains("tags");
-        let has_companion = cols.contains("companion_id");
-        let has_entity = cols.contains("entity_id");
-
-        if !(has_category || has_legacy_tags || has_companion || has_entity) {
-            return Ok(());
-        }
-
-        let idea_ids: Vec<String> = conn
-            .prepare("SELECT id FROM ideas")?
-            .query_map([], |row| row.get::<_, String>(0))?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        let mut tag_map = if Self::table_exists(conn, "idea_tags")? {
-            Self::fetch_tags_for_ids(conn, &idea_ids)
-        } else {
-            HashMap::new()
-        };
-
-        if has_category || has_legacy_tags {
-            let mut select_cols = vec!["id".to_string()];
-            if has_category {
-                select_cols.push("category".to_string());
-            }
-            if has_legacy_tags {
-                select_cols.push("tags".to_string());
-            }
-            let sql = format!("SELECT {} FROM ideas", select_cols.join(", "));
-            let mut stmt = conn.prepare(&sql)?;
-            let legacy_rows = stmt.query_map([], |row| {
-                let id: String = row.get(0)?;
-                let mut idx = 1;
-                let category: Option<String> = if has_category {
-                    let value = row.get(idx)?;
-                    idx += 1;
-                    value
-                } else {
-                    None
-                };
-                let tags_text: Option<String> = if has_legacy_tags { row.get(idx)? } else { None };
-                Ok((id, category, tags_text))
-            })?;
-
-            for (id, category, tags_text) in legacy_rows.flatten() {
-                let tags = tag_map.entry(id).or_default();
-                if let Some(category) = category {
-                    tags.push(category);
-                }
-                if let Some(tags_text) = tags_text {
-                    tags.extend(Self::parse_legacy_tags(&tags_text));
-                }
-            }
-        }
-
-        for idea_id in idea_ids {
-            let normalized = Self::normalize_tags(tag_map.remove(&idea_id).unwrap_or_default());
-            tag_map.insert(idea_id, normalized);
-        }
-
-        let scope_expr = if cols.contains("scope") {
-            "CASE WHEN scope = 'companion' THEN 'entity' ELSE COALESCE(scope, 'domain') END"
-        } else {
-            "'domain'"
-        };
-        let agent_expr = if cols.contains("agent_id") {
-            "agent_id"
-        } else if cols.contains("companion_id") {
-            "companion_id"
-        } else if cols.contains("entity_id") {
-            "entity_id"
-        } else {
-            "NULL"
-        };
-        let session_expr = if cols.contains("session_id") {
-            "session_id"
-        } else {
-            "NULL"
-        };
-        let created_expr = if cols.contains("created_at") {
-            "created_at"
-        } else {
-            "CURRENT_TIMESTAMP"
-        };
-        let updated_expr = if cols.contains("updated_at") {
-            "updated_at"
-        } else {
-            "NULL"
-        };
-        let expires_expr = if cols.contains("expires_at") {
-            "expires_at"
-        } else {
-            "NULL"
-        };
-        let injection_expr = if cols.contains("injection_mode") {
-            "injection_mode"
-        } else {
-            "NULL"
-        };
-        let inheritance_expr = if cols.contains("inheritance") {
-            "COALESCE(inheritance, 'self')"
-        } else {
-            "'self'"
-        };
-        let tool_allow_expr = if cols.contains("tool_allow") {
-            "COALESCE(tool_allow, '[]')"
-        } else {
-            "'[]'"
-        };
-        let tool_deny_expr = if cols.contains("tool_deny") {
-            "COALESCE(tool_deny, '[]')"
-        } else {
-            "'[]'"
-        };
-        let content_hash_expr = if cols.contains("content_hash") {
-            "content_hash"
-        } else {
-            "NULL"
-        };
-        let source_kind_expr = if cols.contains("source_kind") {
-            "source_kind"
-        } else {
-            "NULL"
-        };
-        let source_ref_expr = if cols.contains("source_ref") {
-            "source_ref"
-        } else {
-            "NULL"
-        };
-        let managed_expr = if cols.contains("managed") {
-            "COALESCE(managed, 0)"
-        } else {
-            "0"
-        };
-        let name_expr = if cols.contains("name") {
-            "name"
-        } else if cols.contains("key") {
-            "key"
-        } else {
-            "'unnamed'"
-        };
-
-        conn.execute_batch("BEGIN IMMEDIATE;")?;
-        let result = (|| -> Result<()> {
-            conn.execute_batch(
-                "DROP TRIGGER IF EXISTS ideas_ai;
-                 DROP TRIGGER IF EXISTS ideas_ad;
-                 DROP TRIGGER IF EXISTS ideas_au;
-                 DROP TABLE IF EXISTS ideas_fts;
-                 DROP TABLE IF EXISTS idea_tags;
-                 ALTER TABLE ideas RENAME TO ideas_legacy;",
-            )?;
-
-            Self::ensure_ideas_table(conn)?;
-
-            let copy_sql = format!(
-                "INSERT INTO ideas (
-                    id, name, content, scope, agent_id, session_id, created_at, updated_at,
-                    expires_at, injection_mode, inheritance, tool_allow, tool_deny,
-                    content_hash, source_kind, source_ref, managed
-                 )
-                 SELECT
-                    id, {name_expr}, content, {scope_expr}, {agent_expr}, {session_expr}, {created_expr}, {updated_expr},
-                    {expires_expr}, {injection_expr}, {inheritance_expr}, {tool_allow_expr}, {tool_deny_expr},
-                    {content_hash_expr}, {source_kind_expr}, {source_ref_expr}, {managed_expr}
-                 FROM ideas_legacy"
-            );
-            conn.execute(&copy_sql, [])?;
-            conn.execute_batch("DROP TABLE ideas_legacy;")?;
-
-            Self::ensure_idea_tags_table(conn)?;
-            for (idea_id, tags) in &tag_map {
-                for tag in tags {
-                    conn.execute(
-                        "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
-                        rusqlite::params![idea_id, tag],
-                    )?;
-                }
-            }
-
-            Ok(())
-        })();
-
-        if result.is_ok() {
-            conn.execute_batch("COMMIT;")?;
-            debug!("migrated ideas table: removed legacy category/tags columns");
-        } else {
-            let _ = conn.execute_batch("ROLLBACK;");
-        }
-
-        result
-    }
-
-    fn migrate(conn: &Connection) -> Result<()> {
-        Self::migrate_legacy_ideas_schema(conn)?;
-
-        let cols = Self::table_columns(conn, "ideas")?;
-        if !cols.contains("scope") {
-            conn.execute_batch(
-                "ALTER TABLE ideas ADD COLUMN scope TEXT NOT NULL DEFAULT 'domain';",
-            )?;
-            debug!("migrated ideas table: added scope column");
-        }
-        if !cols.contains("agent_id") {
-            conn.execute_batch("ALTER TABLE ideas ADD COLUMN agent_id TEXT;")?;
-            debug!("migrated ideas table: added agent_id column");
-        }
-        if !cols.contains("session_id") {
-            conn.execute_batch("ALTER TABLE ideas ADD COLUMN session_id TEXT;")?;
-            debug!("migrated ideas table: added session_id column");
-        }
-        if !cols.contains("updated_at") {
-            conn.execute_batch("ALTER TABLE ideas ADD COLUMN updated_at TEXT;")?;
-            debug!("migrated ideas table: added updated_at column");
-        }
-
-        Ok(())
-    }
-
-    /// Migrate: add content_hash column to embeddings table for embedding cache.
-    ///
-    /// This enables skipping expensive embedding API calls when the same content
-    /// has already been embedded — we look up by SHA256 hash instead.
-    fn migrate_embedding_hash(conn: &Connection) -> Result<()> {
-        let has_hash: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'")?
-            .query_row([], |row| row.get(0))?;
-
-        if !has_hash {
-            conn.execute_batch(
-                "ALTER TABLE idea_embeddings ADD COLUMN content_hash TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_idea_embeddings_hash ON idea_embeddings(content_hash);",
-            )?;
-            debug!("migrated idea_embeddings: added content_hash column + index");
-        }
-
-        Ok(())
-    }
-
-    /// Migrate: add optional expires_at column for TTL support.
-    fn migrate_ttl(conn: &Connection) -> Result<()> {
-        let has_expires: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('ideas') WHERE name='expires_at'")?
-            .query_row([], |row| row.get(0))?;
-
-        if !has_expires {
-            conn.execute_batch(
-                "ALTER TABLE ideas ADD COLUMN expires_at TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);",
-            )?;
-            debug!("migrated insights: added expires_at column + index");
-        }
-
-        Ok(())
-    }
-
-    /// Migrate: add injection metadata columns — unifies prompts into insights.
-    ///
-    /// Insights with injection_mode != NULL are deterministically injected into
-    /// the agent's context (like prompts). Others are recalled via search.
-    fn migrate_injection_columns(conn: &Connection) -> Result<()> {
-        let cols: Vec<String> = conn
-            .prepare("PRAGMA table_info(ideas)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        if !cols.contains(&"injection_mode".to_string()) {
-            conn.execute_batch(
-                "ALTER TABLE ideas ADD COLUMN injection_mode TEXT;
-                 ALTER TABLE ideas ADD COLUMN inheritance TEXT NOT NULL DEFAULT 'self';
-                 ALTER TABLE ideas ADD COLUMN tool_allow TEXT NOT NULL DEFAULT '[]';
-                 ALTER TABLE ideas ADD COLUMN tool_deny TEXT NOT NULL DEFAULT '[]';
-                 ALTER TABLE ideas ADD COLUMN content_hash TEXT;
-                 ALTER TABLE ideas ADD COLUMN source_kind TEXT;
-                 ALTER TABLE ideas ADD COLUMN source_ref TEXT;
-                 ALTER TABLE ideas ADD COLUMN managed INTEGER NOT NULL DEFAULT 0;
-                 CREATE INDEX IF NOT EXISTS idx_ideas_injection ON ideas(injection_mode);
-                 CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
-                 CREATE INDEX IF NOT EXISTS idx_ideas_source ON ideas(source_kind, source_ref);",
-            )?;
-            debug!("migrated insights: added injection metadata columns (prompt consolidation)");
-        }
-        Ok(())
     }
 
     /// Compute SHA256 hash of content for embedding cache lookup.
@@ -2062,7 +1483,7 @@ impl IdeaStore for SqliteIdeas {
                 (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
-                        i.injection_mode, i.inheritance, i.tool_allow, i.tool_deny \
+                        i.inheritance, i.tool_allow, i.tool_deny \
                  FROM ideas i \
                  JOIN idea_tags t ON t.idea_id = i.id \
                  WHERE LOWER(t.tag) IN ({}) \
@@ -2082,9 +1503,9 @@ impl IdeaStore for SqliteIdeas {
             let mut entries: Vec<Idea> = stmt
                 .query_map(param_refs.as_slice(), |row| {
                     let tool_allow_str: String =
-                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                        row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
                     let tool_deny_str: String =
-                        row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     let created_str: String = row.get(5)?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
@@ -2098,8 +1519,7 @@ impl IdeaStore for SqliteIdeas {
                         session_id: row.get(4)?,
                         created_at,
                         score: 0.0,
-                        injection_mode: row.get(6)?,
-                        inheritance: row.get(7).unwrap_or_else(|_| "self".to_string()),
+                        inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
                     })
@@ -2119,7 +1539,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, name, content, agent_id, session_id, created_at, \
-                        injection_mode, inheritance, tool_allow, tool_deny \
+                        inheritance, tool_allow, tool_deny \
                  FROM ideas \
                  WHERE agent_id IS NULL \
                  ORDER BY created_at DESC \
@@ -2128,9 +1548,9 @@ impl IdeaStore for SqliteIdeas {
             let mut entries: Vec<Idea> = stmt
                 .query_map(rusqlite::params![limit as i64], |row| {
                     let tool_allow_str: String =
-                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                        row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
                     let tool_deny_str: String =
-                        row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     let created_str: String = row.get(5)?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
@@ -2144,8 +1564,7 @@ impl IdeaStore for SqliteIdeas {
                         session_id: row.get(4)?,
                         created_at,
                         score: 0.0,
-                        injection_mode: row.get(6)?,
-                        inheritance: row.get(7).unwrap_or_else(|_| "self".to_string()),
+                        inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
                     })
@@ -2200,7 +1619,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, name, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -2209,11 +1628,11 @@ impl IdeaStore for SqliteIdeas {
                 ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
             let mut entries: Vec<Idea> = stmt
                 .query_map(params.as_slice(), |row| {
-                    let tool_allow_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                    let tool_allow_str: String = row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     Ok(Idea {
                         id: row.get(0)?,
-                        name: row.get(1)?, // DB column is `key`
+                        name: row.get(1)?,
                         content: row.get(2)?,
                         tags: Vec::new(),
                         agent_id: row.get(3)?,
@@ -2223,8 +1642,7 @@ impl IdeaStore for SqliteIdeas {
                         },
                         session_id: row.get(5)?,
                         score: 1.0,
-                        injection_mode: row.get(6)?,
-                        inheritance: row.get::<_, String>(7).unwrap_or_else(|_| "self".to_string()),
+                        inheritance: row.get::<_, String>(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
                     })
@@ -2232,53 +1650,6 @@ impl IdeaStore for SqliteIdeas {
                 .filter_map(|r| r.ok())
                 .collect();
             Self::enrich_tags(conn, &mut entries);
-            Ok(entries)
-        })
-        .await
-    }
-
-    async fn get_injection_ideas(&self) -> Result<Vec<(String, String, Idea)>> {
-        self.blocking(move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, created_at, session_id, injection_mode, inheritance, tool_allow, tool_deny
-                 FROM ideas WHERE injection_mode IS NOT NULL AND agent_id IS NOT NULL
-                 ORDER BY agent_id, created_at ASC",
-            )?;
-            let mut entries: Vec<(String, String, Idea)> = stmt
-                .query_map([], |row| {
-                    let agent_id: String = row.get(3)?;
-                    let injection_mode: String = row.get::<_, Option<String>>(6)?.unwrap_or_default();
-                    let tool_allow_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String = row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
-                    let idea = Idea {
-                        id: row.get(0)?,
-                        name: row.get(1)?, // DB column is `key`
-                        content: row.get(2)?,
-                        tags: Vec::new(),
-                        agent_id: Some(agent_id.clone()),
-                        created_at: {
-                            let s: String = row.get(4)?;
-                            DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
-                        },
-                        session_id: row.get(5)?,
-                        score: 1.0,
-                        injection_mode: Some(injection_mode.clone()),
-                        inheritance: row.get::<_, String>(7).unwrap_or_else(|_| "self".to_string()),
-                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
-                    };
-                    Ok((agent_id, injection_mode, idea))
-                })?
-                .filter_map(|r| r.ok())
-                .collect();
-            // Enrich tags on the ideas within the tuples.
-            let idea_ids: Vec<String> = entries.iter().map(|(_, _, idea)| idea.id.clone()).collect();
-            let tag_map = Self::fetch_tags_for_ids(conn, &idea_ids);
-            for (_, _, idea) in &mut entries {
-                if let Some(tags) = tag_map.get(&idea.id) {
-                    idea.tags = tags.clone();
-                }
-            }
             Ok(entries)
         })
         .await
@@ -2463,54 +1834,6 @@ mod tests {
         let all_query = IdeaQuery::new("Rust Python services", 10);
         let results = mem.search(&all_query).await.unwrap();
         assert!(!results.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_migration_on_existing_db() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_migrate.db");
-
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(
-                "CREATE TABLE memories (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    category TEXT NOT NULL DEFAULT 'fact',
-                    session_id TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT
-                );",
-            )
-            .unwrap();
-            conn.execute(
-                "INSERT INTO memories (id, name, content, category, created_at) VALUES ('old-1', 'test', 'old data', 'fact', '2025-01-01T00:00:00Z')",
-                [],
-            ).unwrap();
-        }
-
-        let mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
-
-        let results = mem.search(&IdeaQuery::new("old data", 10)).await.unwrap();
-        assert_eq!(results.len(), 1);
-        assert!(results[0].agent_id.is_none());
-
-        mem.store(
-            "new-fact",
-            "New data with agent",
-            &["fact".to_string()],
-            Some("agent-1"),
-        )
-        .await
-        .unwrap();
-
-        let results = mem
-            .search(&IdeaQuery::new("New data agent", 10).with_agent("agent-1"))
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].agent_id.as_deref(), Some("agent-1"));
     }
 
     #[tokio::test]
@@ -2725,49 +2048,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_embedding_hash_migration_on_existing_db() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_embed_migrate.db");
-
-        // Create a DB with the old schema (no content_hash column).
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(
-                "CREATE TABLE memories (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    category TEXT NOT NULL DEFAULT 'fact',
-                    scope TEXT NOT NULL DEFAULT 'domain',
-                    entity_id TEXT,
-                    session_id TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT
-                );
-                CREATE TABLE memory_embeddings (
-                    memory_id TEXT PRIMARY KEY,
-                    embedding BLOB NOT NULL,
-                    dimensions INTEGER NOT NULL
-                );",
-            )
-            .unwrap();
-        }
-
-        // Opening should auto-migrate: rename tables to idea_* and add
-        // content_hash column.
-        let _mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
-
-        // Verify the column exists on the renamed table.
-        let conn = Connection::open(&db_path).unwrap();
-        let has_hash: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'")
-            .unwrap()
-            .query_row([], |row| row.get(0))
-            .unwrap();
-        assert!(has_hash, "content_hash column should exist after migration");
-    }
-
-    #[tokio::test]
     async fn test_idea_edges_roundtrip() {
         let (mem, _dir) = test_ideas();
 
@@ -2926,106 +2206,6 @@ mod tests {
         assert_eq!(filtered[0].relation, "mentions");
     }
 
-    #[tokio::test]
-    async fn test_migrate_memory_tables_to_ideas() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("test_memory_to_ideas.db");
-
-        // Seed a legacy DB with the old memory_edges + memory_embeddings
-        // tables (using the pre-rename memory_id column) and one row each.
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            conn.execute_batch(
-                "CREATE TABLE memory_edges (
-                    source_id TEXT NOT NULL,
-                    target_id TEXT NOT NULL,
-                    relation TEXT NOT NULL,
-                    strength REAL NOT NULL DEFAULT 0.5,
-                    agent TEXT,
-                    task_id TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (source_id, target_id, relation)
-                 );
-                 CREATE INDEX idx_edges_source ON memory_edges(source_id);
-                 CREATE INDEX idx_edges_target ON memory_edges(target_id);
-                 CREATE TABLE memory_embeddings (
-                    memory_id TEXT PRIMARY KEY,
-                    embedding BLOB NOT NULL,
-                    dimensions INTEGER NOT NULL,
-                    content_hash TEXT
-                 );
-                 CREATE INDEX idx_embed_id ON memory_embeddings(memory_id);
-                 CREATE INDEX idx_embed_hash ON memory_embeddings(content_hash);",
-            )
-            .unwrap();
-            conn.execute(
-                "INSERT INTO memory_edges (source_id, target_id, relation, strength, created_at) \
-                 VALUES ('src-1', 'tgt-1', 'supports', 0.7, '2025-01-01T00:00:00Z')",
-                [],
-            )
-            .unwrap();
-            let embedding_bytes: Vec<u8> = vec![0u8; 16];
-            conn.execute(
-                "INSERT INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) \
-                 VALUES ('idea-1', ?1, 4, 'deadbeef')",
-                rusqlite::params![embedding_bytes],
-            )
-            .unwrap();
-        }
-
-        // Open should trigger migrate_memory_tables_to_ideas and preserve rows.
-        let _store = SqliteIdeas::open(&db_path, 30.0).unwrap();
-
-        let conn = Connection::open(&db_path).unwrap();
-
-        // Old tables must be gone.
-        let has_memory_edges: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='memory_edges'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(has_memory_edges, 0, "memory_edges should be renamed");
-
-        let has_memory_embeddings: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='memory_embeddings'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(
-            has_memory_embeddings, 0,
-            "memory_embeddings should be renamed"
-        );
-
-        // idea_edges row preserved. Legacy 'supports' relation is
-        // collapsed to 'adjacent' by migrate_relations_to_adjacent.
-        let (src, tgt, rel, strength): (String, String, String, f64) = conn
-            .query_row(
-                "SELECT source_id, target_id, relation, strength FROM idea_edges",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )
-            .unwrap();
-        assert_eq!(src, "src-1");
-        assert_eq!(tgt, "tgt-1");
-        assert_eq!(rel, "adjacent");
-        assert!((strength - 0.7).abs() < 1e-6);
-
-        // idea_embeddings row preserved (queried via the renamed idea_id column).
-        let (idea_id, hash): (String, String) = conn
-            .query_row(
-                "SELECT idea_id, content_hash FROM idea_embeddings",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(idea_id, "idea-1");
-        assert_eq!(hash, "deadbeef");
-    }
-
     // ── inline-link reconciliation ──────────────────────────────────────
 
     /// Build a case-insensitive name→id lookup resolver for tests.
@@ -3133,69 +2313,4 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_relation_migration_collapses_to_adjacent() {
-        // Seed a DB with one row per legacy relation name, then open the
-        // store so the idempotent migration runs.
-        let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("legacy_relations.db");
-
-        {
-            let conn = Connection::open(&db_path).unwrap();
-            // Schema matches ensure_edge_table so the open path is happy.
-            conn.execute_batch(
-                "CREATE TABLE idea_edges (
-                    source_id TEXT NOT NULL,
-                    target_id TEXT NOT NULL,
-                    relation TEXT NOT NULL,
-                    strength REAL NOT NULL DEFAULT 0.5,
-                    agent TEXT,
-                    task_id TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (source_id, target_id, relation)
-                 );",
-            )
-            .unwrap();
-            for (idx, rel) in [
-                "related_to",
-                "supports",
-                "contradicts",
-                "supersedes",
-                "caused_by",
-                "derived_from",
-            ]
-            .iter()
-            .enumerate()
-            {
-                conn.execute(
-                    "INSERT INTO idea_edges (source_id, target_id, relation, strength) \
-                     VALUES (?1, ?2, ?3, 0.5)",
-                    rusqlite::params![format!("s-{idx}"), format!("t-{idx}"), rel],
-                )
-                .unwrap();
-            }
-        }
-
-        let _store = SqliteIdeas::open(&db_path, 30.0).unwrap();
-
-        let conn = Connection::open(&db_path).unwrap();
-        let stale: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM idea_edges \
-                 WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(stale, 0, "no legacy relations should remain");
-
-        let adjacent: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM idea_edges WHERE relation = 'adjacent'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(adjacent, 6, "all six legacy rows collapsed to adjacent");
-    }
 }

@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 
 /// An idea entry owned by an agent in the tree.
 /// Scoping is positional — determined by which agent_id owns the idea,
-/// not by an enum. Idea walks up the parent_id chain.
+/// not by an enum. Idea walks up the parent_id chain. `agent_id = None`
+/// means the idea is global.
 ///
-/// Everything is an idea. Entries with `injection_mode` set are
-/// deterministically injected into the agent's context (like prompts).
-/// Entries without it are recalled via semantic search.
+/// Everything is an idea. Activation is event-driven: events reference
+/// ideas by id; assembling an agent's context walks matching events and
+/// pulls their referenced ideas in.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Idea {
     pub id: String,
@@ -17,14 +18,11 @@ pub struct Idea {
     /// Tags classify the idea. Free-form strings. No "primary" concept.
     #[serde(default)]
     pub tags: Vec<String>,
-    /// The agent that owns this idea.
+    /// The agent that owns this idea. `None` = global.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub session_id: Option<String>,
     pub score: f64,
-    /// Injection mode: None = search-only, Some("system"|"prepend"|"append"|"step") = deterministic.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub injection_mode: Option<String>,
     /// Inheritance scope: "self" (only this agent) or "descendants" (all children).
     #[serde(default = "default_inheritance")]
     pub inheritance: String,
@@ -41,33 +39,23 @@ fn default_inheritance() -> String {
 }
 
 impl Idea {
-    /// Convert an idea with injection_mode into a PromptEntry for prompt assembly.
-    /// Maps injection_mode → PromptPosition, inheritance → PromptScope,
-    /// and tool_allow/tool_deny → ToolRestrictions.
-    pub fn to_prompt_entry(&self) -> crate::prompt::PromptEntry {
-        let position = match self.injection_mode.as_deref() {
-            Some("prepend") => crate::prompt::PromptPosition::Prepend,
-            Some("append") => crate::prompt::PromptPosition::Append,
-            // "system" or any other value → System (the default).
-            _ => crate::prompt::PromptPosition::System,
-        };
-        let scope = match self.inheritance.as_str() {
+    /// Resolve the idea's inheritance string to a PromptScope.
+    pub fn scope(&self) -> crate::prompt::PromptScope {
+        match self.inheritance.as_str() {
             "descendants" => crate::prompt::PromptScope::Descendants,
             _ => crate::prompt::PromptScope::SelfOnly,
-        };
-        let tools = if self.tool_allow.is_empty() && self.tool_deny.is_empty() {
+        }
+    }
+
+    /// Tool restrictions attached to this idea, if any.
+    pub fn tool_restrictions(&self) -> Option<crate::prompt::ToolRestrictions> {
+        if self.tool_allow.is_empty() && self.tool_deny.is_empty() {
             None
         } else {
             Some(crate::prompt::ToolRestrictions {
                 allow: self.tool_allow.clone(),
                 deny: self.tool_deny.clone(),
             })
-        };
-        crate::prompt::PromptEntry {
-            content: self.content.clone(),
-            position,
-            scope,
-            tools,
         }
     }
 
@@ -92,7 +80,6 @@ impl Idea {
             created_at,
             session_id,
             score,
-            injection_mode: None,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -244,13 +231,6 @@ pub trait IdeaStore: Send + Sync {
         _new_agent_id: &str,
     ) -> anyhow::Result<u64> {
         Ok(0)
-    }
-
-    /// Retrieve all ideas with injection_mode IS NOT NULL across all agents.
-    /// Returns tuples of (agent_id, injection_mode, Idea).
-    /// Used by the migration from injection_mode to event-based activation.
-    async fn get_injection_ideas(&self) -> anyhow::Result<Vec<(String, String, Idea)>> {
-        Ok(Vec::new())
     }
 
     /// Store an idea graph edge. Default is no-op.

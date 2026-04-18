@@ -17,25 +17,27 @@ Everything else is a query over these four tables.
 aeqi.db
   agents    -- the tree (name, model, workdir, budget, concurrency, parent_id)
   quests    -- work queue (name, status, agent_id, dependencies, outcomes)
-  events    -- reaction rules (pattern, scope, agent_id, idea reference)
+  events    -- reaction rules (pattern, agent_id NULL-for-global, idea_ids JSON)
   activity  -- immutable log (type, agent_id, session_id, quest_id, content, cost)
 
 ideas.db
-  ideas     -- knowledge store (content, scope, entity_id, injection_mode, embedding)
+  ideas     -- knowledge store (content, tags, inheritance scope, agent_id NULL-for-global, embedding)
 ```
 
 ### What collapses
 
 | Old concept | Becomes |
 |---|---|
-| system_prompt | idea with injection_mode='system' |
-| shared_primer | idea on root agent, scope='descendants' |
-| skill (TOML) | idea with injection_mode, referenced by event |
+| system_prompt | ideas referenced by a `session:start` event |
+| shared_primer | idea on root agent, inheritance='descendants' |
+| skill (TOML) | idea referenced by an event |
 | agent template | ideas loaded onto agent at spawn |
 | Identity struct | gone -- ideas replace persona/memory/skill_prompt/knowledge |
 | triggers | events |
 | insights | ideas |
-| prompts/skills | ideas with injection_mode |
+| injection_mode / prompt position | gone -- events decide activation, walk order decides position |
+| per-agent lifecycle events | global events (`agent_id IS NULL`), one set shared by every agent |
+| prompts/skills | ideas referenced by events |
 | channels | gates (Telegram, Discord, Slack bridges) |
 | projects | company is the workspace, agents own workdirs |
 | dispatch queue | direct delegation via delegate tool |
@@ -45,24 +47,41 @@ ideas.db
 
 ### Idea activation
 
-One query resolves all active ideas for any agent + quest combination:
+Activation is event-driven. For a given agent + event pattern (e.g. `session:start`, `session:quest_start`):
 
-1. Walk agent ancestors, collect ideas with scope='descendants'
-2. Collect agent's own ideas with injection_mode set
-3. Add ideas referenced by the firing event
-4. Semantic search for recalled ideas relevant to the quest context
-5. Merge tool restrictions from idea metadata
+1. Walk the agent ancestor chain root → ... → self
+2. At each level, collect events matching the pattern (per-agent rows **and** global rows)
+3. For each matched event, pull its `idea_ids` from the idea store
+4. Apply each idea's inheritance: `self` ideas only fire on the owning agent, `descendants` ideas propagate to every descendant
+5. Concatenate idea content in walk order; merge tool allow/deny (intersection of allows, union of denies)
+6. Task-specific `idea_ids` append last, always scoped to the target agent
+7. `recall` (semantic search) is a separate runtime tool, not part of static assembly
 
-Root ideas --> parent ideas --> self ideas --> event-activated ideas --> recalled ideas.
+Root ideas → parent ideas → self ideas → task ideas.
 
 ### Idea entry schema
 
 ```json
 {
   "content": "You are a code reviewer...",
-  "injection_mode": "system|prepend|append|null",
-  "scope": "self|descendants",
-  "tools": { "allow": ["shell", "file"], "deny": ["git_push"] }
+  "tags": ["identity"],
+  "inheritance": "self|descendants",
+  "agent_id": "uuid-or-null-for-global",
+  "tool_allow": ["shell", "file"],
+  "tool_deny": ["git_push"]
+}
+```
+
+### Event entry schema
+
+```json
+{
+  "agent_id": "uuid-or-null-for-global",
+  "name": "on_session_start",
+  "pattern": "session:start",
+  "idea_ids": ["idea-uuid-1", "idea-uuid-2"],
+  "enabled": true,
+  "system": true
 }
 ```
 
