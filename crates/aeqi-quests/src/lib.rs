@@ -7,11 +7,13 @@
 //! Key types: [`Quest`], [`QuestBoard`], [`QuestQuery`].
 
 pub mod dependency_inference;
+pub mod presets;
 pub mod query;
 pub mod quest;
 pub mod store;
 
 pub use dependency_inference::{InferredDependency, infer_dependencies};
+pub use presets::{QuestPreset, feature_dev_preset};
 pub use query::QuestQuery;
 pub use quest::{
     Checkpoint, Priority, Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus,
