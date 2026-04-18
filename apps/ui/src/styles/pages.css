@@ -1140,34 +1140,11 @@
   overflow: hidden;
 }
 
-.ideas-view-toggle {
-  display: flex;
-  gap: 2px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-  padding: 2px;
-}
-
-.view-btn {
-  padding: var(--space-1) var(--space-4);
-  border: none;
-  background: transparent;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.view-btn.active {
-  background: var(--bg-base);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.view-btn:hover:not(.active) {
-  color: var(--text-primary);
+/* Explore toggle in content header — enter the graph view at will */
+.explore-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
 }
 
 /* Tag chips */

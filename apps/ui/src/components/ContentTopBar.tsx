@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { Button } from "@/components/ui";
 
@@ -21,6 +21,7 @@ const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }>
  */
 export default function ContentTopBar() {
   const { agentId, tab } = useParams<{ agentId?: string; tab?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const agents = useDaemonStore((s) => s.agents);
 
   const section = tab || "";
@@ -38,6 +39,16 @@ export default function ContentTopBar() {
     return s === "active" || s === "running";
   }).length;
 
+  // Ideas-only "Explore" toggle. URL-driven so the graph view is linkable
+  // and survives reloads; the itemId in the route already acts as focus.
+  const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
+  const toggleExplore = () => {
+    const next = new URLSearchParams(searchParams);
+    if (exploreActive) next.delete("view");
+    else next.set("view", "graph");
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <div className="content-topbar">
       <div className="content-topbar-left">
@@ -45,6 +56,29 @@ export default function ContentTopBar() {
         {activeAgents > 0 && <span className="content-topbar-meta">{activeAgents} active</span>}
       </div>
       <div className="content-topbar-right">
+        {section === "ideas" && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`explore-btn${exploreActive ? " active" : ""}`}
+            onClick={toggleExplore}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <circle cx="3" cy="3" r="1.3" />
+              <circle cx="9" cy="3" r="1.3" />
+              <circle cx="6" cy="9" r="1.3" />
+              <path d="M3 3 L9 3 M3 3 L6 9 M9 3 L6 9" strokeLinecap="round" />
+            </svg>
+            {exploreActive ? "Close graph" : "Explore"}
+          </Button>
+        )}
         {config.create && (
           <Button
             variant="secondary"

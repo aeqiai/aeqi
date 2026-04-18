@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import Markdown from "react-markdown";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -27,6 +27,8 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
+  const [searchParams] = useSearchParams();
+  const view: "list" | "graph" = searchParams.get("view") === "graph" ? "graph" : "list";
 
   const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
   const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
@@ -38,8 +40,9 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     loadIdeas(agentId);
   }, [agentId, loadIdeas]);
 
-  // View toggle: "list" (detail pane) vs "graph" (obsidian-style canvas).
-  const [view, setView] = useState<"list" | "graph">("list");
+  // View is URL-driven (?view=graph). Entry point is the Explore button
+  // in the content top bar; clicking a node inside the graph drops back
+  // into the default view with that idea selected.
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
     nodes: [],
     edges: [],
@@ -205,23 +208,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     }
   };
 
-  const viewToggle = (
-    <div className="ideas-view-toggle" style={{ marginBottom: 12 }}>
-      <button
-        className={`view-btn ${view === "list" ? "active" : ""}`}
-        onClick={() => setView("list")}
-      >
-        List
-      </button>
-      <button
-        className={`view-btn ${view === "graph" ? "active" : ""}`}
-        onClick={() => setView("graph")}
-      >
-        Graph
-      </button>
-    </div>
-  );
-
   if (view === "graph") {
     return (
       <div
@@ -233,7 +219,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
           overflow: "hidden",
         }}
       >
-        {viewToggle}
         {graphLoading ? (
           <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading graph…</div>
         ) : graphData.nodes.length === 0 ? (
@@ -261,7 +246,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     const inlineTags = extractHashtags(newContent);
     return (
       <div className="asv-main ideas-canvas">
-        {viewToggle}
         <input
           ref={titleRef}
           className="ideas-canvas-title"
@@ -351,7 +335,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-      {viewToggle}
       <div className="events-detail-header">
         <div>
           <h3 className="events-detail-name">{selected.name}</h3>
