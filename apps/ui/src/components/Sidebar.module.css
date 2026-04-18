@@ -71,6 +71,18 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Brandmark slot — fixed 22px footprint that matches the SVG icon column
+   in .sidebar-nav-item, so the "æ" lines up with Sessions/Quests/Events
+   icons stacked above. The glyph itself is text and sits on baseline,
+   so flex-center it inside the slot for true vertical alignment. */
+.iconSlot {
+  width: 22px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .row:hover {
   color: var(--text-primary);
   background: var(--state-hover);

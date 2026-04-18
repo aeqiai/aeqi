@@ -119,7 +119,9 @@ function AgentNodeView({
           })
         }
       >
-        <BrandMark size={16} />
+        <span className={styles.iconSlot}>
+          <BrandMark size={14} />
+        </span>
         <span className={styles.rowLabel}>{label}</span>
         {hasChildren && (
           <span className={styles.toggle} onClick={(e) => onToggle(node.id, e)}>
