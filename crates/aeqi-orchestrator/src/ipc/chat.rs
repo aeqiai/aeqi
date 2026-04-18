@@ -331,34 +331,3 @@ pub async fn handle_chat_channels(
         None => serde_json::json!({"ok": false, "error": "chat engine not initialized"}),
     }
 }
-
-pub async fn handle_post_notes(
-    ctx: &super::CommandContext,
-    request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    let key = request.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let content = request
-        .get("content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if key.is_empty() || content.is_empty() {
-        serde_json::json!({"ok": false, "error": "key and content are required"})
-    } else if let Some(ref engine) = ctx.message_router {
-        if let Some(mem) = engine.idea_store.as_ref() {
-            match mem.store(key, content, &["fact".to_string()], None).await {
-                Ok(id) => serde_json::json!({"ok": true, "entry": {"id": id, "name": key}}),
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-            }
-        } else {
-            serde_json::json!({"ok": false, "error": format!("no idea store for project: {project}")})
-        }
-    } else {
-        serde_json::json!({"ok": false, "error": "idea stores not initialized"})
-    }
-}

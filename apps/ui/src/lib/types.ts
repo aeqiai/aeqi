@@ -92,6 +92,34 @@ export interface Idea {
   score?: number;
 }
 
+export type IdeaRelation =
+  | "related_to"
+  | "supports"
+  | "contradicts"
+  | "supersedes"
+  | "caused_by"
+  | "derived_from";
+
+export interface IdeaLink {
+  target_id: string;
+  name: string | null;
+  relation: IdeaRelation;
+  strength: number;
+}
+
+export interface IdeaBacklink {
+  source_id: string;
+  name: string | null;
+  relation: IdeaRelation;
+  strength: number;
+}
+
+export interface IdeaEdges {
+  ok: boolean;
+  links: IdeaLink[];
+  backlinks: IdeaBacklink[];
+}
+
 export interface ActivityEntry {
   id: number;
   timestamp: string;

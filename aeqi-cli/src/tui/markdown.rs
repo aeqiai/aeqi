@@ -72,10 +72,6 @@ impl StyledLine {
     pub fn empty() -> Self {
         Self::new(vec![])
     }
-
-    pub fn plain(text: &str) -> Self {
-        Self::new(vec![StyledSpan::plain(text)])
-    }
 }
 
 /// Parse markdown text into styled lines for terminal rendering.

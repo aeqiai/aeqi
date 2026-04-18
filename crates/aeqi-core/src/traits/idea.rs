@@ -228,10 +228,6 @@ pub trait IdeaStore: Send + Sync {
 
     fn name(&self) -> &str;
 
-    // store_prompt, get_prompts, get_prompts_for_chain — REMOVED.
-    // Ideas are activated through events, not injection_mode.
-    // See: idea_assembly.rs, event_handler.rs
-
     /// Retrieve ideas by their IDs (bulk fetch).
     /// Used by event-based idea assembly to fetch ideas referenced by events.
     async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {

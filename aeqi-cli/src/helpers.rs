@@ -466,52 +466,6 @@ pub(crate) fn augment_prompt_with_org_context(config: &AEQIConfig, prompt: &str)
     }
 }
 
-pub(crate) async fn handle_fast_lane(
-    text: &str,
-    scheduler: &Arc<aeqi_orchestrator::scheduler::Scheduler>,
-) -> String {
-    let cmd = text.split_whitespace().next().unwrap_or("");
-    match cmd {
-        "/status" => {
-            let active = scheduler.active_count().await;
-            let counts = scheduler.agent_counts().await;
-            let mut lines = vec![format!("*Scheduler Status* — {active} active workers\n")];
-            if counts.is_empty() {
-                lines.push("  No workers running.".to_string());
-            } else {
-                for (agent, count) in &counts {
-                    lines.push(format!("  {agent}: {count} worker(s)"));
-                }
-            }
-            // List agents from agent registry.
-            if let Ok(agents) = scheduler.agent_registry.list_active().await
-                && !agents.is_empty()
-            {
-                lines.push(String::new());
-                lines.push("*Agents*".to_string());
-                for a in &agents {
-                    lines.push(format!("  {} — active", a.name));
-                }
-            }
-            lines.join("\n")
-        }
-        "/help" => "*Available Commands*\n\n\
-             /status — Agent status\n\
-             /cost — Today's spend\n\
-             /help — This message"
-            .to_string(),
-        "/cost" => {
-            let spent = scheduler.activity_log.daily_cost().await.unwrap_or(0.0);
-            let budget = scheduler.config.daily_budget_usd;
-            let remaining = (budget - spent).max(0.0);
-            format!(
-                "*Cost — Today*\n\n  Spent: ${spent:.2}\n  Budget: ${budget:.2}\n  Remaining: ${remaining:.2}"
-            )
-        }
-        _ => format!("Unknown fast-lane command: {cmd}"),
-    }
-}
-
 /// Resolve the agents/ directory relative to config file path.
 pub(crate) fn resolve_agents_dir(config_path: &Path) -> PathBuf {
     // Config is typically at config/aeqi.toml, so agents/ is at config/../agents

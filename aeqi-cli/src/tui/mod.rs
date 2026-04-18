@@ -4,12 +4,10 @@
 //! naturally above a pinned bottom area with status bar + input.
 //! Daemon client model: session survives TUI disconnect.
 
-pub mod diff;
 pub mod highlight;
 pub mod markdown;
 pub mod render;
 pub mod state;
-pub mod theme;
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -479,7 +477,6 @@ pub async fn run(
                 faces = f.clone();
             }
             AgentVisual {
-                name: a.name.clone(),
                 display_name: a.display_name.as_deref().unwrap_or(&a.name).to_string(),
                 color,
                 avatar: a.avatar.clone().unwrap_or_else(|| "⚕".into()),

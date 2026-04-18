@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "./IdeaGraph";
+import IdeaLinksPanel from "./IdeaLinksPanel";
 import type { Idea } from "@/lib/types";
 
 const NO_IDEAS: Idea[] = [];
@@ -241,8 +242,8 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   }
 
   if (!selected) {
-    // No idea selected → the compose canvas. Apple-Notes feel: borderless
-    // title, body is the whole page, inline #hashtags become tags on save.
+    // No idea selected → the compose canvas. Borderless title, body is the
+    // whole page, inline #hashtags become tags on save.
     const inlineTags = extractHashtags(newContent);
     return (
       <div className="asv-main ideas-canvas">
@@ -371,6 +372,8 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       <div className="event-idea-content ideas-markdown">
         <Markdown>{selected.content}</Markdown>
       </div>
+
+      <IdeaLinksPanel ideaId={selected.id} agentId={agentId} />
     </div>
   );
 }

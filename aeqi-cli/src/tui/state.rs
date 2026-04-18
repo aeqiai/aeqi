@@ -6,7 +6,6 @@ use std::time::Instant;
 /// Visual identity for the active agent.
 #[derive(Debug, Clone)]
 pub struct AgentVisual {
-    pub name: String,
     pub display_name: String,
     pub color: (u8, u8, u8), // RGB
     pub avatar: String,
@@ -24,7 +23,6 @@ impl AgentVisual {
         faces.insert("idle".into(), "(￣ω￣)".into());
 
         Self {
-            name: "assistant".into(),
             display_name: "Assistant".into(),
             color: (255, 215, 0), // Gold
             avatar: "⚕".into(),
@@ -58,7 +56,6 @@ impl AgentVisual {
 pub struct ChatMessage {
     pub kind: MessageKind,
     pub content: String,
-    pub timestamp: Instant,
 }
 
 #[derive(Clone, PartialEq)]
@@ -67,8 +64,6 @@ pub enum MessageKind {
     User,
     /// Agent text response (may contain markdown)
     AssistantText,
-    /// Agent text being streamed (incomplete)
-    AssistantStreaming,
     /// Tool execution line: ┊ emoji verb detail duration
     ToolActivity {
         tool_name: String,
@@ -109,7 +104,6 @@ pub struct AppState {
     pub steps: u32,
     pub start_time: Instant,
     pub should_quit: bool,
-    pub scroll_offset: usize,
     pub auto_scroll: bool,
     pub agent_id: Option<String>,
     pub project: Option<String>,
@@ -136,7 +130,6 @@ impl AppState {
             steps: 0,
             start_time: Instant::now(),
             should_quit: false,
-            scroll_offset: 0,
             auto_scroll: true,
             agent_id: None,
             project: None,
@@ -151,7 +144,6 @@ impl AppState {
         self.messages.push(ChatMessage {
             kind: MessageKind::User,
             content: text.to_string(),
-            timestamp: Instant::now(),
         });
         self.history.push(text.to_string());
         self.history_index = None;
@@ -162,7 +154,6 @@ impl AppState {
         self.messages.push(ChatMessage {
             kind: MessageKind::ResponseBoxOpen,
             content: String::new(),
-            timestamp: Instant::now(),
         });
         self.agent_state = AgentState::Streaming;
     }
@@ -177,13 +168,11 @@ impl AppState {
             self.messages.push(ChatMessage {
                 kind: MessageKind::AssistantText,
                 content: std::mem::take(&mut self.streaming_text),
-                timestamp: Instant::now(),
             });
         }
         self.messages.push(ChatMessage {
             kind: MessageKind::ResponseBoxClose,
             content: String::new(),
-            timestamp: Instant::now(),
         });
         self.agent_state = AgentState::Idle;
     }
@@ -209,7 +198,6 @@ impl AppState {
                 duration_ms,
             },
             content,
-            timestamp: Instant::now(),
         });
     }
 
@@ -217,7 +205,6 @@ impl AppState {
         self.messages.push(ChatMessage {
             kind: MessageKind::System,
             content: text.to_string(),
-            timestamp: Instant::now(),
         });
     }
 
@@ -225,7 +212,6 @@ impl AppState {
         self.messages.push(ChatMessage {
             kind: MessageKind::Error,
             content: text.to_string(),
-            timestamp: Instant::now(),
         });
         self.agent_state = AgentState::Error;
     }
@@ -290,7 +276,6 @@ fn tool_emoji(name: &str) -> &'static str {
         "delegate" => "🤖",
         "execute_plan" => "📋",
         "ideas" => "📚",
-        "notes" => "📌",
         "code" => "🔗",
         "quests" => "📋",
         "agents" => "🤖",

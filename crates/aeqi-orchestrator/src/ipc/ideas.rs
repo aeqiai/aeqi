@@ -64,11 +64,52 @@ pub async fn handle_store_idea(
         .unwrap_or_else(|| vec!["fact".to_string()]);
 
     let agent_id = request_field(request, "agent_id");
+    let links = parse_links(request);
 
     match idea_store.store(name, content, &tags, agent_id).await {
-        Ok(id) => serde_json::json!({"ok": true, "id": id}),
+        Ok(id) => {
+            for (target_id, relation) in &links {
+                let _ = idea_store
+                    .store_idea_edge(&id, target_id, relation, 1.0)
+                    .await;
+            }
+            serde_json::json!({"ok": true, "id": id})
+        }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
+}
+
+/// Parse a `links` field from an IPC request into (target_id, relation) pairs.
+/// Accepts either strings (defaulting to "related_to") or objects with
+/// `{target_id, relation}`.
+fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
+    request
+        .get("links")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|entry| match entry {
+                    serde_json::Value::String(s) if !s.is_empty() => {
+                        Some((s.clone(), "related_to".to_string()))
+                    }
+                    serde_json::Value::Object(obj) => {
+                        let target = obj.get("target_id").and_then(|v| v.as_str())?;
+                        if target.is_empty() {
+                            return None;
+                        }
+                        let rel = obj
+                            .get("relation")
+                            .and_then(|v| v.as_str())
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or("related_to")
+                            .to_string();
+                        Some((target.to_string(), rel))
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 pub async fn handle_delete_idea(
@@ -438,6 +479,160 @@ pub async fn handle_idea_graph(
     } else {
         serde_json::json!({"ok": true, "nodes": [], "edges": []})
     }
+}
+
+pub async fn handle_add_idea_edge(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+
+    let source_id = request_field(request, "source_id").unwrap_or("");
+    let target_id = request_field(request, "target_id").unwrap_or("");
+    if source_id.is_empty() || target_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "source_id and target_id are required"});
+    }
+    if source_id == target_id {
+        return serde_json::json!({"ok": false, "error": "source and target must differ"});
+    }
+    let relation = request_field(request, "relation").unwrap_or("related_to");
+    let strength = request
+        .get("strength")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1.0) as f32;
+
+    match idea_store
+        .store_idea_edge(source_id, target_id, relation, strength)
+        .await
+    {
+        Ok(()) => serde_json::json!({"ok": true}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_remove_idea_edge(
+    _ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let source_id = match request_field(request, "source_id") {
+        Some(v) => v.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "source_id is required"}),
+    };
+    let target_id = match request_field(request, "target_id") {
+        Some(v) => v.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "target_id is required"}),
+    };
+    let relation = request_field(request, "relation").map(|s| s.to_string());
+
+    let aeqi_data_dir = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join(".aeqi"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp"));
+    let db_path = aeqi_data_dir.join("aeqi.db");
+
+    let result = tokio::task::spawn_blocking(move || -> rusqlite::Result<usize> {
+        let conn = rusqlite::Connection::open(&db_path)?;
+        if let Some(rel) = relation {
+            conn.execute(
+                "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
+                rusqlite::params![source_id, target_id, rel],
+            )
+        } else {
+            conn.execute(
+                "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2",
+                rusqlite::params![source_id, target_id],
+            )
+        }
+    })
+    .await;
+
+    match result {
+        Ok(Ok(_)) => serde_json::json!({"ok": true}),
+        Ok(Err(e)) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+pub async fn handle_idea_edges(
+    _ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let idea_id = match request_field(request, "idea_id") {
+        Some(id) => id.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "idea_id is required"}),
+    };
+
+    let aeqi_data_dir = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join(".aeqi"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp"));
+    let db_path = aeqi_data_dir.join("aeqi.db");
+    if !db_path.exists() {
+        return serde_json::json!({"ok": true, "links": [], "backlinks": []});
+    }
+
+    let Ok(conn) = rusqlite::Connection::open(&db_path) else {
+        return serde_json::json!({"ok": true, "links": [], "backlinks": []});
+    };
+
+    // Outgoing = this idea is the source. Join to ideas for the target's name.
+    let links: Vec<serde_json::Value> = conn
+        .prepare(
+            "SELECT e.target_id, i.name, e.relation, e.strength \
+             FROM memory_edges e \
+             LEFT JOIN ideas i ON i.id = e.target_id \
+             WHERE e.source_id = ?1 \
+             ORDER BY e.strength DESC, e.created_at DESC",
+        )
+        .ok()
+        .map(|mut stmt| {
+            stmt.query_map(rusqlite::params![idea_id], |row| {
+                Ok(serde_json::json!({
+                    "target_id": row.get::<_, String>(0)?,
+                    "name": row.get::<_, Option<String>>(1)?,
+                    "relation": row.get::<_, String>(2)?,
+                    "strength": row.get::<_, f64>(3)?,
+                }))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
+    // Incoming = this idea is the target. Source's name for display.
+    let backlinks: Vec<serde_json::Value> = conn
+        .prepare(
+            "SELECT e.source_id, i.name, e.relation, e.strength \
+             FROM memory_edges e \
+             LEFT JOIN ideas i ON i.id = e.source_id \
+             WHERE e.target_id = ?1 \
+             ORDER BY e.strength DESC, e.created_at DESC",
+        )
+        .ok()
+        .map(|mut stmt| {
+            stmt.query_map(rusqlite::params![idea_id], |row| {
+                Ok(serde_json::json!({
+                    "source_id": row.get::<_, String>(0)?,
+                    "name": row.get::<_, Option<String>>(1)?,
+                    "relation": row.get::<_, String>(2)?,
+                    "strength": row.get::<_, f64>(3)?,
+                }))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
+    serde_json::json!({
+        "ok": true,
+        "links": links,
+        "backlinks": backlinks,
+    })
 }
 
 pub async fn handle_idea_prefix(

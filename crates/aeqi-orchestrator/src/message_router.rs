@@ -137,7 +137,7 @@ impl ChatResponse {
 
 /// Handle returned when a full (async) chat quest is created.
 #[derive(Debug, Clone)]
-pub struct TaskHandle {
+pub struct QuestHandle {
     pub quest_id: String,
     pub chat_id: i64,
     pub project: String,
@@ -511,7 +511,7 @@ impl MessageRouter {
         &self,
         msg: &IncomingMessage,
         phase1_reaction: Option<String>,
-    ) -> Result<TaskHandle> {
+    ) -> Result<QuestHandle> {
         let source_tag = msg.conversation_channel_type();
         let scoped_project = msg
             .project_hint
@@ -718,7 +718,7 @@ impl MessageRouter {
             });
         }
 
-        Ok(TaskHandle {
+        Ok(QuestHandle {
             quest_id,
             chat_id: msg.chat_id,
             project: scoped_project,

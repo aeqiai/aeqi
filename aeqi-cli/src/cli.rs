@@ -101,26 +101,11 @@ pub enum Commands {
         action: DaemonAction,
     },
 
-    // --- Phase 4: Memory ---
-    /// Search collective memory.
-    Recall {
-        query: String,
-        #[arg(short = 'r', long = "root")]
-        root: Option<String>,
-        #[arg(short, long, default_value = "5")]
-        top_k: usize,
-    },
-    /// Store a memory.
-    Remember {
-        key: String,
-        content: String,
-        #[arg(short = 'r', long = "root")]
-        root: Option<String>,
-    },
-    /// Memory management (export/import).
-    Memory {
+    // --- Ideas ---
+    /// Search, store, and manage ideas.
+    Ideas {
         #[command(subcommand)]
-        action: MemoryAction,
+        action: IdeasAction,
     },
 
     // --- Phase 5: Pipelines ---
@@ -193,12 +178,6 @@ pub enum Commands {
         last: u32,
     },
 
-    /// Query or post to the inter-agent notes.
-    Notes {
-        #[command(subcommand)]
-        action: NotesAction,
-    },
-
     /// Suggest or apply inferred quest dependencies.
     Deps {
         #[arg(short = 'r', long = "root")]
@@ -255,74 +234,6 @@ pub enum GraphAction {
 }
 
 #[derive(Subcommand)]
-pub enum NotesAction {
-    /// List note entries for a root agent.
-    List {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        #[arg(short, long, default_value = "20")]
-        limit: u32,
-    },
-    /// Post a new note entry.
-    Post {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        key: String,
-        content: String,
-        #[arg(short, long)]
-        tags: Vec<String>,
-        #[arg(long, default_value = "transient")]
-        durability: String,
-    },
-    /// Query notes by tags.
-    Query {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        #[arg(short, long)]
-        tags: Vec<String>,
-        #[arg(short, long, default_value = "10")]
-        limit: u32,
-    },
-    /// Get a specific entry by key.
-    Get {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        key: String,
-    },
-    /// Claim exclusive access to a resource.
-    Claim {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        /// Resource to claim (e.g. file path, module name).
-        resource: String,
-        /// Description of what you're doing with the resource.
-        content: String,
-        /// Agent name (defaults to "cli").
-        #[arg(long)]
-        agent: Option<String>,
-    },
-    /// Release a previously claimed resource.
-    Release {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        /// Resource to release.
-        resource: String,
-        /// Agent name (defaults to "cli").
-        #[arg(long)]
-        agent: Option<String>,
-        /// Force release even if claimed by another agent.
-        #[arg(long)]
-        force: bool,
-    },
-    /// Delete an entry by key.
-    Delete {
-        #[arg(short = 'r', long = "root")]
-        root: String,
-        key: String,
-    },
-}
-
-#[derive(Subcommand)]
 pub enum AgentAction {
     /// List all discovered agents (from disk + TOML).
     List,
@@ -354,11 +265,6 @@ pub enum AgentAction {
         /// Filter by root agent.
         #[arg(short = 'r', long = "root")]
         root: Option<String>,
-    },
-    /// [Removed] Migration to agent.toml is no longer supported. Agents live in the DB.
-    Migrate {
-        #[arg(long)]
-        force: bool,
     },
 }
 
@@ -397,7 +303,7 @@ pub enum DaemonAction {
     Status,
     /// Query the running daemon via IPC socket.
     Query {
-        /// Command to send (ping, status, readiness, roots, dispatches, cost, metrics, audit, notes, expertise).
+        /// Command to send (ping, status, readiness, roots, dispatches, cost, metrics, audit, expertise).
         cmd: String,
     },
 }
@@ -509,14 +415,29 @@ pub enum WebAction {
 }
 
 #[derive(Subcommand)]
-pub enum MemoryAction {
-    /// Export all memories to an Obsidian vault.
+pub enum IdeasAction {
+    /// Search ideas via full-text + vector ranking.
+    Search {
+        query: String,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
+        #[arg(short, long, default_value = "5")]
+        top_k: usize,
+    },
+    /// Store an idea.
+    Store {
+        name: String,
+        content: String,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
+    },
+    /// Export all ideas to an Obsidian vault.
     Export {
         /// Path to the Obsidian vault directory.
         #[arg(long)]
         vault: std::path::PathBuf,
     },
-    /// Import memories from an Obsidian vault.
+    /// Import ideas from an Obsidian vault.
     Import {
         /// Path to the Obsidian vault directory.
         #[arg(long)]

@@ -496,14 +496,6 @@ fn json_u64(value: &serde_json::Value, key: &str) -> Option<u64> {
     value.get(key).and_then(serde_json::Value::as_u64)
 }
 
-fn json_u64_nested(value: &serde_json::Value, path: &[&str]) -> Option<u64> {
-    let mut current = value;
-    for key in path {
-        current = current.get(*key)?;
-    }
-    current.as_u64()
-}
-
 fn string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
     value
         .get(key)

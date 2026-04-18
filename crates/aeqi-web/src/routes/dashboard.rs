@@ -17,7 +17,6 @@ pub fn routes() -> Router<AppState> {
         .route("/cost", get(cost))
         .route("/activity", get(activity))
         .route("/activity/events", get(activity_events))
-        .route("/notes", get(notes).post(post_note_entry))
         .route("/expertise", get(expertise))
         .route("/rate-limit", get(rate_limit))
         .route("/approvals", get(approvals))
@@ -86,28 +85,6 @@ async fn activity_events(
     Query(q): Query<ActivityEventsQuery>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "worker_events", query_to_params(&q)).await
-}
-
-#[derive(Deserialize, Serialize, Default)]
-struct NotesQuery {
-    project: Option<String>,
-    limit: Option<u32>,
-}
-
-async fn notes(
-    State(state): State<AppState>,
-    scope: Scope,
-    Query(q): Query<NotesQuery>,
-) -> Response {
-    ipc_proxy(state, scope.as_ref(), "notes", query_to_params(&q)).await
-}
-
-async fn post_note_entry(
-    State(state): State<AppState>,
-    scope: Scope,
-    Json(body): Json<serde_json::Value>,
-) -> Response {
-    ipc_proxy(state, scope.as_ref(), "post_notes", body).await
 }
 
 #[derive(Deserialize, Serialize, Default)]

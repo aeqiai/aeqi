@@ -52,9 +52,6 @@ pub fn print_message(stdout: &mut impl Write, msg: &ChatMessage, state: &AppStat
         MessageKind::Error => {
             let _ = writeln!(stdout, "  \x1b[31m✗ {}\x1b[0m", msg.content);
         }
-        MessageKind::AssistantStreaming => {
-            // Handled separately via streaming text.
-        }
     }
 }
 

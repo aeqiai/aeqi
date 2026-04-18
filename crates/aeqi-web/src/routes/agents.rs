@@ -19,7 +19,6 @@ pub fn routes() -> Router<AppState> {
         .route("/agents/{id}/model", axum::routing::put(agent_set_model))
         .route("/agents/{id}/tools", axum::routing::put(agent_set_tools))
         .route("/agents/{id}/identity", get(agent_identity))
-        .route("/agents/{id}/prompts", get(agent_prompts))
         .route("/agents/{id}/files", post(save_agent_file))
 }
 
@@ -118,20 +117,6 @@ async fn agent_identity(
         state,
         scope.as_ref(),
         "agent_identity",
-        serde_json::json!({"name": id}),
-    )
-    .await
-}
-
-async fn agent_prompts(
-    State(state): State<AppState>,
-    scope: Scope,
-    Path(id): Path<String>,
-) -> Response {
-    ipc_proxy(
-        state,
-        scope.as_ref(),
-        "agent_info",
         serde_json::json!({"name": id}),
     )
     .await

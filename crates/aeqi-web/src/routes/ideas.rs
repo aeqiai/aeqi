@@ -23,6 +23,12 @@ pub fn routes() -> Router<AppState> {
             "/ideas/{id}",
             axum::routing::put(update_idea).delete(delete_idea),
         )
+        .route(
+            "/ideas/{id}/edges",
+            get(get_idea_edges)
+                .post(add_idea_edge)
+                .delete(remove_idea_edge),
+        )
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -140,7 +146,7 @@ async fn idea_profile(
 
 #[derive(Deserialize, Serialize, Default)]
 struct IdeaGraphQuery {
-    project: Option<String>,
+    agent_id: Option<String>,
     limit: Option<u64>,
 }
 
@@ -150,6 +156,50 @@ async fn idea_graph(
     Query(q): Query<IdeaGraphQuery>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "idea_graph", query_to_params(&q)).await
+}
+
+async fn get_idea_edges(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "idea_edges",
+        serde_json::json!({"idea_id": id}),
+    )
+    .await
+}
+
+async fn add_idea_edge(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "add_idea_edge",
+        merge_path_id(body, "source_id", id),
+    )
+    .await
+}
+
+async fn remove_idea_edge(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "remove_idea_edge",
+        merge_path_id(body, "source_id", id),
+    )
+    .await
 }
 
 async fn seed_ideas(

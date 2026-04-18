@@ -266,15 +266,6 @@ export const api = {
     return request<Record<string, unknown>>(`/activity${qs ? `?${qs}` : ""}`);
   },
 
-  // Notes
-  getNotes: (params?: { root?: string; limit?: number }) => {
-    const query = new URLSearchParams();
-    if (params?.root) query.set("root", params.root);
-    if (params?.limit) query.set("limit", String(params.limit));
-    const qs = query.toString();
-    return request<Record<string, unknown>>(`/notes${qs ? `?${qs}` : ""}`);
-  },
-
   // Expertise
   getExpertise: (domain?: string) => {
     const query = new URLSearchParams();
@@ -358,7 +349,13 @@ export const api = {
     return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
   },
 
-  storeIdea: (data: { name: string; content: string; tags?: string[]; agent_id?: string }) =>
+  storeIdea: (data: {
+    name: string;
+    content: string;
+    tags?: string[];
+    agent_id?: string;
+    links?: string[];
+  }) =>
     request<{ ok: boolean; id: string }>("/ideas", {
       method: "POST",
       body: JSON.stringify(data),
@@ -369,9 +366,24 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Idea edges: outgoing links + incoming backlinks for a single idea.
+  getIdeaEdges: (id: string) =>
+    request<import("./types").IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`),
+
+  addIdeaEdge: (sourceId: string, targetId: string, relation: string = "related_to") =>
+    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
+      method: "POST",
+      body: JSON.stringify({ target_id: targetId, relation }),
+    }),
+
+  removeIdeaEdge: (sourceId: string, targetId: string, relation?: string) =>
+    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
+      method: "DELETE",
+      body: JSON.stringify(relation ? { target_id: targetId, relation } : { target_id: targetId }),
+    }),
+
   // Agent Identity
   getAgentIdentity: (name: string) => request<Record<string, unknown>>(`/agents/${name}/identity`),
-  getAgentPrompts: (name: string) => request<Record<string, unknown>>(`/agents/${name}/prompts`),
   saveAgentFile: (name: string, filename: string, content: string) =>
     request<{ ok: boolean }>(`/agents/${name}/files`, {
       method: "POST",
@@ -403,19 +415,6 @@ export const api = {
     request<{ ok: boolean }>(`/quests/${id}/close`, {
       method: "POST",
       body: JSON.stringify(data ? { reason: data.reason, root: data.root } : {}),
-    }),
-
-  // Write: Post Note
-  postNote: (data: {
-    root: string;
-    name: string;
-    content: string;
-    tags?: string[];
-    durability?: string;
-  }) =>
-    request<{ ok: boolean }>("/notes", {
-      method: "POST",
-      body: JSON.stringify(data),
     }),
 
   // Single quest

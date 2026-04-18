@@ -145,7 +145,6 @@ impl GuardrailsMiddleware {
             ToolPattern::allow("code", "Code graph query"),
             ToolPattern::allow("aeqi_status", "Status check"),
             ToolPattern::allow("aeqi_prompts", "Prompt loading"),
-            ToolPattern::allow("notes", "Notes read"),
             // Safe git commands.
             ToolPattern::allow("git status", "Git status check"),
             ToolPattern::allow("git log", "Git log view"),

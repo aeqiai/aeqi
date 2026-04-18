@@ -1761,7 +1761,7 @@
 }
 
 /* ------------------------------------------------------------------
-   Ideas compose canvas — Apple-Notes feel when no idea is selected
+   Ideas compose canvas — clean borderless editor when no idea is selected
    ------------------------------------------------------------------ */
 .ideas-canvas {
   display: flex;

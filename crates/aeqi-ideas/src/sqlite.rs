@@ -1873,9 +1873,6 @@ impl IdeaStore for SqliteIdeas {
             .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
     }
 
-    // store_prompt, get_prompts, get_prompts_for_chain — REMOVED.
-    // Ideas are activated through events, not injection_mode.
-
     async fn get_by_ids(&self, ids: &[String]) -> Result<Vec<Idea>> {
         if ids.is_empty() {
             return Ok(Vec::new());

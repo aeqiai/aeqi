@@ -45,11 +45,6 @@ pub(crate) async fn cmd_agent(
             }
             Ok(())
         }
-        crate::cli::AgentAction::Migrate { .. } => {
-            anyhow::bail!(
-                "The migrate command has been removed. Agents are now managed in the DB via `aeqi agent spawn`."
-            );
-        }
         crate::cli::AgentAction::Spawn { template, root } => {
             let (config, _) = load_config(config_path)?;
             let registry =

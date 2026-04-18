@@ -15,8 +15,6 @@ const DECISION_TYPE_COLORS: Record<string, string> = {
   expertise_update: "var(--info)",
   failure_analyzed: "var(--warning)",
   watchdog_triggered: "var(--warning)",
-  note_post: "var(--info)",
-  notes_post: "var(--info)",
   reroute: "var(--warning)",
 };
 
