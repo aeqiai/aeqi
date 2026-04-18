@@ -12,6 +12,7 @@ pub mod dedup;
 pub mod graph;
 pub mod hierarchy;
 pub mod hybrid;
+pub mod inline_links;
 pub mod lifecycle;
 pub mod obsidian;
 pub mod query_planner;

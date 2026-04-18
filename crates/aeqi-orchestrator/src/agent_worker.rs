@@ -1553,10 +1553,12 @@ impl AgentWorker {
 
             let agent_id_for_store: Option<&str> = if is_self { Some(worker_name) } else { None };
 
-            // Capture dedup relation targets for edge creation.
+            // Capture dedup relation targets for edge creation. The v2
+            // taxonomy only carries `adjacent` for out-of-band links —
+            // dedup hints are therefore all modeled as adjacent.
             let supersede_target = match &should_store_action {
-                Ok(DedupAction::Supersede(id)) => Some(("supersedes", id.clone())),
-                Ok(DedupAction::Merge(id)) => Some(("derived_from", id.clone())),
+                Ok(DedupAction::Supersede(id)) => Some(("adjacent", id.clone())),
+                Ok(DedupAction::Merge(id)) => Some(("adjacent", id.clone())),
                 _ => None,
             };
 
@@ -1593,19 +1595,18 @@ impl AgentWorker {
                                 continue;
                             }
                             if aeqi_ideas::dedup::is_support(content, &entry.content) {
-                                let _ = mem.store_idea_edge(&id, &entry.id, "supports", 0.7).await;
+                                let _ = mem.store_idea_edge(&id, &entry.id, "adjacent", 0.7).await;
                                 debug!(
                                     worker = %worker_name,
                                     source = %id, target = %entry.id,
-                                    "supports edge created"
+                                    "adjacent edge created (support)"
                                 );
                             } else if entry.score > 0.7 && entry.name != key {
-                                let _ =
-                                    mem.store_idea_edge(&id, &entry.id, "related_to", 0.5).await;
+                                let _ = mem.store_idea_edge(&id, &entry.id, "adjacent", 0.5).await;
                                 debug!(
                                     worker = %worker_name,
                                     source = %id, target = %entry.id,
-                                    "related_to edge created"
+                                    "adjacent edge created (related)"
                                 );
                             }
                         }

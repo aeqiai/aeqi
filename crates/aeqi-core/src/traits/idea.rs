@@ -300,6 +300,25 @@ pub trait IdeaStore: Send + Sync {
     async fn edges_between(&self, _ids: &[String]) -> anyhow::Result<Vec<IdeaGraphEdge>> {
         Ok(Vec::new())
     }
+
+    /// Replace all `mentions` / `embeds` edges for `source_id` based on a
+    /// fresh parse of the idea's body. `adjacent` edges are never touched.
+    ///
+    /// `resolver` maps a referenced name (case-insensitively) to an idea id.
+    /// Unresolved names are silently skipped — no stub nodes are created and
+    /// no error is raised. Called inside a blocking context, so the resolver
+    /// must be `Send + Sync`. The `for<'r>` HRTB lets callers pass borrows
+    /// of any lifetime.
+    ///
+    /// Default is a no-op for stores that don't track edges.
+    async fn reconcile_inline_edges(
+        &self,
+        _source_id: &str,
+        _body: &str,
+        _resolver: &(dyn for<'r> Fn(&'r str) -> Option<String> + Send + Sync),
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 /// Outgoing and incoming edges for a single idea.

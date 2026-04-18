@@ -433,6 +433,16 @@ fn split_relations(body: &str) -> (String, Vec<ParsedRelation>) {
     }
 }
 
+/// Map any legacy or unknown relation name to one of the three new ones.
+/// `mentions` and `embeds` are preserved; everything else → `adjacent`.
+fn normalize_relation(raw: &str) -> String {
+    match raw.trim() {
+        "mentions" => "mentions".to_string(),
+        "embeds" => "embeds".to_string(),
+        _ => "adjacent".to_string(),
+    }
+}
+
 /// Parse `- → [[key]] — relation (0.80)` lines.
 fn parse_relations(section: &str) -> Vec<ParsedRelation> {
     let mut relations = Vec::new();
@@ -456,7 +466,7 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
             let rest = &after_link[dash_pos + " — ".len()..];
             // Parse "relation (0.80)"
             if let Some(paren_pos) = rest.find(" (") {
-                let relation = rest[..paren_pos].trim().to_string();
+                let relation = normalize_relation(rest[..paren_pos].trim());
                 let strength_str = rest[paren_pos + 2..].trim_end_matches(')').trim();
                 let strength = strength_str.parse::<f32>().unwrap_or(0.5);
                 relations.push(ParsedRelation {
@@ -467,14 +477,14 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
             } else {
                 relations.push(ParsedRelation {
                     target_key,
-                    relation: rest.trim().to_string(),
+                    relation: normalize_relation(rest.trim()),
                     strength: 0.5,
                 });
             }
         } else {
             relations.push(ParsedRelation {
                 target_key,
-                relation: "related_to".to_string(),
+                relation: "adjacent".to_string(),
                 strength: 0.5,
             });
         }
@@ -514,13 +524,27 @@ mod tests {
 
     #[test]
     fn test_parse_relations() {
+        // Legacy relation names (caused_by, related_to) must be mapped to
+        // `adjacent` so round-trip export→import doesn't reintroduce the
+        // old taxonomy.
         let section = "## Relations\n\n- → [[auth-system]] — caused_by (0.80)\n- ← [[user-schema]] — related_to (0.50)\n";
         let rels = parse_relations(section);
         assert_eq!(rels.len(), 2);
         assert_eq!(rels[0].target_key, "auth-system");
-        assert_eq!(rels[0].relation, "caused_by");
+        assert_eq!(rels[0].relation, "adjacent");
         assert!((rels[0].strength - 0.80).abs() < 0.01);
         assert_eq!(rels[1].target_key, "user-schema");
+        assert_eq!(rels[1].relation, "adjacent");
+    }
+
+    #[test]
+    fn test_parse_relations_preserves_new_taxonomy() {
+        let section = "## Relations\n\n- → [[a]] — mentions (0.50)\n- → [[b]] — embeds (1.00)\n- → [[c]] — adjacent (0.50)\n";
+        let rels = parse_relations(section);
+        assert_eq!(rels.len(), 3);
+        assert_eq!(rels[0].relation, "mentions");
+        assert_eq!(rels[1].relation, "embeds");
+        assert_eq!(rels[2].relation, "adjacent");
     }
 
     #[test]

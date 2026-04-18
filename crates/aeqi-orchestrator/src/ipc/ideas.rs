@@ -1,5 +1,8 @@
 //! Idea CRUD and search IPC handlers.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use super::request_field;
 
 pub async fn handle_list_ideas(
@@ -71,15 +74,61 @@ pub async fn handle_store_idea(
                     .store_idea_edge(&id, target_id, relation, 1.0)
                     .await;
             }
+            reconcile_inline_edges_in_scope(ctx, idea_store.as_ref(), &id, content, agent_id).await;
             serde_json::json!({"ok": true, "id": id})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
 
+/// Build a case-insensitive name→id resolver scoped to the agent's visible
+/// idea set (or globals when `agent_id` is `None`) and reconcile the idea's
+/// inline mention/embed edges from the body.
+///
+/// Errors in scope resolution or reconciliation are swallowed — inline
+/// linking is a best-effort enrichment, not a store/update precondition.
+async fn reconcile_inline_edges_in_scope(
+    ctx: &super::CommandContext,
+    idea_store: &dyn aeqi_core::traits::IdeaStore,
+    source_id: &str,
+    body: &str,
+    agent_id: Option<&str>,
+) {
+    // Scope the resolver to what the agent can see; globals when unscoped.
+    let scope: Vec<aeqi_core::traits::Idea> = match agent_id {
+        Some(aid) => ctx
+            .agent_registry
+            .list_ideas_visible_to(aid)
+            .await
+            .unwrap_or_default(),
+        None => idea_store
+            .list_global_ideas(10_000)
+            .await
+            .unwrap_or_default(),
+    };
+
+    let lookup: Arc<HashMap<String, String>> = Arc::new(
+        scope
+            .into_iter()
+            .map(|i| (i.name.to_lowercase(), i.id))
+            .collect(),
+    );
+
+    let lookup_cloned = Arc::clone(&lookup);
+    let resolver =
+        move |name: &str| -> Option<String> { lookup_cloned.get(&name.to_lowercase()).cloned() };
+
+    if let Err(e) = idea_store
+        .reconcile_inline_edges(source_id, body, &resolver)
+        .await
+    {
+        tracing::warn!(source = %source_id, err = %e, "reconcile_inline_edges failed");
+    }
+}
+
 /// Parse a `links` field from an IPC request into (target_id, relation) pairs.
-/// Accepts either strings (defaulting to "related_to") or objects with
-/// `{target_id, relation}`.
+/// Accepts either strings (defaulting to `adjacent` — the "+ Link" picker
+/// flow) or objects with `{target_id, relation}`.
 fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
     request
         .get("links")
@@ -88,7 +137,7 @@ fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
             arr.iter()
                 .filter_map(|entry| match entry {
                     serde_json::Value::String(s) if !s.is_empty() => {
-                        Some((s.clone(), "related_to".to_string()))
+                        Some((s.clone(), "adjacent".to_string()))
                     }
                     serde_json::Value::Object(obj) => {
                         let target = obj.get("target_id").and_then(|v| v.as_str())?;
@@ -99,7 +148,7 @@ fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
                             .get("relation")
                             .and_then(|v| v.as_str())
                             .filter(|s| !s.is_empty())
-                            .unwrap_or("related_to")
+                            .unwrap_or("adjacent")
                             .to_string();
                         Some((target.to_string(), rel))
                     }
@@ -160,9 +209,39 @@ pub async fn handle_update_idea(
     }
 
     match idea_store.update(id, name, content, tags.as_deref()).await {
-        Ok(()) => serde_json::json!({"ok": true}),
+        Ok(()) => {
+            // Reconcile inline edges when the body changed. We need to know
+            // which agent owns the idea to scope the resolver correctly.
+            if let Some(body) = content {
+                let agent_id = lookup_idea_agent(idea_store.as_ref(), id).await;
+                reconcile_inline_edges_in_scope(
+                    ctx,
+                    idea_store.as_ref(),
+                    id,
+                    body,
+                    agent_id.as_deref(),
+                )
+                .await;
+            }
+            serde_json::json!({"ok": true})
+        }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
+}
+
+/// Look up the owning agent_id for an idea. Used by update to scope the
+/// inline-link resolver. Returns `None` for global ideas or on error.
+async fn lookup_idea_agent(
+    idea_store: &dyn aeqi_core::traits::IdeaStore,
+    id: &str,
+) -> Option<String> {
+    idea_store
+        .get_by_ids(&[id.to_string()])
+        .await
+        .ok()?
+        .into_iter()
+        .next()?
+        .agent_id
 }
 
 pub async fn handle_search_ideas(
@@ -389,7 +468,7 @@ pub async fn handle_add_idea_edge(
     if source_id == target_id {
         return serde_json::json!({"ok": false, "error": "source and target must differ"});
     }
-    let relation = request_field(request, "relation").unwrap_or("related_to");
+    let relation = request_field(request, "relation").unwrap_or("adjacent");
     let strength = request
         .get("strength")
         .and_then(|v| v.as_f64())

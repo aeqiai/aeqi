@@ -141,6 +141,59 @@ impl SqliteIdeas {
         Self::ensure_fts(conn)?;
         Self::ensure_edge_table(conn)?;
 
+        // Collapse the legacy 6-relation taxonomy to the 3-relation one
+        // (mentions/embeds/adjacent). Must run after ensure_edge_table so
+        // the table is guaranteed to exist. Idempotent.
+        Self::migrate_relations_to_adjacent(conn)?;
+
+        Ok(())
+    }
+
+    /// Collapse legacy `idea_edges.relation` values to `adjacent`.
+    ///
+    /// The old taxonomy had six relations
+    /// (`related_to`, `supports`, `contradicts`, `supersedes`, `caused_by`,
+    /// `derived_from`). All of those are now collapsed to `adjacent`. Inline
+    /// `mentions` / `embeds` edges are re-created by the body parser on the
+    /// next idea save.
+    ///
+    /// Idempotent — only touches rows whose relation is not already in the
+    /// new set (`mentions`, `embeds`, `adjacent`).
+    fn migrate_relations_to_adjacent(conn: &Connection) -> Result<()> {
+        // Quick early-out: nothing outside the new set means no work.
+        let stale: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM idea_edges \
+             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
+            [],
+            |row| row.get(0),
+        )?;
+        if stale == 0 {
+            return Ok(());
+        }
+
+        // A plain UPDATE can hit the (source_id, target_id, relation) PK
+        // when an `adjacent` row already exists for the same pair. Do it in
+        // a transaction with INSERT OR IGNORE + DELETE so duplicates are
+        // absorbed cleanly.
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT OR IGNORE INTO idea_edges \
+                (source_id, target_id, relation, strength, agent, task_id, created_at) \
+             SELECT source_id, target_id, 'adjacent', strength, agent, task_id, created_at \
+             FROM idea_edges \
+             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
+            [],
+        )?;
+        let deleted = tx.execute(
+            "DELETE FROM idea_edges \
+             WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
+            [],
+        )?;
+        tx.commit()?;
+        debug!(
+            deleted,
+            "migrated: collapsed legacy idea_edges.relation values to 'adjacent'"
+        );
         Ok(())
     }
 
@@ -1253,7 +1306,7 @@ impl SqliteIdeas {
             .map_err(|e| anyhow::anyhow!("lock poisoned in store_edge: {e}"))?;
         let relation_str = serde_json::to_value(edge.relation)?
             .as_str()
-            .unwrap_or("related_to")
+            .unwrap_or("adjacent")
             .to_string();
         conn.execute(
             "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at)
@@ -1357,20 +1410,16 @@ impl SqliteIdeas {
                 continue;
             }
             match edge.relation {
-                IdeaRelation::Supports | IdeaRelation::RelatedTo => {
-                    boost += edge.strength * 0.5;
+                // Explicit in-prose references are the strongest signal.
+                IdeaRelation::Embeds => {
+                    boost += edge.strength * 0.6;
                 }
-                IdeaRelation::DerivedFrom | IdeaRelation::CausedBy => {
+                IdeaRelation::Mentions => {
+                    boost += edge.strength * 0.4;
+                }
+                // Out-of-band "also see" — weaker signal.
+                IdeaRelation::Adjacent => {
                     boost += edge.strength * 0.3;
-                }
-                IdeaRelation::Contradicts => {
-                    boost -= edge.strength * 0.3;
-                }
-                IdeaRelation::Supersedes => {
-                    // Source supersedes target — boost the source.
-                    if edge.source_id == idea_id {
-                        boost += edge.strength * 0.4;
-                    }
                 }
             }
         }
@@ -1922,7 +1971,7 @@ impl IdeaStore for SqliteIdeas {
     ) -> Result<()> {
         let relation_enum: IdeaRelation =
             serde_json::from_value(serde_json::Value::String(relation.to_string()))
-                .unwrap_or(IdeaRelation::RelatedTo);
+                .unwrap_or(IdeaRelation::Adjacent);
         let edge = IdeaEdge::new(source_id, target_id, relation_enum, strength);
         let this = self.clone();
         tokio::task::spawn_blocking(move || this.store_edge(&edge))
@@ -2231,6 +2280,60 @@ impl IdeaStore for SqliteIdeas {
                 }
             }
             Ok(entries)
+        })
+        .await
+    }
+
+    async fn reconcile_inline_edges(
+        &self,
+        source_id: &str,
+        body: &str,
+        resolver: &(dyn for<'r> Fn(&'r str) -> Option<String> + Send + Sync),
+    ) -> Result<()> {
+        // Resolve every referenced name up front, before we suspend on the
+        // blocking task. Unresolved names are dropped; self-edges are dropped
+        // too (meaningless to link an idea to itself).
+        let resolved: Vec<(String, &'static str)> = {
+            let parsed = crate::inline_links::parse_links(body);
+            let mut out: Vec<(String, &'static str)> = Vec::new();
+            for name in parsed.mentions {
+                if let Some(target) = resolver(name.as_str())
+                    && target != source_id
+                {
+                    out.push((target, "mentions"));
+                }
+            }
+            for name in parsed.embeds {
+                if let Some(target) = resolver(name.as_str())
+                    && target != source_id
+                {
+                    out.push((target, "embeds"));
+                }
+            }
+            out
+        };
+
+        let source_id = source_id.to_string();
+        let created = chrono::Utc::now().to_rfc3339();
+        self.blocking(move |conn| {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute(
+                "DELETE FROM idea_edges WHERE source_id = ?1 \
+                 AND relation IN ('mentions', 'embeds')",
+                rusqlite::params![source_id],
+            )?;
+            for (target_id, relation) in &resolved {
+                tx.execute(
+                    "INSERT INTO idea_edges \
+                        (source_id, target_id, relation, strength, created_at) \
+                     VALUES (?1, ?2, ?3, ?4, ?5) \
+                     ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                        strength = MAX(excluded.strength, idea_edges.strength)",
+                    rusqlite::params![source_id, target_id, *relation, 1.0_f64, created],
+                )?;
+            }
+            tx.commit()?;
+            Ok(())
         })
         .await
     }
@@ -2681,28 +2784,24 @@ mod tests {
             .await
             .unwrap();
 
-        mem.store_idea_edge(&a, &b, "supports", 0.8).await.unwrap();
-        mem.store_idea_edge(&a, &c, "supersedes", 1.0)
-            .await
-            .unwrap();
-        mem.store_idea_edge(&c, &a, "related_to", 0.5)
-            .await
-            .unwrap();
+        mem.store_idea_edge(&a, &b, "mentions", 0.8).await.unwrap();
+        mem.store_idea_edge(&a, &c, "embeds", 1.0).await.unwrap();
+        mem.store_idea_edge(&c, &a, "adjacent", 0.5).await.unwrap();
 
         let edges = mem.idea_edges(&a).await.unwrap();
         assert_eq!(edges.links.len(), 2, "a has two outgoing edges");
         assert_eq!(edges.backlinks.len(), 1, "a has one incoming edge");
 
-        // Outgoing edges should be ordered by strength DESC — supersedes (1.0) first.
+        // Outgoing edges should be ordered by strength DESC — embeds (1.0) first.
         assert_eq!(edges.links[0].other_id, c);
-        assert_eq!(edges.links[0].relation, "supersedes");
+        assert_eq!(edges.links[0].relation, "embeds");
         assert_eq!(edges.links[0].other_name.as_deref(), Some("legacy-auth"));
         assert_eq!(edges.links[1].other_id, b);
-        assert_eq!(edges.links[1].relation, "supports");
+        assert_eq!(edges.links[1].relation, "mentions");
 
-        // Incoming: c → a related_to.
+        // Incoming: c → a adjacent.
         assert_eq!(edges.backlinks[0].other_id, c);
-        assert_eq!(edges.backlinks[0].relation, "related_to");
+        assert_eq!(edges.backlinks[0].relation, "adjacent");
     }
 
     #[tokio::test]
@@ -2712,20 +2811,18 @@ mod tests {
         let a = mem.store("a", "A", &[], None).await.unwrap();
         let b = mem.store("b", "B", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
-        mem.store_idea_edge(&a, &b, "contradicts", 1.0)
-            .await
-            .unwrap();
+        mem.store_idea_edge(&a, &b, "mentions", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "adjacent", 1.0).await.unwrap();
 
         let removed = mem
-            .remove_idea_edge(&a, &b, Some("supports"))
+            .remove_idea_edge(&a, &b, Some("mentions"))
             .await
             .unwrap();
         assert_eq!(removed, 1);
 
         let edges = mem.idea_edges(&a).await.unwrap();
         assert_eq!(edges.links.len(), 1);
-        assert_eq!(edges.links[0].relation, "contradicts");
+        assert_eq!(edges.links[0].relation, "adjacent");
     }
 
     #[tokio::test]
@@ -2735,10 +2832,8 @@ mod tests {
         let a = mem.store("a", "A", &[], None).await.unwrap();
         let b = mem.store("b", "B", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
-        mem.store_idea_edge(&a, &b, "related_to", 0.5)
-            .await
-            .unwrap();
+        mem.store_idea_edge(&a, &b, "mentions", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "adjacent", 0.5).await.unwrap();
 
         let removed = mem.remove_idea_edge(&a, &b, None).await.unwrap();
         assert_eq!(removed, 2);
@@ -2810,10 +2905,8 @@ mod tests {
         let b = mem.store("b", "B", &[], None).await.unwrap();
         let c = mem.store("c", "C", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "supports", 0.8).await.unwrap();
-        mem.store_idea_edge(&c, &a, "related_to", 0.5)
-            .await
-            .unwrap();
+        mem.store_idea_edge(&a, &b, "mentions", 0.8).await.unwrap();
+        mem.store_idea_edge(&c, &a, "adjacent", 0.5).await.unwrap();
 
         let edges = mem.edges_between(&[a.clone(), b.clone()]).await.unwrap();
         // Includes a→b (both in set) AND c→a (a is in set, c isn't — caller filters).
@@ -2830,7 +2923,7 @@ mod tests {
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].source_id, a);
         assert_eq!(filtered[0].target_id, b);
-        assert_eq!(filtered[0].relation, "supports");
+        assert_eq!(filtered[0].relation, "mentions");
     }
 
     #[tokio::test]
@@ -2907,7 +3000,8 @@ mod tests {
             "memory_embeddings should be renamed"
         );
 
-        // idea_edges row preserved.
+        // idea_edges row preserved. Legacy 'supports' relation is
+        // collapsed to 'adjacent' by migrate_relations_to_adjacent.
         let (src, tgt, rel, strength): (String, String, String, f64) = conn
             .query_row(
                 "SELECT source_id, target_id, relation, strength FROM idea_edges",
@@ -2917,7 +3011,7 @@ mod tests {
             .unwrap();
         assert_eq!(src, "src-1");
         assert_eq!(tgt, "tgt-1");
-        assert_eq!(rel, "supports");
+        assert_eq!(rel, "adjacent");
         assert!((strength - 0.7).abs() < 1e-6);
 
         // idea_embeddings row preserved (queried via the renamed idea_id column).
@@ -2930,5 +3024,178 @@ mod tests {
             .unwrap();
         assert_eq!(idea_id, "idea-1");
         assert_eq!(hash, "deadbeef");
+    }
+
+    // ── inline-link reconciliation ──────────────────────────────────────
+
+    /// Build a case-insensitive name→id lookup resolver for tests.
+    fn resolver_from_pairs(
+        pairs: &[(&str, &str)],
+    ) -> Box<dyn Fn(&str) -> Option<String> + Send + Sync> {
+        let map: std::collections::HashMap<String, String> = pairs
+            .iter()
+            .map(|(name, id)| (name.to_lowercase(), (*id).to_string()))
+            .collect();
+        Box::new(move |name: &str| map.get(&name.to_lowercase()).cloned())
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_inline_edges_creates_mentions_and_embeds() {
+        let (mem, _dir) = test_ideas();
+        let src = mem.store("src", "placeholder", &[], None).await.unwrap();
+        let a = mem.store("a", "A body", &[], None).await.unwrap();
+        let b = mem.store("b", "B body", &[], None).await.unwrap();
+
+        let resolver = resolver_from_pairs(&[("a", &a), ("b", &b)]);
+        mem.reconcile_inline_edges(&src, "see [[A]] and ![[B]]", resolver.as_ref())
+            .await
+            .unwrap();
+
+        let edges = mem.idea_edges(&src).await.unwrap();
+        let by_target: std::collections::HashMap<&str, &str> = edges
+            .links
+            .iter()
+            .map(|e| (e.other_id.as_str(), e.relation.as_str()))
+            .collect();
+        assert_eq!(by_target.get(a.as_str()).copied(), Some("mentions"));
+        assert_eq!(by_target.get(b.as_str()).copied(), Some("embeds"));
+        assert_eq!(edges.links.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_inline_edges_removes_stale() {
+        let (mem, _dir) = test_ideas();
+        let src = mem.store("src", "body", &[], None).await.unwrap();
+        let a = mem.store("a", "A", &[], None).await.unwrap();
+
+        let resolver = resolver_from_pairs(&[("a", &a)]);
+        mem.reconcile_inline_edges(&src, "see [[A]]", resolver.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(mem.idea_edges(&src).await.unwrap().links.len(), 1);
+
+        // A second reconcile with no references removes the stale edge.
+        let empty_resolver = resolver_from_pairs(&[]);
+        mem.reconcile_inline_edges(&src, "no links here", empty_resolver.as_ref())
+            .await
+            .unwrap();
+        let edges = mem.idea_edges(&src).await.unwrap();
+        assert!(edges.links.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_inline_edges_leaves_adjacent_alone() {
+        let (mem, _dir) = test_ideas();
+        let src = mem.store("src", "body", &[], None).await.unwrap();
+        let a = mem.store("a", "A", &[], None).await.unwrap();
+        let side = mem.store("side", "S", &[], None).await.unwrap();
+
+        // Seed an adjacent edge directly — this one must survive reconciliation.
+        mem.store_idea_edge(&src, &side, "adjacent", 0.7)
+            .await
+            .unwrap();
+
+        let resolver = resolver_from_pairs(&[("a", &a)]);
+        mem.reconcile_inline_edges(&src, "see [[A]]", resolver.as_ref())
+            .await
+            .unwrap();
+
+        let edges = mem.idea_edges(&src).await.unwrap();
+        let by_target: std::collections::HashMap<&str, &str> = edges
+            .links
+            .iter()
+            .map(|e| (e.other_id.as_str(), e.relation.as_str()))
+            .collect();
+        assert_eq!(
+            by_target.get(side.as_str()).copied(),
+            Some("adjacent"),
+            "adjacent edge must survive inline reconciliation"
+        );
+        assert_eq!(by_target.get(a.as_str()).copied(), Some("mentions"));
+        assert_eq!(edges.links.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_inline_edges_unresolved_name_skipped() {
+        let (mem, _dir) = test_ideas();
+        let src = mem.store("src", "body", &[], None).await.unwrap();
+
+        // Resolver maps nothing — the name is unresolvable.
+        let resolver = resolver_from_pairs(&[]);
+        mem.reconcile_inline_edges(&src, "see [[nonexistent]]", resolver.as_ref())
+            .await
+            .expect("unresolved names must not error");
+
+        let edges = mem.idea_edges(&src).await.unwrap();
+        assert!(
+            edges.links.is_empty(),
+            "unresolved names must not create edges"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_relation_migration_collapses_to_adjacent() {
+        // Seed a DB with one row per legacy relation name, then open the
+        // store so the idempotent migration runs.
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("legacy_relations.db");
+
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            // Schema matches ensure_edge_table so the open path is happy.
+            conn.execute_batch(
+                "CREATE TABLE idea_edges (
+                    source_id TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    relation TEXT NOT NULL,
+                    strength REAL NOT NULL DEFAULT 0.5,
+                    agent TEXT,
+                    task_id TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (source_id, target_id, relation)
+                 );",
+            )
+            .unwrap();
+            for (idx, rel) in [
+                "related_to",
+                "supports",
+                "contradicts",
+                "supersedes",
+                "caused_by",
+                "derived_from",
+            ]
+            .iter()
+            .enumerate()
+            {
+                conn.execute(
+                    "INSERT INTO idea_edges (source_id, target_id, relation, strength) \
+                     VALUES (?1, ?2, ?3, 0.5)",
+                    rusqlite::params![format!("s-{idx}"), format!("t-{idx}"), rel],
+                )
+                .unwrap();
+            }
+        }
+
+        let _store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+
+        let conn = Connection::open(&db_path).unwrap();
+        let stale: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM idea_edges \
+                 WHERE relation NOT IN ('mentions', 'embeds', 'adjacent')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stale, 0, "no legacy relations should remain");
+
+        let adjacent: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM idea_edges WHERE relation = 'adjacent'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(adjacent, 6, "all six legacy rows collapsed to adjacent");
     }
 }

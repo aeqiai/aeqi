@@ -10,32 +10,28 @@ use serde::{Deserialize, Serialize};
 // ── Relations ───────────────────────────────────────────────────────────────
 
 /// Typed relationship between two idea nodes.
+///
+/// Three relations, each implying an origin:
+/// - `Mentions` — created from `[[X]]` in an idea's body (in-prose reference).
+/// - `Embeds` — created from `![[X]]` in an idea's body (in-prose transclusion).
+/// - `Adjacent` — out-of-band "also see" link added via the picker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdeaRelation {
-    /// Source was caused by target (causal chain).
-    CausedBy,
-    /// Source contradicts target (conflict).
-    Contradicts,
-    /// Source supports / corroborates target.
-    Supports,
-    /// Source was derived from target (synthesis).
-    DerivedFrom,
-    /// Source supersedes target (newer truth).
-    Supersedes,
-    /// General association.
-    RelatedTo,
+    /// In-prose reference: `[[X]]` in the source's body.
+    Mentions,
+    /// In-prose transclusion: `![[X]]` in the source's body.
+    Embeds,
+    /// Out-of-band association added via the "+ Link" picker.
+    Adjacent,
 }
 
 impl std::fmt::Display for IdeaRelation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CausedBy => write!(f, "caused_by"),
-            Self::Contradicts => write!(f, "contradicts"),
-            Self::Supports => write!(f, "supports"),
-            Self::DerivedFrom => write!(f, "derived_from"),
-            Self::Supersedes => write!(f, "supersedes"),
-            Self::RelatedTo => write!(f, "related_to"),
+            Self::Mentions => write!(f, "mentions"),
+            Self::Embeds => write!(f, "embeds"),
+            Self::Adjacent => write!(f, "adjacent"),
         }
     }
 }
@@ -238,28 +234,25 @@ mod tests {
 
     #[test]
     fn idea_edge_creation() {
-        let edge = IdeaEdge::new("src-1", "tgt-2", IdeaRelation::Supersedes, 0.9);
+        let edge = IdeaEdge::new("src-1", "tgt-2", IdeaRelation::Embeds, 0.9);
         assert_eq!(edge.source_id, "src-1");
         assert_eq!(edge.target_id, "tgt-2");
-        assert_eq!(edge.relation, IdeaRelation::Supersedes);
+        assert_eq!(edge.relation, IdeaRelation::Embeds);
         assert!((edge.strength - 0.9).abs() < f32::EPSILON);
     }
 
     #[test]
     fn relation_display() {
-        assert_eq!(IdeaRelation::CausedBy.to_string(), "caused_by");
-        assert_eq!(IdeaRelation::Contradicts.to_string(), "contradicts");
-        assert_eq!(IdeaRelation::Supports.to_string(), "supports");
-        assert_eq!(IdeaRelation::DerivedFrom.to_string(), "derived_from");
-        assert_eq!(IdeaRelation::Supersedes.to_string(), "supersedes");
-        assert_eq!(IdeaRelation::RelatedTo.to_string(), "related_to");
+        assert_eq!(IdeaRelation::Mentions.to_string(), "mentions");
+        assert_eq!(IdeaRelation::Embeds.to_string(), "embeds");
+        assert_eq!(IdeaRelation::Adjacent.to_string(), "adjacent");
     }
 
     #[test]
     fn edge_strength_clamped() {
-        let edge = IdeaEdge::new("a", "b", IdeaRelation::RelatedTo, 1.5);
+        let edge = IdeaEdge::new("a", "b", IdeaRelation::Adjacent, 1.5);
         assert!((edge.strength - 1.0).abs() < f32::EPSILON);
-        let edge2 = IdeaEdge::new("a", "b", IdeaRelation::RelatedTo, -0.5);
+        let edge2 = IdeaEdge::new("a", "b", IdeaRelation::Adjacent, -0.5);
         assert!(edge2.strength.abs() < f32::EPSILON);
     }
 
