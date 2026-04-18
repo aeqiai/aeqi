@@ -1,25 +1,48 @@
 # Contributing
 
-AEQI is a monorepo: a Rust workspace (`aeqi-cli` + `crates/*`) and a React dashboard (`apps/ui`). Thanks for considering a contribution.
+Solo dev repo. These notes exist so a future Claude session (or the author six months from now) can get up to speed without archaeology.
 
-## Before You Start
+Security issues — see [SECURITY.md](SECURITY.md) for private disclosure rather than a public issue.
 
-- Security issues → **do not** open a public issue. See [SECURITY.md](SECURITY.md) for private disclosure.
-- Non-trivial changes → open an issue or discussion first so we can align on scope before code is written.
-- House rules lives in [CLAUDE.md](CLAUDE.md) (also applies to humans): zero warnings, zero clippy lints, no dead code, no backward-compat shims.
+## Repo Layout
 
-## Development Setup
+```
+aeqi/
+  aeqi-cli/          # CLI binary (separate crate at root, not in crates/)
+  crates/            # Rust workspace members
+    aeqi-core/       # Agent loop, config, compaction, streaming executor, traits
+    aeqi-orchestrator/ # Daemon, sessions, events, delegation, middleware, budgets
+    aeqi-ideas/      # SQLite+FTS5, vector search, hybrid ranking, knowledge graph
+    aeqi-quests/     # Quest DAG, dependency inference, status machine
+    aeqi-providers/  # OpenRouter, Anthropic, Ollama + cost estimation
+    aeqi-tools/      # Shell, file I/O, git, grep, glob, delegate tools
+    aeqi-web/        # Axum REST API + WebSocket + embedded SPA
+    aeqi-gates/      # Telegram, Discord, Slack bridges
+    aeqi-graph/      # Code intelligence: parsing, community detection, impact analysis
+    aeqi-hosting/    # Multi-tenant platform, bubblewrap sandboxing
+    aeqi-test-support/ # Shared test helpers
+  apps/
+    ui/              # React 19 + Vite + TypeScript dashboard (see apps/ui/README.md)
+  scripts/
+    deploy.sh        # Restarts aeqi-runtime.service (:8400) + aeqi-platform.service (:8443)
+  config/
+    aeqi.example.toml
+  docs/              # User-facing documentation
+```
+
+## Dev Setup
 
 ```bash
-cp config/aeqi.example.toml config/aeqi.toml   # local-only, not committed
+cp config/aeqi.example.toml config/aeqi.toml   # local only, not committed
 npm run ui:install
 cargo build
 ```
 
-To run the full stack locally:
+One-time init:
 
 ```bash
-aeqi setup         # one-time: generates config and seeds a root agent
+aeqi setup         # generates config, creates root agent
+aeqi secrets set OPENROUTER_API_KEY <key>
 aeqi start         # daemon + dashboard on :8400
 ```
 
@@ -31,57 +54,58 @@ aeqi start         # daemon + dashboard on :8400
 | Rust tests | `cargo test --workspace` |
 | Rust lint | `cargo clippy --workspace -- -D warnings` |
 | Rust format | `cargo fmt --all` |
-| UI build | `npm run ui:build` |
 | UI dev server | `npm run ui:dev` (proxies `/api` to `:8400`) |
+| UI build | `npm run ui:build` |
 | UI type check | `cd apps/ui && npx tsc --noEmit` |
 | UI format check | `cd apps/ui && npx prettier --check "src/**/*.{ts,tsx,css}"` |
-| UI tests | `cd apps/ui && npm test` |
 
-All of the above must pass before a PR merges. The pre-commit hook (Husky) runs the UI checks automatically when `apps/ui` files change.
+## Pre-Commit Gate
+
+All of these must pass before every commit (enforced by the pre-commit hook):
+
+```bash
+cargo fmt
+cargo clippy --workspace -- -D warnings
+cargo test --workspace
+cd apps/ui && npx tsc --noEmit && npx prettier --check "src/**/*.{ts,tsx,css}"
+```
+
+## Deploy
+
+```bash
+./scripts/deploy.sh
+```
+
+Restarts both `aeqi-runtime.service` (port 8400) and `aeqi-platform.service` (port 8443).
 
 ## Commit Messages
 
-We follow a lightweight Conventional Commits style. The type up front makes release notes mechanical to assemble:
+Lightweight Conventional Commits:
 
 ```
-<type>(<optional scope>): <short imperative summary>
+<type>(<scope>): <short imperative summary>
 
-<optional body — the "why", linked issues, breaking changes>
+<optional body — the "why", not the "what">
 ```
 
-Common types in this repo:
+Common types: `feat`, `fix`, `refactor`, `test`, `docs`, `style(ui)`, `chore`.
+Common scopes: `ui`, `ideas`, `quests`, `events`, `agents`, `deploy`, `meta`.
+Summary under 70 characters.
 
-| Type | When to use |
-|------|-------------|
-| `feat` | New user-visible capability |
-| `fix` | Bug fix |
-| `refactor` | Behaviour-preserving code change |
-| `test` | Test-only changes |
-| `docs` | Documentation only |
-| `style(ui)` | CSS / visual-only UI tweaks |
-| `chore` | Tooling, CI, dependencies, repo meta |
+## Coding Standards
 
-Scopes are free-form; common ones include `ui`, `deploy`, `ideas`, `channels`, `meta`.
+See [CLAUDE.md](CLAUDE.md) for the full list. Short version:
 
-Keep the summary under ~70 characters. Use the body to explain *why*, not *what* — the diff already shows what.
+- Zero warnings, zero clippy lints, no dead code, no backward-compat shims
+- `spawn_blocking` for all SQLite ops in async context
+- Frontend: Prettier enforced (double quotes, trailing commas, 100 width)
+- No `#[allow(dead_code)]` without a comment justifying it
 
-## Pull Requests
+## Four Primitives (ground truth)
 
-Use the PR template — it prompts for a summary, a type, and a verification checklist.
+- **Agent** — persistent identity in a parent-child tree. DB is source of truth, no agent definition files on disk.
+- **Idea** — unified knowledge store. Replaces system prompts, skills, memories. Tags, not categories. Secret redaction runs before persist (`crates/aeqi-ideas/src/redact.rs`).
+- **Quest** — structured work unit with DAG dependencies, atomic checkout, and status machine.
+- **Event** — reaction rule (schedule / pattern / once / webhook). 6 session lifecycle events ship as globals.
 
-- **Keep changes focused.** Prefer several small PRs over one sprawling one.
-- **Include verification** for every layer you touched: `cargo clippy`, `cargo test`, `tsc --noEmit`, `npm test`, and any manual smoke test that is relevant.
-- **Update docs** when behaviour, config, or operator workflow changes. The `docs/` directory is user-facing; internal notes should stay out.
-- **Do not commit secrets** or machine-specific config. If you accidentally stage `config/aeqi.toml` or similar, unstage before committing.
-
-## Filing Issues
-
-Use a template from [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE):
-
-- **Bug report** — a reproducible defect.
-- **Feature request** — a change in user-facing behaviour.
-- For anything else, start a [GitHub Discussion](https://github.com/aeqiai/aeqi/discussions) first.
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the [Business Source License 1.1](LICENSE) that covers the rest of the project, which converts to Apache 2.0 on the stated Change Date.
+Context is assembled explicitly through events referencing ideas — no silent LLM injection.

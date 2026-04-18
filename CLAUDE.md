@@ -38,7 +38,7 @@ All must pass. The pre-commit hook enforces this.
 - Design system: `apps/ui/src/styles/primitives.css` for tokens
 
 ### Architecture
-- Events = pattern + idea_ids. 6 session events.
+- Events = pattern + idea_ids + query_template. 6 session lifecycle events (globals).
 - Ideas have tags (Vec<String>), no category field
 - Quest owns worktree. Session owns nothing.
 - Every execution in bwrap (when available)
