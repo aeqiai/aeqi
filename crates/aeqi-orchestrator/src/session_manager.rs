@@ -791,6 +791,35 @@ impl SessionManager {
             uuid::Uuid::new_v4().to_string()
         };
 
+        // 9.5. Record event-fire rows so the user can see which events injected
+        // which ideas into this session's context. One row per event that fired.
+        if let (Some(aid), Some(ss)) = (agent_uuid.as_deref(), self.session_store.as_ref()) {
+            let fired = event_store
+                .get_events_for_pattern(aid, "session:start")
+                .await;
+            for event in fired {
+                if event.idea_ids.is_empty() {
+                    continue;
+                }
+                let metadata = serde_json::json!({
+                    "event_id": event.id,
+                    "event_name": event.name,
+                    "pattern": event.pattern,
+                    "idea_ids": event.idea_ids,
+                });
+                let _ = ss
+                    .record_event_by_session(
+                        &session_id,
+                        "event_fired",
+                        "system",
+                        "",
+                        Some(session_type_str),
+                        Some(&metadata),
+                    )
+                    .await;
+            }
+        }
+
         // 10. Record prompt as user message (with sender identity when available).
         if opts.record_initial_prompt
             && let Some(ref ss) = self.session_store

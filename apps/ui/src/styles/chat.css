@@ -836,6 +836,63 @@
   opacity: 0.5;
 }
 
+/* ── Event-fire row (events → injected ideas) ── */
+
+.asv-event-fire {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.asv-event-fire-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.asv-event-fire-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.asv-event-fire-name:hover {
+  color: var(--text-primary);
+}
+.asv-event-fire-arrow {
+  opacity: 0.4;
+}
+.asv-event-fire-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.asv-event-fire-chip {
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+  padding: 1px 8px;
+  font: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.asv-event-fire-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, rgba(0, 0, 0, 0.16));
+}
+.asv-event-fire-time {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
 /* ── Thinking indicator ── */
 
 .asv-thinking {

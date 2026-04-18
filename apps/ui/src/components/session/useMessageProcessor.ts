@@ -126,6 +126,26 @@ export function useMessageProcessor() {
           agent.content += (agent.content ? "\n\n" : "") + text;
         }
         applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
+      } else if (eventType === "event_fired") {
+        if (pendingTools.length > 0 && currentAgent) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        flushAgent();
+        const meta = (m.metadata || {}) as Record<string, unknown>;
+        const rawIdeaIds = meta.idea_ids;
+        const ideaIds = Array.isArray(rawIdeaIds) ? rawIdeaIds.map(String) : [];
+        processed.push({
+          role: "event_fire",
+          content: "",
+          timestamp: ts,
+          eventFire: {
+            eventId: String(meta.event_id ?? ""),
+            eventName: String(meta.event_name ?? ""),
+            pattern: String(meta.pattern ?? ""),
+            ideaIds,
+          },
+        });
       } else if (m.role === "user" || m.role === "User") {
         if (pendingTools.length > 0 && currentAgent) {
           currentAgent.segments!.push(...pendingTools);

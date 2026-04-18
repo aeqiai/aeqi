@@ -1,6 +1,8 @@
-import { useState, memo } from "react";
+import { useEffect, useState, memo } from "react";
 import Markdown from "react-markdown";
 import { IconButton } from "@/components/ui";
+import { useNav } from "@/hooks/useNav";
+import { useAgentDataStore } from "@/store/agentData";
 import {
   type Message,
   type MessageSegment,
@@ -249,6 +251,54 @@ export function SegmentRenderer({
 
 // ── Memoized message item — prevents re-rendering historical messages during streaming ──
 
+function EventFireItem({ msg }: { msg: Message }) {
+  const { goAgent, agentId } = useNav();
+  const fire = msg.eventFire;
+  const ideas = useAgentDataStore((s) => (agentId ? s.ideasByAgent[agentId] : undefined));
+  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
+  const ideaIds = fire?.ideaIds ?? [];
+  const hasUnresolved = ideaIds.length > 0 && ideas === undefined;
+
+  useEffect(() => {
+    if (hasUnresolved && agentId) loadIdeas(agentId);
+  }, [hasUnresolved, agentId, loadIdeas]);
+
+  if (!fire) return null;
+
+  const nameFor = (id: string) => {
+    const hit = ideas?.find((i) => i.id === id);
+    return hit?.name ?? id.slice(0, 8);
+  };
+
+  return (
+    <div className="asv-event-fire">
+      <span className="asv-event-fire-icon">{"\u2728"}</span>
+      <button
+        type="button"
+        className="asv-event-fire-name"
+        onClick={() => agentId && goAgent(agentId, "events", fire.eventId)}
+        title={fire.pattern}
+      >
+        {fire.eventName || fire.pattern || "event"}
+      </button>
+      <span className="asv-event-fire-arrow">{"\u2192"}</span>
+      <span className="asv-event-fire-chips">
+        {ideaIds.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="asv-event-fire-chip"
+            onClick={() => agentId && goAgent(agentId, "ideas", id)}
+          >
+            {nameFor(id)}
+          </button>
+        ))}
+      </span>
+      {msg.timestamp && <span className="asv-event-fire-time">{formatTime(msg.timestamp)}</span>}
+    </div>
+  );
+}
+
 const MessageItem = memo(function MessageItem({
   msg,
   onFork,
@@ -258,6 +308,9 @@ const MessageItem = memo(function MessageItem({
   onFork?: (messageId: number) => void;
   onEdit?: (messageId: number, text: string) => void;
 }) {
+  if (msg.role === "event_fire") {
+    return <EventFireItem msg={msg} />;
+  }
   if (msg.role === "quest_event") {
     return (
       <div className="asv-quest-event">

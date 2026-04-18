@@ -17,6 +17,13 @@ export type MessageSegment =
   | { kind: "step"; step: number }
   | { kind: "status"; text: string };
 
+export interface EventFire {
+  eventId: string;
+  eventName: string;
+  pattern: string;
+  ideaIds: string[];
+}
+
 export interface Message {
   role: string;
   content: string;
@@ -29,6 +36,8 @@ export interface Message {
   eventType?: string;
   taskId?: string;
   queued?: boolean;
+  /** Populated when role === "event_fire". */
+  eventFire?: EventFire;
   /** DB message ID — used for fork-from-here. */
   messageId?: number;
 }
