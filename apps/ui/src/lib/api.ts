@@ -343,9 +343,9 @@ export const api = {
     }),
 
   // Idea graph & profile
-  getIdeaGraph: (params?: { root?: string; limit?: number }) => {
+  getIdeaGraph: (params?: { agent_id?: string; limit?: number }) => {
     const q = new URLSearchParams();
-    if (params?.root) q.set("root", params.root);
+    if (params?.agent_id) q.set("agent_id", params.agent_id);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);

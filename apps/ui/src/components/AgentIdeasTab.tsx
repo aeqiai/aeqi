@@ -4,6 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
+import IdeaGraph, { type GraphNode, type GraphEdge } from "./IdeaGraph";
 import type { Idea } from "@/lib/types";
 
 const NO_IDEAS: Idea[] = [];
@@ -26,6 +27,37 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   useEffect(() => {
     loadIdeas(agentId);
   }, [agentId, loadIdeas]);
+
+  // View toggle: "list" (detail pane) vs "graph" (obsidian-style canvas).
+  const [view, setView] = useState<"list" | "graph">("list");
+  const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
+    nodes: [],
+    edges: [],
+  });
+  const [graphLoading, setGraphLoading] = useState(false);
+
+  useEffect(() => {
+    if (view !== "graph") return;
+    setGraphLoading(true);
+    api
+      .getIdeaGraph({ agent_id: agentId, limit: 200 })
+      .then((d) => {
+        setGraphData({
+          nodes: ((d.nodes || []) as GraphNode[]).map((n) => ({
+            ...n,
+            tags: Array.isArray(n.tags) ? n.tags.filter(Boolean) : [],
+          })),
+          edges: (d.edges || []) as GraphEdge[],
+        });
+      })
+      .catch(() => setGraphData({ nodes: [], edges: [] }))
+      .finally(() => setGraphLoading(false));
+  }, [view, agentId]);
+
+  const handleGraphSelect = (node: GraphNode | null) => {
+    if (!node) return;
+    goAgent(agentId, "ideas", node.id, { replace: true });
+  };
 
   // Create form state — opened by rail's "New idea" button via aeqi:new-idea.
   const [showAddForm, setShowAddForm] = useState(false);
@@ -204,9 +236,60 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     );
   }
 
+  const viewToggle = (
+    <div className="ideas-view-toggle" style={{ marginBottom: 12 }}>
+      <button
+        className={`view-btn ${view === "list" ? "active" : ""}`}
+        onClick={() => setView("list")}
+      >
+        List
+      </button>
+      <button
+        className={`view-btn ${view === "graph" ? "active" : ""}`}
+        onClick={() => setView("graph")}
+      >
+        Graph
+      </button>
+    </div>
+  );
+
+  if (view === "graph") {
+    return (
+      <div
+        className="asv-main"
+        style={{
+          padding: "20px 28px",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {viewToggle}
+        {graphLoading ? (
+          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading graph…</div>
+        ) : graphData.nodes.length === 0 ? (
+          <EmptyState
+            title="No ideas to graph"
+            description="Create ideas to see them connected here."
+          />
+        ) : (
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <IdeaGraph
+              nodes={graphData.nodes}
+              edges={graphData.edges}
+              onSelect={handleGraphSelect}
+              selectedId={selectedId}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!selected) {
     return (
       <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+        {viewToggle}
         <EmptyState
           title="Select an idea"
           description="Pick an idea from the right to view or edit it."
@@ -270,6 +353,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
+      {viewToggle}
       <div className="events-detail-header">
         <div>
           <h3 className="events-detail-name">{selected.name}</h3>

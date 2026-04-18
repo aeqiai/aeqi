@@ -264,17 +264,10 @@ pub async fn handle_idea_profile(
 pub async fn handle_idea_graph(
     _ctx: &super::CommandContext,
     request: &serde_json::Value,
-    allowed: &Option<Vec<String>>,
+    _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let graph_project = request
-        .get("project")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let agent_id = request.get("agent_id").and_then(|v| v.as_str());
     let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-
-    if allowed.is_some() && (graph_project.is_empty() || graph_project == "*") {
-        return serde_json::json!({"ok": true, "nodes": [], "edges": []});
-    }
 
     let aeqi_data_dir = std::env::var("HOME")
         .map(|h| PathBuf::from(h).join(".aeqi"))
@@ -285,19 +278,48 @@ pub async fn handle_idea_graph(
     }
 
     if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-        let sql = format!(
-            "SELECT id, key, content, \
-                    COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
-                    created_at \
-             FROM ideas \
-             ORDER BY created_at DESC \
-             LIMIT {limit}"
-        );
+        // Ancestry-aware scoping: self + descendants + globals (agent_id IS
+        // NULL). Without an agent_id we return globals only — the graph view
+        // is always rendered from within an agent context.
+        let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(aid) =
+            agent_id
+        {
+            (
+                format!(
+                    "SELECT id, name, content, \
+                            COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
+                            created_at \
+                     FROM ideas \
+                     WHERE agent_id IS NULL \
+                        OR agent_id IN ( \
+                            SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1 \
+                        ) \
+                     ORDER BY created_at DESC \
+                     LIMIT {limit}"
+                ),
+                vec![Box::new(aid.to_string())],
+            )
+        } else {
+            (
+                format!(
+                    "SELECT id, name, content, \
+                            COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
+                            created_at \
+                     FROM ideas \
+                     WHERE agent_id IS NULL \
+                     ORDER BY created_at DESC \
+                     LIMIT {limit}"
+                ),
+                vec![],
+            )
+        };
         let nodes: Vec<serde_json::Value> = conn
             .prepare(&sql)
             .ok()
             .map(|mut stmt| {
-                stmt.query_map([], |row| {
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                    params.iter().map(|p| p.as_ref()).collect();
+                stmt.query_map(param_refs.as_slice(), |row| {
                     let id: String = row.get(0)?;
                     let name: String = row.get(1)?; // DB column is `key`
                     let content: String = row.get(2)?;
