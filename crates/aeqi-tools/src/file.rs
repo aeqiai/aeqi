@@ -1,3 +1,4 @@
+use aeqi_core::chat_stream::{ChatStreamSender, FileOperation};
 use aeqi_core::traits::{ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -133,11 +134,21 @@ impl aeqi_core::traits::Tool for FileReadTool {
 /// File write tool with workspace scoping.
 pub struct FileWriteTool {
     workspace: PathBuf,
+    chat_stream: Option<ChatStreamSender>,
 }
 
 impl FileWriteTool {
     pub fn new(workspace: PathBuf) -> Self {
-        Self { workspace }
+        Self {
+            workspace,
+            chat_stream: None,
+        }
+    }
+
+    /// Attach a chat stream sender for emitting `FileChanged` events.
+    pub fn with_chat_stream(mut self, sender: ChatStreamSender) -> Self {
+        self.chat_stream = Some(sender);
+        self
     }
 
     fn validate_path(&self, path: &str) -> Result<PathBuf> {
@@ -191,6 +202,13 @@ impl aeqi_core::traits::Tool for FileWriteTool {
 
         debug!(path = %resolved.display(), bytes = content.len(), "writing file");
 
+        // Determine whether this is a create or modify before writing.
+        let operation = if resolved.exists() {
+            FileOperation::Modified
+        } else {
+            FileOperation::Created
+        };
+
         // Create parent directories if needed.
         if let Some(parent) = resolved.parent()
             && let Err(e) = tokio::fs::create_dir_all(parent).await
@@ -201,11 +219,22 @@ impl aeqi_core::traits::Tool for FileWriteTool {
         }
 
         match tokio::fs::write(&resolved, content).await {
-            Ok(()) => Ok(ToolResult::success(format!(
-                "wrote {} bytes to {}",
-                content.len(),
-                resolved.display()
-            ))),
+            Ok(()) => {
+                let bytes = content.len() as u64;
+                if let Some(ref tx) = self.chat_stream {
+                    tx.send(aeqi_core::chat_stream::ChatStreamEvent::FileChanged {
+                        tool_use_id: String::new(),
+                        path: resolved.display().to_string(),
+                        operation,
+                        bytes,
+                    });
+                }
+                Ok(ToolResult::success(format!(
+                    "wrote {} bytes to {}",
+                    content.len(),
+                    resolved.display()
+                )))
+            }
             Err(e) => Ok(ToolResult::error(format!(
                 "failed to write {}: {e}",
                 resolved.display()

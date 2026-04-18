@@ -7,6 +7,9 @@ import {
   type Message,
   type MessageSegment,
   type ToolEvent,
+  type FileChangedEvent,
+  type FileDeletedEvent,
+  type ToolSummarizedEvent,
   formatMs,
   formatTime,
   formatStepCount,
@@ -152,6 +155,69 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Returns the filename portion of a path, or the full path if no separator. */
+function shortPath(p: string): string {
+  const parts = p.replace(/\\/g, "/").split("/");
+  return parts[parts.length - 1] || p;
+}
+
+/** Formats a byte count as a human-readable size string (e.g. "2.4 KB"). */
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Chip for a FileChanged event. */
+function FileChangedChip({ event }: { event: FileChangedEvent }) {
+  const isCreated = event.operation === "created";
+  return (
+    <div className={`asv-file-chip asv-file-chip--${isCreated ? "created" : "modified"}`}>
+      <span className="asv-file-chip-dot" aria-hidden="true" />
+      <span className="asv-file-chip-op">{isCreated ? "wrote" : "edited"}</span>
+      <span className="asv-file-chip-path" title={event.path}>
+        {shortPath(event.path)}
+      </span>
+      <span className="asv-file-chip-size">({formatBytes(event.bytes)})</span>
+    </div>
+  );
+}
+
+/** Chip for a FileDeleted event. */
+function FileDeletedChip({ event }: { event: FileDeletedEvent }) {
+  return (
+    <div className="asv-file-chip asv-file-chip--deleted">
+      <span className="asv-file-chip-dot" aria-hidden="true" />
+      <span className="asv-file-chip-op">deleted</span>
+      <span className="asv-file-chip-path" title={event.path}>
+        {shortPath(event.path)}
+      </span>
+    </div>
+  );
+}
+
+/** Chip for a ToolSummarized event — shows tool name + size, expandable summary. */
+function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="asv-tool-summarized-chip">
+      <button
+        type="button"
+        className="asv-tool-summarized-header"
+        onClick={() => setExpanded((e) => !e)}
+        title={expanded ? "Hide summary" : "Show summary"}
+      >
+        <span className="asv-tool-summarized-dot" aria-hidden="true" />
+        <span className="asv-tool-summarized-name">{event.tool_name}</span>
+        <span className="asv-tool-summarized-label">summarized</span>
+        <span className="asv-tool-summarized-size">({formatBytes(event.original_bytes)})</span>
+        <span className="asv-tool-summarized-chevron">{expanded ? "\u25BE" : "\u25B8"}</span>
+      </button>
+      {expanded && event.summary && <div className="asv-tool-summarized-body">{event.summary}</div>}
+    </div>
+  );
+}
+
 /** Renders segments, grouping consecutive tool items into blocks. */
 export function SegmentRenderer({
   segments,
@@ -164,7 +230,10 @@ export function SegmentRenderer({
     | { kind: "text"; text: string }
     | { kind: "step"; step: number }
     | { kind: "status"; text: string }
-    | { kind: "tools"; items: MessageSegment[] };
+    | { kind: "tools"; items: MessageSegment[] }
+    | { kind: "file_changed"; event: FileChangedEvent }
+    | { kind: "file_deleted"; event: FileDeletedEvent }
+    | { kind: "tool_summarized"; event: ToolSummarizedEvent };
   const groups: SegGroup[] = [];
   for (const seg of segments) {
     if (seg.kind === "text") {
@@ -178,6 +247,12 @@ export function SegmentRenderer({
       } else if (shouldRenderStatus(seg.text)) {
         groups.push({ kind: "status", text: seg.text });
       }
+    } else if (seg.kind === "file_changed") {
+      groups.push({ kind: "file_changed", event: seg.event });
+    } else if (seg.kind === "file_deleted") {
+      groups.push({ kind: "file_deleted", event: seg.event });
+    } else if (seg.kind === "tool_summarized") {
+      groups.push({ kind: "tool_summarized", event: seg.event });
     } else {
       const last = groups[groups.length - 1];
       if (last && last.kind === "tools") {
@@ -203,6 +278,12 @@ export function SegmentRenderer({
           <div key={gi} className="asv-status-line">
             {group.text}
           </div>
+        ) : group.kind === "file_changed" ? (
+          <FileChangedChip key={gi} event={group.event} />
+        ) : group.kind === "file_deleted" ? (
+          <FileDeletedChip key={gi} event={group.event} />
+        ) : group.kind === "tool_summarized" ? (
+          <ToolSummarizedChip key={gi} event={group.event} />
         ) : (
           <ToolBlock key={gi} items={group.items} live={live} />
         ),

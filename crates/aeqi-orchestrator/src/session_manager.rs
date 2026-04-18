@@ -508,6 +508,9 @@ impl SessionManager {
             .map(|s| s.worktree_path.clone())
             .unwrap_or_else(|| workdir.clone());
 
+        // 4. Create chat stream sender early so file tools can emit FileChanged events.
+        let (stream_sender, _initial_rx) = ChatStreamSender::new(256);
+
         // 4. Build tools.
         let mut tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
 
@@ -524,12 +527,14 @@ impl SessionManager {
         tools.push(Arc::new(aeqi_tools::FileReadTool::new(
             effective_workdir.clone(),
         )));
-        tools.push(Arc::new(aeqi_tools::FileWriteTool::new(
-            effective_workdir.clone(),
-        )));
-        tools.push(Arc::new(aeqi_tools::FileEditTool::new(
-            effective_workdir.clone(),
-        )));
+        tools.push(Arc::new(
+            aeqi_tools::FileWriteTool::new(effective_workdir.clone())
+                .with_chat_stream(stream_sender.clone()),
+        ));
+        tools.push(Arc::new(
+            aeqi_tools::FileEditTool::new(effective_workdir.clone())
+                .with_chat_stream(stream_sender.clone()),
+        ));
         tools.push(Arc::new(aeqi_tools::GrepTool::new(
             effective_workdir.clone(),
         )));
@@ -656,8 +661,6 @@ impl SessionManager {
         // 7. Create Agent with ChatStreamSender, attach memory.
         let observer: Arc<dyn aeqi_core::traits::Observer> =
             Arc::new(aeqi_core::traits::LogObserver);
-
-        let (stream_sender, _initial_rx) = ChatStreamSender::new(256);
 
         // Load session:step_start ideas as step context (injected every LLM call).
         if let (Some(ehs), Some(idea_store)) = (&self.event_store, &self.idea_store) {

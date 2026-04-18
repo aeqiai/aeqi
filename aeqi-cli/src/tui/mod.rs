@@ -243,6 +243,44 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             };
             state.push_system(&format!("event {label} → {} idea(s)", idea_ids.len()));
         }
+        ChatStreamEvent::FileChanged {
+            path,
+            operation,
+            bytes,
+            ..
+        } => {
+            let op = match operation {
+                aeqi_core::chat_stream::FileOperation::Created => "created",
+                aeqi_core::chat_stream::FileOperation::Modified => "edited",
+            };
+            let short_path = std::path::Path::new(&path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&path);
+            state.push_system(&format!("{op} {short_path} ({bytes}B)"));
+        }
+        ChatStreamEvent::FileDeleted { path, .. } => {
+            let short_path = std::path::Path::new(&path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&path);
+            state.push_system(&format!("deleted {short_path}"));
+        }
+        ChatStreamEvent::ToolSummarized {
+            tool_name,
+            original_bytes,
+            summary,
+            ..
+        } => {
+            let short = if summary.len() > 60 {
+                format!("{}...", &summary[..57])
+            } else {
+                summary
+            };
+            state.push_system(&format!(
+                "{tool_name} output summarized ({original_bytes}B): {short}"
+            ));
+        }
     }
 }
 

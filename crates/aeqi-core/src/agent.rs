@@ -1589,6 +1589,12 @@ impl Agent {
                     truncated_to = r.output.len(),
                     "tool result truncated"
                 );
+                self.emit(crate::chat_stream::ChatStreamEvent::ToolSummarized {
+                    tool_use_id: r.id.clone(),
+                    tool_name: r.name.clone(),
+                    original_bytes: original_len as u64,
+                    summary: r.output.chars().take(200).collect(),
+                });
             }
 
             // --- Enforce aggregate per-step budget ---
@@ -2413,8 +2419,13 @@ impl Agent {
     }
 
     /// Build post-compact file restoration messages from recently-read files.
-    fn build_file_restoration(recent_files: &[RecentFile]) -> Vec<Message> {
+    ///
+    /// Returns `(messages, restored_paths)` — the messages to inject into the
+    /// compacted conversation and the corresponding file paths (for telemetry /
+    /// the `Compacted` chat-stream event).
+    fn build_file_restoration(recent_files: &[RecentFile]) -> (Vec<Message>, Vec<String>) {
         let mut messages = Vec::new();
+        let mut restored_paths = Vec::new();
         let mut total_tokens = 0usize;
 
         // Take the most recent files first (end of vec = most recent).
@@ -2444,10 +2455,11 @@ impl Agent {
                 role: Role::System,
                 content: MessageContent::text(content),
             });
+            restored_paths.push(file.path.clone());
             total_tokens += capped;
         }
 
-        messages
+        (messages, restored_paths)
     }
 
     /// Detect files that changed externally since we last read them.
@@ -2935,7 +2947,7 @@ impl Agent {
 
         // Post-compact file restoration: re-inject recently-read file contents
         // so the model can continue working without re-reading them.
-        let file_msgs = Self::build_file_restoration(recent_files);
+        let (file_msgs, restored_paths) = Self::build_file_restoration(recent_files);
         if !file_msgs.is_empty() {
             debug!(
                 agent = %self.config.name,
@@ -2962,6 +2974,7 @@ impl Agent {
             original_messages: messages.len(),
             remaining_messages: compacted.len(),
             compaction_number: 0, // Caller tracks this
+            restored_files: restored_paths,
         });
 
         info!(

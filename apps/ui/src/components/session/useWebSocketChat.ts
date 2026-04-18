@@ -6,6 +6,9 @@ import {
   type MessageSegment,
   type SessionInfo,
   type ToolEvent,
+  type FileChangedEvent,
+  type FileDeletedEvent,
+  type ToolSummarizedEvent,
   formatDuration,
   countStepSegments,
 } from "./types";
@@ -241,8 +244,50 @@ export function useWebSocketChat({
               setLiveSegments([...segments]);
               break;
             }
-            case "Status":
+            case "FileChanged": {
+              const fce: FileChangedEvent = {
+                path: String(event.path ?? ""),
+                operation: event.operation === "created" ? "created" : "modified",
+                bytes: Number(event.bytes ?? 0),
+              };
+              segments.push({ kind: "file_changed", event: fce });
+              setLiveSegments([...segments]);
+              break;
+            }
+            case "FileDeleted": {
+              const fde: FileDeletedEvent = {
+                path: String(event.path ?? ""),
+              };
+              segments.push({ kind: "file_deleted", event: fde });
+              setLiveSegments([...segments]);
+              break;
+            }
+            case "ToolSummarized": {
+              const tse: ToolSummarizedEvent = {
+                tool_use_id: String(event.tool_use_id ?? ""),
+                tool_name: String(event.tool_name ?? ""),
+                original_bytes: Number(event.original_bytes ?? 0),
+                summary: String(event.summary ?? ""),
+              };
+              segments.push({ kind: "tool_summarized", event: tse });
+              setLiveSegments([...segments]);
+              break;
+            }
             case "Compacted": {
+              const restoredFiles: string[] = Array.isArray(event.restored_files)
+                ? event.restored_files.map(String)
+                : [];
+              const orig = Number(event.original_messages ?? 0);
+              const remaining = Number(event.remaining_messages ?? 0);
+              const label =
+                restoredFiles.length > 0
+                  ? `context compacted (${orig}→${remaining} msgs, restored ${restoredFiles.length} file${restoredFiles.length === 1 ? "" : "s"})`
+                  : `context compacted (${orig}→${remaining} msgs)`;
+              segments.push({ kind: "status", text: label });
+              setLiveSegments([...segments]);
+              break;
+            }
+            case "Status": {
               break;
             }
             case "Complete":
