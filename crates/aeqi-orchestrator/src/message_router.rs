@@ -879,9 +879,9 @@ impl MessageRouter {
         project_hint: Option<&str>,
         query: Option<&str>,
     ) -> ChatResponse {
-        // Search memory for relevant context if we have a query.
-        let memory_context = if let (Some(project), Some(q)) = (project_hint, query) {
-            self.build_memory_context(project, q).await
+        // Search ideas for relevant context if we have a query.
+        let idea_context = if let (Some(project), Some(q)) = (project_hint, query) {
+            self.build_idea_context(project, q).await
         } else if let Some(q) = query {
             // Global query — search single idea store.
             if let Some(ref mem) = self.idea_store {
@@ -1005,9 +1005,9 @@ impl MessageRouter {
             total_open
         ));
 
-        // Prepend memory context if available.
-        if let Some(ref mem_ctx) = memory_context {
-            context = format!("{}\n\n{}", mem_ctx, context);
+        // Prepend idea context if available.
+        if let Some(ref idea_ctx) = idea_context {
+            context = format!("{}\n\n{}", idea_ctx, context);
         }
 
         ChatResponse {
@@ -1021,8 +1021,8 @@ impl MessageRouter {
         }
     }
 
-    /// Search memory for context relevant to a query.
-    pub async fn build_memory_context(&self, _project: &str, query: &str) -> Option<String> {
+    /// Search ideas for context relevant to a query.
+    pub async fn build_idea_context(&self, _project: &str, query: &str) -> Option<String> {
         let mem = self.idea_store.as_ref()?;
         let mq = IdeaQuery::new(query, 5);
         let results = mem.search(&mq).await.ok()?;

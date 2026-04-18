@@ -107,7 +107,7 @@ impl VfsTree {
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,
             ["config"] => self.list_config().await?,
-            ["memory"] => self.list_memory().await?,
+            ["ideas"] => self.list_ideas().await?,
             ["finance"] => self.list_finance().await?,
             _ => vec![],
         };
@@ -178,7 +178,7 @@ impl VfsTree {
             dir_node("roots", "/roots", Some("🏢"), None),
             dir_node("skills", "/skills", Some("⚡"), None),
             dir_node("sessions", "/sessions", Some("💬"), None),
-            dir_node("memory", "/memory", Some("🧠"), None),
+            dir_node("ideas", "/ideas", Some("🧠"), None),
             dir_node("finance", "/finance", Some("💰"), None),
             dir_node("config", "/config", Some("⚙️"), None),
         ])
@@ -388,10 +388,10 @@ impl VfsTree {
         ])
     }
 
-    // --- Memory ---
+    // --- Ideas ---
 
-    async fn list_memory(&self) -> anyhow::Result<Vec<VfsNode>> {
-        // Memory now lives in the idea store.
+    async fn list_ideas(&self) -> anyhow::Result<Vec<VfsNode>> {
+        // Ideas are exposed via the idea store, not the VFS (yet).
         let nodes = Vec::new();
         Ok(nodes)
     }

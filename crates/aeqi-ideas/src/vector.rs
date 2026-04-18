@@ -57,12 +57,12 @@ impl VectorStore {
     /// Open or create the vector store (uses same DB as SqliteIdeas).
     pub fn open(conn: &Connection, _dimensions: usize) -> Result<()> {
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS memory_embeddings (
-                memory_id TEXT PRIMARY KEY,
+            "CREATE TABLE IF NOT EXISTS idea_embeddings (
+                idea_id TEXT PRIMARY KEY,
                 embedding BLOB NOT NULL,
                 dimensions INTEGER NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_embed_id ON memory_embeddings(memory_id);",
+            CREATE INDEX IF NOT EXISTS idx_idea_embeddings_id ON idea_embeddings(idea_id);",
         )
         .context("failed to create embeddings table")?;
         Ok(())
@@ -90,7 +90,7 @@ impl VectorStore {
         let bytes = vec_to_bytes(embedding);
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         conn.execute(
-            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions) VALUES (?1, ?2, ?3)",
+            "INSERT OR REPLACE INTO idea_embeddings (idea_id, embedding, dimensions) VALUES (?1, ?2, ?3)",
             rusqlite::params![idea_id, bytes, self.dimensions as i64],
         )?;
         debug!(idea_id = %idea_id, "embedding stored");
@@ -101,7 +101,7 @@ impl VectorStore {
     pub fn delete(&self, idea_id: &str) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         conn.execute(
-            "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+            "DELETE FROM idea_embeddings WHERE idea_id = ?1",
             rusqlite::params![idea_id],
         )?;
         Ok(())
@@ -112,7 +112,7 @@ impl VectorStore {
     pub fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<VectorResult>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
-        let mut stmt = conn.prepare("SELECT memory_id, embedding FROM memory_embeddings")?;
+        let mut stmt = conn.prepare("SELECT idea_id, embedding FROM idea_embeddings")?;
 
         let mut results: Vec<VectorResult> = stmt
             .query_map([], |row| {

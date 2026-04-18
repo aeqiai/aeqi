@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn add_and_lookup_memory() {
+    fn add_and_lookup_idea() {
         let mut idx = HierarchicalIndex::new();
         idx.add_idea("mem-1", "fact");
         idx.add_idea("mem-2", "fact");

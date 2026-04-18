@@ -128,7 +128,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
                 final_prompt,
             );
             if let Ok(mem) = open_ideas(&config) {
-                agent = agent.with_memory(Arc::new(mem));
+                agent = agent.with_idea_store(Arc::new(mem));
             }
             let result = agent.run(&user_prompt).await?;
             println!("{}", result.text);

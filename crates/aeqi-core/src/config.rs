@@ -1671,7 +1671,7 @@ repo = "/tmp/beta"
     }
 
     #[test]
-    fn test_validate_bad_memory_weights() {
+    fn test_validate_bad_idea_weights() {
         let toml = r#"
 [aeqi]
 name = "test"

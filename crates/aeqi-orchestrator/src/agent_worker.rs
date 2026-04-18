@@ -1365,7 +1365,7 @@ impl AgentWorker {
         );
 
         if let Some(ref mem) = self.idea_store {
-            agent = agent.with_memory(mem.clone());
+            agent = agent.with_idea_store(mem.clone());
         }
 
         // Wire chat stream: create sender, subscribe in background task to

@@ -568,8 +568,8 @@ impl SessionManager {
         // Network tools now provided by the consolidated WebTool
         // via build_orchestration_tools().
 
-        // 5. Resolve memory — single shared idea store.
-        let memory_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
+        // 5. Resolve idea store — single shared backend.
+        let idea_store_for_agent: Option<Arc<dyn IdeaStore>> = self.idea_store.clone();
 
         // Resolve graph DB path.
         // Prefer data_dir/codegraph/{project}.db when a project is set,
@@ -603,7 +603,7 @@ impl SessionManager {
                 agent_name.clone(),
                 activity_log.clone(),
                 None,
-                memory_for_agent.clone(),
+                idea_store_for_agent.clone(),
                 graph_db_path,
                 self.session_store.clone(),
                 agent_registry.clone(),
@@ -715,8 +715,8 @@ impl SessionManager {
                 .with_chat_stream(stream_sender.clone())
                 .with_step_ideas(step_idea_specs);
 
-        if let Some(ref mem) = memory_for_agent {
-            agent = agent.with_memory(mem.clone());
+        if let Some(ref mem) = idea_store_for_agent {
+            agent = agent.with_idea_store(mem.clone());
         }
 
         // 7.5. Load forked session history if the session already has messages.

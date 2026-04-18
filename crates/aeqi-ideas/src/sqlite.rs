@@ -12,7 +12,7 @@ use tracing::{debug, warn};
 use crate::hybrid::{ScoredResult, merge_scores, mmr_rerank};
 use crate::vector::{VectorStore, bytes_to_vec, cosine_similarity, vec_to_bytes};
 
-struct MemRow {
+struct IdeaRow {
     id: String,
     name: String,
     content: String,
@@ -116,6 +116,12 @@ impl SqliteIdeas {
         Self::migrate_table_rename(conn)?;
         Self::migrate_insights_to_ideas(conn)?;
 
+        // Migrate: rename memory_edges / memory_embeddings → idea_edges /
+        // idea_embeddings. Must run before ensure_edge_table and VectorStore::open
+        // so the new names are in place when those CREATE TABLE IF NOT EXISTS
+        // statements run.
+        Self::migrate_memory_tables_to_ideas(conn)?;
+
         Self::ensure_ideas_table(conn)?;
         Self::ensure_idea_tags_table(conn)?;
         Self::migrate(conn)?;
@@ -134,6 +140,57 @@ impl SqliteIdeas {
         Self::ensure_idea_indexes(conn)?;
         Self::ensure_fts(conn)?;
         Self::ensure_edge_table(conn)?;
+
+        Ok(())
+    }
+
+    /// Migrate legacy `memory_edges` / `memory_embeddings` tables (with the
+    /// `memory_id` column) to their renamed counterparts `idea_edges` /
+    /// `idea_embeddings` (with `idea_id`). Uses `ALTER TABLE RENAME` so all
+    /// row data is preserved in-place (SQLite 3.25+).
+    fn migrate_memory_tables_to_ideas(conn: &Connection) -> Result<()> {
+        // memory_edges → idea_edges.
+        let has_memory_edges = Self::table_exists(conn, "memory_edges")?;
+        let has_idea_edges = Self::table_exists(conn, "idea_edges")?;
+        if has_memory_edges && !has_idea_edges {
+            conn.execute_batch(
+                "ALTER TABLE memory_edges RENAME TO idea_edges;
+                 DROP INDEX IF EXISTS idx_edges_source;
+                 DROP INDEX IF EXISTS idx_edges_target;
+                 CREATE INDEX IF NOT EXISTS idx_idea_edges_source ON idea_edges(source_id);
+                 CREATE INDEX IF NOT EXISTS idx_idea_edges_target ON idea_edges(target_id);",
+            )?;
+            debug!("migrated: renamed memory_edges → idea_edges (and indexes)");
+        }
+
+        // memory_embeddings → idea_embeddings (and rename memory_id → idea_id).
+        let has_memory_embeddings = Self::table_exists(conn, "memory_embeddings")?;
+        let has_idea_embeddings = Self::table_exists(conn, "idea_embeddings")?;
+        if has_memory_embeddings && !has_idea_embeddings {
+            conn.execute_batch(
+                "ALTER TABLE memory_embeddings RENAME TO idea_embeddings;
+                 ALTER TABLE idea_embeddings RENAME COLUMN memory_id TO idea_id;
+                 DROP INDEX IF EXISTS idx_embed_id;
+                 DROP INDEX IF EXISTS idx_embed_hash;
+                 CREATE INDEX IF NOT EXISTS idx_idea_embeddings_id ON idea_embeddings(idea_id);",
+            )?;
+            // Recreate the content_hash index only if the column exists on
+            // this legacy schema (older DBs predate the column).
+            let has_content_hash: bool = conn
+                .prepare(
+                    "SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'",
+                )?
+                .query_row([], |row| row.get::<_, i64>(0))?
+                > 0;
+            if has_content_hash {
+                conn.execute_batch(
+                    "CREATE INDEX IF NOT EXISTS idx_idea_embeddings_hash ON idea_embeddings(content_hash);",
+                )?;
+            }
+            debug!(
+                "migrated: renamed memory_embeddings → idea_embeddings (memory_id → idea_id, and indexes)"
+            );
+        }
 
         Ok(())
     }
@@ -332,7 +389,7 @@ impl SqliteIdeas {
 
     fn ensure_edge_table(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS memory_edges (
+            "CREATE TABLE IF NOT EXISTS idea_edges (
                 source_id TEXT NOT NULL,
                 target_id TEXT NOT NULL,
                 relation TEXT NOT NULL,
@@ -342,8 +399,8 @@ impl SqliteIdeas {
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (source_id, target_id, relation)
             );
-            CREATE INDEX IF NOT EXISTS idx_edges_source ON memory_edges(source_id);
-            CREATE INDEX IF NOT EXISTS idx_edges_target ON memory_edges(target_id);",
+            CREATE INDEX IF NOT EXISTS idx_idea_edges_source ON idea_edges(source_id);
+            CREATE INDEX IF NOT EXISTS idx_idea_edges_target ON idea_edges(target_id);",
         )?;
         Ok(())
     }
@@ -632,15 +689,15 @@ impl SqliteIdeas {
     /// has already been embedded — we look up by SHA256 hash instead.
     fn migrate_embedding_hash(conn: &Connection) -> Result<()> {
         let has_hash: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('memory_embeddings') WHERE name='content_hash'")?
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'")?
             .query_row([], |row| row.get(0))?;
 
         if !has_hash {
             conn.execute_batch(
-                "ALTER TABLE memory_embeddings ADD COLUMN content_hash TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_embed_hash ON memory_embeddings(content_hash);",
+                "ALTER TABLE idea_embeddings ADD COLUMN content_hash TEXT;
+                 CREATE INDEX IF NOT EXISTS idx_idea_embeddings_hash ON idea_embeddings(content_hash);",
             )?;
-            debug!("migrated memory_embeddings: added content_hash column + index");
+            debug!("migrated idea_embeddings: added content_hash column + index");
         }
 
         Ok(())
@@ -705,7 +762,7 @@ impl SqliteIdeas {
     /// Returns the embedding bytes if a match exists, None otherwise.
     fn lookup_embedding_by_hash(conn: &Connection, hash: &str) -> Option<Vec<u8>> {
         conn.query_row(
-            "SELECT embedding FROM memory_embeddings WHERE content_hash = ?1 LIMIT 1",
+            "SELECT embedding FROM idea_embeddings WHERE content_hash = ?1 LIMIT 1",
             rusqlite::params![hash],
             |row| row.get(0),
         )
@@ -829,7 +886,7 @@ impl SqliteIdeas {
             )
             .ok();
             conn.execute(
-                "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                "DELETE FROM idea_embeddings WHERE idea_id = ?1",
                 rusqlite::params![id],
             )
             .ok();
@@ -858,7 +915,7 @@ impl SqliteIdeas {
         conn: &Connection,
         query: &IdeaQuery,
         limit: usize,
-    ) -> Result<Vec<(MemRow, f64)>> {
+    ) -> Result<Vec<(IdeaRow, f64)>> {
         let fts_query = query
             .text
             .split_whitespace()
@@ -909,7 +966,7 @@ impl SqliteIdeas {
                 let session_id: Option<String> = row.get(5)?;
                 let bm25: f64 = row.get(6)?;
                 Ok((
-                    MemRow {
+                    IdeaRow {
                         id,
                         name,
                         content,
@@ -946,9 +1003,9 @@ impl SqliteIdeas {
         let _ = idx; // suppress unused warning
         let where_clause = conditions.join(" AND ");
         let sql = format!(
-            "SELECT me.memory_id, me.embedding
-             FROM memory_embeddings me
-             JOIN ideas m ON m.id = me.memory_id
+            "SELECT me.idea_id, me.embedding
+             FROM idea_embeddings me
+             JOIN ideas m ON m.id = me.idea_id
              WHERE {where_clause}"
         );
 
@@ -980,7 +1037,7 @@ impl SqliteIdeas {
         results
     }
 
-    fn fetch_by_ids(conn: &Connection, ids: &[String]) -> Vec<MemRow> {
+    fn fetch_by_ids(conn: &Connection, ids: &[String]) -> Vec<IdeaRow> {
         if ids.is_empty() {
             return vec![];
         }
@@ -1002,7 +1059,7 @@ impl SqliteIdeas {
             return vec![];
         };
         stmt.query_map(params.as_slice(), |row| {
-            Ok(MemRow {
+            Ok(IdeaRow {
                 id: row.get(0)?,
                 name: row.get(1)?, // DB column is `key`
                 content: row.get(2)?,
@@ -1027,7 +1084,7 @@ impl SqliteIdeas {
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT memory_id, embedding FROM memory_embeddings WHERE memory_id IN ({placeholders})"
+            "SELECT idea_id, embedding FROM idea_embeddings WHERE idea_id IN ({placeholders})"
         );
         let params: Vec<&dyn rusqlite::types::ToSql> = ids
             .iter()
@@ -1151,7 +1208,7 @@ impl SqliteIdeas {
         count > 0
     }
 
-    fn row_to_entry(&self, row: MemRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
+    fn row_to_entry(&self, row: IdeaRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
         let tags = Self::normalize_tags(row.tags);
 
         if !query.tags.is_empty() && !query.tags.iter().any(|query_tag| tags.contains(query_tag)) {
@@ -1199,10 +1256,10 @@ impl SqliteIdeas {
             .unwrap_or("related_to")
             .to_string();
         conn.execute(
-            "INSERT INTO memory_edges (source_id, target_id, relation, strength, created_at)
+            "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(source_id, target_id, relation) DO UPDATE SET
-                strength = MAX(excluded.strength, memory_edges.strength)",
+                strength = MAX(excluded.strength, idea_edges.strength)",
             rusqlite::params![
                 edge.source_id,
                 edge.target_id,
@@ -1229,7 +1286,7 @@ impl SqliteIdeas {
             .map_err(|e| anyhow::anyhow!("lock poisoned in fetch_edges: {e}"))?;
         let mut stmt = conn.prepare(
             "SELECT source_id, target_id, relation, strength, created_at
-             FROM memory_edges
+             FROM idea_edges
              WHERE source_id = ?1 OR target_id = ?1",
         )?;
         let edges = stmt
@@ -1343,10 +1400,10 @@ impl SqliteIdeas {
 
         // BM25-only path with graph boost.
         if vector_scores.is_empty() {
-            // Enrich MemRows with tags from junction table before dropping conn.
+            // Enrich IdeaRows with tags from junction table before dropping conn.
             let bm25_ids: Vec<String> = bm25_rows.iter().map(|(r, _)| r.id.clone()).collect();
             let tag_map = Self::fetch_tags_for_ids(&conn, &bm25_ids);
-            let bm25_rows: Vec<(MemRow, f64)> = bm25_rows
+            let bm25_rows: Vec<(IdeaRow, f64)> = bm25_rows
                 .into_iter()
                 .map(|(mut row, score)| {
                     if let Some(tags) = tag_map.get(&row.id) {
@@ -1396,7 +1453,7 @@ impl SqliteIdeas {
             self.vector_weight,
         );
 
-        let bm25_map: HashMap<String, &MemRow> = bm25_rows
+        let bm25_map: HashMap<String, &IdeaRow> = bm25_rows
             .iter()
             .map(|(row, _)| (row.id.clone(), row))
             .collect();
@@ -1408,7 +1465,7 @@ impl SqliteIdeas {
             .map(|r| r.idea_id.clone())
             .collect();
 
-        let extra_rows: HashMap<String, MemRow> = if !missing_ids.is_empty() {
+        let extra_rows: HashMap<String, IdeaRow> = if !missing_ids.is_empty() {
             Self::fetch_by_ids(&conn, &missing_ids)
                 .into_iter()
                 .map(|row| (row.id.clone(), row))
@@ -1431,7 +1488,7 @@ impl SqliteIdeas {
             let enriched_tags = tag_map.get(&sr.idea_id).cloned().unwrap_or_default();
             let row_ref = bm25_map
                 .get(&sr.idea_id)
-                .map(|r| MemRow {
+                .map(|r| IdeaRow {
                     id: r.id.clone(),
                     name: r.name.clone(),
                     content: r.content.clone(),
@@ -1441,7 +1498,7 @@ impl SqliteIdeas {
                     tags: enriched_tags.clone(),
                 })
                 .or_else(|| {
-                    extra_rows.get(&sr.idea_id).map(|r| MemRow {
+                    extra_rows.get(&sr.idea_id).map(|r| IdeaRow {
                         id: r.id.clone(),
                         name: r.name.clone(),
                         content: r.content.clone(),
@@ -1609,7 +1666,7 @@ impl IdeaStore for SqliteIdeas {
                 let _ = tokio::task::spawn_blocking(move || {
                     if let Ok(conn) = conn.lock()
                         && let Err(e) = conn.execute(
-                            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
+                            "INSERT OR REPLACE INTO idea_embeddings (idea_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
                             rusqlite::params![id, bytes, dims as i64, hash],
                         ) {
                             warn!(id = %id, "failed to store embedding: {e}");
@@ -1654,7 +1711,7 @@ impl IdeaStore for SqliteIdeas {
             )?;
             conn.execute("DELETE FROM ideas WHERE id = ?1", rusqlite::params![id])?;
             conn.execute(
-                "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                "DELETE FROM idea_embeddings WHERE idea_id = ?1",
                 rusqlite::params![id],
             )?;
             Ok(())
@@ -1771,13 +1828,13 @@ impl IdeaStore for SqliteIdeas {
                 if let Ok(conn) = conn.lock() {
                     let result = if let Some(bytes) = embed_bytes {
                         conn.execute(
-                            "INSERT OR REPLACE INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
+                            "INSERT OR REPLACE INTO idea_embeddings (idea_id, embedding, dimensions, content_hash) VALUES (?1, ?2, ?3, ?4)",
                             rusqlite::params![id_for_embedding, bytes, dims as i64, hash],
                         )
                         .map(|_| ())
                     } else {
                         conn.execute(
-                            "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                            "DELETE FROM idea_embeddings WHERE idea_id = ?1",
                             rusqlite::params![id_for_embedding],
                         )
                         .map(|_| ())
@@ -1791,7 +1848,7 @@ impl IdeaStore for SqliteIdeas {
         } else {
             self.blocking(move |conn| {
                 conn.execute(
-                    "DELETE FROM memory_embeddings WHERE memory_id = ?1",
+                    "DELETE FROM idea_embeddings WHERE idea_id = ?1",
                     rusqlite::params![id],
                 )?;
                 Ok(())
@@ -1885,12 +1942,12 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let rows = if let Some(rel) = relation {
                 conn.execute(
-                    "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
+                    "DELETE FROM idea_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
                     rusqlite::params![source, target, rel],
                 )?
             } else {
                 conn.execute(
-                    "DELETE FROM memory_edges WHERE source_id = ?1 AND target_id = ?2",
+                    "DELETE FROM idea_edges WHERE source_id = ?1 AND target_id = ?2",
                     rusqlite::params![source, target],
                 )?
             };
@@ -1905,7 +1962,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let mut links_stmt = conn.prepare(
                 "SELECT e.target_id, i.name, e.relation, e.strength \
-                 FROM memory_edges e \
+                 FROM idea_edges e \
                  LEFT JOIN ideas i ON i.id = e.target_id \
                  WHERE e.source_id = ?1 \
                  ORDER BY e.strength DESC, e.created_at DESC",
@@ -1924,7 +1981,7 @@ impl IdeaStore for SqliteIdeas {
 
             let mut backlinks_stmt = conn.prepare(
                 "SELECT e.source_id, i.name, e.relation, e.strength \
-                 FROM memory_edges e \
+                 FROM idea_edges e \
                  LEFT JOIN ideas i ON i.id = e.source_id \
                  WHERE e.target_id = ?1 \
                  ORDER BY e.strength DESC, e.created_at DESC",
@@ -2061,7 +2118,7 @@ impl IdeaStore for SqliteIdeas {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT source_id, target_id, relation, strength \
-                 FROM memory_edges \
+                 FROM idea_edges \
                  WHERE source_id IN ({ph}) OR target_id IN ({ph})",
                 ph = placeholders.join(", ")
             );
@@ -2230,7 +2287,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_agent_scoped_memory() {
+    async fn test_agent_scoped_ideas() {
         let (mem, _dir) = test_ideas();
 
         mem.store(
@@ -2275,7 +2332,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_agent_filtered_memory() {
+    async fn test_agent_filtered_ideas() {
         let (mem, _dir) = test_ideas();
 
         mem.store(
@@ -2443,7 +2500,7 @@ mod tests {
             // Verify the hash was stored.
             let stored_hash: Option<String> = conn
                 .query_row(
-                    "SELECT content_hash FROM memory_embeddings LIMIT 1",
+                    "SELECT content_hash FROM idea_embeddings LIMIT 1",
                     [],
                     |row| row.get(0),
                 )
@@ -2539,7 +2596,7 @@ mod tests {
         let conn = mem.conn.lock().unwrap();
         let stored_hash: Option<String> = conn
             .query_row(
-                "SELECT content_hash FROM memory_embeddings WHERE memory_id = ?1",
+                "SELECT content_hash FROM idea_embeddings WHERE idea_id = ?1",
                 rusqlite::params![id],
                 |row| row.get(0),
             )
@@ -2593,13 +2650,14 @@ mod tests {
             .unwrap();
         }
 
-        // Opening should auto-migrate and add content_hash column.
+        // Opening should auto-migrate: rename tables to idea_* and add
+        // content_hash column.
         let _mem = SqliteIdeas::open(&db_path, 30.0).unwrap();
 
-        // Verify the column exists.
+        // Verify the column exists on the renamed table.
         let conn = Connection::open(&db_path).unwrap();
         let has_hash: bool = conn
-            .prepare("SELECT COUNT(*) FROM pragma_table_info('memory_embeddings') WHERE name='content_hash'")
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('idea_embeddings') WHERE name='content_hash'")
             .unwrap()
             .query_row([], |row| row.get(0))
             .unwrap();
@@ -2773,5 +2831,104 @@ mod tests {
         assert_eq!(filtered[0].source_id, a);
         assert_eq!(filtered[0].target_id, b);
         assert_eq!(filtered[0].relation, "supports");
+    }
+
+    #[tokio::test]
+    async fn test_migrate_memory_tables_to_ideas() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("test_memory_to_ideas.db");
+
+        // Seed a legacy DB with the old memory_edges + memory_embeddings
+        // tables (using the pre-rename memory_id column) and one row each.
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE memory_edges (
+                    source_id TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    relation TEXT NOT NULL,
+                    strength REAL NOT NULL DEFAULT 0.5,
+                    agent TEXT,
+                    task_id TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (source_id, target_id, relation)
+                 );
+                 CREATE INDEX idx_edges_source ON memory_edges(source_id);
+                 CREATE INDEX idx_edges_target ON memory_edges(target_id);
+                 CREATE TABLE memory_embeddings (
+                    memory_id TEXT PRIMARY KEY,
+                    embedding BLOB NOT NULL,
+                    dimensions INTEGER NOT NULL,
+                    content_hash TEXT
+                 );
+                 CREATE INDEX idx_embed_id ON memory_embeddings(memory_id);
+                 CREATE INDEX idx_embed_hash ON memory_embeddings(content_hash);",
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO memory_edges (source_id, target_id, relation, strength, created_at) \
+                 VALUES ('src-1', 'tgt-1', 'supports', 0.7, '2025-01-01T00:00:00Z')",
+                [],
+            )
+            .unwrap();
+            let embedding_bytes: Vec<u8> = vec![0u8; 16];
+            conn.execute(
+                "INSERT INTO memory_embeddings (memory_id, embedding, dimensions, content_hash) \
+                 VALUES ('idea-1', ?1, 4, 'deadbeef')",
+                rusqlite::params![embedding_bytes],
+            )
+            .unwrap();
+        }
+
+        // Open should trigger migrate_memory_tables_to_ideas and preserve rows.
+        let _store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+
+        let conn = Connection::open(&db_path).unwrap();
+
+        // Old tables must be gone.
+        let has_memory_edges: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='memory_edges'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_memory_edges, 0, "memory_edges should be renamed");
+
+        let has_memory_embeddings: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='memory_embeddings'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            has_memory_embeddings, 0,
+            "memory_embeddings should be renamed"
+        );
+
+        // idea_edges row preserved.
+        let (src, tgt, rel, strength): (String, String, String, f64) = conn
+            .query_row(
+                "SELECT source_id, target_id, relation, strength FROM idea_edges",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(src, "src-1");
+        assert_eq!(tgt, "tgt-1");
+        assert_eq!(rel, "supports");
+        assert!((strength - 0.7).abs() < 1e-6);
+
+        // idea_embeddings row preserved (queried via the renamed idea_id column).
+        let (idea_id, hash): (String, String) = conn
+            .query_row(
+                "SELECT idea_id, content_hash FROM idea_embeddings",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(idea_id, "idea-1");
+        assert_eq!(hash, "deadbeef");
     }
 }

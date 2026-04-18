@@ -159,15 +159,6 @@ pub fn on_access(access_count: &mut u32, last_accessed: &mut DateTime<Utc>) {
     *last_accessed = Utc::now();
 }
 
-// ── Backward-compat aliases ────────────────────────────────────────────────
-
-/// Alias kept so downstream code using the old name still compiles.
-pub type MemoryRelation = IdeaRelation;
-/// Alias kept so downstream code using the old name still compiles.
-pub type MemoryEdge = IdeaEdge;
-/// Alias kept so downstream code using the old name still compiles.
-pub type MemoryProvenance = IdeaProvenance;
-
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -180,46 +171,46 @@ mod tests {
     }
 
     #[test]
-    fn fresh_memory_high_recency_low_frequency() {
+    fn fresh_idea_high_recency_low_frequency() {
         let s = scorer();
         let now = Utc::now();
         let h = s.compute(0, now);
         // Recency ≈ 1.0, frequency = sigmoid(ln(1)) = sigmoid(0) = 0.5
         // hotness ≈ 0.6 × 0.5 + 0.4 × 1.0 = 0.70
-        assert!(h > 0.65 && h < 0.75, "fresh memory hotness = {h}");
+        assert!(h > 0.65 && h < 0.75, "fresh idea hotness = {h}");
     }
 
     #[test]
-    fn old_accessed_memory_low_recency_high_frequency() {
+    fn old_accessed_idea_low_recency_high_frequency() {
         let s = scorer();
         let long_ago = Utc::now() - Duration::days(60);
         let h = s.compute(200, long_ago);
         // Recency near 0 (60 days >> 7-day half-life)
         // Frequency: sigmoid(ln(201)) ≈ sigmoid(5.3) ≈ 0.995
         // hotness ≈ 0.6 × 0.995 + 0.4 × ~0 ≈ 0.597
-        assert!(h > 0.50 && h < 0.70, "old frequent memory hotness = {h}");
+        assert!(h > 0.50 && h < 0.70, "old frequent idea hotness = {h}");
     }
 
     #[test]
-    fn cold_memory_low_both() {
+    fn cold_idea_low_both() {
         let s = scorer();
         let long_ago = Utc::now() - Duration::days(90);
         let h = s.compute(1, long_ago);
         // Frequency: sigmoid(ln(2)) ≈ sigmoid(0.693) ≈ 0.667
         // Recency: exp(-lambda * 90) ≈ 0 for 7-day half-life
         // hotness ≈ 0.6 × 0.667 ≈ 0.40
-        assert!(h < 0.45, "cold memory hotness = {h}");
+        assert!(h < 0.45, "cold idea hotness = {h}");
     }
 
     #[test]
-    fn hot_memory_high_both() {
+    fn hot_idea_high_both() {
         let s = scorer();
         let recent = Utc::now() - Duration::hours(1);
         let h = s.compute(100, recent);
         // Frequency: sigmoid(ln(101)) ≈ sigmoid(4.62) ≈ 0.99
         // Recency ≈ 1.0
         // hotness ≈ 0.6 × 0.99 + 0.4 × 1.0 ≈ 0.994
-        assert!(h > 0.90, "hot memory hotness = {h}");
+        assert!(h > 0.90, "hot idea hotness = {h}");
     }
 
     #[test]
@@ -246,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn memory_edge_creation() {
+    fn idea_edge_creation() {
         let edge = IdeaEdge::new("src-1", "tgt-2", IdeaRelation::Supersedes, 0.9);
         assert_eq!(edge.source_id, "src-1");
         assert_eq!(edge.target_id, "tgt-2");

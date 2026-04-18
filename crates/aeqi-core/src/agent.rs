@@ -620,7 +620,7 @@ pub struct Agent {
     /// Step-level ideas re-read from disk before each API call. Mutable at
     /// runtime — messages can amend step ideas mid-session.
     step_ideas: Mutex<Vec<StepIdeaSpec>>,
-    memory: Option<Arc<dyn IdeaStore>>,
+    idea_store: Option<Arc<dyn IdeaStore>>,
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
     /// Receiver for notifications from background agents. Drained between steps.
     notification_rx: Option<Arc<Mutex<NotificationReceiver>>>,
@@ -649,7 +649,7 @@ impl Agent {
             observer,
             system_prompt,
             step_ideas: Mutex::new(Vec::new()),
-            memory: None,
+            idea_store: None,
             chat_stream: None,
             notification_rx: None,
             input_rx: None,
@@ -671,9 +671,9 @@ impl Agent {
         self
     }
 
-    /// Attach a memory backend for context recall.
-    pub fn with_memory(mut self, memory: Arc<dyn IdeaStore>) -> Self {
-        self.memory = Some(memory);
+    /// Attach an idea store for context recall.
+    pub fn with_idea_store(mut self, idea_store: Arc<dyn IdeaStore>) -> Self {
+        self.idea_store = Some(idea_store);
         self
     }
 
@@ -741,7 +741,7 @@ impl Agent {
             content: MessageContent::text(prompt),
         });
 
-        self.inject_initial_memory(&mut messages, prompt).await;
+        self.inject_initial_ideas(&mut messages, prompt).await;
 
         let tool_specs: Vec<ToolSpec> = self.tools.iter().map(|t| t.spec()).collect();
 
@@ -934,7 +934,7 @@ impl Agent {
             // user message while the LLM streams. Results are merged after
             // tool execution completes, avoiding sequential latency.
             let prefetch_handle = if iterations > 1 {
-                if let Some(ref mem) = self.memory {
+                if let Some(ref mem) = self.idea_store {
                     let last_user_text = messages
                         .iter()
                         .rev()
@@ -1665,7 +1665,7 @@ impl Agent {
 
             // --- Mid-loop memory recall ---
             if mid_loop_recalls < MAX_MID_LOOP_RECALLS
-                && let Some(ref mem) = self.memory
+                && let Some(ref mem) = self.idea_store
             {
                 let tool_output: String = processed
                     .iter()
@@ -1749,9 +1749,9 @@ impl Agent {
                 );
             }
 
-            // --- Session memory extraction (fire-and-forget background task) ---
-            Self::maybe_extract_session_memory(
-                &self.memory,
+            // --- Session idea extraction (fire-and-forget background task) ---
+            Self::maybe_extract_session_ideas(
+                &self.idea_store,
                 &messages,
                 &tracker,
                 &self.config.name,
@@ -2024,11 +2024,13 @@ impl Agent {
     }
 
     // -----------------------------------------------------------------------
-    // Memory
+    // Ideas
     // -----------------------------------------------------------------------
 
-    async fn inject_initial_memory(&self, messages: &mut [Message], prompt: &str) {
-        let Some(ref mem) = self.memory else { return };
+    async fn inject_initial_ideas(&self, messages: &mut [Message], prompt: &str) {
+        let Some(ref mem) = self.idea_store else {
+            return;
+        };
 
         // Search for relevant ideas using the user's prompt as query.
         // Limit to 10 results — the hybrid search already ranks by relevance.
@@ -2064,7 +2066,7 @@ impl Agent {
             *t = format!("{t}\n\n# Recalled Knowledge\n{ctx}");
         }
 
-        debug!(agent = %self.config.name, count = all_entries.len(), "memory context injected");
+        debug!(agent = %self.config.name, count = all_entries.len(), "idea context injected");
     }
 
     // -----------------------------------------------------------------------
@@ -2534,17 +2536,19 @@ impl Agent {
         messages
     }
 
-    /// Fire-and-forget session memory extraction. Runs in background after
+    /// Fire-and-forget session idea extraction. Runs in background after
     /// tool-use steps when enough context has accumulated. Stores a running
-    /// session summary in memory for cheaper compaction.
-    fn maybe_extract_session_memory(
-        memory: &Option<Arc<dyn IdeaStore>>,
+    /// session summary as an idea for cheaper compaction.
+    fn maybe_extract_session_ideas(
+        idea_store: &Option<Arc<dyn IdeaStore>>,
         messages: &[Message],
         tracker: &ContextTracker,
         agent_name: &str,
         config_agent_id: &Option<String>,
     ) {
-        let Some(mem) = memory.clone() else { return };
+        let Some(mem) = idea_store.clone() else {
+            return;
+        };
         if tracker.total_prompt_tokens < SESSION_MEMORY_MIN_TOKENS {
             return;
         }
@@ -2572,8 +2576,8 @@ impl Agent {
                 )
                 .await
             {
-                Ok(_) => debug!(agent = %name, len = summary.len(), "session memory extracted"),
-                Err(e) => debug!(agent = %name, "session memory extraction failed: {e}"),
+                Ok(_) => debug!(agent = %name, len = summary.len(), "session ideas extracted"),
+                Err(e) => debug!(agent = %name, "session idea extraction failed: {e}"),
             }
         });
     }
@@ -3442,7 +3446,9 @@ impl Agent {
     // -----------------------------------------------------------------------
 
     async fn reflect(&self, messages: &[Message]) {
-        let Some(ref mem) = self.memory else { return };
+        let Some(ref mem) = self.idea_store else {
+            return;
+        };
 
         let transcript = self.compact_transcript(messages);
         if transcript.len() < 50 {

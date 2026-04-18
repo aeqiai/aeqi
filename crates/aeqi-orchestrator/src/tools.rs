@@ -497,14 +497,14 @@ impl Tool for AgentsTool {
 
 /// Unified ideas tool combining store, search, update, and delete.
 pub struct IdeasTool {
-    memory: Arc<dyn IdeaStore>,
+    idea_store: Arc<dyn IdeaStore>,
     activity_log: Arc<ActivityLog>,
 }
 
 impl IdeasTool {
-    pub fn new(memory: Arc<dyn IdeaStore>, activity_log: Arc<ActivityLog>) -> Self {
+    pub fn new(idea_store: Arc<dyn IdeaStore>, activity_log: Arc<ActivityLog>) -> Self {
         Self {
-            memory,
+            idea_store,
             activity_log,
         }
     }
@@ -529,7 +529,7 @@ impl IdeasTool {
         let tags = Self::parse_tags(args).unwrap_or_else(|| vec!["fact".to_string()]);
         let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
-        match self.memory.store(key, content, &tags, agent_id).await {
+        match self.idea_store.store(key, content, &tags, agent_id).await {
             Ok(id) => {
                 // Emit idea_received so lifecycle events can fire.
                 if let Some(aid) = agent_id {
@@ -563,7 +563,7 @@ impl IdeasTool {
             query = query.with_agent(agent_id);
         }
 
-        match self.memory.search(&query).await {
+        match self.idea_store.search(&query).await {
             Ok(results) if results.is_empty() => Ok(ToolResult::success(format!(
                 "No memories found for: {query_text}"
             ))),
@@ -615,7 +615,11 @@ impl IdeasTool {
             ));
         }
 
-        match self.memory.update(id, name, content, tags.as_deref()).await {
+        match self
+            .idea_store
+            .update(id, name, content, tags.as_deref())
+            .await
+        {
             Ok(()) => Ok(ToolResult::success(format!("Updated idea {id}"))),
             Err(e) => Ok(ToolResult::error(format!("Failed to update: {e}"))),
         }
@@ -627,7 +631,7 @@ impl IdeasTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing id"))?;
 
-        match self.memory.delete(id).await {
+        match self.idea_store.delete(id).await {
             Ok(()) => Ok(ToolResult::success(format!("Deleted idea {id}"))),
             Err(e) => Ok(ToolResult::error(format!("Failed to delete: {e}"))),
         }
@@ -1727,7 +1731,7 @@ pub fn build_orchestration_tools(
     agent_name: String,
     activity_log: Arc<ActivityLog>,
     api_key: Option<String>,
-    memory: Option<Arc<dyn IdeaStore>>,
+    idea_store: Option<Arc<dyn IdeaStore>>,
     graph_db_path: Option<PathBuf>,
     session_store: Option<Arc<crate::SessionStore>>,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
@@ -1767,10 +1771,10 @@ pub fn build_orchestration_tools(
     ];
 
     // 5. Ideas tool (store/search/update/delete)
-    if let Some(mem) = memory {
+    if let Some(mem) = idea_store {
         tools.push(Arc::new(IdeasTool::new(mem, activity_log)));
     } else {
-        tracing::warn!("ideas tool unavailable: no memory backend configured");
+        tracing::warn!("ideas tool unavailable: no idea store configured");
     }
 
     // 6. Web tool (fetch/search)
