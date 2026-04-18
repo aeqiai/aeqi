@@ -11,7 +11,7 @@ pub async fn handle_vfs_list(
     let vfs_denied = if allowed.is_some() {
         let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
         match segs.as_slice() {
-            ["agents", name, ..] | ["companies", name, ..] => !is_allowed(allowed, name),
+            ["agents", name, ..] | ["roots", name, ..] => !is_allowed(allowed, name),
             _ => false,
         }
     } else {
@@ -32,7 +32,7 @@ pub async fn handle_vfs_list(
                 resp.nodes.retain(|n| {
                     let p_segs: Vec<&str> = n.path.split('/').filter(|s| !s.is_empty()).collect();
                     match p_segs.as_slice() {
-                        ["agents", name, ..] | ["companies", name, ..] => is_allowed(allowed, name),
+                        ["agents", name, ..] | ["roots", name, ..] => is_allowed(allowed, name),
                         _ => true,
                     }
                 });
@@ -52,7 +52,7 @@ pub async fn handle_vfs_read(
     let vfs_denied = if allowed.is_some() && !path.is_empty() {
         let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
         match segs.as_slice() {
-            ["agents", name, ..] | ["companies", name, ..] => !is_allowed(allowed, name),
+            ["agents", name, ..] | ["roots", name, ..] => !is_allowed(allowed, name),
             _ => false,
         }
     } else {
@@ -97,7 +97,7 @@ pub async fn handle_vfs_search(
                 resp.results.retain(|r| {
                     let p_segs: Vec<&str> = r.path.split('/').filter(|s| !s.is_empty()).collect();
                     match p_segs.as_slice() {
-                        ["agents", name, ..] | ["companies", name, ..] => is_allowed(allowed, name),
+                        ["agents", name, ..] | ["roots", name, ..] => is_allowed(allowed, name),
                         _ => true,
                     }
                 });

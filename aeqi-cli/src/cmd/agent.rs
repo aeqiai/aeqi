@@ -50,13 +50,13 @@ pub(crate) async fn cmd_agent(
                 "The migrate command has been removed. Agents are now managed in the DB via `aeqi agent spawn`."
             );
         }
-        crate::cli::AgentAction::Spawn { template, company } => {
+        crate::cli::AgentAction::Spawn { template, root } => {
             let (config, _) = load_config(config_path)?;
             let registry =
                 aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir())?;
             let content = std::fs::read_to_string(&template)?;
             let agent = registry
-                .spawn_from_template(&content, company.as_deref())
+                .spawn_from_template(&content, root.as_deref())
                 .await?;
             println!("Spawned persistent agent:");
             println!("  ID:      {}", agent.id);
@@ -127,11 +127,11 @@ pub(crate) async fn cmd_agent(
             println!("Agent '{name}' activated.");
             Ok(())
         }
-        crate::cli::AgentAction::Registry { company } => {
+        crate::cli::AgentAction::Registry { root } => {
             let (config, _) = load_config(config_path)?;
             let registry =
                 aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir())?;
-            let agents = registry.list(Some(company.as_deref()), None).await?;
+            let agents = registry.list(Some(root.as_deref()), None).await?;
             if agents.is_empty() {
                 println!("No persistent agents registered.");
                 println!("Spawn one: aeqi agent spawn <template.md>");

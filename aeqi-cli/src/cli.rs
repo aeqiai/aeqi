@@ -5,8 +5,8 @@ pub enum Commands {
     /// Run a one-shot agent with a prompt.
     Run {
         prompt: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
         #[arg(short, long)]
         model: Option<String>,
         #[arg(long, default_value = "20")]
@@ -20,12 +20,12 @@ pub enum Commands {
     },
     /// Initialize AEQI in the current directory.
     Init,
-    /// Bootstrap a ready-to-run AEQI company.
+    /// Bootstrap a ready-to-run AEQI workspace.
     Setup {
         /// Default runtime preset (for example: openrouter_agent, anthropic_agent, ollama_agent).
         #[arg(long, default_value = "openrouter_agent")]
         runtime: String,
-        /// Install a per-user daemon service after bootstrapping the company.
+        /// Install a per-user daemon service after bootstrapping.
         #[arg(long)]
         service: bool,
         /// Overwrite starter files that already exist.
@@ -50,9 +50,9 @@ pub enum Commands {
     Status,
     /// Show a consolidated operator monitor view.
     Monitor {
-        /// Focus on a single company.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Focus on a single root agent.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
         /// Refresh the monitor continuously.
         #[arg(long)]
         watch: bool,
@@ -65,11 +65,11 @@ pub enum Commands {
     },
 
     // --- Phase 2: Quests ---
-    /// Assign a quest to a company.
+    /// Assign a quest to a root agent.
     Assign {
         subject: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         #[arg(short, long, default_value = "")]
         description: String,
         #[arg(short, long)]
@@ -77,13 +77,13 @@ pub enum Commands {
     },
     /// Show unblocked (ready) work.
     Ready {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// Show all open quests.
     Quests {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
         #[arg(long)]
         all: bool,
     },
@@ -105,8 +105,8 @@ pub enum Commands {
     /// Search collective memory.
     Recall {
         query: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
         #[arg(short, long, default_value = "5")]
         top_k: usize,
     },
@@ -114,8 +114,8 @@ pub enum Commands {
     Remember {
         key: String,
         content: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// Memory management (export/import).
     Memory {
@@ -138,8 +138,8 @@ pub enum Commands {
     },
 
     // --- Missions ---
-    // --- Cross-company ---
-    /// Track work across companies.
+    // --- Cross-root ---
+    /// Track work across root agents.
     Operation {
         #[command(subcommand)]
         action: OperationAction,
@@ -160,11 +160,11 @@ pub enum Commands {
         reason: String,
     },
 
-    /// Show system team and per-company teams.
+    /// Show system team and per-root teams.
     Team {
-        /// Show team for a specific company.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Show team for a specific root agent.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
 
     // --- Config ---
@@ -182,9 +182,9 @@ pub enum Commands {
 
     /// Query the decision audit trail.
     Audit {
-        /// Filter by company name.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Filter by root agent name.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
         /// Filter by quest ID.
         #[arg(short, long)]
         quest: Option<String>,
@@ -201,8 +201,8 @@ pub enum Commands {
 
     /// Suggest or apply inferred quest dependencies.
     Deps {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Auto-apply dependencies above this confidence threshold.
         #[arg(long)]
         apply: Option<f64>,
@@ -222,12 +222,12 @@ pub enum Commands {
 
     /// Interactive streaming chat with a AEQI agent (TUI).
     Chat {
-        /// Persistent agent to chat with (default: auto-select based on company).
+        /// Persistent agent to chat with (default: auto-select based on root).
         #[arg(short, long)]
         agent: Option<String>,
-        /// Company scope for agent selection and memory.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Root agent scope for agent selection and memory.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
 
     /// Emit session primer context from the daemon (replaces session-primer.sh).
@@ -239,34 +239,34 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum GraphAction {
-    /// Index (or re-index) the code graph for a company.
+    /// Index (or re-index) the code graph for a root agent.
     Index {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Full re-index instead of incremental (git-diff based).
         #[arg(long)]
         full: bool,
     },
-    /// Show graph statistics for a company.
+    /// Show graph statistics for a root agent.
     Stats {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
     },
 }
 
 #[derive(Subcommand)]
 pub enum NotesAction {
-    /// List note entries for a company.
+    /// List note entries for a root agent.
     List {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         #[arg(short, long, default_value = "20")]
         limit: u32,
     },
     /// Post a new note entry.
     Post {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         key: String,
         content: String,
         #[arg(short, long)]
@@ -276,8 +276,8 @@ pub enum NotesAction {
     },
     /// Query notes by tags.
     Query {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         #[arg(short, long)]
         tags: Vec<String>,
         #[arg(short, long, default_value = "10")]
@@ -285,14 +285,14 @@ pub enum NotesAction {
     },
     /// Get a specific entry by key.
     Get {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         key: String,
     },
     /// Claim exclusive access to a resource.
     Claim {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Resource to claim (e.g. file path, module name).
         resource: String,
         /// Description of what you're doing with the resource.
@@ -303,8 +303,8 @@ pub enum NotesAction {
     },
     /// Release a previously claimed resource.
     Release {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Resource to release.
         resource: String,
         /// Agent name (defaults to "cli").
@@ -316,8 +316,8 @@ pub enum NotesAction {
     },
     /// Delete an entry by key.
     Delete {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         key: String,
     },
 }
@@ -330,9 +330,9 @@ pub enum AgentAction {
     Spawn {
         /// Path to the agent template file (frontmatter + system prompt).
         template: String,
-        /// Override company scope from template.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Override root agent scope from template.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// Show details of a persistent agent.
     Show {
@@ -351,9 +351,9 @@ pub enum AgentAction {
     },
     /// List all persistent agents from the registry.
     Registry {
-        /// Filter by company.
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        /// Filter by root agent.
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// [Removed] Migration to agent.toml is no longer supported. Agents live in the DB.
     Migrate {
@@ -397,7 +397,7 @@ pub enum DaemonAction {
     Status,
     /// Query the running daemon via IPC socket.
     Query {
-        /// Command to send (ping, status, readiness, companies, dispatches, cost, metrics, audit, notes, expertise).
+        /// Command to send (ping, status, readiness, roots, dispatches, cost, metrics, audit, notes, expertise).
         cmd: String,
     },
 }
@@ -412,16 +412,16 @@ pub enum ConfigAction {
 
 #[derive(Subcommand)]
 pub enum PromptAction {
-    /// List available prompts for a company.
+    /// List available prompts for a root agent.
     List {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// Run a prompt by name.
     Run {
         name: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Additional user prompt appended after the prompt's user_prefix.
         prompt: Option<String>,
     },
@@ -429,7 +429,7 @@ pub enum PromptAction {
 
 #[derive(Subcommand)]
 pub enum OperationAction {
-    /// Create an operation tracking quests across companies.
+    /// Create an operation tracking quests across root agents.
     Create {
         name: String,
         /// Quest IDs to track (e.g. as-001 rd-002).
@@ -446,16 +446,16 @@ pub enum PipelineAction {
     /// Pour (instantiate) a pipeline workflow.
     Pour {
         template: String,
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: String,
+        #[arg(short = 'r', long = "root")]
+        root: String,
         /// Variables as key=value pairs.
         #[arg(long = "var")]
         vars: Vec<String>,
     },
     /// List available pipeline templates.
     List {
-        #[arg(short = 'r', long = "company", alias = "project")]
-        company: Option<String>,
+        #[arg(short = 'r', long = "root")]
+        root: Option<String>,
     },
     /// Show status of a pipeline (parent quest and its children).
     Status { id: String },

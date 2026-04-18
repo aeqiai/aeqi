@@ -895,7 +895,7 @@ pub struct AgentSpawnConfig {
     #[serde(default)]
     pub compact_instructions: Option<String>,
     /// Project primer — injected into every agent's context when working on this project.
-    /// This is the company/project brief that all agents receive.
+    /// This is the root-agent brief that every descendant agent receives.
     #[serde(default)]
     pub primer: Option<String>,
 }

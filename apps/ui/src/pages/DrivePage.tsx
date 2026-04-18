@@ -126,7 +126,8 @@ export default function DrivePage() {
           Drive
         </h1>
         <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
-          Shared drive for this company. Any agent in the tree can read these files. 25 MB per file.
+          Shared drive for this root agent. Any agent in the tree can read these files. 25 MB per
+          file.
         </p>
       </div>
 

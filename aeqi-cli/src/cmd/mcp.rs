@@ -135,11 +135,11 @@ fn validate_api_key(
         .and_then(|s| s.as_str())
         .ok_or_else(|| anyhow::anyhow!("platform did not return a runtime socket path"))?;
 
-    let company = parsed
+    let root = parsed
         .get("company")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
-    eprintln!("[aeqi-mcp] authenticated as company '{company}'");
+    eprintln!("[aeqi-mcp] authenticated as root '{root}'");
 
     Ok(PathBuf::from(socket))
 }
@@ -154,7 +154,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         eprintln!("[aeqi-mcp] agent scope: {name}");
     }
 
-    // Resolve IPC socket: secret key auth (company runtime) or local daemon fallback.
+    // Resolve IPC socket: secret key auth (hosted root runtime) or local daemon fallback.
     let sock_path = if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
         let api_key = std::env::var("AEQI_API_KEY").ok();
         let platform_url = std::env::var("AEQI_PLATFORM_URL")

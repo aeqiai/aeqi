@@ -33,19 +33,19 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
     let data_dir = config.data_dir();
 
     match action {
-        NotesAction::List { company, limit } => {
+        NotesAction::List { root, limit } => {
             let resp = ipc_request(
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "notes",
-                    "project": company,
+                    "project": root,
                     "limit": limit,
                 }),
             )?;
             let entries = resp.get("entries").and_then(|v| v.as_array());
             match entries {
                 Some(entries) if entries.is_empty() => {
-                    println!("No entries for project '{company}'.");
+                    println!("No entries for project '{root}'.");
                 }
                 Some(entries) => {
                     for entry in entries {
@@ -69,7 +69,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
             }
         }
         NotesAction::Post {
-            company,
+            root,
             key,
             content,
             tags,
@@ -79,7 +79,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "post_notes",
-                    "project": company,
+                    "project": root,
                     "key": key,
                     "content": content,
                     "tags": tags,
@@ -102,7 +102,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
             }
         }
         NotesAction::Query {
-            company,
+            root,
             tags,
             limit,
         } => {
@@ -110,7 +110,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "notes",
-                    "project": company,
+                    "project": root,
                     "tags": tags,
                     "limit": limit,
                 }),
@@ -137,12 +137,12 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 }
             }
         }
-        NotesAction::Get { company, key } => {
+        NotesAction::Get { root, key } => {
             let resp = ipc_request(
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "get_notes",
-                    "project": company,
+                    "project": root,
                     "key": key,
                 }),
             )?;
@@ -156,7 +156,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
             }
         }
         NotesAction::Claim {
-            company,
+            root,
             resource,
             content,
             agent,
@@ -166,7 +166,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "claim_notes",
-                    "project": company,
+                    "project": root,
                     "resource": resource,
                     "content": content,
                     "agent": agent,
@@ -190,7 +190,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
             }
         }
         NotesAction::Release {
-            company,
+            root,
             resource,
             agent,
             force,
@@ -200,7 +200,7 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "release_notes",
-                    "project": company,
+                    "project": root,
                     "resource": resource,
                     "agent": agent,
                     "force": force,
@@ -216,12 +216,12 @@ pub(crate) async fn cmd_notes(config_path: &Option<PathBuf>, action: NotesAction
                 println!("No claim found for '{resource}' (or not owned by {agent}).");
             }
         }
-        NotesAction::Delete { company, key } => {
+        NotesAction::Delete { root, key } => {
             let resp = ipc_request(
                 &data_dir,
                 &serde_json::json!({
                     "cmd": "delete_notes",
-                    "project": company,
+                    "project": root,
                     "key": key,
                 }),
             )?;

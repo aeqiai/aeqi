@@ -268,8 +268,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             };
 
             // Build a default provider for the scheduler. Prefer the first configured
-            // company, but fall back to the runtime's default provider so dynamically
-            // created root-runtime companies can still execute sessions.
+            // root agent, but fall back to the runtime's default provider so dynamically
+            // created root agents can still execute sessions.
             let default_provider: Option<Arc<dyn aeqi_core::traits::Provider>> =
                 if let Some(first) = config.agent_spawns.first() {
                     match build_provider_for_project(&config, &first.name) {
@@ -541,7 +541,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                                 let root_agent_id = match agent_reg.get_root_agent().await {
                                     Ok(Some(a)) => a.id,
                                     _ => {
-                                        // Fall back to first company agent.
+                                        // Fall back to first configured root agent.
                                         config
                                             .agent_spawns
                                             .first()

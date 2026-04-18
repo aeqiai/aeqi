@@ -34,8 +34,8 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
     let (config, _) = load_config(config_path)?;
 
     match action {
-        PromptAction::List { company } => {
-            let projects: Vec<&str> = if let Some(ref name) = company {
+        PromptAction::List { root } => {
+            let projects: Vec<&str> = if let Some(ref name) = root {
                 vec![name.as_str()]
             } else {
                 config
@@ -73,13 +73,13 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
 
         PromptAction::Run {
             name,
-            company,
+            root,
             prompt,
         } => {
             let project_cfg = config
-                .agent_spawn(&company)
-                .context(format!("company not found: {company}"))?;
-            let project_dir = find_project_dir(&company)?;
+                .agent_spawn(&root)
+                .context(format!("root not found: {root}"))?;
+            let project_dir = find_project_dir(&root)?;
             let prompts = discover_project_prompts(&project_dir)?;
 
             let matched = prompts
@@ -88,7 +88,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
                 .context(format!("prompt not found: {name}"))?;
 
             // Build provider.
-            let provider = build_provider_for_project(&config, &company)?;
+            let provider = build_provider_for_project(&config, &root)?;
             let workdir = PathBuf::from(&project_cfg.repo);
             let worktree_root = project_cfg.worktree_root.as_ref().map(PathBuf::from);
             let all_tools = build_project_tools(&workdir, worktree_root.as_ref());
@@ -100,7 +100,7 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
                 .collect();
 
             // Build system prompt with prompt overlay.
-            let execution_agent = one_shot_agent_name(&config, Some(&company));
+            let execution_agent = one_shot_agent_name(&config, Some(&root));
             let base_prompt = find_agent_dir(&execution_agent)
                 .ok()
                 .map(|agent_dir| load_system_prompt(&agent_dir, Some(&project_dir)))
@@ -115,12 +115,12 @@ pub(crate) async fn cmd_prompt(config_path: &Option<PathBuf>, action: PromptActi
             };
 
             let observer: Arc<dyn Observer> = Arc::new(LogObserver);
-            let model = config.model_for_project(&company);
+            let model = config.model_for_project(&root);
 
             let agent_config = AgentConfig {
                 model,
                 max_iterations: 10,
-                name: format!("{}-prompt-{}", company, name),
+                name: format!("{}-prompt-{}", root, name),
                 ..Default::default()
             };
 

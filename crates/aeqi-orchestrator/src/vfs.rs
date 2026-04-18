@@ -99,10 +99,10 @@ impl VfsTree {
             ["agents"] => self.list_agents().await?,
             ["agents", name] => self.list_agent_detail(name).await?,
             ["agents", name, "sessions"] => self.list_agent_sessions(name).await?,
-            ["companies"] => self.list_root_agents_vfs().await?,
-            ["companies", name] => self.list_root_agent_detail(name).await?,
-            ["companies", name, "knowledge"] => self.list_root_agent_knowledge(name).await?,
-            ["companies", name, "quests"] => self.list_root_agent_quests(name).await?,
+            ["roots"] => self.list_root_agents_vfs().await?,
+            ["roots", name] => self.list_root_agent_detail(name).await?,
+            ["roots", name, "knowledge"] => self.list_root_agent_knowledge(name).await?,
+            ["roots", name, "quests"] => self.list_root_agent_quests(name).await?,
             ["skills"] => self.list_skills().await?,
             ["sessions"] => self.list_sessions().await?,
             ["sessions", id] => self.list_session_detail(id).await?,
@@ -123,7 +123,7 @@ impl VfsTree {
         match segments.as_slice() {
             ["agents", name, "identity.md"] => self.read_agent_identity(name).await,
             ["agents", name, "stats.json"] => self.read_agent_stats(name).await,
-            ["companies", name, "info.json"] => self.read_root_agent_info(name).await,
+            ["roots", name, "info.json"] => self.read_root_agent_info(name).await,
             ["sessions", id, "transcript.json"] => self.read_session_transcript(id).await,
             ["sessions", id, "messages.json"] => self.read_session_messages(id).await,
             ["config", "aeqi.toml"] => self.read_config().await,
@@ -155,7 +155,7 @@ impl VfsTree {
             for a in &agents {
                 if a.parent_id.is_none() && a.name.to_lowercase().contains(&q) {
                     results.push(VfsSearchResult {
-                        path: format!("/companies/{}", a.name),
+                        path: format!("/roots/{}", a.name),
                         name: a.name.clone(),
                         snippet: None,
                         node_type: VfsNodeType::Directory,
@@ -175,7 +175,7 @@ impl VfsTree {
     async fn list_root(&self) -> anyhow::Result<Vec<VfsNode>> {
         Ok(vec![
             dir_node("agents", "/agents", Some("🤖"), None),
-            dir_node("companies", "/companies", Some("🏢"), None),
+            dir_node("roots", "/roots", Some("🏢"), None),
             dir_node("skills", "/skills", Some("⚡"), None),
             dir_node("sessions", "/sessions", Some("💬"), None),
             dir_node("memory", "/memory", Some("🧠"), None),
@@ -277,7 +277,7 @@ impl VfsTree {
         Ok(nodes)
     }
 
-    // --- Root agents (companies VFS path kept for compatibility) ---
+    // --- Root agents (exposed under /roots in the VFS) ---
 
     async fn list_root_agents_vfs(&self) -> anyhow::Result<Vec<VfsNode>> {
         let mut nodes = Vec::new();
@@ -286,7 +286,7 @@ impl VfsTree {
                 if a.parent_id.is_none() {
                     nodes.push(dir_node(
                         &a.name,
-                        &format!("/companies/{}", a.name),
+                        &format!("/roots/{}", a.name),
                         Some("🏢"),
                         None,
                     ));
@@ -300,19 +300,19 @@ impl VfsTree {
         Ok(vec![
             file_node(
                 "info.json",
-                &format!("/companies/{name}/info.json"),
+                &format!("/roots/{name}/info.json"),
                 "application/json",
                 Some("ℹ️"),
             ),
             dir_node(
                 "knowledge",
-                &format!("/companies/{name}/knowledge"),
+                &format!("/roots/{name}/knowledge"),
                 Some("🧠"),
                 None,
             ),
             dir_node(
                 "quests",
-                &format!("/companies/{name}/quests"),
+                &format!("/roots/{name}/quests"),
                 Some("📋"),
                 None,
             ),
@@ -497,7 +497,7 @@ impl VfsTree {
             serde_json::json!({"error": "root agent not found"})
         };
         Ok(VfsReadResponse {
-            path: format!("/companies/{name}/info.json"),
+            path: format!("/roots/{name}/info.json"),
             content: serde_json::to_string_pretty(&info)?,
             mime: "application/json".to_string(),
             editable: false,

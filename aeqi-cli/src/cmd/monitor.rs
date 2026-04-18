@@ -340,12 +340,12 @@ fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> V
                 .cloned()
                 .unwrap_or_else(|| "blocked work".to_string());
             project_actions.push(format!(
-                "{} is stalled with blocked work and no active execution. Start with `{focus}` and inspect `aeqi audit --company {}`.",
+                "{} is stalled with blocked work and no active execution. Start with `{focus}` and inspect `aeqi audit --root {}`.",
                 project.name, project.name
             ));
         } else if project.critical_ready_quests > 0 {
             project_actions.push(format!(
-                "{} has {} critical ready quest(s). Pull them into execution with `aeqi ready --company {}` or let the daemon patrol pick them up.",
+                "{} has {} critical ready quest(s). Pull them into execution with `aeqi ready --root {}` or let the daemon patrol pick them up.",
                 project.name, project.critical_ready_quests, project.name
             ));
         } else if project.ready_quests > 0 && project.in_progress_quests == 0 {
@@ -596,7 +596,7 @@ mod tests {
 
         assert_eq!(interventions.len(), 1);
         assert!(interventions[0].contains("critical ready quest"));
-        assert!(interventions[0].contains("aeqi ready --company beta"));
+        assert!(interventions[0].contains("aeqi ready --root beta"));
     }
 
     #[test]

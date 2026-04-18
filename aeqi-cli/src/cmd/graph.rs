@@ -6,8 +6,8 @@ use crate::helpers::load_config;
 
 pub(crate) async fn cmd_graph(config_path: &Option<PathBuf>, action: GraphAction) -> Result<()> {
     match action {
-        GraphAction::Index { company, full } => cmd_graph_index(config_path, &company, full),
-        GraphAction::Stats { company } => cmd_graph_stats(config_path, &company),
+        GraphAction::Index { root, full } => cmd_graph_index(config_path, &root, full),
+        GraphAction::Stats { root } => cmd_graph_stats(config_path, &root),
     }
 }
 
