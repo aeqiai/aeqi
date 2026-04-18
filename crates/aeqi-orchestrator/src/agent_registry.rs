@@ -86,10 +86,14 @@ fn default_max_concurrent() -> u32 {
 
 fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
     let mut stmt = conn.prepare("PRAGMA table_info(events)")?;
-    let existing: std::collections::HashSet<String> = stmt
-        .query_map([], |row| row.get::<_, String>(1))?
+    let columns: Vec<(String, i64)> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(1)?, row.get::<_, i64>(3)?))
+        })?
         .filter_map(|r| r.ok())
         .collect();
+    let existing: std::collections::HashSet<String> =
+        columns.iter().map(|(n, _)| n.clone()).collect();
     for (col, ddl) in [
         (
             "query_template",
@@ -104,6 +108,55 @@ fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
             conn.execute(ddl, [])?;
         }
     }
+
+    // Heal pre-baseline installs where `agent_id` was NOT NULL. The current
+    // schema makes it nullable (NULL = global event). SQLite can't drop a
+    // NOT NULL constraint in place, so rebuild the table when we detect the
+    // old shape.
+    let agent_id_notnull = columns
+        .iter()
+        .find(|(n, _)| n == "agent_id")
+        .map(|(_, nn)| *nn == 1)
+        .unwrap_or(false);
+    if agent_id_notnull {
+        conn.execute_batch(
+            "BEGIN;
+             CREATE TABLE events_new (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
+                 name TEXT NOT NULL,
+                 pattern TEXT NOT NULL,
+                 scope TEXT NOT NULL DEFAULT 'self',
+                 idea_ids TEXT NOT NULL DEFAULT '[]',
+                 query_template TEXT,
+                 query_top_k INTEGER,
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 cooldown_secs INTEGER NOT NULL DEFAULT 0,
+                 last_fired TEXT,
+                 fire_count INTEGER NOT NULL DEFAULT 0,
+                 total_cost_usd REAL NOT NULL DEFAULT 0.0,
+                 system INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT NOT NULL
+             );
+             INSERT INTO events_new
+                 (id, agent_id, name, pattern, scope, idea_ids,
+                  query_template, query_top_k, enabled, cooldown_secs,
+                  last_fired, fire_count, total_cost_usd, system, created_at)
+                 SELECT id, agent_id, name, pattern, scope, idea_ids,
+                        query_template, query_top_k, enabled, cooldown_secs,
+                        last_fired, fire_count, total_cost_usd, system, created_at
+                   FROM events;
+             DROP TABLE events;
+             ALTER TABLE events_new RENAME TO events;
+             CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id);
+             CREATE INDEX IF NOT EXISTS idx_events_pattern ON events(pattern);
+             CREATE INDEX IF NOT EXISTS idx_events_enabled ON events(enabled);
+             CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique_name
+                 ON events(COALESCE(agent_id, ''), name);
+             COMMIT;",
+        )?;
+    }
+
     Ok(())
 }
 
