@@ -410,6 +410,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Write: Update Quest (description, status, priority, labels, agent_id)
+  updateQuest: (
+    id: string,
+    data: {
+      description?: string;
+      status?: string;
+      priority?: string;
+      labels?: string[];
+      agent_id?: string;
+    },
+  ) =>
+    request<{ ok: boolean }>(`/quests/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   // Write: Close Quest
   closeQuest: (id: string, data?: { reason?: string; root?: string }) =>
     request<{ ok: boolean }>(`/quests/${id}/close`, {
