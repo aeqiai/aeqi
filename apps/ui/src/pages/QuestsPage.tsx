@@ -94,26 +94,34 @@ interface CreateModalProps {
   onClose: () => void;
 }
 
+type PresetKind = "none" | "feature-dev" | "bug-fix" | "refactor";
+
 function CreateQuestModal({ open, onClose }: CreateModalProps) {
   const agents = useDaemonStore((s) => s.agents);
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const selectedAgent = useChatStore((s) => s.selectedAgent);
 
+  const [preset, setPreset] = useState<PresetKind>("none");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<QuestPriority>("normal");
   const [agentName, setAgentName] = useState(selectedAgent?.name || "");
   const [acceptance, setAcceptance] = useState("");
+  const [symptom, setSymptom] = useState("");
+  const [motivation, setMotivation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const subjectRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
+      setPreset("none");
       setSubject("");
       setDescription("");
       setPriority("normal");
       setAgentName(selectedAgent?.name || "");
       setAcceptance("");
+      setSymptom("");
+      setMotivation("");
       setSubmitting(false);
       setTimeout(() => subjectRef.current?.focus(), 50);
     }
@@ -121,16 +129,28 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
 
   const handleCreate = async () => {
     if (!subject.trim() || submitting) return;
+    if (preset === "bug-fix" && !symptom.trim()) return;
+    if (preset === "refactor" && !motivation.trim()) return;
     setSubmitting(true);
     try {
-      await api.createQuest({
-        root: agentName || selectedAgent?.name || "default",
-        subject: subject.trim(),
-        description: description.trim() || undefined,
-        priority,
-        acceptance_criteria: acceptance.trim() || undefined,
-        assignee: agentName || undefined,
-      });
+      if (preset === "none") {
+        await api.createQuest({
+          root: agentName || selectedAgent?.name || "default",
+          subject: subject.trim(),
+          description: description.trim() || undefined,
+          priority,
+          acceptance_criteria: acceptance.trim() || undefined,
+          assignee: agentName || undefined,
+        });
+      } else {
+        await api.createQuestPreset(preset, {
+          subject: subject.trim(),
+          project: agentName || selectedAgent?.name || "default",
+          agent: agentName || undefined,
+          symptom: preset === "bug-fix" ? symptom.trim() : undefined,
+          motivation: preset === "refactor" ? motivation.trim() : undefined,
+        });
+      }
       await fetchQuests();
       onClose();
     } catch {
@@ -163,21 +183,96 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
         <div className={styles.modalHeader}>New Quest</div>
 
         <div className={styles.modalBody}>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              marginBottom: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: 11, opacity: 0.5, marginRight: 4 }}>Preset:</span>
+            {(["none", "feature-dev", "bug-fix", "refactor"] as PresetKind[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setPreset(k)}
+                style={{
+                  fontSize: 11,
+                  padding: "3px 9px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  background: preset === k ? "rgba(0,0,0,0.85)" : "transparent",
+                  color: preset === k ? "white" : "rgba(0,0,0,0.7)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {k === "none" ? "blank" : k}
+              </button>
+            ))}
+          </div>
+
           <input
             ref={subjectRef}
             className={styles.modalTitleInput}
-            placeholder="Quest title"
+            placeholder={
+              preset === "bug-fix"
+                ? "Bug name (e.g. login fails on safari)"
+                : preset === "refactor"
+                  ? "What are you refactoring?"
+                  : "Quest title"
+            }
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
           />
 
-          <textarea
-            className={styles.modalDescInput}
-            placeholder="Add description..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-          />
+          {preset === "bug-fix" && (
+            <textarea
+              className={styles.modalDescInput}
+              placeholder="Symptom the user sees (e.g. 500 on /auth/me with stale token)"
+              value={symptom}
+              onChange={(e) => setSymptom(e.target.value)}
+              rows={2}
+            />
+          )}
+          {preset === "refactor" && (
+            <textarea
+              className={styles.modalDescInput}
+              placeholder="Motivation — why is this refactor worth the risk?"
+              value={motivation}
+              onChange={(e) => setMotivation(e.target.value)}
+              rows={2}
+            />
+          )}
+          {preset === "none" && (
+            <textarea
+              className={styles.modalDescInput}
+              placeholder="Add description..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          )}
+          {preset !== "none" && (
+            <div
+              style={{
+                fontSize: 11,
+                opacity: 0.6,
+                marginTop: -4,
+                marginBottom: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              {preset === "feature-dev" &&
+                "7 phases: Discovery → Explore → Design → Gate → Implement → Review → Summary."}
+              {preset === "bug-fix" &&
+                "6 phases: Reproduce → Isolate → Root cause → Fix → Regress → Summary."}
+              {preset === "refactor" && "5 phases: Baseline → Plan → Transform → Verify → Summary."}
+              {" The description and acceptance criteria are pre-filled by the runtime."}
+            </div>
+          )}
 
           <div className={styles.modalFields}>
             <div className={styles.modalField}>

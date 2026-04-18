@@ -410,6 +410,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  createQuestPreset: (
+    kind: "feature-dev" | "bug-fix" | "refactor",
+    data: {
+      subject: string;
+      project: string;
+      agent?: string;
+      agent_id?: string;
+      symptom?: string;
+      motivation?: string;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/quests/presets/${kind}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Write: Update Quest (description, status, priority, labels, agent_id)
   updateQuest: (
     id: string,
