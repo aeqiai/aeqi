@@ -59,8 +59,9 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     goAgent(agentId, "ideas", node.id, { replace: true });
   };
 
-  // Create form state — opened by rail's "New idea" button via aeqi:new-idea.
-  const [showAddForm, setShowAddForm] = useState(false);
+  // The create form IS the default state when no :itemId — no modal, no
+  // overlay. Rail's "New idea" button just clears the URL and resets the
+  // draft fields.
   const [newName, setNewName] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newTags, setNewTags] = useState("");
@@ -69,7 +70,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
 
   useEffect(() => {
     const handler = () => {
-      setShowAddForm(true);
+      goAgent(agentId, "ideas", undefined, { replace: true });
       setNewName("");
       setNewContent("");
       setNewTags("");
@@ -77,7 +78,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     };
     window.addEventListener("aeqi:new-idea", handler);
     return () => window.removeEventListener("aeqi:new-idea", handler);
-  }, []);
+  }, [agentId, goAgent]);
 
   const handleCreate = async () => {
     setCreateError(null);
@@ -105,7 +106,9 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
         agent_id: agentId,
       };
       addIdea(agentId, created);
-      setShowAddForm(false);
+      setNewName("");
+      setNewContent("");
+      setNewTags("");
       goAgent(agentId, "ideas", res.id, { replace: true });
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "Failed to create idea");
@@ -180,62 +183,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     }
   };
 
-  if (showAddForm) {
-    return (
-      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <h3 className="events-detail-name">New Idea</h3>
-        <div style={{ marginTop: 12, marginBottom: 10 }}>
-          <label className="agent-settings-label">Name</label>
-          <input
-            className="agent-settings-input"
-            type="text"
-            placeholder="e.g. coding_style"
-            value={newName}
-            style={{ width: "100%", marginTop: 4 }}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label className="agent-settings-label">Content</label>
-          <textarea
-            className="agent-settings-input"
-            placeholder="What should the agent remember?"
-            value={newContent}
-            rows={8}
-            style={{ width: "100%", marginTop: 4, fontFamily: "inherit" }}
-            onChange={(e) => setNewContent(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label className="agent-settings-label">Tags (comma-separated)</label>
-          <input
-            className="agent-settings-input"
-            type="text"
-            placeholder="skill, workflow"
-            value={newTags}
-            style={{ width: "100%", marginTop: 4 }}
-            onChange={(e) => setNewTags(e.target.value)}
-          />
-        </div>
-        {createError && <div className="channel-form-error">{createError}</div>}
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <Button variant="primary" onClick={handleCreate} loading={saving} disabled={saving}>
-            {saving ? "Creating..." : "Create"}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowAddForm(false);
-              setCreateError(null);
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   const viewToggle = (
     <div className="ideas-view-toggle" style={{ marginBottom: 12 }}>
       <button
@@ -287,13 +234,51 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   }
 
   if (!selected) {
+    // No idea selected → this is the "new idea" canvas. It's the default
+    // state, not a modal over a stale selection.
     return (
       <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
         {viewToggle}
-        <EmptyState
-          title="Select an idea"
-          description="Pick an idea from the right to view or edit it."
-        />
+        <h3 className="events-detail-name">New Idea</h3>
+        <div style={{ marginTop: 12, marginBottom: 10 }}>
+          <label className="agent-settings-label">Name</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="e.g. coding_style"
+            value={newName}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Content</label>
+          <textarea
+            className="agent-settings-input"
+            placeholder="What should the agent remember?"
+            value={newContent}
+            rows={8}
+            style={{ width: "100%", marginTop: 4, fontFamily: "inherit" }}
+            onChange={(e) => setNewContent(e.target.value)}
+          />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Tags (comma-separated)</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="skill, workflow"
+            value={newTags}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewTags(e.target.value)}
+          />
+        </div>
+        {createError && <div className="channel-form-error">{createError}</div>}
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <Button variant="primary" onClick={handleCreate} loading={saving} disabled={saving}>
+            {saving ? "Creating..." : "Create"}
+          </Button>
+        </div>
       </div>
     );
   }
