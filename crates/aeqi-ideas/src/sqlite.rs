@@ -1051,9 +1051,14 @@ impl IdeaStore for SqliteIdeas {
         tags: &[String],
         agent_id: Option<&str>,
     ) -> Result<String> {
+        // Strip credentials before any persistence path: the content ends up in
+        // the DB row, the embedding input, and the FTS index. Over-redacting a
+        // note is always preferable to leaking a token.
+        let redacted = crate::redact::redact_secrets(content);
+
         // Dedup + insert in spawn_blocking to avoid blocking tokio.
         let key_owned = key.to_string();
-        let content_owned = content.to_string();
+        let content_owned = redacted.clone();
         let tags_owned = Self::normalize_tags(tags.iter().cloned());
         let agent_id_owned = agent_id.map(|s| s.to_string());
         let this = self.clone();
@@ -1098,7 +1103,7 @@ impl IdeaStore for SqliteIdeas {
 
         // Embedding phase: async embed, then sync store.
         if let Some(ref embedder) = self.embedder {
-            let hash = Self::content_hash(content);
+            let hash = Self::content_hash(&redacted);
 
             // Check cache in spawn_blocking.
             let cached = {
@@ -1117,7 +1122,7 @@ impl IdeaStore for SqliteIdeas {
                 debug!(id = %id, hash = %hash, "embedding cache hit — reusing existing embedding");
                 Some(existing_bytes)
             } else {
-                match embedder.embed(content).await {
+                match embedder.embed(&redacted).await {
                     Ok(embedding) => {
                         debug!(id = %id, hash = %hash, "embedding stored (cache miss)");
                         Some(vec_to_bytes(&embedding))
