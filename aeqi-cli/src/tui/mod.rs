@@ -150,6 +150,7 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             ..
         } => {
             state.tokens = prompt_tokens + completion_tokens;
+            state.context_pct = context_pct(state.tokens, &state.model);
             state.steps += 1;
         }
         ChatStreamEvent::Complete {
@@ -166,6 +167,7 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             render::print_message(stdout, state.messages.last().unwrap(), state, 80);
 
             state.tokens = total_prompt_tokens + total_completion_tokens;
+            state.context_pct = context_pct(state.tokens, &state.model);
             state.cost = cost_usd;
             state.agent_state = AgentState::Idle;
         }
@@ -231,6 +233,19 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
     }
 }
 
+/// Compute the percentage of a model's context window used by `tokens`.
+/// Returns 0 if the model isn't set yet or lookup fails.
+fn context_pct(tokens: u32, model: &str) -> u32 {
+    if model.is_empty() {
+        return 0;
+    }
+    let window = aeqi_providers::context_window_for_model(model);
+    if window == 0 {
+        return 0;
+    }
+    ((tokens as u64 * 100 / window as u64).min(100)) as u32
+}
+
 // ---------------------------------------------------------------------------
 // Slash command handling
 // ---------------------------------------------------------------------------
@@ -254,6 +269,7 @@ fn handle_slash_command(
             state.messages.clear();
             state.streaming_text.clear();
             state.tokens = 0;
+            state.context_pct = 0;
             state.cost = 0.0;
             state.steps = 0;
             state.start_time = std::time::Instant::now();

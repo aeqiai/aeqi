@@ -1,7 +1,5 @@
 //! Idea CRUD and search IPC handlers.
 
-use std::path::PathBuf;
-
 use super::request_field;
 
 pub async fn handle_list_ideas(
@@ -222,7 +220,7 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
 }
 
 pub async fn handle_idea_profile(
-    _ctx: &super::CommandContext,
+    ctx: &super::CommandContext,
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
@@ -235,250 +233,143 @@ pub async fn handle_idea_profile(
         return serde_json::json!({"ok": true, "profile": {"static": [], "dynamic": []}});
     }
 
-    let aeqi_data_dir = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join(".aeqi"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    let db_path = aeqi_data_dir.join("aeqi.db");
-    if !db_path.exists() {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": true, "profile": {"static": [], "dynamic": []}});
-    }
+    };
 
-    if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-        let fetch = |tags: &[&str]| -> Vec<serde_json::Value> {
-            let placeholders: Vec<String> =
-                tags.iter().map(|tag| format!("LOWER('{tag}')")).collect();
-            let sql = format!(
-                "SELECT ideas.id, ideas.key, ideas.content, \
-                        COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
-                        ideas.scope, ideas.created_at \
-                 FROM ideas \
-                 WHERE EXISTS (
-                     SELECT 1 FROM idea_tags
-                     WHERE idea_tags.idea_id = ideas.id
-                     AND LOWER(idea_tags.tag) IN ({})
-                 ) \
-                 ORDER BY created_at DESC \
-                 LIMIT 20",
-                placeholders.join(", ")
-            );
-            conn.prepare(&sql)
-                .ok()
-                .map(|mut stmt| {
-                    stmt.query_map([], |row| {
-                        let tags_raw: String = row.get(3)?;
-                        let tags: Vec<String> = tags_raw
-                            .split('\u{1f}')
-                            .filter(|tag| !tag.is_empty())
-                            .map(|tag| tag.to_string())
-                            .collect();
-                        Ok(serde_json::json!({
-                            "id": row.get::<_, String>(0)?,
-                            "name": row.get::<_, String>(1)?, // DB column is `key`
-                            "content": row.get::<_, String>(2)?,
-                            "tags": tags,
-                            "scope": row.get::<_, String>(4)?,
-                            "created_at": row.get::<_, String>(5)?,
-                        }))
-                    })
-                    .ok()
-                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                    .unwrap_or_default()
-                })
-                .unwrap_or_default()
+    let static_tags: Vec<String> = ["fact", "preference", "evergreen"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let dynamic_tags: Vec<String> = ["decision", "context", "insight", "procedure"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    let static_ideas: Vec<serde_json::Value> =
+        match idea_store.ideas_by_tags(&static_tags, 20).await {
+            Ok(items) => items.iter().map(idea_to_profile_json).collect(),
+            Err(_) => Vec::new(),
+        };
+    let dynamic_ideas: Vec<serde_json::Value> =
+        match idea_store.ideas_by_tags(&dynamic_tags, 20).await {
+            Ok(items) => items.iter().map(idea_to_profile_json).collect(),
+            Err(_) => Vec::new(),
         };
 
-        let static_ideas = fetch(&["fact", "preference", "evergreen"]);
-        let dynamic_ideas = fetch(&["decision", "context", "insight", "procedure"]);
+    serde_json::json!({
+        "ok": true,
+        "profile": {
+            "static": static_ideas,
+            "dynamic": dynamic_ideas,
+        }
+    })
+}
 
-        serde_json::json!({
-            "ok": true,
-            "profile": {
-                "static": static_ideas,
-                "dynamic": dynamic_ideas,
-            }
-        })
-    } else {
-        serde_json::json!({"ok": true, "profile": {"static": [], "dynamic": []}})
-    }
+fn idea_to_profile_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
+    serde_json::json!({
+        "id": idea.id,
+        "name": idea.name,
+        "content": idea.content,
+        "tags": idea.tags,
+        "created_at": idea.created_at.to_rfc3339(),
+    })
 }
 
 pub async fn handle_idea_graph(
-    _ctx: &super::CommandContext,
+    ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let agent_id = request.get("agent_id").and_then(|v| v.as_str());
     let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
-    let aeqi_data_dir = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join(".aeqi"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp"));
-    let db_path = aeqi_data_dir.join("aeqi.db");
-    if !db_path.exists() {
+    let Some(ref idea_store) = ctx.idea_store else {
         return serde_json::json!({"ok": true, "nodes": [], "edges": []});
-    }
+    };
 
-    if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-        // Ancestry-aware scoping: self + descendants + globals (agent_id IS
-        // NULL). Without an agent_id we return globals only — the graph view
-        // is always rendered from within an agent context.
-        let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(aid) =
-            agent_id
-        {
-            (
-                format!(
-                    "SELECT id, name, content, \
-                            COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
-                            created_at \
-                     FROM ideas \
-                     WHERE agent_id IS NULL \
-                        OR agent_id IN ( \
-                            SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1 \
-                        ) \
-                     ORDER BY created_at DESC \
-                     LIMIT {limit}"
-                ),
-                vec![Box::new(aid.to_string())],
-            )
-        } else {
-            (
-                format!(
-                    "SELECT id, name, content, \
-                            COALESCE((SELECT group_concat(tag, char(31)) FROM idea_tags WHERE idea_id = ideas.id), ''), \
-                            created_at \
-                     FROM ideas \
-                     WHERE agent_id IS NULL \
-                     ORDER BY created_at DESC \
-                     LIMIT {limit}"
-                ),
-                vec![],
-            )
-        };
-        let nodes: Vec<serde_json::Value> = conn
-            .prepare(&sql)
-            .ok()
-            .map(|mut stmt| {
-                let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-                    params.iter().map(|p| p.as_ref()).collect();
-                stmt.query_map(param_refs.as_slice(), |row| {
-                    let id: String = row.get(0)?;
-                    let name: String = row.get(1)?; // DB column is `key`
-                    let content: String = row.get(2)?;
-                    let tags_raw: String = row.get(3)?;
-                    let created_at: String = row.get(4)?;
-                    let tags: Vec<String> = tags_raw
-                        .split('\u{1f}')
-                        .filter(|tag| !tag.is_empty())
-                        .map(|tag| tag.to_string())
-                        .collect();
-
-                    use std::hash::{Hash, Hasher};
-                    let mut h = std::collections::hash_map::DefaultHasher::new();
-                    name.hash(&mut h);
-                    let x = (h.finish() % 1000) as u32;
-
-                    let mut h2 = std::collections::hash_map::DefaultHasher::new();
-                    content.hash(&mut h2);
-                    let y = (h2.finish() % 1000) as u32;
-
-                    let hotness =
-                        chrono::NaiveDateTime::parse_from_str(&created_at, "%Y-%m-%dT%H:%M:%S%.f")
-                            .or_else(|_| {
-                                chrono::NaiveDateTime::parse_from_str(
-                                    &created_at,
-                                    "%Y-%m-%d %H:%M:%S",
-                                )
-                            })
-                            .map(|dt| {
-                                let age_secs =
-                                    (chrono::Utc::now().naive_utc().signed_duration_since(dt))
-                                        .num_seconds()
-                                        .max(0) as f64;
-                                let days = age_secs / 86400.0;
-                                let lambda = (2.0_f64).ln() / 7.0;
-                                (-lambda * days).exp() as f32
-                            })
-                            .unwrap_or(0.5);
-
-                    Ok(serde_json::json!({
-                        "id": id,
-                        "name": name,
-                        "content": content,
-                        "tags": if tags.is_empty() { vec!["untagged".to_string()] } else { tags },
-                        "x": x,
-                        "y": y,
-                        "hotness": hotness,
-                    }))
-                })
-                .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
-            })
-            .unwrap_or_default();
-
-        let node_ids: Vec<String> = nodes
-            .iter()
-            .filter_map(|n| n.get("id").and_then(|v| v.as_str()).map(String::from))
-            .collect();
-        let edges: Vec<serde_json::Value> = if !node_ids.is_empty() {
-            let id_set: std::collections::HashSet<&str> =
-                node_ids.iter().map(|s| s.as_str()).collect();
-            let placeholders: String = node_ids
-                .iter()
-                .enumerate()
-                .map(|(i, _)| format!("?{}", i + 1))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let sql = format!(
-                "SELECT source_id, target_id, relation, strength \
-                 FROM memory_edges \
-                 WHERE source_id IN ({placeholders}) OR target_id IN ({placeholders})"
-            );
-            conn.prepare(&sql)
-                .ok()
-                .map(|mut stmt| {
-                    let params: Vec<&dyn rusqlite::types::ToSql> = node_ids
-                        .iter()
-                        .map(|id| id as &dyn rusqlite::types::ToSql)
-                        .chain(node_ids.iter().map(|id| id as &dyn rusqlite::types::ToSql))
-                        .collect();
-                    stmt.query_map(params.as_slice(), |row| {
-                        let source: String = row.get(0)?;
-                        let target: String = row.get(1)?;
-                        let relation: String = row.get(2)?;
-                        let strength: f64 = row.get(3)?;
-                        Ok(serde_json::json!({
-                            "source": source,
-                            "target": target,
-                            "relation": relation,
-                            "strength": strength,
-                        }))
-                    })
-                    .ok()
-                    .map(|iter| {
-                        iter.filter_map(|r| r.ok())
-                            .filter(|e| {
-                                let s = e.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                                let t = e.get("target").and_then(|v| v.as_str()).unwrap_or("");
-                                id_set.contains(s) && id_set.contains(t)
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default()
-                })
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        };
-
-        serde_json::json!({
-            "ok": true,
-            "nodes": nodes,
-            "edges": edges,
-        })
+    // Ancestry-aware scoping: self + descendants + globals (agent_id IS NULL)
+    // is handled inside list_ideas_visible_to on AgentRegistry. Without an
+    // agent_id we return globals only.
+    let ideas: Vec<aeqi_core::traits::Idea> = if let Some(aid) = agent_id {
+        match ctx.agent_registry.list_ideas_visible_to(aid).await {
+            Ok(mut items) => {
+                items.truncate(limit);
+                items
+            }
+            Err(_) => Vec::new(),
+        }
     } else {
-        serde_json::json!({"ok": true, "nodes": [], "edges": []})
-    }
+        idea_store
+            .list_global_ideas(limit)
+            .await
+            .unwrap_or_default()
+    };
+
+    let nodes: Vec<serde_json::Value> = ideas.iter().map(idea_to_graph_node).collect();
+    let node_ids: Vec<String> = ideas.iter().map(|i| i.id.clone()).collect();
+
+    let edges: Vec<serde_json::Value> = if node_ids.is_empty() {
+        Vec::new()
+    } else {
+        let id_set: std::collections::HashSet<&str> = node_ids.iter().map(|s| s.as_str()).collect();
+        match idea_store.edges_between(&node_ids).await {
+            Ok(raw) => raw
+                .into_iter()
+                .filter(|e| {
+                    id_set.contains(e.source_id.as_str()) && id_set.contains(e.target_id.as_str())
+                })
+                .map(|e| {
+                    serde_json::json!({
+                        "source": e.source_id,
+                        "target": e.target_id,
+                        "relation": e.relation,
+                        "strength": e.strength,
+                    })
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    };
+
+    serde_json::json!({
+        "ok": true,
+        "nodes": nodes,
+        "edges": edges,
+    })
+}
+
+fn idea_to_graph_node(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
+    use std::hash::{Hash, Hasher};
+
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    idea.name.hash(&mut h);
+    let x = (h.finish() % 1000) as u32;
+
+    let mut h2 = std::collections::hash_map::DefaultHasher::new();
+    idea.content.hash(&mut h2);
+    let y = (h2.finish() % 1000) as u32;
+
+    let age_secs = (chrono::Utc::now() - idea.created_at).num_seconds().max(0) as f64;
+    let days = age_secs / 86400.0;
+    let lambda = (2.0_f64).ln() / 7.0;
+    let hotness = (-lambda * days).exp() as f32;
+
+    let tags: Vec<String> = if idea.tags.is_empty() {
+        vec!["untagged".to_string()]
+    } else {
+        idea.tags.clone()
+    };
+
+    serde_json::json!({
+        "id": idea.id,
+        "name": idea.name,
+        "content": idea.content,
+        "tags": tags,
+        "x": x,
+        "y": y,
+        "hotness": hotness,
+    })
 }
 
 pub async fn handle_add_idea_edge(

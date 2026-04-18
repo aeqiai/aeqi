@@ -1946,6 +1946,146 @@ impl IdeaStore for SqliteIdeas {
         .await
     }
 
+    async fn ideas_by_tags(&self, tags: &[String], limit: usize) -> Result<Vec<Idea>> {
+        if tags.is_empty() || limit == 0 {
+            return Ok(Vec::new());
+        }
+        let tags: Vec<String> = tags.iter().map(|t| t.trim().to_lowercase()).collect();
+        self.blocking(move |conn| {
+            let placeholders: Vec<String> =
+                (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
+            let sql = format!(
+                "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
+                        i.injection_mode, i.inheritance, i.tool_allow, i.tool_deny \
+                 FROM ideas i \
+                 JOIN idea_tags t ON t.idea_id = i.id \
+                 WHERE LOWER(t.tag) IN ({}) \
+                 ORDER BY i.created_at DESC \
+                 LIMIT ?{}",
+                placeholders.join(", "),
+                tags.len() + 1
+            );
+            let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = tags
+                .iter()
+                .map(|t| Box::new(t.clone()) as Box<dyn rusqlite::types::ToSql>)
+                .collect();
+            params.push(Box::new(limit as i64));
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                params.iter().map(|p| p.as_ref()).collect();
+            let mut stmt = conn.prepare(&sql)?;
+            let mut entries: Vec<Idea> = stmt
+                .query_map(param_refs.as_slice(), |row| {
+                    let tool_allow_str: String =
+                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String =
+                        row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                    let created_str: String = row.get(5)?;
+                    let created_at = DateTime::parse_from_rfc3339(&created_str)
+                        .map(|d| d.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now());
+                    Ok(Idea {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        content: row.get(2)?,
+                        tags: Vec::new(),
+                        agent_id: row.get(3)?,
+                        session_id: row.get(4)?,
+                        created_at,
+                        score: 0.0,
+                        injection_mode: row.get(6)?,
+                        inheritance: row.get(7).unwrap_or_else(|_| "self".to_string()),
+                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Self::enrich_tags(conn, &mut entries);
+            Ok(entries)
+        })
+        .await
+    }
+
+    async fn list_global_ideas(&self, limit: usize) -> Result<Vec<Idea>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        self.blocking(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, content, agent_id, session_id, created_at, \
+                        injection_mode, inheritance, tool_allow, tool_deny \
+                 FROM ideas \
+                 WHERE agent_id IS NULL \
+                 ORDER BY created_at DESC \
+                 LIMIT ?1",
+            )?;
+            let mut entries: Vec<Idea> = stmt
+                .query_map(rusqlite::params![limit as i64], |row| {
+                    let tool_allow_str: String =
+                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                    let tool_deny_str: String =
+                        row.get::<_, String>(9).unwrap_or_else(|_| "[]".to_string());
+                    let created_str: String = row.get(5)?;
+                    let created_at = DateTime::parse_from_rfc3339(&created_str)
+                        .map(|d| d.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now());
+                    Ok(Idea {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        content: row.get(2)?,
+                        tags: Vec::new(),
+                        agent_id: row.get(3)?,
+                        session_id: row.get(4)?,
+                        created_at,
+                        score: 0.0,
+                        injection_mode: row.get(6)?,
+                        inheritance: row.get(7).unwrap_or_else(|_| "self".to_string()),
+                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Self::enrich_tags(conn, &mut entries);
+            Ok(entries)
+        })
+        .await
+    }
+
+    async fn edges_between(&self, ids: &[String]) -> Result<Vec<aeqi_core::traits::IdeaGraphEdge>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids = ids.to_vec();
+        self.blocking(move |conn| {
+            let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            let sql = format!(
+                "SELECT source_id, target_id, relation, strength \
+                 FROM memory_edges \
+                 WHERE source_id IN ({ph}) OR target_id IN ({ph})",
+                ph = placeholders.join(", ")
+            );
+            let params: Vec<&dyn rusqlite::types::ToSql> = ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::types::ToSql)
+                .collect();
+            let mut stmt = conn.prepare(&sql)?;
+            let edges: Vec<aeqi_core::traits::IdeaGraphEdge> = stmt
+                .query_map(params.as_slice(), |row| {
+                    Ok(aeqi_core::traits::IdeaGraphEdge {
+                        source_id: row.get(0)?,
+                        target_id: row.get(1)?,
+                        relation: row.get(2)?,
+                        strength: row.get::<_, f64>(3)? as f32,
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(edges)
+        })
+        .await
+    }
+
     async fn get_by_ids(&self, ids: &[String]) -> Result<Vec<Idea>> {
         if ids.is_empty() {
             return Ok(Vec::new());
@@ -2556,5 +2696,82 @@ mod tests {
         let edges = mem.idea_edges("nonexistent-id").await.unwrap();
         assert!(edges.links.is_empty());
         assert!(edges.backlinks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_ideas_by_tags_or_match_and_limit() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store("fact-one", "F1", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        mem.store("pref-one", "P1", &["preference".to_string()], None)
+            .await
+            .unwrap();
+        mem.store("decision-one", "D1", &["decision".to_string()], None)
+            .await
+            .unwrap();
+
+        let static_tags = vec!["fact".to_string(), "preference".to_string()];
+        let hits = mem.ideas_by_tags(&static_tags, 10).await.unwrap();
+        let names: std::collections::HashSet<String> =
+            hits.iter().map(|i| i.name.clone()).collect();
+        assert!(names.contains("fact-one"));
+        assert!(names.contains("pref-one"));
+        assert!(!names.contains("decision-one"));
+
+        // Limit honored.
+        let hits = mem.ideas_by_tags(&static_tags, 1).await.unwrap();
+        assert_eq!(hits.len(), 1);
+
+        // Empty tag list returns empty.
+        let hits = mem.ideas_by_tags(&[], 10).await.unwrap();
+        assert!(hits.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_global_ideas_excludes_agent_scoped() {
+        let (mem, _dir) = test_ideas();
+
+        mem.store("global", "G", &[], None).await.unwrap();
+        mem.store("scoped", "S", &[], Some("agent-1"))
+            .await
+            .unwrap();
+
+        let hits = mem.list_global_ideas(10).await.unwrap();
+        let names: Vec<String> = hits.iter().map(|i| i.name.clone()).collect();
+        assert!(names.contains(&"global".to_string()));
+        assert!(!names.contains(&"scoped".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_edges_between_returns_both_directions() {
+        let (mem, _dir) = test_ideas();
+
+        let a = mem.store("a", "A", &[], None).await.unwrap();
+        let b = mem.store("b", "B", &[], None).await.unwrap();
+        let c = mem.store("c", "C", &[], None).await.unwrap();
+
+        mem.store_idea_edge(&a, &b, "supports", 0.8).await.unwrap();
+        mem.store_idea_edge(&c, &a, "related_to", 0.5)
+            .await
+            .unwrap();
+
+        let edges = mem.edges_between(&[a.clone(), b.clone()]).await.unwrap();
+        // Includes a→b (both in set) AND c→a (a is in set, c isn't — caller filters).
+        assert_eq!(edges.len(), 2);
+
+        let in_set: std::collections::HashSet<&str> =
+            [a.as_str(), b.as_str()].into_iter().collect();
+        let filtered: Vec<_> = edges
+            .into_iter()
+            .filter(|e| {
+                in_set.contains(e.source_id.as_str()) && in_set.contains(e.target_id.as_str())
+            })
+            .collect();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].source_id, a);
+        assert_eq!(filtered[0].target_id, b);
+        assert_eq!(filtered[0].relation, "supports");
     }
 }

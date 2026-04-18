@@ -282,6 +282,24 @@ pub trait IdeaStore: Send + Sync {
     async fn idea_edges(&self, _idea_id: &str) -> anyhow::Result<IdeaEdges> {
         Ok(IdeaEdges::default())
     }
+
+    /// Return ideas that carry any of the given tags (OR match), newest first.
+    /// Used by the idea-profile view to slice by tag group.
+    async fn ideas_by_tags(&self, _tags: &[String], _limit: usize) -> anyhow::Result<Vec<Idea>> {
+        Ok(Vec::new())
+    }
+
+    /// Return global ideas (agent_id IS NULL), newest first. Used by the
+    /// graph view when no agent context is provided.
+    async fn list_global_ideas(&self, _limit: usize) -> anyhow::Result<Vec<Idea>> {
+        Ok(Vec::new())
+    }
+
+    /// Return every edge whose source OR target is in `ids`. Callers filter
+    /// to pairs where both endpoints are in their node set.
+    async fn edges_between(&self, _ids: &[String]) -> anyhow::Result<Vec<IdeaGraphEdge>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Outgoing and incoming edges for a single idea.
@@ -296,6 +314,15 @@ pub struct IdeaEdges {
 pub struct IdeaEdgeRow {
     pub other_id: String,
     pub other_name: Option<String>,
+    pub relation: String,
+    pub strength: f32,
+}
+
+/// A full directed edge between two ideas, returned by graph queries.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdeaGraphEdge {
+    pub source_id: String,
+    pub target_id: String,
     pub relation: String,
     pub strength: f32,
 }
