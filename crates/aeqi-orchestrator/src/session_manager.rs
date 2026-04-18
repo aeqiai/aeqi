@@ -801,39 +801,48 @@ impl SessionManager {
         // We also build ChatStreamEvents for the caller to forward onto the
         // live wire — the broadcast channel has no subscribers yet at this
         // point, so a direct send would be lost.
+        //
+        // At session creation, three lifecycle patterns all fire: session:start
+        // (once per session), session:execution_start (once per user message,
+        // the initial prompt counts), and session:step_start (once per LLM call,
+        // shown here once so users know what's injected each step).
         let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
         if let Some(aid) = agent_uuid.as_deref() {
-            let fired = event_store
-                .get_events_for_pattern(aid, "session:start")
-                .await;
-            for event in fired {
-                if event.idea_ids.is_empty() {
-                    continue;
-                }
-                if let Some(ss) = self.session_store.as_ref() {
-                    let metadata = serde_json::json!({
-                        "event_id": event.id,
-                        "event_name": event.name,
-                        "pattern": event.pattern,
-                        "idea_ids": event.idea_ids,
+            for pattern in [
+                "session:start",
+                "session:execution_start",
+                "session:step_start",
+            ] {
+                let fired = event_store.get_events_for_pattern(aid, pattern).await;
+                for event in fired {
+                    if event.idea_ids.is_empty() {
+                        continue;
+                    }
+                    if let Some(ss) = self.session_store.as_ref() {
+                        let metadata = serde_json::json!({
+                            "event_id": event.id,
+                            "event_name": event.name,
+                            "pattern": event.pattern,
+                            "idea_ids": event.idea_ids,
+                        });
+                        let _ = ss
+                            .record_event_by_session(
+                                &session_id,
+                                "event_fired",
+                                "system",
+                                "",
+                                Some(session_type_str),
+                                Some(&metadata),
+                            )
+                            .await;
+                    }
+                    initial_events.push(ChatStreamEvent::EventFired {
+                        event_id: event.id,
+                        event_name: event.name,
+                        pattern: event.pattern,
+                        idea_ids: event.idea_ids,
                     });
-                    let _ = ss
-                        .record_event_by_session(
-                            &session_id,
-                            "event_fired",
-                            "system",
-                            "",
-                            Some(session_type_str),
-                            Some(&metadata),
-                        )
-                        .await;
                 }
-                initial_events.push(ChatStreamEvent::EventFired {
-                    event_id: event.id,
-                    event_name: event.name,
-                    pattern: event.pattern,
-                    idea_ids: event.idea_ids,
-                });
             }
         }
 

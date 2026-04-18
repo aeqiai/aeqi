@@ -1514,7 +1514,10 @@ impl Daemon {
                                     .activate_persistent(&resolved_session_id, &stream_sender)
                                     .await;
                             }
-                            // Assemble session:execution_start ideas for this agent.
+                            // Assemble session:execution_start ideas for this agent,
+                            // and emit event-fire rows (DB + live wire) so the user
+                            // sees which events injected context into this turn.
+                            let mut exec_event_fires: Vec<aeqi_core::ChatStreamEvent> = Vec::new();
                             let exec_ideas: Option<String> = if let Some(ref ehs) =
                                 ipc_ctx.event_handler_store
                             {
@@ -1527,6 +1530,36 @@ impl Daemon {
                                     idea_ids.extend(
                                         ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned(),
                                     );
+                                    if !ev.idea_ids.is_empty() {
+                                        if let (Some(cs), Some(usid)) =
+                                            (session_store.as_ref(), store_session_id.as_ref())
+                                        {
+                                            let metadata = serde_json::json!({
+                                                "event_id": ev.id,
+                                                "event_name": ev.name,
+                                                "pattern": ev.pattern,
+                                                "idea_ids": ev.idea_ids,
+                                            });
+                                            let _ = cs
+                                                .record_event_by_session(
+                                                    usid,
+                                                    "event_fired",
+                                                    "system",
+                                                    "",
+                                                    Some("web"),
+                                                    Some(&metadata),
+                                                )
+                                                .await;
+                                        }
+                                        exec_event_fires.push(
+                                            aeqi_core::ChatStreamEvent::EventFired {
+                                                event_id: ev.id.clone(),
+                                                event_name: ev.name.clone(),
+                                                pattern: ev.pattern.clone(),
+                                                idea_ids: ev.idea_ids.clone(),
+                                            },
+                                        );
+                                    }
                                 }
                                 if !idea_ids.is_empty() {
                                     if let Some(ref store) = ipc_ctx.idea_store {
@@ -1571,6 +1604,17 @@ impl Daemon {
                                     .await
                                 {
                                     Ok(mut rx) => {
+                                        // Flush execution-start event fires to the wire
+                                        // before reading the stream so the user sees
+                                        // injected context at turn start, not end.
+                                        for ev in &exec_event_fires {
+                                            if let Ok(ev_bytes) = serde_json::to_vec(ev) {
+                                                let mut bytes = ev_bytes;
+                                                bytes.push(b'\n');
+                                                let _ = writer.write_all(&bytes).await;
+                                            }
+                                        }
+
                                         let mut text = String::new();
                                         let mut iterations = 0u32;
                                         let mut prompt_tokens = 0u32;
