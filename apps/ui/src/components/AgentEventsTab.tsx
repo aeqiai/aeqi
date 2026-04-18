@@ -31,6 +31,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPattern, setNewPattern] = useState("session:message");
+  const [newQueryTemplate, setNewQueryTemplate] = useState("");
+  const [newQueryTopK, setNewQueryTopK] = useState("");
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -39,6 +41,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       setShowAddForm(true);
       setNewName("");
       setNewPattern("session:message");
+      setNewQueryTemplate("");
+      setNewQueryTopK("");
       setCreateError(null);
     };
     window.addEventListener("aeqi:new-event", handler);
@@ -53,13 +57,18 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
     setSaving(true);
     try {
-      await api.createEvent({
+      const payload: Record<string, unknown> = {
         agent_id: agentId,
         name: newName.trim(),
         pattern: newPattern.trim(),
         idea_ids: [],
         enabled: true,
-      });
+      };
+      const trimmedTpl = newQueryTemplate.trim();
+      if (trimmedTpl) payload.query_template = trimmedTpl;
+      const parsedTopK = parseInt(newQueryTopK, 10);
+      if (Number.isFinite(parsedTopK) && parsedTopK > 0) payload.query_top_k = parsedTopK;
+      await api.createEvent(payload);
       setShowAddForm(false);
       loadEvents(agentId);
     } catch (e) {
@@ -157,6 +166,34 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             onChange={(e) => setNewPattern(e.target.value)}
           />
         </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Query template (optional)</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="recall for {user_prompt}"
+            value={newQueryTemplate}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewQueryTemplate(e.target.value)}
+          />
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+            Expanded at fire-time and run through semantic search. Placeholders:{" "}
+            <code>{"{user_prompt}"}</code>, <code>{"{tool_output}"}</code>,{" "}
+            <code>{"{quest_description}"}</code>. Unknown placeholders pass through literally.
+          </div>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Query top-k (optional, default 5)</label>
+          <input
+            className="agent-settings-input"
+            type="number"
+            min={1}
+            placeholder="5"
+            value={newQueryTopK}
+            style={{ width: 120, marginTop: 4 }}
+            onChange={(e) => setNewQueryTopK(e.target.value)}
+          />
+        </div>
         {createError && <div className="channel-form-error">{createError}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button variant="primary" onClick={handleCreateEvent} loading={saving} disabled={saving}>
@@ -229,6 +266,15 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
+      <EventQueryTemplateEditor
+        key={selected.id}
+        event={selected}
+        onSave={async (fields) => {
+          await api.updateEvent(selected.id, fields);
+          patchEvent(agentId, selected.id, fields);
+        }}
+      />
+
       <div className="events-detail-ideas-header">Injected Ideas ({selected.idea_ids.length})</div>
 
       {ideasLoading ? (
@@ -294,6 +340,83 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EventQueryTemplateEditor({
+  event,
+  onSave,
+}: {
+  event: AgentEvent;
+  onSave: (fields: { query_template: string | null; query_top_k: number | null }) => Promise<void>;
+}) {
+  const [template, setTemplate] = useState(event.query_template ?? "");
+  const [topK, setTopK] = useState(event.query_top_k != null ? String(event.query_top_k) : "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const dirty =
+    (template.trim() || null) !== (event.query_template ?? null) ||
+    (topK.trim() || null) !== (event.query_top_k != null ? String(event.query_top_k) : null);
+
+  const handleSave = async () => {
+    setErr(null);
+    setSaving(true);
+    try {
+      const parsedTopK = parseInt(topK, 10);
+      const fields = {
+        query_template: template.trim() ? template.trim() : null,
+        query_top_k: Number.isFinite(parsedTopK) && parsedTopK > 0 ? parsedTopK : null,
+      };
+      await onSave(fields);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14, marginBottom: 14 }}>
+      <div className="events-detail-ideas-header">Dynamic query template</div>
+      <input
+        className="agent-settings-input"
+        type="text"
+        placeholder="recall relevant ideas for {user_prompt}"
+        value={template}
+        style={{ width: "100%", marginTop: 4 }}
+        onChange={(e) => setTemplate(e.target.value)}
+      />
+      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+        Expanded at fire-time and run through semantic search. Placeholders:{" "}
+        <code>{"{user_prompt}"}</code>, <code>{"{tool_output}"}</code>,{" "}
+        <code>{"{quest_description}"}</code>. Unknown placeholders pass through literally.
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+        <label className="agent-settings-label" style={{ margin: 0 }}>
+          top-k
+        </label>
+        <input
+          className="agent-settings-input"
+          type="number"
+          min={1}
+          placeholder="5"
+          value={topK}
+          style={{ width: 100 }}
+          onChange={(e) => setTopK(e.target.value)}
+        />
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleSave}
+          loading={saving}
+          disabled={saving || !dirty}
+        >
+          Save
+        </Button>
+        {err && <span className="channel-form-error">{err}</span>}
       </div>
     </div>
   );

@@ -61,11 +61,19 @@ pub async fn handle_create_event(
         Err(error) => return serde_json::json!({"ok": false, "error": error}),
     };
 
+    let query_template = request_field(request, "query_template").map(|s| s.to_string());
+    let query_top_k = request
+        .get("query_top_k")
+        .and_then(|v| v.as_u64())
+        .and_then(|v| u32::try_from(v).ok());
+
     let new_event = NewEvent {
         agent_id: agent_id_opt,
         name: name.to_string(),
         pattern: pattern.to_string(),
         idea_ids,
+        query_template,
+        query_top_k,
         cooldown_secs,
         system,
     };
@@ -98,13 +106,38 @@ pub async fn handle_update_event(
         Err(error) => return serde_json::json!({"ok": false, "error": error}),
     };
 
+    let query_template: Option<Option<String>> = request.get("query_template").map(|v| match v {
+        serde_json::Value::Null => None,
+        serde_json::Value::String(s) => Some(s.clone()),
+        _ => None,
+    });
+    let query_top_k: Option<Option<u32>> = request.get("query_top_k").map(|v| match v {
+        serde_json::Value::Null => None,
+        serde_json::Value::Number(n) => n.as_u64().and_then(|v| u32::try_from(v).ok()),
+        _ => None,
+    });
+
     // Check if any field is provided at all.
-    if enabled.is_none() && pattern.is_none() && cooldown_secs.is_none() && idea_ids.is_none() {
+    if enabled.is_none()
+        && pattern.is_none()
+        && cooldown_secs.is_none()
+        && idea_ids.is_none()
+        && query_template.is_none()
+        && query_top_k.is_none()
+    {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
     }
 
     match store
-        .update_fields(id, enabled, pattern, cooldown_secs, idea_ids.as_deref())
+        .update_fields(
+            id,
+            enabled,
+            pattern,
+            cooldown_secs,
+            idea_ids.as_deref(),
+            query_template.as_ref().map(|v| v.as_deref()),
+            query_top_k,
+        )
         .await
     {
         Ok(()) => {
@@ -176,6 +209,14 @@ pub async fn handle_trigger_event(
         return serde_json::json!({"ok": false, "error": "agent or agent_id is required"});
     };
 
+    // Allow the caller (e.g. session hook, debug tool) to pass through context
+    // values that the event's query_template may reference.
+    let assembly_ctx = crate::idea_assembly::AssemblyContext {
+        user_prompt: request_field(request, "user_prompt").map(str::to_string),
+        tool_output: request_field(request, "tool_output").map(str::to_string),
+        quest_description: request_field(request, "quest_description").map(str::to_string),
+    };
+
     // Run assemble_ideas — same path as the internal runtime, parameterized by pattern.
     let assembled = crate::idea_assembly::assemble_ideas_for_pattern(
         &ctx.agent_registry,
@@ -184,6 +225,7 @@ pub async fn handle_trigger_event(
         &agent_id,
         &[],
         pattern,
+        &assembly_ctx,
     )
     .await;
 
@@ -209,6 +251,8 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "name": e.name,
         "pattern": e.pattern,
         "idea_ids": e.idea_ids,
+        "query_template": e.query_template,
+        "query_top_k": e.query_top_k,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,
         "last_fired": e.last_fired,

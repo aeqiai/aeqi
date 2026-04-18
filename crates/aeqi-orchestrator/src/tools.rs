@@ -1151,7 +1151,7 @@ impl Tool for EventsTool {
                         pattern: pattern.clone(),
                         idea_ids,
                         cooldown_secs,
-                        system: false,
+                        ..Default::default()
                     })
                     .await
                 {

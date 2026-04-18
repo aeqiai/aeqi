@@ -22,6 +22,15 @@ pub struct Event {
     pub pattern: String,
     /// References to ideas to inject when this event fires.
     pub idea_ids: Vec<String>,
+    /// Optional semantic-search template expanded + queried at fire time.
+    /// Supports `{user_prompt}`, `{tool_output}`, `{quest_description}`.
+    /// Unknown placeholders pass through literally.
+    #[serde(default)]
+    pub query_template: Option<String>,
+    /// Top-k for the dynamic semantic search. Defaults to 5 when the
+    /// template is set but this is absent.
+    #[serde(default)]
+    pub query_top_k: Option<u32>,
     pub enabled: bool,
     pub cooldown_secs: u64,
     pub last_fired: Option<DateTime<Utc>>,
@@ -33,12 +42,15 @@ pub struct Event {
 }
 
 /// For creating a new event. `agent_id = None` creates a global event.
+#[derive(Default)]
 pub struct NewEvent {
     pub agent_id: Option<String>,
     pub name: String,
     pub pattern: String,
     /// References to ideas to inject when this event fires.
     pub idea_ids: Vec<String>,
+    pub query_template: Option<String>,
+    pub query_top_k: Option<u32>,
     pub cooldown_secs: u64,
     pub system: bool,
 }
@@ -73,14 +85,16 @@ impl EventHandlerStore {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let idea_ids_json = serde_json::to_string(&e.idea_ids).unwrap_or_else(|_| "[]".to_string());
+        let query_top_k_i64 = e.query_top_k.map(|k| k as i64);
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, enabled, cooldown_secs, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, 1, ?6, ?7, ?8)",
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, enabled, cooldown_secs, system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, 1, ?8, ?9, ?10)",
                 params![
                     id, e.agent_id, e.name, e.pattern,
-                    idea_ids_json, e.cooldown_secs as i64,
+                    idea_ids_json, e.query_template, query_top_k_i64,
+                    e.cooldown_secs as i64,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
                 ],
@@ -174,6 +188,7 @@ impl EventHandlerStore {
     }
 
     /// Partial update of event fields.
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_fields(
         &self,
         id: &str,
@@ -181,6 +196,8 @@ impl EventHandlerStore {
         pattern: Option<&str>,
         cooldown_secs: Option<u64>,
         idea_ids: Option<&[String]>,
+        query_template: Option<Option<&str>>,
+        query_top_k: Option<Option<u32>>,
     ) -> Result<()> {
         let db = self.db.lock().await;
 
@@ -205,6 +222,14 @@ impl EventHandlerStore {
             let json = serde_json::to_string(idea_ids).unwrap_or_else(|_| "[]".to_string());
             sets.push("idea_ids = ?");
             values.push(Box::new(json));
+        }
+        if let Some(qt) = query_template {
+            sets.push("query_template = ?");
+            values.push(Box::new(qt.map(|s| s.to_string())));
+        }
+        if let Some(qk) = query_top_k {
+            sets.push("query_top_k = ?");
+            values.push(Box::new(qk.map(|k| k as i64)));
         }
 
         if sets.is_empty() {
@@ -249,6 +274,8 @@ impl EventHandlerStore {
                 name: "on_session_start".to_string(),
                 pattern: "session:start".to_string(),
                 idea_ids: idea_ids.to_vec(),
+                query_template: None,
+                query_top_k: None,
                 cooldown_secs: 0,
                 system: false,
             })
@@ -452,6 +479,8 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 name: name.to_string(),
                 pattern: pattern.to_string(),
                 idea_ids: vec![idea_id],
+                query_template: None,
+                query_top_k: None,
                 cooldown_secs: 0,
                 system: true,
             })
@@ -475,12 +504,21 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
     let idea_ids_str: String = row.get("idea_ids").unwrap_or_else(|_| "[]".to_string());
     let idea_ids: Vec<String> = serde_json::from_str(&idea_ids_str).unwrap_or_default();
 
+    let query_template: Option<String> = row.get("query_template").ok().flatten();
+    let query_top_k: Option<u32> = row
+        .get::<_, Option<i64>>("query_top_k")
+        .ok()
+        .flatten()
+        .and_then(|v| u32::try_from(v).ok());
+
     Event {
         id: row.get("id").unwrap_or_default(),
         agent_id: row.get("agent_id").ok().flatten(),
         name: row.get("name").unwrap_or_default(),
         pattern: row.get("pattern").unwrap_or_default(),
         idea_ids,
+        query_template,
+        query_top_k,
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
         last_fired,
@@ -504,7 +542,9 @@ mod tests {
              CREATE TABLE events (
                  id TEXT PRIMARY KEY, agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
                  name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
-                 idea_ids TEXT NOT NULL DEFAULT '[]', enabled INTEGER NOT NULL DEFAULT 1,
+                 idea_ids TEXT NOT NULL DEFAULT '[]',
+                 query_template TEXT, query_top_k INTEGER,
+                 enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
                  last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
                  total_cost_usd REAL NOT NULL DEFAULT 0.0, system INTEGER NOT NULL DEFAULT 0,
@@ -526,9 +566,8 @@ mod tests {
                 agent_id: Some("a1".into()),
                 name: "morning-brief".into(),
                 pattern: "schedule:0 9 * * *".into(),
-                idea_ids: Vec::new(),
                 cooldown_secs: 300,
-                system: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -549,9 +588,8 @@ mod tests {
                 agent_id: Some("a1".into()),
                 name: "on-quest-received".into(),
                 pattern: "session:quest_start".into(),
-                idea_ids: Vec::new(),
-                cooldown_secs: 0,
                 system: true,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -568,9 +606,7 @@ mod tests {
                 agent_id: Some("a1".into()),
                 name: "test".into(),
                 pattern: "session:test".into(),
-                idea_ids: Vec::new(),
-                cooldown_secs: 0,
-                system: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -592,9 +628,7 @@ mod tests {
                 agent_id: Some("a1".into()),
                 name: "sched1".into(),
                 pattern: "schedule:0 9 * * *".into(),
-                idea_ids: Vec::new(),
-                cooldown_secs: 0,
-                system: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -603,9 +637,7 @@ mod tests {
                 agent_id: Some("a1".into()),
                 name: "lifecycle1".into(),
                 pattern: "session:quest_start".into(),
-                idea_ids: Vec::new(),
-                cooldown_secs: 0,
-                system: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -627,15 +659,14 @@ mod tests {
                 name: "update-me".into(),
                 pattern: "session:update_me".into(),
                 idea_ids: vec!["keep-a".into(), "keep-b".into()],
-                cooldown_secs: 0,
-                system: false,
+                ..Default::default()
             })
             .await
             .unwrap();
 
         // Update with no idea_ids change — idea_ids should remain.
         store
-            .update_fields(&event.id, None, None, None, None)
+            .update_fields(&event.id, None, None, None, None, None, None)
             .await
             .unwrap_err(); // no fields to update
 
@@ -647,7 +678,7 @@ mod tests {
 
         let replacement = vec!["new-a".to_string(), "new-b".to_string()];
         store
-            .update_fields(&event.id, None, None, None, Some(&replacement))
+            .update_fields(&event.id, None, None, None, Some(&replacement), None, None)
             .await
             .unwrap();
 
@@ -656,7 +687,7 @@ mod tests {
 
         let cleared: Vec<String> = Vec::new();
         store
-            .update_fields(&event.id, None, None, None, Some(&cleared))
+            .update_fields(&event.id, None, None, None, Some(&cleared), None, None)
             .await
             .unwrap();
 

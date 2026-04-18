@@ -184,6 +184,8 @@ export interface AgentEvent {
   name: string;
   pattern: string;
   idea_ids: string[];
+  query_template?: string | null;
+  query_top_k?: number | null;
   enabled: boolean;
   cooldown_secs: number;
   fire_count: number;

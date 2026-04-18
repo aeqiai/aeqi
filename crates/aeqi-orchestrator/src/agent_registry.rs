@@ -84,6 +84,29 @@ fn default_max_concurrent() -> u32 {
     1
 }
 
+fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare("PRAGMA table_info(events)")?;
+    let existing: std::collections::HashSet<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .collect();
+    for (col, ddl) in [
+        (
+            "query_template",
+            "ALTER TABLE events ADD COLUMN query_template TEXT",
+        ),
+        (
+            "query_top_k",
+            "ALTER TABLE events ADD COLUMN query_top_k INTEGER",
+        ),
+    ] {
+        if !existing.contains(col) {
+            conn.execute(ddl, [])?;
+        }
+    }
+    Ok(())
+}
+
 /// Frontmatter parsed from a template file.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentTemplateFrontmatter {
@@ -292,6 +315,8 @@ impl AgentRegistry {
                  pattern TEXT NOT NULL,
                  scope TEXT NOT NULL DEFAULT 'self',
                  idea_ids TEXT NOT NULL DEFAULT '[]',
+                 query_template TEXT,
+                 query_top_k INTEGER,
                  enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
                  last_fired TEXT,
@@ -306,6 +331,11 @@ impl AgentRegistry {
              CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique_name
                  ON events(COALESCE(agent_id, ''), name);",
         )?;
+
+        // Schema heal for pre-existing DBs: ADD COLUMN is idempotent via
+        // PRAGMA check so upgraded installs get the new fields without a
+        // migrations framework.
+        ensure_event_columns(&conn)?;
 
         // Agent ancestry closure table — materialised parent chain.
         // Self-row at depth=0 is always present, so visibility queries
@@ -553,9 +583,8 @@ impl AgentRegistry {
                         agent_id: Some(agent.id.clone()),
                         name: t.name.clone(),
                         pattern,
-                        idea_ids: Vec::new(),
                         cooldown_secs: t.cooldown_secs.unwrap_or(300),
-                        system: false,
+                        ..Default::default()
                     })
                     .await;
                 info!(
