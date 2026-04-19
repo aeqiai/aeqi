@@ -75,3 +75,25 @@ Anti-magic as a principle is cheap. Anti-magic as a running system requires cons
 Two commits went out tonight as a direct result of an hour of dogfooding. The loop works. The gaps are fixable. The audit trail is converging on truth.
 
 That's the whole pitch.
+
+## Postscript: one more leak, caught the same way
+
+Another hour later, a second dogfood pass (quests `lu-009` / `lu-010`) was built specifically to exercise the candidate-skill rule — the ≥2-of-the-same-tool threshold that neither `as-008` nor `as-009` hit earlier. The quest asked for five separate `read_file` calls on five different files and explicitly said "do not consolidate."
+
+`lu-009` halted at call five with:
+
+```
+Loop detected: identical call to 'read_file' (same arguments) appeared 5 times
+in the last 10 tool calls. Execution halted — you are repeating the same
+operation. Change your approach.
+```
+
+But each call had a different path argument. The halt reason was lying.
+
+Root cause: `MiddlewareObserver::after_tool` in `agent_worker.rs:1648` was constructing its `ToolCall` with `input: String::new()` because the `Observer` trait's `after_tool` signature doesn't carry input. `LoopDetectionMiddleware::fingerprint` hashes `{name, input}` — with input always empty, every call to the same tool collided to the same hash. The middleware's own unit test at `loop_detection.rs:234` (`different_calls_dont_trigger`) was passing because it exercised the middleware directly with real input; the bug lived entirely in the adapter.
+
+That's the same shape of failure as the `fire_count` leak: a silent drift between what the runtime advertises and what it actually does, detectable only by running real work through it. The loop detector claimed to match on "same arguments." It was matching on tool name alone.
+
+Fix (commit `518a171`): stash the input on the observer in `before_tool`, retrieve it in `after_tool`. Twelve lines. `lu-010` — the same quest re-run post-fix — completed all five reads with no halt and a candidate-skill idea written. The regression confirms itself.
+
+Three runtime leaks in one night, all caught by running the product against itself. Anti-magic isn't a principle you declare. It's a discipline you practice.
