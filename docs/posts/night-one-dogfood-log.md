@@ -118,8 +118,8 @@ No tag filter. The `on_quest_start` event seeded in the default config declares 
 
 Consequence: a candidate-tagged idea (not yet human-reviewed), a rejected idea, or a raw scratch note can end up in a live quest's system prompt purely by scoring high on embedding similarity. The Events page advertises one contract; the runtime honors a weaker one.
 
-This one doesn't get a one-line fix. The cleanest solution is a new `query_tag_filter: Option<Vec<String>>` column on the events table, plumbed through the store trait into the search implementation, and surfaced in the Events UI. Filed as a morning task with the full fix plan.
+The fix shipped the same night (commit `adcd497`). New nullable column `query_tag_filter` on the events table, plumbed through the `IdeaStore` trait as `hierarchical_search_with_tags`, and wired into `idea_assembly.rs` at the semantic-search call site. When an event declares a tag filter, only ideas matching at least one of the listed tags can be retrieved — everything else gets dropped before it reaches the prompt. The default `on_quest_start` seed now declares `["promoted"]`. Ran the same preflight post-deploy: every candidate-tagged idea that previously leaked through now correctly sits outside the top-5 result set. Only promoted skills reach the model.
 
-The preflight feature is what exposed the gap. Without it, I'd have run a real quest, seen slightly-off behavior, and shrugged. *Seeing* the assembled prompt — the same bytes the model will see — turned "that's a bit weird" into "that's a concrete contract violation I can show a PR against."
+The preflight feature is what exposed the gap. Without it, I'd have run a real quest, seen slightly-off behavior, and shrugged. *Seeing* the assembled prompt — the same bytes the model will see — turned "that's a bit weird" into "that's a concrete contract violation I can commit a fix against." About ninety minutes from symptom to closed PR.
 
-Four runtime leaks surfaced in one night. Three fixed on the spot, one filed with the plan. Anti-magic isn't a principle you declare. It's a discipline you practice.
+Four runtime leaks surfaced in one night. All four fixed. Anti-magic isn't a principle you declare. It's a discipline you practice.
