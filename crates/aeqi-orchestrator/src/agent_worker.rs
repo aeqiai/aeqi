@@ -1590,6 +1590,12 @@ struct MiddlewareObserver {
     chain: Arc<MiddlewareChain>,
     ctx: tokio::sync::Mutex<WorkerContext>,
     inner: Arc<dyn Observer>,
+    /// The serialized input of the most recent `before_tool` call.
+    /// `after_tool` reads this so the middleware chain (e.g. loop detection)
+    /// sees the real arguments — the Observer trait's `after_tool` signature
+    /// does not carry input, so without this stash every call hashes to the
+    /// same fingerprint and collides regardless of arguments.
+    last_tool_input: tokio::sync::Mutex<String>,
 }
 
 impl MiddlewareObserver {
@@ -1598,6 +1604,7 @@ impl MiddlewareObserver {
             chain,
             ctx: tokio::sync::Mutex::new(ctx),
             inner,
+            last_tool_input: tokio::sync::Mutex::new(String::new()),
         }
     }
 
@@ -1637,19 +1644,22 @@ impl Observer for MiddlewareObserver {
     }
 
     async fn before_tool(&self, tool_name: &str, input: &serde_json::Value) -> LoopAction {
+        let input_str = input.to_string();
+        *self.last_tool_input.lock().await = input_str.clone();
         let mut ctx = self.ctx.lock().await;
         let call = MwToolCall {
             name: tool_name.to_string(),
-            input: input.to_string(),
+            input: input_str,
         };
         Self::map_action(self.chain.run_before_tool(&mut ctx, &call).await)
     }
 
     async fn after_tool(&self, tool_name: &str, output: &str, is_error: bool) -> LoopAction {
+        let input = self.last_tool_input.lock().await.clone();
         let mut ctx = self.ctx.lock().await;
         let call = MwToolCall {
             name: tool_name.to_string(),
-            input: String::new(),
+            input,
         };
         let result = MwToolResult {
             success: !is_error,
