@@ -214,18 +214,29 @@ export function useWebSocketChat({
               const ideaIds: string[] = Array.isArray(event.idea_ids)
                 ? event.idea_ids.map(String)
                 : [];
-              const fireMsg: Message = {
-                role: "event_fire",
-                content: "",
-                timestamp: Date.now(),
-                eventFire: {
-                  eventId: String(event.event_id ?? ""),
-                  eventName: String(event.event_name ?? ""),
-                  pattern: String(event.pattern ?? ""),
-                  ideaIds,
-                },
+              const fire = {
+                eventId: String(event.event_id ?? ""),
+                eventName: String(event.event_name ?? ""),
+                pattern: String(event.pattern ?? ""),
+                ideaIds,
               };
-              setMessages((prev) => [...prev, fireMsg]);
+              // Render the pill inline at the truthful firing point —
+              // inside the current streaming message's segments, directly
+              // after the step marker the agent just emitted. If the stream
+              // hasn't started a step yet (e.g. session:execution_start at
+              // turn start), emit a standalone row instead.
+              if (segments.length > 0) {
+                segments.push({ kind: "event_fire", fire });
+                setLiveSegments([...segments]);
+              } else {
+                const fireMsg: Message = {
+                  role: "event_fire",
+                  content: "",
+                  timestamp: Date.now(),
+                  eventFire: fire,
+                };
+                setMessages((prev) => [...prev, fireMsg]);
+              }
               break;
             }
             case "DelegateStart": {

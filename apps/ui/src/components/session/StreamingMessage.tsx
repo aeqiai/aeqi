@@ -49,7 +49,8 @@ export default function StreamingMessage({
     runningToolName != null ||
     liveSegments.length === 0 ||
     liveLastSegment?.kind === "tool" ||
-    liveLastSegment?.kind === "step";
+    liveLastSegment?.kind === "step" ||
+    liveLastSegment?.kind === "event_fire";
 
   return (
     <div className="asv-msg asv-msg-assistant asv-msg-streaming">

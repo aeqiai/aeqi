@@ -10,6 +10,7 @@ import {
   type FileChangedEvent,
   type FileDeletedEvent,
   type ToolSummarizedEvent,
+  type EventFire,
   formatMs,
   formatTime,
   formatStepCount,
@@ -230,6 +231,7 @@ export function SegmentRenderer({
     | { kind: "text"; text: string }
     | { kind: "step"; step: number }
     | { kind: "status"; text: string }
+    | { kind: "event_fire"; fire: EventFire }
     | { kind: "tools"; items: MessageSegment[] }
     | { kind: "file_changed"; event: FileChangedEvent }
     | { kind: "file_deleted"; event: FileDeletedEvent }
@@ -247,6 +249,8 @@ export function SegmentRenderer({
       } else if (shouldRenderStatus(seg.text)) {
         groups.push({ kind: "status", text: seg.text });
       }
+    } else if (seg.kind === "event_fire") {
+      groups.push({ kind: "event_fire", fire: seg.fire });
     } else if (seg.kind === "file_changed") {
       groups.push({ kind: "file_changed", event: seg.event });
     } else if (seg.kind === "file_deleted") {
@@ -278,6 +282,11 @@ export function SegmentRenderer({
           <div key={gi} className="asv-status-line">
             {group.text}
           </div>
+        ) : group.kind === "event_fire" ? (
+          <EventFireItem
+            key={gi}
+            msg={{ role: "event_fire", content: "", eventFire: group.fire }}
+          />
         ) : group.kind === "file_changed" ? (
           <FileChangedChip key={gi} event={group.event} />
         ) : group.kind === "file_deleted" ? (

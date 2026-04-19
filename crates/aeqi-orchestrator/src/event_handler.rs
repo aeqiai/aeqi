@@ -565,6 +565,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         "session:quest_result",
         "session:execution_start",
         "session:step_start",
+        "session:stopped",
         "session:recap_on_resume",
         "context:budget:exceeded",
         "loop:detected",
@@ -628,6 +629,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         "session:quest_result",
         "session:execution_start",
         "session:step_start",
+        "session:stopped",
         "session:recap_on_resume",
         "context:budget:exceeded",
     ];
@@ -769,6 +771,21 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             query_tag_filter: None,
             // Empty — step_start ideas are resolved via assemble_step_ideas_for_worker
             // (static idea_ids path) rather than tool_calls, for now.
+            tool_calls: Vec::new(),
+        },
+        LifecycleSeed {
+            name: "on_session_stopped",
+            pattern: "session:stopped",
+            idea_key: "session:stopped",
+            idea_content: "",
+            skip_idea_seed: false,
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            // Fires when a user cancels a running turn via the stop button.
+            // Empty by default — operators can attach ideas or tool_calls to
+            // customise the behaviour (e.g. inject a reflection prompt so the
+            // agent captures why it was stopped).
             tool_calls: Vec::new(),
         },
         LifecycleSeed {
@@ -1773,12 +1790,12 @@ mod tests {
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 4 middleware patterns are inserted; 8 lifecycle patterns are counted as
+        // 4 middleware patterns are inserted; 9 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 12,
-            "should count all 12 missing patterns on a clean store"
+            n, 13,
+            "should count all 13 missing patterns on a clean store"
         );
     }
 

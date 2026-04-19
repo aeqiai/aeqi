@@ -14,6 +14,7 @@ const NO_EVENTS: AgentEvent[] = [];
 const COMMON_PATTERNS = [
   "session:start",
   "session:step_start",
+  "session:stopped",
   "session:quest_start",
   "session:quest_end",
   "session:quest_result",

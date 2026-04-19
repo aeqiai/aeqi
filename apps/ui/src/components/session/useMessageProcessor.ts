@@ -127,25 +127,36 @@ export function useMessageProcessor() {
         }
         applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
       } else if (eventType === "event_fired") {
-        if (pendingTools.length > 0 && currentAgent) {
-          currentAgent.segments!.push(...pendingTools);
-          pendingTools = [];
-        }
-        flushAgent();
         const meta = (m.metadata || {}) as Record<string, unknown>;
         const rawIdeaIds = meta.idea_ids;
         const ideaIds = Array.isArray(rawIdeaIds) ? rawIdeaIds.map(String) : [];
-        processed.push({
-          role: "event_fire",
-          content: "",
-          timestamp: ts,
-          eventFire: {
-            eventId: String(meta.event_id ?? ""),
-            eventName: String(meta.event_name ?? ""),
-            pattern: String(meta.pattern ?? ""),
-            ideaIds,
-          },
-        });
+        const fire = {
+          eventId: String(meta.event_id ?? ""),
+          eventName: String(meta.event_name ?? ""),
+          pattern: String(meta.pattern ?? ""),
+          ideaIds,
+        };
+        // Inline into the current streaming agent's segments so the pill
+        // renders at its truthful firing point (directly below the step
+        // marker that just fired). Fall back to a standalone row when
+        // there's no open agent message (session-level events at turn start).
+        if (currentAgent) {
+          if (pendingTools.length > 0) {
+            currentAgent.segments!.push(...pendingTools);
+            pendingTools = [];
+          }
+          currentAgent.segments!.push({ kind: "event_fire", fire });
+        } else {
+          if (pendingTools.length > 0) {
+            pendingTools = [];
+          }
+          processed.push({
+            role: "event_fire",
+            content: "",
+            timestamp: ts,
+            eventFire: fire,
+          });
+        }
       } else if (m.role === "user" || m.role === "User") {
         if (pendingTools.length > 0 && currentAgent) {
           currentAgent.segments!.push(...pendingTools);

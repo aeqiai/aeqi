@@ -830,8 +830,14 @@ impl SessionManager {
             Arc::new(aeqi_core::traits::LogObserver);
 
         // Load session:step_start ideas as step context (injected every LLM call).
-        if let (Some(ehs), Some(idea_store)) = (&self.event_store, &self.idea_store) {
-            let step_events = ehs
+        //
+        // `record_fire` is NOT called here — step_start events fire per LLM
+        // step, not once per session. The Agent emits `EventFired` at each
+        // `StepStart`, and the daemon stream reader records the fire when
+        // the pill flows through. That keeps the fire count truthful.
+        let mut step_event_metas: Vec<aeqi_core::StepEventMeta> = Vec::new();
+        if let Some(idea_store) = &self.idea_store {
+            let step_events = event_store
                 .get_events_for_pattern(agent_uuid.as_deref().unwrap_or(""), "session:step_start")
                 .await;
             let mut step_idea_ids: Vec<String> = Vec::new();
@@ -849,12 +855,15 @@ impl SessionManager {
                         content: Some(idea.content.clone()),
                     });
                 }
-                for ev in &step_events {
-                    if ev.idea_ids.iter().any(|id| !id.is_empty())
-                        && let Err(e) = ehs.record_fire(&ev.id, 0.0).await
-                    {
-                        tracing::warn!(event = %ev.id, error = %e, "failed to record event fire");
-                    }
+            }
+            for ev in &step_events {
+                if ev.idea_ids.iter().any(|id| !id.is_empty()) {
+                    step_event_metas.push(aeqi_core::StepEventMeta {
+                        event_id: ev.id.clone(),
+                        event_name: ev.name.clone(),
+                        pattern: ev.pattern.clone(),
+                        idea_ids: ev.idea_ids.clone(),
+                    });
                 }
             }
         }
@@ -862,7 +871,8 @@ impl SessionManager {
         let mut agent =
             aeqi_core::Agent::new(agent_config, provider, tools, observer, system_prompt)
                 .with_chat_stream(stream_sender.clone())
-                .with_step_ideas(step_idea_specs);
+                .with_step_ideas(step_idea_specs)
+                .with_step_events(step_event_metas);
 
         if let Some(ref mem) = idea_store_for_agent {
             agent = agent.with_idea_store(mem.clone());
@@ -1013,17 +1023,16 @@ impl SessionManager {
         // live wire — the broadcast channel has no subscribers yet at this
         // point, so a direct send would be lost.
         //
-        // At session creation, three lifecycle patterns all fire: session:start
-        // (once per session), session:execution_start (once per user message,
-        // the initial prompt counts), and session:step_start (once per LLM call,
-        // shown here once so users know what's injected each step).
+        // Only session-level patterns belong here: session:start fires once
+        // per session and session:execution_start fires once per user message
+        // (the initial prompt counts). session:recap_on_resume fires on
+        // resumed sessions. session:step_start is NOT batched here — it
+        // fires per LLM step. The Agent itself emits `EventFired` for each
+        // `StepEventMeta` at `StepStart`, so the pill renders at its true
+        // firing point rather than batched upfront.
         let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
         if let Some(aid) = agent_uuid.as_deref() {
-            let mut patterns: Vec<&str> = vec![
-                "session:start",
-                "session:execution_start",
-                "session:step_start",
-            ];
+            let mut patterns: Vec<&str> = vec!["session:start", "session:execution_start"];
             if session_resumed {
                 patterns.push("session:recap_on_resume");
             }
@@ -1387,6 +1396,24 @@ impl SessionManager {
     pub async fn cancel_session(&self, session_id: &str) -> bool {
         let sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get(session_id) {
+            // Fire `session:stopped` into the live stream before flipping the
+            // cancel token so the pill renders at the truthful moment the
+            // user hit stop. The daemon stream reader's generic EventFired
+            // arm records the event_fired row and calls record_fire — same
+            // path as any other per-step event.
+            if let Some(ref es) = self.event_store {
+                let fired = es
+                    .get_events_for_pattern(&session.agent_id, "session:stopped")
+                    .await;
+                for ev in fired {
+                    session.stream_sender.send(ChatStreamEvent::EventFired {
+                        event_id: ev.id,
+                        event_name: ev.name,
+                        pattern: ev.pattern,
+                        idea_ids: ev.idea_ids,
+                    });
+                }
+            }
             session
                 .cancel_token
                 .store(true, std::sync::atomic::Ordering::SeqCst);

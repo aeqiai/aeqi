@@ -662,6 +662,20 @@ pub struct StepIdeaSpec {
     pub content: Option<String>,
 }
 
+/// Metadata for an event that fires every LLM step (e.g. `session:step_start`).
+///
+/// The agent emits a [`ChatStreamEvent::EventFired`] for each entry at the
+/// moment it emits `StepStart` — so the UI renders the event_fired pill at
+/// its truthful firing location, directly below each step marker, instead of
+/// being batched once upfront by the orchestrator.
+#[derive(Debug, Clone)]
+pub struct StepEventMeta {
+    pub event_id: String,
+    pub event_name: String,
+    pub pattern: String,
+    pub idea_ids: Vec<String>,
+}
+
 pub struct Agent {
     config: AgentConfig,
     provider: Arc<dyn Provider>,
@@ -671,6 +685,9 @@ pub struct Agent {
     /// Step-level ideas re-read from disk before each API call. Mutable at
     /// runtime — messages can amend step ideas mid-session.
     step_ideas: Mutex<Vec<StepIdeaSpec>>,
+    /// Step-level events whose ideas contribute to `step_ideas`. Used to
+    /// emit a truthful `EventFired` pill per actual firing at step start.
+    step_events: Mutex<Vec<StepEventMeta>>,
     idea_store: Option<Arc<dyn IdeaStore>>,
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
     /// Receiver for notifications from background agents. Drained between steps.
@@ -718,6 +735,7 @@ impl Agent {
             observer,
             system_prompt,
             step_ideas: Mutex::new(Vec::new()),
+            step_events: Mutex::new(Vec::new()),
             idea_store: None,
             chat_stream: None,
             notification_rx: None,
@@ -792,6 +810,14 @@ impl Agent {
     /// Attach step-level ideas that are re-read from disk before each API call.
     pub fn with_step_ideas(mut self, specs: Vec<StepIdeaSpec>) -> Self {
         self.step_ideas = Mutex::new(specs);
+        self
+    }
+
+    /// Attach metadata for events that fire every step. At each `StepStart`
+    /// the agent emits a `ChatStreamEvent::EventFired` per entry so the UI
+    /// renders the pill at the truthful firing location.
+    pub fn with_step_events(mut self, events: Vec<StepEventMeta>) -> Self {
+        self.step_events = Mutex::new(events);
         self
     }
 
@@ -1108,6 +1134,21 @@ impl Agent {
                 step: iterations,
                 model: request.model.clone(),
             });
+
+            // Truthful per-step event_fired emission. Every LLM step is a
+            // fresh firing of `session:step_start` (and any sibling per-step
+            // events), so emit a pill per event right after the step marker.
+            {
+                let step_events = self.step_events.lock().await;
+                for ev in step_events.iter() {
+                    self.emit(crate::chat_stream::ChatStreamEvent::EventFired {
+                        event_id: ev.event_id.clone(),
+                        event_name: ev.event_name.clone(),
+                        pattern: ev.pattern.clone(),
+                        idea_ids: ev.idea_ids.clone(),
+                    });
+                }
+            }
 
             // --- Call provider (streaming with early tool execution) ---
             let response;

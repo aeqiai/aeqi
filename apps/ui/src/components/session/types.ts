@@ -30,21 +30,22 @@ export interface ToolSummarizedEvent {
   summary: string;
 }
 
-export type MessageSegment =
-  | { kind: "text"; text: string }
-  | { kind: "tool"; event: ToolEvent }
-  | { kind: "step"; step: number }
-  | { kind: "status"; text: string }
-  | { kind: "file_changed"; event: FileChangedEvent }
-  | { kind: "file_deleted"; event: FileDeletedEvent }
-  | { kind: "tool_summarized"; event: ToolSummarizedEvent };
-
 export interface EventFire {
   eventId: string;
   eventName: string;
   pattern: string;
   ideaIds: string[];
 }
+
+export type MessageSegment =
+  | { kind: "text"; text: string }
+  | { kind: "tool"; event: ToolEvent }
+  | { kind: "step"; step: number }
+  | { kind: "status"; text: string }
+  | { kind: "event_fire"; fire: EventFire }
+  | { kind: "file_changed"; event: FileChangedEvent }
+  | { kind: "file_deleted"; event: FileDeletedEvent }
+  | { kind: "tool_summarized"; event: ToolSummarizedEvent };
 
 export interface Message {
   role: string;

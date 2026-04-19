@@ -1627,6 +1627,25 @@ impl Daemon {
                                                                 ).await;
                                                             }
                                                         }
+                                                        aeqi_core::ChatStreamEvent::EventFired { event_id, event_name, pattern, idea_ids } => {
+                                                            if let (Some(cs), Some(usid)) = (&session_store, &store_session_id) {
+                                                                let metadata = serde_json::json!({
+                                                                    "event_id": event_id,
+                                                                    "event_name": event_name,
+                                                                    "pattern": pattern,
+                                                                    "idea_ids": idea_ids,
+                                                                });
+                                                                let _ = cs.record_event_by_session(
+                                                                    usid, "event_fired", "system", "",
+                                                                    Some("web"), Some(&metadata),
+                                                                ).await;
+                                                            }
+                                                            if let Some(ref ehs) = ipc_ctx.event_handler_store
+                                                                && let Err(e) = ehs.record_fire(event_id, 0.0).await
+                                                            {
+                                                                tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+                                                            }
+                                                        }
                                                         aeqi_core::ChatStreamEvent::TextDelta { text: delta } => {
                                                             text.push_str(delta);
                                                         }
@@ -1931,6 +1950,40 @@ impl Daemon {
                                                                     Some(&meta),
                                                                 )
                                                                 .await;
+                                                        }
+                                                    }
+                                                    aeqi_core::ChatStreamEvent::EventFired {
+                                                        event_id,
+                                                        event_name,
+                                                        pattern,
+                                                        idea_ids,
+                                                    } => {
+                                                        if let (Some(cs), Some(usid)) =
+                                                            (&session_store, &store_session_id)
+                                                        {
+                                                            let metadata = serde_json::json!({
+                                                                "event_id": event_id,
+                                                                "event_name": event_name,
+                                                                "pattern": pattern,
+                                                                "idea_ids": idea_ids,
+                                                            });
+                                                            let _ = cs
+                                                                .record_event_by_session(
+                                                                    usid,
+                                                                    "event_fired",
+                                                                    "system",
+                                                                    "",
+                                                                    Some("web"),
+                                                                    Some(&metadata),
+                                                                )
+                                                                .await;
+                                                        }
+                                                        if let Some(ref ehs) =
+                                                            ipc_ctx.event_handler_store
+                                                            && let Err(e) =
+                                                                ehs.record_fire(event_id, 0.0).await
+                                                        {
+                                                            tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
                                                         }
                                                     }
                                                     aeqi_core::ChatStreamEvent::TextDelta {

@@ -24,7 +24,7 @@ pub mod traits;
 pub use agent::{
     Agent, AgentConfig, AgentResult, AgentStopReason, ContentReplacementState, LoopNotification,
     NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType,
-    StepIdeaSpec,
+    StepEventMeta, StepIdeaSpec,
 };
 pub use chat_stream::{ChatStreamEvent, ChatStreamSender};
 pub use config::{
