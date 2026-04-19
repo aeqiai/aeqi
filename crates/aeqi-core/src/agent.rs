@@ -1560,7 +1560,18 @@ impl Agent {
             }
 
             // --- Enforce aggregate per-step budget ---
-            Self::enforce_result_budget(&mut processed, self.config.max_tool_results_per_step);
+            let aggregate_truncated =
+                Self::enforce_result_budget(&mut processed, self.config.max_tool_results_per_step);
+            for (id, name, original_bytes, new_bytes) in aggregate_truncated {
+                self.emit(crate::chat_stream::ChatStreamEvent::ToolSummarized {
+                    tool_use_id: id,
+                    tool_name: name,
+                    original_bytes,
+                    summary: format!(
+                        "aggregate-budget truncation: {original_bytes} → {new_bytes} bytes"
+                    ),
+                });
+            }
 
             // --- Budget pressure injection into last tool result (Hermes pattern) ---
             // Inject warnings into the last tool result JSON instead of as separate
@@ -2245,15 +2256,23 @@ impl Agent {
     }
 
     /// Enforce aggregate character budget across all tool results in a step.
-    fn enforce_result_budget(results: &mut [ProcessedToolResult], max_chars: usize) {
+    /// Returns per-result truncation records (id, name, original_bytes,
+    /// new_bytes) for every result this function truncated — the caller emits
+    /// a ToolSummarized event per record so the user sees aggregate-budget
+    /// truncations in the transcript.
+    fn enforce_result_budget(
+        results: &mut [ProcessedToolResult],
+        max_chars: usize,
+    ) -> Vec<(String, String, u64, u64)> {
         let total: usize = results.iter().map(|r| r.output.len()).sum();
         if total <= max_chars {
-            return;
+            return Vec::new();
         }
 
         let mut indices: Vec<usize> = (0..results.len()).collect();
         indices.sort_by(|a, b| results[*b].output.len().cmp(&results[*a].output.len()));
 
+        let mut truncated = Vec::new();
         let mut current_total = total;
         for idx in indices {
             if current_total <= max_chars {
@@ -2267,9 +2286,17 @@ impl Agent {
             let target_len = old_len.saturating_sub(overage).max(500);
             if target_len < old_len {
                 results[idx].output = Self::truncate_result(&results[idx].output, target_len);
-                current_total -= old_len - results[idx].output.len();
+                let new_len = results[idx].output.len();
+                current_total -= old_len - new_len;
+                truncated.push((
+                    results[idx].id.clone(),
+                    results[idx].name.clone(),
+                    old_len as u64,
+                    new_len as u64,
+                ));
             }
         }
+        truncated
     }
 
     // -----------------------------------------------------------------------
