@@ -287,6 +287,27 @@ export function useWebSocketChat({
               setLiveSegments([...segments]);
               break;
             }
+            case "SnipCompacted": {
+              const freed = Number(event.tokens_freed ?? 0);
+              segments.push({ kind: "status", text: `snip: freed ~${freed} tokens` });
+              setLiveSegments([...segments]);
+              break;
+            }
+            case "MicroCompacted": {
+              const cleared = Number(event.cleared ?? 0);
+              segments.push({
+                kind: "status",
+                text: `microcompact: cleared ${cleared} old tool result${cleared === 1 ? "" : "s"}`,
+              });
+              setLiveSegments([...segments]);
+              break;
+            }
+            case "ContextCollapsed": {
+              const freed = Number(event.tokens_freed ?? 0);
+              segments.push({ kind: "status", text: `collapse: freed ~${freed} tokens` });
+              setLiveSegments([...segments]);
+              break;
+            }
             case "Status": {
               break;
             }
