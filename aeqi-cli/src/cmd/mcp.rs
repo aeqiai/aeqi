@@ -569,12 +569,16 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         "name": agent_hint,
                                     }),
                                 );
-                                // Fetch assembled ideas (on_session_start context).
+                                // Fetch assembled ideas for on_session_start — reuses the
+                                // read-only trigger_event path (no record_fire, same as preflight).
+                                // The old "assemble_ideas" cmd never had a daemon handler, so this
+                                // field silently came back empty despite the tool advertising it.
                                 let ideas_resp = ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
-                                        "cmd": "assemble_ideas",
+                                        "cmd": "trigger_event",
                                         "agent": agent_hint,
+                                        "pattern": "session:start",
                                     }),
                                 );
                                 // Fetch agent's events.
