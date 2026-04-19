@@ -118,6 +118,31 @@ impl SqliteIdeas {
         Self::ensure_fts(conn)?;
         Self::ensure_edge_table(conn)?;
         VectorStore::open(conn, 1536)?;
+        Self::backfill_content_hash(conn)?;
+        Ok(())
+    }
+
+    /// One-time backfill: ideas rows inserted before content_hash was
+    /// populated have a NULL value. Compute and write the hash so stale-
+    /// embedding detection can compare current-content hash against the
+    /// last-embedded hash in idea_embeddings.
+    fn backfill_content_hash(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("SELECT id, content FROM ideas WHERE content_hash IS NULL")?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(Result::ok)
+            .collect();
+        drop(stmt);
+
+        for (id, content) in rows {
+            let hash = Self::content_hash(&content);
+            conn.execute(
+                "UPDATE ideas SET content_hash = ?1 WHERE id = ?2",
+                rusqlite::params![hash, id],
+            )?;
+        }
         Ok(())
     }
 
@@ -1105,12 +1130,20 @@ impl IdeaStore for SqliteIdeas {
 
             let id = uuid::Uuid::new_v4().to_string();
             let now = Utc::now().to_rfc3339();
+            let initial_hash = Self::content_hash(&content_owned);
 
             let conn = this.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             conn.execute(
-                "INSERT INTO ideas (id, name, content, agent_id, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                rusqlite::params![id, key_owned, content_owned, agent_id_owned, now],
+                "INSERT INTO ideas (id, name, content, agent_id, created_at, content_hash)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    id,
+                    key_owned,
+                    content_owned,
+                    agent_id_owned,
+                    now,
+                    initial_hash
+                ],
             )?;
 
             // Insert all tags into the junction table.
@@ -1266,9 +1299,11 @@ impl IdeaStore for SqliteIdeas {
                     )?;
                 }
                 if let Some(ref content) = content {
+                    let new_hash = Self::content_hash(content);
                     conn.execute(
-                        "UPDATE ideas SET content = ?1, updated_at = ?2 WHERE id = ?3",
-                        rusqlite::params![content, &now, &id_for_update],
+                        "UPDATE ideas SET content = ?1, updated_at = ?2, content_hash = ?3 \
+                         WHERE id = ?4",
+                        rusqlite::params![content, &now, new_hash, &id_for_update],
                     )?;
                 }
                 if let Some(ref tags) = tags_owned {
