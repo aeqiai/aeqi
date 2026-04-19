@@ -329,14 +329,21 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 }
             };
 
-            // Collect base tools for the scheduler (union of project tools).
-            let scheduler_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> =
-                if let Some(first) = config.agent_spawns.first() {
-                    let workdir = config.resolve_repo(&first.repo);
-                    build_tools(&workdir)
-                } else {
-                    Vec::new()
-                };
+            // Build tools against the first configured agent_spawn's repo, or
+            // fall back to the daemon's current working directory. Shipping
+            // workers with an empty tool set leaves the LLM unable to read or
+            // write files — the exact kind of opinionated-runtime leak Track E
+            // hunts for.
+            let scheduler_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = {
+                let workdir = config
+                    .agent_spawns
+                    .first()
+                    .map(|first| config.resolve_repo(&first.repo))
+                    .unwrap_or_else(|| {
+                        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                    });
+                build_tools(&workdir)
+            };
 
             let metrics = Arc::new(AEQIMetrics::new());
 
