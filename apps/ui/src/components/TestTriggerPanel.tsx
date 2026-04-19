@@ -18,6 +18,14 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
   const isGlobal = event.agent_id == null;
   const [pickedAgentId, setPickedAgentId] = useState(agentId ?? "");
 
+  const template = event.query_template ?? "";
+  const needsQuestDescription = template.includes("{quest_description}");
+  const needsUserPrompt = template.includes("{user_prompt}");
+  const needsToolOutput = template.includes("{tool_output}");
+  const [questDescription, setQuestDescription] = useState("");
+  const [userPrompt, setUserPrompt] = useState("");
+  const [toolOutput, setToolOutput] = useState("");
+
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<{
     system_prompt: string;
@@ -36,7 +44,21 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
     setError(null);
     setResult(null);
     try {
-      const data = await api.triggerEvent({ agent_id: effectiveAgentId.trim() }, event.pattern);
+      const extra: Record<string, unknown> = {};
+      if (needsQuestDescription && questDescription.trim()) {
+        extra.quest_description = questDescription.trim();
+      }
+      if (needsUserPrompt && userPrompt.trim()) {
+        extra.user_prompt = userPrompt.trim();
+      }
+      if (needsToolOutput && toolOutput.trim()) {
+        extra.tool_output = toolOutput.trim();
+      }
+      const data = await api.triggerEvent(
+        { agent_id: effectiveAgentId.trim() },
+        event.pattern,
+        Object.keys(extra).length > 0 ? extra : undefined,
+      );
       setResult({
         system_prompt: data.system_prompt,
         matched_events: (data.matched_events ?? []) as Array<{ name: string; pattern: string }>,
@@ -146,6 +168,50 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {(needsQuestDescription || needsUserPrompt || needsToolOutput) && (
+        <div style={{ marginBottom: 10 }}>
+          <div
+            style={{
+              fontSize: "var(--font-size-2xs)",
+              color: "var(--color-text-muted)",
+              marginBottom: 6,
+            }}
+          >
+            Template placeholders — fill these to simulate production context.
+          </div>
+          {needsQuestDescription && (
+            <input
+              className="agent-settings-input"
+              type="text"
+              placeholder="quest_description"
+              value={questDescription}
+              style={{ width: "100%", marginBottom: 6 }}
+              onChange={(e) => setQuestDescription(e.target.value)}
+            />
+          )}
+          {needsUserPrompt && (
+            <input
+              className="agent-settings-input"
+              type="text"
+              placeholder="user_prompt"
+              value={userPrompt}
+              style={{ width: "100%", marginBottom: 6 }}
+              onChange={(e) => setUserPrompt(e.target.value)}
+            />
+          )}
+          {needsToolOutput && (
+            <input
+              className="agent-settings-input"
+              type="text"
+              placeholder="tool_output"
+              value={toolOutput}
+              style={{ width: "100%", marginBottom: 6 }}
+              onChange={(e) => setToolOutput(e.target.value)}
+            />
+          )}
         </div>
       )}
 
