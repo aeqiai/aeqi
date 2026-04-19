@@ -15,6 +15,7 @@ pub fn routes() -> Router<AppState> {
         .route("/quests", get(quests).post(create_quest))
         .route("/quests/{id}", get(get_quest).put(update_quest))
         .route("/quests/{id}/close", post(close_quest))
+        .route("/quests/{id}/traces", get(quest_traces))
         .route(
             "/quests/presets/feature-dev",
             post(create_feature_dev_preset),
@@ -85,6 +86,31 @@ async fn close_quest(
         scope.as_ref(),
         "close_quest",
         merge_path_id(body, "quest_id", id),
+    )
+    .await
+}
+
+/// Return every captured tool-call trace for sessions bound to this quest.
+///
+/// This is the read-side of the closed learning loop (quest `lu-005`).
+/// The response shape is `{ok, quest_id, count, traces}` where each
+/// trace is `{session_id, tool_name, tool_use_id, success, input_preview,
+/// output_preview, duration_ms, timestamp}`.
+///
+/// Demo:
+/// ```text
+/// curl -s http://localhost:8443/api/quests/lu-005/traces
+/// ```
+async fn quest_traces(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "quest_traces",
+        serde_json::json!({"id": id}),
     )
     .await
 }

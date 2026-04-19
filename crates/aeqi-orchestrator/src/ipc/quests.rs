@@ -548,3 +548,55 @@ pub async fn handle_close_quest(
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
+
+/// Return every `tool_complete` trace captured across sessions bound to a quest.
+///
+/// This is the read-side of the closed learning loop (quest `lu-005`): it
+/// gives callers an ordered stream of tool invocations — tool_name, args,
+/// result preview, duration — that happened inside the quest's sessions.
+/// A downstream pass can group the traces by `tool_name` to synthesise
+/// candidate skills.
+pub async fn handle_quest_traces(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let quest_id = request
+        .get("id")
+        .or_else(|| request.get("quest_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if quest_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id is required"});
+    }
+
+    if allowed.is_some() {
+        let ok = match ctx.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => match q.agent_id.as_deref() {
+                Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
+                None => false,
+            },
+            _ => false,
+        };
+        if !ok {
+            return serde_json::json!({"ok": false, "error": "access denied"});
+        }
+    }
+
+    let Some(ref session_store) = ctx.session_store else {
+        return serde_json::json!({
+            "ok": false,
+            "error": "session store not configured",
+        });
+    };
+
+    match session_store.tool_traces_for_quest(quest_id).await {
+        Ok(traces) => serde_json::json!({
+            "ok": true,
+            "quest_id": quest_id,
+            "count": traces.len(),
+            "traces": traces,
+        }),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}

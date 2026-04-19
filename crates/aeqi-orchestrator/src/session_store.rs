@@ -51,6 +51,25 @@ pub struct ThreadEvent {
     pub transport: Option<String>,
 }
 
+/// A tool-call trace extracted from a quest's sessions — the read-side
+/// primitive for the closed learning loop. Each row corresponds to one
+/// completed tool invocation inside a session linked to the given quest.
+///
+/// The shape matches the `tool_complete` metadata already persisted in
+/// `session_messages` by the orchestrator's chat-stream consumer, so no
+/// new emission site is required.
+#[derive(Debug, Clone, Serialize)]
+pub struct ToolTrace {
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_use_id: Option<String>,
+    pub success: Option<bool>,
+    pub input_preview: Option<String>,
+    pub output_preview: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub timestamp: DateTime<Utc>,
+}
+
 /// A sender identity — who sent a message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sender {
@@ -710,6 +729,73 @@ impl SessionStore {
         let mut events = rows;
         events.reverse();
         Ok(events)
+    }
+
+    /// Extract tool-call traces for every session linked to a quest.
+    ///
+    /// This is the read-side of the closed learning loop: it joins
+    /// `sessions.quest_id` against `session_messages` for rows where
+    /// `event_type = 'tool_complete'` and unpacks the metadata blob that
+    /// the chat-stream consumer wrote when the tool finished executing.
+    ///
+    /// Returns traces in chronological order across all sessions for the
+    /// quest. Callers can group by `tool_name` to produce candidate
+    /// skills, or feed the full stream into a summariser.
+    pub async fn tool_traces_for_quest(&self, quest_id: &str) -> Result<Vec<ToolTrace>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT sm.session_id, sm.content, sm.timestamp, sm.metadata \
+             FROM session_messages sm \
+             JOIN sessions s ON sm.session_id = s.id \
+             WHERE s.quest_id = ?1 AND sm.event_type = 'tool_complete' AND sm.summarized = 0 \
+             ORDER BY sm.id ASC",
+        )?;
+
+        let rows = stmt
+            .query_map(params![quest_id], |row| {
+                let session_id: Option<String> = row.get(0)?;
+                let tool_name_fallback: String = row.get(1)?;
+                let ts_str: String = row.get(2)?;
+                let metadata_text: Option<String> = row.get(3)?;
+
+                let metadata: Option<serde_json::Value> = metadata_text
+                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+
+                let str_from = |key: &str| -> Option<String> {
+                    metadata
+                        .as_ref()
+                        .and_then(|m| m.get(key))
+                        .and_then(|v| v.as_str().map(|s| s.to_string()))
+                };
+                let bool_from = |key: &str| -> Option<bool> {
+                    metadata
+                        .as_ref()
+                        .and_then(|m| m.get(key))
+                        .and_then(|v| v.as_bool())
+                };
+                let u64_from = |key: &str| -> Option<u64> {
+                    metadata
+                        .as_ref()
+                        .and_then(|m| m.get(key))
+                        .and_then(|v| v.as_u64())
+                };
+
+                Ok(ToolTrace {
+                    session_id: session_id.unwrap_or_default(),
+                    tool_name: str_from("tool_name").unwrap_or(tool_name_fallback),
+                    tool_use_id: str_from("tool_use_id"),
+                    success: bool_from("success"),
+                    input_preview: str_from("input_preview"),
+                    output_preview: str_from("output_preview"),
+                    duration_ms: u64_from("duration_ms"),
+                    timestamp: DateTime::parse_from_rfc3339(&ts_str)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now()),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(rows)
     }
 
     /// List sessions, optionally filtered by agent_id.
@@ -1686,5 +1772,90 @@ mod tests {
 
         let session = store.get_session(&session_id).await.unwrap().unwrap();
         assert_eq!(session.first_message.as_deref(), Some("My first message"));
+    }
+
+    #[tokio::test]
+    async fn tool_traces_for_quest_groups_across_sessions() {
+        let store = test_store().await;
+
+        // Two sessions for the same quest, one unrelated session for control.
+        let s_quest_a = store
+            .create_session("a1", "web", "quest-session-a", None, Some("lu-42"))
+            .await
+            .unwrap();
+        let s_quest_b = store
+            .create_session("a1", "web", "quest-session-b", None, Some("lu-42"))
+            .await
+            .unwrap();
+        let s_other = store
+            .create_session("a1", "web", "other", None, Some("lu-99"))
+            .await
+            .unwrap();
+
+        // Two tool completions in session A, one in B, one in the unrelated session.
+        let write_trace = async |sid: &str, tool: &str, success: bool, dur: u64| {
+            store
+                .record_event_by_session(
+                    sid,
+                    "tool_complete",
+                    "system",
+                    tool,
+                    Some("session"),
+                    Some(&serde_json::json!({
+                        "tool_use_id": format!("tu_{tool}"),
+                        "tool_name": tool,
+                        "success": success,
+                        "input_preview": format!("input for {tool}"),
+                        "output_preview": format!("output from {tool}"),
+                        "duration_ms": dur,
+                    })),
+                )
+                .await
+                .unwrap();
+        };
+        write_trace(&s_quest_a, "edit_file", true, 12).await;
+        write_trace(&s_quest_a, "read_file", true, 3).await;
+        write_trace(&s_quest_b, "run_tests", false, 4200).await;
+        write_trace(&s_other, "edit_file", true, 9).await;
+
+        // A non-tool event in the quest's session — should be ignored.
+        store
+            .record_event_by_session(
+                &s_quest_a,
+                "message",
+                "user",
+                "unrelated user message",
+                Some("web"),
+                None,
+            )
+            .await
+            .unwrap();
+
+        let traces = store.tool_traces_for_quest("lu-42").await.unwrap();
+        assert_eq!(
+            traces.len(),
+            3,
+            "expected 3 traces across the quest's sessions"
+        );
+        let tool_names: Vec<&str> = traces.iter().map(|t| t.tool_name.as_str()).collect();
+        assert!(tool_names.contains(&"edit_file"));
+        assert!(tool_names.contains(&"read_file"));
+        assert!(tool_names.contains(&"run_tests"));
+        assert!(!tool_names.iter().any(|n| *n == "unrelated user message"));
+
+        // Metadata is unpacked.
+        let run_tests = traces
+            .iter()
+            .find(|t| t.tool_name == "run_tests")
+            .expect("run_tests trace present");
+        assert_eq!(run_tests.success, Some(false));
+        assert_eq!(run_tests.duration_ms, Some(4200));
+        assert_eq!(run_tests.tool_use_id.as_deref(), Some("tu_run_tests"));
+        assert_eq!(run_tests.session_id, s_quest_b);
+
+        // Traces for the unrelated quest are isolated.
+        let other = store.tool_traces_for_quest("lu-99").await.unwrap();
+        assert_eq!(other.len(), 1);
+        assert_eq!(other[0].tool_name, "edit_file");
     }
 }

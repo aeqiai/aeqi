@@ -1074,6 +1074,9 @@ impl Daemon {
                 "close_quest" => {
                     crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_roots).await
                 }
+                "quest_traces" => {
+                    crate::ipc::quests::handle_quest_traces(&ctx, &request, &allowed_roots).await
+                }
 
                 "chat" => crate::ipc::chat::handle_chat(&ctx, &request, &allowed_roots).await,
                 "session_message" => {
