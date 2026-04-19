@@ -3,15 +3,12 @@
  * (favicons, app icons, agent surfaces, dense lists). The "i" is dropped;
  * what remains is the runtime's identity in a single glyph.
  *
- * Canonical brand spec (see aeqi-landing /brand):
- *   Typeface  Inter
- *   Weight    700
- *   Tracking  -0.05em
- *   Color     rgba(0, 0, 0, 0.5)
- *
- * Default color is the canonical 50% black so dropping <BrandMark /> into
- * any surface yields the brand-correct shade without callers having to
- * remember it. Pass `color="currentColor"` to inherit from the parent.
+ * Canonical brand spec:
+ *   Typeface  Zen Dots (var(--font-brand)) — reserved for the wordmark only.
+ *   Weight    400 (Zen Dots ships a single weight)
+ *   Color     rgba(0, 0, 0, 0.5) by default so dropping <BrandMark /> into
+ *             any surface yields the brand-correct shade without callers
+ *             having to remember it. Pass `color="currentColor"` to inherit.
  */
 export default function BrandMark({
   size = 18,
@@ -26,10 +23,10 @@ export default function BrandMark({
     <span
       className={className}
       style={{
-        fontFamily: "var(--font-sans)",
+        fontFamily: "var(--font-brand)",
         fontSize: size,
-        fontWeight: 700,
-        letterSpacing: "-0.05em",
+        fontWeight: 400,
+        letterSpacing: "-0.02em",
         color,
         lineHeight: 1,
         display: "inline-block",

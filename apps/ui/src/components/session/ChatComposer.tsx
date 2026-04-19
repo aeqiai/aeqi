@@ -186,18 +186,20 @@ export default function ChatComposer({
                   </svg>
                 </IconButton>
               </div>
-              {streaming && !input.trim() ? (
-                <button className="asv-send busy" onClick={onStop} title="Stop execution">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="3" y="3" width="10" height="10" rx="2" />
-                  </svg>
-                  <span className="asv-send-label">Stop</span>
-                </button>
-              ) : (
+              <div className="asv-send-stack">
+                {streaming && (
+                  <button className="asv-send busy" onClick={onStop} title="Stop execution">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                      <rect x="3" y="3" width="10" height="10" rx="2" />
+                    </svg>
+                    <span className="asv-send-label">Stop</span>
+                  </button>
+                )}
                 <button
                   className={`asv-send ${input.trim() ? "ready" : ""}`}
                   onClick={onSend}
                   disabled={!input.trim()}
+                  title={streaming ? "Queue message" : "Send"}
                 >
                   <svg
                     width="14"
@@ -213,9 +215,9 @@ export default function ChatComposer({
                       strokeLinejoin="round"
                     />
                   </svg>
-                  <span className="asv-send-label">Send</span>
+                  <span className="asv-send-label">{streaming ? "Queue" : "Send"}</span>
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>

@@ -29,8 +29,8 @@
 
 .secondary {
   background: var(--color-bg-base);
-  border-color: var(--color-border);
-  color: var(--color-text-primary);
+  border-color: var(--btn-secondary-border, var(--color-border));
+  color: var(--btn-secondary-text, var(--color-text-primary));
 }
 
 .secondary:hover {
@@ -39,13 +39,14 @@
 }
 
 .primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg-base);
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
 }
 
 .primary:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--btn-primary-bg-hover);
+  border-color: var(--btn-primary-bg-hover);
   box-shadow: var(--shadow-md);
 }
 

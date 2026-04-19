@@ -1,16 +1,14 @@
 /**
- * Wordmark — the full æqi wordmark with the shifted "i".
+ * Wordmark — the full æqi wordmark.
  *
- * Canonical brand spec (see aeqi-landing /brand):
- *   Typeface  Inter
- *   Weight    700
- *   Tracking  -0.05em
- *   i offset  translateY(0.05em)
- *   Color     rgba(0, 0, 0, 0.5)
+ * Canonical brand spec:
+ *   Typeface  Zen Dots (var(--font-brand)) — reserved for the wordmark only.
+ *   Weight    400 (Zen Dots ships a single weight)
+ *   Color     currentColor by default — pass `color` to pin the shade.
  *
- * Default color is `currentColor` so the mark inherits from its parent,
- * letting callers drive hover/focus transitions with regular CSS.
- * Pass `color` explicitly (e.g. auth pages) to pin the shade.
+ * Zen Dots has an engineered, block-like silhouette, so the Inter-era
+ * negative tracking and translated "i" are dropped; the geometry of the
+ * typeface is the identity.
  */
 export default function Wordmark({
   size = 18,
@@ -25,15 +23,15 @@ export default function Wordmark({
     <span
       className={className}
       style={{
-        fontFamily: "var(--font-sans)",
+        fontFamily: "var(--font-brand)",
         fontSize: size,
-        fontWeight: 700,
-        letterSpacing: "-0.05em",
+        fontWeight: 400,
+        letterSpacing: "-0.02em",
         color,
         lineHeight: 1,
       }}
     >
-      æq<span style={{ display: "inline-block", transform: "translateY(0.05em)" }}>i</span>
+      æqi
     </span>
   );
 }

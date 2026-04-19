@@ -104,8 +104,20 @@
   --input-border-focus: var(--border-hover);
   --input-ring-focus: var(--ring-muted);
 
-  /* Brand font alias */
-  --font-brand: var(--font-sans);
+  /* Brand font — Zen Dots, used ONLY on the æqi wordmark. */
+  --font-brand: "Zen Dots", system-ui, sans-serif;
+
+  /* Display font — Cinzel, used on page titles, hero headings, and
+     marquee moments. Rendered in --text-primary, never in accent. */
+  --font-display: "Cinzel", Georgia, serif;
+
+  /* CTA button tokens — vermillion primary, ink secondary. */
+  --btn-primary-bg: var(--color-accent);
+  --btn-primary-bg-hover: #c03007;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: transparent;
+  --btn-secondary-text: var(--text-primary);
+  --btn-secondary-border: var(--border);
 
   /* Extra font size not in shared tokens */
   --font-size-micro: 0.6875rem; /* 11px */
@@ -126,7 +138,7 @@
      pill for IDs, and a consistent date-section heading style. */
 
   /* Left accent bars — 2px colored rails on in-progress / running rows */
-  --accent-bar-running: var(--info);
+  --accent-bar-running: var(--color-accent);
   --accent-bar-blocked: var(--warning);
   --accent-bar-done: var(--success);
 

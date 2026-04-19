@@ -2230,6 +2230,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  margin-top: 8px;
+}
+.ideas-canvas-footer:has(.ideas-canvas-actions) {
   padding-top: 12px;
   margin-top: 12px;
   border-top: 1px solid var(--border);

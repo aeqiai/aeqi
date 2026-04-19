@@ -108,15 +108,16 @@ export default function AppLayout() {
 
   // URL points at an agent that no longer exists (e.g., after a data reset
   // the stale `aeqi_root` localStorage still referenced it). Drop the stale
-  // pointer and bounce: to the first available root, or to onboarding if
-  // there are none at all.
+  // pointer and bounce to the entity picker — never to /new directly, which
+  // can create a self-sustaining loop when a placement exists without a
+  // matching runtime agent.
   if (agentId && !currentAgent) {
     localStorage.removeItem("aeqi_root");
     const firstRoot = agents.find((a) => !a.parent_id);
     if (firstRoot) {
       return <Navigate to={`/${encodeURIComponent(firstRoot.id)}`} replace />;
     }
-    return <Navigate to="/new" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const base = `/${encodeURIComponent(agentId)}`;

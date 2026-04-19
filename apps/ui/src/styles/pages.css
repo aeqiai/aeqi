@@ -40,11 +40,11 @@
 }
 
 .auth-heading {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-size: var(--font-size-xl);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: -0.03em;
+  letter-spacing: 0.01em;
   margin: 0 0 var(--space-1);
   line-height: 1.2;
 }
@@ -1044,7 +1044,7 @@
 }
 
 .hero-stat-value {
-  font-family: var(--font-brand);
+  font-family: var(--font-sans);
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -1892,7 +1892,7 @@
 
 .key-new-banner {
   background: var(--bg-elevated);
-  border: 1px solid var(--accent, #3b82f6);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
   margin: var(--space-4) 0;
@@ -2016,7 +2016,7 @@
 }
 
 .key-link {
-  color: var(--accent, #3b82f6);
+  color: var(--accent);
   text-decoration: none;
 }
 .key-link:hover {
