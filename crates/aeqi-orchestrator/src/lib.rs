@@ -18,6 +18,7 @@ pub mod daemon;
 pub mod escalation;
 pub mod event_handler;
 pub mod event_matcher;
+pub mod event_validation;
 pub mod executor;
 pub mod failure_analysis;
 pub mod file_store;

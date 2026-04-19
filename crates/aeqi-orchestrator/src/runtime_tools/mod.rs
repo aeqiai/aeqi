@@ -24,10 +24,11 @@ pub use session_status::SessionStatusTool;
 pub use transcript_inject::TranscriptInjectTool;
 pub use transcript_replace_middle::TranscriptReplaceMiddleTool;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use aeqi_core::tool_registry::{CallerKind, ToolRegistry};
-use aeqi_core::traits::{IdeaStore, Tool};
+use aeqi_core::traits::{IdeaStore, Tool, ToolSpec};
 
 use crate::session_store::SessionStore;
 
@@ -89,6 +90,20 @@ pub fn build_runtime_registry_with_spawn(
     // session.spawn: LLM can spawn sessions (for delegation); events can too.
 
     reg
+}
+
+/// Return the `ToolSpec` for every runtime tool, keyed by tool name.
+///
+/// This is the authoritative source of runtime tool schemas, used by the event
+/// editor to validate `tool_calls[].args` at save time. Built from a stub
+/// registry (no idea/session/spawn deps) since we only need the specs —
+/// execute() is never called.
+pub fn runtime_tool_specs() -> HashMap<String, ToolSpec> {
+    let reg = build_runtime_registry(None, None);
+    reg.all_tools()
+        .into_iter()
+        .map(|t| (t.name().to_string(), t.spec()))
+        .collect()
 }
 
 /// Caller ACL check helper used in tool execute() impls to surface clean errors

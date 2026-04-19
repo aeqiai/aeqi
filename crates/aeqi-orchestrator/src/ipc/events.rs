@@ -2,6 +2,7 @@
 
 use super::request_field;
 use crate::event_handler::{NewEvent, ToolCall};
+use crate::event_validation::validate_tool_calls;
 
 pub async fn handle_list_events(
     ctx: &super::CommandContext,
@@ -78,6 +79,10 @@ pub async fn handle_create_event(
 
     let tool_calls = parse_tool_calls(request);
 
+    if let Err(error) = validate_tool_calls(&tool_calls) {
+        return serde_json::json!({"ok": false, "error": error});
+    }
+
     let new_event = NewEvent {
         agent_id: agent_id_opt,
         name: name.to_string(),
@@ -147,6 +152,12 @@ pub async fn handle_update_event(
     } else {
         None
     };
+
+    if let Some(ref calls) = tool_calls_opt
+        && let Err(error) = validate_tool_calls(calls)
+    {
+        return serde_json::json!({"ok": false, "error": error});
+    }
 
     // Check if any field is provided at all.
     if enabled.is_none()
@@ -280,6 +291,30 @@ pub async fn handle_trigger_event(
         "system_prompt": system_prompt,
         "matched_events": event_items,
     })
+}
+
+/// Return the input schemas for every runtime tool so the event editor can
+/// validate `tool_calls[].args` client-side and offer autocomplete. Takes no
+/// parameters — it's a read of a static table built from the tool registry.
+pub async fn handle_list_tools(_request: &serde_json::Value) -> serde_json::Value {
+    let specs = crate::runtime_tools::runtime_tool_specs();
+    let mut tools: Vec<serde_json::Value> = specs
+        .into_iter()
+        .map(|(name, spec)| {
+            serde_json::json!({
+                "name": name,
+                "description": spec.description,
+                "input_schema": spec.input_schema,
+            })
+        })
+        .collect();
+    tools.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+    serde_json::json!({"ok": true, "tools": tools})
 }
 
 /// List recent invocations for a session, optionally with full step detail.

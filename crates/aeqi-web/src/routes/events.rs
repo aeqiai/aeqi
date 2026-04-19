@@ -19,6 +19,11 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/events/trigger", post(trigger_event))
         .route("/events/trace", get(list_trace).post(get_trace_detail))
+        .route("/tools", get(list_tools))
+}
+
+async fn list_tools(State(state): State<AppState>, scope: Scope) -> Response {
+    ipc_proxy(state, scope.as_ref(), "list_tools", serde_json::json!({})).await
 }
 
 #[derive(Deserialize, Default)]

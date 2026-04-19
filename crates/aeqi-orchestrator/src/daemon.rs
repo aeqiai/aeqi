@@ -1232,6 +1232,7 @@ impl Daemon {
                 "trace_events" => {
                     crate::ipc::events::handle_trace_events(&ctx, &request, &allowed_roots).await
                 }
+                "list_tools" => crate::ipc::events::handle_list_tools(&request).await,
 
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_roots).await
