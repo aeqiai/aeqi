@@ -318,13 +318,17 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      {selected.fire_count > 0 && (
-        <div className="events-detail-stats">
-          Fired {selected.fire_count} times
-          {selected.last_fired ? ` · last ${new Date(selected.last_fired).toLocaleString()}` : ""}
-          {selected.total_cost_usd > 0 ? ` · $${selected.total_cost_usd.toFixed(4)} total` : ""}
-        </div>
-      )}
+      <div className="events-detail-stats">
+        {selected.fire_count > 0 ? (
+          <>
+            Fired {selected.fire_count} time{selected.fire_count === 1 ? "" : "s"}
+            {selected.last_fired ? ` · last ${new Date(selected.last_fired).toLocaleString()}` : ""}
+            {selected.total_cost_usd > 0 ? ` · $${selected.total_cost_usd.toFixed(4)} total` : ""}
+          </>
+        ) : (
+          <span style={{ color: "rgba(0,0,0,0.45)" }}>Never fired</span>
+        )}
+      </div>
 
       {!isGlobal && (
         <EventQueryTemplateEditor

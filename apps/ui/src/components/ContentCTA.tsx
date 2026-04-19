@@ -236,12 +236,18 @@ export default function ContentCTA() {
       items = events.map((ev) => {
         const transport = eventTransport(ev);
         const isGlobal = ev.agent_id == null;
+        const meta =
+          ev.fire_count > 0
+            ? `${ev.fire_count} fire${ev.fire_count === 1 ? "" : "s"}`
+            : ev.idea_ids.length > 0
+              ? `${ev.idea_ids.length} ideas`
+              : undefined;
         return {
           id: ev.id,
           name: eventLabel(ev),
           badge: isGlobal ? "GLOBAL" : transport || undefined,
           preview: ev.pattern,
-          meta: ev.idea_ids.length > 0 ? `${ev.idea_ids.length} ideas` : undefined,
+          meta,
           dimmed: !ev.enabled,
         };
       });
