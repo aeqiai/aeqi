@@ -1682,7 +1682,12 @@ impl Agent {
             // --- Collect enrichments from observers ---
             let attachments = self.observer.collect_attachments(iterations).await;
             if !attachments.is_empty() {
-                Self::inject_enrichments(&mut messages, attachments, &self.config);
+                let injected = Self::inject_enrichments(&mut messages, attachments, &self.config);
+                for (source, tokens) in injected {
+                    self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                        message: format!("enrichment injected: {source} (~{tokens} tokens)"),
+                    });
+                }
             }
 
             // --- Drain background agent notifications ---
@@ -2281,9 +2286,10 @@ impl Agent {
         messages: &mut Vec<Message>,
         attachments: Vec<ContextAttachment>,
         config: &AgentConfig,
-    ) {
+    ) -> Vec<(String, u32)> {
         let global_budget = (config.context_window as usize) / 20; // 5% of window
         let mut total_tokens = 0usize;
+        let mut injected: Vec<(String, u32)> = Vec::new();
 
         for att in &attachments {
             let att_tokens = att.content.len() / CHARS_PER_TOKEN;
@@ -2314,6 +2320,7 @@ impl Agent {
                 content: MessageContent::text(content),
             });
             total_tokens += capped;
+            injected.push((att.source.clone(), capped as u32));
         }
 
         if total_tokens > 0 {
@@ -2322,6 +2329,8 @@ impl Agent {
                 total_tokens, "mid-step enrichments injected"
             );
         }
+
+        injected
     }
 
     // -----------------------------------------------------------------------
