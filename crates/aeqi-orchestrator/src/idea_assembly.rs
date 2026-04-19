@@ -846,4 +846,61 @@ mod tests {
         let out = expand_template("hello {unterminated", &ctx);
         assert_eq!(out, "hello {unterminated");
     }
+
+    /// Hygiene guard for the observability-as-a-feature invariant:
+    /// every production use of `assembled.fired_event_ids` (or the
+    /// tuple-returning `assemble_step_ideas_for_worker`) must either
+    /// (a) feed the ids into `record_fire` so the Events UI stays
+    /// honest, or (b) live in a dry-run / preview path that is
+    /// explicitly exempt (preflight, test-trigger, tests).
+    ///
+    /// This test scans `crates/aeqi-orchestrator/src` for consumers
+    /// of `fired_event_ids` (or `step_fire_ids`) and asserts that
+    /// each consumer file either contains a `record_fire(` call or
+    /// is listed in `DRY_RUN_PATHS`. If someone introduces a new
+    /// legitimate firing path without wiring `record_fire`, this
+    /// catches it at build time — same regression shape as the
+    /// original silent-telemetry leak.
+    #[test]
+    fn fired_event_ids_consumers_are_paired_with_record_fire() {
+        const DRY_RUN_PATHS: &[&str] = &["ipc/events.rs", "ipc/quests.rs", "idea_assembly.rs"];
+        let src_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut offenders: Vec<String> = Vec::new();
+        let mut stack = vec![src_root.clone()];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                    continue;
+                }
+                let content = std::fs::read_to_string(&path).unwrap();
+                let uses_fired_ids =
+                    content.contains(".fired_event_ids") || content.contains("step_fire_ids");
+                if !uses_fired_ids {
+                    continue;
+                }
+                let has_record_fire = content.contains("record_fire(");
+                let rel = path
+                    .strip_prefix(&src_root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let is_dry_run = DRY_RUN_PATHS.iter().any(|p| rel.ends_with(p));
+                if !has_record_fire && !is_dry_run {
+                    offenders.push(rel);
+                }
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "files consume `fired_event_ids`/`step_fire_ids` without a paired `record_fire` call \
+             and are not on the dry-run allowlist: {offenders:?}. \
+             Either wire `record_fire` for every contributing event, or add the file to \
+             DRY_RUN_PATHS in this test with a comment explaining why it's a preview/dry-run path."
+        );
+    }
 }
