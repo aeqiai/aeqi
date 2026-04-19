@@ -391,50 +391,75 @@ impl EventHandlerStore {
 /// Seed global lifecycle events. One row per lifecycle phase, agent_id = NULL.
 /// Every agent inherits these via `list_for_agent` / `get_events_for_pattern`.
 /// Idempotent: safe to call at every boot.
+/// `(name, pattern, idea_key, idea_content, query_template, query_top_k)`.
+type LifecycleSeed = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    Option<u32>,
+);
+
 pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<()> {
-    // (event_name, pattern, idea_key, idea_content)
-    let defaults: &[(&str, &str, &str, &str)] = &[
+    let defaults: &[LifecycleSeed] = &[
         (
             "on_session_start",
             "session:start",
             "session:start",
             "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
+            None,
+            None,
         ),
         (
             "on_quest_start",
             "session:quest_start",
             "session:quest-start",
             "A quest has been assigned to you. You own it end-to-end inside its worktree.\n\nWork the quest: understand the ask, make the change, verify it, and close the quest with a summary when done. Spawn sub-agents, commit, and iterate without asking for mid-quest approval — the assignment is the authorization.\n\nIf you are truly blocked (missing credential, unreachable external service, or a decision only a human can make), close with status `blocked` and a specific question. Ambiguity in the spec is not blocked — make the best call and keep moving.",
+            // Surfaces promoted skills relevant to the quest — the read-side of the
+            // closed learning loop (lu-005). Empty quest_description falls through
+            // to a plain "skill promoted" search, which still ranks promoted
+            // skill ideas over unrelated content.
+            Some("skill promoted {quest_description}"),
+            Some(5),
         ),
         (
             "on_quest_end",
             "session:quest_end",
             "session:quest-end",
             "You are closing a quest. Summarize the outcome, note any concerns a reviewer should look at, and — if you learned something reusable — store it as an idea so the next quest benefits.",
+            None,
+            None,
         ),
         (
             "on_quest_result",
             "session:quest_result",
             "session:quest-result",
             "A quest you delegated has completed and the result is available. Review the summary and the diff, decide what to do next, and create follow-up quests if the work isn't done.",
+            None,
+            None,
         ),
         (
             "on_execution_start",
             "session:execution_start",
             "session:execution-start",
             "",
+            None,
+            None,
         ),
         (
             "on_step_start",
             "session:step_start",
             "session:step-start",
             "",
+            None,
+            None,
         ),
     ];
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    for &(name, pattern, idea_key, idea_content) in defaults {
+    for &(name, pattern, idea_key, idea_content, query_template, query_top_k) in defaults {
         // Seed ideas are globals (agent_id IS NULL) — one row total, shared by
         // every agent's lifecycle events. Resolve-or-create the canonical row,
         // then overwrite its content so code is the source of truth on every boot.
@@ -479,12 +504,26 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 name: name.to_string(),
                 pattern: pattern.to_string(),
                 idea_ids: vec![idea_id],
-                query_template: None,
-                query_top_k: None,
+                query_template: query_template.map(str::to_string),
+                query_top_k,
                 cooldown_secs: 0,
                 system: true,
             })
             .await?;
+
+        // create() is INSERT OR IGNORE. Refresh query_template / query_top_k on
+        // system events so existing installs pick up code changes — matching
+        // the "code is the source of truth on every boot" pattern used for
+        // seed idea content above.
+        {
+            let db = store.db.lock().await;
+            db.execute(
+                "UPDATE events SET query_template = ?1, query_top_k = ?2
+                 WHERE agent_id IS NULL AND name = ?3 AND system = 1",
+                rusqlite::params![query_template, query_top_k.map(|k| k as i64), name,],
+            )
+            .map_err(|e| anyhow::anyhow!("failed to refresh seed event {name}: {e}"))?;
+        }
     }
 
     info!("seeded 6 global lifecycle events pointing at global seed ideas");
