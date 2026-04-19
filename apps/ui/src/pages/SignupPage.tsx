@@ -496,7 +496,7 @@ export default function SignupPage() {
       <div className="signup-form-side">
         <div className="auth-container" role="region" aria-live="polite">
           <div className="auth-logo">
-            <Wordmark size={36} color="rgba(0,0,0,0.5)" />
+            <Wordmark size={36} />
           </div>
           {renderForm()}
           <div className="auth-footer">

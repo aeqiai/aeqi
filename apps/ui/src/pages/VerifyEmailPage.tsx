@@ -87,7 +87,7 @@ export default function VerifyEmailPage() {
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-logo">
-          <Wordmark size={48} color="rgba(0,0,0,0.5)" />
+          <Wordmark size={48} />
         </div>
         <h1 className="auth-heading">Check your email</h1>
         <p className="auth-subheading">

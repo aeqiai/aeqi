@@ -6,14 +6,15 @@
  * Canonical brand spec:
  *   Typeface  Zen Dots (var(--font-brand)) — reserved for the wordmark only.
  *   Weight    400 (Zen Dots ships a single weight)
- *   Color     rgba(0, 0, 0, 0.5) by default so dropping <BrandMark /> into
- *             any surface yields the brand-correct shade without callers
- *             having to remember it. Pass `color="currentColor"` to inherit.
+ *   Color     var(--color-accent) (heraldic gold) by default so dropping
+ *             <BrandMark /> into any surface yields the brand-correct shade
+ *             without callers having to remember it. Pass `color="currentColor"`
+ *             to inherit.
  */
 export default function BrandMark({
   size = 18,
   className = "",
-  color = "rgba(0, 0, 0, 0.5)",
+  color = "var(--color-accent)",
 }: {
   size?: number;
   className?: string;

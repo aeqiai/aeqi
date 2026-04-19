@@ -58,7 +58,7 @@ export default function ResetPasswordPage() {
     <main className="auth-page">
       <div className="auth-container">
         <div className="auth-logo">
-          <Wordmark size={36} color="rgba(0,0,0,0.5)" />
+          <Wordmark size={36} />
         </div>
         <h1 className="auth-heading">Reset password</h1>
         <p className="auth-subheading">

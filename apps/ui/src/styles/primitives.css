@@ -13,15 +13,16 @@
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
   /* Backgrounds
-     Dashboard overrides two tokens to establish a cohesive cool
-     palette: the canvas (--bg-elevated) is an opaque cool off-white
-     with a whisper of blue, and the card (--bg-base) is shifted to
-     a matching cool white instead of pure #ffffff. Same temperature
-     family, different elevations — the card reads as "same material,
-     lifted" rather than a spec-sheet white sitting on a tinted canvas. */
-  --bg-base: #fdfeff;
+     Dashboard overrides two tokens to establish a cohesive warm
+     palette: the canvas (--bg-elevated) is an opaque parchment
+     (~8% heraldic gold on white — matches the landing accent-bg),
+     and the card (--bg-base) is shifted to a lighter warm white
+     instead of pure #ffffff. Same temperature family, different
+     elevations — the card reads as "same material, lifted" rather
+     than a spec-sheet white sitting on a tinted canvas. */
+  --bg-base: #fcfaf3;
   --bg-surface: var(--color-bg-surface);
-  --bg-elevated: #f5f7fa;
+  --bg-elevated: #faf6ec;
   --bg-overlay: var(--color-bg-overlay);
 
   /* Legacy background aliases */
@@ -111,9 +112,9 @@
      marquee moments. Rendered in --text-primary, never in accent. */
   --font-display: "Cinzel", Georgia, serif;
 
-  /* CTA button tokens — vermillion primary, ink secondary. */
+  /* CTA button tokens — heraldic gold primary, ink secondary. */
   --btn-primary-bg: var(--color-accent);
-  --btn-primary-bg-hover: #c03007;
+  --btn-primary-bg-hover: var(--color-accent-hover);
   --btn-primary-text: #ffffff;
   --btn-secondary-bg: transparent;
   --btn-secondary-text: var(--text-primary);

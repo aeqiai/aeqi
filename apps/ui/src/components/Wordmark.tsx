@@ -4,7 +4,9 @@
  * Canonical brand spec:
  *   Typeface  Zen Dots (var(--font-brand)) — reserved for the wordmark only.
  *   Weight    400 (Zen Dots ships a single weight)
- *   Color     currentColor by default — pass `color` to pin the shade.
+ *   Color     var(--color-accent) (heraldic gold) by default so the brand
+ *             stays consistent on any surface. Pass `color="currentColor"`
+ *             to inherit, or any explicit value to pin the shade.
  *
  * Zen Dots has an engineered, block-like silhouette, so the Inter-era
  * negative tracking and translated "i" are dropped; the geometry of the
@@ -13,7 +15,7 @@
 export default function Wordmark({
   size = 18,
   className = "",
-  color = "currentColor",
+  color = "var(--color-accent)",
 }: {
   size?: number;
   className?: string;
