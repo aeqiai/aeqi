@@ -14,7 +14,6 @@ pub mod context_compression;
 pub mod cost_tracking;
 pub mod graph_guardrails;
 pub mod guardrails;
-pub mod idea_refresh;
 pub mod loop_detection;
 pub mod safety_net;
 pub mod shell_hooks;
@@ -27,7 +26,6 @@ pub use context_compression::ContextCompressionMiddleware;
 pub use cost_tracking::CostTrackingMiddleware;
 pub use graph_guardrails::GraphGuardrailsMiddleware;
 pub use guardrails::GuardrailsMiddleware;
-pub use idea_refresh::IdeaRefreshMiddleware;
 pub use loop_detection::LoopDetectionMiddleware;
 pub use safety_net::SafetyNetMiddleware;
 pub use shell_hooks::ShellHookMiddleware;
@@ -57,8 +55,6 @@ pub const ORDER_GUARDRAILS: u32 = 200;
 pub const ORDER_LOOP_DETECTION: u32 = 500;
 /// Cost tracking: enforce per-task budget ceilings.
 pub const ORDER_COST_TRACKING: u32 = 600;
-/// Idea refresh: periodic idea re-search during long executions.
-pub const ORDER_IDEA_REFRESH: u32 = 700;
 /// Shell hooks: user-configurable post-step validation via shell commands.
 pub const ORDER_SHELL_HOOKS: u32 = 750;
 /// Safety net: preserve partial work on failure (runs late).

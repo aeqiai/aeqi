@@ -40,7 +40,7 @@ use crate::activity_log::{ActivityLog, EventFilter};
 use crate::metrics::AEQIMetrics;
 use crate::middleware::{
     ClarificationMiddleware, ContextBudgetMiddleware, ContextCompressionMiddleware,
-    CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware, IdeaRefreshMiddleware,
+    CostTrackingMiddleware, GraphGuardrailsMiddleware, GuardrailsMiddleware,
     LoopDetectionMiddleware, MiddlewareChain, SafetyNetMiddleware, ShellHookMiddleware,
 };
 use crate::sandbox::{QuestSandbox, SandboxConfig};
@@ -829,7 +829,6 @@ impl Scheduler {
             )),
             Box::new(GuardrailsMiddleware::with_defaults()),
             Box::new(ContextCompressionMiddleware::new()),
-            Box::new(IdeaRefreshMiddleware::new()),
             Box::new(ClarificationMiddleware::new()),
             Box::new(SafetyNetMiddleware::new()),
         ];

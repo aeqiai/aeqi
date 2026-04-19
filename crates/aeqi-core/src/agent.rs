@@ -821,6 +821,10 @@ impl Agent {
                 }
                 LoopAction::Inject(msgs) => {
                     for msg in msgs {
+                        let preview: String = msg.chars().take(160).collect();
+                        self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                            message: format!("middleware injected system message: {preview}"),
+                        });
                         messages.push(Message {
                             role: Role::System,
                             content: MessageContent::text(&msg),
@@ -1069,6 +1073,12 @@ impl Agent {
                 }
                 LoopAction::Inject(msgs) => {
                     for msg in msgs {
+                        let preview: String = msg.chars().take(160).collect();
+                        self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                            message: format!(
+                                "middleware injected system message after model: {preview}"
+                            ),
+                        });
                         messages.push(Message {
                             role: Role::System,
                             content: MessageContent::text(&msg),
@@ -1151,6 +1161,12 @@ impl Agent {
                             });
                         }
                         for msg in msgs {
+                            let preview: String = msg.chars().take(160).collect();
+                            self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                                message: format!(
+                                    "middleware forced continuation with user message: {preview}"
+                                ),
+                            });
                             messages.push(Message {
                                 role: Role::User,
                                 content: MessageContent::text(&msg),
