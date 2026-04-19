@@ -18,6 +18,7 @@ pub fn routes() -> Router<AppState> {
             axum::routing::put(update_event).delete(delete_event),
         )
         .route("/events/trigger", post(trigger_event))
+        .route("/events/trace", get(list_trace).post(get_trace_detail))
 }
 
 #[derive(Deserialize, Default)]
@@ -71,4 +72,35 @@ async fn trigger_event(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "trigger_event", body).await
+}
+
+#[derive(Deserialize, Default)]
+struct TraceQuery {
+    session_id: Option<String>,
+    limit: Option<u64>,
+}
+
+/// GET /events/trace?session_id=...&limit=... → list invocations for a session.
+async fn list_trace(
+    State(state): State<AppState>,
+    scope: Scope,
+    Query(q): Query<TraceQuery>,
+) -> Response {
+    let mut params = serde_json::json!({});
+    if let Some(session_id) = &q.session_id {
+        params["session_id"] = serde_json::json!(session_id);
+    }
+    if let Some(limit) = q.limit {
+        params["limit"] = serde_json::json!(limit);
+    }
+    ipc_proxy(state, scope.as_ref(), "trace_events", params).await
+}
+
+/// POST /events/trace { invocation_id: int } → full step detail.
+async fn get_trace_detail(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "trace_events", body).await
 }

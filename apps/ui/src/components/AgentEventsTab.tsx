@@ -6,6 +6,7 @@ import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
 import TestTriggerPanel from "./TestTriggerPanel";
 import EventEditor from "./EventEditor";
+import EventTraceTab from "./EventTraceTab";
 import type { AgentEvent } from "@/lib/types";
 
 const NO_EVENTS: AgentEvent[] = [];
@@ -25,6 +26,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
+  const [activeSubTab, setActiveSubTab] = useState<"handlers" | "trace">("handlers");
+  const [traceSessionId, setTraceSessionId] = useState("");
 
   const events = useAgentDataStore((s) => s.eventsByAgent[agentId] ?? NO_EVENTS);
   const loadEvents = useAgentDataStore((s) => s.loadEvents);
@@ -96,6 +99,75 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   };
 
   const selected = events.find((e) => e.id === selectedId);
+
+  if (activeSubTab === "trace") {
+    return (
+      <div
+        className="asv-main"
+        style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 28px 0",
+            borderBottom: "1px solid var(--border-faint)",
+          }}
+        >
+          <button
+            type="button"
+            style={{
+              padding: "4px 10px",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              border: "none",
+              borderBottom: "2px solid transparent",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+            }}
+            onClick={() => setActiveSubTab("handlers")}
+          >
+            Handlers
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "4px 10px",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              border: "none",
+              borderBottom: "2px solid var(--accent)",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-primary)",
+            }}
+          >
+            Trace
+          </button>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <label
+              htmlFor="trace-session-id"
+              style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}
+            >
+              Session ID:
+            </label>
+            <input
+              id="trace-session-id"
+              className="agent-settings-input"
+              type="text"
+              value={traceSessionId}
+              onChange={(e) => setTraceSessionId(e.target.value)}
+              placeholder="paste session id…"
+              style={{ width: 240, fontSize: "var(--font-size-xs)" }}
+            />
+          </div>
+        </div>
+        <EventTraceTab sessionId={traceSessionId} />
+      </div>
+    );
+  }
 
   if (showAddForm) {
     return (
@@ -204,11 +276,58 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   if (!selected) {
     return (
-      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <EmptyState
-          title="Select an event"
-          description="Pick an event from the right to view or edit it."
-        />
+      <div
+        className="asv-main"
+        style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 28px 0",
+            borderBottom: "1px solid var(--border-faint)",
+            flexShrink: 0,
+          }}
+        >
+          <button
+            type="button"
+            style={{
+              padding: "4px 10px",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              border: "none",
+              borderBottom: "2px solid var(--accent)",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-primary)",
+            }}
+          >
+            Handlers
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: "4px 10px",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              border: "none",
+              borderBottom: "2px solid transparent",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+            }}
+            onClick={() => setActiveSubTab("trace")}
+          >
+            Trace
+          </button>
+        </div>
+        <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
+          <EmptyState
+            title="Select an event"
+            description="Pick an event from the right to view or edit it."
+          />
+        </div>
       </div>
     );
   }

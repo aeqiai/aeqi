@@ -82,6 +82,36 @@ pub struct Sender {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// A row from `event_invocations` — top-level record for one pattern dispatch.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventInvocationRow {
+    pub id: i64,
+    pub session_id: String,
+    pub pattern: String,
+    pub event_name: Option<String>,
+    pub caller_kind: String,
+    pub started_at: String,
+    pub finished_at: Option<String>,
+    pub status: String,
+    pub error: Option<String>,
+    pub tool_calls_json: String,
+}
+
+/// A row from `event_invocation_steps` — one tool call within an invocation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvocationStepRow {
+    pub id: i64,
+    pub invocation_id: i64,
+    pub step_index: i64,
+    pub tool_name: String,
+    pub args_json: String,
+    pub started_at: String,
+    pub finished_at: Option<String>,
+    pub result_summary: Option<String>,
+    pub status: String,
+    pub error: Option<String>,
+}
+
 /// An execution trace entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionTrace {
@@ -211,8 +241,46 @@ impl SessionStore {
         )
         .context("failed to create session store tables")?;
 
+        Self::create_invocation_tables(conn)?;
+
         debug!("session store tables created");
 
+        Ok(())
+    }
+
+    /// Create the event invocation tracing tables.
+    /// Called from `create_tables` so they are always present.
+    pub fn create_invocation_tables(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS event_invocations (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 session_id TEXT NOT NULL,
+                 pattern TEXT NOT NULL,
+                 event_name TEXT,
+                 caller_kind TEXT NOT NULL,
+                 started_at TEXT NOT NULL,
+                 finished_at TEXT,
+                 status TEXT NOT NULL,
+                 error TEXT,
+                 tool_calls_json TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS idx_event_invocations_session
+                 ON event_invocations(session_id, started_at DESC);
+
+             CREATE TABLE IF NOT EXISTS event_invocation_steps (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 invocation_id INTEGER NOT NULL REFERENCES event_invocations(id),
+                 step_index INTEGER NOT NULL,
+                 tool_name TEXT NOT NULL,
+                 args_json TEXT NOT NULL,
+                 started_at TEXT NOT NULL,
+                 finished_at TEXT,
+                 result_summary TEXT,
+                 status TEXT NOT NULL,
+                 error TEXT
+             );",
+        )
+        .context("failed to create event invocation tables")?;
         Ok(())
     }
 
@@ -1409,6 +1477,186 @@ impl SessionStore {
         traces.reverse();
         Ok(traces)
     }
+
+    // ── Event invocation tracing ──
+
+    /// Open a new invocation record. Returns the auto-incremented row id.
+    pub async fn start_invocation(
+        &self,
+        session_id: &str,
+        pattern: &str,
+        event_name: Option<&str>,
+        caller_kind: &str,
+        tool_calls_json: &str,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "INSERT INTO event_invocations \
+             (session_id, pattern, event_name, caller_kind, started_at, status, tool_calls_json) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'running', ?6)",
+            params![
+                session_id,
+                pattern,
+                event_name,
+                caller_kind,
+                now,
+                tool_calls_json
+            ],
+        )
+        .context("failed to insert event_invocation")?;
+        Ok(db.last_insert_rowid())
+    }
+
+    /// Open a step record for a single tool call within an invocation. Returns the step row id.
+    pub async fn start_step(
+        &self,
+        invocation_id: i64,
+        step_index: i64,
+        tool_name: &str,
+        args_json: &str,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "INSERT INTO event_invocation_steps \
+             (invocation_id, step_index, tool_name, args_json, started_at, status) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'running')",
+            params![invocation_id, step_index, tool_name, args_json, now],
+        )
+        .context("failed to insert event_invocation_step")?;
+        Ok(db.last_insert_rowid())
+    }
+
+    /// Close a step record with its outcome. `status` is `'ok'` or `'error'`.
+    pub async fn finish_step(
+        &self,
+        step_id: i64,
+        result_summary: Option<&str>,
+        status: &str,
+        error: Option<&str>,
+    ) -> Result<()> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "UPDATE event_invocation_steps \
+             SET finished_at = ?1, result_summary = ?2, status = ?3, error = ?4 \
+             WHERE id = ?5",
+            params![now, result_summary, status, error, step_id],
+        )
+        .context("failed to update event_invocation_step")?;
+        Ok(())
+    }
+
+    /// Close an invocation record with its final outcome. `status` is `'ok'` or `'error'`.
+    pub async fn finish_invocation(
+        &self,
+        invocation_id: i64,
+        status: &str,
+        error: Option<&str>,
+    ) -> Result<()> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "UPDATE event_invocations \
+             SET finished_at = ?1, status = ?2, error = ?3 \
+             WHERE id = ?4",
+            params![now, status, error, invocation_id],
+        )
+        .context("failed to update event_invocation")?;
+        Ok(())
+    }
+
+    /// List recent invocations for a session. Returns newest-first.
+    pub async fn list_invocations(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<EventInvocationRow>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, session_id, pattern, event_name, caller_kind, \
+                    started_at, finished_at, status, error, tool_calls_json \
+             FROM event_invocations \
+             WHERE session_id = ?1 \
+             ORDER BY started_at DESC, id DESC \
+             LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id, limit as i64], |row| {
+                Ok(EventInvocationRow {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    pattern: row.get(2)?,
+                    event_name: row.get(3)?,
+                    caller_kind: row.get(4)?,
+                    started_at: row.get(5)?,
+                    finished_at: row.get(6)?,
+                    status: row.get(7)?,
+                    error: row.get(8)?,
+                    tool_calls_json: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Fetch a single invocation and all its steps.
+    pub async fn get_invocation_detail(
+        &self,
+        invocation_id: i64,
+    ) -> Result<(EventInvocationRow, Vec<InvocationStepRow>)> {
+        let db = self.db.lock().await;
+
+        let inv = db
+            .query_row(
+                "SELECT id, session_id, pattern, event_name, caller_kind, \
+                        started_at, finished_at, status, error, tool_calls_json \
+                 FROM event_invocations WHERE id = ?1",
+                params![invocation_id],
+                |row| {
+                    Ok(EventInvocationRow {
+                        id: row.get(0)?,
+                        session_id: row.get(1)?,
+                        pattern: row.get(2)?,
+                        event_name: row.get(3)?,
+                        caller_kind: row.get(4)?,
+                        started_at: row.get(5)?,
+                        finished_at: row.get(6)?,
+                        status: row.get(7)?,
+                        error: row.get(8)?,
+                        tool_calls_json: row.get(9)?,
+                    })
+                },
+            )
+            .context("invocation not found")?;
+
+        let mut stmt = db.prepare(
+            "SELECT id, invocation_id, step_index, tool_name, args_json, \
+                    started_at, finished_at, result_summary, status, error \
+             FROM event_invocation_steps \
+             WHERE invocation_id = ?1 \
+             ORDER BY step_index ASC",
+        )?;
+        let steps = stmt
+            .query_map(params![invocation_id], |row| {
+                Ok(InvocationStepRow {
+                    id: row.get(0)?,
+                    invocation_id: row.get(1)?,
+                    step_index: row.get(2)?,
+                    tool_name: row.get(3)?,
+                    args_json: row.get(4)?,
+                    started_at: row.get(5)?,
+                    finished_at: row.get(6)?,
+                    result_summary: row.get(7)?,
+                    status: row.get(8)?,
+                    error: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((inv, steps))
+    }
 }
 
 /// Mask to keep chat IDs within JS MAX_SAFE_INTEGER (2^53 - 1).
@@ -2109,5 +2357,138 @@ mod tests {
 
         let after = store.history_by_session(session_id, 100).await.unwrap();
         assert!(after.is_empty(), "all messages summarized");
+    }
+
+    // ── Event invocation trace tests ──
+
+    #[tokio::test]
+    async fn invocation_roundtrip_ok() {
+        let store = test_store().await;
+        let session_id = "inv-test-session";
+
+        // Create invocation.
+        let inv_id = store
+            .start_invocation(
+                session_id,
+                "session:start",
+                Some("on_start"),
+                "Event",
+                r#"[{"tool":"transcript.inject","args":{}}]"#,
+            )
+            .await
+            .unwrap();
+        assert!(inv_id > 0);
+
+        // Insert two steps.
+        let step1 = store
+            .start_step(inv_id, 0, "transcript.inject", r#"{"content":"hello"}"#)
+            .await
+            .unwrap();
+        let step2 = store
+            .start_step(inv_id, 1, "ideas.assemble", r#"{"names":["primer"]}"#)
+            .await
+            .unwrap();
+
+        // Finish step 1 — success.
+        store
+            .finish_step(step1, Some("injected hello"), "ok", None)
+            .await
+            .unwrap();
+
+        // Finish step 2 — error.
+        store
+            .finish_step(step2, None, "error", Some("ideas store unavailable"))
+            .await
+            .unwrap();
+
+        // Finish invocation — error because step 2 failed.
+        store
+            .finish_invocation(inv_id, "error", Some("step 1/2 failed"))
+            .await
+            .unwrap();
+
+        // Read back detail.
+        let (inv, steps) = store.get_invocation_detail(inv_id).await.unwrap();
+        assert_eq!(inv.session_id, session_id);
+        assert_eq!(inv.pattern, "session:start");
+        assert_eq!(inv.event_name.as_deref(), Some("on_start"));
+        assert_eq!(inv.caller_kind, "Event");
+        assert_eq!(inv.status, "error");
+        assert!(inv.error.is_some());
+        assert!(inv.finished_at.is_some());
+        assert_eq!(steps.len(), 2);
+
+        // Steps are ordered by step_index.
+        assert_eq!(steps[0].tool_name, "transcript.inject");
+        assert_eq!(steps[0].status, "ok");
+        assert_eq!(steps[0].result_summary.as_deref(), Some("injected hello"));
+        assert!(steps[0].finished_at.is_some());
+
+        assert_eq!(steps[1].tool_name, "ideas.assemble");
+        assert_eq!(steps[1].status, "error");
+        assert_eq!(steps[1].error.as_deref(), Some("ideas store unavailable"));
+    }
+
+    #[tokio::test]
+    async fn list_invocations_returns_newest_first() {
+        let store = test_store().await;
+        let session_id = "inv-list-session";
+
+        for i in 0..3u32 {
+            let id = store
+                .start_invocation(session_id, &format!("pattern:{i}"), None, "System", "[]")
+                .await
+                .unwrap();
+            store.finish_invocation(id, "ok", None).await.unwrap();
+        }
+
+        let rows = store.list_invocations(session_id, 10).await.unwrap();
+        assert_eq!(rows.len(), 3);
+        // Newest first: pattern:2, pattern:1, pattern:0.
+        assert_eq!(rows[0].pattern, "pattern:2");
+        assert_eq!(rows[2].pattern, "pattern:0");
+        for r in &rows {
+            assert_eq!(r.status, "ok");
+        }
+    }
+
+    #[tokio::test]
+    async fn list_invocations_limit_is_respected() {
+        let store = test_store().await;
+        let session_id = "inv-limit-session";
+
+        for i in 0..5u32 {
+            let id = store
+                .start_invocation(session_id, &format!("p:{i}"), None, "Llm", "[]")
+                .await
+                .unwrap();
+            store.finish_invocation(id, "ok", None).await.unwrap();
+        }
+
+        let rows = store.list_invocations(session_id, 3).await.unwrap();
+        assert_eq!(rows.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn result_summary_truncation_at_2000_chars() {
+        // The truncation itself happens in idea_assembly, but this test
+        // verifies round-trip storage of a 2001-char string and the
+        // accessor returns it unmodified (truncation is the caller's job).
+        let store = test_store().await;
+        let inv_id = store
+            .start_invocation("trunc-session", "p:x", None, "Event", "[]")
+            .await
+            .unwrap();
+        let step_id = store.start_step(inv_id, 0, "tool.x", "{}").await.unwrap();
+        let long_summary = "x".repeat(2001);
+        store
+            .finish_step(step_id, Some(&long_summary), "ok", None)
+            .await
+            .unwrap();
+        let (_, steps) = store.get_invocation_detail(inv_id).await.unwrap();
+        assert_eq!(
+            steps[0].result_summary.as_deref().map(|s| s.len()),
+            Some(2001)
+        );
     }
 }

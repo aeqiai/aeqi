@@ -1,5 +1,6 @@
 import { clearSessionData } from "@/lib/session";
 import { getScopedRoot, type AppMode } from "@/lib/appMode";
+import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -541,6 +542,22 @@ export const api = {
     }>("/events/trigger", {
       method: "POST",
       body: JSON.stringify({ ...agentRef, pattern, ...extra }),
+    }),
+
+  // Event invocation trace
+  listInvocations: (sessionId: string, limit = 50) =>
+    request<{
+      ok: boolean;
+      invocations: EventInvocationRow[];
+    }>(`/events/trace?session_id=${encodeURIComponent(sessionId)}&limit=${limit}`),
+  getInvocationDetail: (invocationId: number) =>
+    request<{
+      ok: boolean;
+      invocation: EventInvocationRow;
+      steps: InvocationStepRow[];
+    }>("/events/trace", {
+      method: "POST",
+      body: JSON.stringify({ invocation_id: invocationId }),
     }),
 
   // Session children (spawned work)

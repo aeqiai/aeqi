@@ -1229,6 +1229,9 @@ impl Daemon {
                 "trigger_event" => {
                     crate::ipc::events::handle_trigger_event(&ctx, &request, &allowed_roots).await
                 }
+                "trace_events" => {
+                    crate::ipc::events::handle_trace_events(&ctx, &request, &allowed_roots).await
+                }
 
                 "list_sessions" => {
                     crate::ipc::sessions::handle_list_sessions(&ctx, &request, &allowed_roots).await

@@ -202,6 +202,32 @@ export interface AgentEvent {
   system: boolean;
 }
 
+export interface EventInvocationRow {
+  id: number;
+  session_id: string;
+  pattern: string;
+  event_name: string | null;
+  caller_kind: string;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  error: string | null;
+  tool_calls_json: string;
+}
+
+export interface InvocationStepRow {
+  id: number;
+  invocation_id: number;
+  step_index: number;
+  tool_name: string;
+  args_json: string;
+  started_at: string;
+  finished_at: string | null;
+  result_summary: string | null;
+  status: string;
+  error: string | null;
+}
+
 export interface WorkerEvent {
   event_type: string;
   quest_id?: string;

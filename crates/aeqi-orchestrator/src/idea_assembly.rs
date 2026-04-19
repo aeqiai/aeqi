@@ -36,6 +36,7 @@ use aeqi_core::traits::{Idea, IdeaStore};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::session_store::SessionStore;
 
 /// Combined tool registry + execution context for event-fired tool dispatch.
 ///
@@ -45,6 +46,9 @@ use crate::event_handler::EventHandlerStore;
 pub struct ToolDispatch<'a> {
     pub registry: &'a ToolRegistry,
     pub ctx: &'a ExecutionContext,
+    /// When provided, every invocation of `dispatch_event_tool_calls` writes
+    /// telemetry rows into `event_invocations` / `event_invocation_steps`.
+    pub session_store: Option<Arc<SessionStore>>,
 }
 
 /// Runtime values available to a query_template.
@@ -430,6 +434,20 @@ pub async fn assemble_ideas_for_patterns(
     }
 }
 
+/// Truncate a string to at most `max` chars, appending "…" if truncated.
+fn truncate_summary(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        // Find a char boundary at or before `max`.
+        let mut end = max;
+        while !s.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}…", &s[..end])
+    }
+}
+
 /// Execute the tool_calls declared on an event, appending their outputs to
 /// `parts`. Returns `true` if at least one tool call produced non-empty output
 /// (used to decide whether to add the event to `fired_event_ids`).
@@ -487,7 +505,38 @@ async fn dispatch_event_tool_calls(
 
     let mut produced_output = false;
 
-    for tc in &event.tool_calls {
+    // Snapshot tool_calls for the invocation record.
+    let tool_calls_json = serde_json::to_string(&event.tool_calls).unwrap_or_default();
+
+    // Open an invocation trace row if a session_store is wired.
+    let invocation_id: Option<i64> = if let Some(ref store) = dispatch.session_store {
+        match store
+            .start_invocation(
+                &dispatch.ctx.session_id,
+                &event.pattern,
+                Some(&event.name),
+                "Event",
+                &tool_calls_json,
+            )
+            .await
+        {
+            Ok(id) => Some(id),
+            Err(e) => {
+                tracing::warn!(
+                    event_id = %event.id,
+                    error = %e,
+                    "failed to open invocation trace row"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mut invocation_error: Option<String> = None;
+
+    for (step_index, tc) in event.tool_calls.iter().enumerate() {
         // 1. Substitute placeholders in args (including {last_tool_result} from
         //    any prior tool call in this event firing).
         let mut substituted = substitute_args(&tc.args, &sub_ctx);
@@ -503,6 +552,29 @@ async fn dispatch_event_tool_calls(
         // 3. Emit a status event before the tool runs.
         dispatch.ctx.emit_status(format!("event tool: {}", tc.tool));
 
+        // Open a step trace row if telemetry is enabled.
+        let args_json = serde_json::to_string(&tc.args).unwrap_or_default();
+        let step_id: Option<i64> =
+            if let (Some(inv_id), Some(store)) = (invocation_id, &dispatch.session_store) {
+                match store
+                    .start_step(inv_id, step_index as i64, &tc.tool, &args_json)
+                    .await
+                {
+                    Ok(id) => Some(id),
+                    Err(e) => {
+                        tracing::warn!(
+                            event_id = %event.id,
+                            tool = %tc.tool,
+                            error = %e,
+                            "failed to open step trace row"
+                        );
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
         // 4. Invoke the tool.
         match dispatch
             .registry
@@ -517,13 +589,26 @@ async fn dispatch_event_tool_calls(
                         error = %result.output,
                         "event tool call returned error"
                     );
+                    if let (Some(sid), Some(store)) = (step_id, &dispatch.session_store)
+                        && let Err(e) = store
+                            .finish_step(sid, None, "error", Some(&result.output))
+                            .await
+                    {
+                        tracing::warn!(error = %e, "failed to close step trace row");
+                    }
+                    if invocation_error.is_none() {
+                        invocation_error = Some(format!(
+                            "tool '{}' returned error: {}",
+                            tc.tool, result.output
+                        ));
+                    }
                 } else {
                     // 5. Store result as last_tool_result for the next tool call.
                     sub_ctx.insert("last_tool_result".to_string(), result.output.clone());
 
                     if !result.output.is_empty() && result.output != "(no ideas assembled)" {
                         // 6. Append output to assembled context parts.
-                        parts.push(result.output);
+                        parts.push(result.output.clone());
                         produced_output = true;
 
                         // Emit status for tools that assemble ideas (by name pattern).
@@ -531,6 +616,12 @@ async fn dispatch_event_tool_calls(
                             dispatch
                                 .ctx
                                 .emit_status(format!("assembled context via {}", tc.tool));
+                        }
+                    }
+                    if let (Some(sid), Some(store)) = (step_id, &dispatch.session_store) {
+                        let summary = truncate_summary(&result.output, 2000);
+                        if let Err(e) = store.finish_step(sid, Some(&summary), "ok", None).await {
+                            tracing::warn!(error = %e, "failed to close step trace row");
                         }
                     }
                 }
@@ -542,7 +633,28 @@ async fn dispatch_event_tool_calls(
                     error = %e,
                     "event tool call failed"
                 );
+                if let (Some(sid), Some(store)) = (step_id, &dispatch.session_store) {
+                    let err_str = e.to_string();
+                    if let Err(te) = store.finish_step(sid, None, "error", Some(&err_str)).await {
+                        tracing::warn!(error = %te, "failed to close step trace row");
+                    }
+                }
+                if invocation_error.is_none() {
+                    invocation_error = Some(format!("tool '{}' failed: {}", tc.tool, e));
+                }
             }
+        }
+    }
+
+    // Close the invocation trace row.
+    if let (Some(inv_id), Some(store)) = (invocation_id, &dispatch.session_store) {
+        let (status, err) = if let Some(ref e) = invocation_error {
+            ("error", Some(e.as_str()))
+        } else {
+            ("ok", None)
+        };
+        if let Err(e) = store.finish_invocation(inv_id, status, err).await {
+            tracing::warn!(error = %e, "failed to close invocation trace row");
         }
     }
 
@@ -692,6 +804,9 @@ fn append_idea(
 pub struct EventPatternDispatcher {
     pub event_store: Arc<EventHandlerStore>,
     pub registry: Arc<ToolRegistry>,
+    /// When set, invocation traces are written to `event_invocations` /
+    /// `event_invocation_steps` for every dispatch.
+    pub session_store: Option<Arc<SessionStore>>,
 }
 
 impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
@@ -727,6 +842,7 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
             let dispatch = ToolDispatch {
                 registry: &self.registry,
                 ctx: &enriched_ctx,
+                session_store: self.session_store.clone(),
             };
 
             let assembly_ctx = AssemblyContext::default();

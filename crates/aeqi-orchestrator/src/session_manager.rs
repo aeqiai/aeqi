@@ -525,6 +525,7 @@ impl SessionManager {
             let dispatch = ToolDispatch {
                 registry: &runtime_reg,
                 ctx: &exec_ctx,
+                session_store: None,
             };
             let assembled = crate::idea_assembly::assemble_ideas(
                 agent_registry,
@@ -927,6 +928,7 @@ impl SessionManager {
             let dispatcher = std::sync::Arc::new(crate::idea_assembly::EventPatternDispatcher {
                 event_store: ehs.clone(),
                 registry: std::sync::Arc::new(runtime_reg_for_dispatcher),
+                session_store: self.session_store.clone(),
             });
             agent = agent.with_pattern_dispatcher(dispatcher);
         }

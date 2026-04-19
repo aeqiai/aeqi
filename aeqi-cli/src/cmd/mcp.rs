@@ -253,8 +253,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "list", "enable", "disable", "delete", "trigger"],
-                        "description": "create: new handler (needs name, pattern or schedule, idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start)."
+                        "enum": ["create", "list", "enable", "disable", "delete", "trigger", "trace"],
+                        "description": "create: new handler (needs name, pattern or schedule, idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start). trace: query event invocation history — pass session_id + optional limit to list invocations, or invocation_id for full step detail."
                     },
                     "agent": {"type": "string", "description": "Agent name or ID"},
                     "name": {"type": "string", "description": "Event handler name (for create)"},
@@ -263,7 +263,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "event_pattern": {"type": "string", "description": "Session event — shorthand for pattern 'session:<event>' (e.g. 'start', 'quest_start', 'quest_end', 'quest_result')"},
                     "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
-                    "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"}
+                    "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"},
+                    "session_id": {"type": "string", "description": "Session ID — list invocations for this session (for trace)"},
+                    "invocation_id": {"type": "integer", "description": "Invocation ID — fetch full step detail (for trace)"},
+                    "limit": {"type": "integer", "description": "Max results to return (for trace list, default 50)"}
                 },
                 "required": ["action"]
             }),
@@ -756,8 +759,39 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     }),
                                 )
                             }
+                            "trace" => {
+                                // Two modes:
+                                // - { session_id, limit? } → list invocations
+                                // - { invocation_id }       → detail + steps
+                                if let Some(inv_id) =
+                                    args.get("invocation_id").and_then(|v| v.as_i64())
+                                {
+                                    ipc_request_sync(
+                                        &sock_path,
+                                        &serde_json::json!({
+                                            "cmd": "trace_events",
+                                            "invocation_id": inv_id,
+                                        }),
+                                    )
+                                } else {
+                                    let session_id = args
+                                        .get("session_id")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("");
+                                    let limit =
+                                        args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50);
+                                    ipc_request_sync(
+                                        &sock_path,
+                                        &serde_json::json!({
+                                            "cmd": "trace_events",
+                                            "session_id": session_id,
+                                            "limit": limit,
+                                        }),
+                                    )
+                                }
+                            }
                             _ => Err(anyhow::anyhow!(
-                                "unknown events action: {action}. Use: create, list, enable, disable, delete, trigger"
+                                "unknown events action: {action}. Use: create, list, enable, disable, delete, trigger, trace"
                             )),
                         }
                     }

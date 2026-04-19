@@ -282,6 +282,79 @@ pub async fn handle_trigger_event(
     })
 }
 
+/// List recent invocations for a session, optionally with full step detail.
+pub async fn handle_trace_events(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref store) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+
+    // Distinguish the two query shapes:
+    //   { invocation_id: int }  → detail view
+    //   { session_id: str, limit?: int } → list view
+    if let Some(inv_id) = request.get("invocation_id").and_then(|v| v.as_i64()) {
+        match store.get_invocation_detail(inv_id).await {
+            Ok((inv, steps)) => serde_json::json!({
+                "ok": true,
+                "invocation": invocation_to_json(&inv),
+                "steps": steps.iter().map(step_to_json).collect::<Vec<_>>(),
+            }),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        }
+    } else {
+        let session_id = match super::request_field(request, "session_id") {
+            Some(s) => s,
+            None => {
+                return serde_json::json!({
+                    "ok": false,
+                    "error": "session_id or invocation_id is required"
+                });
+            }
+        };
+        let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+        match store.list_invocations(session_id, limit).await {
+            Ok(rows) => serde_json::json!({
+                "ok": true,
+                "invocations": rows.iter().map(invocation_to_json).collect::<Vec<_>>(),
+            }),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        }
+    }
+}
+
+fn invocation_to_json(r: &crate::session_store::EventInvocationRow) -> serde_json::Value {
+    serde_json::json!({
+        "id": r.id,
+        "session_id": r.session_id,
+        "pattern": r.pattern,
+        "event_name": r.event_name,
+        "caller_kind": r.caller_kind,
+        "started_at": r.started_at,
+        "finished_at": r.finished_at,
+        "status": r.status,
+        "error": r.error,
+        "tool_calls_json": r.tool_calls_json,
+    })
+}
+
+fn step_to_json(r: &crate::session_store::InvocationStepRow) -> serde_json::Value {
+    serde_json::json!({
+        "id": r.id,
+        "invocation_id": r.invocation_id,
+        "step_index": r.step_index,
+        "tool_name": r.tool_name,
+        "args_json": r.args_json,
+        "started_at": r.started_at,
+        "finished_at": r.finished_at,
+        "result_summary": r.result_summary,
+        "status": r.status,
+        "error": r.error,
+    })
+}
+
 fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
     serde_json::json!({
         "id": e.id,
