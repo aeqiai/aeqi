@@ -172,16 +172,10 @@ impl Tool for ExecutePlanTool {
             summary.push_str(&entry);
         }
 
-        let has_errors = errors > 0;
-        if has_errors {
-            Ok(ToolResult {
-                output: summary,
-                is_error: false, // Plan itself succeeded even if individual steps had errors.
-                context_modifier: None,
-            })
-        } else {
-            Ok(ToolResult::success(summary))
-        }
+        // Plan itself succeeded even if individual steps had errors — the
+        // errors are reflected in the summary text.
+        let _ = errors;
+        Ok(ToolResult::success(summary))
     }
 
     fn spec(&self) -> ToolSpec {

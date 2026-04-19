@@ -18,8 +18,18 @@ pub struct ContextModifier {
 /// Result of executing a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
+    /// Human-readable / LLM-facing summary. This is what gets appended to
+    /// assembled context, shown in traces, and referenced by `{tool_calls.N.output}`
+    /// string substitution in event tool_calls.
     pub output: String,
     pub is_error: bool,
+    /// Structured side-channel. Tools that produce data worth chaining (e.g.
+    /// `session.spawn` returning a new session_id + summary) populate this so
+    /// subsequent tool_calls in the same event firing can reference specific
+    /// fields via `{tool_calls.N.data.path}` substitution. Defaults to `Null`
+    /// when the tool has nothing typed to expose beyond `output`.
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub data: serde_json::Value,
     /// Optional context modifier applied after this tool completes.
     /// Only honored for non-concurrent tools (to avoid race conditions).
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -31,6 +41,7 @@ impl ToolResult {
         Self {
             output: output.into(),
             is_error: false,
+            data: serde_json::Value::Null,
             context_modifier: None,
         }
     }
@@ -39,8 +50,16 @@ impl ToolResult {
         Self {
             output: output.into(),
             is_error: true,
+            data: serde_json::Value::Null,
             context_modifier: None,
         }
+    }
+
+    /// Attach structured data to this result. Downstream tool_calls in the same
+    /// event firing can reference fields via `{tool_calls.N.data.path}` substitution.
+    pub fn with_data(mut self, data: serde_json::Value) -> Self {
+        self.data = data;
+        self
     }
 
     /// Attach a context modifier to this result.

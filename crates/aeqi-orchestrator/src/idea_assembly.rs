@@ -504,6 +504,9 @@ async fn dispatch_event_tool_calls(
     }
 
     let mut produced_output = false;
+    // History of results from prior tool_calls in this event firing, for
+    // {tool_calls.N.output} / {tool_calls.N.data.path} substitution.
+    let mut results_so_far: Vec<aeqi_core::traits::ToolResult> = Vec::new();
 
     // Snapshot tool_calls for the invocation record.
     let tool_calls_json = serde_json::to_string(&event.tool_calls).unwrap_or_default();
@@ -537,9 +540,10 @@ async fn dispatch_event_tool_calls(
     let mut invocation_error: Option<String> = None;
 
     for (step_index, tc) in event.tool_calls.iter().enumerate() {
-        // 1. Substitute placeholders in args (including {last_tool_result} from
-        //    any prior tool call in this event firing).
-        let mut substituted = substitute_args(&tc.args, &sub_ctx);
+        // 1. Substitute placeholders in args (including {last_tool_result}
+        //    scalar alias and {tool_calls.N.output|data.path} structured refs
+        //    against any prior tool call in this event firing).
+        let mut substituted = substitute_args_with_results(&tc.args, &sub_ctx, &results_so_far);
 
         // 2. Inject _session_id for tools that need it (transcript.inject, etc.).
         if let Some(obj) = substituted.as_object_mut() {
@@ -602,9 +606,14 @@ async fn dispatch_event_tool_calls(
                             tc.tool, result.output
                         ));
                     }
+                    // Still record for index stability in {tool_calls.N.…} refs.
+                    results_so_far.push(result);
                 } else {
-                    // 5. Store result as last_tool_result for the next tool call.
+                    // 5. Store result for chaining: scalar alias
+                    //    `{last_tool_result}` and structured refs
+                    //    `{tool_calls.N.output|data.path}`.
                     sub_ctx.insert("last_tool_result".to_string(), result.output.clone());
+                    results_so_far.push(result.clone());
 
                     if !result.output.is_empty() && result.output != "(no ideas assembled)" {
                         // 6. Append output to assembled context parts.
@@ -642,6 +651,9 @@ async fn dispatch_event_tool_calls(
                 if invocation_error.is_none() {
                     invocation_error = Some(format!("tool '{}' failed: {}", tc.tool, e));
                 }
+                // Push a synthetic error result for index stability in
+                // {tool_calls.N.…} refs.
+                results_so_far.push(aeqi_core::traits::ToolResult::error(e.to_string()));
             }
         }
     }
@@ -675,15 +687,33 @@ pub fn substitute_args(
     args: &serde_json::Value,
     context: &HashMap<String, String>,
 ) -> serde_json::Value {
+    substitute_args_with_results(args, context, &[])
+}
+
+/// Like `substitute_args`, but also resolves `{tool_calls.N.output}` and
+/// `{tool_calls.N.data.field.path}` refs against the results of prior
+/// tool_calls in the current event firing. Scalar-key lookups still win when
+/// a key collides (e.g. a context key literally named `tool_calls.0.output`
+/// would be rare but valid — it resolves from the map before the structured
+/// refs are considered).
+pub fn substitute_args_with_results(
+    args: &serde_json::Value,
+    context: &HashMap<String, String>,
+    results: &[aeqi_core::traits::ToolResult],
+) -> serde_json::Value {
     match args {
-        serde_json::Value::String(s) => serde_json::Value::String(substitute_str(s, context)),
-        serde_json::Value::Array(arr) => {
-            serde_json::Value::Array(arr.iter().map(|v| substitute_args(v, context)).collect())
+        serde_json::Value::String(s) => {
+            serde_json::Value::String(substitute_str_with_results(s, context, results))
         }
+        serde_json::Value::Array(arr) => serde_json::Value::Array(
+            arr.iter()
+                .map(|v| substitute_args_with_results(v, context, results))
+                .collect(),
+        ),
         serde_json::Value::Object(map) => {
             let new_map: serde_json::Map<String, serde_json::Value> = map
                 .iter()
-                .map(|(k, v)| (k.clone(), substitute_args(v, context)))
+                .map(|(k, v)| (k.clone(), substitute_args_with_results(v, context, results)))
                 .collect();
             serde_json::Value::Object(new_map)
         }
@@ -692,9 +722,12 @@ pub fn substitute_args(
     }
 }
 
-/// Substitute `{key}` tokens in a string using the context map.
-/// Unknown keys are passed through literally.
-fn substitute_str(s: &str, context: &HashMap<String, String>) -> String {
+/// String substitution with `{tool_calls.N.…}` structured-ref fallback.
+fn substitute_str_with_results(
+    s: &str,
+    context: &HashMap<String, String>,
+    results: &[aeqi_core::traits::ToolResult],
+) -> String {
     let mut out = String::with_capacity(s.len());
     let bytes = s.as_bytes();
     let mut i = 0;
@@ -706,8 +739,9 @@ fn substitute_str(s: &str, context: &HashMap<String, String>) -> String {
             let key = &s[i + 1..close];
             if let Some(val) = context.get(key) {
                 out.push_str(val);
+            } else if let Some(val) = resolve_tool_calls_ref(key, results) {
+                out.push_str(&val);
             } else {
-                // Unknown placeholder — pass through literally.
                 out.push_str(&s[i..=close]);
             }
             i = close + 1;
@@ -717,6 +751,48 @@ fn substitute_str(s: &str, context: &HashMap<String, String>) -> String {
         i += s[i..].chars().next().unwrap().len_utf8();
     }
     out
+}
+
+/// Resolve a `{tool_calls.N.field.path}` reference against a list of prior
+/// `ToolResult`s from the current event firing. Returns `None` if the ref
+/// does not match the grammar or the path cannot be resolved — the caller
+/// then falls back to the scalar-key substitution.
+///
+/// Grammar:
+///   `tool_calls.N.output`        → result[N].output (string)
+///   `tool_calls.N.data.a.b.c`    → result[N].data pointed to by /a/b/c
+///   `tool_calls.-1.output`       → last result's output
+pub fn resolve_tool_calls_ref(
+    reference: &str,
+    results: &[aeqi_core::traits::ToolResult],
+) -> Option<String> {
+    let rest = reference.strip_prefix("tool_calls.")?;
+    let (index_str, tail) = rest.split_once('.')?;
+    let idx: i64 = index_str.parse().ok()?;
+    let resolved_idx = if idx < 0 {
+        let n = results.len() as i64 + idx;
+        if n < 0 {
+            return None;
+        }
+        n as usize
+    } else {
+        idx as usize
+    };
+    let result = results.get(resolved_idx)?;
+    if tail == "output" {
+        return Some(result.output.clone());
+    }
+    let data_path = tail.strip_prefix("data.")?;
+    let pointer: String = std::iter::once(String::new())
+        .chain(data_path.split('.').map(|s| s.to_string()))
+        .collect::<Vec<_>>()
+        .join("/");
+    let value = result.data.pointer(&pointer)?;
+    Some(match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Null => String::new(),
+        other => other.to_string(),
+    })
 }
 
 /// Expand `{user_prompt}`, `{tool_output}`, `{quest_description}` placeholders.
@@ -1343,6 +1419,72 @@ mod tests {
         assert_eq!(result["arr"][2].as_bool(), Some(true));
         assert_eq!(result["num"].as_u64(), Some(7));
         assert_eq!(result["flag"].as_bool(), Some(false));
+    }
+
+    #[test]
+    fn resolve_tool_calls_ref_reads_output_by_index() {
+        use aeqi_core::traits::ToolResult;
+        let results = vec![ToolResult::success("first"), ToolResult::success("second")];
+        assert_eq!(
+            resolve_tool_calls_ref("tool_calls.0.output", &results).as_deref(),
+            Some("first")
+        );
+        assert_eq!(
+            resolve_tool_calls_ref("tool_calls.1.output", &results).as_deref(),
+            Some("second")
+        );
+    }
+
+    #[test]
+    fn resolve_tool_calls_ref_negative_index_means_latest() {
+        use aeqi_core::traits::ToolResult;
+        let results = vec![ToolResult::success("a"), ToolResult::success("b")];
+        assert_eq!(
+            resolve_tool_calls_ref("tool_calls.-1.output", &results).as_deref(),
+            Some("b")
+        );
+    }
+
+    #[test]
+    fn resolve_tool_calls_ref_reads_data_path() {
+        use aeqi_core::traits::ToolResult;
+        let results = vec![ToolResult::success("").with_data(serde_json::json!({
+            "session_id": "sess-123",
+            "nested": {"deep": "value"},
+        }))];
+        assert_eq!(
+            resolve_tool_calls_ref("tool_calls.0.data.session_id", &results).as_deref(),
+            Some("sess-123")
+        );
+        assert_eq!(
+            resolve_tool_calls_ref("tool_calls.0.data.nested.deep", &results).as_deref(),
+            Some("value")
+        );
+    }
+
+    #[test]
+    fn resolve_tool_calls_ref_unknown_path_returns_none() {
+        use aeqi_core::traits::ToolResult;
+        let results = vec![ToolResult::success("hi")];
+        assert!(resolve_tool_calls_ref("tool_calls.0.data.missing", &results).is_none());
+        assert!(resolve_tool_calls_ref("tool_calls.99.output", &results).is_none());
+        assert!(resolve_tool_calls_ref("not_a_ref", &results).is_none());
+    }
+
+    #[test]
+    fn substitute_args_with_results_resolves_structured_refs() {
+        use aeqi_core::traits::ToolResult;
+        let ctx: HashMap<String, String> = HashMap::new();
+        let results = vec![ToolResult::success("hello").with_data(serde_json::json!({
+            "session_id": "sess-xyz",
+        }))];
+        let args = serde_json::json!({
+            "seed": "prior: {tool_calls.0.output}",
+            "session": "{tool_calls.0.data.session_id}",
+        });
+        let out = substitute_args_with_results(&args, &ctx, &results);
+        assert_eq!(out["seed"].as_str(), Some("prior: hello"));
+        assert_eq!(out["session"].as_str(), Some("sess-xyz"));
     }
 
     /// Phase-1: events with non-empty `tool_calls` must NOT contribute ideas

@@ -157,7 +157,14 @@ impl Tool for SessionSpawnTool {
         };
 
         match spawn_fn(req).await {
-            Ok(output) => Ok(ToolResult::success(output)),
+            Ok(output) => {
+                // Expose structured data so downstream tool_calls in the same
+                // event firing can chain via e.g. `{tool_calls.0.data.summary}`.
+                let data = serde_json::json!({
+                    "summary": output,
+                });
+                Ok(ToolResult::success(output).with_data(data))
+            }
             Err(e) => Ok(ToolResult::error(format!("session.spawn failed: {e}"))),
         }
     }

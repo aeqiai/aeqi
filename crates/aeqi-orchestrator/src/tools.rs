@@ -1194,6 +1194,7 @@ impl Tool for EventsTool {
                     return Ok(ToolResult {
                         output: "provide 'schedule', 'event_pattern', or 'pattern'".to_string(),
                         is_error: true,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     });
                 };
@@ -1226,11 +1227,13 @@ impl Tool for EventsTool {
                             event.name, event.id, event.pattern,
                         ),
                         is_error: false,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed to create event: {e}"),
                         is_error: true,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                 }
@@ -1263,6 +1266,7 @@ impl Tool for EventsTool {
                         items.join("\n")
                     },
                     is_error: false,
+                    data: serde_json::Value::Null,
                     context_modifier: None,
                 })
             }
@@ -1281,11 +1285,13 @@ impl Tool for EventsTool {
                             if enabled { "enabled" } else { "disabled" }
                         ),
                         is_error: false,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed: {e}"),
                         is_error: true,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                 }
@@ -1301,11 +1307,13 @@ impl Tool for EventsTool {
                     Ok(()) => Ok(ToolResult {
                         output: format!("Event {id} deleted."),
                         is_error: false,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed: {e}"),
                         is_error: true,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     }),
                 }
@@ -1316,6 +1324,7 @@ impl Tool for EventsTool {
                     "Unknown action: {other}. Use: create, list, enable, disable, delete"
                 ),
                 is_error: true,
+                data: serde_json::Value::Null,
                 context_modifier: None,
             }),
         }
@@ -1669,6 +1678,7 @@ impl CodeTool {
                     return Ok(ToolResult {
                         output: "No transcript matches found.".to_string(),
                         is_error: false,
+                        data: serde_json::Value::Null,
                         context_modifier: None,
                     });
                 }
@@ -1687,12 +1697,14 @@ impl CodeTool {
                 Ok(ToolResult {
                     output: format!("{} matches:\n{}", results.len(), results.join("\n\n")),
                     is_error: false,
+                    data: serde_json::Value::Null,
                     context_modifier: None,
                 })
             }
             Err(e) => Ok(ToolResult {
                 output: format!("Transcript search failed: {e}"),
                 is_error: true,
+                data: serde_json::Value::Null,
                 context_modifier: None,
             }),
         }
