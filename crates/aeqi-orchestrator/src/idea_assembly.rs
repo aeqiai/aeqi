@@ -12,20 +12,40 @@
 //! Placeholder semantics are loose — unknown placeholders pass through
 //! literally.
 //!
-//! ## Phase-1 tool_calls stub
+//! ## Phase-2 tool_calls dispatch
 //!
 //! Events that have a non-empty `tool_calls` field take a separate path:
-//! the legacy `idea_ids`/`query_template` processing is skipped and a
-//! warning is logged. Phase 2 will replace the log with real tool dispatch.
+//! the legacy `idea_ids`/`query_template` processing is skipped.
+//! When a `ToolDispatch` is provided, each tool call is executed via the
+//! `ToolRegistry` and its output is appended to the assembled context.
+//! When no `ToolDispatch` is provided (None), the old Phase-1 warning is
+//! logged and the event produces no ideas (safe fallback for callers that
+//! have not yet been updated to pass a registry).
+//!
+//! `substitute_args` is a convenience for operator-readable event configs
+//! (e.g. `{user_input}` → actual value). It is NOT a security boundary.
+//! Sensitive values like session_id and agent_id travel via ExecutionContext,
+//! not through args.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use aeqi_core::prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
+use aeqi_core::tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
 use aeqi_core::traits::{Idea, IdeaStore};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+
+/// Combined tool registry + execution context for event-fired tool dispatch.
+///
+/// Passed into `assemble_ideas_for_patterns` when the caller wants tool_calls
+/// on events to execute. When `None`, events with tool_calls fall back to the
+/// Phase-1 behavior (log + skip).
+pub struct ToolDispatch<'a> {
+    pub registry: &'a ToolRegistry,
+    pub ctx: &'a ExecutionContext,
+}
 
 /// Runtime values available to a query_template.
 /// Fields left `None` substitute to the empty string; placeholders that do
@@ -41,6 +61,8 @@ pub struct AssemblyContext {
 ///
 /// Order: root ancestor → ... → parent → self → task ideas.
 /// Within each level, ideas are ordered as referenced by their events.
+/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
+/// Callers that have a ToolRegistry should use `assemble_ideas_for_patterns` directly.
 pub async fn assemble_ideas(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -56,6 +78,7 @@ pub async fn assemble_ideas(
         task_idea_ids,
         &["session:start"],
         &AssemblyContext::default(),
+        None,
     )
     .await
 }
@@ -65,6 +88,7 @@ pub async fn assemble_ideas(
 /// with `quest_description` threaded into any query_template that references
 /// it — this is how the closed learning loop surfaces promoted skills
 /// relevant to the quest.
+/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
 pub async fn assemble_ideas_for_quest_start(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -85,6 +109,7 @@ pub async fn assemble_ideas_for_quest_start(
         task_idea_ids,
         &["session:start", "session:quest_start"],
         &context,
+        None,
     )
     .await
 }
@@ -171,6 +196,7 @@ pub async fn assemble_step_ideas_for_worker(
 /// Like `assemble_ideas` but for an arbitrary event pattern and with an
 /// explicit runtime context used to expand any `query_template` fields on
 /// matching events.
+/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
 pub async fn assemble_ideas_for_pattern(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -188,6 +214,7 @@ pub async fn assemble_ideas_for_pattern(
         task_idea_ids,
         &[event_pattern],
         context,
+        None,
     )
     .await
 }
@@ -196,6 +223,11 @@ pub async fn assemble_ideas_for_pattern(
 /// Deduplication of collected ideas spans all patterns so the same idea is
 /// never injected twice, even if referenced by events matching different
 /// patterns.
+///
+/// `tool_dispatch`: when `Some`, events with non-empty `tool_calls` are
+/// dispatched through the registry and their outputs appended to the assembled
+/// context. When `None`, events with tool_calls fall back to the Phase-1
+/// behavior (warn + skip) so existing callers without a registry remain safe.
 pub async fn assemble_ideas_for_patterns(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -204,6 +236,7 @@ pub async fn assemble_ideas_for_patterns(
     task_idea_ids: &[String],
     event_patterns: &[&str],
     context: &AssemblyContext,
+    tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledPrompt {
     // get_ancestors returns [self, parent, grandparent, ..., root].
     // We want root-first ordering.
@@ -231,20 +264,34 @@ pub async fn assemble_ideas_for_patterns(
             }
         }
 
-        // Static idea_ids referenced directly by the event.
-        // Events with non-empty `tool_calls` skip the legacy idea_ids/query_template
-        // path (Phase-1 stub: log and produce no ideas; Phase 2 will dispatch tools).
+        // Phase-2: dispatch tool_calls for events that have opted in.
+        // When tool_dispatch is Some, run the tools and append their output to parts.
+        // When tool_dispatch is None, warn and skip (Phase-1 fallback).
         let mut event_idea_ids: Vec<String> = Vec::new();
         for event in &events_for_agent {
             if !event.tool_calls.is_empty() {
-                tracing::warn!(
-                    event_id = %event.id,
-                    event_name = %event.name,
-                    tool_calls_count = event.tool_calls.len(),
-                    "tool_calls execution not yet implemented (Phase 1 stub) — skipping legacy idea_ids path for this event"
-                );
+                match tool_dispatch {
+                    Some(dispatch) => {
+                        let fired =
+                            dispatch_event_tool_calls(event, dispatch, context, &mut parts).await;
+                        if fired && fired_event_seen.insert(event.id.clone()) {
+                            fired_event_ids.push(event.id.clone());
+                        }
+                    }
+                    None => {
+                        tracing::warn!(
+                            event_id = %event.id,
+                            event_name = %event.name,
+                            tool_calls_count = event.tool_calls.len(),
+                            "tool_calls dispatch skipped: no ToolDispatch provided \
+                             (caller has not been updated to Phase 2 — skipping legacy idea_ids path)"
+                        );
+                    }
+                }
+                // Either dispatched or warned — skip legacy path either way.
                 continue;
             }
+            // Legacy path: static idea_ids.
             for idea_id in &event.idea_ids {
                 if !idea_id.is_empty() && collected_idea_ids.insert(idea_id.clone()) {
                     event_idea_ids.push(idea_id.clone());
@@ -372,6 +419,106 @@ pub async fn assemble_ideas_for_patterns(
     }
 }
 
+/// Execute the tool_calls declared on an event, appending their outputs to
+/// `parts`. Returns `true` if at least one tool call produced non-empty output
+/// (used to decide whether to add the event to `fired_event_ids`).
+///
+/// Steps:
+///  1. Build substitution context from `AssemblyContext` (user_input, quest_description, etc.).
+///  2. For each ToolCall: apply `substitute_args` to expand `{placeholders}` in args.
+///  3. Also inject `_session_id` into args for tools like `transcript.inject` that need it.
+///  4. Invoke via `ToolRegistry::invoke` with `CallerKind::Event`.
+///  5. Append non-error, non-empty outputs to `parts`.
+async fn dispatch_event_tool_calls(
+    event: &crate::event_handler::Event,
+    dispatch: &ToolDispatch<'_>,
+    assembly_ctx: &AssemblyContext,
+    parts: &mut Vec<String>,
+) -> bool {
+    // Build substitution context from AssemblyContext fields.
+    let mut sub_ctx: HashMap<String, String> = HashMap::new();
+    if let Some(ref v) = assembly_ctx.user_prompt {
+        sub_ctx.insert("user_input".to_string(), v.clone());
+        sub_ctx.insert("user_prompt".to_string(), v.clone());
+    }
+    if let Some(ref v) = assembly_ctx.tool_output {
+        sub_ctx.insert("tool_output".to_string(), v.clone());
+    }
+    if let Some(ref v) = assembly_ctx.quest_description {
+        sub_ctx.insert("quest_description".to_string(), v.clone());
+    }
+    // Session-level values from ExecutionContext.
+    sub_ctx.insert("session_id".to_string(), dispatch.ctx.session_id.clone());
+    sub_ctx.insert("agent_id".to_string(), dispatch.ctx.agent_id.clone());
+    if let Some(ref v) = dispatch.ctx.user_input {
+        sub_ctx
+            .entry("user_input".to_string())
+            .or_insert_with(|| v.clone());
+    }
+    if let Some(ref v) = dispatch.ctx.quest_description {
+        sub_ctx
+            .entry("quest_description".to_string())
+            .or_insert_with(|| v.clone());
+    }
+
+    let mut produced_output = false;
+
+    for tc in &event.tool_calls {
+        // 1. Substitute placeholders in args.
+        let mut substituted = substitute_args(&tc.args, &sub_ctx);
+
+        // 2. Inject _session_id for tools that need it (transcript.inject).
+        if let Some(obj) = substituted.as_object_mut() {
+            obj.insert(
+                "_session_id".to_string(),
+                serde_json::Value::String(dispatch.ctx.session_id.clone()),
+            );
+        }
+
+        // 3. Emit a status event before the tool runs.
+        dispatch.ctx.emit_status(format!("event tool: {}", tc.tool));
+
+        // 4. Invoke the tool.
+        match dispatch
+            .registry
+            .invoke(&tc.tool, substituted, CallerKind::Event, dispatch.ctx)
+            .await
+        {
+            Ok(result) => {
+                if result.is_error {
+                    tracing::warn!(
+                        event_id = %event.id,
+                        tool = %tc.tool,
+                        error = %result.output,
+                        "event tool call returned error"
+                    );
+                } else if !result.output.is_empty() && result.output != "(no ideas assembled)" {
+                    // 5. Append output to assembled context parts.
+                    parts.push(result.output);
+                    produced_output = true;
+
+                    // Emit status for tools that assemble ideas (by name pattern).
+                    if tc.tool.starts_with("ideas.") {
+                        dispatch
+                            .ctx
+                            .emit_status(format!("assembled context via {}", tc.tool));
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    event_id = %event.id,
+                    tool = %tc.tool,
+                    error = %e,
+                    "event tool call failed"
+                );
+            }
+        }
+    }
+
+    produced_output
+}
+
 /// Walk a JSON value recursively and replace `{key}` placeholders in every
 /// string leaf using the provided `context` map.
 ///
@@ -379,9 +526,9 @@ pub async fn assemble_ideas_for_patterns(
 /// - Unknown keys: passed through literally (the `{key}` token is kept).
 /// - Non-string values: left unchanged.
 ///
-/// This is the Phase-1 stub implementation. Phase 2 will call it during
-/// actual `tool_calls` dispatch to expand args before passing them to the
-/// tool registry.
+/// Convenience for operator-readable event configs (e.g. `{user_input}` in event
+/// args JSON). Not a security boundary — security-sensitive values (session_id,
+/// agent_id) travel via `ExecutionContext`, not through operator-writable args.
 pub fn substitute_args(
     args: &serde_json::Value,
     context: &HashMap<String, String>,

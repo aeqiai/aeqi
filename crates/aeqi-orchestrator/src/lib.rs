@@ -33,6 +33,7 @@ pub mod pipeline;
 pub mod progress_tracker;
 pub mod prompt_loader;
 pub mod runtime;
+pub mod runtime_tools;
 pub mod sandbox;
 pub mod schedule_timer;
 pub mod scheduler;
@@ -69,6 +70,7 @@ pub use runtime::{
     Artifact, ArtifactKind, Run, RunStatus, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus,
     RuntimePhase, RuntimeSession, RuntimeSessionStatus,
 };
+pub use runtime_tools::build_runtime_registry;
 pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig, prune_stale_worktrees};
 pub use schedule_timer::ScheduleTimer;
 pub use scheduler::{Scheduler, SchedulerConfig};

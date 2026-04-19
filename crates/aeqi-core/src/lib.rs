@@ -17,6 +17,7 @@ pub mod sanitize;
 pub mod security;
 pub mod shell_hooks;
 pub mod streaming_executor;
+pub mod tool_registry;
 pub mod traits;
 
 pub use agent::{
@@ -35,4 +36,5 @@ pub use hooks::{
 };
 pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
 pub use security::SecretStore;
+pub use tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
 pub use traits::provider::{Message, MessageContent, Role};
