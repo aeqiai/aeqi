@@ -395,6 +395,17 @@ mod tests {
             Ok(vec![self.idea.clone()])
         }
 
+        async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {
+            // Return the seeded idea if its id is in the requested set — lets
+            // tests exercise static idea_ids injection without spinning up the
+            // real sqlite store.
+            if ids.iter().any(|id| id == &self.idea.id) {
+                Ok(vec![self.idea.clone()])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+
         async fn delete(&self, _id: &str) -> anyhow::Result<()> {
             Ok(())
         }
@@ -537,6 +548,84 @@ mod tests {
             assembled.fired_event_ids.is_empty(),
             "no event fired → fired_event_ids must remain empty, got {:?}",
             assembled.fired_event_ids
+        );
+    }
+
+    /// Regression test for leak #5 (as-010): `session:quest_end` was declared as
+    /// a system event but nothing in the runtime consumed it. The close tool's
+    /// `action_close` now assembles ideas for this pattern and prepends them to
+    /// the result. This test pins the read-side: a `session:quest_end` event
+    /// with an attached idea_id must surface in assembled.system and the event
+    /// must appear in fired_event_ids so record_fire runs.
+    #[tokio::test]
+    async fn quest_end_static_idea_ids_surface_in_assembly() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let postmortem_idea = Idea {
+            id: "quest-end-idea-1".to_string(),
+            name: "postmortem-template".to_string(),
+            content: "POSTMORTEM: list any regressions you might have introduced.".to_string(),
+            tags: vec!["template".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        let event = event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "quest-postmortem".into(),
+                pattern: "session:quest_end".into(),
+                idea_ids: vec![postmortem_idea.id.clone()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: postmortem_idea,
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let context = AssemblyContext {
+            quest_description: Some("Quest q-1 closed: refactor done".to_string()),
+            ..Default::default()
+        };
+        let assembled = assemble_ideas_for_pattern(
+            &registry,
+            Some(&store),
+            &event_store,
+            &agent.id,
+            &[],
+            "session:quest_end",
+            &context,
+        )
+        .await;
+
+        assert!(
+            assembled.system.contains("POSTMORTEM: list any regressions"),
+            "quest_end event's static idea_ids must appear in assembled.system, got: {:?}",
+            assembled.system
+        );
+        assert_eq!(
+            assembled.fired_event_ids,
+            vec![event.id.clone()],
+            "the event that contributed an idea must be in fired_event_ids so record_fire runs"
+        );
+        assert!(
+            stub.seen_queries.lock().unwrap().is_empty(),
+            "no semantic search should run when the event has only static idea_ids"
         );
     }
 
