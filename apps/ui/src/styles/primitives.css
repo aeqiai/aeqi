@@ -12,14 +12,11 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Backgrounds
-     The landing defines --color-paper (#faf6ec warm parchment) and
-     --color-card (#ffffff pure white). The dashboard adopts paper as
-     the canvas (--bg-elevated) and shifts the card (--bg-base) to a
-     lighter warm white (#fcfaf3) instead of pure #ffffff so the card
-     reads as "same material, lifted" over the parchment canvas rather
-     than a spec-sheet white sitting on a tinted page. */
-  --bg-base: #fcfaf3;
+  /* Backgrounds — same vocabulary as the landing.
+     Page canvas is --color-paper (warm parchment); cards are
+     --color-card (pure white). Pure white on parchment lifts
+     decisively and keeps the dashboard 1:1 with /brand. */
+  --bg-base: var(--color-card);
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: var(--color-paper);
   --bg-overlay: var(--color-bg-overlay);
