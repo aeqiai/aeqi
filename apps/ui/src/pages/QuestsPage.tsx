@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import type { Quest, QuestStatus, QuestPriority } from "@/lib/types";
 import { Button } from "@/components/ui";
+import QuestPreflightPanel from "@/components/QuestPreflightPanel";
 import styles from "./QuestsPage.module.css";
 
 /* ── Icons ───────────────────────────────────────────── */
@@ -273,6 +274,21 @@ function CreateQuestModal({ open, onClose }: CreateModalProps) {
               {" The description and acceptance criteria are pre-filled by the runtime."}
             </div>
           )}
+
+          {(() => {
+            const resolvedAgent = agents.find((a) => a.name === (agentName || selectedAgent?.name));
+            const preflightDesc =
+              preset === "none"
+                ? description
+                : preset === "bug-fix"
+                  ? symptom
+                  : preset === "refactor"
+                    ? motivation
+                    : subject;
+            return (
+              <QuestPreflightPanel agentId={resolvedAgent?.id ?? ""} description={preflightDesc} />
+            );
+          })()}
 
           <div className={styles.modalFields}>
             <div className={styles.modalField}>

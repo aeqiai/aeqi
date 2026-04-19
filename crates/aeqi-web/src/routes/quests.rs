@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/quests", get(quests).post(create_quest))
+        .route("/quests/preflight", post(quest_preflight))
         .route("/quests/{id}", get(get_quest).put(update_quest))
         .route("/quests/{id}/close", post(close_quest))
         .route("/quests/{id}/traces", get(quest_traces))
@@ -111,6 +112,50 @@ async fn quest_traces(
         scope.as_ref(),
         "quest_traces",
         serde_json::json!({"id": id}),
+    )
+    .await
+}
+
+/// Request body for `POST /api/quests/preflight`.
+#[derive(Deserialize)]
+struct PreflightBody {
+    agent_id: String,
+    description: String,
+    #[serde(default)]
+    task_idea_ids: Vec<String>,
+}
+
+/// Return the assembled system prompt and tool lists that would be used when
+/// this quest starts — without creating anything. Lets the user inspect what
+/// context the agent will receive before committing.
+async fn quest_preflight(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<PreflightBody>,
+) -> Response {
+    if body.agent_id.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": "agent_id is required"})),
+        )
+            .into_response();
+    }
+    if body.description.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": "description is required"})),
+        )
+            .into_response();
+    }
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "quest_preflight",
+        serde_json::json!({
+            "agent_id": body.agent_id,
+            "description": body.description,
+            "task_idea_ids": body.task_idea_ids,
+        }),
     )
     .await
 }

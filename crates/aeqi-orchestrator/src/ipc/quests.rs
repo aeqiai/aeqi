@@ -600,3 +600,75 @@ pub async fn handle_quest_traces(
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
+
+/// Assemble the system prompt that would be used when a quest starts, without
+/// mutating any state. Used by `POST /api/quests/preflight` so the user can
+/// inspect what context the agent will receive before committing.
+pub async fn handle_quest_preflight(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+) -> serde_json::Value {
+    let agent_id = match request
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        Some(id) => id,
+        None => return serde_json::json!({"ok": false, "error": "agent_id is required"}),
+    };
+    let description = request
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if description.is_empty() {
+        return serde_json::json!({"ok": false, "error": "description is required"});
+    }
+
+    // Verify the agent exists.
+    match ctx.agent_registry.get(agent_id).await {
+        Ok(None) => {
+            return serde_json::json!({"ok": false, "error": "agent not found", "code": "not_found"});
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        Ok(Some(_)) => {}
+    }
+
+    let task_idea_ids: Vec<String> = request
+        .get("task_idea_ids")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Prefer the shared store from context; fall back to a fresh one if absent.
+    let fallback_store;
+    let event_store: &crate::event_handler::EventHandlerStore =
+        if let Some(ref ehs) = ctx.event_handler_store {
+            ehs.as_ref()
+        } else {
+            fallback_store = crate::event_handler::EventHandlerStore::new(ctx.agent_registry.db());
+            &fallback_store
+        };
+
+    let assembled = crate::idea_assembly::assemble_ideas_for_quest_start(
+        &ctx.agent_registry,
+        ctx.idea_store.as_ref(),
+        event_store,
+        agent_id,
+        &task_idea_ids,
+        description,
+    )
+    .await;
+
+    serde_json::json!({
+        "ok": true,
+        "system": assembled.system,
+        "tools": {
+            "allow": assembled.tools.allow,
+            "deny": assembled.tools.deny,
+        }
+    })
+}

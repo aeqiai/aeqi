@@ -449,6 +449,13 @@ export const api = {
       body: JSON.stringify(data ? { reason: data.reason, root: data.root } : {}),
     }),
 
+  // Read: Quest preflight — assemble the system prompt without creating anything
+  questPreflight: (data: { agent_id: string; description: string; task_idea_ids?: string[] }) =>
+    request<{ ok: boolean; system: string; tools: { allow: string[]; deny: string[] } }>(
+      "/quests/preflight",
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+
   // Single quest
   getQuest: (id: string) => request<Record<string, unknown>>(`/quests/${id}`),
 

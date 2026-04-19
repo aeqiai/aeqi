@@ -71,6 +71,7 @@ pub(super) async fn ipc_proxy(
             {
                 let status = match code {
                     "conflict" => Some(StatusCode::CONFLICT),
+                    "not_found" => Some(StatusCode::NOT_FOUND),
                     _ => None,
                 };
                 if let Some(status) = status {
