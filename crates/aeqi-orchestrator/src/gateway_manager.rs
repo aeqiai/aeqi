@@ -11,8 +11,12 @@ use crate::session_store::SessionStore;
 
 /// Manages output gateways for sessions.
 /// Each session can have multiple gateways. The dispatcher fans out
-/// agent responses to all registered gateways AND records them in
-/// the session store (single point of recording).
+/// agent responses to all registered gateways. For gateway-originated
+/// sessions (e.g. Telegram), the dispatcher also persists the
+/// assistant response on Complete. For IPC-originated sessions (web UI),
+/// the daemon IPC handler records per-step and calls `ensure_dispatcher`
+/// for gateway fan-out only — that path explicitly skips DB writes to
+/// avoid duplicates.
 pub struct GatewayManager {
     /// Per-session registered gateways.
     registrations: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
@@ -148,8 +152,11 @@ impl GatewayManager {
         info!(session_id = %session_id, gateway_id = %gw_id, gateway_type = %gw_type, "gateway registered");
     }
 
-    /// Ensure a dispatcher is running for a session (for recording).
-    /// Does NOT register a gateway — just starts the dispatch loop if not already running.
+    /// Ensure a dispatcher is running for a session (fan-out only).
+    /// Does NOT register a gateway and does NOT record to the session store —
+    /// the caller (daemon IPC handler) is the authoritative recorder and
+    /// persists per-step with sender identity. This path only ensures gateway
+    /// fan-out survives a WebSocket disconnect.
     pub async fn ensure_dispatcher(&self, session_id: &str, stream_sender: &ChatStreamSender) {
         let mut dispatchers = self.dispatchers.lock().await;
         if dispatchers.contains_key(session_id) {
@@ -164,9 +171,8 @@ impl GatewayManager {
 
         let rx = stream_sender.subscribe();
         let sid = session_id.to_string();
-        let ss = self.session_store.clone();
         let handle = tokio::spawn(async move {
-            dispatch_loop(sid, rx, gateways, ss).await;
+            dispatch_loop(sid, rx, gateways, None).await;
         });
         dispatchers.insert(session_id.to_string(), handle);
     }
