@@ -619,6 +619,49 @@ mod tests {
         assert_eq!(events.len(), 1);
     }
 
+    /// Regression guard for the scheduler/idea-assembly path: `session:start`
+    /// must NOT prefix-match `session:quest_start`. This is the invariant the
+    /// multi-pattern `assemble_ideas_for_quest_start` relies on — if
+    /// `get_events_for_pattern` ever widens its LIKE semantics, the assembly
+    /// would start double-injecting quest_start events on plain session_start
+    /// traversals. Pinned here so the behavior is explicit.
+    #[tokio::test]
+    async fn session_start_pattern_does_not_prefix_match_quest_start() {
+        let store = test_store().await;
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "quest_starter".into(),
+                pattern: "session:quest_start".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "session_starter".into(),
+                pattern: "session:start".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let session_hits = store.get_events_for_pattern("a1", "session:start").await;
+        assert_eq!(
+            session_hits.len(),
+            1,
+            "session:start must only match itself"
+        );
+        assert_eq!(session_hits[0].name, "session_starter");
+
+        let quest_hits = store
+            .get_events_for_pattern("a1", "session:quest_start")
+            .await;
+        assert_eq!(quest_hits.len(), 1);
+        assert_eq!(quest_hits[0].name, "quest_starter");
+    }
+
     #[tokio::test]
     async fn system_events_cannot_be_deleted() {
         let store = test_store().await;
