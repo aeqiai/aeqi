@@ -93,3 +93,16 @@ on_session_start|1|2026-04-19T03:12:31.260169121+00:00
 ```
 
 The loop closes. The UI stops lying. Ship it.
+
+## Postscript: four more leaks the newly-honest audit trail found
+
+Fixing `fire_count` wasn't the endgame. It was the instrument. Once the Events page could be trusted, the zeros it kept showing on specific rows became testable hypotheses instead of noise.
+
+The same night, four more leaks surfaced — each one the same architectural shape (an advertised event whose semantics drift from what the runtime actually does):
+
+- **`on_quest_result` had no consumer.** Declared as a system event, rendered by the UI, invited user configuration — nothing in the runtime read its `idea_ids`. Wired to `scheduler.rs:999` so that when a quest completes, `session:quest_result` events assemble and prepend to the result text streamed to the creator session. Commit `0429dad`.
+- **Loop-detection middleware fingerprinted only the tool name, not arguments.** `MiddlewareObserver::after_tool` constructed its `ToolCall` with an empty `input` field because the `Observer` trait's signature didn't carry one. Five different `read_file` calls hashed to the same fingerprint and the middleware halted with "identical call ... same arguments" — a halt message that was itself lying. The bug lived entirely in the adapter, not the middleware; the middleware's own unit tests passed because they exercised it directly. Commit `518a171`.
+- **`on_quest_start`'s `query_template` retrieved the top-k semantically-nearest ideas regardless of tag.** The default seed declared `query_template = "skill promoted {quest_description}"` — intent clearly "pull promoted skills relevant to this quest" — but the runtime ran a bare semantic search. The word `promoted` was a soft hint to the embedding model, not a hard filter against the `promoted` tag. Candidate-tagged and rejected ideas could leak into prompts purely on embedding similarity. Fix: a new nullable `query_tag_filter` column on events, a tag-aware `hierarchical_search_with_tags` trait method, and a default-seed declaration of `["promoted"]`. Commit `adcd497`.
+- **`on_quest_end` had no consumer either — the last advertised-but-dead event.** Users could attach ideas to it and the runtime would never assemble them. The natural injection point turned out to be the `quests(action=close)` tool itself: the worker calling close IS the quest ending. `QuestsTool::action_close` now assembles `session:quest_end` ideas in the worker's ancestry, `record_fire`s each contributing event, and prepends the assembled content to the close-tool's success message — so a user-configured postmortem or reflection template actually reaches the model at the natural quest-closing moment. Commit `a91f2c9`. Regression test at `idea_assembly.rs::quest_end_static_idea_ids_surface_in_assembly` pins the read-side.
+
+Five anti-magic leaks in one shift. Every one was invisible until telemetry was honest about itself. That's the whole argument for observability-as-a-feature: fix the instrument first, then use it.
