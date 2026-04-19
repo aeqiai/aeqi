@@ -642,6 +642,7 @@ impl AgentWorker {
                     model,
                     &task_context,
                     &enriched_system_prompt,
+                    worker_session_id.as_deref(),
                 )
                 .await
                 .map(|agent_result| {
@@ -1217,6 +1218,7 @@ impl AgentWorker {
         model: &str,
         task_context: &str,
         system_prompt: &str,
+        worker_session_id: Option<&str>,
     ) -> Result<aeqi_core::AgentResult> {
         // Load user-defined hook rules from <project_dir>/.aeqi/hooks/*.md.
         let hooks_observer = if let Some(ref dir) = self.project_dir {
@@ -1298,24 +1300,58 @@ impl AgentWorker {
             agent = agent.with_idea_store(mem.clone());
         }
 
-        // Wire chat stream: create sender, subscribe in background task to
-        // forward ChatStreamEvents to the ActivityStream as ChatStream events.
-        if let Some(ref broadcaster) = self.activity_stream {
+        // Wire chat stream: subscribe in a background task that both forwards
+        // events to the ActivityStream (for live UI) and persists ToolComplete
+        // events into session_messages so tool_traces_for_quest can feed the
+        // candidate-skill pipeline on quest completion.
+        let broadcaster = self.activity_stream.clone();
+        let session_store = self.session_store.clone();
+        let persist_session_id = worker_session_id.map(str::to_string);
+        if broadcaster.is_some() || (session_store.is_some() && persist_session_id.is_some()) {
             let quest_id = self
                 .hook
                 .as_ref()
                 .map(|h| h.quest_id.0.clone())
                 .unwrap_or_default();
             let (sender, mut rx) = aeqi_core::ChatStreamSender::new(512);
-            let bc = Arc::clone(broadcaster);
-            let tid = quest_id.clone();
             tokio::spawn(async move {
                 while let Ok(event) = rx.recv().await {
-                    bc.publish(crate::activity::Activity::ChatStream {
-                        quest_id: tid.clone(),
-                        chat_id: 0, // Filled by MessageRouter when routing
-                        event,
-                    });
+                    if let (Some(ss), Some(sid)) = (&session_store, &persist_session_id)
+                        && let aeqi_core::ChatStreamEvent::ToolComplete {
+                            tool_use_id,
+                            tool_name,
+                            success,
+                            input_preview,
+                            output_preview,
+                            duration_ms,
+                        } = &event
+                    {
+                        let meta = serde_json::json!({
+                            "tool_use_id": tool_use_id,
+                            "tool_name": tool_name,
+                            "success": success,
+                            "input_preview": input_preview,
+                            "output_preview": output_preview,
+                            "duration_ms": duration_ms,
+                        });
+                        let _ = ss
+                            .record_event_by_session(
+                                sid,
+                                "tool_complete",
+                                "system",
+                                tool_name,
+                                Some("worker"),
+                                Some(&meta),
+                            )
+                            .await;
+                    }
+                    if let Some(ref bc) = broadcaster {
+                        bc.publish(crate::activity::Activity::ChatStream {
+                            quest_id: quest_id.clone(),
+                            chat_id: 0,
+                            event,
+                        });
+                    }
                 }
             });
             agent = agent.with_chat_stream(sender);
