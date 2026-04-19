@@ -100,7 +100,7 @@ export default function AgentPage({
             borderRadius: 6,
             fontSize: 13,
             background: toast.isError ? "var(--error, #dc2626)" : "var(--success, #16a34a)",
-            color: "#fff",
+            color: "var(--btn-primary-text)",
           }}
         >
           {toast.message}

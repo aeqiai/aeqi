@@ -25,6 +25,12 @@
   --color-bg-elevated: rgba(0, 0, 0, 0.05);
   --color-bg-overlay: rgba(0, 0, 0, 0.1);
 
+  /* Surfaces — semantic, warm. Shared with the landing system.
+     --color-paper  page base (warm parchment — the default canvas)
+     --color-card   raised card / panel / alternating section */
+  --color-paper: #faf6ec;
+  --color-card: #ffffff;
+
   /* Text */
   --color-text-primary: rgba(0, 0, 0, 0.85);
   --color-text-secondary: rgba(0, 0, 0, 0.5);

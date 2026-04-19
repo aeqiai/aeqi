@@ -91,7 +91,8 @@ export default function VerifyEmailPage() {
         </div>
         <h1 className="auth-heading">Check your email</h1>
         <p className="auth-subheading">
-          We sent a 6-digit code to <strong style={{ color: "rgba(0,0,0,0.7)" }}>{email}</strong>
+          We sent a 6-digit code to{" "}
+          <strong style={{ color: "var(--text-primary)" }}>{email}</strong>
         </p>
 
         <div className="verify-code-inputs" onPaste={handlePaste}>
@@ -119,7 +120,7 @@ export default function VerifyEmailPage() {
         <p className="auth-switch" style={{ marginTop: 32 }}>
           Didn't get the code?{" "}
           {resendCooldown > 0 ? (
-            <span style={{ color: "rgba(0,0,0,0.3)" }}>Resend in {resendCooldown}s</span>
+            <span style={{ color: "var(--text-muted)" }}>Resend in {resendCooldown}s</span>
           ) : (
             <a
               href="#"

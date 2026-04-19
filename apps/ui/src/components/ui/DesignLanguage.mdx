@@ -10,26 +10,37 @@ The aeqi design system is built on restraint. Every element earns its place thro
 
 ## Principles
 
-### Monochromatic restraint
+### Restraint, with one accent
 
-Black on white. Opacity controls hierarchy, not color. The absence of chromatic noise keeps focus on structure and content.
+Warm parchment paper, ink text at opacity, one accent — heraldic gold. The accent earns its weight by scarcity: wordmark, primary CTA, links, focus. Titles stay ink. The system is restrained, not monochrome.
 
 ### Opacity as depth
 
-Instead of distinct grays, a single black at varying opacities creates a unified visual hierarchy:
+A single black at varying opacities carries hierarchy inside the ink system:
 
 | Token                    | Value                  | Usage                      |
 | ------------------------ | ---------------------- | -------------------------- |
 | `--color-text-primary`   | `rgba(0, 0, 0, 0.85)`  | Body text, headings        |
-| `--color-text-secondary` | `rgba(0, 0, 0, 0.55)`  | Labels, descriptions       |
-| `--color-text-muted`     | `rgba(0, 0, 0, 0.35)`  | Hints, timestamps          |
+| `--color-text-secondary` | `rgba(0, 0, 0, 0.5)`   | Labels, descriptions       |
+| `--color-text-muted`     | `rgba(0, 0, 0, 0.3)`   | Hints, timestamps          |
 | `--color-border`         | `rgba(0, 0, 0, 0.08)`  | Panel borders, dividers    |
-| `--color-bg-surface`     | `rgba(0, 0, 0, 0.015)` | Subtle surface distinction |
-| `--color-bg-elevated`    | `rgba(0, 0, 0, 0.035)` | Hover, elevated panels     |
+| `--color-bg-surface`     | `rgba(0, 0, 0, 0.025)` | Subtle surface distinction |
+| `--color-bg-elevated`    | `rgba(0, 0, 0, 0.05)`  | Hover, elevated panels     |
+
+### Surfaces — paper and card
+
+The canvas is warm parchment; raised surfaces read as "same material, lifted":
+
+| Token           | Value     | Usage                                       |
+| --------------- | --------- | ------------------------------------------- |
+| `--color-paper` | `#faf6ec` | Page base — the default canvas              |
+| `--color-card`  | `#ffffff` | Raised card / panel (landing)               |
+| `--bg-elevated` | paper     | Dashboard canvas — consumes `--color-paper` |
+| `--bg-base`     | `#fcfaf3` | Dashboard card — warm white on parchment    |
 
 ### Precision over decoration
 
-No gratuitous gradients, shadows, or rounded corners. Components use sharp geometry and minimal chrome. When status color is needed (success, error, warning), it appears sparingly -- a dot, a tint -- never a full-bleed wash.
+No gratuitous gradients, heavy shadows, or extravagant rounding. Components use sharp geometry and minimal chrome. Status color (success, error, warning, info) appears sparingly — a dot, a tint — never a full-bleed wash.
 
 ### The four primitives
 
@@ -42,39 +53,47 @@ Everything in aeqi maps to one of four primitives:
 
 ---
 
-## The ae mark
+## The æqi wordmark
 
-The **ae** ligature is the brand mark of aeqi. It appears in the product name, never as decoration. The mark uses the same monochromatic treatment as all other type -- `rgba(0, 0, 0, 0.85)` on light backgrounds.
+The **æqi** wordmark, set in Zen Dots and rendered in heraldic gold (`var(--color-accent)`), is the brand mark. It appears as the product name and never as decoration. Brand primitives (`<Wordmark>`, `<BrandMark>`) default to the accent — never pass a `color` override unless the surface demands it.
 
 Usage rules:
 
-- Always lowercase: **aeqi**, never "AEQI" or "Aeqi" in UI text
-- The ligature character is reserved for the logo and brand references
-- Do not colorize, animate, or add effects to the mark
+- Always lowercase: **æqi**, never "AEQI" or "Aeqi" in UI text
+- The ligature glyph is reserved for the logo and brand references
+- Never add gradients, shadows, or effects; never rotate or stretch
+- The accent owns the wordmark — nothing else competes
 
 ---
 
 ## Typography
 
-Two typefaces, each with a clear role:
+Each typeface has a single clear role. Do not introduce more.
 
-| Typeface       | Variable      | Usage                                    |
-| -------------- | ------------- | ---------------------------------------- |
-| Inter          | `--font-sans` | All UI text: labels, body, headings      |
-| JetBrains Mono | `--font-mono` | Code, IDs, model names, technical values |
+| Typeface       | Variable         | Usage                                     |
+| -------------- | ---------------- | ----------------------------------------- |
+| Inter          | `--font-sans`    | UI chrome — labels, body, headings        |
+| JetBrains Mono | `--font-mono`    | Code, IDs, model names, technical values  |
+| Cinzel         | `--font-display` | Page titles, hero, marquee moments        |
+| Zen Dots       | `--font-brand`   | The æqi wordmark only                     |
+| EB Garamond    | `--font-serif`   | Long-form prose (docs, blog, essay tones) |
 
 ### Type scale
 
-| Token             | Size             | Usage                        |
-| ----------------- | ---------------- | ---------------------------- |
-| `--font-size-xs`  | 0.75rem (12px)   | Badges, timestamps, metadata |
-| `--font-size-sm`  | 0.8125rem (13px) | Secondary text, descriptions |
-| `--font-size-md`  | 0.875rem (14px)  | Body text, form labels       |
-| `--font-size-lg`  | 1rem (16px)      | Base / root size             |
-| `--font-size-xl`  | 1.125rem (18px)  | Section headings             |
-| `--font-size-2xl` | 1.5rem (24px)    | Page titles                  |
+| Token              | Size             | Usage                        |
+| ------------------ | ---------------- | ---------------------------- |
+| `--font-size-3xs`  | 0.5625rem (9px)  | Micro labels                 |
+| `--font-size-2xs`  | 0.625rem (10px)  | Eyebrow caps                 |
+| `--font-size-xs`   | 0.75rem (12px)   | Badges, timestamps, metadata |
+| `--font-size-sm`   | 0.8125rem (13px) | Secondary text, descriptions |
+| `--font-size-base` | 0.875rem (14px)  | Body text, form labels       |
+| `--font-size-lg`   | 1rem (16px)      | Base / root size             |
+| `--font-size-xl`   | 1.25rem (20px)   | Section headings             |
+| `--font-size-2xl`  | 1.5rem (24px)    | Page titles                  |
+| `--font-size-3xl`  | 1.875rem (30px)  | Hero headlines               |
+| `--font-size-4xl`  | 2.25rem (36px)   | Display                      |
 
-Weights: 400 (regular), 500 (medium for labels), 600 (semibold for headings).
+Weights: 400 (regular), 500 (medium for labels), 600 (semibold for headings), 700 (bold, rare).
 
 ---
 
@@ -95,26 +114,28 @@ A consistent spacing scale based on 4px increments:
 
 ## Border radii
 
-| Token         | Value | Usage                        |
-| ------------- | ----- | ---------------------------- |
-| `--radius-sm` | 4px   | Badges, tags, small elements |
-| `--radius-md` | 6px   | Inputs, buttons              |
-| `--radius-lg` | 8px   | Panels, cards                |
-| `--radius-xl` | 12px  | Modals, large containers     |
+| Token           | Value | Usage                        |
+| --------------- | ----- | ---------------------------- |
+| `--radius-xs`   | 4px   | Key pills, tight chips       |
+| `--radius-sm`   | 6px   | Badges, tags, small elements |
+| `--radius-md`   | 8px   | Inputs, buttons              |
+| `--radius-lg`   | 12px  | Panels, cards                |
+| `--radius-xl`   | 16px  | Modals, large containers     |
+| `--radius-full` | 999px | Pills, avatars               |
 
 ---
 
 ## Status colors
 
-Status colors are the only exception to the monochromatic rule. They appear minimally -- as badge dots, tinted backgrounds, or subtle text colors:
+Status colors are the only chromatic exception outside the accent. They appear minimally — badge dots, tinted backgrounds, subtle text colors — never full-bleed washes:
 
-| Status  | Color     | Token             | Used for                   |
-| ------- | --------- | ----------------- | -------------------------- |
-| Success | `#22c55e` | `--color-success` | Done, active, healthy      |
-| Error   | `#ef4444` | `--color-error`   | Failed, validation errors  |
-| Warning | `#f59e0b` | `--color-warning` | Blocked, degraded          |
-| Info    | `#3b82f6` | `--color-info`    | In progress, informational |
-| Accent  | `#000000` | `--color-accent`  | Working, primary actions   |
+| Status  | Color     | Token             | Used for                            |
+| ------- | --------- | ----------------- | ----------------------------------- |
+| Success | `#22c55e` | `--color-success` | Done, active, healthy               |
+| Error   | `#ef4444` | `--color-error`   | Failed, validation errors           |
+| Warning | `#f59e0b` | `--color-warning` | Blocked, degraded                   |
+| Info    | `#3b82f6` | `--color-info`    | In progress, informational          |
+| Accent  | `#D4A017` | `--color-accent`  | Wordmark, primary CTA, links, focus |
 
 ---
 
@@ -132,24 +153,24 @@ Do not introduce new row heights. If a surface needs to feel denser, use `sm` (2
 
 ### Which primitive to use when
 
-| Need                                  | Primitive                    | Don't write                                                 |
-| ------------------------------------- | ---------------------------- | ----------------------------------------------------------- |
-| Any `<button>`                        | `<Button variant size>`      | `.btn`, `.auth-btn-*`, `.modal-btn-*`, `.newBtn`            |
-| Any single-line text field            | `<Input size>`               | `.auth-input`, `.filter-input`, `.agent-settings-input`     |
-| Any multi-line text field             | `<Textarea>`                 | `.modal-textarea`, bespoke `<textarea>` rules               |
-| Status / tag chip                     | `<Badge>` / `<StatusBadge>`  | Hand-rolled status dot + span                               |
-| Bordered container (agent, event row) | `<Card variant padding>`     | `.agent-card`, `.event-row`, `.tool-card`, `.welcome-card`  |
-| Detail panel with title bar           | `<Panel title actions>`      | Hand-rolled `.detail-panel` + `<h2>` header                 |
-| Empty list / no-results state         | `<EmptyState>`               | Hand-rolled "No results" div                                |
-| Loading + error + empty tri-state     | `<DataState>`                | Three nested ternaries in the page                          |
-| Hover explainer                       | `<Tooltip>`                  | `title` attribute (inaccessible, ugly on mobile)            |
-| Modal dialog                          | `<Modal>`                    | `position: fixed` divs                                      |
+| Need                                  | Primitive                   | Don't write                                                |
+| ------------------------------------- | --------------------------- | ---------------------------------------------------------- |
+| Any `<button>`                        | `<Button variant size>`     | `.btn`, `.auth-btn-*`, `.modal-btn-*`, `.newBtn`           |
+| Any single-line text field            | `<Input size>`              | `.auth-input`, `.filter-input`, `.agent-settings-input`    |
+| Any multi-line text field             | `<Textarea>`                | `.modal-textarea`, bespoke `<textarea>` rules              |
+| Status / tag chip                     | `<Badge>` / `<StatusBadge>` | Hand-rolled status dot + span                              |
+| Bordered container (agent, event row) | `<Card variant padding>`    | `.agent-card`, `.event-row`, `.tool-card`, `.welcome-card` |
+| Detail panel with title bar           | `<Panel title actions>`     | Hand-rolled `.detail-panel` + `<h2>` header                |
+| Empty list / no-results state         | `<EmptyState>`              | Hand-rolled "No results" div                               |
+| Loading + error + empty tri-state     | `<DataState>`               | Three nested ternaries in the page                         |
+| Hover explainer                       | `<Tooltip>`                 | `title` attribute (inaccessible, ugly on mobile)           |
+| Modal dialog                          | `<Modal>`                   | `position: fixed` divs                                     |
 
 ### Token rules
 
 - `--input-*` tokens are the source of truth for **every field-like surface**. `<Input>`, `<Textarea>`, the composer, and the few remaining class-based inputs (`.filter-input`, `.agent-settings-input`, `.events-link-input`) all consume them. Edit once, update everywhere.
-- Never hardcode `#ffffff`, `rgba(0, 0, 0, 0.x)`, or hex colors in component CSS. Use a token. If the token you need doesn't exist, add it in `primitives.css` first.
-- Never hardcode radius values. `--radius-md` for inputs/buttons, `--radius-lg` for cards/panels, `--radius-xl` for modals.
+- Never hardcode `#ffffff`, `rgba(0, 0, 0, 0.x)`, or hex colors in component CSS. Use a token. If the token you need doesn't exist, add it to `@aeqi/tokens` (shared) first, then alias it in `primitives.css`.
+- Never hardcode radius values. `--radius-md` (8px) for inputs/buttons, `--radius-lg` (12px) for cards/panels, `--radius-xl` (16px) for modals.
 
 ### Adding a new primitive
 
