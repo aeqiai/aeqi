@@ -444,17 +444,20 @@ mod tests {
 
     // ── Error message formatting ──
 
+    fn format_slack_error(error: Option<String>) -> String {
+        format!("Slack send failed: {}", error.unwrap_or_default())
+    }
+
     #[test]
     fn slack_error_message_formatting() {
-        let error = Some("not_authed".to_string());
-        let msg = format!("Slack send failed: {}", error.unwrap_or_default());
-        assert_eq!(msg, "Slack send failed: not_authed");
+        assert_eq!(
+            format_slack_error(Some("not_authed".to_string())),
+            "Slack send failed: not_authed"
+        );
     }
 
     #[test]
     fn slack_error_message_when_none() {
-        let error: Option<String> = None;
-        let msg = format!("Slack send failed: {}", error.unwrap_or_default());
-        assert_eq!(msg, "Slack send failed: ");
+        assert_eq!(format_slack_error(None), "Slack send failed: ");
     }
 }

@@ -1841,7 +1841,7 @@ mod tests {
         assert!(tool_names.contains(&"edit_file"));
         assert!(tool_names.contains(&"read_file"));
         assert!(tool_names.contains(&"run_tests"));
-        assert!(!tool_names.iter().any(|n| *n == "unrelated user message"));
+        assert!(!tool_names.contains(&"unrelated user message"));
 
         // Metadata is unpacked.
         let run_tests = traces

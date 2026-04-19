@@ -612,7 +612,53 @@ impl Scheduler {
                 tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
             }
         }
-        let system_prompt = assembled.system;
+        let mut system_prompt = assembled.system;
+
+        // Fire session:execution_start once per worker-run. A worker has
+        // exactly one execution (the quest task_context it's assigned), so
+        // this is the natural consumer for the pattern. See
+        // docs/design/as-011-worker-step-context.md decision EA.
+        let exec_context = crate::idea_assembly::AssemblyContext {
+            quest_description: Some(task.description.clone()),
+            ..Default::default()
+        };
+        let exec_assembled = crate::idea_assembly::assemble_ideas_for_pattern(
+            &self.agent_registry,
+            self.idea_store.as_ref(),
+            &event_store,
+            &agent_id,
+            &[],
+            "session:execution_start",
+            &exec_context,
+        )
+        .await;
+        for event_id in &exec_assembled.fired_event_ids {
+            if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+            }
+        }
+        if !exec_assembled.system.trim().is_empty() {
+            system_prompt = if system_prompt.trim().is_empty() {
+                exec_assembled.system
+            } else {
+                format!("{}\n\n---\n\n{}", system_prompt, exec_assembled.system)
+            };
+        }
+
+        // Collect session:step_start ideas for per-LLM-call injection.
+        // Fires once per worker-run (decision SA). See design doc as-011.
+        let (step_specs, step_fire_ids) = crate::idea_assembly::assemble_step_ideas_for_worker(
+            &self.agent_registry,
+            self.idea_store.as_ref(),
+            &event_store,
+            &agent_id,
+        )
+        .await;
+        for event_id in &step_fire_ids {
+            if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+            }
+        }
 
         // Create or reuse a quest sandbox (git worktree) for isolation.
         // Each quest gets its own worktree so parallel quests never conflict.
@@ -725,6 +771,11 @@ impl Scheduler {
 
         // Inject persistent agent identity.
         worker = worker.with_persistent_agent(agent_id.clone());
+
+        // Inject step-level ideas (session:step_start) snapshotted above.
+        if !step_specs.is_empty() {
+            worker = worker.with_step_ideas(step_specs);
+        }
 
         // Inject idea store.
         if let Some(ref mem) = self.idea_store {

@@ -2396,10 +2396,10 @@ mod tests {
 
     // ── inline-link reconciliation ──────────────────────────────────────
 
+    type NameResolver = Box<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
     /// Build a case-insensitive name→id lookup resolver for tests.
-    fn resolver_from_pairs(
-        pairs: &[(&str, &str)],
-    ) -> Box<dyn Fn(&str) -> Option<String> + Send + Sync> {
+    fn resolver_from_pairs(pairs: &[(&str, &str)]) -> NameResolver {
         let map: std::collections::HashMap<String, String> = pairs
             .iter()
             .map(|(name, id)| (name.to_lowercase(), (*id).to_string()))

@@ -83,6 +83,85 @@ pub async fn assemble_ideas_for_quest_start(
     .await
 }
 
+/// Collect `session:step_start` ideas for a worker's agent ancestry and
+/// snapshot them into `StepIdeaSpec`s. Returns the specs plus the IDs of
+/// every event that contributed at least one non-empty idea (so the
+/// scheduler can `record_fire` each).
+///
+/// Fires once per worker-run (= session), matching interactive-chat
+/// semantics — see design doc `docs/design/as-011-worker-step-context.md`
+/// for the per-session vs per-LLM-call decision.
+pub async fn assemble_step_ideas_for_worker(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+) -> (Vec<aeqi_core::StepIdeaSpec>, Vec<String>) {
+    let Some(store) = idea_store else {
+        return (Vec::new(), Vec::new());
+    };
+
+    let ancestors = registry.get_ancestors(agent_id).await.unwrap_or_default();
+    let mut specs: Vec<aeqi_core::StepIdeaSpec> = Vec::new();
+    let mut fired_event_ids: Vec<String> = Vec::new();
+    let mut fired_event_seen: HashSet<String> = HashSet::new();
+    let mut collected_idea_ids: HashSet<String> = HashSet::new();
+
+    // Root-first walk so parent step ideas precede self's.
+    for agent in ancestors.iter().rev() {
+        let events = event_store
+            .get_events_for_pattern(&agent.id, "session:step_start")
+            .await;
+
+        let mut event_idea_ids: Vec<String> = Vec::new();
+        let mut event_owner: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for event in &events {
+            for idea_id in &event.idea_ids {
+                if !idea_id.is_empty() && collected_idea_ids.insert(idea_id.clone()) {
+                    event_idea_ids.push(idea_id.clone());
+                    event_owner.insert(idea_id.clone(), event.id.clone());
+                }
+            }
+        }
+
+        if event_idea_ids.is_empty() {
+            continue;
+        }
+
+        match store.get_by_ids(&event_idea_ids).await {
+            Ok(ideas) => {
+                for idea in ideas {
+                    specs.push(aeqi_core::StepIdeaSpec {
+                        // TODO(as-012): StepIdeaSpec currently requires a path
+                        // even for store-sourced ideas. Using idea.name keeps
+                        // diagnostics readable until the spec grows a proper
+                        // enum variant.
+                        path: std::path::PathBuf::from(&idea.name),
+                        allow_shell: false,
+                        name: idea.name.clone(),
+                        content: Some(idea.content.clone()),
+                    });
+                    if let Some(owner) = event_owner.get(&idea.id)
+                        && fired_event_seen.insert(owner.clone())
+                    {
+                        fired_event_ids.push(owner.clone());
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    agent = %agent.id,
+                    error = %e,
+                    "failed to fetch session:step_start ideas",
+                );
+            }
+        }
+    }
+
+    (specs, fired_event_ids)
+}
+
 /// Like `assemble_ideas` but for an arbitrary event pattern and with an
 /// explicit runtime context used to expand any `query_template` fields on
 /// matching events.
@@ -614,7 +693,9 @@ mod tests {
         .await;
 
         assert!(
-            assembled.system.contains("POSTMORTEM: list any regressions"),
+            assembled
+                .system
+                .contains("POSTMORTEM: list any regressions"),
             "quest_end event's static idea_ids must appear in assembled.system, got: {:?}",
             assembled.system
         );
@@ -627,6 +708,108 @@ mod tests {
             stub.seen_queries.lock().unwrap().is_empty(),
             "no semantic search should run when the event has only static idea_ids"
         );
+    }
+
+    #[tokio::test]
+    async fn step_ideas_for_worker_snapshots_content_and_fires() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let step_idea = Idea {
+            id: "step-idea-1".to_string(),
+            name: "reminder-check-work".to_string(),
+            content: "Before every tool call: re-read your last message.".to_string(),
+            tags: vec!["step".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        let event = event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "step-reminder".into(),
+                pattern: "session:step_start".into(),
+                idea_ids: vec![step_idea.id.clone()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: step_idea,
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let (specs, fired) =
+            assemble_step_ideas_for_worker(&registry, Some(&store), &event_store, &agent.id).await;
+
+        assert_eq!(specs.len(), 1, "one step idea should surface");
+        assert_eq!(
+            specs[0].name, "reminder-check-work",
+            "spec name must come from the idea, not the event"
+        );
+        assert_eq!(
+            specs[0].content.as_deref(),
+            Some("Before every tool call: re-read your last message."),
+            "content must be snapshotted — no mid-flight disk re-reads"
+        );
+        assert_eq!(
+            fired,
+            vec![event.id],
+            "the contributing event must be in fired_event_ids so record_fire runs"
+        );
+        assert!(
+            stub.seen_queries.lock().unwrap().is_empty(),
+            "no semantic search — session:step_start resolves by static idea_ids only",
+        );
+    }
+
+    #[tokio::test]
+    async fn step_ideas_for_worker_empty_when_no_matching_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let event_store = EventHandlerStore::new(registry.db());
+
+        let placeholder_idea = Idea {
+            id: "placeholder".to_string(),
+            name: "placeholder".to_string(),
+            content: String::new(),
+            tags: Vec::new(),
+            agent_id: None,
+            created_at: Utc::now(),
+            session_id: None,
+            score: 0.0,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: placeholder_idea,
+        });
+        let store: Arc<dyn IdeaStore> = stub;
+
+        let (specs, fired) =
+            assemble_step_ideas_for_worker(&registry, Some(&store), &event_store, &agent.id).await;
+
+        assert!(specs.is_empty(), "no events → no specs");
+        assert!(fired.is_empty(), "no events → no fired_event_ids");
     }
 
     #[test]

@@ -86,6 +86,9 @@ pub struct AgentWorker {
     pub session_store: Option<Arc<crate::SessionStore>>,
     /// Agent registry for querying child task outcomes in resume briefs.
     pub agent_registry: Option<Arc<AgentRegistry>>,
+    /// Step-level ideas (snapshotted from `session:step_start` events) to
+    /// inject before every LLM call. See `docs/design/as-011-worker-step-context.md`.
+    pub step_ideas: Vec<aeqi_core::StepIdeaSpec>,
 }
 
 impl AgentWorker {
@@ -131,6 +134,7 @@ impl AgentWorker {
             persistent_agent_id: None,
             session_store: None,
             agent_registry: None,
+            step_ideas: Vec::new(),
         }
     }
 
@@ -172,6 +176,7 @@ impl AgentWorker {
             persistent_agent_id: None,
             session_store: None,
             agent_registry: None,
+            step_ideas: Vec::new(),
         }
     }
 
@@ -199,6 +204,14 @@ impl AgentWorker {
     /// Set the persistent agent UUID for entity-scoped memory.
     pub fn with_persistent_agent(mut self, agent_id: String) -> Self {
         self.persistent_agent_id = Some(agent_id);
+        self
+    }
+
+    /// Attach step-level ideas snapshotted from `session:step_start` events.
+    /// Specs are passed verbatim to `aeqi_core::Agent::with_step_ideas` in
+    /// `execute_agent`.
+    pub fn with_step_ideas(mut self, specs: Vec<aeqi_core::StepIdeaSpec>) -> Self {
+        self.step_ideas = specs;
         self
     }
 
@@ -1295,6 +1308,10 @@ impl AgentWorker {
             observer,
             system_prompt.to_string(),
         );
+
+        if !self.step_ideas.is_empty() {
+            agent = agent.with_step_ideas(self.step_ideas.clone());
+        }
 
         if let Some(ref mem) = self.idea_store {
             agent = agent.with_idea_store(mem.clone());

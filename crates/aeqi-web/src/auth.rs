@@ -115,6 +115,55 @@ pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option
     Some(UserScope { roots })
 }
 
+/// Axum middleware — dispatches by auth mode.
+pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
+    match state.auth_mode {
+        AuthMode::None => {
+            if let Some(scope) = proxy_scope_from_headers(&state, req.headers()) {
+                req.extensions_mut().insert(scope);
+            }
+            next.run(req).await
+        }
+        AuthMode::Secret | AuthMode::Accounts => {
+            let secret = signing_secret(&state);
+            let Some(token) = extract_bearer(&req) else {
+                tracing::warn!("auth: missing authorization header");
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    axum::Json(
+                        serde_json::json!({"ok": false, "error": "missing authorization header"}),
+                    ),
+                )
+                    .into_response();
+            };
+            match validate_token(token, secret) {
+                Ok(claims) => {
+                    // Resolve user's root agents for tenant scoping.
+                    if let Some(accounts) = &state.accounts {
+                        let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+                        if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
+                            let roots = user.roots.unwrap_or_default();
+                            req.extensions_mut().insert(UserScope { roots });
+                        }
+                    }
+                    req.extensions_mut().insert(claims);
+                    next.run(req).await
+                }
+                Err(_) => {
+                    tracing::warn!("auth: invalid or expired token");
+                    (
+                        StatusCode::UNAUTHORIZED,
+                        axum::Json(
+                            serde_json::json!({"ok": false, "error": "invalid or expired token"}),
+                        ),
+                    )
+                        .into_response()
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -609,54 +658,5 @@ mod tests {
         let token = create_token(secret, 1, Some("\u{00E9}\u{00E8}\u{00EA}"), None).unwrap();
         let claims = validate_token(&token, secret).unwrap();
         assert_eq!(claims.sub, "\u{00E9}\u{00E8}\u{00EA}");
-    }
-}
-
-/// Axum middleware — dispatches by auth mode.
-pub async fn require_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
-    match state.auth_mode {
-        AuthMode::None => {
-            if let Some(scope) = proxy_scope_from_headers(&state, req.headers()) {
-                req.extensions_mut().insert(scope);
-            }
-            next.run(req).await
-        }
-        AuthMode::Secret | AuthMode::Accounts => {
-            let secret = signing_secret(&state);
-            let Some(token) = extract_bearer(&req) else {
-                tracing::warn!("auth: missing authorization header");
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    axum::Json(
-                        serde_json::json!({"ok": false, "error": "missing authorization header"}),
-                    ),
-                )
-                    .into_response();
-            };
-            match validate_token(token, secret) {
-                Ok(claims) => {
-                    // Resolve user's root agents for tenant scoping.
-                    if let Some(accounts) = &state.accounts {
-                        let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
-                        if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
-                            let roots = user.roots.unwrap_or_default();
-                            req.extensions_mut().insert(UserScope { roots });
-                        }
-                    }
-                    req.extensions_mut().insert(claims);
-                    next.run(req).await
-                }
-                Err(_) => {
-                    tracing::warn!("auth: invalid or expired token");
-                    (
-                        StatusCode::UNAUTHORIZED,
-                        axum::Json(
-                            serde_json::json!({"ok": false, "error": "invalid or expired token"}),
-                        ),
-                    )
-                        .into_response()
-                }
-            }
-        }
     }
 }
