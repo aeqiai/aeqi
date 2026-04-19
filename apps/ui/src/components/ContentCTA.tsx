@@ -68,6 +68,8 @@ interface RailItem {
   meta?: string;
   /** Dim the row (e.g. disabled event). */
   dimmed?: boolean;
+  /** Session/item status — drives accent-bar color on the row. */
+  status?: string;
 }
 
 /** Header config: what the "+" button does and what it says. */
@@ -222,10 +224,11 @@ export default function ContentCTA() {
           name: sessionLabel(s),
           badge,
           preview: s.first_message ? s.first_message.slice(0, 40) : undefined,
-          meta,
+          meta: s.message_count != null ? `${s.message_count}` : meta,
+          status: s.status,
         };
       });
-      emptyText = "No sessions yet";
+      emptyText = "Start a new chat to begin a session with this agent.";
       break;
 
     case "events":
@@ -389,6 +392,7 @@ export default function ContentCTA() {
             className={`asv-session-item${item.id === itemId ? " active" : ""}${
               item.dimmed ? " asv-session-item--disabled" : ""
             }`}
+            data-status={item.status}
             onClick={() => handleSelect(item.id)}
           >
             <div className="asv-session-item-top">
@@ -398,7 +402,15 @@ export default function ContentCTA() {
             {(item.preview || item.meta) && (
               <div className="asv-session-item-bottom">
                 {item.preview && <span className="asv-session-item-preview">{item.preview}</span>}
-                {item.meta && <span className="asv-session-item-date">{item.meta}</span>}
+                {item.meta && (
+                  <span
+                    className={
+                      section === "sessions" ? "asv-session-item-count" : "asv-session-item-date"
+                    }
+                  >
+                    {item.meta}
+                  </span>
+                )}
               </div>
             )}
           </div>

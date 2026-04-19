@@ -20,7 +20,9 @@ export default function EmptyState({
       </div>
       <div className="asv-empty-title">{displayName}</div>
       <div className="asv-empty-hint">
-        {activeSessionId ? "Continue this conversation." : "Start a new session."}
+        {activeSessionId
+          ? "Session loaded — type a message to continue."
+          : "Type a message to start a real-time conversation with this agent."}
       </div>
       {!activeSessionId && (
         <div className="asv-empty-suggestions">
