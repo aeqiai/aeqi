@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { useUIStore } from "@/store/ui";
@@ -18,6 +19,22 @@ function statusColor(status: string): string {
   if (s === "error" || s === "failed") return "var(--error)";
   return "var(--text-muted)";
 }
+
+function dateGroupKey(ts: string | null | undefined): string {
+  if (!ts) return "earlier";
+  const d = new Date(ts);
+  const now = new Date();
+  const dayDiff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (dayDiff < 1) return "today";
+  if (dayDiff < 2) return "yesterday";
+  return "earlier";
+}
+
+const GROUP_LABELS: Record<string, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  earlier: "Earlier",
+};
 
 export default function DashboardHome() {
   const { href } = useNav();
@@ -48,6 +65,24 @@ export default function DashboardHome() {
       model: agent.model,
     });
   };
+
+  // Group recent events by Today / Yesterday / Earlier
+  const activityGroups = useMemo(() => {
+    const recent = events.slice(0, 12);
+    const order = ["today", "yesterday", "earlier"];
+    const buckets: Record<string, typeof recent> = { today: [], yesterday: [], earlier: [] };
+    for (const e of recent) {
+      const key = dateGroupKey(e.timestamp ?? e.created_at);
+      buckets[key].push(e);
+    }
+    return order
+      .filter((k) => buckets[k].length > 0)
+      .map((k) => ({
+        key: k,
+        label: GROUP_LABELS[k],
+        items: buckets[k],
+      }));
+  }, [events]);
 
   return (
     <div className="dash-home">
@@ -159,7 +194,7 @@ export default function DashboardHome() {
           <div className="dash-home-section-title">Active Quests</div>
           <div className="dash-quest-list">
             {activeQuests.map((q: any) => (
-              <div key={q.id} className="dash-quest-row">
+              <div key={q.id} className="dash-quest-row" data-status={q.status}>
                 <span className="dash-quest-agent">{q.agent_id || "\u2014"}</span>
                 <span className="dash-quest-subject">{q.subject}</span>
                 {runtimeLabel(q.runtime) && (
@@ -177,13 +212,22 @@ export default function DashboardHome() {
         <div className="dash-home-section">
           <div className="dash-home-section-title">Recent Activity</div>
           <div className="dash-activity-list">
-            {events.slice(0, 12).map((e: any, i: number) => (
-              <div key={e.id || i} className="dash-activity-row">
-                <span className="dash-activity-time">{timeAgo(e.timestamp || e.created_at)}</span>
-                <span className="dash-activity-agent">{e.agent || e.actor || "\u2014"}</span>
-                <span className="dash-activity-summary">
-                  {e.summary || e.reasoning || e.description || e.decision_type || "\u2014"}
-                </span>
+            {activityGroups.map((group) => (
+              <div key={group.key}>
+                <div className="dash-activity-group">
+                  <div className="dash-activity-group-label">{group.label}</div>
+                </div>
+                {group.items.map((e: any, i: number) => (
+                  <div key={e.id || i} className="dash-activity-row">
+                    <span className="dash-activity-time">
+                      {timeAgo(e.timestamp || e.created_at)}
+                    </span>
+                    <span className="dash-activity-agent">{e.agent || e.actor || "\u2014"}</span>
+                    <span className="dash-activity-summary">
+                      {e.summary || e.reasoning || e.description || e.decision_type || "\u2014"}
+                    </span>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
