@@ -10,6 +10,7 @@
 //! read-only tools and safe command patterns. The ask tier is the default for
 //! unmatched calls.
 
+use aeqi_core::detector::{DetectedPattern, DetectionContext, PatternDetector};
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
@@ -249,11 +250,51 @@ impl Middleware for GuardrailsMiddleware {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PatternDetector impl
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl PatternDetector for GuardrailsMiddleware {
+    fn name(&self) -> &'static str {
+        "guardrails"
+    }
+
+    /// Detect guardrail violations on a tool call.
+    ///
+    /// - Deny-tier calls are not handled here (those halt via `Middleware::before_tool`).
+    /// - Ask-tier calls in Supervised mode fire `guardrail:violation`.
+    /// - Returns nothing when `latest_tool_call` is absent (step boundary).
+    async fn detect(&self, ctx: &DetectionContext<'_>) -> Vec<DetectedPattern> {
+        let call = match ctx.latest_tool_call {
+            Some(c) => c,
+            None => return vec![],
+        };
+
+        let tc = ToolCall {
+            name: call.name.clone(),
+            input: call.input.clone(),
+        };
+        if self.mode == ExecutionMode::Supervised && self.classify(&tc) == PermissionTier::Ask {
+            return vec![DetectedPattern {
+                pattern: "guardrail:violation".to_string(),
+                args: serde_json::json!({
+                    "tool_name": call.name,
+                    "rule": "not on the allow list",
+                }),
+            }];
+        }
+
+        vec![]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use crate::middleware::test_helpers::test_ctx;
+    use aeqi_core::detector::ToolCallRecord;
 
     #[tokio::test]
     async fn safe_command_passes() {
@@ -484,5 +525,76 @@ mod tests {
             input: "query".into(),
         };
         assert_eq!(mw.classify(&call), PermissionTier::Allow);
+    }
+
+    // --- PatternDetector impl tests ---
+
+    fn detect_ctx_with_call<'a>(record: &'a ToolCallRecord) -> DetectionContext<'a> {
+        DetectionContext {
+            session_id: "s1",
+            agent_id: "a1",
+            project_name: "test",
+            latest_tool_call: Some(record),
+        }
+    }
+
+    #[tokio::test]
+    async fn detector_no_tool_call_returns_empty() {
+        let d = GuardrailsMiddleware::with_defaults_mode(ExecutionMode::Supervised);
+        let ctx = DetectionContext {
+            session_id: "s1",
+            agent_id: "a1",
+            project_name: "test",
+            latest_tool_call: None,
+        };
+        assert!(d.detect(&ctx).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_ask_tier_supervised_fires_pattern() {
+        let d = GuardrailsMiddleware::with_defaults_mode(ExecutionMode::Supervised);
+        let record = ToolCallRecord {
+            name: "Write".to_string(),
+            input: r#"{"file_path":"foo.txt","content":"hi"}"#.to_string(),
+        };
+        let ctx = detect_ctx_with_call(&record);
+        let patterns = d.detect(&ctx).await;
+        assert_eq!(patterns.len(), 1);
+        assert_eq!(patterns[0].pattern, "guardrail:violation");
+    }
+
+    #[tokio::test]
+    async fn detector_ask_tier_autonomous_returns_empty() {
+        let d = GuardrailsMiddleware::with_defaults_mode(ExecutionMode::Autonomous);
+        let record = ToolCallRecord {
+            name: "Write".to_string(),
+            input: r#"{}"#.to_string(),
+        };
+        let ctx = detect_ctx_with_call(&record);
+        assert!(d.detect(&ctx).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_allow_tier_returns_empty() {
+        let d = GuardrailsMiddleware::with_defaults_mode(ExecutionMode::Supervised);
+        let record = ToolCallRecord {
+            name: "Read".to_string(),
+            input: r#"{"file_path":"/some/file"}"#.to_string(),
+        };
+        let ctx = detect_ctx_with_call(&record);
+        assert!(d.detect(&ctx).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_deny_tier_returns_empty() {
+        // Deny-tier is handled by Middleware::before_tool (halt), not by detect().
+        let d = GuardrailsMiddleware::with_defaults_mode(ExecutionMode::Supervised);
+        let record = ToolCallRecord {
+            name: "Bash".to_string(),
+            input: "rm -rf /".to_string(),
+        };
+        let ctx = detect_ctx_with_call(&record);
+        // Deny tier: not an ask-tier violation, no pattern fired.
+        assert!(d.detect(&ctx).await.is_empty());
     }
 }

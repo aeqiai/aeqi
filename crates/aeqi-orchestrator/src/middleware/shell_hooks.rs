@@ -21,6 +21,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aeqi_core::detector::{DetectedPattern, DetectionContext, PatternDetector};
 use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
@@ -324,6 +325,43 @@ impl Middleware for ShellHookMiddleware {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PatternDetector impl
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl PatternDetector for ShellHookMiddleware {
+    fn name(&self) -> &'static str {
+        "shell_hooks"
+    }
+
+    /// Run configured shell hooks and return a `shell:command_failed` pattern
+    /// for each failing hook.
+    ///
+    /// Shell hooks only fire at the "after step" lifecycle slot (when the
+    /// model finishes with no tool calls). When `latest_tool_call` is `Some`,
+    /// this method returns nothing — it only activates when called with
+    /// `latest_tool_call: None`.
+    async fn detect(&self, ctx: &DetectionContext<'_>) -> Vec<DetectedPattern> {
+        // Shell hooks only fire at step boundaries (no tool call in this slot).
+        if ctx.latest_tool_call.is_some() {
+            return vec![];
+        }
+
+        let failures = self.run_hooks_for_event("after_step").await;
+        failures
+            .into_iter()
+            .map(|(command, output, _timeout_ms)| DetectedPattern {
+                pattern: "shell:command_failed".to_string(),
+                args: serde_json::json!({
+                    "command": command,
+                    "output": output,
+                }),
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -509,5 +547,69 @@ timeout: 5000";
             timeout_ms: 5000,
         }]);
         assert!(with.has_hooks());
+    }
+
+    // --- PatternDetector impl tests ---
+
+    fn step_ctx() -> DetectionContext<'static> {
+        DetectionContext {
+            session_id: "s1",
+            agent_id: "a1",
+            project_name: "test",
+            latest_tool_call: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn detector_with_tool_call_returns_empty() {
+        let d = ShellHookMiddleware::with_hooks(vec![ShellHook {
+            event: "after_step".into(),
+            command: "exit 1".into(),
+            blocking: true,
+            timeout_ms: 5000,
+        }]);
+        let record = aeqi_core::detector::ToolCallRecord {
+            name: "Bash".to_string(),
+            input: "ls".to_string(),
+        };
+        let ctx = DetectionContext {
+            session_id: "s1",
+            agent_id: "a1",
+            project_name: "test",
+            latest_tool_call: Some(&record),
+        };
+        // Tool call slot — shell hooks must not fire.
+        assert!(d.detect(&ctx).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_success_returns_empty() {
+        let d = ShellHookMiddleware::with_hooks(vec![ShellHook {
+            event: "after_step".into(),
+            command: "true".into(),
+            blocking: true,
+            timeout_ms: 5000,
+        }]);
+        assert!(d.detect(&step_ctx()).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_failure_returns_pattern() {
+        let d = ShellHookMiddleware::with_hooks(vec![ShellHook {
+            event: "after_step".into(),
+            command: "echo 'fail'; exit 1".into(),
+            blocking: true,
+            timeout_ms: 5000,
+        }]);
+        let patterns = d.detect(&step_ctx()).await;
+        assert_eq!(patterns.len(), 1);
+        assert_eq!(patterns[0].pattern, "shell:command_failed");
+        assert!(patterns[0].args["command"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn detector_no_hooks_returns_empty() {
+        let d = ShellHookMiddleware::with_hooks(vec![]);
+        assert!(d.detect(&step_ctx()).await.is_empty());
     }
 }

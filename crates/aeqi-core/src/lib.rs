@@ -10,6 +10,7 @@ pub mod agent;
 pub mod chat_stream;
 pub mod checkpoint;
 pub mod config;
+pub mod detector;
 pub mod frontmatter;
 pub mod hooks;
 pub mod prompt;
@@ -31,6 +32,7 @@ pub use config::{
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
 };
+pub use detector::{DetectedPattern, DetectionContext, PatternDetector, ToolCallRecord};
 pub use hooks::{
     HookAction, HookRule, HookTrigger, HooksObserver, load_hooks_from_dir, match_hooks,
 };

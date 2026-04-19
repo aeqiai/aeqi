@@ -15,6 +15,7 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Mutex;
 
+use aeqi_core::detector::{DetectedPattern, DetectionContext, PatternDetector};
 use async_trait::async_trait;
 use tracing::warn;
 
@@ -187,9 +188,53 @@ impl Middleware for LoopDetectionMiddleware {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PatternDetector impl
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl PatternDetector for LoopDetectionMiddleware {
+    fn name(&self) -> &'static str {
+        "loop_detection"
+    }
+
+    /// Detect repeated tool-call patterns.
+    ///
+    /// Returns a `loop:detected` pattern when the same tool call appears
+    /// `>= warn_threshold` times in the sliding window. Returns nothing
+    /// when `latest_tool_call` is absent (step boundary with no tool call).
+    async fn detect(&self, ctx: &DetectionContext<'_>) -> Vec<DetectedPattern> {
+        let call = match ctx.latest_tool_call {
+            Some(c) => c,
+            None => return vec![],
+        };
+
+        // Re-use the fingerprint logic via the internal ToolCall type.
+        let mw_call = ToolCall {
+            name: call.name.clone(),
+            input: call.input.clone(),
+        };
+        let count = self.record(&mw_call);
+
+        if count >= self.warn_threshold {
+            return vec![DetectedPattern {
+                pattern: "loop:detected".to_string(),
+                args: serde_json::json!({
+                    "tool_name": call.name,
+                    "count": count,
+                    "window_size": self.window_size,
+                }),
+            }];
+        }
+
+        vec![]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aeqi_core::detector::ToolCallRecord;
 
     fn make_call(name: &str, input: &str) -> ToolCall {
         ToolCall {
@@ -303,5 +348,59 @@ mod tests {
             matches!(action, MiddlewareAction::Continue),
             "expected Continue after eviction, got {action:?}"
         );
+    }
+
+    // --- PatternDetector impl tests ---
+
+    fn make_record(name: &str, input: &str) -> ToolCallRecord {
+        ToolCallRecord {
+            name: name.to_string(),
+            input: input.to_string(),
+        }
+    }
+
+    fn detect_ctx<'a>(record: Option<&'a ToolCallRecord>) -> DetectionContext<'a> {
+        DetectionContext {
+            session_id: "s1",
+            agent_id: "a1",
+            project_name: "test",
+            latest_tool_call: record,
+        }
+    }
+
+    #[tokio::test]
+    async fn detector_no_tool_call_returns_empty() {
+        let d = LoopDetectionMiddleware::new();
+        let ctx = detect_ctx(None);
+        let patterns = d.detect(&ctx).await;
+        assert!(patterns.is_empty());
+    }
+
+    #[tokio::test]
+    async fn detector_below_threshold_returns_empty() {
+        let d = LoopDetectionMiddleware::with_thresholds(10, 3, 5);
+        let record = make_record("Bash", "ls");
+        let ctx = detect_ctx(Some(&record));
+
+        for _ in 0..2 {
+            let patterns = d.detect(&ctx).await;
+            assert!(patterns.is_empty(), "expected empty below threshold");
+        }
+    }
+
+    #[tokio::test]
+    async fn detector_at_threshold_fires_pattern() {
+        let d = LoopDetectionMiddleware::with_thresholds(10, 3, 5);
+        let record = make_record("Bash", "echo hi");
+        let ctx = detect_ctx(Some(&record));
+
+        for _ in 0..2 {
+            d.detect(&ctx).await;
+        }
+        let patterns = d.detect(&ctx).await;
+        assert_eq!(patterns.len(), 1);
+        assert_eq!(patterns[0].pattern, "loop:detected");
+        assert_eq!(patterns[0].args["tool_name"], "Bash");
+        assert_eq!(patterns[0].args["count"], 3u64);
     }
 }

@@ -217,6 +217,10 @@ pub struct AgentConfig {
     /// passed to `PatternDispatcher::dispatch` during compaction delegation.
     /// Empty string means no session is set (bare-CLI / test mode).
     pub session_id: String,
+    /// Project name — passed to detectors that need to locate project-specific data
+    /// (e.g. graph guardrails look up a per-project code graph DB).
+    /// Empty string when running outside a project context.
+    pub project_name: String,
 }
 
 impl Default for AgentConfig {
@@ -247,6 +251,7 @@ impl Default for AgentConfig {
             compact_instructions: None,
             compact_prompt_template: None,
             session_id: String::new(),
+            project_name: String::new(),
         }
     }
 }
@@ -688,6 +693,14 @@ pub struct Agent {
     /// `None` in bare-CLI / test environments — inline compaction is always
     /// used when the dispatcher is absent.
     pattern_dispatcher: Option<Arc<dyn crate::tool_registry::PatternDispatcher>>,
+    /// Pattern detectors run at each tool-call and step boundary.
+    ///
+    /// Each detector inspects the current [`DetectionContext`] and returns
+    /// zero or more [`DetectedPattern`] values. The agent loop fires each
+    /// pattern through `pattern_dispatcher` (or logs it when no dispatcher
+    /// is wired). Detectors do not author LLM-facing content — that is the
+    /// event's job.
+    detectors: Vec<Arc<dyn crate::detector::PatternDetector>>,
 }
 
 impl Agent {
@@ -712,6 +725,7 @@ impl Agent {
             history: Vec::new(),
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pattern_dispatcher: None,
+            detectors: Vec::new(),
         }
     }
 
@@ -732,6 +746,20 @@ impl Agent {
         dispatcher: Arc<dyn crate::tool_registry::PatternDispatcher>,
     ) -> Self {
         self.pattern_dispatcher = Some(dispatcher);
+        self
+    }
+
+    /// Attach pattern detectors that run at each tool-call and step boundary.
+    ///
+    /// Detectors return [`DetectedPattern`] values that the agent loop fires
+    /// through the `pattern_dispatcher`. When no dispatcher is wired, detected
+    /// patterns are logged via `tracing::warn`. Detectors do not author
+    /// LLM-facing content — that is the event's job.
+    pub fn with_detectors(
+        mut self,
+        detectors: Vec<Arc<dyn crate::detector::PatternDetector>>,
+    ) -> Self {
+        self.detectors = detectors;
         self
     }
 
@@ -781,6 +809,86 @@ impl Agent {
         if let Some(ref tx) = self.chat_stream {
             tx.send(event);
         }
+    }
+
+    /// Run all registered detectors against `ctx` and fire each returned pattern.
+    ///
+    /// Fires patterns through `pattern_dispatcher` when one is wired, or logs
+    /// them via `tracing::warn` as a fallback. Pattern dispatch is fire-and-forget:
+    /// failures are logged but do not halt the agent loop.
+    async fn run_detectors(&self, ctx: &crate::detector::DetectionContext<'_>) {
+        if self.detectors.is_empty() {
+            return;
+        }
+
+        // Extract owned data needed for dispatch before entering the pattern loop,
+        // so we hold no borrow on ctx during the dispatcher await.
+        let session_id = ctx.session_id.to_owned();
+        let agent_id = ctx.agent_id.to_owned();
+
+        for detector in &self.detectors {
+            let patterns = detector.detect(ctx).await;
+            for fired in patterns {
+                if let Some(ref dispatcher) = self.pattern_dispatcher {
+                    use crate::tool_registry::ExecutionContext;
+                    let ectx = ExecutionContext {
+                        session_id: session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        ..Default::default()
+                    };
+                    dispatcher
+                        .dispatch(&fired.pattern, &ectx, &fired.args)
+                        .await;
+                } else {
+                    warn!(
+                        pattern = %fired.pattern,
+                        detector = %detector.name(),
+                        "detector fired pattern (no dispatcher wired)"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Same as `run_detectors` but returns whether any pattern was dispatched.
+    /// Used in tests to verify detector+dispatcher integration.
+    #[cfg(test)]
+    pub(crate) async fn run_detectors_test(
+        &self,
+        ctx: &crate::detector::DetectionContext<'_>,
+    ) -> Vec<String> {
+        let mut fired_patterns = Vec::new();
+        if self.detectors.is_empty() {
+            return fired_patterns;
+        }
+
+        let session_id = ctx.session_id.to_owned();
+        let agent_id = ctx.agent_id.to_owned();
+
+        for detector in &self.detectors {
+            let patterns = detector.detect(ctx).await;
+            for fired in patterns {
+                fired_patterns.push(fired.pattern.clone());
+                if let Some(ref dispatcher) = self.pattern_dispatcher {
+                    use crate::tool_registry::ExecutionContext;
+                    let ectx = ExecutionContext {
+                        session_id: session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        ..Default::default()
+                    };
+                    dispatcher
+                        .dispatch(&fired.pattern, &ectx, &fired.args)
+                        .await;
+                } else {
+                    warn!(
+                        pattern = %fired.pattern,
+                        detector = %detector.name(),
+                        "detector fired pattern (no dispatcher wired)"
+                    );
+                }
+            }
+        }
+        fired_patterns
     }
 
     // -----------------------------------------------------------------------
@@ -1220,6 +1328,18 @@ impl Agent {
                     continue;
                 }
 
+                // --- Run pattern detectors at end-of-step (no tool calls) ---
+                {
+                    use crate::detector::DetectionContext;
+                    let ctx = DetectionContext {
+                        session_id: &self.config.session_id,
+                        agent_id: self.config.agent_id.as_deref().unwrap_or(&self.config.name),
+                        project_name: &self.config.project_name,
+                        latest_tool_call: None,
+                    };
+                    self.run_detectors(&ctx).await;
+                }
+
                 // --- after_step hook ---
                 let stop_str = format!("{:?}", response.stop_reason);
                 match self
@@ -1504,6 +1624,26 @@ impl Agent {
                                 break;
                             }
                             LoopAction::Inject(_) | LoopAction::Continue => {}
+                        }
+
+                        // Run pattern detectors after each tool call.
+                        {
+                            use crate::detector::{DetectionContext, ToolCallRecord};
+                            let record = ToolCallRecord {
+                                name: name.clone(),
+                                input: input_args.to_string(),
+                            };
+                            let ctx = DetectionContext {
+                                session_id: &self.config.session_id,
+                                agent_id: self
+                                    .config
+                                    .agent_id
+                                    .as_deref()
+                                    .unwrap_or(&self.config.name),
+                                project_name: &self.config.project_name,
+                                latest_tool_call: Some(&record),
+                            };
+                            self.run_detectors(&ctx).await;
                         }
 
                         self.emit(crate::chat_stream::ChatStreamEvent::ToolComplete {
@@ -3995,5 +4135,128 @@ mod tests {
         }];
         let ctx = Agent::extract_active_context(&messages);
         assert!(ctx.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // PatternDetector integration test
+    // -----------------------------------------------------------------------
+
+    use crate::detector::{DetectedPattern, DetectionContext, PatternDetector, ToolCallRecord};
+    use crate::tool_registry::{ExecutionContext, PatternDispatcher};
+    use std::pin::Pin;
+    use std::sync::{Arc as SyncArc, Mutex as StdMutex};
+
+    struct MockDetector {
+        pattern: &'static str,
+    }
+
+    #[async_trait::async_trait]
+    impl PatternDetector for MockDetector {
+        fn name(&self) -> &'static str {
+            "mock"
+        }
+        async fn detect(&self, _ctx: &DetectionContext<'_>) -> Vec<DetectedPattern> {
+            vec![DetectedPattern {
+                pattern: self.pattern.to_string(),
+                args: serde_json::json!({ "key": "value" }),
+            }]
+        }
+    }
+
+    struct SpyDispatcher {
+        dispatched: SyncArc<StdMutex<Vec<String>>>,
+    }
+
+    impl PatternDispatcher for SpyDispatcher {
+        fn dispatch<'a>(
+            &'a self,
+            pattern: &'a str,
+            _ctx: &'a ExecutionContext,
+            _trigger_args: &'a serde_json::Value,
+        ) -> Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+            let pattern = pattern.to_string();
+            let dispatched = self.dispatched.clone();
+            Box::pin(async move {
+                dispatched.lock().unwrap().push(pattern);
+                true
+            })
+        }
+    }
+
+    struct NopProvider;
+
+    #[async_trait::async_trait]
+    impl crate::traits::Provider for NopProvider {
+        fn name(&self) -> &str {
+            "nop"
+        }
+        async fn health_check(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        async fn chat(
+            &self,
+            _request: &crate::traits::ChatRequest,
+        ) -> anyhow::Result<crate::traits::ChatResponse> {
+            Ok(crate::traits::ChatResponse {
+                content: Some("done".to_string()),
+                tool_calls: vec![],
+                usage: crate::traits::Usage {
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                },
+                stop_reason: crate::traits::StopReason::EndTurn,
+            })
+        }
+    }
+
+    struct NopObserver;
+
+    #[async_trait::async_trait]
+    impl crate::traits::Observer for NopObserver {
+        fn name(&self) -> &str {
+            "nop"
+        }
+        async fn record(&self, _event: crate::traits::Event) {}
+    }
+
+    #[tokio::test]
+    async fn run_detectors_test_fires_pattern_and_calls_dispatcher() {
+        let dispatched: SyncArc<StdMutex<Vec<String>>> = SyncArc::new(StdMutex::new(Vec::new()));
+
+        let dispatcher = Arc::new(SpyDispatcher {
+            dispatched: dispatched.clone(),
+        });
+
+        let detector: Arc<dyn PatternDetector> = Arc::new(MockDetector {
+            pattern: "test:pattern",
+        });
+
+        let agent = Agent::new(
+            AgentConfig::default(),
+            Arc::new(NopProvider),
+            vec![],
+            Arc::new(NopObserver),
+            "system".to_string(),
+        )
+        .with_pattern_dispatcher(dispatcher)
+        .with_detectors(vec![detector]);
+
+        let record = ToolCallRecord {
+            name: "Bash".to_string(),
+            input: "ls".to_string(),
+        };
+        let ctx = DetectionContext {
+            session_id: "sess-1",
+            agent_id: "agent-1",
+            project_name: "test-project",
+            latest_tool_call: Some(&record),
+        };
+
+        let fired = agent.run_detectors_test(&ctx).await;
+
+        assert_eq!(fired, vec!["test:pattern"]);
+        assert_eq!(dispatched.lock().unwrap().as_slice(), ["test:pattern"]);
     }
 }

@@ -1,3 +1,4 @@
+use aeqi_core::detector::{DetectedPattern, DetectionContext, PatternDetector};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
@@ -162,5 +163,68 @@ impl Middleware for GraphGuardrailsMiddleware {
         }
 
         MiddlewareAction::Continue
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PatternDetector impl
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+impl PatternDetector for GraphGuardrailsMiddleware {
+    fn name(&self) -> &'static str {
+        "graph_guardrails"
+    }
+
+    /// Detect high-impact code changes via the graph store.
+    ///
+    /// Returns `graph_guardrail:high_impact` when the edited file has symbols
+    /// with many external callers. Returns nothing when `latest_tool_call` is
+    /// absent or the tool is not an edit/write operation.
+    async fn detect(&self, ctx: &DetectionContext<'_>) -> Vec<DetectedPattern> {
+        let call = match ctx.latest_tool_call {
+            Some(c) => c,
+            None => return vec![],
+        };
+
+        if !matches!(call.name.as_str(), "edit_file" | "write_file") {
+            return vec![];
+        }
+
+        let file_path = match serde_json::from_str::<serde_json::Value>(&call.input) {
+            Ok(v) => v
+                .get("file_path")
+                .and_then(|f| f.as_str())
+                .unwrap_or("")
+                .to_string(),
+            Err(_) => return vec![],
+        };
+
+        if file_path.is_empty() {
+            return vec![];
+        }
+
+        let rel_path = file_path
+            .rsplit_once(&format!("{}/", ctx.project_name))
+            .map(|(_, rel)| rel.to_string())
+            .unwrap_or(file_path.clone());
+
+        if let Some(warning) = self.check_edit_impact(ctx.project_name, &rel_path, &call.input) {
+            debug!(
+                project = %ctx.project_name,
+                file = %rel_path,
+                "graph guardrails (detector): graph_guardrail:high_impact"
+            );
+            return vec![DetectedPattern {
+                pattern: "graph_guardrail:high_impact".to_string(),
+                args: serde_json::json!({
+                    "warning": warning,
+                    "file_path": rel_path,
+                    "project": ctx.project_name,
+                }),
+            }];
+        }
+
+        vec![]
     }
 }
