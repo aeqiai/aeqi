@@ -953,16 +953,26 @@ impl Agent {
                                 message: "Emergency context compaction...".into(),
                             });
                             // Full pipeline: snip → microcompact → full compact.
-                            Self::snip_compact(
+                            let freed = Self::snip_compact(
                                 &mut messages,
                                 self.config.compact_preserve_head,
                                 self.config.compact_preserve_tail,
                             );
-                            Self::microcompact(
+                            if freed > 0 {
+                                self.emit(crate::chat_stream::ChatStreamEvent::SnipCompacted {
+                                    tokens_freed: freed,
+                                });
+                            }
+                            let cleared = Self::microcompact(
                                 &mut messages,
                                 self.config.compact_preserve_tail,
                                 MICROCOMPACT_KEEP_RECENT,
                             );
+                            if cleared > 0 {
+                                self.emit(crate::chat_stream::ChatStreamEvent::MicroCompacted {
+                                    cleared: cleared as u32,
+                                });
+                            }
                             self.compact_messages(&mut messages, &recent_files).await;
                             tracker.compactions += 1;
                             has_attempted_reactive_compact = true;
