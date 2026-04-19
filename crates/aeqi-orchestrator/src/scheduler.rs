@@ -845,6 +845,8 @@ impl Scheduler {
         let completion_tx = self.completion_tx.clone();
         let session_manager = self.session_manager.clone();
         let worker_sandbox = sandbox.clone();
+        let spawn_session_store = self.session_store.clone();
+        let spawn_idea_store = self.idea_store.clone();
 
         let handle = tokio::spawn(async move {
             // Create a run record for this execution.
@@ -910,6 +912,30 @@ impl Scheduler {
                     }),
                 )
                 .await;
+
+            // Closed learning loop (lu-005, Phase 5b): on successful completion,
+            // scan the quest's tool traces and persist one candidate-skill idea
+            // per frequently-used tool. Humans promote or reject from the Ideas page.
+            if outcome_status == "done"
+                && let (Some(ss), Some(is)) =
+                    (spawn_session_store.as_ref(), spawn_idea_store.as_ref())
+                && let Ok(traces) = ss.tool_traces_for_quest(&quest_id).await
+            {
+                let candidates = candidate_skill_ideas_from_traces(&traces, &quest_id);
+                let tags = vec!["skill".to_string(), "candidate".to_string()];
+                for cand in candidates {
+                    if let Err(e) = is
+                        .store(&cand.name, &cand.content, &tags, Some(&agent_id_clone))
+                        .await
+                    {
+                        warn!(
+                            task = %quest_id,
+                            error = %e,
+                            "failed to persist candidate skill"
+                        );
+                    }
+                }
+            }
 
             // Session resolution: notify creator session and emit quest_result event.
             if let Ok(events) = spawn_activity_log
@@ -1120,6 +1146,53 @@ fn ordered_unique_idea_ids(idea_ids: &[String]) -> Vec<String> {
     ordered
 }
 
+/// A proposed skill distilled from a completed quest's tool usage.
+/// Persisted as an idea with tags `["skill", "candidate"]`.
+struct CandidateSkill {
+    name: String,
+    content: String,
+}
+
+/// Group tool traces by `tool_name` and emit one candidate-skill per group
+/// with at least two invocations. Pure (no I/O) so it's cheap to unit-test.
+fn candidate_skill_ideas_from_traces(
+    traces: &[crate::session_store::ToolTrace],
+    quest_id: &str,
+) -> Vec<CandidateSkill> {
+    let mut groups: std::collections::BTreeMap<&str, Vec<&crate::session_store::ToolTrace>> =
+        std::collections::BTreeMap::new();
+    for t in traces {
+        groups.entry(t.tool_name.as_str()).or_default().push(t);
+    }
+
+    let mut out = Vec::new();
+    for (tool_name, ts) in groups {
+        if ts.len() < 2 {
+            continue;
+        }
+        let count = ts.len();
+        let samples: Vec<&str> = ts
+            .iter()
+            .take(3)
+            .filter_map(|t| t.input_preview.as_deref())
+            .collect();
+
+        let name = format!("skill candidate: {} (from {})", tool_name, quest_id);
+        let mut content = format!(
+            "## Evidence\n{} called {} times in quest {}\n",
+            tool_name, count, quest_id
+        );
+        if !samples.is_empty() {
+            content.push_str("\n### Sample inputs\n");
+            for s in &samples {
+                content.push_str(&format!("- {}\n", s));
+            }
+        }
+        out.push(CandidateSkill { name, content });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1142,5 +1215,49 @@ mod tests {
             "".to_string(),
         ]);
         assert_eq!(ordered, vec!["idea-b".to_string(), "idea-a".to_string()]);
+    }
+
+    #[test]
+    fn candidate_skill_ideas_skips_singletons_and_groups_repeats() {
+        use crate::session_store::ToolTrace;
+        use chrono::Utc;
+
+        let trace = |tool: &str, input: Option<&str>| ToolTrace {
+            session_id: "s1".to_string(),
+            tool_name: tool.to_string(),
+            tool_use_id: None,
+            success: Some(true),
+            input_preview: input.map(str::to_string),
+            output_preview: None,
+            duration_ms: Some(10),
+            timestamp: Utc::now(),
+        };
+
+        let traces = vec![
+            trace("grep", Some("foo")),
+            trace("grep", Some("bar")),
+            trace("grep", Some("baz")),
+            trace("grep", Some("qux")), // 4th is not sampled (cap=3)
+            trace("read_file", Some("only once")),
+            trace("write_file", Some("a")),
+            trace("write_file", None),
+        ];
+
+        let out = candidate_skill_ideas_from_traces(&traces, "lu-42");
+
+        // grep (4) and write_file (2) qualify; read_file (1) does not.
+        assert_eq!(out.len(), 2);
+        let names: Vec<&str> = out.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("grep")));
+        assert!(names.iter().any(|n| n.contains("write_file")));
+        assert!(!names.iter().any(|n| n.contains("read_file")));
+
+        let grep = out.iter().find(|c| c.name.contains("grep")).unwrap();
+        assert!(grep.content.contains("called 4 times"));
+        assert!(grep.content.contains("lu-42"));
+        assert!(grep.content.contains("- foo"));
+        assert!(grep.content.contains("- bar"));
+        assert!(grep.content.contains("- baz"));
+        assert!(!grep.content.contains("- qux")); // sample cap respected
     }
 }
