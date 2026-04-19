@@ -373,8 +373,8 @@
   background: var(--state-hover);
 }
 .sidebar-nav-item.active {
-  color: var(--text-primary);
-  background: var(--state-selected);
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
   font-weight: 500;
 }
 .sidebar-nav-item > svg {
@@ -465,8 +465,12 @@
 /* ── Sidebar footer — identity anchor ──
    Pinned at the bottom of the rail. Profile link lives here (Linear /
    Slack / Vercel pattern): the avatar + name sits below the agent tree
-   so identity doesn't compete with primary navigation. */
+   so identity doesn't compete with primary navigation.
+   display:flex + flex-direction:column so the child nav-item stretches
+   to full width (same behavior as .sidebar-nav). */
 .sidebar-footer {
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
   padding: 8px;
   border-top: 1px solid var(--border);
