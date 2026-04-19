@@ -113,6 +113,22 @@ pub enum ChatStreamEvent {
         restored_files: Vec<String>,
     },
 
+    /// Pre-compact snip stage: old conversation rounds deterministically
+    /// removed from the compactable window to free tokens. No LLM call.
+    /// Fires before the full LLM compaction so the UI can show the exact
+    /// pipeline the runtime ran.
+    SnipCompacted { tokens_freed: u32 },
+
+    /// Pre-compact microcompact stage: the content of N oldest tool_results
+    /// for "compactable" tools (shell, read, glob, grep) was replaced with a
+    /// cleared sentinel so the raw tool output no longer occupies context.
+    /// No LLM call.
+    MicroCompacted { cleared: u32 },
+
+    /// Pre-compact structural collapse: stale system messages removed and
+    /// long tool results truncated to head+tail previews. No LLM call.
+    ContextCollapsed { tokens_freed: u32 },
+
     /// The agent's step is complete (model returned end_turn).
     StepComplete {
         step: u32,
@@ -336,5 +352,44 @@ mod tests {
             }
             _ => panic!("expected Compacted"),
         }
+    }
+
+    #[test]
+    fn snip_compacted_round_trip() {
+        let event = ChatStreamEvent::SnipCompacted { tokens_freed: 1234 };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::SnipCompacted { tokens_freed } => {
+                assert_eq!(tokens_freed, 1234);
+            }
+            _ => panic!("expected SnipCompacted"),
+        }
+        assert_json_type(&event, "SnipCompacted");
+    }
+
+    #[test]
+    fn micro_compacted_round_trip() {
+        let event = ChatStreamEvent::MicroCompacted { cleared: 7 };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::MicroCompacted { cleared } => {
+                assert_eq!(cleared, 7);
+            }
+            _ => panic!("expected MicroCompacted"),
+        }
+        assert_json_type(&event, "MicroCompacted");
+    }
+
+    #[test]
+    fn context_collapsed_round_trip() {
+        let event = ChatStreamEvent::ContextCollapsed { tokens_freed: 9000 };
+        let rt = round_trip(&event);
+        match rt {
+            ChatStreamEvent::ContextCollapsed { tokens_freed } => {
+                assert_eq!(tokens_freed, 9000);
+            }
+            _ => panic!("expected ContextCollapsed"),
+        }
+        assert_json_type(&event, "ContextCollapsed");
     }
 }

@@ -281,6 +281,20 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
                 "{tool_name} output summarized ({original_bytes}B): {short}"
             ));
         }
+        ChatStreamEvent::SnipCompacted { tokens_freed } => {
+            state.push_system(&format!("✂ snip: freed ~{tokens_freed} tokens"));
+            render::print_message(stdout, state.messages.last().unwrap(), state, 80);
+        }
+        ChatStreamEvent::MicroCompacted { cleared } => {
+            state.push_system(&format!(
+                "✂ microcompact: cleared {cleared} old tool result(s)"
+            ));
+            render::print_message(stdout, state.messages.last().unwrap(), state, 80);
+        }
+        ChatStreamEvent::ContextCollapsed { tokens_freed } => {
+            state.push_system(&format!("✂ collapse: freed ~{tokens_freed} tokens"));
+            render::print_message(stdout, state.messages.last().unwrap(), state, 80);
+        }
     }
 }
 

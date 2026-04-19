@@ -1767,6 +1767,9 @@ impl Agent {
                     tokens_freed = freed,
                     "snip compaction freed tokens"
                 );
+                self.emit(crate::chat_stream::ChatStreamEvent::SnipCompacted {
+                    tokens_freed: freed,
+                });
                 transition = Some(LoopTransition::SnipCompacted {
                     tokens_freed: freed,
                 });
@@ -1782,11 +1785,16 @@ impl Agent {
 
         // --- Stage 1: Microcompact ---
         if estimated_tokens > snip_threshold && messages.len() > protected {
-            Self::microcompact(
+            let cleared = Self::microcompact(
                 messages,
                 self.config.compact_preserve_tail,
                 MICROCOMPACT_KEEP_RECENT,
             );
+            if cleared > 0 {
+                self.emit(crate::chat_stream::ChatStreamEvent::MicroCompacted {
+                    cleared: cleared as u32,
+                });
+            }
         }
 
         // Re-estimate after microcompact.
@@ -1805,6 +1813,9 @@ impl Agent {
                     tokens_freed = collapsed,
                     "context collapse: removed low-value content"
                 );
+                self.emit(crate::chat_stream::ChatStreamEvent::ContextCollapsed {
+                    tokens_freed: collapsed,
+                });
                 estimated_tokens = Self::estimate_tokens_from_messages(messages);
                 transition = Some(LoopTransition::ContextCollapsed {
                     tokens_freed: collapsed,
@@ -2599,9 +2610,9 @@ impl Agent {
     /// Microcompact: clear old tool results by tool name, keeping the N most recent.
     /// More targeted than the old digest — only clears results from compactable tools
     /// (read, shell, grep, glob, web_search, web_fetch, edit, write).
-    fn microcompact(messages: &mut [Message], preserve_tail: usize, keep_recent: usize) {
+    fn microcompact(messages: &mut [Message], preserve_tail: usize, keep_recent: usize) -> usize {
         if messages.len() <= preserve_tail {
-            return;
+            return 0;
         }
         let cutoff = messages.len() - preserve_tail;
 
@@ -2624,7 +2635,7 @@ impl Agent {
         }
 
         if compactable_ids.len() <= keep_recent {
-            return; // Nothing to clear.
+            return 0; // Nothing to clear.
         }
 
         // Keep the most recent N, clear the rest.
@@ -2635,7 +2646,7 @@ impl Agent {
             .collect();
 
         if clear_set.is_empty() {
-            return;
+            return 0;
         }
 
         // Pass 2: clear tool_result content for the IDs to clear.
@@ -2669,6 +2680,7 @@ impl Agent {
                 "microcompact: cleared old tool results"
             );
         }
+        cleared
     }
 
     /// Context collapse: cheap, deterministic drain of low-value content from the
