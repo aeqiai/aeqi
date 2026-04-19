@@ -37,3 +37,9 @@ projects/*/
 .claude/worktrees/
 apps/ui/dist-storybook/
 apps/ui/apps/
+
+# Night-shift / research scratch (local coordination state, not product code)
+tmp/
+NIGHT_SHIFT_BRIEF.md
+aeqi_architecture_idea.md
+scripts/tg-nightshift.sh
