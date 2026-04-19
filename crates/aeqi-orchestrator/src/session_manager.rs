@@ -652,6 +652,20 @@ impl SessionManager {
         };
         let max_iterations = if is_interactive { 200 } else { 50 };
 
+        // Load the compaction prompt template from the seeded global idea
+        // `session:compact-prompt`. Falls back to `DEFAULT_COMPACT_PROMPT`
+        // inside the agent when the lookup returns `None` (e.g. idea_store
+        // unavailable, or the seed hasn't run yet on a freshly wiped DB).
+        let compact_prompt_template = if let Some(is) = &self.idea_store {
+            is.get_by_name("session:compact-prompt", None)
+                .await
+                .ok()
+                .flatten()
+                .map(|i| i.content)
+        } else {
+            None
+        };
+
         let agent_config = aeqi_core::AgentConfig {
             model,
             max_iterations,
@@ -660,6 +674,7 @@ impl SessionManager {
             agent_id: agent_uuid.clone(),
             ancestor_ids: ancestor_ids.clone(),
             session_type,
+            compact_prompt_template,
             ..Default::default()
         };
 

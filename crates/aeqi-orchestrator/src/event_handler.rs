@@ -614,6 +614,53 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
     }
 
     info!("seeded 6 global lifecycle events pointing at global seed ideas");
+    seed_standalone_global_ideas(store).await?;
+    Ok(())
+}
+
+/// Seed global ideas that are used by the runtime but not bound to any event
+/// pattern (e.g. the compaction prompt loaded by the agent loop when it hits
+/// the context ceiling).
+///
+/// Unlike lifecycle event ideas, these use **insert-if-absent** semantics so
+/// operator edits in the Ideas UI persist across restarts — the intent is to
+/// expose opinionated LLM-facing strings as first-class editable ideas rather
+/// than hide them in `const &str` blocks.
+async fn seed_standalone_global_ideas(store: &EventHandlerStore) -> anyhow::Result<()> {
+    let seeds: &[(&str, &str, &[&str])] = &[(
+        "session:compact-prompt",
+        aeqi_core::agent::DEFAULT_COMPACT_PROMPT,
+        &["system", "prompt"],
+    )];
+    let now = chrono::Utc::now().to_rfc3339();
+    for &(name, content, tags) in seeds {
+        let db = store.db.lock().await;
+        let existing: Option<String> = db
+            .query_row(
+                "SELECT id FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                rusqlite::params![name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| anyhow::anyhow!("failed to check standalone seed {name}: {e}"))?;
+        if existing.is_some() {
+            continue;
+        }
+        let new_id = uuid::Uuid::new_v4().to_string();
+        db.execute(
+            "INSERT INTO ideas (id, name, content, scope, agent_id, created_at)
+             VALUES (?1, ?2, ?3, 'domain', NULL, ?4)",
+            rusqlite::params![new_id, name, content, now],
+        )
+        .map_err(|e| anyhow::anyhow!("failed to insert standalone seed {name}: {e}"))?;
+        for tag in tags {
+            db.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                rusqlite::params![new_id, tag],
+            )
+            .map_err(|e| anyhow::anyhow!("failed to tag standalone seed {name}: {e}"))?;
+        }
+    }
     Ok(())
 }
 

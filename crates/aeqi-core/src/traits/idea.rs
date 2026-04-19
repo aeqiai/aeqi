@@ -241,6 +241,19 @@ pub trait IdeaStore: Send + Sync {
         Ok(Vec::new())
     }
 
+    /// Exact-match lookup by idea name, scoped to a specific agent or global
+    /// (`agent_id = None` → global ideas). Used by orchestrator bootstrap to
+    /// load seeded system prompts (e.g. `session:compact-prompt`) into agent
+    /// config at build time. Default impl returns `None`; backends override.
+    async fn get_by_name(
+        &self,
+        name: &str,
+        agent_id: Option<&str>,
+    ) -> anyhow::Result<Option<Idea>> {
+        let _ = (name, agent_id);
+        Ok(None)
+    }
+
     /// Reassign ideas from one agent_id to another.
     /// Used after agent spawning to reconcile name-based references with actual UUIDs.
     async fn reassign_agent(

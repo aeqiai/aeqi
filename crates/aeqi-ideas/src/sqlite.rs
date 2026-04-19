@@ -1725,6 +1725,54 @@ impl IdeaStore for SqliteIdeas {
         .await
     }
 
+    async fn get_by_name(&self, name: &str, agent_id: Option<&str>) -> Result<Option<Idea>> {
+        let name = name.to_string();
+        let agent_id = agent_id.map(|s| s.to_string());
+        self.blocking(move |conn| {
+            let sql = if agent_id.is_some() {
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
+                 FROM ideas WHERE name = ?1 AND agent_id = ?2 LIMIT 1"
+            } else {
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
+                 FROM ideas WHERE name = ?1 AND agent_id IS NULL LIMIT 1"
+            };
+            let mut stmt = conn.prepare(sql)?;
+            let mapper = |row: &rusqlite::Row<'_>| -> rusqlite::Result<Idea> {
+                let tool_allow_str: String = row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
+                let tool_deny_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                Ok(Idea {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    content: row.get(2)?,
+                    tags: Vec::new(),
+                    agent_id: row.get(3)?,
+                    created_at: {
+                        let s: String = row.get(4)?;
+                        DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
+                    },
+                    session_id: row.get(5)?,
+                    score: 1.0,
+                    inheritance: row.get::<_, String>(6).unwrap_or_else(|_| "self".to_string()),
+                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
+                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                })
+            };
+            let mut entries: Vec<Idea> = match agent_id.as_deref() {
+                Some(aid) => stmt
+                    .query_map(rusqlite::params![name, aid], mapper)?
+                    .filter_map(|r| r.ok())
+                    .collect(),
+                None => stmt
+                    .query_map(rusqlite::params![name], mapper)?
+                    .filter_map(|r| r.ok())
+                    .collect(),
+            };
+            Self::enrich_tags(conn, &mut entries);
+            Ok(entries.into_iter().next())
+        })
+        .await
+    }
+
     async fn reconcile_inline_edges(
         &self,
         source_id: &str,

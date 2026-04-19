@@ -70,6 +70,50 @@ const COMPACTABLE_TOOLS: &[&str] = &[
 /// Cleared content marker for microcompacted tool results.
 const MICROCOMPACT_CLEARED: &str = "[Old tool result content cleared]";
 
+/// Default prompt body used by `summarize_context` when no
+/// `AgentConfig::compact_prompt_template` override is supplied.
+///
+/// Contains `{custom_instructions}` and `{transcript}` placeholders. The
+/// prompt is AEQI's only built-in opinionated LLM template; exposing it as
+/// a public constant keeps the taxonomy discoverable, overridable via config,
+/// and obvious in code search rather than buried inside the agent loop.
+pub const DEFAULT_COMPACT_PROMPT: &str = "CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.\n\
+Tool calls will be REJECTED and will waste your only step — you will fail the task.\n\
+Your entire response must be plain text: an <analysis> block followed by a <summary> block.\n\n\
+You are summarizing an autonomous agent's execution context. This summary \
+replaces the compacted messages — the agent will use it to continue working. \
+Anything you omit is lost forever.\n\n\
+First write an <analysis> block as a drafting scratchpad (it will be stripped), \
+then a <summary> block with ALL of these sections:\n\n\
+1. **Primary Request and Intent** — What was the user's original request? \
+What are the acceptance criteria? What is the end goal?\n\
+2. **Key Technical Concepts** — Domain-specific terms, patterns, and \
+constraints that affect the work. Include library versions, API contracts, \
+architectural decisions.\n\
+3. **Files and Code Sections** — Every file read, edited, or created. \
+Include filenames with paths, what changed, and **full code snippets** for \
+any code that is currently being worked on or was recently modified.\n\
+4. **Errors and Fixes** — Every error encountered and exactly how it was \
+resolved. Include error messages verbatim. This prevents re-encountering \
+the same issues.\n\
+5. **Problem Solving** — The reasoning chain: what was tried, what worked, \
+what was rejected and why. Include rejected approaches to prevent retry.\n\
+6. **All User Messages** — Reproduce every user instruction, clarification, \
+or correction. Do not paraphrase — use the user's exact words for requests \
+and corrections.\n\
+7. **Pending Tasks** — What remains to be done, in dependency order. \
+Include any task IDs, branch names, or tracking references.\n\
+8. **Current Work** — What the agent was doing at the moment of compaction. \
+Be precise: filename, function name, line range, what operation was in \
+progress. Include enough detail to resume without re-reading.\n\
+9. **Next Step** — The single immediate next action the agent should take. \
+Include direct quotes from tool output or code that show where work left off.\n\n\
+Be precise. Include filenames, function signatures, error messages, and \
+code snippets where they affect the next action. Vague summaries cause \
+the agent to redo work or make wrong assumptions.\n\n\
+{custom_instructions}\
+## Execution Transcript\n\n{transcript}";
+
 /// Consecutive failures before switching to fallback model.
 const FALLBACK_TRIGGER_COUNT: u32 = 3;
 
@@ -164,6 +208,10 @@ pub struct AgentConfig {
     pub routing_model: Option<String>,
     /// Optional compaction instructions appended to the 9-section compaction prompt.
     pub compact_instructions: Option<String>,
+    /// Optional full override for the compaction prompt body. When `Some`, replaces
+    /// the default 9-section taxonomy. Must contain `{transcript}` and may contain
+    /// `{custom_instructions}`. When `None`, falls back to `DEFAULT_COMPACT_PROMPT`.
+    pub compact_prompt_template: Option<String>,
 }
 
 impl Default for AgentConfig {
@@ -192,6 +240,7 @@ impl Default for AgentConfig {
             token_budget: None,
             routing_model: None,
             compact_instructions: None,
+            compact_prompt_template: None,
         }
     }
 }
@@ -3208,54 +3257,25 @@ impl Agent {
     }
 
     async fn summarize_context(&self, transcript: &str) -> anyhow::Result<String> {
+        let custom_instructions = self
+            .config
+            .compact_instructions
+            .as_ref()
+            .map(|ci| format!("## Additional Instructions\n\n{ci}\n\n"))
+            .unwrap_or_default();
+        let template = self
+            .config
+            .compact_prompt_template
+            .as_deref()
+            .unwrap_or(DEFAULT_COMPACT_PROMPT);
+        let prompt = template
+            .replace("{custom_instructions}", &custom_instructions)
+            .replace("{transcript}", transcript);
         let request = ChatRequest {
             model: self.config.model.clone(),
             messages: vec![Message {
                 role: Role::User,
-                content: MessageContent::text(format!(
-                    "CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.\n\
-                     Tool calls will be REJECTED and will waste your only step — you will fail the task.\n\
-                     Your entire response must be plain text: an <analysis> block followed by a <summary> block.\n\n\
-                     You are summarizing an autonomous agent's execution context. This summary \
-                     replaces the compacted messages — the agent will use it to continue working. \
-                     Anything you omit is lost forever.\n\n\
-                     First write an <analysis> block as a drafting scratchpad (it will be stripped), \
-                     then a <summary> block with ALL of these sections:\n\n\
-                     1. **Primary Request and Intent** — What was the user's original request? \
-                     What are the acceptance criteria? What is the end goal?\n\
-                     2. **Key Technical Concepts** — Domain-specific terms, patterns, and \
-                     constraints that affect the work. Include library versions, API contracts, \
-                     architectural decisions.\n\
-                     3. **Files and Code Sections** — Every file read, edited, or created. \
-                     Include filenames with paths, what changed, and **full code snippets** for \
-                     any code that is currently being worked on or was recently modified.\n\
-                     4. **Errors and Fixes** — Every error encountered and exactly how it was \
-                     resolved. Include error messages verbatim. This prevents re-encountering \
-                     the same issues.\n\
-                     5. **Problem Solving** — The reasoning chain: what was tried, what worked, \
-                     what was rejected and why. Include rejected approaches to prevent retry.\n\
-                     6. **All User Messages** — Reproduce every user instruction, clarification, \
-                     or correction. Do not paraphrase — use the user's exact words for requests \
-                     and corrections.\n\
-                     7. **Pending Tasks** — What remains to be done, in dependency order. \
-                     Include any task IDs, branch names, or tracking references.\n\
-                     8. **Current Work** — What the agent was doing at the moment of compaction. \
-                     Be precise: filename, function name, line range, what operation was in \
-                     progress. Include enough detail to resume without re-reading.\n\
-                     9. **Next Step** — The single immediate next action the agent should take. \
-                     Include direct quotes from tool output or code that show where work left off.\n\n\
-                     Be precise. Include filenames, function signatures, error messages, and \
-                     code snippets where they affect the next action. Vague summaries cause \
-                     the agent to redo work or make wrong assumptions.\n\n\
-                     {custom_instructions}\
-                     ## Execution Transcript\n\n{transcript}",
-                    custom_instructions = self
-                        .config
-                        .compact_instructions
-                        .as_ref()
-                        .map(|ci| format!("## Additional Instructions\n\n{ci}\n\n"))
-                        .unwrap_or_default()
-                )),
+                content: MessageContent::text(prompt),
             }],
             tools: vec![],
             max_tokens: 8192,
