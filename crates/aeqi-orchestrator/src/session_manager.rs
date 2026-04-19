@@ -728,6 +728,12 @@ impl SessionManager {
             }
             if !history.is_empty() {
                 tracing::info!(session_id = %sid, messages = history.len(), "loading forked session history");
+                stream_sender.send(aeqi_core::ChatStreamEvent::Status {
+                    message: format!(
+                        "session fork: loaded {} prior messages from session {sid}",
+                        history.len()
+                    ),
+                });
                 agent = agent.with_history(history);
             }
         }
