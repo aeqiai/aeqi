@@ -324,6 +324,182 @@ fn append_idea(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_registry::AgentRegistry;
+    use crate::event_handler::{EventHandlerStore, NewEvent};
+    use aeqi_core::traits::{Idea, IdeaQuery, IdeaStore};
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use std::sync::Mutex;
+
+    /// Stub idea store that captures `hierarchical_search` queries and
+    /// returns one pre-seeded idea. Used to prove the on_quest_start path
+    /// expands `{quest_description}` and merges the returned idea into the
+    /// assembled prompt — this is the lu-005 closed-loop wiring.
+    struct StubIdeaStore {
+        seen_queries: Mutex<Vec<String>>,
+        idea: Idea,
+    }
+
+    #[async_trait]
+    impl IdeaStore for StubIdeaStore {
+        async fn store(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[String],
+            _: Option<&str>,
+        ) -> anyhow::Result<String> {
+            unreachable!("stub should never be asked to store")
+        }
+
+        async fn search(&self, _q: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+
+        async fn hierarchical_search(
+            &self,
+            query: &str,
+            _ancestor_ids: &[String],
+            _top_k: usize,
+        ) -> anyhow::Result<Vec<Idea>> {
+            self.seen_queries.lock().unwrap().push(query.to_string());
+            Ok(vec![self.idea.clone()])
+        }
+
+        async fn delete(&self, _id: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn name(&self) -> &str {
+            "stub"
+        }
+    }
+
+    #[tokio::test]
+    async fn quest_start_query_template_pulls_promoted_skills() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let event_store = EventHandlerStore::new(registry.db());
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "recall-promoted-skills".into(),
+                pattern: "session:quest_start".into(),
+                query_template: Some("skills relevant to: {quest_description}".into()),
+                query_top_k: Some(3),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let promoted_skill = Idea {
+            id: "skill-1".to_string(),
+            name: "promoted-skill".to_string(),
+            content: "Prefer TDD for this quest type.".to_string(),
+            tags: vec!["skill".into(), "promoted".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: promoted_skill,
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let assembled = assemble_ideas_for_quest_start(
+            &registry,
+            Some(&store),
+            &event_store,
+            &agent.id,
+            &[],
+            "Build feature X",
+        )
+        .await;
+
+        assert!(
+            assembled.system.contains("Prefer TDD for this quest type."),
+            "assembled prompt must merge the promoted skill content, got: {:?}",
+            assembled.system
+        );
+
+        let queries = stub.seen_queries.lock().unwrap();
+        assert_eq!(
+            queries.len(),
+            1,
+            "hierarchical_search should be invoked exactly once for one matching event"
+        );
+        assert_eq!(
+            queries[0], "skills relevant to: Build feature X",
+            "query_template should expand {{quest_description}} from AssemblyContext"
+        );
+    }
+
+    /// Sibling regression: a plain `session:start` assembly must not trigger
+    /// the `session:quest_start` event's query_template. This pins the fix
+    /// where `get_events_for_pattern` could previously LIKE-prefix-match
+    /// `session:start` against `session:quest_start`.
+    #[tokio::test]
+    async fn plain_session_start_does_not_fire_quest_start_template() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let event_store = EventHandlerStore::new(registry.db());
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "quest-recall".into(),
+                pattern: "session:quest_start".into(),
+                query_template: Some("q: {quest_description}".into()),
+                query_top_k: Some(3),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: Idea {
+                id: "x".into(),
+                name: "x".into(),
+                content: "should not appear".into(),
+                tags: Vec::new(),
+                agent_id: Some(agent.id.clone()),
+                created_at: Utc::now(),
+                session_id: None,
+                score: 0.0,
+                inheritance: "self".into(),
+                tool_allow: Vec::new(),
+                tool_deny: Vec::new(),
+            },
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let assembled = assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[]).await;
+
+        assert!(
+            !assembled.system.contains("should not appear"),
+            "session:start assembly must not fire session:quest_start events"
+        );
+        assert!(
+            stub.seen_queries.lock().unwrap().is_empty(),
+            "no semantic search should run when only quest_start events exist"
+        );
+    }
 
     #[test]
     fn expand_template_substitutes_known_placeholders() {
