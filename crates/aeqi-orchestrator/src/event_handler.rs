@@ -427,6 +427,30 @@ impl EventHandlerStore {
         result.unwrap_or_default()
     }
 
+    /// Get enabled events matching an exact pattern for an agent: its own + globals.
+    ///
+    /// Unlike `get_events_for_pattern` (which uses LIKE for prefix matching),
+    /// this method matches the pattern exactly — used for pattern dispatcher
+    /// lookup where `context:budget:exceeded` must not prefix-match other patterns.
+    pub async fn get_events_for_exact_pattern(&self, agent_id: &str, pattern: &str) -> Vec<Event> {
+        let db = self.db.lock().await;
+        let result: Result<Vec<Event>> = (|| {
+            let mut stmt = db.prepare(
+                "SELECT * FROM events
+                 WHERE (agent_id = ?1 OR agent_id IS NULL)
+                   AND enabled = 1
+                   AND pattern = ?2
+                 ORDER BY name",
+            )?;
+            let events = stmt
+                .query_map(params![agent_id, pattern], |row| Ok(row_to_event(row)))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(events)
+        })();
+        result.unwrap_or_default()
+    }
+
     /// Count enabled events.
     pub async fn count_enabled(&self) -> Result<u64> {
         let db = self.db.lock().await;
@@ -471,6 +495,11 @@ struct LifecycleSeed {
     pattern: &'static str,
     idea_key: &'static str,
     idea_content: &'static str,
+    /// When `true`, the idea referenced by `idea_key` is NOT seeded or updated
+    /// by the lifecycle loop — it is managed elsewhere (e.g. insert-if-absent
+    /// in `seed_standalone_global_ideas`). Used for `on_context_budget_exceeded`
+    /// which references `session:compact-prompt` but must not overwrite it.
+    skip_idea_seed: bool,
     /// Legacy query_template field — kept as fallback when tool_calls is empty.
     query_template: Option<&'static str>,
     query_top_k: Option<u32>,
@@ -488,6 +517,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern: "session:start",
             idea_key: "session:start",
             idea_content: "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -503,6 +533,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern: "session:quest_start",
             idea_key: "session:quest-start",
             idea_content: "A quest has been assigned to you. You own it end-to-end inside its worktree.\n\nWork the quest: understand the ask, make the change, verify it, and close the quest with a summary when done. Spawn sub-agents, commit, and iterate without asking for mid-quest approval — the assignment is the authorization.\n\nIf you are truly blocked (missing credential, unreachable external service, or a decision only a human can make), close with status `blocked` and a specific question. Ambiguity in the spec is not blocked — make the best call and keep moving.",
+            skip_idea_seed: false,
             // Surfaces promoted skills relevant to the quest — the read-side of the
             // closed learning loop (lu-005). The `promoted` tag filter is a hard
             // gate: candidate- or rejected-tagged ideas cannot leak into the
@@ -536,6 +567,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             // user-configured postmortem/reflection template actually reaches
             // the model at the natural quest-closing moment.
             idea_content: "You are closing a quest. Summarize the outcome, note any concerns a reviewer should look at, and — if you learned something reusable — store it as an idea so the next quest benefits.",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -549,6 +581,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern: "session:quest_result",
             idea_key: "session:quest-result",
             idea_content: "A quest you delegated has completed and the result is available. Review the summary and the diff, decide what to do next, and create follow-up quests if the work isn't done.",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -562,6 +595,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern: "session:execution_start",
             idea_key: "session:execution-start",
             idea_content: "",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -574,6 +608,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern: "session:step_start",
             idea_key: "session:step-start",
             idea_content: "",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -590,6 +625,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             // the model with recap guidance — replaces the old hardcoded
             // fetch_recap path ripped out as leak #11.
             idea_content: "This session is resuming with prior history loaded above. Before continuing, briefly recap where you left off — the last concrete action, the current objective, and any in-flight blockers — so the next step is grounded in that thread rather than starting cold.",
+            skip_idea_seed: false,
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
@@ -597,6 +633,47 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 tool: "ideas.assemble".into(),
                 args: serde_json::json!({ "names": ["session:recap-on-resume"] }),
             }],
+        },
+        LifecycleSeed {
+            name: "on_context_budget_exceeded",
+            pattern: "context:budget:exceeded",
+            idea_key: "session:compact-prompt",
+            // This idea is seeded via seed_standalone_global_ideas (insert-if-absent).
+            // The lifecycle loop must NOT overwrite it on every boot — set
+            // skip_idea_seed = true so operator edits to session:compact-prompt persist.
+            idea_content: "",
+            skip_idea_seed: true,
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            // Phase 5: compaction-as-delegation.
+            // When context budget is exceeded:
+            //   1. session.spawn spawns a lightweight compactor session with the
+            //      transcript preview as seed content. Returns the compaction summary.
+            //   2. transcript.replace_middle removes the middle messages from the
+            //      current session and inserts the summary as a system message.
+            // {transcript_preview} and {session_id} are substituted from trigger_args
+            // at fire time. {last_tool_result} is the output of step 1 (the summary).
+            tool_calls: vec![
+                ToolCall {
+                    tool: "session.spawn".into(),
+                    args: serde_json::json!({
+                        "kind": "compactor",
+                        "instructions_idea": "session:compact-prompt",
+                        "seed_content": "{transcript_preview}",
+                        "parent_session": "{session_id}"
+                    }),
+                },
+                ToolCall {
+                    tool: "transcript.replace_middle".into(),
+                    args: serde_json::json!({
+                        "preserve_head": 3,
+                        "preserve_tail": 6,
+                        "replacement_role": "system",
+                        "replacement_content": "# Context Summary (compactor session)\n\n{last_tool_result}"
+                    }),
+                },
+            ],
         },
     ];
 
@@ -608,6 +685,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             pattern,
             idea_key,
             idea_content,
+            skip_idea_seed,
             query_template,
             query_top_k,
             query_tag_filter,
@@ -617,6 +695,10 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
         // Seed ideas are globals (agent_id IS NULL) — one row total, shared by
         // every agent's lifecycle events. Resolve-or-create the canonical row,
         // then overwrite its content so code is the source of truth on every boot.
+        //
+        // Exception: when `skip_idea_seed` is true, the idea is managed elsewhere
+        // (e.g. insert-if-absent in seed_standalone_global_ideas) and must NOT be
+        // overwritten on every boot. We still resolve the idea_id for the event row.
         let idea_id = {
             let db = store.db.lock().await;
             let existing: Option<String> = db
@@ -628,13 +710,15 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 .optional()
                 .map_err(|e| anyhow::anyhow!("failed to check seed idea {idea_key}: {e}"))?;
             if let Some(id) = existing {
-                db.execute(
-                    "UPDATE ideas SET content = ?1 WHERE id = ?2",
-                    rusqlite::params![idea_content, id],
-                )
-                .map_err(|e| anyhow::anyhow!("failed to refresh seed idea {idea_key}: {e}"))?;
+                if !skip_idea_seed {
+                    db.execute(
+                        "UPDATE ideas SET content = ?1 WHERE id = ?2",
+                        rusqlite::params![idea_content, id],
+                    )
+                    .map_err(|e| anyhow::anyhow!("failed to refresh seed idea {idea_key}: {e}"))?;
+                }
                 id
-            } else {
+            } else if !skip_idea_seed {
                 let new_id = uuid::Uuid::new_v4().to_string();
                 db.execute(
                     "INSERT INTO ideas (id, name, content, scope, agent_id, created_at)
@@ -648,6 +732,12 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 )
                 .map_err(|e| anyhow::anyhow!("failed to tag seed idea {idea_key}: {e}"))?;
                 new_id
+            } else {
+                // skip_idea_seed AND idea not present yet — will be seeded by
+                // seed_standalone_global_ideas later. Use a placeholder ID for now;
+                // the event row's idea_ids will be empty (acceptable: tool_calls path
+                // doesn't use idea_ids).
+                String::new()
             }
         };
 
@@ -658,12 +748,17 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 .map(|&s| s.to_string())
                 .collect::<Vec<String>>()
         });
+        let idea_ids_for_event = if idea_id.is_empty() {
+            vec![]
+        } else {
+            vec![idea_id]
+        };
         store
             .create(&NewEvent {
                 agent_id: None,
                 name: name.to_string(),
                 pattern: pattern.to_string(),
-                idea_ids: vec![idea_id],
+                idea_ids: idea_ids_for_event,
                 query_template: query_template.map(str::to_string),
                 query_top_k: *query_top_k,
                 query_tag_filter: tag_filter_owned.clone(),
@@ -700,7 +795,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
         }
     }
 
-    info!("seeded 7 global lifecycle events with tool_calls and legacy fallback fields");
+    info!("seeded 8 global lifecycle events with tool_calls and legacy fallback fields");
     seed_standalone_global_ideas(store).await?;
     Ok(())
 }
@@ -1362,10 +1457,21 @@ mod tests {
             "session:execution_start",
             "session:step_start",
             "session:recap_on_resume",
+            "context:budget:exceeded",
         ];
         for pattern in &seed_patterns {
             assert!(
-                all.iter().any(|e| e.pattern == *pattern),
+                all.iter().any(|e| e.pattern == *pattern) || {
+                    // context:budget:exceeded lives outside the session: prefix so
+                    // list_by_pattern_prefix("session:") won't return it.
+                    // Re-fetch all events to check.
+                    store
+                        .list_enabled()
+                        .await
+                        .unwrap()
+                        .iter()
+                        .any(|e| e.pattern == *pattern)
+                },
                 "seed pattern {pattern} must be present"
             );
         }
@@ -1416,5 +1522,71 @@ mod tests {
         assert_eq!(after.idea_ids, vec!["idea-1".to_string()]);
         assert_eq!(after.query_template.as_deref(), Some("my template"));
         assert_eq!(after.query_top_k, Some(7));
+    }
+
+    /// Phase 5: the `on_context_budget_exceeded` seed exists with the correct
+    /// pattern and tool_calls (session.spawn + transcript.replace_middle).
+    #[tokio::test]
+    async fn context_budget_exceeded_seed_has_correct_tool_calls() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+
+        let events = store
+            .get_events_for_exact_pattern("", "context:budget:exceeded")
+            .await;
+        assert!(
+            !events.is_empty(),
+            "on_context_budget_exceeded seed must exist"
+        );
+        let ev = &events[0];
+        assert_eq!(ev.name, "on_context_budget_exceeded");
+        assert_eq!(ev.pattern, "context:budget:exceeded");
+        assert!(ev.system, "must be a system event");
+        assert!(ev.enabled, "must be enabled by default");
+
+        // Verify tool_calls: session.spawn → transcript.replace_middle.
+        assert_eq!(
+            ev.tool_calls.len(),
+            2,
+            "on_context_budget_exceeded must have 2 tool_calls"
+        );
+        assert_eq!(ev.tool_calls[0].tool, "session.spawn");
+        assert_eq!(ev.tool_calls[1].tool, "transcript.replace_middle");
+        assert_eq!(ev.tool_calls[0].args["kind"].as_str(), Some("compactor"));
+        assert_eq!(
+            ev.tool_calls[1].args["replacement_role"].as_str(),
+            Some("system")
+        );
+    }
+
+    /// Phase 5: get_events_for_exact_pattern returns only events with
+    /// an exact pattern match (not prefix-matched like get_events_for_pattern).
+    #[tokio::test]
+    async fn get_events_for_exact_pattern_does_not_match_prefix() {
+        let store = test_store().await;
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "exact".into(),
+                pattern: "context:budget:exceeded".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "prefix-only".into(),
+                pattern: "context:budget:exceeded:extra".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let hits = store
+            .get_events_for_exact_pattern("a1", "context:budget:exceeded")
+            .await;
+        assert_eq!(hits.len(), 1, "only exact match should be returned");
+        assert_eq!(hits[0].name, "exact");
     }
 }

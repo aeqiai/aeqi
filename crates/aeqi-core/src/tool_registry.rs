@@ -15,11 +15,16 @@
 // to override these defaults; if any enabled event is configured for the pattern,
 // the event's tool_calls run instead and the default handler is skipped.
 //
-// TODO(Phase 3 integration): invoke_pattern currently skips the event store
-// lookup (Phase 3 owns event_handler.rs). After Phase 3 merges, wire the event
-// store query before the DEFAULT_HANDLERS fallback.
+// PatternDispatcher: a trait that decouples the Agent (aeqi-core) from the
+// orchestrator's event store. The orchestrator implements PatternDispatcher by
+// querying the event store for matching enabled events, running their tool_calls,
+// and returning `true` if any event handled the pattern. The Agent calls this
+// before falling back to inline compaction so the operator can override compaction
+// via the `context:budget:exceeded` event without any changes to agent.rs.
 
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -27,6 +32,34 @@ use tracing::info;
 
 use crate::chat_stream::ChatStreamSender;
 use crate::traits::{Tool, ToolResult};
+
+/// Decouples the agent's pattern-firing path from the orchestrator's event store.
+///
+/// The orchestrator implements this trait; the agent calls `dispatch` when it
+/// needs to fire a pattern (e.g. `context:budget:exceeded`). If any enabled
+/// event is configured for the pattern and ran its tool_calls successfully,
+/// `dispatch` returns `true` so the caller can skip the inline fallback path.
+///
+/// Returning `false` (or an `Err`) tells the caller to use the built-in
+/// fallback — important for bare-CLI / test environments where the event store
+/// is not available.
+pub trait PatternDispatcher: Send + Sync + 'static {
+    /// Fire all enabled events matching `pattern`, executing their `tool_calls`.
+    ///
+    /// `trigger_args`: structured context from the detector, substituted into
+    /// event tool_call args (e.g. `{session_id}`, `{estimated_tokens}`).
+    /// `ctx`: execution context for ACL checks and session-id injection.
+    ///
+    /// Returns `true` if at least one event was found and handled the pattern
+    /// (all tool_calls ran without fatal error). Returns `false` if no event
+    /// was configured for the pattern — caller should use inline fallback.
+    fn dispatch<'a>(
+        &'a self,
+        pattern: &'a str,
+        ctx: &'a ExecutionContext,
+        trigger_args: &'a serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = bool> + Send + 'a>>;
+}
 
 /// Who is invoking a tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,22 +218,21 @@ impl ToolRegistry {
     /// that default handlers use to format the warning string.
     ///
     /// Execution order:
-    /// 1. TODO(Phase 3 integration): Query event store for enabled events matching
-    ///    the pattern. If any found, run their tool_calls via `invoke` with
-    ///    `CallerKind::Event` and return. This path is not yet wired; Phase 3 owns
-    ///    event_handler.rs and will connect it here after merging.
-    /// 2. Look up `pattern` in DEFAULT_HANDLERS. If found, format the warning
+    /// 1. Look up `pattern` in DEFAULT_HANDLERS. If found, format the warning
     ///    string from `trigger_args` and inject it via `transcript.inject`
     ///    (best-effort: if transcript.inject is absent or fails, warn to tracing).
-    /// 3. If no default handler exists for the pattern, log and return Ok.
+    /// 2. If no default handler exists for the pattern, log and return Ok(false).
+    ///
+    /// Returns `false` — the registry has no event store wired. Callers that want
+    /// operator-configurable event dispatch should use a `PatternDispatcher` (the
+    /// orchestrator implements this via its event store). This method is the pure
+    /// registry fallback for bare-CLI / test environments.
     pub async fn invoke_pattern(
         &self,
         pattern: &str,
         ctx: &ExecutionContext,
         trigger_args: &serde_json::Value,
-    ) -> Result<()> {
-        // TODO(Phase 3 integration): query event store, run event tool_calls, return early.
-
+    ) -> Result<bool> {
         // Default handler: format warning string and inject via transcript.inject.
         let warning_text = DEFAULT_HANDLERS
             .iter()
@@ -239,6 +271,9 @@ impl ToolRegistry {
                     }
                     Ok(_) => {} // injected successfully
                 }
+                // The default handler ran (injected a warning) but did not perform
+                // compaction — return false so callers use their inline fallback.
+                Ok(false)
             }
             None => {
                 info!(
@@ -246,10 +281,9 @@ impl ToolRegistry {
                     session = %ctx.session_id,
                     "invoke_pattern: no event configured and no default handler for pattern"
                 );
+                Ok(false)
             }
         }
-
-        Ok(())
     }
 }
 
@@ -462,27 +496,24 @@ mod tests {
         let ctx = ExecutionContext::test("s1", "a1");
         let args = serde_json::json!({});
         // Known patterns with default handlers must succeed.
-        // transcript.inject is absent — default handler logs and returns Ok.
-        assert!(
-            reg.invoke_pattern("loop:detected", &ctx, &args)
-                .await
-                .is_ok()
-        );
-        assert!(
-            reg.invoke_pattern("guardrail:violation", &ctx, &args)
-                .await
-                .is_ok()
-        );
-        assert!(
-            reg.invoke_pattern("graph_guardrail:high_impact", &ctx, &args)
-                .await
-                .is_ok()
-        );
-        assert!(
-            reg.invoke_pattern("shell:command_failed", &ctx, &args)
-                .await
-                .is_ok()
-        );
+        // transcript.inject is absent — default handler logs and returns Ok(false)
+        // (false = did not handle compaction, caller should use inline fallback).
+        let r = reg.invoke_pattern("loop:detected", &ctx, &args).await;
+        assert!(r.is_ok());
+        assert!(!r.unwrap(), "default handler returns false (fallback path)");
+        let r = reg.invoke_pattern("guardrail:violation", &ctx, &args).await;
+        assert!(r.is_ok());
+        assert!(!r.unwrap());
+        let r = reg
+            .invoke_pattern("graph_guardrail:high_impact", &ctx, &args)
+            .await;
+        assert!(r.is_ok());
+        assert!(!r.unwrap());
+        let r = reg
+            .invoke_pattern("shell:command_failed", &ctx, &args)
+            .await;
+        assert!(r.is_ok());
+        assert!(!r.unwrap());
     }
 
     #[tokio::test]
@@ -490,12 +521,12 @@ mod tests {
         let reg = ToolRegistry::new(vec![]);
         let ctx = ExecutionContext::test("s1", "a1");
         let args = serde_json::json!({});
-        // Unknown patterns should log and return Ok.
-        assert!(
-            reg.invoke_pattern("some:unknown:pattern", &ctx, &args)
-                .await
-                .is_ok()
-        );
+        // Unknown patterns should log and return Ok(false).
+        let r = reg
+            .invoke_pattern("some:unknown:pattern", &ctx, &args)
+            .await;
+        assert!(r.is_ok());
+        assert!(!r.unwrap());
     }
 
     #[tokio::test]
@@ -514,8 +545,10 @@ mod tests {
             "count": 3,
             "window_size": 10,
         });
+        // Default handler ran but returned false (no compaction delegation).
         let result = reg.invoke_pattern("loop:detected", &ctx, &args).await;
         assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 
     #[tokio::test]
@@ -533,6 +566,7 @@ mod tests {
         });
         let result = reg.invoke_pattern("guardrail:violation", &ctx, &args).await;
         assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 
     #[tokio::test]
@@ -553,6 +587,7 @@ mod tests {
             .invoke_pattern("shell:command_failed", &ctx, &args)
             .await;
         assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 
     #[test]

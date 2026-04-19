@@ -60,6 +60,7 @@ pub use event_matcher::event_idea_ids;
 pub use executor::QuestOutcome;
 pub use gateway_manager::GatewayManager;
 pub use hook::Hook;
+pub use idea_assembly::EventPatternDispatcher;
 pub use message_router::MessageRouter;
 pub use metrics::AEQIMetrics;
 pub use operation::{Operation, OperationStore};

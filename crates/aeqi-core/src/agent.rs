@@ -212,6 +212,11 @@ pub struct AgentConfig {
     /// the default 9-section taxonomy. Must contain `{transcript}` and may contain
     /// `{custom_instructions}`. When `None`, falls back to `DEFAULT_COMPACT_PROMPT`.
     pub compact_prompt_template: Option<String>,
+    /// Session UUID for the running session. Set by the orchestrator when the
+    /// agent runs inside a managed session. Used to build the ExecutionContext
+    /// passed to `PatternDispatcher::dispatch` during compaction delegation.
+    /// Empty string means no session is set (bare-CLI / test mode).
+    pub session_id: String,
 }
 
 impl Default for AgentConfig {
@@ -241,6 +246,7 @@ impl Default for AgentConfig {
             routing_model: None,
             compact_instructions: None,
             compact_prompt_template: None,
+            session_id: String::new(),
         }
     }
 }
@@ -672,6 +678,16 @@ pub struct Agent {
     cancel_token: Arc<std::sync::atomic::AtomicBool>,
     /// Prior conversation history (for forked sessions).
     history: Vec<Message>,
+    /// Optional event-driven pattern dispatcher (wired by the orchestrator).
+    ///
+    /// When present, the compaction pipeline fires `context:budget:exceeded`
+    /// via this dispatcher before falling back to inline `compact_messages`.
+    /// If an enabled event handles the pattern (returns `true`), inline
+    /// compaction is skipped — the event's tool_calls perform delegation.
+    ///
+    /// `None` in bare-CLI / test environments — inline compaction is always
+    /// used when the dispatcher is absent.
+    pattern_dispatcher: Option<Arc<dyn crate::tool_registry::PatternDispatcher>>,
 }
 
 impl Agent {
@@ -695,6 +711,7 @@ impl Agent {
             input_rx: None,
             history: Vec::new(),
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pattern_dispatcher: None,
         }
     }
 
@@ -702,6 +719,20 @@ impl Agent {
     /// Set to `true` to stop the agent at the next iteration boundary.
     pub fn cancel_token(&self) -> Arc<std::sync::atomic::AtomicBool> {
         self.cancel_token.clone()
+    }
+
+    /// Attach a pattern dispatcher for event-driven compaction delegation.
+    ///
+    /// When set, the compaction pipeline fires `context:budget:exceeded` via
+    /// this dispatcher. If an enabled event handles the pattern, inline
+    /// `compact_messages` is skipped. In bare-CLI / test environments where
+    /// this is not called, inline compaction always runs (no regression).
+    pub fn with_pattern_dispatcher(
+        mut self,
+        dispatcher: Arc<dyn crate::tool_registry::PatternDispatcher>,
+    ) -> Self {
+        self.pattern_dispatcher = Some(dispatcher);
+        self
     }
 
     /// Attach prior conversation history (for forked sessions).
@@ -1954,6 +1985,11 @@ impl Agent {
         }
 
         // --- Stage 2: Full compaction ---
+        // Before running inline compaction, try event-driven delegation via
+        // the `context:budget:exceeded` pattern. If a configured event handles
+        // it (e.g. spawns a compactor session and injects a summary), skip the
+        // inline path. If no event is configured or the dispatcher is absent,
+        // fall back to the existing inline `compact_messages`.
         if estimated_tokens > full_threshold
             && tracker.compactions < MAX_COMPACTIONS_PER_RUN
             && messages.len() > protected
@@ -1968,14 +2004,60 @@ impl Agent {
             self.emit(crate::chat_stream::ChatStreamEvent::Status {
                 message: "Compacting context...".into(),
             });
-            self.compact_messages(messages, recent_files).await;
-            tracker.compactions += 1;
-            *has_attempted_reactive_compact = false;
-            transition = Some(LoopTransition::ContextCompacted);
 
-            // Save session checkpoint after compaction.
-            if let Some(ref sf) = self.config.session_file {
-                Self::save_session(messages, tracker, iterations, active_model, sf).await;
+            // Build transcript preview (last 2000 chars) for trigger_args.
+            let transcript_preview: String = {
+                let full = Self::build_compaction_transcript(messages);
+                let len = full.len();
+                if len > 2000 {
+                    full[len - 2000..].to_string()
+                } else {
+                    full
+                }
+            };
+            let trigger_args = serde_json::json!({
+                "estimated_tokens": estimated_tokens,
+                "threshold": full_threshold,
+                "session_id": self.config.session_id,
+                "transcript_preview": transcript_preview,
+            });
+            let ctx = crate::tool_registry::ExecutionContext {
+                session_id: self.config.session_id.clone(),
+                agent_id: self.config.agent_id.clone().unwrap_or_default(),
+                ..Default::default()
+            };
+
+            // Try event-driven delegation first.
+            let event_handled = if let Some(ref dispatcher) = self.pattern_dispatcher {
+                dispatcher
+                    .dispatch("context:budget:exceeded", &ctx, &trigger_args)
+                    .await
+            } else {
+                false
+            };
+
+            if event_handled {
+                info!(
+                    agent = %self.config.name,
+                    "context:budget:exceeded handled by event — skipping inline compaction"
+                );
+                tracker.compactions += 1;
+                *has_attempted_reactive_compact = false;
+                transition = Some(LoopTransition::ContextCompacted);
+
+                if let Some(ref sf) = self.config.session_file {
+                    Self::save_session(messages, tracker, iterations, active_model, sf).await;
+                }
+            } else {
+                // No event configured or dispatcher absent — use inline compaction.
+                self.compact_messages(messages, recent_files).await;
+                tracker.compactions += 1;
+                *has_attempted_reactive_compact = false;
+                transition = Some(LoopTransition::ContextCompacted);
+
+                if let Some(ref sf) = self.config.session_file {
+                    Self::save_session(messages, tracker, iterations, active_model, sf).await;
+                }
             }
         }
 

@@ -36,5 +36,5 @@ pub use hooks::{
 };
 pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
 pub use security::SecretStore;
-pub use tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
+pub use tool_registry::{CallerKind, ExecutionContext, PatternDispatcher, ToolRegistry};
 pub use traits::provider::{Message, MessageContent, Role};

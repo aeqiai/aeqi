@@ -802,6 +802,15 @@ impl SessionManager {
             None
         };
 
+        // Pre-generate the session_id so it can be set in AgentConfig before the
+        // session DB row is created. The actual DB session is created at step 9
+        // using `create_session_with_id` when a pre-generated id is available,
+        // or `opts.session_id` if one was provided by the caller.
+        let pregenerated_session_id = opts
+            .session_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
         let agent_config = aeqi_core::AgentConfig {
             model,
             max_iterations,
@@ -811,6 +820,7 @@ impl SessionManager {
             ancestor_ids: ancestor_ids.clone(),
             session_type,
             compact_prompt_template,
+            session_id: pregenerated_session_id.clone(),
             ..Default::default()
         };
 
@@ -855,6 +865,70 @@ impl SessionManager {
 
         if let Some(ref mem) = idea_store_for_agent {
             agent = agent.with_idea_store(mem.clone());
+        }
+
+        // Wire EventPatternDispatcher so the compaction pipeline can delegate
+        // via the `context:budget:exceeded` event. Requires both event_store
+        // and a provider so session.spawn (used by the compaction event) can run.
+        if let Some(ref ehs) = self.event_store {
+            // Build a spawn_fn for the dispatcher's registry — same closure as
+            // the one used during session assembly, capturing the provider and
+            // idea_store.
+            let eph_model_d = self.default_model.clone();
+            let eph_provider_d = self.default_provider.clone();
+            let eph_idea_store_d = self.idea_store.clone();
+            let dispatcher_spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
+                let model = eph_model_d.clone();
+                let provider_opt = eph_provider_d.clone();
+                let idea_store_opt = eph_idea_store_d.clone();
+                Box::pin(async move {
+                    let provider = provider_opt.ok_or_else(|| {
+                        anyhow::anyhow!("session.spawn (compaction): no provider configured")
+                    })?;
+                    let system_prompt = if let Some(ref idea_name) = req.instructions_idea {
+                        if let Some(ref is) = idea_store_opt
+                            && let Ok(Some(idea)) = is.get_by_name(idea_name, None).await
+                        {
+                            idea.content
+                        } else {
+                            "You are a context compaction assistant. Summarize the provided transcript.".to_string()
+                        }
+                    } else {
+                        "You are a context compaction assistant. Summarize the provided transcript."
+                            .to_string()
+                    };
+                    let seed = req.seed_content.unwrap_or_default();
+                    let context_window = aeqi_providers::context_window_for_model(&model);
+                    let config = aeqi_core::AgentConfig {
+                        model,
+                        max_iterations: 10,
+                        name: format!(
+                            "compactor:{}",
+                            &req.parent_session_id[..8.min(req.parent_session_id.len())]
+                        ),
+                        context_window,
+                        session_type: aeqi_core::SessionType::Async,
+                        ..Default::default()
+                    };
+                    let observer: Arc<dyn aeqi_core::traits::Observer> =
+                        Arc::new(aeqi_core::traits::LogObserver);
+                    let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+                    let agent =
+                        aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
+                    let result = agent.run(&seed).await?;
+                    Ok(result.text)
+                })
+            });
+            let runtime_reg_for_dispatcher = build_runtime_registry_with_spawn(
+                self.idea_store.clone(),
+                self.session_store.clone(),
+                Some(dispatcher_spawn_fn),
+            );
+            let dispatcher = std::sync::Arc::new(crate::idea_assembly::EventPatternDispatcher {
+                event_store: ehs.clone(),
+                registry: std::sync::Arc::new(runtime_reg_for_dispatcher),
+            });
+            agent = agent.with_pattern_dispatcher(dispatcher);
         }
 
         // 7.5. Load forked session history if the session already has messages.
@@ -907,34 +981,28 @@ impl SessionManager {
         let quest_id = opts.quest_id.as_deref();
         let session_type_str = opts.session_type_str();
 
-        let session_id = if let Some(existing_id) = opts.session_id.clone() {
-            // Pre-assigned session_id (e.g. from channel_sessions). Ensure a
-            // `sessions` table record exists so the UI can list it.
-            if let Some(ref ss) = self.session_store
-                && ss.get_session(&existing_id).await.ok().flatten().is_none()
-            {
+        // Use the pre-generated session_id (set in AgentConfig at step 6 so the
+        // compaction pipeline can refer to the correct session). For pre-assigned
+        // session_ids (from channel_sessions), ensure the DB row exists.
+        let session_id = {
+            let sid = pregenerated_session_id.clone();
+            if let Some(ref ss) = self.session_store {
                 let aid = agent_uuid.as_deref().unwrap_or("");
                 let display_name = opts.name.as_deref().unwrap_or(&agent_name);
-                let _ = ss
-                    .create_session_with_id(
-                        &existing_id,
-                        aid,
-                        session_type_str,
-                        display_name,
-                        parent_id,
-                        quest_id,
-                    )
-                    .await;
+                if ss.get_session(&sid).await.ok().flatten().is_none() {
+                    let _ = ss
+                        .create_session_with_id(
+                            &sid,
+                            aid,
+                            session_type_str,
+                            display_name,
+                            parent_id,
+                            quest_id,
+                        )
+                        .await;
+                }
             }
-            existing_id
-        } else if let Some(ref ss) = self.session_store {
-            let aid = agent_uuid.as_deref().unwrap_or("");
-            let display_name = opts.name.as_deref().unwrap_or(&agent_name);
-            ss.create_session(aid, session_type_str, display_name, parent_id, quest_id)
-                .await
-                .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string())
-        } else {
-            uuid::Uuid::new_v4().to_string()
+            sid
         };
 
         // 9.5. Record event-fire rows so the user can see which events injected

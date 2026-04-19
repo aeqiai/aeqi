@@ -436,10 +436,18 @@ pub async fn assemble_ideas_for_patterns(
 ///
 /// Steps:
 ///  1. Build substitution context from `AssemblyContext` (user_input, quest_description, etc.).
-///  2. For each ToolCall: apply `substitute_args` to expand `{placeholders}` in args.
+///  2. For each ToolCall: apply `substitute_args` to expand `{placeholders}` in args,
+///     including `{last_tool_result}` which is the output of the immediately preceding
+///     tool call in the same event firing (enables chaining: spawn → inject).
 ///  3. Also inject `_session_id` into args for tools like `transcript.inject` that need it.
 ///  4. Invoke via `ToolRegistry::invoke` with `CallerKind::Event`.
 ///  5. Append non-error, non-empty outputs to `parts`.
+///
+/// `{last_tool_result}` substitution: after each tool call completes successfully,
+/// its output is stored in `sub_ctx["last_tool_result"]`. The next tool call in the
+/// same event firing can reference it via `{last_tool_result}` in its args. This is
+/// the mechanism that allows `session.spawn` (produces a summary) → `transcript.inject`
+/// (injects the summary) to work without an intermediate store.
 async fn dispatch_event_tool_calls(
     event: &crate::event_handler::Event,
     dispatch: &ToolDispatch<'_>,
@@ -471,14 +479,20 @@ async fn dispatch_event_tool_calls(
             .entry("quest_description".to_string())
             .or_insert_with(|| v.clone());
     }
+    // transcript_tail for compaction delegation: the recent transcript excerpt
+    // passed as trigger_args when context:budget:exceeded fires.
+    if let Some(ref v) = dispatch.ctx.transcript_tail {
+        sub_ctx.insert("transcript_preview".to_string(), v.clone());
+    }
 
     let mut produced_output = false;
 
     for tc in &event.tool_calls {
-        // 1. Substitute placeholders in args.
+        // 1. Substitute placeholders in args (including {last_tool_result} from
+        //    any prior tool call in this event firing).
         let mut substituted = substitute_args(&tc.args, &sub_ctx);
 
-        // 2. Inject _session_id for tools that need it (transcript.inject).
+        // 2. Inject _session_id for tools that need it (transcript.inject, etc.).
         if let Some(obj) = substituted.as_object_mut() {
             obj.insert(
                 "_session_id".to_string(),
@@ -503,16 +517,21 @@ async fn dispatch_event_tool_calls(
                         error = %result.output,
                         "event tool call returned error"
                     );
-                } else if !result.output.is_empty() && result.output != "(no ideas assembled)" {
-                    // 5. Append output to assembled context parts.
-                    parts.push(result.output);
-                    produced_output = true;
+                } else {
+                    // 5. Store result as last_tool_result for the next tool call.
+                    sub_ctx.insert("last_tool_result".to_string(), result.output.clone());
 
-                    // Emit status for tools that assemble ideas (by name pattern).
-                    if tc.tool.starts_with("ideas.") {
-                        dispatch
-                            .ctx
-                            .emit_status(format!("assembled context via {}", tc.tool));
+                    if !result.output.is_empty() && result.output != "(no ideas assembled)" {
+                        // 6. Append output to assembled context parts.
+                        parts.push(result.output);
+                        produced_output = true;
+
+                        // Emit status for tools that assemble ideas (by name pattern).
+                        if tc.tool.starts_with("ideas.") {
+                            dispatch
+                                .ctx
+                                .emit_status(format!("assembled context via {}", tc.tool));
+                        }
                     }
                 }
             }
@@ -652,6 +671,90 @@ fn append_idea(
             allow_sets.push(tools.allow);
         }
         deny_all.extend(tools.deny);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PatternDispatcher implementation for the orchestrator
+// ---------------------------------------------------------------------------
+
+/// Orchestrator-side `PatternDispatcher` that queries the event store for
+/// enabled events matching a pattern and runs their `tool_calls` via the
+/// `ToolRegistry`.
+///
+/// Wired into the agent by `SessionManager` so the agent loop can fire
+/// `context:budget:exceeded` (and any future pattern) and delegate to a
+/// configured event without depending on the orchestrator directly.
+///
+/// Returns `true` if at least one enabled event for the pattern ran all its
+/// tool_calls without fatal error. Returns `false` if no event is configured
+/// for the pattern — the caller falls back to inline handling.
+pub struct EventPatternDispatcher {
+    pub event_store: Arc<EventHandlerStore>,
+    pub registry: Arc<ToolRegistry>,
+}
+
+impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
+    fn dispatch<'a>(
+        &'a self,
+        pattern: &'a str,
+        ctx: &'a aeqi_core::tool_registry::ExecutionContext,
+        trigger_args: &'a serde_json::Value,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+        Box::pin(async move {
+            // Query the event store for enabled events matching this exact pattern.
+            let events = self
+                .event_store
+                .get_events_for_exact_pattern(&ctx.agent_id, pattern)
+                .await;
+
+            if events.is_empty() {
+                return false;
+            }
+
+            // Enrich ctx with transcript_tail from trigger_args for {transcript_preview}
+            // substitution in session.spawn and transcript.replace_middle args.
+            let enriched_ctx = aeqi_core::tool_registry::ExecutionContext {
+                session_id: ctx.session_id.clone(),
+                agent_id: ctx.agent_id.clone(),
+                transcript_tail: trigger_args
+                    .get("transcript_preview")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                ..Default::default()
+            };
+
+            let dispatch = ToolDispatch {
+                registry: &self.registry,
+                ctx: &enriched_ctx,
+            };
+
+            let assembly_ctx = AssemblyContext::default();
+            let mut parts: Vec<String> = Vec::new();
+            let mut handled = false;
+
+            for event in &events {
+                if !event.tool_calls.is_empty() {
+                    let fired =
+                        dispatch_event_tool_calls(event, &dispatch, &assembly_ctx, &mut parts)
+                            .await;
+                    if fired {
+                        handled = true;
+                        // Record fire — best effort.
+                        if let Err(e) = self.event_store.record_fire(&event.id, 0.0).await {
+                            tracing::warn!(
+                                event = %event.id,
+                                pattern = %pattern,
+                                error = %e,
+                                "EventPatternDispatcher: failed to record event fire"
+                            );
+                        }
+                    }
+                }
+            }
+
+            handled
+        })
     }
 }
 

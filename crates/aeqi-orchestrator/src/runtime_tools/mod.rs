@@ -16,6 +16,7 @@ pub mod ideas_search;
 pub mod session_spawn;
 pub mod session_status;
 pub mod transcript_inject;
+pub mod transcript_replace_middle;
 
 pub use context_compress::ContextCompressTool;
 pub use ideas_assemble::IdeasAssembleTool;
@@ -23,6 +24,7 @@ pub use ideas_search::IdeasSearchTool;
 pub use session_spawn::{SessionSpawnTool, SpawnFn, SpawnRequest};
 pub use session_status::SessionStatusTool;
 pub use transcript_inject::TranscriptInjectTool;
+pub use transcript_replace_middle::TranscriptReplaceMiddleTool;
 
 use std::sync::Arc;
 
@@ -63,7 +65,8 @@ pub fn build_runtime_registry_with_spawn(
     let tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(IdeasAssembleTool::new(idea_store.clone())),
         Arc::new(IdeasSearchTool::new(idea_store)),
-        Arc::new(TranscriptInjectTool::new(session_store)),
+        Arc::new(TranscriptInjectTool::new(session_store.clone())),
+        Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),
         spawn_tool,
         Arc::new(ContextCompressTool),
@@ -78,6 +81,11 @@ pub fn build_runtime_registry_with_spawn(
     // transcript.inject: event-only — adds messages directly to the transcript.
     // Allowing the LLM to call this would be a self-injection attack surface.
     reg.set_event_only("transcript.inject");
+
+    // transcript.replace_middle: event-only — removes middle transcript messages
+    // and inserts a replacement. Allowing the LLM to call this would be a
+    // self-lobotomy attack surface (model could erase its own history).
+    reg.set_event_only("transcript.replace_middle");
 
     // ideas.search: open — LLM and events can both run semantic searches.
     // session.status: open — anyone can emit a status message.

@@ -655,6 +655,76 @@ impl SessionStore {
         Ok(())
     }
 
+    /// Soft-delete the middle messages in a session's transcript by marking them
+    /// `summarized = 1`. Preserves the first `preserve_head` messages (by id ASC)
+    /// and the last `preserve_tail` messages (by id DESC); everything in between
+    /// is marked as summarized and will be excluded from future `history_by_session`
+    /// queries.
+    ///
+    /// Returns the number of rows marked as summarized.
+    pub async fn summarize_range_by_session(
+        &self,
+        session_id: &str,
+        preserve_head: usize,
+        preserve_tail: usize,
+    ) -> Result<usize> {
+        let db = self.db.lock().await;
+        // Identify the IDs to keep from head (first preserve_head rows by id ASC).
+        let head_ids: Vec<i64> = {
+            let mut stmt = db.prepare(
+                "SELECT id FROM session_messages \
+                 WHERE session_id = ?1 AND summarized = 0 AND event_type = 'message' \
+                 ORDER BY id ASC LIMIT ?2",
+            )?;
+            stmt.query_map(params![session_id, preserve_head as i64], |row| row.get(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+
+        // Identify the IDs to keep from tail (last preserve_tail rows by id DESC).
+        let tail_ids: Vec<i64> = {
+            let mut stmt = db.prepare(
+                "SELECT id FROM session_messages \
+                 WHERE session_id = ?1 AND summarized = 0 AND event_type = 'message' \
+                 ORDER BY id DESC LIMIT ?2",
+            )?;
+            stmt.query_map(params![session_id, preserve_tail as i64], |row| row.get(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+
+        // Mark everything NOT in head_ids or tail_ids as summarized.
+        // Build the exclusion set.
+        let mut keep_ids: Vec<i64> = head_ids;
+        keep_ids.extend(tail_ids);
+        keep_ids.sort();
+        keep_ids.dedup();
+
+        if keep_ids.is_empty() {
+            // Mark all non-summarized messages.
+            let count = db.execute(
+                "UPDATE session_messages SET summarized = 1 \
+                 WHERE session_id = ?1 AND summarized = 0 AND event_type = 'message'",
+                params![session_id],
+            )?;
+            return Ok(count);
+        }
+
+        // SQLite doesn't support parameterized IN lists easily via rusqlite without
+        // manual formatting. Build the NOT IN clause with literal integers (safe:
+        // they are i64 values we fetched from the DB, not user input).
+        let id_list = keep_ids
+            .iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "UPDATE session_messages SET summarized = 1 \
+             WHERE session_id = ?1 AND summarized = 0 AND event_type = 'message' \
+             AND id NOT IN ({id_list})"
+        );
+        let count = db.execute(&sql, params![session_id])?;
+        Ok(count)
+    }
+
     /// Get message history by session UUID — queries session_messages directly.
     pub async fn history_by_session(
         &self,
@@ -1955,5 +2025,89 @@ mod tests {
         let other = store.tool_traces_for_quest("lu-99").await.unwrap();
         assert_eq!(other.len(), 1);
         assert_eq!(other[0].tool_name, "edit_file");
+    }
+
+    /// Phase 5: `summarize_range_by_session` removes the middle messages and
+    /// preserves head + tail. Verifies the core operation used by
+    /// `transcript.replace_middle`.
+    #[tokio::test]
+    async fn transcript_replace_middle_preserves_head_and_tail() {
+        let store = test_store().await;
+        let session_id = "test-replace-middle";
+
+        // Insert 10 messages.
+        for i in 0..10u32 {
+            store
+                .record_by_session(session_id, "user", &format!("msg {i}"), None)
+                .await
+                .unwrap();
+        }
+
+        let before = store.history_by_session(session_id, 100).await.unwrap();
+        assert_eq!(before.len(), 10);
+
+        // Summarize middle (preserve head=3, tail=2).
+        let deleted = store
+            .summarize_range_by_session(session_id, 3, 2)
+            .await
+            .unwrap();
+        assert_eq!(deleted, 5, "should delete the 5 middle messages");
+
+        // After summarization: 5 messages remain (3 head + 2 tail).
+        let after = store.history_by_session(session_id, 100).await.unwrap();
+        assert_eq!(after.len(), 5);
+        assert_eq!(after[0].content, "msg 0");
+        assert_eq!(after[1].content, "msg 1");
+        assert_eq!(after[2].content, "msg 2");
+        assert_eq!(after[3].content, "msg 8");
+        assert_eq!(after[4].content, "msg 9");
+    }
+
+    /// Phase 5: `summarize_range_by_session` is a no-op when head + tail >= total.
+    #[tokio::test]
+    async fn summarize_range_nothing_to_remove() {
+        let store = test_store().await;
+        let session_id = "test-nothing-to-remove";
+
+        for i in 0..5u32 {
+            store
+                .record_by_session(session_id, "user", &format!("msg {i}"), None)
+                .await
+                .unwrap();
+        }
+
+        // preserve_head=3, preserve_tail=3 → head+tail=6 > total=5 → nothing deleted.
+        let deleted = store
+            .summarize_range_by_session(session_id, 3, 3)
+            .await
+            .unwrap();
+        assert_eq!(deleted, 0);
+
+        let after = store.history_by_session(session_id, 100).await.unwrap();
+        assert_eq!(after.len(), 5, "all messages preserved");
+    }
+
+    /// Phase 5: `summarize_range_by_session` with preserve_head=0, preserve_tail=0
+    /// marks all messages as summarized.
+    #[tokio::test]
+    async fn summarize_range_marks_all_when_zero_bounds() {
+        let store = test_store().await;
+        let session_id = "test-all-summarized";
+
+        for i in 0..5u32 {
+            store
+                .record_by_session(session_id, "user", &format!("msg {i}"), None)
+                .await
+                .unwrap();
+        }
+
+        let deleted = store
+            .summarize_range_by_session(session_id, 0, 0)
+            .await
+            .unwrap();
+        assert_eq!(deleted, 5);
+
+        let after = store.history_by_session(session_id, 100).await.unwrap();
+        assert!(after.is_empty(), "all messages summarized");
     }
 }
