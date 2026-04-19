@@ -8,6 +8,7 @@ import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
+type DecisionState = "idle" | "saving" | "done";
 
 const SAVE_DEBOUNCE_MS = 800;
 const SAVED_FLASH_MS = 1200;
@@ -57,6 +58,16 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Candidate-skill decision state.
+  const tags = idea?.tags ?? [];
+  const isCandidateSkill = tags.includes("skill") && tags.includes("candidate");
+  const isDecided = tags.includes("promoted") || tags.includes("rejected");
+  const showDecisionBtns = isEdit && isCandidateSkill && !isDecided;
+  const [decisionState, setDecisionState] = useState<DecisionState>("idle");
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [showRejectPanel, setShowRejectPanel] = useState(false);
+  const [rejectRationale, setRejectRationale] = useState("");
+
   // Body editing mode: in `edit`, the textarea is active; in `view`, the
   // rendered markdown is shown. Compose mode (no idea yet) starts in edit.
   const [bodyMode, setBodyMode] = useState<"view" | "edit">(isEdit ? "view" : "edit");
@@ -79,6 +90,10 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     setSaveState("idle");
     setError(null);
     setConfirmDelete(false);
+    setDecisionState("idle");
+    setDecisionError(null);
+    setShowRejectPanel(false);
+    setRejectRationale("");
     setBodyMode(idea?.id ? "view" : "edit");
     dirtyRef.current = false;
   }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
@@ -231,6 +246,41 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     }
   };
 
+  const handlePromote = useCallback(async () => {
+    if (!idea) return;
+    setDecisionState("saving");
+    setDecisionError(null);
+    const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "promoted"];
+    try {
+      await api.updateIdea(idea.id, { tags: nextTags });
+      patchIdea(agentId, idea.id, { tags: nextTags });
+      setTypedTags(nextTags);
+      setDecisionState("done");
+    } catch (e) {
+      setDecisionState("idle");
+      setDecisionError(e instanceof Error ? e.message : "Promote failed");
+    }
+  }, [idea, agentId, patchIdea]);
+
+  const handleReject = useCallback(async () => {
+    if (!idea || !rejectRationale.trim()) return;
+    setDecisionState("saving");
+    setDecisionError(null);
+    const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "rejected"];
+    const nextContent = content.trimEnd() + "\n\n## Rejection rationale\n" + rejectRationale.trim();
+    try {
+      await api.updateIdea(idea.id, { tags: nextTags, content: nextContent });
+      patchIdea(agentId, idea.id, { tags: nextTags, content: nextContent });
+      setTypedTags(nextTags);
+      setContent(nextContent);
+      setDecisionState("done");
+      setShowRejectPanel(false);
+    } catch (e) {
+      setDecisionState("idle");
+      setDecisionError(e instanceof Error ? e.message : "Reject failed");
+    }
+  }, [idea, agentId, patchIdea, content, rejectRationale]);
+
   const inlineTags = mergeTags(content, typedTags);
 
   return (
@@ -279,6 +329,58 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           }
         }}
       />
+
+      {showDecisionBtns && (
+        <div className="ideas-canvas-decision">
+          <div className="ideas-canvas-decision-label">Skill candidate — promote or reject?</div>
+          <div className="ideas-canvas-decision-actions">
+            <button
+              type="button"
+              className="ideas-canvas-btn primary"
+              disabled={decisionState === "saving"}
+              onClick={handlePromote}
+            >
+              {decisionState === "saving" && !showRejectPanel ? "Promoting…" : "Promote"}
+            </button>
+            <button
+              type="button"
+              className="ideas-canvas-btn danger"
+              disabled={decisionState === "saving"}
+              onClick={() => setShowRejectPanel((v) => !v)}
+            >
+              Reject
+            </button>
+          </div>
+          {showRejectPanel && (
+            <div className="ideas-canvas-reject-panel">
+              <textarea
+                className="ideas-canvas-reject-textarea"
+                placeholder="Rationale (required)"
+                value={rejectRationale}
+                onChange={(e) => setRejectRationale(e.target.value)}
+              />
+              <div className="ideas-canvas-decision-actions">
+                <button
+                  type="button"
+                  className="ideas-canvas-btn danger"
+                  disabled={decisionState === "saving" || !rejectRationale.trim()}
+                  onClick={handleReject}
+                >
+                  {decisionState === "saving" ? "Rejecting…" : "Confirm rejection"}
+                </button>
+                <button
+                  type="button"
+                  className="ideas-canvas-btn ghost"
+                  onClick={() => setShowRejectPanel(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {decisionError && <span className="ideas-canvas-error">{decisionError}</span>}
+        </div>
+      )}
 
       {bodyMode === "edit" || !isEdit ? (
         <textarea

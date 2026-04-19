@@ -288,17 +288,19 @@ export default function ContentCTA() {
     case "ideas":
       header = { label: "New idea", event: "aeqi:new-idea" };
       items = filteredIdeas.map((idea) => {
-        const firstTag = idea.tags && idea.tags.length > 0 ? idea.tags[0] : undefined;
+        const ideaTags = idea.tags ?? [];
+        const isSkillCandidate =
+          ideaTags.includes("skill") &&
+          ideaTags.includes("candidate") &&
+          !ideaTags.includes("promoted") &&
+          !ideaTags.includes("rejected");
+        const firstTag = ideaTags.length > 0 ? ideaTags[0] : undefined;
         const meta =
-          idea.tags && idea.tags.length > 1
-            ? `+${idea.tags.length - 1}`
-            : idea.agent_id
-              ? undefined
-              : "global";
+          ideaTags.length > 1 ? `+${ideaTags.length - 1}` : idea.agent_id ? undefined : "global";
         return {
           id: idea.id,
           name: idea.name,
-          badge: firstTag ? firstTag.toUpperCase() : undefined,
+          badge: isSkillCandidate ? "SKILL ★" : firstTag ? firstTag.toUpperCase() : undefined,
           preview: snippetFor(idea.content, ideasSearch),
           meta,
         };
