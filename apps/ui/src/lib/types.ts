@@ -191,6 +191,7 @@ export interface AgentEvent {
   cooldown_secs: number;
   fire_count: number;
   last_fired?: string;
+  total_cost_usd: number;
   system: boolean;
 }
 
