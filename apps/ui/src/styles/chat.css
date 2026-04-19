@@ -137,6 +137,45 @@
   width: 2px;
   background: var(--text-primary);
 }
+/* Status-derived accent bars on inactive rows — AEQI signature.
+   Active sessions get running color; idle/done get done color;
+   errored/cancelled get blocked color. The .active::before rule
+   above takes priority (specificity wins) when the row is selected. */
+.asv-session-item[data-status="active"]:not(.active)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent-bar-running, var(--info));
+  opacity: 0.6;
+}
+.asv-session-item[data-status="idle"]:not(.active)::before,
+.asv-session-item[data-status="done"]:not(.active)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent-bar-done, var(--success));
+  opacity: 0.45;
+}
+.asv-session-item[data-status="error"]:not(.active)::before,
+.asv-session-item[data-status="cancelled"]:not(.active)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent-bar-blocked, var(--warning));
+  opacity: 0.55;
+}
 .asv-session-item-top {
   display: flex;
   align-items: center;
@@ -195,11 +234,25 @@
   color: var(--text-muted);
   flex-shrink: 0;
 }
+/* Message-count pill — key-pill treatment so it reads as a data chip
+   rather than a plain label, consistent with quest IDs and event types. */
+.asv-session-item-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
 .asv-sidebar-empty {
-  padding: 20px 12px;
-  font-size: 12px;
+  padding: 24px 16px;
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
   text-align: center;
+  line-height: 1.55;
 }
 /* (old session toggle/list styles removed — replaced by asv-sidebar) */
 
@@ -753,11 +806,10 @@
   gap: 8px;
   margin: 12px 0 8px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-muted);
+  font-size: var(--section-label-size, 0.6875rem);
+  color: var(--section-label-color, rgba(0, 0, 0, 0.28));
   line-height: 1;
-  opacity: 0.5;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .asv-step-sep:first-child {
