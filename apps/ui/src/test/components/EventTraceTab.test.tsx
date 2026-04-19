@@ -55,7 +55,6 @@ vi.mock("@/lib/api", () => ({
 }));
 
 // Import after mock so we get the mocked version.
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { api } from "@/lib/api";
 
 beforeEach(() => {
