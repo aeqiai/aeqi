@@ -1,26 +1,41 @@
-// design note: session.spawn is a stub in Phase 2. Full implementation (calling
-// SessionManager::spawn_session or the new spawn_ephemeral_session) requires
-// Arc<SessionManager> + Arc<dyn Provider> to be passed in, which creates a
-// dependency cycle between the tool and the session manager that owns the
-// tool registry.
+// design note: session.spawn breaks the SessionManager/ToolRegistry dependency
+// cycle via a SpawnFn closure injected at registry-build time. The closure
+// captures a Weak<SessionManager> + Arc<dyn Provider>; the tool calls it and
+// returns the spawned session's output as a string.
 //
-// Phase 3 will resolve this via one of:
-//   a) Passing a SpawnFn closure (Box<dyn Fn(..) -> BoxFuture<...>>) at
-//      construction time, breaking the cycle.
-//   b) An async channel where the tool posts a spawn request and the session
-//      manager processes it outside the tool's scope.
-//
-// For now, execute() validates args and returns Ok with a
-// "spawn not yet wired" status so callers can see the tool is present and
-// parseable. The 'kind' field drives the lightweight vs. full spawn path.
-//
-// The 'compactor' kind must use lightweight mode: skip worktree, skip sandbox,
-// skip event replay, just provider + idea-as-system-context + call. This is
-// documented here so Phase 3's implementer knows the requirement.
+// Two spawn kinds:
+//   "compactor" → spawn_ephemeral_session (lightweight: no worktree/sandbox/
+//                 event replay, single LLM call, returns response text)
+//   "continuation" → spawn_session (full session with seed content as initial
+//                    user message, auto-closes when done)
+
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use async_trait::async_trait;
-use tracing::warn;
+
+/// Async spawn closure injected into `SessionSpawnTool` to break the
+/// SessionManager ↔ ToolRegistry cycle.
+pub type SpawnFn = Arc<
+    dyn Fn(SpawnRequest) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send>>
+        + Send
+        + Sync,
+>;
+
+/// Arguments for a session spawn request.
+#[derive(Debug, Clone)]
+pub struct SpawnRequest {
+    /// "compactor" (lightweight ephemeral) | "continuation" (full session).
+    pub kind: String,
+    /// Idea name to use as system instructions (loaded by the spawned session).
+    pub instructions_idea: Option<String>,
+    /// Seed content passed as the initial user message or system context.
+    pub seed_content: Option<String>,
+    /// Parent session ID for chaining / genealogy tracking.
+    pub parent_session_id: String,
+}
 
 /// Spawns a new session (compactor or continuation).
 ///
@@ -36,7 +51,24 @@ use tracing::warn;
 /// as the initial context.
 ///
 /// ACL: open — callable by LLM (for delegation) and events.
-pub struct SessionSpawnTool;
+pub struct SessionSpawnTool {
+    spawn_fn: Option<SpawnFn>,
+}
+
+impl SessionSpawnTool {
+    /// Stub constructor — no spawn function wired. Calls return an error
+    /// indicating the runtime has not been fully initialised.
+    pub fn stub() -> Self {
+        Self { spawn_fn: None }
+    }
+
+    /// Fully wired constructor — spawn_fn will be called when the tool fires.
+    pub fn new(spawn_fn: SpawnFn) -> Self {
+        Self {
+            spawn_fn: Some(spawn_fn),
+        }
+    }
+}
 
 #[async_trait]
 impl Tool for SessionSpawnTool {
@@ -91,7 +123,7 @@ impl Tool for SessionSpawnTool {
             }
         };
 
-        let parent_session = match args.get("parent_session").and_then(|v| v.as_str()) {
+        let parent_session_id = match args.get("parent_session").and_then(|v| v.as_str()) {
             Some(p) if !p.is_empty() => p.to_string(),
             _ => {
                 return Ok(ToolResult::error(
@@ -105,19 +137,29 @@ impl Tool for SessionSpawnTool {
             .and_then(|v| v.as_str())
             .map(str::to_string);
 
-        // Phase 2 stub: args are validated but the actual spawn is not yet wired.
-        // Phase 3 will inject a SpawnFn closure and call it here.
-        warn!(
-            kind = %kind,
-            parent_session = %parent_session,
-            instructions_idea = ?instructions_idea,
-            "session.spawn: Phase 2 stub — spawn not yet wired (Phase 3 will implement)"
-        );
+        let seed_content = args
+            .get("seed_content")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
 
-        Ok(ToolResult::success(format!(
-            "session.spawn: validated (kind={kind}, parent={parent_session}) — \
-             spawn wiring deferred to Phase 3"
-        )))
+        let Some(ref spawn_fn) = self.spawn_fn else {
+            return Ok(ToolResult::error(
+                "session.spawn: not wired — SessionManager not yet configured \
+                 (call build_runtime_registry with a spawn_fn to enable session spawning)",
+            ));
+        };
+
+        let req = SpawnRequest {
+            kind,
+            instructions_idea,
+            seed_content,
+            parent_session_id,
+        };
+
+        match spawn_fn(req).await {
+            Ok(output) => Ok(ToolResult::success(output)),
+            Err(e) => Ok(ToolResult::error(format!("session.spawn failed: {e}"))),
+        }
     }
 
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
@@ -130,8 +172,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn valid_compactor_spawn_returns_stub_ok() {
-        let tool = SessionSpawnTool;
+    async fn stub_returns_not_wired_error() {
+        let tool = SessionSpawnTool::stub();
         let result = tool
             .execute(serde_json::json!({
                 "kind": "compactor",
@@ -140,14 +182,50 @@ mod tests {
             }))
             .await
             .unwrap();
-        // Phase 2 stub: succeeds with a notice that wiring is deferred.
-        assert!(!result.is_error);
-        assert!(result.output.contains("Phase 3"));
+        assert!(result.is_error);
+        assert!(result.output.contains("not wired"));
     }
 
     #[tokio::test]
-    async fn valid_continuation_spawn_returns_stub_ok() {
-        let tool = SessionSpawnTool;
+    async fn wired_compactor_spawn_calls_spawn_fn() {
+        let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let called_clone = called.clone();
+        let spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
+            let called = called_clone.clone();
+            Box::pin(async move {
+                called.store(true, std::sync::atomic::Ordering::SeqCst);
+                assert_eq!(req.kind, "compactor");
+                assert_eq!(req.parent_session_id, "sess-abc");
+                assert_eq!(
+                    req.instructions_idea.as_deref(),
+                    Some("session:compactor-instructions")
+                );
+                Ok("compacted output".to_string())
+            })
+        });
+        let tool = SessionSpawnTool::new(spawn_fn);
+        let result = tool
+            .execute(serde_json::json!({
+                "kind": "compactor",
+                "parent_session": "sess-abc",
+                "instructions_idea": "session:compactor-instructions"
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error, "unexpected error: {}", result.output);
+        assert!(result.output.contains("compacted output"));
+        assert!(called.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn wired_continuation_spawn_calls_spawn_fn() {
+        let spawn_fn: SpawnFn = Arc::new(|req: SpawnRequest| {
+            Box::pin(async move {
+                assert_eq!(req.kind, "continuation");
+                Ok(format!("continuation started, seed={:?}", req.seed_content))
+            })
+        });
+        let tool = SessionSpawnTool::new(spawn_fn);
         let result = tool
             .execute(serde_json::json!({
                 "kind": "continuation",
@@ -157,11 +235,12 @@ mod tests {
             .await
             .unwrap();
         assert!(!result.is_error);
+        assert!(result.output.contains("continuation started"));
     }
 
     #[tokio::test]
     async fn invalid_kind_returns_error() {
-        let tool = SessionSpawnTool;
+        let tool = SessionSpawnTool::stub();
         let result = tool
             .execute(serde_json::json!({
                 "kind": "unknown",
@@ -175,7 +254,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_kind_returns_error() {
-        let tool = SessionSpawnTool;
+        let tool = SessionSpawnTool::stub();
         let result = tool
             .execute(serde_json::json!({ "parent_session": "sess-abc" }))
             .await
@@ -185,7 +264,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_parent_session_returns_error() {
-        let tool = SessionSpawnTool;
+        let tool = SessionSpawnTool::stub();
         let result = tool
             .execute(serde_json::json!({ "kind": "compactor" }))
             .await

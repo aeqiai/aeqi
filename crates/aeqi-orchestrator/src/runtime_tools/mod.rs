@@ -20,7 +20,7 @@ pub mod transcript_inject;
 pub use context_compress::ContextCompressTool;
 pub use ideas_assemble::IdeasAssembleTool;
 pub use ideas_search::IdeasSearchTool;
-pub use session_spawn::SessionSpawnTool;
+pub use session_spawn::{SessionSpawnTool, SpawnFn, SpawnRequest};
 pub use session_status::SessionStatusTool;
 pub use transcript_inject::TranscriptInjectTool;
 
@@ -38,16 +38,34 @@ use crate::session_store::SessionStore;
 ///
 /// `idea_store`: must be provided for ideas.assemble and ideas.search to work.
 /// `session_store`: must be provided for transcript.inject to work.
+/// `spawn_fn`: when `Some`, wires `session.spawn` so it can actually spawn sessions.
+///   When `None`, the tool is present in the registry but returns an error on call
+///   (stub mode — safe for contexts where SessionManager is not yet available).
 pub fn build_runtime_registry(
     idea_store: Option<Arc<dyn IdeaStore>>,
     session_store: Option<Arc<SessionStore>>,
 ) -> ToolRegistry {
+    build_runtime_registry_with_spawn(idea_store, session_store, None)
+}
+
+/// Like `build_runtime_registry` but with an explicit `SpawnFn` for `session.spawn`.
+/// Called by `SessionManager::spawn_session` which injects a closure that captures
+/// a `Weak<SessionManager>` to break the ownership cycle.
+pub fn build_runtime_registry_with_spawn(
+    idea_store: Option<Arc<dyn IdeaStore>>,
+    session_store: Option<Arc<SessionStore>>,
+    spawn_fn: Option<SpawnFn>,
+) -> ToolRegistry {
+    let spawn_tool: Arc<dyn Tool> = match spawn_fn {
+        Some(f) => Arc::new(SessionSpawnTool::new(f)),
+        None => Arc::new(SessionSpawnTool::stub()),
+    };
     let tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(IdeasAssembleTool::new(idea_store.clone())),
         Arc::new(IdeasSearchTool::new(idea_store)),
         Arc::new(TranscriptInjectTool::new(session_store)),
         Arc::new(SessionStatusTool),
-        Arc::new(SessionSpawnTool),
+        spawn_tool,
         Arc::new(ContextCompressTool),
     ];
 

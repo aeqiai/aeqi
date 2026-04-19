@@ -17,13 +17,16 @@ use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
 use aeqi_core::chat_stream::{ChatStreamEvent, ChatStreamSender};
+use aeqi_core::tool_registry::{ExecutionContext, ToolRegistry};
 use aeqi_core::traits::{IdeaStore, Provider};
 
 use crate::activity::ActivityStream;
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::idea_assembly::ToolDispatch;
 use crate::prompt_loader::PromptLoader;
+use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn};
 use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
 
@@ -275,6 +278,9 @@ pub struct SessionManager {
     event_store: Option<Arc<EventHandlerStore>>,
     /// Data directory for graph DB fallback.
     data_dir: Option<PathBuf>,
+    /// Default provider for ephemeral sessions (compactor, continuation).
+    /// Set via `set_default_provider`. Used by `spawn_ephemeral_session`.
+    default_provider: Option<Arc<dyn Provider>>,
 }
 
 impl SessionManager {
@@ -292,6 +298,7 @@ impl SessionManager {
             prompt_loader: None,
             event_store: None,
             data_dir: None,
+            default_provider: None,
         }
     }
 
@@ -335,6 +342,57 @@ impl SessionManager {
     /// Set the data directory for graph DB fallback.
     pub fn set_data_dir(&mut self, dir: PathBuf) {
         self.data_dir = Some(dir);
+    }
+
+    /// Set the default LLM provider. Used by `spawn_ephemeral_session` and
+    /// the `session.spawn` SpawnFn closure to run compactor / continuation
+    /// sessions without requiring the caller to pass a provider each time.
+    pub fn set_default_provider(&mut self, provider: Arc<dyn Provider>) {
+        self.default_provider = Some(provider);
+    }
+
+    /// Run a one-shot lightweight session: no worktree, no sandbox, no event
+    /// replay. The agent gets `system_prompt` as its system message and
+    /// `seed_content` as the user input. Returns the final LLM response text.
+    ///
+    /// Used by `session.spawn` compactor kind. Also usable for any context
+    /// where a fire-and-forget single-call delegation is needed.
+    pub async fn spawn_ephemeral_session(
+        &self,
+        system_prompt: String,
+        seed_content: String,
+        parent_session_id: String,
+    ) -> anyhow::Result<String> {
+        let provider = self
+            .default_provider
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("spawn_ephemeral_session: no default provider set"))?;
+
+        let model = self.default_model.clone();
+        let context_window = aeqi_providers::context_window_for_model(&model);
+
+        let config = aeqi_core::AgentConfig {
+            model,
+            max_iterations: 10,
+            name: format!(
+                "ephemeral:{}",
+                &parent_session_id[..8.min(parent_session_id.len())]
+            ),
+            context_window,
+            session_type: aeqi_core::SessionType::Async,
+            ..Default::default()
+        };
+
+        let observer: Arc<dyn aeqi_core::traits::Observer> =
+            Arc::new(aeqi_core::traits::LogObserver);
+
+        // Minimal tool set — ephemeral sessions get no shell or file tools.
+        let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+
+        let agent = aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
+
+        let result = agent.run(&seed_content).await?;
+        Ok(result.text)
     }
 
     /// Spawn a new agent session — the universal executor.
@@ -391,12 +449,90 @@ impl SessionManager {
             .clone()
             .unwrap_or_else(|| Arc::new(EventHandlerStore::new(agent_registry.db())));
         let mut system_prompt = if let Some(ref id) = agent_uuid {
+            // Build a runtime tool registry so event tool_calls can execute.
+            // The session_id is not yet known at this point (created in step 9),
+            // so we use a temporary placeholder; tools that need session_id
+            // (e.g. transcript.inject) must be called after session creation.
+            let session_store_for_reg = self.session_store.clone();
+
+            // Build a SpawnFn closure that captures the minimal state needed to
+            // run an ephemeral session. We capture cloned fields directly to
+            // avoid needing Arc<Self> at this call site.
+            let eph_model = self.default_model.clone();
+            let eph_provider = self.default_provider.clone();
+            let eph_idea_store = self.idea_store.clone();
+
+            let spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
+                let model = eph_model.clone();
+                let provider_opt = eph_provider.clone();
+                let idea_store_opt = eph_idea_store.clone();
+                Box::pin(async move {
+                    let provider = provider_opt.ok_or_else(|| {
+                        anyhow::anyhow!("session.spawn: no default provider configured")
+                    })?;
+
+                    let system_prompt = if let Some(ref idea_name) = req.instructions_idea {
+                        // Try to load the instructions idea from the idea store.
+                        if let Some(ref is) = idea_store_opt
+                            && let Ok(Some(idea)) = is.get_by_name(idea_name, None).await
+                        {
+                            idea.content
+                        } else {
+                            format!(
+                                "You are an AEQI agent running as a {kind} session.",
+                                kind = req.kind
+                            )
+                        }
+                    } else {
+                        format!(
+                            "You are an AEQI agent running as a {kind} session.",
+                            kind = req.kind
+                        )
+                    };
+
+                    let seed = req.seed_content.unwrap_or_default();
+                    let context_window = aeqi_providers::context_window_for_model(&model);
+                    let config = aeqi_core::AgentConfig {
+                        model,
+                        max_iterations: 10,
+                        name: format!(
+                            "ephemeral:{}",
+                            &req.parent_session_id[..8.min(req.parent_session_id.len())]
+                        ),
+                        context_window,
+                        session_type: aeqi_core::SessionType::Async,
+                        ..Default::default()
+                    };
+                    let observer: Arc<dyn aeqi_core::traits::Observer> =
+                        Arc::new(aeqi_core::traits::LogObserver);
+                    let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+                    let agent =
+                        aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
+                    let result = agent.run(&seed).await?;
+                    Ok(result.text)
+                })
+            });
+            let runtime_reg: ToolRegistry = build_runtime_registry_with_spawn(
+                self.idea_store.clone(),
+                session_store_for_reg,
+                Some(spawn_fn),
+            );
+            let exec_ctx = ExecutionContext {
+                session_id: String::new(), // filled in after DB create
+                agent_id: id.clone(),
+                ..Default::default()
+            };
+            let dispatch = ToolDispatch {
+                registry: &runtime_reg,
+                ctx: &exec_ctx,
+            };
             let assembled = crate::idea_assembly::assemble_ideas(
                 agent_registry,
                 self.idea_store.as_ref(),
                 &event_store,
                 id,
                 &[],
+                Some(&dispatch),
             )
             .await;
             for event_id in &assembled.fired_event_ids {

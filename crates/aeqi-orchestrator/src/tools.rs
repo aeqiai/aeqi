@@ -1043,6 +1043,7 @@ impl QuestsTool {
             &[],
             "session:quest_end",
             &context,
+            None,
         )
         .await;
 

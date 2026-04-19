@@ -605,6 +605,7 @@ impl Scheduler {
             &agent_id,
             &task_ids,
             &task.description,
+            None,
         )
         .await;
         for event_id in &assembled.fired_event_ids {
@@ -630,6 +631,7 @@ impl Scheduler {
             &[],
             "session:execution_start",
             &exec_context,
+            None,
         )
         .await;
         for event_id in &exec_assembled.fired_event_ids {
@@ -1089,6 +1091,7 @@ impl Scheduler {
                             &[],
                             "session:quest_result",
                             &context,
+                            None,
                         )
                         .await;
                         for event_id in &assembled.fired_event_ids {

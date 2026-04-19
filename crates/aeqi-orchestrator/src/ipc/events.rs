@@ -142,9 +142,11 @@ pub async fn handle_update_event(
             _ => None,
         });
 
-    // `tool_calls` is accepted for forward-compatibility (Phase 2 will persist it).
-    // For now it is validated and acknowledged but not stored.
-    let has_tool_calls = request.get("tool_calls").is_some();
+    let tool_calls_opt: Option<Vec<ToolCall>> = if request.get("tool_calls").is_some() {
+        Some(parse_tool_calls(request))
+    } else {
+        None
+    };
 
     // Check if any field is provided at all.
     if enabled.is_none()
@@ -154,25 +156,9 @@ pub async fn handle_update_event(
         && query_template.is_none()
         && query_top_k.is_none()
         && query_tag_filter.is_none()
-        && !has_tool_calls
+        && tool_calls_opt.is_none()
     {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
-    }
-
-    // If only tool_calls was sent and no other field changed, return early.
-    if enabled.is_none()
-        && pattern.is_none()
-        && cooldown_secs.is_none()
-        && idea_ids.is_none()
-        && query_template.is_none()
-        && query_top_k.is_none()
-        && query_tag_filter.is_none()
-    {
-        return match store.get(id).await {
-            Ok(Some(event)) => serde_json::json!({"ok": true, "event": event_to_json(&event)}),
-            Ok(None) => serde_json::json!({"ok": true}),
-            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-        };
     }
 
     match store
@@ -185,6 +171,7 @@ pub async fn handle_update_event(
             query_template.as_ref().map(|v| v.as_deref()),
             query_top_k,
             query_tag_filter.as_ref().map(|v| v.as_deref()),
+            tool_calls_opt.as_deref(),
         )
         .await
     {
@@ -266,6 +253,8 @@ pub async fn handle_trigger_event(
     };
 
     // Run assemble_ideas — same path as the internal runtime, parameterized by pattern.
+    // No ToolDispatch here: handle_trigger_event is a preview/dry-run path used by
+    // the UI test-trigger; it doesn't need to actually execute side-effecting tools.
     let assembled = crate::idea_assembly::assemble_ideas_for_pattern(
         &ctx.agent_registry,
         ctx.idea_store.as_ref(),
@@ -274,6 +263,7 @@ pub async fn handle_trigger_event(
         &[],
         pattern,
         &assembly_ctx,
+        None,
     )
     .await;
 

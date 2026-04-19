@@ -234,6 +234,7 @@ impl EventHandlerStore {
         query_template: Option<Option<&str>>,
         query_top_k: Option<Option<u32>>,
         query_tag_filter: Option<Option<&[String]>>,
+        tool_calls: Option<&[ToolCall]>,
     ) -> Result<()> {
         let db = self.db.lock().await;
 
@@ -272,6 +273,11 @@ impl EventHandlerStore {
             values.push(Box::new(qtf.map(|slice| {
                 serde_json::to_string(slice).unwrap_or_else(|_| "[]".to_string())
             })));
+        }
+        if let Some(tcs) = tool_calls {
+            let json = serde_json::to_string(tcs).unwrap_or_else(|_| "[]".to_string());
+            sets.push("tool_calls = ?");
+            values.push(Box::new(json));
         }
 
         if sets.is_empty() {
@@ -459,104 +465,155 @@ pub fn purge_redundant_system_events(
     Ok((legacy, shadows))
 }
 
-/// Seed global lifecycle events. One row per lifecycle phase, agent_id = NULL.
-/// Every agent inherits these via `list_for_agent` / `get_events_for_pattern`.
-/// Idempotent: safe to call at every boot.
-/// `(name, pattern, idea_key, idea_content, query_template, query_top_k, query_tag_filter)`.
-type LifecycleSeed = (
-    &'static str,
-    &'static str,
-    &'static str,
-    &'static str,
-    Option<&'static str>,
-    Option<u32>,
-    Option<&'static [&'static str]>,
-);
+/// One row in the lifecycle seed table.
+struct LifecycleSeed {
+    name: &'static str,
+    pattern: &'static str,
+    idea_key: &'static str,
+    idea_content: &'static str,
+    /// Legacy query_template field — kept as fallback when tool_calls is empty.
+    query_template: Option<&'static str>,
+    query_top_k: Option<u32>,
+    query_tag_filter: Option<&'static [&'static str]>,
+    /// New tool_calls — when non-empty, replaces the legacy path at runtime.
+    /// On every boot, both this *and* the legacy fields are written so rollback
+    /// is a code revert (Phase 5 will drop the legacy columns).
+    tool_calls: Vec<ToolCall>,
+}
 
 pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<()> {
-    let defaults: &[LifecycleSeed] = &[
-        (
-            "on_session_start",
-            "session:start",
-            "session:start",
-            "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
-            None,
-            None,
-            None,
-        ),
-        (
-            "on_quest_start",
-            "session:quest_start",
-            "session:quest-start",
-            "A quest has been assigned to you. You own it end-to-end inside its worktree.\n\nWork the quest: understand the ask, make the change, verify it, and close the quest with a summary when done. Spawn sub-agents, commit, and iterate without asking for mid-quest approval — the assignment is the authorization.\n\nIf you are truly blocked (missing credential, unreachable external service, or a decision only a human can make), close with status `blocked` and a specific question. Ambiguity in the spec is not blocked — make the best call and keep moving.",
+    let defaults: Vec<LifecycleSeed> = vec![
+        LifecycleSeed {
+            name: "on_session_start",
+            pattern: "session:start",
+            idea_key: "session:start",
+            idea_content: "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            // Fetch the session primer idea by name — exact equivalent of the
+            // legacy idea_ids injection but expressed as a first-class tool call.
+            tool_calls: vec![ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({ "names": ["session:start"] }),
+            }],
+        },
+        LifecycleSeed {
+            name: "on_quest_start",
+            pattern: "session:quest_start",
+            idea_key: "session:quest-start",
+            idea_content: "A quest has been assigned to you. You own it end-to-end inside its worktree.\n\nWork the quest: understand the ask, make the change, verify it, and close the quest with a summary when done. Spawn sub-agents, commit, and iterate without asking for mid-quest approval — the assignment is the authorization.\n\nIf you are truly blocked (missing credential, unreachable external service, or a decision only a human can make), close with status `blocked` and a specific question. Ambiguity in the spec is not blocked — make the best call and keep moving.",
             // Surfaces promoted skills relevant to the quest — the read-side of the
             // closed learning loop (lu-005). The `promoted` tag filter is a hard
             // gate: candidate- or rejected-tagged ideas cannot leak into the
             // assembled prompt purely on semantic similarity (night-shift leak #4).
-            Some("skill promoted {quest_description}"),
-            Some(5),
-            Some(&["promoted"]),
-        ),
-        (
+            query_template: Some("skill promoted {quest_description}"),
+            query_top_k: Some(5),
+            query_tag_filter: Some(&["promoted"]),
+            tool_calls: vec![
+                // Inject the quest-start primer idea.
+                ToolCall {
+                    tool: "ideas.assemble".into(),
+                    args: serde_json::json!({ "names": ["session:quest-start"] }),
+                },
+                // Surface promoted skills relevant to the quest description.
+                ToolCall {
+                    tool: "ideas.search".into(),
+                    args: serde_json::json!({
+                        "query": "skill promoted {quest_description}",
+                        "tags": ["promoted"],
+                        "top_k": 5
+                    }),
+                },
+            ],
+        },
+        LifecycleSeed {
+            name: "on_quest_end",
+            pattern: "session:quest_end",
+            idea_key: "session:quest-end",
             // Fires when the worker calls `quests(action=close)` — the assembled
             // content is prepended to the close tool's success message so a
             // user-configured postmortem/reflection template actually reaches
             // the model at the natural quest-closing moment.
-            "on_quest_end",
-            "session:quest_end",
-            "session:quest-end",
-            "You are closing a quest. Summarize the outcome, note any concerns a reviewer should look at, and — if you learned something reusable — store it as an idea so the next quest benefits.",
-            None,
-            None,
-            None,
-        ),
-        (
-            "on_quest_result",
-            "session:quest_result",
-            "session:quest-result",
-            "A quest you delegated has completed and the result is available. Review the summary and the diff, decide what to do next, and create follow-up quests if the work isn't done.",
-            None,
-            None,
-            None,
-        ),
-        (
-            "on_execution_start",
-            "session:execution_start",
-            "session:execution-start",
-            "",
-            None,
-            None,
-            None,
-        ),
-        (
-            "on_step_start",
-            "session:step_start",
-            "session:step-start",
-            "",
-            None,
-            None,
-            None,
-        ),
-        (
+            idea_content: "You are closing a quest. Summarize the outcome, note any concerns a reviewer should look at, and — if you learned something reusable — store it as an idea so the next quest benefits.",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            tool_calls: vec![ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({ "names": ["session:quest-end"] }),
+            }],
+        },
+        LifecycleSeed {
+            name: "on_quest_result",
+            pattern: "session:quest_result",
+            idea_key: "session:quest-result",
+            idea_content: "A quest you delegated has completed and the result is available. Review the summary and the diff, decide what to do next, and create follow-up quests if the work isn't done.",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            tool_calls: vec![ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({ "names": ["session:quest-result"] }),
+            }],
+        },
+        LifecycleSeed {
+            name: "on_execution_start",
+            pattern: "session:execution_start",
+            idea_key: "session:execution-start",
+            idea_content: "",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            // Empty idea_content — no context to inject at execution start by default.
+            // Operator can add tool_calls here to inject custom context.
+            tool_calls: Vec::new(),
+        },
+        LifecycleSeed {
+            name: "on_step_start",
+            pattern: "session:step_start",
+            idea_key: "session:step-start",
+            idea_content: "",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            // Empty — step_start ideas are resolved via assemble_step_ideas_for_worker
+            // (static idea_ids path) rather than tool_calls, for now.
+            tool_calls: Vec::new(),
+        },
+        LifecycleSeed {
+            name: "on_recap_on_resume",
+            pattern: "session:recap_on_resume",
+            idea_key: "session:recap-on-resume",
             // Fires once per resumed session when the forked/loaded history was
-            // non-empty. Gives the configured idea template a chance to prompt
+            // non-empty. Gives the configured idea template a chance to provide
             // the model with recap guidance — replaces the old hardcoded
             // fetch_recap path ripped out as leak #11.
-            "on_recap_on_resume",
-            "session:recap_on_resume",
-            "session:recap-on-resume",
-            "This session is resuming with prior history loaded above. Before continuing, briefly recap where you left off — the last concrete action, the current objective, and any in-flight blockers — so the next step is grounded in that thread rather than starting cold.",
-            None,
-            None,
-            None,
-        ),
+            idea_content: "This session is resuming with prior history loaded above. Before continuing, briefly recap where you left off — the last concrete action, the current objective, and any in-flight blockers — so the next step is grounded in that thread rather than starting cold.",
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            tool_calls: vec![ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({ "names": ["session:recap-on-resume"] }),
+            }],
+        },
     ];
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    for &(name, pattern, idea_key, idea_content, query_template, query_top_k, query_tag_filter) in
-        defaults
-    {
+    for seed in &defaults {
+        let LifecycleSeed {
+            name,
+            pattern,
+            idea_key,
+            idea_content,
+            query_template,
+            query_top_k,
+            query_tag_filter,
+            tool_calls,
+        } = seed;
+
         // Seed ideas are globals (agent_id IS NULL) — one row total, shared by
         // every agent's lifecycle events. Resolve-or-create the canonical row,
         // then overwrite its content so code is the source of truth on every boot.
@@ -608,30 +665,34 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 pattern: pattern.to_string(),
                 idea_ids: vec![idea_id],
                 query_template: query_template.map(str::to_string),
-                query_top_k,
+                query_top_k: *query_top_k,
                 query_tag_filter: tag_filter_owned.clone(),
-                tool_calls: Vec::new(),
+                tool_calls: tool_calls.clone(),
                 cooldown_secs: 0,
                 system: true,
             })
             .await?;
 
         // create() is INSERT OR IGNORE. Refresh query_template / query_top_k /
-        // query_tag_filter on system events so existing installs pick up code
-        // changes — matching the "code is the source of truth on every boot"
-        // pattern used for seed idea content above.
+        // query_tag_filter / tool_calls on system events so existing installs
+        // pick up code changes — matching the "code is the source of truth on
+        // every boot" pattern used for seed idea content above.
         let tag_filter_json = tag_filter_owned
             .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
+        let tool_calls_json =
+            serde_json::to_string(tool_calls).unwrap_or_else(|_| "[]".to_string());
         {
             let db = store.db.lock().await;
             db.execute(
-                "UPDATE events SET query_template = ?1, query_top_k = ?2, query_tag_filter = ?3
-                 WHERE agent_id IS NULL AND name = ?4 AND system = 1",
+                "UPDATE events \
+                 SET query_template = ?1, query_top_k = ?2, query_tag_filter = ?3, tool_calls = ?4
+                 WHERE agent_id IS NULL AND name = ?5 AND system = 1",
                 rusqlite::params![
                     query_template,
                     query_top_k.map(|k| k as i64),
                     tag_filter_json,
+                    tool_calls_json,
                     name,
                 ],
             )
@@ -639,7 +700,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
         }
     }
 
-    info!("seeded 6 global lifecycle events pointing at global seed ideas");
+    info!("seeded 7 global lifecycle events with tool_calls and legacy fallback fields");
     seed_standalone_global_ideas(store).await?;
     Ok(())
 }
@@ -992,7 +1053,7 @@ mod tests {
 
         // Update with no idea_ids change — idea_ids should remain.
         store
-            .update_fields(&event.id, None, None, None, None, None, None, None)
+            .update_fields(&event.id, None, None, None, None, None, None, None, None)
             .await
             .unwrap_err(); // no fields to update
 
@@ -1013,6 +1074,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .await
             .unwrap();
@@ -1028,6 +1090,7 @@ mod tests {
                 None,
                 None,
                 Some(&cleared),
+                None,
                 None,
                 None,
                 None,
@@ -1121,5 +1184,237 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, vec!["bespoke", "global-qs", "user-qs"]);
+    }
+
+    /// Creates a test store with both events and ideas tables (needed for lifecycle seed tests).
+    async fn test_store_with_ideas() -> EventHandlerStore {
+        let pool = ConnectionPool::in_memory().unwrap();
+        let conn = pool.lock().await;
+        conn.execute_batch(
+            "CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT NOT NULL);
+             INSERT INTO agents (id, name, created_at) VALUES ('a1', 'shadow', '2026-01-01T00:00:00Z');
+             CREATE TABLE events (
+                 id TEXT PRIMARY KEY, agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
+                 name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
+                 idea_ids TEXT NOT NULL DEFAULT '[]',
+                 query_template TEXT, query_top_k INTEGER, query_tag_filter TEXT,
+                 tool_calls TEXT NOT NULL DEFAULT '[]',
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 cooldown_secs INTEGER NOT NULL DEFAULT 0,
+                 last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
+                 total_cost_usd REAL NOT NULL DEFAULT 0.0, system INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT NOT NULL
+             );
+             CREATE UNIQUE INDEX idx_events_unique_name
+                 ON events(COALESCE(agent_id, ''), name);
+             CREATE TABLE ideas (
+                 id TEXT PRIMARY KEY, name TEXT NOT NULL, content TEXT NOT NULL,
+                 scope TEXT NOT NULL DEFAULT 'domain', agent_id TEXT,
+                 created_at TEXT NOT NULL
+             );
+             CREATE TABLE idea_tags (
+                 idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+                 tag TEXT NOT NULL,
+                 UNIQUE(idea_id, tag)
+             );",
+        )
+        .unwrap();
+        drop(conn);
+        EventHandlerStore::new(Arc::new(pool))
+    }
+
+    /// Phase 3: update_fields persists tool_calls to the DB and roundtrips correctly.
+    #[tokio::test]
+    async fn update_fields_persists_tool_calls() {
+        let store = test_store().await;
+        let event = store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "tc-test".into(),
+                pattern: "session:tc_test".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        // Verify default: empty tool_calls.
+        let before = store.get(&event.id).await.unwrap().unwrap();
+        assert!(
+            before.tool_calls.is_empty(),
+            "should start with empty tool_calls"
+        );
+
+        // Write tool_calls via update_fields.
+        let calls = vec![
+            ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({"names": ["session:start"]}),
+            },
+            ToolCall {
+                tool: "ideas.search".into(),
+                args: serde_json::json!({"query": "test", "top_k": 3}),
+            },
+        ];
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&calls),
+            )
+            .await
+            .unwrap();
+
+        // Verify roundtrip.
+        let after = store.get(&event.id).await.unwrap().unwrap();
+        assert_eq!(after.tool_calls.len(), 2);
+        assert_eq!(after.tool_calls[0].tool, "ideas.assemble");
+        assert_eq!(after.tool_calls[1].tool, "ideas.search");
+        assert_eq!(after.tool_calls[1].args["top_k"], 3);
+
+        // Clear to empty.
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&[]),
+            )
+            .await
+            .unwrap();
+        let cleared = store.get(&event.id).await.unwrap().unwrap();
+        assert!(
+            cleared.tool_calls.is_empty(),
+            "tool_calls should be empty after clearing"
+        );
+    }
+
+    /// Phase 3: all 7 lifecycle seeds have both tool_calls AND legacy fallback fields
+    /// populated so rollback is possible without data loss.
+    #[tokio::test]
+    async fn seed_migration_preserves_fallback() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+
+        // Seeds that use legacy query_template path (non-None) must keep it.
+        let all = store.list_by_pattern_prefix("session:").await.unwrap();
+        let quest_start: Vec<_> = all
+            .iter()
+            .filter(|e| e.pattern == "session:quest_start")
+            .collect();
+        assert!(!quest_start.is_empty(), "on_quest_start seed must exist");
+        let qs = quest_start[0];
+        // Legacy field preserved.
+        assert!(
+            qs.query_template.is_some(),
+            "on_quest_start must retain query_template for rollback"
+        );
+        assert_eq!(qs.query_top_k, Some(5));
+        // New tool_calls populated.
+        assert!(
+            !qs.tool_calls.is_empty(),
+            "on_quest_start must have tool_calls"
+        );
+        assert!(
+            qs.tool_calls.iter().any(|tc| tc.tool == "ideas.search"),
+            "on_quest_start tool_calls must include ideas.search"
+        );
+
+        // Seeds with no legacy query (session:start, quest_end, etc.) have no
+        // query_template but must still have a non-empty idea_ids (legacy path).
+        let session_start: Vec<_> = all
+            .iter()
+            .filter(|e| e.pattern == "session:start")
+            .collect();
+        assert!(
+            !session_start.is_empty(),
+            "on_session_start seed must exist"
+        );
+        let ss = session_start[0];
+        // Legacy idea_ids fallback present.
+        assert!(
+            !ss.idea_ids.is_empty(),
+            "on_session_start must retain idea_ids for rollback"
+        );
+        // New tool_calls present.
+        assert!(
+            !ss.tool_calls.is_empty(),
+            "on_session_start must have tool_calls"
+        );
+        assert_eq!(ss.tool_calls[0].tool, "ideas.assemble");
+
+        // Verify all 7 seeds were created (reuse `all` already fetched above).
+        let seed_patterns = [
+            "session:start",
+            "session:quest_start",
+            "session:quest_end",
+            "session:quest_result",
+            "session:execution_start",
+            "session:step_start",
+            "session:recap_on_resume",
+        ];
+        for pattern in &seed_patterns {
+            assert!(
+                all.iter().any(|e| e.pattern == *pattern),
+                "seed pattern {pattern} must be present"
+            );
+        }
+    }
+
+    /// Phase 3: update_fields with only tool_calls updates the DB without
+    /// touching other fields.
+    #[tokio::test]
+    async fn update_fields_tool_calls_does_not_clobber_other_fields() {
+        let store = test_store().await;
+        let event = store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "clobber-guard".into(),
+                pattern: "session:clobber_guard".into(),
+                idea_ids: vec!["idea-1".into()],
+                query_template: Some("my template".into()),
+                query_top_k: Some(7),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let calls = vec![ToolCall {
+            tool: "ideas.assemble".into(),
+            args: serde_json::json!({"names": ["test"]}),
+        }];
+        store
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&calls),
+            )
+            .await
+            .unwrap();
+
+        let after = store.get(&event.id).await.unwrap().unwrap();
+        // Tool calls written.
+        assert_eq!(after.tool_calls.len(), 1);
+        assert_eq!(after.tool_calls[0].tool, "ideas.assemble");
+        // Legacy fields untouched.
+        assert_eq!(after.idea_ids, vec!["idea-1".to_string()]);
+        assert_eq!(after.query_template.as_deref(), Some("my template"));
+        assert_eq!(after.query_top_k, Some(7));
     }
 }

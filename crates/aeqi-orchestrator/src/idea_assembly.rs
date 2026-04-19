@@ -61,14 +61,17 @@ pub struct AssemblyContext {
 ///
 /// Order: root ancestor → ... → parent → self → task ideas.
 /// Within each level, ideas are ordered as referenced by their events.
-/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
-/// Callers that have a ToolRegistry should use `assemble_ideas_for_patterns` directly.
+///
+/// `tool_dispatch`: when `Some`, events with non-empty `tool_calls` are executed
+/// via the registry. When `None`, events with tool_calls log a warning and are
+/// skipped (Phase-1 fallback — callers that have not yet been wired to Phase 2).
 pub async fn assemble_ideas(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
     event_store: &EventHandlerStore,
     agent_id: &str,
     task_idea_ids: &[String],
+    tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledPrompt {
     assemble_ideas_for_patterns(
         registry,
@@ -78,7 +81,7 @@ pub async fn assemble_ideas(
         task_idea_ids,
         &["session:start"],
         &AssemblyContext::default(),
-        None,
+        tool_dispatch,
     )
     .await
 }
@@ -88,7 +91,10 @@ pub async fn assemble_ideas(
 /// with `quest_description` threaded into any query_template that references
 /// it — this is how the closed learning loop surfaces promoted skills
 /// relevant to the quest.
-/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
+///
+/// `tool_dispatch`: when `Some`, events with non-empty `tool_calls` are executed
+/// via the registry. When `None`, events with tool_calls log a warning and are
+/// skipped (Phase-1 fallback).
 pub async fn assemble_ideas_for_quest_start(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -96,6 +102,7 @@ pub async fn assemble_ideas_for_quest_start(
     agent_id: &str,
     task_idea_ids: &[String],
     quest_description: &str,
+    tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledPrompt {
     let context = AssemblyContext {
         quest_description: Some(quest_description.to_string()),
@@ -109,7 +116,7 @@ pub async fn assemble_ideas_for_quest_start(
         task_idea_ids,
         &["session:start", "session:quest_start"],
         &context,
-        None,
+        tool_dispatch,
     )
     .await
 }
@@ -196,7 +203,10 @@ pub async fn assemble_step_ideas_for_worker(
 /// Like `assemble_ideas` but for an arbitrary event pattern and with an
 /// explicit runtime context used to expand any `query_template` fields on
 /// matching events.
-/// Events with `tool_calls` use `None` for tool_dispatch (Phase-1 fallback warn + skip).
+///
+/// `tool_dispatch`: when `Some`, events with non-empty `tool_calls` are executed
+/// via the registry. When `None`, events with tool_calls log a warning and are
+/// skipped (Phase-1 fallback).
 pub async fn assemble_ideas_for_pattern(
     registry: &AgentRegistry,
     idea_store: Option<&Arc<dyn IdeaStore>>,
@@ -205,6 +215,7 @@ pub async fn assemble_ideas_for_pattern(
     task_idea_ids: &[String],
     event_pattern: &str,
     context: &AssemblyContext,
+    tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledPrompt {
     assemble_ideas_for_patterns(
         registry,
@@ -214,7 +225,7 @@ pub async fn assemble_ideas_for_pattern(
         task_idea_ids,
         &[event_pattern],
         context,
-        None,
+        tool_dispatch,
     )
     .await
 }
@@ -769,6 +780,7 @@ mod tests {
             &agent.id,
             &[],
             "Build feature X",
+            None,
         )
         .await;
 
@@ -839,7 +851,8 @@ mod tests {
         });
         let store: Arc<dyn IdeaStore> = stub.clone();
 
-        let assembled = assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[]).await;
+        let assembled =
+            assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[], None).await;
 
         assert!(
             !assembled.system.contains("should not appear"),
@@ -915,6 +928,7 @@ mod tests {
             &[],
             "session:quest_end",
             &context,
+            None,
         )
         .await;
 
@@ -1162,7 +1176,8 @@ mod tests {
         });
         let store: Arc<dyn IdeaStore> = stub.clone();
 
-        let assembled = assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[]).await;
+        let assembled =
+            assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[], None).await;
 
         assert!(
             !assembled.system.contains("SHOULD NOT APPEAR"),

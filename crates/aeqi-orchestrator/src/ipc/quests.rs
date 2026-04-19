@@ -660,6 +660,7 @@ pub async fn handle_quest_preflight(
         agent_id,
         &task_idea_ids,
         description,
+        None,
     )
     .await;
 
