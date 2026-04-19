@@ -166,9 +166,10 @@
   font-size: 9px;
   font-weight: 500;
   color: var(--text-muted);
-  background: var(--bg-surface);
-  padding: 1px 4px;
-  border-radius: 3px;
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  padding: 1px 5px;
+  border-radius: var(--key-pill-radius, 4px);
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;

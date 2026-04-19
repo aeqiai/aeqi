@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { timeAgo } from "@/lib/format";
-import { DataState } from "@/components/ui";
 import styles from "./EventsPage.module.css";
 
 function formatDecisionType(type: string): string {
@@ -56,37 +55,55 @@ export default function EventsPage() {
     return groups;
   }, [filtered]);
 
+  if (loading) {
+    return (
+      <div className="page-content">
+        <div
+          style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)", padding: "32px 0" }}
+        >
+          Loading events…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content">
       {selectedAgent && (
         <div className="filters">
           <span className={styles.filterBadge}>
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true">
+              <circle cx="4" cy="4" r="3" />
+            </svg>
             Filtered: {selectedAgent.display_name || selectedAgent.name}
           </span>
         </div>
       )}
 
-      <DataState
-        loading={loading}
-        empty={filtered.length === 0}
-        emptyTitle="No events"
-        emptyDescription="No events recorded yet."
-        loadingText="Loading events..."
-      >
+      {filtered.length === 0 ? (
+        <div className={styles.emptyState}>
+          <svg
+            className={styles.emptyIcon}
+            viewBox="0 0 40 40"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+          >
+            <rect x="6" y="6" width="28" height="28" rx="4" />
+            <path d="M13 16h14M13 21h10M13 26h6" />
+          </svg>
+          <p className={styles.emptyTitle}>No events yet</p>
+          <p className={styles.emptyDesc}>
+            Events appear here as agents run quests, receive messages, and make decisions.
+          </p>
+        </div>
+      ) : (
         <div className={styles.stream}>
           {grouped.map((group) => (
             <div key={group.key}>
-              <div
-                style={{
-                  padding: "8px 12px",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "rgba(0,0,0,0.25)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                {group.label}
+              <div className={styles.dateGroup}>
+                <div className={styles.dateLabel}>{group.label}</div>
               </div>
               {group.events.map((event: any, i: number) => (
                 <div key={event.id || i} className={styles.row}>
@@ -106,7 +123,7 @@ export default function EventsPage() {
             </div>
           ))}
         </div>
-      </DataState>
+      )}
     </div>
   );
 }

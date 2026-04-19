@@ -943,6 +943,7 @@
   min-height: 40px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--bg-base);
 }
 .content-topbar-left {
   display: flex;
@@ -954,7 +955,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 .content-topbar-meta {
   font-size: var(--font-size-2xs, 11px);
@@ -1768,6 +1769,12 @@
   flex-direction: column;
   padding: 24px 32px 16px;
   overflow: hidden;
+  border-left: 2px solid transparent;
+  transition: border-left-color var(--transition-fast);
+}
+/* Active / editing canvas gets a subtle AEQI accent bar on focus-within */
+.ideas-canvas:focus-within {
+  border-left-color: var(--border-hover);
 }
 .ideas-canvas-head {
   display: flex;

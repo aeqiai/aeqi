@@ -118,6 +118,30 @@
      token is duration+easing only. Keep the dashboard value. */
   --transition-normal: all 0.15s ease;
   --transition-smooth: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Polish tokens (Track I) ──────────────────────────
+     Accent bars, section divider rhythm, and key-pill treatment.
+     These give the 4 critical pages their AEQI signature:
+     a thin left-edge bar on active/running items, a mono key
+     pill for IDs, and a consistent date-section heading style. */
+
+  /* Left accent bars — 2px colored rails on in-progress / running rows */
+  --accent-bar-running: var(--info);
+  --accent-bar-blocked: var(--warning);
+  --accent-bar-done: var(--success);
+
+  /* Key/ID pill — monospace chip for quest IDs, event types, agent names */
+  --key-pill-bg: rgba(0, 0, 0, 0.035);
+  --key-pill-border: rgba(0, 0, 0, 0.07);
+  --key-pill-radius: var(--radius-xs);
+
+  /* Section heading rhythm — date groups, group headers */
+  --section-label-color: rgba(0, 0, 0, 0.28);
+  --section-label-size: var(--font-size-micro);
+
+  /* Stat card accent — top border on settings/quests stats */
+  --stat-card-bg: var(--bg-base);
+  --stat-card-border: var(--border);
 }
 
 /* ── Base element styles (dashboard-specific) ──────── */
