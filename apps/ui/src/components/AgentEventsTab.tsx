@@ -361,16 +361,15 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         )}
       </div>
 
-      {!isGlobal && (
-        <EventQueryTemplateEditor
-          key={selected.id}
-          event={selected}
-          onSave={async (fields) => {
-            await api.updateEvent(selected.id, fields);
-            patchEvent(agentId, selected.id, fields);
-          }}
-        />
-      )}
+      <EventQueryTemplateEditor
+        key={selected.id}
+        event={selected}
+        readOnly={isGlobal}
+        onSave={async (fields) => {
+          await api.updateEvent(selected.id, fields);
+          patchEvent(agentId, selected.id, fields);
+        }}
+      />
 
       <div className="events-detail-ideas-header">Injected Ideas ({selected.idea_ids.length})</div>
 
@@ -450,9 +449,11 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
 function EventQueryTemplateEditor({
   event,
+  readOnly = false,
   onSave,
 }: {
   event: AgentEvent;
+  readOnly?: boolean;
   onSave: (fields: {
     query_template: string | null;
     query_top_k: number | null;
@@ -492,12 +493,21 @@ function EventQueryTemplateEditor({
 
   return (
     <div style={{ marginTop: 14, marginBottom: 14 }}>
-      <div className="events-detail-ideas-header">Dynamic query template</div>
+      <div className="events-detail-ideas-header">
+        Dynamic query template
+        {readOnly && (
+          <span style={{ fontSize: 10, fontWeight: 500, marginLeft: 8, opacity: 0.55 }}>
+            (read-only — system event)
+          </span>
+        )}
+      </div>
       <input
         className="agent-settings-input"
         type="text"
-        placeholder="recall relevant ideas for {user_prompt}"
+        placeholder={readOnly ? "(none)" : "recall relevant ideas for {user_prompt}"}
         value={template}
+        readOnly={readOnly}
+        disabled={readOnly}
         style={{ width: "100%", marginTop: 4 }}
         onChange={(e) => setTemplate(e.target.value)}
       />
@@ -513,8 +523,10 @@ function EventQueryTemplateEditor({
         <input
           className="agent-settings-input"
           type="text"
-          placeholder="promoted, skill"
+          placeholder={readOnly ? "(none)" : "promoted, skill"}
           value={tagFilter}
+          readOnly={readOnly}
+          disabled={readOnly}
           style={{ width: "100%", marginTop: 4 }}
           onChange={(e) => setTagFilter(e.target.value)}
         />
@@ -534,18 +546,22 @@ function EventQueryTemplateEditor({
           min={1}
           placeholder="5"
           value={topK}
+          readOnly={readOnly}
+          disabled={readOnly}
           style={{ width: 100 }}
           onChange={(e) => setTopK(e.target.value)}
         />
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleSave}
-          loading={saving}
-          disabled={saving || !dirty}
-        >
-          Save
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            loading={saving}
+            disabled={saving || !dirty}
+          >
+            Save
+          </Button>
+        )}
         {err && <span className="channel-form-error">{err}</span>}
       </div>
     </div>
