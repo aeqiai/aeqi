@@ -237,6 +237,7 @@ pub async fn handle_create_quest(
                         "quest": {
                             "id": quest.id.0,
                             "subject": quest.name,
+                            "description": quest.description,
                             "status": quest.status.to_string(),
                             "agent_id": quest.agent_id,
                             "project": project,
