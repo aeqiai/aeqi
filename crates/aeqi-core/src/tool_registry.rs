@@ -8,11 +8,16 @@
 // cannot be called by the LLM (only by events). The check happens inside
 // ToolRegistry::invoke before the tool's execute() is called.
 //
-// DEFAULT_HANDLERS: each pattern key maps to a fallback closure that runs when
-// no enabled event is configured for that pattern. Phase 4 will replace the
-// log-only stubs with real logic. The indirection exists now so call-sites
-// (middleware detectors) can call invoke_pattern unconditionally without knowing
-// whether an event is configured.
+// DEFAULT_HANDLERS: each pattern key maps to a function that formats the warning
+// string for that pattern from trigger_args. invoke_pattern calls transcript.inject
+// with the formatted string (best-effort: if transcript.inject is not in this
+// registry or fails, the warning is logged instead). Operators configure events
+// to override these defaults; if any enabled event is configured for the pattern,
+// the event's tool_calls run instead and the default handler is skipped.
+//
+// TODO(Phase 3 integration): invoke_pattern currently skips the event store
+// lookup (Phase 3 owns event_handler.rs). After Phase 3 merges, wire the event
+// store query before the DEFAULT_HANDLERS fallback.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -175,23 +180,65 @@ impl ToolRegistry {
     }
 
     /// Fire all events configured for `pattern`, running their tool_calls.
-    /// If no events are configured for the pattern (or the caller does not
-    /// supply an event lookup fn), falls back to DEFAULT_HANDLERS.
     ///
-    /// Phase 4 will wire real event lookup here. For now, the event lookup
-    /// closure is always `None` in callers; only the fallback table runs.
-    pub fn invoke_pattern(&self, pattern: &str, ctx: &ExecutionContext) -> Result<()> {
-        // Phase 4 will replace this stub with event lookup + tool dispatch.
-        // For now: look up the pattern in DEFAULT_HANDLERS and run the fallback.
-        let handler = DEFAULT_HANDLERS
+    /// `trigger_args`: structured data from the detector (e.g. tool_name, count)
+    /// that default handlers use to format the warning string.
+    ///
+    /// Execution order:
+    /// 1. TODO(Phase 3 integration): Query event store for enabled events matching
+    ///    the pattern. If any found, run their tool_calls via `invoke` with
+    ///    `CallerKind::Event` and return. This path is not yet wired; Phase 3 owns
+    ///    event_handler.rs and will connect it here after merging.
+    /// 2. Look up `pattern` in DEFAULT_HANDLERS. If found, format the warning
+    ///    string from `trigger_args` and inject it via `transcript.inject`
+    ///    (best-effort: if transcript.inject is absent or fails, warn to tracing).
+    /// 3. If no default handler exists for the pattern, log and return Ok.
+    pub async fn invoke_pattern(
+        &self,
+        pattern: &str,
+        ctx: &ExecutionContext,
+        trigger_args: &serde_json::Value,
+    ) -> Result<()> {
+        // TODO(Phase 3 integration): query event store, run event tool_calls, return early.
+
+        // Default handler: format warning string and inject via transcript.inject.
+        let warning_text = DEFAULT_HANDLERS
             .iter()
             .find(|(p, _)| *p == pattern)
-            .map(|(_, h)| *h);
+            .map(|(_, fmt)| fmt(trigger_args));
 
-        match handler {
-            Some(h) => {
-                h(pattern, ctx);
-                Ok(())
+        match warning_text {
+            Some(text) => {
+                let inject_args = serde_json::json!({
+                    "role": "system",
+                    "content": text,
+                    "_session_id": ctx.session_id,
+                });
+                match self
+                    .invoke("transcript.inject", inject_args, CallerKind::Event, ctx)
+                    .await
+                {
+                    Ok(result) if result.is_error => {
+                        // transcript.inject not wired or returned error — fall back to tracing.
+                        tracing::warn!(
+                            pattern = %pattern,
+                            session = %ctx.session_id,
+                            warning = %text,
+                            "default handler: transcript.inject failed ({}), warning logged",
+                            result.output
+                        );
+                    }
+                    Err(_) => {
+                        // transcript.inject not in this registry — fall back to tracing.
+                        tracing::warn!(
+                            pattern = %pattern,
+                            session = %ctx.session_id,
+                            warning = %text,
+                            "default handler: transcript.inject not available, warning logged"
+                        );
+                    }
+                    Ok(_) => {} // injected successfully
+                }
             }
             None => {
                 info!(
@@ -199,58 +246,81 @@ impl ToolRegistry {
                     session = %ctx.session_id,
                     "invoke_pattern: no event configured and no default handler for pattern"
                 );
-                Ok(())
             }
         }
+
+        Ok(())
     }
 }
 
-/// Fallback handler signature: `(pattern, ctx) -> ()`.
-type PatternFallback = fn(&str, &ExecutionContext);
-
-/// Default handler table — keyed by pattern, value is a fallback that runs
-/// when no enabled event is configured for that pattern.
+/// Default handler signature: formats a warning string from trigger_args.
 ///
-/// Phase 4 will replace these log-only stubs with real logic (e.g. inline loop
-/// detection response, inline guardrail violation response, inline context
-/// compaction trigger).
-static DEFAULT_HANDLERS: &[(&str, PatternFallback)] = &[
-    ("loop:detected", fallback_loop_detected),
-    ("guardrail:violation", fallback_guardrail_violation),
-    ("context:budget:exceeded", fallback_context_budget_exceeded),
-    ("shell:command_failed", fallback_shell_command_failed),
+/// The string is then injected via transcript.inject by invoke_pattern.
+/// If transcript.inject is unavailable, the string is emitted to tracing.warn.
+type PatternFormatter = fn(&serde_json::Value) -> String;
+
+/// Default handler table — keyed by pattern, value is a formatter that produces
+/// the warning string from trigger_args when no enabled event is configured.
+///
+/// Patterns present here preserve old middleware behavior as the fallback:
+/// operators can configure an event to override these defaults.
+static DEFAULT_HANDLERS: &[(&str, PatternFormatter)] = &[
+    ("loop:detected", format_loop_detected),
+    ("guardrail:violation", format_guardrail_violation),
+    (
+        "graph_guardrail:high_impact",
+        format_graph_guardrail_high_impact,
+    ),
+    ("shell:command_failed", format_shell_command_failed),
 ];
 
-fn fallback_loop_detected(pattern: &str, ctx: &ExecutionContext) {
-    info!(
-        pattern = %pattern,
-        session = %ctx.session_id,
-        "default fallback: loop:detected — no event configured, logging only (Phase 4 will handle)"
-    );
+fn format_loop_detected(args: &serde_json::Value) -> String {
+    let tool_name = args
+        .get("tool_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("<unknown>");
+    let count = args.get("count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let window = args
+        .get("window_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10);
+    format!(
+        "WARNING: You have called '{tool_name}' with identical arguments {count} times \
+         in the last {window} calls. This looks like a loop. Change your approach \
+         or you will be terminated."
+    )
 }
 
-fn fallback_guardrail_violation(pattern: &str, ctx: &ExecutionContext) {
-    info!(
-        pattern = %pattern,
-        session = %ctx.session_id,
-        "default fallback: guardrail:violation — no event configured, logging only (Phase 4 will handle)"
-    );
+fn format_guardrail_violation(args: &serde_json::Value) -> String {
+    let tool_name = args
+        .get("tool_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("<unknown>");
+    let rule = args
+        .get("rule")
+        .and_then(|v| v.as_str())
+        .unwrap_or("not on the allow list");
+    format!(
+        "[Guardrails] Tool '{tool_name}' is not on the allow list. \
+         {rule}. Verify this action is safe before proceeding."
+    )
 }
 
-fn fallback_context_budget_exceeded(pattern: &str, ctx: &ExecutionContext) {
-    info!(
-        pattern = %pattern,
-        session = %ctx.session_id,
-        "default fallback: context:budget:exceeded — no event configured, logging only (Phase 4 will handle)"
-    );
+fn format_graph_guardrail_high_impact(args: &serde_json::Value) -> String {
+    let warning = args
+        .get("warning")
+        .and_then(|v| v.as_str())
+        .unwrap_or("<impact details unavailable>");
+    format!("[Graph Guardrails] High-impact change detected: {warning}")
 }
 
-fn fallback_shell_command_failed(pattern: &str, ctx: &ExecutionContext) {
-    info!(
-        pattern = %pattern,
-        session = %ctx.session_id,
-        "default fallback: shell:command_failed — no event configured, logging only (Phase 4 will handle)"
-    );
+fn format_shell_command_failed(args: &serde_json::Value) -> String {
+    let command = args
+        .get("command")
+        .and_then(|v| v.as_str())
+        .unwrap_or("<unknown>");
+    let output = args.get("output").and_then(|v| v.as_str()).unwrap_or("");
+    format!("[Shell Hook] Command failed: `{command}`\nOutput:\n{output}")
 }
 
 #[cfg(test)]
@@ -386,23 +456,150 @@ mod tests {
         assert!(err.unwrap_err().to_string().contains("unknown tool"));
     }
 
-    #[test]
-    fn invoke_pattern_with_default_handler_does_not_error() {
+    #[tokio::test]
+    async fn invoke_pattern_with_default_handler_does_not_error() {
         let reg = ToolRegistry::new(vec![]);
         let ctx = ExecutionContext::test("s1", "a1");
+        let args = serde_json::json!({});
         // Known patterns with default handlers must succeed.
-        assert!(reg.invoke_pattern("loop:detected", &ctx).is_ok());
-        assert!(reg.invoke_pattern("guardrail:violation", &ctx).is_ok());
-        assert!(reg.invoke_pattern("context:budget:exceeded", &ctx).is_ok());
-        assert!(reg.invoke_pattern("shell:command_failed", &ctx).is_ok());
+        // transcript.inject is absent — default handler logs and returns Ok.
+        assert!(
+            reg.invoke_pattern("loop:detected", &ctx, &args)
+                .await
+                .is_ok()
+        );
+        assert!(
+            reg.invoke_pattern("guardrail:violation", &ctx, &args)
+                .await
+                .is_ok()
+        );
+        assert!(
+            reg.invoke_pattern("graph_guardrail:high_impact", &ctx, &args)
+                .await
+                .is_ok()
+        );
+        assert!(
+            reg.invoke_pattern("shell:command_failed", &ctx, &args)
+                .await
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn invoke_pattern_unknown_pattern_does_not_error() {
+        let reg = ToolRegistry::new(vec![]);
+        let ctx = ExecutionContext::test("s1", "a1");
+        let args = serde_json::json!({});
+        // Unknown patterns should log and return Ok.
+        assert!(
+            reg.invoke_pattern("some:unknown:pattern", &ctx, &args)
+                .await
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn invoke_pattern_loop_detected_formats_warning() {
+        // When transcript.inject is registered, it should receive the formatted warning.
+        // We use EchoTool to simulate transcript.inject for testing purposes.
+        let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(EchoTool {
+            name: "transcript.inject".into(),
+        })];
+        let mut reg = ToolRegistry::new(tools);
+        reg.set_event_only("transcript.inject");
+
+        let ctx = ExecutionContext::test("s1", "a1");
+        let args = serde_json::json!({
+            "tool_name": "Bash",
+            "count": 3,
+            "window_size": 10,
+        });
+        let result = reg.invoke_pattern("loop:detected", &ctx, &args).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn invoke_pattern_guardrail_violation_formats_warning() {
+        let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(EchoTool {
+            name: "transcript.inject".into(),
+        })];
+        let mut reg = ToolRegistry::new(tools);
+        reg.set_event_only("transcript.inject");
+
+        let ctx = ExecutionContext::test("s1", "a1");
+        let args = serde_json::json!({
+            "tool_name": "Write",
+            "rule": "not on the allow list",
+        });
+        let result = reg.invoke_pattern("guardrail:violation", &ctx, &args).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn invoke_pattern_shell_command_failed_formats_warning() {
+        let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(EchoTool {
+            name: "transcript.inject".into(),
+        })];
+        let mut reg = ToolRegistry::new(tools);
+        reg.set_event_only("transcript.inject");
+
+        let ctx = ExecutionContext::test("s1", "a1");
+        let args = serde_json::json!({
+            "command": "cargo test",
+            "exit_code": 1,
+            "output": "test failed",
+        });
+        let result = reg
+            .invoke_pattern("shell:command_failed", &ctx, &args)
+            .await;
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn invoke_pattern_unknown_pattern_does_not_error() {
-        let reg = ToolRegistry::new(vec![]);
-        let ctx = ExecutionContext::test("s1", "a1");
-        // Unknown patterns should log and return Ok.
-        assert!(reg.invoke_pattern("some:unknown:pattern", &ctx).is_ok());
+    fn default_handler_formats_loop_detected_correctly() {
+        let args = serde_json::json!({
+            "tool_name": "Bash",
+            "count": 3,
+            "window_size": 10,
+        });
+        let text = format_loop_detected(&args);
+        assert!(text.contains("Bash"));
+        assert!(text.contains("3"));
+        assert!(text.contains("10"));
+        assert!(text.contains("WARNING"));
+    }
+
+    #[test]
+    fn default_handler_formats_guardrail_violation_correctly() {
+        let args = serde_json::json!({
+            "tool_name": "Write",
+            "rule": "not on the allow list",
+        });
+        let text = format_guardrail_violation(&args);
+        assert!(text.contains("Write"));
+        assert!(text.contains("Guardrails"));
+    }
+
+    #[test]
+    fn default_handler_formats_shell_command_failed_correctly() {
+        let args = serde_json::json!({
+            "command": "cargo test",
+            "output": "test failed",
+        });
+        let text = format_shell_command_failed(&args);
+        assert!(text.contains("cargo test"));
+        assert!(text.contains("test failed"));
+        assert!(text.contains("Shell Hook"));
+    }
+
+    #[test]
+    fn default_handler_formats_graph_guardrail_correctly() {
+        let args = serde_json::json!({
+            "warning": "MyTrait (trait) has 5 implementations — verify all are updated",
+        });
+        let text = format_graph_guardrail_high_impact(&args);
+        assert!(text.contains("Graph Guardrails"));
+        assert!(text.contains("MyTrait"));
     }
 
     #[test]

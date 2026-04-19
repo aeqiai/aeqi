@@ -475,6 +475,13 @@ impl AgentWorker {
             &self.agent_name,
             &self.project_name,
         );
+        if let Some(ref sid) = worker_session_id {
+            worker_ctx.session_id = sid.clone();
+        }
+        worker_ctx.registry = Some(Arc::new(crate::runtime_tools::build_runtime_registry(
+            self.idea_store.clone(),
+            self.session_store.clone(),
+        )));
 
         // Run middleware on_start — check for Halt before proceeding.
         if let Some(ref chain) = self.middleware_chain {
@@ -536,9 +543,7 @@ impl AgentWorker {
                     }
                     return Ok((outcome, runtime_execution, 0.0, 0));
                 }
-                MiddlewareAction::Continue
-                | MiddlewareAction::Inject(_)
-                | MiddlewareAction::Skip => {}
+                MiddlewareAction::Continue | MiddlewareAction::Skip => {}
             }
         }
 
@@ -1241,6 +1246,14 @@ impl AgentWorker {
             if let WorkerExecution::Agent { ref model, .. } = self.execution {
                 worker_ctx.model = model.clone();
             }
+            // Wire session_id and registry so middleware detectors can fire patterns.
+            if let Some(sid) = worker_session_id {
+                worker_ctx.session_id = sid.to_string();
+            }
+            worker_ctx.registry = Some(Arc::new(crate::runtime_tools::build_runtime_registry(
+                self.idea_store.clone(),
+                self.session_store.clone(),
+            )));
             Arc::new(MiddlewareObserver::from_arc(
                 Arc::clone(chain),
                 worker_ctx,
@@ -1378,7 +1391,6 @@ impl MiddlewareObserver {
         match action {
             MiddlewareAction::Continue | MiddlewareAction::Skip => LoopAction::Continue,
             MiddlewareAction::Halt(reason) => LoopAction::Halt(reason),
-            MiddlewareAction::Inject(msgs) => LoopAction::Inject(msgs),
         }
     }
 }

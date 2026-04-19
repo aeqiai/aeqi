@@ -14,8 +14,9 @@
 //!
 //! Supported events:
 //! - `after_step` — runs after each agent step (when the model finishes with no tool calls).
-//!   Blocking hooks that fail inject their output back into the conversation so the agent
-//!   can react. Non-blocking hooks fire and forget.
+//!   Blocking hooks that fail fire the `shell:command_failed` pattern so the event
+//!   system can inject output back into the conversation.
+//!   Non-blocking hooks fire and forget.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,7 +34,7 @@ struct ShellHook {
     event: String,
     /// Shell command to execute.
     command: String,
-    /// If true, command output is fed back as an injection on failure.
+    /// If true, command output is fed back via shell:command_failed on failure.
     /// If false, the command is fire-and-forget.
     blocking: bool,
     /// Maximum execution time in milliseconds.
@@ -54,7 +55,7 @@ enum HookResult {
 ///
 /// Hook definitions are loaded from agent ideas tagged "hook" once at construction.
 /// Only the `after_step` event is currently implemented — it validates the agent's
-/// work after each step and can inject failure output to force corrections.
+/// work after each step and fires the `shell:command_failed` pattern on failure.
 pub struct ShellHookMiddleware {
     hooks: Vec<ShellHook>,
 }
@@ -162,15 +163,15 @@ impl ShellHookMiddleware {
         !self.hooks.is_empty()
     }
 
-    /// Execute hooks for a given event, returning injections for blocking failures.
-    async fn run_hooks_for_event(&self, event: &str) -> Vec<String> {
+    /// Execute hooks for a given event, returning (command, output) pairs for blocking failures.
+    async fn run_hooks_for_event(&self, event: &str) -> Vec<(String, String, u64)> {
         let matching: Vec<&ShellHook> = self.hooks.iter().filter(|h| h.event == event).collect();
 
         if matching.is_empty() {
             return Vec::new();
         }
 
-        let mut injections = Vec::new();
+        let mut failures = Vec::new();
 
         for hook in matching {
             if hook.blocking {
@@ -179,11 +180,8 @@ impl ShellHookMiddleware {
                         debug!(command = %hook.command, "shell hook passed");
                     }
                     HookResult::BlockingError(output) => {
-                        info!(command = %hook.command, "shell hook failed — injecting output");
-                        injections.push(format!(
-                            "[Shell Hook] Command failed: `{}`\nOutput:\n{}",
-                            hook.command, output
-                        ));
+                        info!(command = %hook.command, "shell hook failed — will fire shell:command_failed");
+                        failures.push((hook.command.clone(), output, 0u64));
                     }
                     HookResult::Timeout => {
                         warn!(
@@ -191,9 +189,10 @@ impl ShellHookMiddleware {
                             timeout_ms = hook.timeout_ms,
                             "shell hook timed out"
                         );
-                        injections.push(format!(
-                            "[Shell Hook] Command timed out after {}ms: `{}`",
-                            hook.timeout_ms, hook.command
+                        failures.push((
+                            hook.command.clone(),
+                            format!("timed out after {}ms", hook.timeout_ms),
+                            hook.timeout_ms,
                         ));
                     }
                 }
@@ -227,7 +226,7 @@ impl ShellHookMiddleware {
             }
         }
 
-        injections
+        failures
     }
 }
 
@@ -284,16 +283,44 @@ impl Middleware for ShellHookMiddleware {
 
     async fn after_step(
         &self,
-        _ctx: &mut WorkerContext,
+        ctx: &mut WorkerContext,
         _response_text: &str,
         _stop_reason: &str,
     ) -> MiddlewareAction {
-        let injections = self.run_hooks_for_event("after_step").await;
-        if injections.is_empty() {
-            MiddlewareAction::Continue
-        } else {
-            MiddlewareAction::Inject(injections)
+        let failures = self.run_hooks_for_event("after_step").await;
+        if failures.is_empty() {
+            return MiddlewareAction::Continue;
         }
+
+        // For each failure, fire the shell:command_failed pattern.
+        for (command, output, _timeout_ms) in failures {
+            if let Some(ref registry) = ctx.registry {
+                let ectx = ctx.as_execution_context();
+                let trigger_args = serde_json::json!({
+                    "command": command,
+                    "output": output,
+                });
+                let reg = registry.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = reg
+                        .invoke_pattern("shell:command_failed", &ectx, &trigger_args)
+                        .await
+                    {
+                        warn!(error = %e, "shell_hooks: invoke_pattern failed");
+                    }
+                });
+            } else {
+                // No registry — log directly as fallback.
+                warn!(
+                    command = %command,
+                    output = %output,
+                    "[Shell Hook] Command failed: `{}`\nOutput:\n{}",
+                    command, output
+                );
+            }
+        }
+
+        MiddlewareAction::Continue
     }
 }
 
@@ -384,7 +411,7 @@ timeout: 5000";
     }
 
     #[tokio::test]
-    async fn hook_failure_injects() {
+    async fn hook_failure_fires_pattern_and_continues() {
         let mw = ShellHookMiddleware::with_hooks(vec![ShellHook {
             event: "after_step".into(),
             command: "echo 'test failed'; exit 1".into(),
@@ -393,18 +420,15 @@ timeout: 5000";
         }]);
         let mut ctx = test_ctx();
         let action = mw.after_step(&mut ctx, "done", "end_turn").await;
-        match action {
-            MiddlewareAction::Inject(msgs) => {
-                assert_eq!(msgs.len(), 1);
-                assert!(msgs[0].contains("test failed"));
-                assert!(msgs[0].contains("[Shell Hook]"));
-            }
-            other => panic!("expected Inject, got {other:?}"),
-        }
+        // Detector fires pattern (no registry wired in test_ctx) and returns Continue.
+        assert!(
+            matches!(action, MiddlewareAction::Continue),
+            "expected Continue (pattern fired), got {action:?}"
+        );
     }
 
     #[tokio::test]
-    async fn hook_timeout_injects() {
+    async fn hook_timeout_fires_pattern_and_continues() {
         let mw = ShellHookMiddleware::with_hooks(vec![ShellHook {
             event: "after_step".into(),
             command: "sleep 60".into(),
@@ -413,13 +437,11 @@ timeout: 5000";
         }]);
         let mut ctx = test_ctx();
         let action = mw.after_step(&mut ctx, "done", "end_turn").await;
-        match action {
-            MiddlewareAction::Inject(msgs) => {
-                assert_eq!(msgs.len(), 1);
-                assert!(msgs[0].contains("timed out"));
-            }
-            other => panic!("expected Inject for timeout, got {other:?}"),
-        }
+        // Detector fires pattern (no registry wired) and returns Continue.
+        assert!(
+            matches!(action, MiddlewareAction::Continue),
+            "expected Continue (pattern fired for timeout), got {action:?}"
+        );
     }
 
     #[tokio::test]
@@ -445,7 +467,7 @@ timeout: 5000";
     }
 
     #[tokio::test]
-    async fn multiple_hooks_aggregate_failures() {
+    async fn multiple_hooks_aggregate_failures_and_continue() {
         let mw = ShellHookMiddleware::with_hooks(vec![
             ShellHook {
                 event: "after_step".into(),
@@ -468,14 +490,11 @@ timeout: 5000";
         ]);
         let mut ctx = test_ctx();
         let action = mw.after_step(&mut ctx, "done", "end_turn").await;
-        match action {
-            MiddlewareAction::Inject(msgs) => {
-                assert_eq!(msgs.len(), 2, "expected 2 failures, got {}", msgs.len());
-                assert!(msgs[0].contains("lint fail"));
-                assert!(msgs[1].contains("test fail"));
-            }
-            other => panic!("expected Inject with 2 failures, got {other:?}"),
-        }
+        // Detector fires patterns for each failure, returns Continue.
+        assert!(
+            matches!(action, MiddlewareAction::Continue),
+            "expected Continue, got {action:?}"
+        );
     }
 
     #[tokio::test]

@@ -30,6 +30,9 @@ pub use loop_detection::LoopDetectionMiddleware;
 pub use safety_net::SafetyNetMiddleware;
 pub use shell_hooks::ShellHookMiddleware;
 
+use std::sync::Arc;
+
+use aeqi_core::tool_registry::{ExecutionContext, ToolRegistry};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -67,6 +70,11 @@ use crate::runtime::RuntimeOutcome;
 // ---------------------------------------------------------------------------
 
 /// Result of a middleware hook invocation.
+///
+/// `Inject` has been removed: content authoring now goes through events
+/// (via `ToolRegistry::invoke_pattern`). The only injection pathway is
+/// tool_calls fired by events, making all runtime injections visible and
+/// operator-configurable.
 #[derive(Debug, Clone)]
 pub enum MiddlewareAction {
     /// Proceed to the next middleware in the chain.
@@ -75,8 +83,6 @@ pub enum MiddlewareAction {
     Skip,
     /// Stop execution entirely with a structured reason.
     Halt(String),
-    /// Inject additional messages into the worker context.
-    Inject(Vec<String>),
 }
 
 /// Simplified representation of a tool invocation.
@@ -152,17 +158,20 @@ pub use aeqi_core::traits::ContextAttachment;
 /// Mutable context threaded through the middleware chain during execution.
 ///
 /// Middleware can read and mutate this to influence execution behavior.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WorkerContext {
     /// Quest identifier.
     pub quest_id: String,
-    /// Task description / prompt.
+    /// Task description.
     pub task_description: String,
     /// Agent name executing this task.
     pub agent_name: String,
     /// Project name the task belongs to.
     pub project_name: String,
-    /// Messages buffer — system prompt fragments, injected messages, etc.
+    /// Session identifier (used to build ExecutionContext for invoke_pattern).
+    pub session_id: String,
+    /// Messages buffer — used by context_compression and context_budget
+    /// to track and trim accumulated context fragments.
     pub messages: Vec<String>,
     /// History of tool calls made during this execution.
     pub tool_call_history: Vec<ToolCall>,
@@ -175,6 +184,31 @@ pub struct WorkerContext {
     pub agent_compaction_active: bool,
     /// Model name for accurate cost estimation via pricing table.
     pub model: String,
+    /// Tool registry — middleware detectors call invoke_pattern via this registry
+    /// to fire the appropriate event or fall back to default handlers.
+    /// `None` in contexts without a runtime registry (bare tests).
+    pub registry: Option<Arc<ToolRegistry>>,
+}
+
+impl std::fmt::Debug for WorkerContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WorkerContext")
+            .field("quest_id", &self.quest_id)
+            .field("task_description", &self.task_description)
+            .field("agent_name", &self.agent_name)
+            .field("project_name", &self.project_name)
+            .field("session_id", &self.session_id)
+            .field("messages_len", &self.messages.len())
+            .field("tool_call_history_len", &self.tool_call_history.len())
+            .field("cost_usd", &self.cost_usd)
+            .field("agent_compaction_active", &self.agent_compaction_active)
+            .field("model", &self.model)
+            .field(
+                "registry",
+                &self.registry.as_ref().map(|_| "<ToolRegistry>"),
+            )
+            .finish()
+    }
 }
 
 impl WorkerContext {
@@ -189,12 +223,26 @@ impl WorkerContext {
             task_description: task_description.into(),
             agent_name: agent_name.into(),
             project_name: project_name.into(),
+            session_id: String::new(),
             messages: Vec::new(),
             tool_call_history: Vec::new(),
             cost_usd: 0.0,
             metadata: HashMap::new(),
             agent_compaction_active: false,
             model: String::new(),
+            registry: None,
+        }
+    }
+
+    /// Build an ExecutionContext from this WorkerContext for use in invoke_pattern.
+    ///
+    /// Uses `session_id` and `agent_name`; other fields left at defaults.
+    /// Middleware detectors use this when calling `registry.invoke_pattern()`.
+    pub fn as_execution_context(&self) -> ExecutionContext {
+        ExecutionContext {
+            session_id: self.session_id.clone(),
+            agent_id: self.agent_name.clone(),
+            ..Default::default()
         }
     }
 }
@@ -259,7 +307,8 @@ pub trait Middleware: Send + Sync + 'static {
 
     /// Called when the model finishes a step with no tool calls.
     /// Allows middleware to validate the agent's response before accepting it.
-    /// Return `Inject` to force the agent to continue with additional instructions.
+    /// Detector middleware fires patterns via `ctx.registry.invoke_pattern()`;
+    /// the event system owns response content authoring.
     async fn after_step(
         &self,
         _ctx: &mut WorkerContext,
@@ -270,8 +319,7 @@ pub trait Middleware: Send + Sync + 'static {
     }
 
     /// Collect context enrichments to inject before the next model call.
-    /// Unlike `before_model` (which uses Inject for simple messages), this
-    /// returns typed attachments with token budgets that the agent loop
+    /// Returns typed attachments with token budgets that the agent loop
     /// manages and prioritizes.
     async fn collect_enrichments(&self, _ctx: &mut WorkerContext) -> Vec<ContextAttachment> {
         Vec::new()
@@ -283,7 +331,7 @@ pub trait Middleware: Send + Sync + 'static {
 // ---------------------------------------------------------------------------
 
 /// Iterates through middleware layers, invoking a hook on each one and handling
-/// `Continue`, `Inject`, and short-circuit (`Halt`/`Skip`) actions uniformly.
+/// `Continue` and short-circuit (`Halt`/`Skip`) actions uniformly.
 ///
 /// Uses a macro instead of a generic async fn to avoid borrow-checker issues
 /// with closures that capture `&mut WorkerContext`.
@@ -295,10 +343,6 @@ macro_rules! run_chain {
             let action = $call.await;
             match action {
                 MiddlewareAction::Continue => continue,
-                MiddlewareAction::Inject(msgs) => {
-                    $ctx.messages.extend(msgs);
-                    continue;
-                }
                 other => {
                     debug!(
                         middleware = $mw.name(),
@@ -519,26 +563,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chain_inject_continues() {
-        let chain = MiddlewareChain::new(vec![
-            Box::new(TestMiddleware {
-                label: "injector".into(),
-                priority: 10,
-                action: MiddlewareAction::Inject(vec!["warning".into()]),
-            }),
-            Box::new(TestMiddleware {
-                label: "after_inject".into(),
-                priority: 20,
-                action: MiddlewareAction::Continue,
-            }),
-        ]);
-        let mut ctx = test_ctx();
-        let action = chain.run_on_start(&mut ctx).await;
-        assert!(matches!(action, MiddlewareAction::Continue));
-        assert_eq!(ctx.messages, vec!["warning"]);
-    }
-
-    #[tokio::test]
     async fn chain_skip_short_circuits() {
         let chain = MiddlewareChain::new(vec![
             Box::new(TestMiddleware {
@@ -565,5 +589,14 @@ mod tests {
         let mut ctx = test_ctx();
         let action = chain.run_on_start(&mut ctx).await;
         assert!(matches!(action, MiddlewareAction::Continue));
+    }
+
+    #[tokio::test]
+    async fn worker_context_as_execution_context_maps_fields() {
+        let mut ctx = test_ctx();
+        ctx.session_id = "sess-123".to_string();
+        let ectx = ctx.as_execution_context();
+        assert_eq!(ectx.session_id, "sess-123");
+        assert_eq!(ectx.agent_id, ctx.agent_name);
     }
 }

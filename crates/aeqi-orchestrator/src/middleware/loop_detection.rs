@@ -2,8 +2,14 @@
 //!
 //! Hashes each tool call (name + input) into a fingerprint and tracks them
 //! in a sliding window. When the same fingerprint appears repeatedly, it
-//! first injects a warning message (at `warn_threshold`), then halts
-//! execution entirely (at `halt_threshold`).
+//! fires the `loop:detected` pattern (at `warn_threshold`) so the event
+//! system can inject a warning, then halts execution entirely (at
+//! `halt_threshold`).
+//!
+//! Content authoring (what the LLM sees) is owned by events configured for
+//! the `loop:detected` pattern. When no event is configured, `invoke_pattern`
+//! falls back to the default handler which injects the old warning string via
+//! `transcript.inject`.
 
 use std::collections::{HashMap, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -20,7 +26,7 @@ use super::{
 pub struct LoopDetectionMiddleware {
     /// Size of the sliding window of recent tool call hashes.
     window_size: usize,
-    /// Number of identical calls before injecting a warning.
+    /// Number of identical calls before firing the `loop:detected` pattern.
     warn_threshold: usize,
     /// Number of identical calls before halting execution.
     halt_threshold: usize,
@@ -118,7 +124,7 @@ impl Middleware for LoopDetectionMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut WorkerContext,
+        ctx: &mut WorkerContext,
         call: &ToolCall,
         _result: &ToolResult,
     ) -> MiddlewareAction {
@@ -144,14 +150,37 @@ impl Middleware for LoopDetectionMiddleware {
                 tool = %call.name,
                 count,
                 threshold = self.warn_threshold,
-                "possible loop detected — injecting warning"
+                "possible loop detected — firing loop:detected pattern"
             );
-            return MiddlewareAction::Inject(vec![format!(
-                "WARNING: You have called '{}' with identical arguments {} times \
-                 in the last {} calls. This looks like a loop. Change your approach \
-                 or you will be terminated.",
-                call.name, count, self.window_size
-            )]);
+            // Detector fires pattern; event system or default handler authors content.
+            if let Some(ref registry) = ctx.registry {
+                let ectx = ctx.as_execution_context();
+                let trigger_args = serde_json::json!({
+                    "tool_name": call.name,
+                    "count": count,
+                    "window_size": self.window_size,
+                });
+                let reg = registry.clone();
+                // Spawn to avoid holding a borrow on ctx across the await.
+                tokio::spawn(async move {
+                    if let Err(e) = reg
+                        .invoke_pattern("loop:detected", &ectx, &trigger_args)
+                        .await
+                    {
+                        warn!(error = %e, "loop_detection: invoke_pattern failed");
+                    }
+                });
+            } else {
+                // No registry wired — log the warning directly as fallback.
+                warn!(
+                    tool = %call.name,
+                    count,
+                    window = self.window_size,
+                    "loop:detected (no registry — warning logged only): \
+                     identical call appeared {} times in last {} calls",
+                    count, self.window_size
+                );
+            }
         }
 
         MiddlewareAction::Continue
@@ -190,7 +219,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn warn_at_threshold() {
+    async fn warn_at_threshold_fires_pattern_and_continues() {
         let mw = LoopDetectionMiddleware::with_thresholds(10, 3, 5);
         let mut ctx = test_ctx();
         let call = make_call("Bash", "ls -la");
@@ -202,11 +231,11 @@ mod tests {
             assert!(matches!(action, MiddlewareAction::Continue));
         }
 
-        // Third call: Inject warning.
+        // Third call: fires pattern (no registry wired), returns Continue.
         let action = mw.after_tool(&mut ctx, &call, &result).await;
         assert!(
-            matches!(action, MiddlewareAction::Inject(ref msgs) if msgs[0].contains("WARNING")),
-            "expected Inject(warning), got {action:?}"
+            matches!(action, MiddlewareAction::Continue),
+            "expected Continue (pattern fired), got {action:?}"
         );
     }
 
@@ -217,7 +246,7 @@ mod tests {
         let call = make_call("Bash", "cat /dev/null");
         let result = make_result();
 
-        // Calls 1-4: Continue or Inject.
+        // Calls 1-4: Continue or pattern-fired.
         for _ in 0..4 {
             let _ = mw.after_tool(&mut ctx, &call, &result).await;
         }
