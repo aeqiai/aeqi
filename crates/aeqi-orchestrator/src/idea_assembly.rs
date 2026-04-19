@@ -42,14 +42,43 @@ pub async fn assemble_ideas(
     agent_id: &str,
     task_idea_ids: &[String],
 ) -> AssembledPrompt {
-    assemble_ideas_for_pattern(
+    assemble_ideas_for_patterns(
         registry,
         idea_store,
         event_store,
         agent_id,
         task_idea_ids,
-        "session:start",
+        &["session:start"],
         &AssemblyContext::default(),
+    )
+    .await
+}
+
+/// Assemble the prompt for a quest-start moment. Covers both session:start
+/// (session-scoped context) and session:quest_start (quest-scoped context),
+/// with `quest_description` threaded into any query_template that references
+/// it — this is how the closed learning loop surfaces promoted skills
+/// relevant to the quest.
+pub async fn assemble_ideas_for_quest_start(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    task_idea_ids: &[String],
+    quest_description: &str,
+) -> AssembledPrompt {
+    let context = AssemblyContext {
+        quest_description: Some(quest_description.to_string()),
+        ..AssemblyContext::default()
+    };
+    assemble_ideas_for_patterns(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        task_idea_ids,
+        &["session:start", "session:quest_start"],
+        &context,
     )
     .await
 }
@@ -66,6 +95,31 @@ pub async fn assemble_ideas_for_pattern(
     event_pattern: &str,
     context: &AssemblyContext,
 ) -> AssembledPrompt {
+    assemble_ideas_for_patterns(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        task_idea_ids,
+        &[event_pattern],
+        context,
+    )
+    .await
+}
+
+/// Assemble ideas for multiple event patterns in a single ancestor traversal.
+/// Deduplication of collected ideas spans all patterns so the same idea is
+/// never injected twice, even if referenced by events matching different
+/// patterns.
+pub async fn assemble_ideas_for_patterns(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    task_idea_ids: &[String],
+    event_patterns: &[&str],
+    context: &AssemblyContext,
+) -> AssembledPrompt {
     // get_ancestors returns [self, parent, grandparent, ..., root].
     // We want root-first ordering.
     let ancestors = registry.get_ancestors(agent_id).await.unwrap_or_default();
@@ -80,9 +134,15 @@ pub async fn assemble_ideas_for_pattern(
     for (depth, agent) in ancestors.iter().rev().enumerate() {
         let is_self = depth == ancestors.len() - 1;
 
-        let events_for_agent = event_store
-            .get_events_for_pattern(&agent.id, event_pattern)
-            .await;
+        let mut events_for_agent: Vec<crate::event_handler::Event> = Vec::new();
+        let mut seen_event_ids: HashSet<String> = HashSet::new();
+        for pattern in event_patterns {
+            for event in event_store.get_events_for_pattern(&agent.id, pattern).await {
+                if seen_event_ids.insert(event.id.clone()) {
+                    events_for_agent.push(event);
+                }
+            }
+        }
 
         // Static idea_ids referenced directly by the event.
         let mut event_idea_ids: Vec<String> = Vec::new();

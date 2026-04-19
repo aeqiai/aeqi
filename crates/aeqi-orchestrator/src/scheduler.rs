@@ -593,15 +593,18 @@ impl Scheduler {
             chrono::Utc::now().timestamp()
         );
 
-        // Assemble prompt from ancestor chain + quest ideas.
+        // Assemble prompt from ancestor chain + quest ideas. Covers both
+        // session:start (session context) and session:quest_start (quest
+        // context, including promoted-skill lookup via query_template).
         let event_store = crate::event_handler::EventHandlerStore::new(self.agent_registry.db());
         let task_ids = ordered_unique_idea_ids(&task.idea_ids);
-        let assembled = crate::idea_assembly::assemble_ideas(
+        let assembled = crate::idea_assembly::assemble_ideas_for_quest_start(
             &self.agent_registry,
             self.idea_store.as_ref(),
             &event_store,
             &agent_id,
             &task_ids,
+            &task.description,
         )
         .await;
         let system_prompt = assembled.system;
