@@ -107,6 +107,10 @@ fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
             "query_tag_filter",
             "ALTER TABLE events ADD COLUMN query_tag_filter TEXT",
         ),
+        (
+            "tool_calls",
+            "ALTER TABLE events ADD COLUMN tool_calls TEXT NOT NULL DEFAULT '[]'",
+        ),
     ] {
         if !existing.contains(col) {
             conn.execute(ddl, [])?;
@@ -374,6 +378,7 @@ impl AgentRegistry {
                  idea_ids TEXT NOT NULL DEFAULT '[]',
                  query_template TEXT,
                  query_top_k INTEGER,
+                 tool_calls TEXT NOT NULL DEFAULT '[]',
                  enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
                  last_fired TEXT,

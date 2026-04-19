@@ -321,6 +321,7 @@ mod tests {
             query_template: None,
             query_top_k: None,
             query_tag_filter: None,
+            tool_calls: Vec::new(),
             enabled: true,
             cooldown_secs: 0,
             last_fired: None,

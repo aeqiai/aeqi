@@ -12,6 +12,20 @@ use tracing::info;
 
 use crate::agent_registry::ConnectionPool;
 
+/// An event-level tool call — fired in order when the event's pattern matches.
+///
+/// Distinct from `aeqi_core::traits::provider::ToolCall` (which models an LLM
+/// response tool call). This struct is the configured, serializable "what to
+/// run" stored on the event row. Phase 2 will wire these into the tool registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    /// Tool name, e.g. `"ideas.search"`, `"ideas.assemble"`, `"session.spawn"`.
+    pub tool: String,
+    /// Arguments passed to the tool. String values may contain `{placeholder}`
+    /// tokens that are substituted at fire-time (see `substitute_args`).
+    pub args: serde_json::Value,
+}
+
 /// A reaction rule. `agent_id = None` = global: fires for every agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -37,6 +51,11 @@ pub struct Event {
     /// rejected skills cannot leak into the assembled prompt.
     #[serde(default)]
     pub query_tag_filter: Option<Vec<String>>,
+    /// Tool calls to execute when this event fires. When non-empty, the runtime
+    /// executes these sequentially and skips the legacy `idea_ids`/`query_template`
+    /// path. When empty, the legacy path runs unchanged (fallback).
+    #[serde(default)]
+    pub tool_calls: Vec<ToolCall>,
     pub enabled: bool,
     pub cooldown_secs: u64,
     pub last_fired: Option<DateTime<Utc>>,
@@ -58,6 +77,8 @@ pub struct NewEvent {
     pub query_template: Option<String>,
     pub query_top_k: Option<u32>,
     pub query_tag_filter: Option<Vec<String>>,
+    /// Tool calls to execute when this event fires (empty = use legacy path).
+    pub tool_calls: Vec<ToolCall>,
     pub cooldown_secs: u64,
     pub system: bool,
 }
@@ -97,14 +118,17 @@ impl EventHandlerStore {
             .query_tag_filter
             .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
+        let tool_calls_json =
+            serde_json::to_string(&e.tool_calls).unwrap_or_else(|_| "[]".to_string());
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, query_tag_filter, enabled, cooldown_secs, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, ?8, 1, ?9, ?10, ?11)",
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, query_tag_filter, tool_calls, enabled, cooldown_secs, system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?12)",
                 params![
                     id, e.agent_id, e.name, e.pattern,
                     idea_ids_json, e.query_template, query_top_k_i64, query_tag_filter_json,
+                    tool_calls_json,
                     e.cooldown_secs as i64,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
@@ -295,6 +319,7 @@ impl EventHandlerStore {
                 query_template: None,
                 query_top_k: None,
                 query_tag_filter: None,
+                tool_calls: Vec::new(),
                 cooldown_secs: 0,
                 system: false,
             })
@@ -585,6 +610,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 query_template: query_template.map(str::to_string),
                 query_top_k,
                 query_tag_filter: tag_filter_owned.clone(),
+                tool_calls: Vec::new(),
                 cooldown_secs: 0,
                 system: true,
             })
@@ -689,6 +715,11 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         .flatten()
         .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
         .filter(|v| !v.is_empty());
+    let tool_calls: Vec<ToolCall> = row
+        .get::<_, String>("tool_calls")
+        .ok()
+        .and_then(|s| serde_json::from_str::<Vec<ToolCall>>(&s).ok())
+        .unwrap_or_default();
 
     Event {
         id: row.get("id").unwrap_or_default(),
@@ -699,6 +730,7 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         query_template,
         query_top_k,
         query_tag_filter,
+        tool_calls,
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
         last_fired,
@@ -724,6 +756,7 @@ mod tests {
                  name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
                  idea_ids TEXT NOT NULL DEFAULT '[]',
                  query_template TEXT, query_top_k INTEGER, query_tag_filter TEXT,
+                 tool_calls TEXT NOT NULL DEFAULT '[]',
                  enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
                  last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
@@ -736,6 +769,76 @@ mod tests {
         .unwrap();
         drop(conn);
         EventHandlerStore::new(Arc::new(pool))
+    }
+
+    /// Phase-1 guard: `tool_calls` round-trips through SQLite correctly, and
+    /// the stub execution path is taken (not the legacy idea_ids path) when
+    /// `tool_calls` is non-empty.
+    #[tokio::test]
+    async fn tool_calls_roundtrip_and_stub_path() {
+        let store = test_store().await;
+
+        let tc = vec![
+            ToolCall {
+                tool: "ideas.assemble".to_string(),
+                args: serde_json::json!({"names": ["session:primer"]}),
+            },
+            ToolCall {
+                tool: "ideas.search".to_string(),
+                args: serde_json::json!({"query": "{user_input}", "top_k": 5}),
+            },
+        ];
+
+        let event = store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "tool-call-test".into(),
+                pattern: "session:start".into(),
+                tool_calls: tc.clone(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        // Verify tool_calls persisted and deserialised correctly.
+        assert_eq!(event.tool_calls.len(), 2);
+        assert_eq!(event.tool_calls[0].tool, "ideas.assemble");
+        assert_eq!(
+            event.tool_calls[0].args,
+            serde_json::json!({"names": ["session:primer"]})
+        );
+        assert_eq!(event.tool_calls[1].tool, "ideas.search");
+        assert_eq!(
+            event.tool_calls[1].args["query"].as_str(),
+            Some("{user_input}")
+        );
+
+        // Verify round-trip through get().
+        let fetched = store.get(&event.id).await.unwrap().unwrap();
+        assert_eq!(fetched.tool_calls.len(), 2);
+        assert_eq!(fetched.tool_calls[0].tool, "ideas.assemble");
+        assert_eq!(fetched.tool_calls[1].tool, "ideas.search");
+
+        // Verify that the event with tool_calls is correctly identified as
+        // having tool_calls (non-empty) — this is the condition the idea_assembly
+        // stub path checks in Phase 1.
+        assert!(!fetched.tool_calls.is_empty());
+
+        // Verify legacy events still have empty tool_calls.
+        let legacy = store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "legacy-event".into(),
+                pattern: "session:quest_start".into(),
+                idea_ids: vec!["some-idea".into()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert!(
+            legacy.tool_calls.is_empty(),
+            "legacy events without tool_calls must default to empty Vec"
+        );
     }
 
     #[tokio::test]

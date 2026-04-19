@@ -54,7 +54,7 @@ pub use channel_registry::{
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;
-pub use event_handler::{Event, EventHandlerStore, NewEvent};
+pub use event_handler::{Event, EventHandlerStore, NewEvent, ToolCall};
 pub use event_matcher::event_idea_ids;
 pub use executor::QuestOutcome;
 pub use gateway_manager::GatewayManager;

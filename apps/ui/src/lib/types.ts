@@ -179,6 +179,11 @@ export interface SessionInfo {
   first_message?: string;
 }
 
+export interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
 export interface AgentEvent {
   id: string;
   agent_id?: string | null;
@@ -188,6 +193,7 @@ export interface AgentEvent {
   query_template?: string | null;
   query_top_k?: number | null;
   query_tag_filter?: string[] | null;
+  tool_calls?: ToolCall[] | null;
   enabled: boolean;
   cooldown_secs: number;
   fire_count: number;

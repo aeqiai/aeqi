@@ -1,30 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
 import TestTriggerPanel from "./TestTriggerPanel";
-import type { AgentEvent, Idea } from "@/lib/types";
+import EventEditor from "./EventEditor";
+import type { AgentEvent } from "@/lib/types";
 
-// Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_EVENTS: AgentEvent[] = [];
 
-function parseTagFilter(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-}
+const COMMON_PATTERNS = [
+  "session:start",
+  "session:step_start",
+  "session:quest_start",
+  "session:quest_end",
+  "session:quest_result",
+  "session:recap_on_resume",
+  "session:execution_start",
+  "loop:detected",
+];
 
-function tagsToInput(tags: string[] | null | undefined): string {
-  return (tags ?? []).join(", ");
-}
-
-/**
- * Event detail pane. The list now lives in the global right rail
- * (ContentCTA) — this component only renders the selected event.
- */
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -45,24 +41,24 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     loadEvents(agentId);
   }, [agentId, loadEvents]);
 
-  // Rail's "New event" button dispatches `aeqi:new-event`.
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPattern, setNewPattern] = useState("session:message");
-  const [newQueryTemplate, setNewQueryTemplate] = useState("");
-  const [newQueryTopK, setNewQueryTopK] = useState("");
-  const [newQueryTagFilter, setNewQueryTagFilter] = useState("");
+  const [newCooldown, setNewCooldown] = useState("");
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [showPatternSuggestions, setShowPatternSuggestions] = useState(false);
+
+  const patternSuggestions = COMMON_PATTERNS.filter(
+    (p) => p.startsWith(newPattern) && p !== newPattern,
+  );
 
   useEffect(() => {
     const handler = () => {
       setShowAddForm(true);
       setNewName("");
       setNewPattern("session:message");
-      setNewQueryTemplate("");
-      setNewQueryTopK("");
-      setNewQueryTagFilter("");
+      setNewCooldown("");
       setCreateError(null);
     };
     window.addEventListener("aeqi:new-event", handler);
@@ -83,13 +79,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         pattern: newPattern.trim(),
         idea_ids: [],
         enabled: true,
+        tool_calls: [],
       };
-      const trimmedTpl = newQueryTemplate.trim();
-      if (trimmedTpl) payload.query_template = trimmedTpl;
-      const parsedTopK = parseInt(newQueryTopK, 10);
-      if (Number.isFinite(parsedTopK) && parsedTopK > 0) payload.query_top_k = parsedTopK;
-      const parsedTags = parseTagFilter(newQueryTagFilter);
-      if (parsedTags.length > 0) payload.query_tag_filter = parsedTags;
+      const parsedCooldown = parseInt(newCooldown, 10);
+      if (Number.isFinite(parsedCooldown) && parsedCooldown > 0) {
+        payload.cooldown_secs = parsedCooldown;
+      }
       await api.createEvent(payload);
       setShowAddForm(false);
       loadEvents(agentId);
@@ -100,67 +95,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  const [ideas, setIdeas] = useState<Idea[]>([]);
-  const [ideasLoading, setIdeasLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Idea[]>([]);
-  const [searching, setSearching] = useState(false);
-
   const selected = events.find((e) => e.id === selectedId);
-
-  // Re-fetch ideas when selected event or its idea_ids change.
-  const selectedIdeaIdsKey = selected ? selected.idea_ids.join(",") : "";
-  useEffect(() => {
-    if (!selected || selected.idea_ids.length === 0) {
-      setIdeas([]);
-      return;
-    }
-    setIdeasLoading(true);
-    api
-      .getIdeasByIds(selected.idea_ids)
-      .then((data) => {
-        if (data.ok) setIdeas(data.ideas);
-        else setIdeas([]);
-      })
-      .catch(() => setIdeas([]))
-      .finally(() => setIdeasLoading(false));
-    // Only the fields we actually read are tracked — see comment in prior
-    // revision of this file; `selected` identity changes every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.id, selectedIdeaIdsKey]);
-
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
-    try {
-      const data = await api.getIdeas({ query: searchQuery, limit: 10 });
-      const items = (data.ideas || data.entries || []) as Idea[];
-      const linked = new Set(selected?.idea_ids || []);
-      setSearchResults(items.filter((i) => !linked.has(i.id)));
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, [searchQuery, selected?.idea_ids]);
-
-  const handleLinkIdea = async (ideaId: string) => {
-    if (!selected) return;
-    const newIds = [...selected.idea_ids, ideaId];
-    await api.updateEvent(selected.id, { idea_ids: newIds });
-    patchEvent(agentId, selected.id, { idea_ids: newIds });
-    setSearchResults((prev) => prev.filter((i) => i.id !== ideaId));
-    const data = await api.getIdeasByIds(newIds).catch(() => ({ ok: false, ideas: [] as Idea[] }));
-    if (data.ok) setIdeas(data.ideas);
-  };
-
-  const handleUnlinkIdea = async (ideaId: string) => {
-    if (!selected) return;
-    const newIds = selected.idea_ids.filter((id) => id !== ideaId);
-    await api.updateEvent(selected.id, { idea_ids: newIds });
-    patchEvent(agentId, selected.id, { idea_ids: newIds });
-    setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
-  };
 
   if (showAddForm) {
     return (
@@ -179,63 +114,79 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
         <div style={{ marginBottom: 10 }}>
           <label className="agent-settings-label">Pattern</label>
-          <input
-            className="agent-settings-input"
-            type="text"
-            placeholder="session:message or telegram:update"
-            value={newPattern}
-            style={{ width: "100%", marginTop: 4 }}
-            onChange={(e) => setNewPattern(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label className="agent-settings-label">Query template (optional)</label>
-          <input
-            className="agent-settings-input"
-            type="text"
-            placeholder="recall for {user_prompt}"
-            value={newQueryTemplate}
-            style={{ width: "100%", marginTop: 4 }}
-            onChange={(e) => setNewQueryTemplate(e.target.value)}
-          />
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-            Expanded at fire-time and run through semantic search. Placeholders:{" "}
-            <code>{"{user_prompt}"}</code>, <code>{"{tool_output}"}</code>,{" "}
-            <code>{"{quest_description}"}</code>. Unknown placeholders pass through literally.
+          <div style={{ position: "relative" }}>
+            <input
+              className="agent-settings-input"
+              type="text"
+              placeholder="session:message or telegram:update"
+              value={newPattern}
+              style={{ width: "100%", marginTop: 4 }}
+              onChange={(e) => {
+                setNewPattern(e.target.value);
+                setShowPatternSuggestions(true);
+              }}
+              onFocus={() => setShowPatternSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowPatternSuggestions(false), 150)}
+            />
+            {showPatternSuggestions && patternSuggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 2px)",
+                  left: 0,
+                  right: 0,
+                  zIndex: 20,
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "var(--bg-base)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  overflow: "hidden",
+                }}
+              >
+                {patternSuggestions.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontFamily: "var(--font-mono)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-primary)",
+                    }}
+                    onMouseDown={() => {
+                      setNewPattern(p);
+                      setShowPatternSuggestions(false);
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label className="agent-settings-label">Query top-k (optional, default 5)</label>
+          <label className="agent-settings-label">Cooldown seconds (optional)</label>
           <input
             className="agent-settings-input"
             type="number"
-            min={1}
-            placeholder="5"
-            value={newQueryTopK}
+            min={0}
+            placeholder="0"
+            value={newCooldown}
             style={{ width: 120, marginTop: 4 }}
-            onChange={(e) => setNewQueryTopK(e.target.value)}
+            onChange={(e) => setNewCooldown(e.target.value)}
           />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label className="agent-settings-label">Query tag filter (optional)</label>
-          <input
-            className="agent-settings-input"
-            type="text"
-            placeholder="promoted, skill"
-            value={newQueryTagFilter}
-            style={{ width: "100%", marginTop: 4 }}
-            onChange={(e) => setNewQueryTagFilter(e.target.value)}
-          />
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-            Comma-separated tags. Semantic search restricts to ideas carrying at least one of these
-            tags — the hard filter that prevents candidate/rejected ideas from leaking into prompts
-            on embedding similarity alone.
-          </div>
         </div>
         {createError && <div className="channel-form-error">{createError}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button variant="primary" onClick={handleCreateEvent} loading={saving} disabled={saving}>
-            {saving ? "Creating..." : "Create"}
+            {saving ? "Creating…" : "Create"}
           </Button>
           <Button
             variant="secondary"
@@ -295,18 +246,6 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           <Button variant="ghost" size="sm" onClick={() => setShowTriggerPanel((v) => !v)}>
             {showTriggerPanel ? "Hide test" : "Test trigger"}
           </Button>
-          {!isGlobal && (
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                const next = !selected.enabled;
-                await api.updateEvent(selected.id, { enabled: next });
-                patchEvent(agentId, selected.id, { enabled: next });
-              }}
-            >
-              {selected.enabled ? "Disable" : "Enable"}
-            </Button>
-          )}
           {!selected.system && !selected.pattern.startsWith("session:") && (
             <Button
               variant="secondary"
@@ -361,209 +300,15 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         )}
       </div>
 
-      <EventQueryTemplateEditor
+      <EventEditor
         key={selected.id}
         event={selected}
         readOnly={isGlobal}
         onSave={async (fields) => {
-          await api.updateEvent(selected.id, fields);
+          await api.updateEvent(selected.id, fields as Record<string, unknown>);
           patchEvent(agentId, selected.id, fields);
         }}
       />
-
-      <div className="events-detail-ideas-header">Injected Ideas ({selected.idea_ids.length})</div>
-
-      {ideasLoading ? (
-        <div className="events-detail-loading">Loading ideas...</div>
-      ) : ideas.length === 0 && selected.idea_ids.length === 0 ? (
-        <div className="events-detail-loading">
-          {isGlobal ? "No ideas linked." : "No ideas linked. Search below to add one."}
-        </div>
-      ) : (
-        <div className="events-detail-ideas">
-          {ideas.map((idea) => (
-            <div key={idea.id} className="event-idea-card">
-              <div className="event-idea-header">
-                <span className="event-idea-key">{idea.name}</span>
-                {!isGlobal && (
-                  <button
-                    className="event-idea-unlink"
-                    onClick={() => handleUnlinkIdea(idea.id)}
-                    title="Unlink"
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-              <div className="event-idea-content">{idea.content}</div>
-              {idea.tags && idea.tags.length > 0 && (
-                <div className="event-idea-tags">
-                  {idea.tags.map((t) => (
-                    <span key={t} className="event-idea-tag">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!isGlobal && (
-        <div className="events-link-section">
-          <div className="events-link-search">
-            <input
-              className="events-link-input"
-              type="text"
-              placeholder="Search ideas to link..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearch();
-              }}
-            />
-            <button className="events-link-search-btn" onClick={handleSearch} disabled={searching}>
-              {searching ? "..." : "Search"}
-            </button>
-          </div>
-          {searchResults.length > 0 && (
-            <div className="events-link-results">
-              {searchResults.map((idea) => (
-                <div
-                  key={idea.id}
-                  className="events-link-result"
-                  onClick={() => handleLinkIdea(idea.id)}
-                >
-                  <span className="events-link-result-key">{idea.name}</span>
-                  <span className="events-link-result-preview">{idea.content.slice(0, 80)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EventQueryTemplateEditor({
-  event,
-  readOnly = false,
-  onSave,
-}: {
-  event: AgentEvent;
-  readOnly?: boolean;
-  onSave: (fields: {
-    query_template: string | null;
-    query_top_k: number | null;
-    query_tag_filter: string[] | null;
-  }) => Promise<void>;
-}) {
-  const [template, setTemplate] = useState(event.query_template ?? "");
-  const [topK, setTopK] = useState(event.query_top_k != null ? String(event.query_top_k) : "");
-  const [tagFilter, setTagFilter] = useState(tagsToInput(event.query_tag_filter));
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const parsedTags = parseTagFilter(tagFilter);
-  const savedTagsInput = tagsToInput(event.query_tag_filter);
-  const dirty =
-    (template.trim() || null) !== (event.query_template ?? null) ||
-    (topK.trim() || null) !== (event.query_top_k != null ? String(event.query_top_k) : null) ||
-    tagFilter.trim() !== savedTagsInput;
-
-  const handleSave = async () => {
-    setErr(null);
-    setSaving(true);
-    try {
-      const parsedTopK = parseInt(topK, 10);
-      const fields = {
-        query_template: template.trim() ? template.trim() : null,
-        query_top_k: Number.isFinite(parsedTopK) && parsedTopK > 0 ? parsedTopK : null,
-        query_tag_filter: parsedTags.length > 0 ? parsedTags : null,
-      };
-      await onSave(fields);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={{ marginTop: 14, marginBottom: 14 }}>
-      <div className="events-detail-ideas-header">
-        Dynamic query template
-        {readOnly && (
-          <span style={{ fontSize: 10, fontWeight: 500, marginLeft: 8, opacity: 0.55 }}>
-            (read-only — system event)
-          </span>
-        )}
-      </div>
-      <input
-        className="agent-settings-input"
-        type="text"
-        placeholder={readOnly ? "(none)" : "recall relevant ideas for {user_prompt}"}
-        value={template}
-        readOnly={readOnly}
-        disabled={readOnly}
-        style={{ width: "100%", marginTop: 4 }}
-        onChange={(e) => setTemplate(e.target.value)}
-      />
-      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-        Expanded at fire-time and run through semantic search. Placeholders:{" "}
-        <code>{"{user_prompt}"}</code>, <code>{"{tool_output}"}</code>,{" "}
-        <code>{"{quest_description}"}</code>. Unknown placeholders pass through literally.
-      </div>
-      <div style={{ marginTop: 8 }}>
-        <label className="agent-settings-label" style={{ margin: 0 }}>
-          Tag filter
-        </label>
-        <input
-          className="agent-settings-input"
-          type="text"
-          placeholder={readOnly ? "(none)" : "promoted, skill"}
-          value={tagFilter}
-          readOnly={readOnly}
-          disabled={readOnly}
-          style={{ width: "100%", marginTop: 4 }}
-          onChange={(e) => setTagFilter(e.target.value)}
-        />
-        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-          Comma-separated tags. Leave empty for no filter. When set, semantic search only returns
-          ideas carrying at least one of these tags — the hard filter against candidate/rejected
-          ideas leaking in on embedding similarity alone.
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-        <label className="agent-settings-label" style={{ margin: 0 }}>
-          top-k
-        </label>
-        <input
-          className="agent-settings-input"
-          type="number"
-          min={1}
-          placeholder="5"
-          value={topK}
-          readOnly={readOnly}
-          disabled={readOnly}
-          style={{ width: 100 }}
-          onChange={(e) => setTopK(e.target.value)}
-        />
-        {!readOnly && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSave}
-            loading={saving}
-            disabled={saving || !dirty}
-          >
-            Save
-          </Button>
-        )}
-        {err && <span className="channel-form-error">{err}</span>}
-      </div>
     </div>
   );
 }

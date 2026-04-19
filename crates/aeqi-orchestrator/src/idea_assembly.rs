@@ -11,8 +11,14 @@
 //! semantic search. Returned ideas are merged after the static idea_ids.
 //! Placeholder semantics are loose — unknown placeholders pass through
 //! literally.
+//!
+//! ## Phase-1 tool_calls stub
+//!
+//! Events that have a non-empty `tool_calls` field take a separate path:
+//! the legacy `idea_ids`/`query_template` processing is skipped and a
+//! warning is logged. Phase 2 will replace the log with real tool dispatch.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use aeqi_core::prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
@@ -226,8 +232,19 @@ pub async fn assemble_ideas_for_patterns(
         }
 
         // Static idea_ids referenced directly by the event.
+        // Events with non-empty `tool_calls` skip the legacy idea_ids/query_template
+        // path (Phase-1 stub: log and produce no ideas; Phase 2 will dispatch tools).
         let mut event_idea_ids: Vec<String> = Vec::new();
         for event in &events_for_agent {
+            if !event.tool_calls.is_empty() {
+                tracing::warn!(
+                    event_id = %event.id,
+                    event_name = %event.name,
+                    tool_calls_count = event.tool_calls.len(),
+                    "tool_calls execution not yet implemented (Phase 1 stub) — skipping legacy idea_ids path for this event"
+                );
+                continue;
+            }
             for idea_id in &event.idea_ids {
                 if !idea_id.is_empty() && collected_idea_ids.insert(idea_id.clone()) {
                     event_idea_ids.push(idea_id.clone());
@@ -260,8 +277,12 @@ pub async fn assemble_ideas_for_patterns(
         }
 
         // Dynamic query_template expansion → semantic search.
+        // Skip events that have opted into the new tool_calls path.
         if let Some(store) = idea_store {
             for event in &events_for_agent {
+                if !event.tool_calls.is_empty() {
+                    continue;
+                }
                 let Some(template) = event.query_template.as_deref() else {
                     continue;
                 };
@@ -351,6 +372,64 @@ pub async fn assemble_ideas_for_patterns(
     }
 }
 
+/// Walk a JSON value recursively and replace `{key}` placeholders in every
+/// string leaf using the provided `context` map.
+///
+/// - Known keys: substituted with the map value.
+/// - Unknown keys: passed through literally (the `{key}` token is kept).
+/// - Non-string values: left unchanged.
+///
+/// This is the Phase-1 stub implementation. Phase 2 will call it during
+/// actual `tool_calls` dispatch to expand args before passing them to the
+/// tool registry.
+pub fn substitute_args(
+    args: &serde_json::Value,
+    context: &HashMap<String, String>,
+) -> serde_json::Value {
+    match args {
+        serde_json::Value::String(s) => serde_json::Value::String(substitute_str(s, context)),
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(|v| substitute_args(v, context)).collect())
+        }
+        serde_json::Value::Object(map) => {
+            let new_map: serde_json::Map<String, serde_json::Value> = map
+                .iter()
+                .map(|(k, v)| (k.clone(), substitute_args(v, context)))
+                .collect();
+            serde_json::Value::Object(new_map)
+        }
+        // Numbers, booleans, null — pass through unchanged.
+        other => other.clone(),
+    }
+}
+
+/// Substitute `{key}` tokens in a string using the context map.
+/// Unknown keys are passed through literally.
+fn substitute_str(s: &str, context: &HashMap<String, String>) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'{'
+            && let Some(close_rel) = s[i + 1..].find('}')
+        {
+            let close = i + 1 + close_rel;
+            let key = &s[i + 1..close];
+            if let Some(val) = context.get(key) {
+                out.push_str(val);
+            } else {
+                // Unknown placeholder — pass through literally.
+                out.push_str(&s[i..=close]);
+            }
+            i = close + 1;
+            continue;
+        }
+        out.push(s[i..].chars().next().unwrap());
+        i += s[i..].chars().next().unwrap().len_utf8();
+    }
+    out
+}
+
 /// Expand `{user_prompt}`, `{tool_output}`, `{quest_description}` placeholders.
 /// Unknown `{placeholders}` pass through literally.
 /// Known-but-unset placeholders substitute to the empty string.
@@ -422,7 +501,7 @@ fn append_idea(
 mod tests {
     use super::*;
     use crate::agent_registry::AgentRegistry;
-    use crate::event_handler::{EventHandlerStore, NewEvent};
+    use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall as EventToolCall};
     use aeqi_core::traits::{Idea, IdeaQuery, IdeaStore};
     use async_trait::async_trait;
     use chrono::Utc;
@@ -845,6 +924,109 @@ mod tests {
         let ctx = AssemblyContext::default();
         let out = expand_template("hello {unterminated", &ctx);
         assert_eq!(out, "hello {unterminated");
+    }
+
+    /// Phase-1: `substitute_args` replaces known string-leaf placeholders and
+    /// passes unknown ones through literally. Non-string leaves are unchanged.
+    #[test]
+    fn substitute_args_replaces_known_and_passes_unknown() {
+        let ctx: HashMap<String, String> = [
+            ("user_input".to_string(), "what is Rust?".to_string()),
+            ("transcript".to_string(), "prev msg".to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        let args = serde_json::json!({
+            "query": "{user_input}",
+            "context": "{transcript}",
+            "unknown_key": "{banana}",
+            "nested": {"deep": "{user_input} tail"},
+            "arr": ["{transcript}", 42, true],
+            "num": 7,
+            "flag": false
+        });
+
+        let result = substitute_args(&args, &ctx);
+
+        assert_eq!(result["query"].as_str(), Some("what is Rust?"));
+        assert_eq!(result["context"].as_str(), Some("prev msg"));
+        // Unknown placeholders pass through literally.
+        assert_eq!(result["unknown_key"].as_str(), Some("{banana}"));
+        assert_eq!(
+            result["nested"]["deep"].as_str(),
+            Some("what is Rust? tail")
+        );
+        assert_eq!(result["arr"][0].as_str(), Some("prev msg"));
+        // Non-string leaves are unchanged.
+        assert_eq!(result["arr"][1].as_u64(), Some(42));
+        assert_eq!(result["arr"][2].as_bool(), Some(true));
+        assert_eq!(result["num"].as_u64(), Some(7));
+        assert_eq!(result["flag"].as_bool(), Some(false));
+    }
+
+    /// Phase-1: events with non-empty `tool_calls` must NOT contribute ideas
+    /// through the legacy `idea_ids` path — the stub path is taken instead,
+    /// and assembled.system must be empty (no ideas from that event).
+    #[tokio::test]
+    async fn tool_calls_event_skips_legacy_idea_ids_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let tc_idea = Idea {
+            id: "tc-idea-1".to_string(),
+            name: "tc-idea".to_string(),
+            content: "SHOULD NOT APPEAR — owned by tool_calls event".to_string(),
+            tags: vec!["test".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        // Create an event with both idea_ids AND tool_calls — the tool_calls
+        // path should win, so the idea must not appear in assembled.system.
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "tc-event".into(),
+                pattern: "session:start".into(),
+                idea_ids: vec![tc_idea.id.clone()],
+                tool_calls: vec![EventToolCall {
+                    tool: "ideas.assemble".to_string(),
+                    args: serde_json::json!({"names": ["session:primer"]}),
+                }],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(StubIdeaStore {
+            seen_queries: Mutex::new(Vec::new()),
+            idea: tc_idea,
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let assembled = assemble_ideas(&registry, Some(&store), &event_store, &agent.id, &[]).await;
+
+        assert!(
+            !assembled.system.contains("SHOULD NOT APPEAR"),
+            "tool_calls events must not fall through to legacy idea_ids path, got: {:?}",
+            assembled.system
+        );
+        // No semantic search should run either.
+        assert!(
+            stub.seen_queries.lock().unwrap().is_empty(),
+            "no query_template search must run when the event has tool_calls"
+        );
     }
 
     /// Hygiene guard for the observability-as-a-feature invariant:

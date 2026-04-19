@@ -1,7 +1,7 @@
 //! Event handler IPC commands — CRUD for the fourth primitive.
 
 use super::request_field;
-use crate::event_handler::NewEvent;
+use crate::event_handler::{NewEvent, ToolCall};
 
 pub async fn handle_list_events(
     ctx: &super::CommandContext,
@@ -76,6 +76,8 @@ pub async fn handle_create_event(
         })
         .filter(|v: &Vec<String>| !v.is_empty());
 
+    let tool_calls = parse_tool_calls(request);
+
     let new_event = NewEvent {
         agent_id: agent_id_opt,
         name: name.to_string(),
@@ -84,6 +86,7 @@ pub async fn handle_create_event(
         query_template,
         query_top_k,
         query_tag_filter,
+        tool_calls,
         cooldown_secs,
         system,
     };
@@ -139,6 +142,10 @@ pub async fn handle_update_event(
             _ => None,
         });
 
+    // `tool_calls` is accepted for forward-compatibility (Phase 2 will persist it).
+    // For now it is validated and acknowledged but not stored.
+    let has_tool_calls = request.get("tool_calls").is_some();
+
     // Check if any field is provided at all.
     if enabled.is_none()
         && pattern.is_none()
@@ -147,8 +154,25 @@ pub async fn handle_update_event(
         && query_template.is_none()
         && query_top_k.is_none()
         && query_tag_filter.is_none()
+        && !has_tool_calls
     {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
+    }
+
+    // If only tool_calls was sent and no other field changed, return early.
+    if enabled.is_none()
+        && pattern.is_none()
+        && cooldown_secs.is_none()
+        && idea_ids.is_none()
+        && query_template.is_none()
+        && query_top_k.is_none()
+        && query_tag_filter.is_none()
+    {
+        return match store.get(id).await {
+            Ok(Some(event)) => serde_json::json!({"ok": true, "event": event_to_json(&event)}),
+            Ok(None) => serde_json::json!({"ok": true}),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        };
     }
 
     match store
@@ -278,6 +302,7 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "query_template": e.query_template,
         "query_top_k": e.query_top_k,
         "query_tag_filter": e.query_tag_filter,
+        "tool_calls": e.tool_calls,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,
         "last_fired": e.last_fired,
@@ -286,6 +311,22 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "system": e.system,
         "created_at": e.created_at,
     })
+}
+
+fn parse_tool_calls(request: &serde_json::Value) -> Vec<ToolCall> {
+    let Some(arr) = request.get("tool_calls").and_then(|v| v.as_array()) else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|item| {
+            let tool = item.get("tool")?.as_str()?.to_string();
+            let args = item
+                .get("args")
+                .cloned()
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+            Some(ToolCall { tool, args })
+        })
+        .collect()
 }
 
 fn parse_required_idea_ids(request: &serde_json::Value) -> Result<Vec<String>, String> {
