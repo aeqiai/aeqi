@@ -1177,7 +1177,7 @@
   box-shadow: var(--input-ring-focus);
 }
 
-/* Stats row */
+/* Stats row — legacy (kept for backward compat) */
 .agent-stats-row {
   display: flex;
   gap: 0;
@@ -1210,6 +1210,72 @@
   font-size: 11px;
   color: var(--text-muted);
   letter-spacing: 0.01em;
+}
+
+/* Agent stat cards — matches settings-stat treatment (Track I polish)
+   2px accent-top border, xl mono values, 600wt labels, stat-card-bg. */
+.agent-stat-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.agent-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--stat-card-bg, var(--bg-base));
+  border: 1px solid var(--stat-card-border, var(--border));
+  border-top: 2px solid var(--border-hover);
+  border-radius: var(--radius-md);
+  min-width: 90px;
+  transition: border-top-color var(--transition-fast);
+}
+.agent-stat-card:hover {
+  border-top-color: var(--text-muted);
+}
+.agent-stat-card-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.agent-stat-card-label {
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+/* Agent idea pills — key-pill treatment for idea IDs */
+.agent-stat-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.agent-idea-pill {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 6px;
+}
+
+/* Agent ID pill — key-pill treatment for IDs in the settings panel */
+.agent-id-pill {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 6px;
 }
 
 /* Hierarchy links */

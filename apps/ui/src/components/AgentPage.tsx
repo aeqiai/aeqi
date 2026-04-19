@@ -110,45 +110,51 @@ export default function AgentPage({
       {/* Tab content */}
       {activeTab === "dashboard" && (
         <div className="page-content">
-          <div className="agent-stats-row">
-            <div className="agent-stat">
-              <span className="agent-stat-value">{agent?.session_count ?? 0}</span>
-              <span className="agent-stat-label">sessions</span>
+          <div className="agent-stat-cards">
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">{agent?.session_count ?? 0}</span>
+              <span className="agent-stat-card-label">Sessions</span>
             </div>
-            <div className="agent-stat">
-              <span className="agent-stat-value">
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">
                 {agentQuests.filter((q) => (q as Record<string, unknown>).status === "done").length}
               </span>
-              <span className="agent-stat-label">completed</span>
+              <span className="agent-stat-card-label">Completed</span>
             </div>
-            <div className="agent-stat">
-              <span className="agent-stat-value">
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">
                 {
                   agentQuests.filter((q) => (q as Record<string, unknown>).status === "in_progress")
                     .length
                 }
               </span>
-              <span className="agent-stat-label">in progress</span>
+              <span className="agent-stat-card-label">In Progress</span>
             </div>
-            <div className="agent-stat">
-              <span className="agent-stat-value">{formatTokens(agent?.total_tokens)}</span>
-              <span className="agent-stat-label">tokens</span>
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">{formatTokens(agent?.total_tokens)}</span>
+              <span className="agent-stat-card-label">Tokens</span>
             </div>
-            <div className="agent-stat">
-              <span className="agent-stat-value">
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">
                 {agent?.budget_usd != null ? `$${agent.budget_usd.toFixed(0)}` : "—"}
               </span>
-              <span className="agent-stat-label">budget</span>
+              <span className="agent-stat-card-label">Budget</span>
             </div>
-            <div className="agent-stat">
-              <span className="agent-stat-value">{childAgents.length}</span>
-              <span className="agent-stat-label">children</span>
+            <div className="agent-stat-card">
+              <span className="agent-stat-card-value">{childAgents.length}</span>
+              <span className="agent-stat-card-label">Children</span>
             </div>
           </div>
           {agent?.idea_ids && agent.idea_ids.length > 0 && (
             <div className="agent-settings-section">
               <h3 className="agent-settings-heading">Ideas ({agent.idea_ids.length})</h3>
-              <div className="agent-settings-mono">{agent.idea_ids.join(", ")}</div>
+              <div className="agent-stat-ideas">
+                {agent.idea_ids.map((id) => (
+                  <span key={id} className="agent-idea-pill">
+                    {id}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -177,7 +183,7 @@ export default function AgentPage({
           ) : (
             <EmptyState
               title="No child agents"
-              description="This agent hasn't spawned any sub-agents."
+              description="This agent hasn't spawned any sub-agents yet. Sub-agents are created automatically when a quest requires delegation."
             />
           )}
         </div>
@@ -348,7 +354,9 @@ function SettingsPanel({
           )}
           <div className="agent-settings-field">
             <span className="agent-settings-label">ID</span>
-            <span className="agent-settings-value agent-settings-mono">{agent?.id || agentId}</span>
+            <span className="agent-settings-value">
+              <span className="agent-id-pill">{agent?.id || agentId}</span>
+            </span>
           </div>
           {agent?.created_at && (
             <div className="agent-settings-field">
