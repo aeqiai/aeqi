@@ -1669,7 +1669,14 @@ impl Agent {
                     changes = file_change_msgs.len(),
                     "injecting file change notifications"
                 );
-                messages.extend(file_change_msgs);
+                for (path, msg) in file_change_msgs {
+                    self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                        message: format!(
+                            "external file change: injected re-read reminder for {path}"
+                        ),
+                    });
+                    messages.push(msg);
+                }
             }
 
             // --- Collect enrichments from observers ---
@@ -2419,7 +2426,7 @@ impl Agent {
 
     /// Detect files that changed externally since we last read them.
     /// Returns system messages with change notifications for injection between steps.
-    async fn detect_file_changes(recent_files: &[RecentFile]) -> Vec<Message> {
+    async fn detect_file_changes(recent_files: &[RecentFile]) -> Vec<(String, Message)> {
         let mut changes = Vec::new();
 
         for file in recent_files {
@@ -2446,10 +2453,13 @@ impl Agent {
                      </system-reminder>",
                     file.path
                 );
-                changes.push(Message {
-                    role: Role::User,
-                    content: MessageContent::text(notice),
-                });
+                changes.push((
+                    file.path.clone(),
+                    Message {
+                        role: Role::User,
+                        content: MessageContent::text(notice),
+                    },
+                ));
             }
         }
 
