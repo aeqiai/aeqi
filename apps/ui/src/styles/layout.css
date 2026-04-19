@@ -1760,33 +1760,6 @@
   flex-direction: column;
 }
 
-/* Sidebar footer — docs link + version */
-.sidebar-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px 12px;
-  font-size: 10px;
-  color: var(--text-muted);
-  opacity: 0.4;
-}
-.sidebar-footer a {
-  color: var(--text-muted);
-  text-decoration: none;
-}
-.sidebar-footer a:hover {
-  color: var(--text-secondary);
-  opacity: 1;
-}
-.sidebar-footer-dot {
-  font-size: 8px;
-}
-.sidebar-footer-version {
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
-}
-
 /* ── Responsive: Tablet (max-width: 1024px) ── */
 /* Collapse sidebar to icon-only strip */
 @media (max-width: 1024px) {
