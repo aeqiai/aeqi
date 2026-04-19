@@ -982,12 +982,44 @@ impl Scheduler {
                     .await;
 
                 // Inject result text into creator session if still running.
+                // Events on pattern `session:quest_result` get assembled and
+                // prepended so user-configured context (e.g. quest-postmortem
+                // templates) actually reaches the creator session.
                 if let Some(ref sm) = session_manager {
                     if sm.is_running(creator_session_id).await {
-                        let result_text = format!(
+                        let event_store =
+                            crate::event_handler::EventHandlerStore::new(registry.db());
+                        let context = crate::idea_assembly::AssemblyContext {
+                            quest_description: Some(format!(
+                                "Quest {} completed ({})",
+                                quest_id, outcome_status
+                            )),
+                            ..Default::default()
+                        };
+                        let assembled = crate::idea_assembly::assemble_ideas_for_pattern(
+                            &registry,
+                            spawn_idea_store.as_ref(),
+                            &event_store,
+                            &agent_id_clone,
+                            &[],
+                            "session:quest_result",
+                            &context,
+                        )
+                        .await;
+                        for event_id in &assembled.fired_event_ids {
+                            if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                                tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+                            }
+                        }
+                        let base = format!(
                             "Quest {} completed ({}): {}",
                             quest_id, outcome_status, agent_name,
                         );
+                        let result_text = if assembled.system.trim().is_empty() {
+                            base
+                        } else {
+                            format!("{}\n\n---\n\n{}", assembled.system, base)
+                        };
                         let _ = sm.send_streaming(creator_session_id, &result_text).await;
                         debug!(
                             task = %quest_id,
