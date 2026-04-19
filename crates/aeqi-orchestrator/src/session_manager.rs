@@ -707,6 +707,7 @@ impl SessionManager {
         }
 
         // 7.5. Load forked session history if the session already has messages.
+        let mut session_resumed = false;
         if let Some(ref sid) = opts.session_id
             && let Some(ref ss) = self.session_store
             && let Ok(timeline) = ss.timeline_by_session(sid, 500).await
@@ -735,6 +736,7 @@ impl SessionManager {
                     ),
                 });
                 agent = agent.with_history(history);
+                session_resumed = true;
             }
         }
 
@@ -796,11 +798,15 @@ impl SessionManager {
         // shown here once so users know what's injected each step).
         let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
         if let Some(aid) = agent_uuid.as_deref() {
-            for pattern in [
+            let mut patterns: Vec<&str> = vec![
                 "session:start",
                 "session:execution_start",
                 "session:step_start",
-            ] {
+            ];
+            if session_resumed {
+                patterns.push("session:recap_on_resume");
+            }
+            for pattern in patterns {
                 let fired = event_store.get_events_for_pattern(aid, pattern).await;
                 for event in fired {
                     if event.idea_ids.is_empty() {

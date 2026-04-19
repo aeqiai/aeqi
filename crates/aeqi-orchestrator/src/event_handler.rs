@@ -512,6 +512,19 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             None,
             None,
         ),
+        (
+            // Fires once per resumed session when the forked/loaded history was
+            // non-empty. Gives the configured idea template a chance to prompt
+            // the model with recap guidance — replaces the old hardcoded
+            // fetch_recap path ripped out as leak #11.
+            "on_recap_on_resume",
+            "session:recap_on_resume",
+            "session:recap-on-resume",
+            "This session is resuming with prior history loaded above. Before continuing, briefly recap where you left off — the last concrete action, the current objective, and any in-flight blockers — so the next step is grounded in that thread rather than starting cold.",
+            None,
+            None,
+            None,
+        ),
     ];
 
     let now = chrono::Utc::now().to_rfc3339();
