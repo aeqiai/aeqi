@@ -399,6 +399,11 @@ impl SessionManager {
                 &[],
             )
             .await;
+            for event_id in &assembled.fired_event_ids {
+                if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                    tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+                }
+            }
             // Safety net: if assembly returned empty, use a sensible default.
             if assembled.system.trim().is_empty() {
                 "You are a helpful AI agent.".to_string()
@@ -681,6 +686,13 @@ impl SessionManager {
                         name: idea.name.clone(),
                         content: Some(idea.content.clone()),
                     });
+                }
+                for ev in &step_events {
+                    if ev.idea_ids.iter().any(|id| !id.is_empty())
+                        && let Err(e) = ehs.record_fire(&ev.id, 0.0).await
+                    {
+                        tracing::warn!(event = %ev.id, error = %e, "failed to record event fire");
+                    }
                 }
             }
         }

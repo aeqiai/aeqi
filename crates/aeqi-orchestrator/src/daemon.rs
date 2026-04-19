@@ -1524,6 +1524,9 @@ impl Daemon {
                                                 )
                                                 .await;
                                         }
+                                        if let Err(e) = ehs.record_fire(&ev.id, 0.0).await {
+                                            tracing::warn!(event = %ev.id, error = %e, "failed to record event fire");
+                                        }
                                         exec_event_fires.push(
                                             aeqi_core::ChatStreamEvent::EventFired {
                                                 event_id: ev.id.clone(),
