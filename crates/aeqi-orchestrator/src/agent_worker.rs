@@ -612,91 +612,11 @@ impl AgentWorker {
                 .await;
         }
 
-        // Enrich system prompt with dynamic memory recall via query planner.
-        // Primers are already assembled into self.system_prompt by assemble_prompts().
-        // When a persistent agent UUID is set, also recall entity-scoped memories.
-        let enriched_system_prompt = if let Some(ref mem) = self.idea_store {
-            // Try query planner first — generates typed, prioritized queries.
-            let entries = match std::panic::catch_unwind(|| {
-                aeqi_ideas::query_planner::QueryPlanner::plan(
-                    &task_context,
-                    Some(&self.project_name),
-                )
-            }) {
-                Ok(plan) => {
-                    let mut all_entries = Vec::new();
-                    for typed_query in &plan.queries {
-                        let query = aeqi_core::traits::IdeaQuery::new(
-                            &typed_query.query_text,
-                            plan.max_results_per_query,
-                        );
-                        if let Ok(results) = mem.search(&query).await {
-                            all_entries.extend(results);
-                        }
-                    }
-                    // Deduplicate by id, keep highest score.
-                    all_entries.sort_by(|a, b| {
-                        b.score
-                            .partial_cmp(&a.score)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    });
-                    all_entries.dedup_by(|a, b| a.id == b.id);
-                    all_entries.truncate(30);
-                    debug!(
-                        worker = %self.name,
-                        queries = plan.queries.len(),
-                        results = all_entries.len(),
-                        "query planner memory recall"
-                    );
-                    all_entries
-                }
-                Err(_) => {
-                    // Fallback: single flat search if query planner fails.
-                    warn!(worker = %self.name, "query planner failed, falling back to flat search");
-                    let query = aeqi_core::traits::IdeaQuery::new(&task_context, 30);
-                    mem.search(&query).await.unwrap_or_default()
-                }
-            };
-
-            // Also recall entity-scoped memories for persistent agents.
-            let mut all = entries;
-            if let Some(ref agent_id) = self.persistent_agent_id {
-                let eq = aeqi_core::traits::IdeaQuery::new(&task_context, 10)
-                    .with_agent(agent_id.clone());
-                if let Ok(entity_entries) = mem.search(&eq).await {
-                    debug!(
-                        worker = %self.name,
-                        agent_id = %agent_id,
-                        entity_memories = entity_entries.len(),
-                        "entity memory recall for persistent agent"
-                    );
-                    all.extend(entity_entries);
-                }
-            }
-
-            if !all.is_empty() {
-                let dynamic = all
-                    .iter()
-                    .map(|e| {
-                        format!(
-                            "- [{}] {}: {}",
-                            e.agent_id.as_deref().unwrap_or("global"),
-                            e.name,
-                            e.content
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                format!(
-                    "{}\n\n---\n\n## Dynamic Recall\n{dynamic}",
-                    self.system_prompt
-                )
-            } else {
-                self.system_prompt.clone()
-            }
-        } else {
-            self.system_prompt.clone()
-        };
+        // Context flows only through events → ideas. No silent recall, no
+        // mid-loop memory prefetch — if a user wants context injected, they
+        // configure an event with idea_ids or a query_template, which runs
+        // through idea_assembly and emits a visible transcript event.
+        let enriched_system_prompt = self.system_prompt.clone();
         runtime_session.mark_phase(
             RuntimePhase::Act,
             format!(
