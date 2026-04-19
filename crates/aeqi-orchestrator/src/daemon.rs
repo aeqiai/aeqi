@@ -1186,13 +1186,16 @@ impl Daemon {
                 "list_ideas" => {
                     crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_roots).await
                 }
-                "store_idea" => {
+                // "knowledge_store" is the pre-Apr18 MCP alias kept here so stale
+                // long-running MCP binaries (spawned by older claude-code sessions)
+                // don't hard-fail against the renamed command.
+                "store_idea" | "knowledge_store" => {
                     crate::ipc::ideas::handle_store_idea(&ctx, &request, &allowed_roots).await
                 }
                 "update_idea" => {
                     crate::ipc::ideas::handle_update_idea(&ctx, &request, &allowed_roots).await
                 }
-                "delete_idea" => {
+                "delete_idea" | "knowledge_delete" => {
                     crate::ipc::ideas::handle_delete_idea(&ctx, &request, &allowed_roots).await
                 }
                 "search_ideas" => {
