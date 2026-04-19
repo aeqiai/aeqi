@@ -187,6 +187,7 @@ export interface AgentEvent {
   idea_ids: string[];
   query_template?: string | null;
   query_top_k?: number | null;
+  query_tag_filter?: string[] | null;
   enabled: boolean;
   cooldown_secs: number;
   fire_count: number;

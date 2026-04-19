@@ -10,6 +10,17 @@ import type { AgentEvent, Idea } from "@/lib/types";
 // Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_EVENTS: AgentEvent[] = [];
 
+function parseTagFilter(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
+function tagsToInput(tags: string[] | null | undefined): string {
+  return (tags ?? []).join(", ");
+}
+
 /**
  * Event detail pane. The list now lives in the global right rail
  * (ContentCTA) — this component only renders the selected event.
@@ -40,6 +51,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const [newPattern, setNewPattern] = useState("session:message");
   const [newQueryTemplate, setNewQueryTemplate] = useState("");
   const [newQueryTopK, setNewQueryTopK] = useState("");
+  const [newQueryTagFilter, setNewQueryTagFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -50,6 +62,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       setNewPattern("session:message");
       setNewQueryTemplate("");
       setNewQueryTopK("");
+      setNewQueryTagFilter("");
       setCreateError(null);
     };
     window.addEventListener("aeqi:new-event", handler);
@@ -75,6 +88,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       if (trimmedTpl) payload.query_template = trimmedTpl;
       const parsedTopK = parseInt(newQueryTopK, 10);
       if (Number.isFinite(parsedTopK) && parsedTopK > 0) payload.query_top_k = parsedTopK;
+      const parsedTags = parseTagFilter(newQueryTagFilter);
+      if (parsedTags.length > 0) payload.query_tag_filter = parsedTags;
       await api.createEvent(payload);
       setShowAddForm(false);
       loadEvents(agentId);
@@ -200,6 +215,22 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             style={{ width: 120, marginTop: 4 }}
             onChange={(e) => setNewQueryTopK(e.target.value)}
           />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label className="agent-settings-label">Query tag filter (optional)</label>
+          <input
+            className="agent-settings-input"
+            type="text"
+            placeholder="promoted, skill"
+            value={newQueryTagFilter}
+            style={{ width: "100%", marginTop: 4 }}
+            onChange={(e) => setNewQueryTagFilter(e.target.value)}
+          />
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+            Comma-separated tags. Semantic search restricts to ideas carrying at least one of these
+            tags — the hard filter that prevents candidate/rejected ideas from leaking into prompts
+            on embedding similarity alone.
+          </div>
         </div>
         {createError && <div className="channel-form-error">{createError}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -422,16 +453,24 @@ function EventQueryTemplateEditor({
   onSave,
 }: {
   event: AgentEvent;
-  onSave: (fields: { query_template: string | null; query_top_k: number | null }) => Promise<void>;
+  onSave: (fields: {
+    query_template: string | null;
+    query_top_k: number | null;
+    query_tag_filter: string[] | null;
+  }) => Promise<void>;
 }) {
   const [template, setTemplate] = useState(event.query_template ?? "");
   const [topK, setTopK] = useState(event.query_top_k != null ? String(event.query_top_k) : "");
+  const [tagFilter, setTagFilter] = useState(tagsToInput(event.query_tag_filter));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const parsedTags = parseTagFilter(tagFilter);
+  const savedTagsInput = tagsToInput(event.query_tag_filter);
   const dirty =
     (template.trim() || null) !== (event.query_template ?? null) ||
-    (topK.trim() || null) !== (event.query_top_k != null ? String(event.query_top_k) : null);
+    (topK.trim() || null) !== (event.query_top_k != null ? String(event.query_top_k) : null) ||
+    tagFilter.trim() !== savedTagsInput;
 
   const handleSave = async () => {
     setErr(null);
@@ -441,6 +480,7 @@ function EventQueryTemplateEditor({
       const fields = {
         query_template: template.trim() ? template.trim() : null,
         query_top_k: Number.isFinite(parsedTopK) && parsedTopK > 0 ? parsedTopK : null,
+        query_tag_filter: parsedTags.length > 0 ? parsedTags : null,
       };
       await onSave(fields);
     } catch (e) {
@@ -465,6 +505,24 @@ function EventQueryTemplateEditor({
         Expanded at fire-time and run through semantic search. Placeholders:{" "}
         <code>{"{user_prompt}"}</code>, <code>{"{tool_output}"}</code>,{" "}
         <code>{"{quest_description}"}</code>. Unknown placeholders pass through literally.
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <label className="agent-settings-label" style={{ margin: 0 }}>
+          Tag filter
+        </label>
+        <input
+          className="agent-settings-input"
+          type="text"
+          placeholder="promoted, skill"
+          value={tagFilter}
+          style={{ width: "100%", marginTop: 4 }}
+          onChange={(e) => setTagFilter(e.target.value)}
+        />
+        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+          Comma-separated tags. Leave empty for no filter. When set, semantic search only returns
+          ideas carrying at least one of these tags — the hard filter against candidate/rejected
+          ideas leaking in on embedding similarity alone.
+        </div>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
         <label className="agent-settings-label" style={{ margin: 0 }}>
