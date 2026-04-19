@@ -575,11 +575,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 // field silently came back empty despite the tool advertising it.
                                 let ideas_resp = ipc_request_sync(
                                     &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "trigger_event",
-                                        "agent": agent_hint,
-                                        "pattern": "session:start",
-                                    }),
+                                    &agents_get_context_ipc_request(agent_hint),
                                 );
                                 // Fetch agent's events.
                                 let events_resp = ipc_request_sync(
@@ -1071,4 +1067,25 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn agents_get_context_ipc_request(agent_hint: &str) -> serde_json::Value {
+    serde_json::json!({
+        "cmd": "trigger_event",
+        "agent": agent_hint,
+        "pattern": "session:start",
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agents_get_context_uses_trigger_event_with_session_start() {
+        let req = agents_get_context_ipc_request("worker-1");
+        assert_eq!(req["cmd"], "trigger_event");
+        assert_eq!(req["pattern"], "session:start");
+        assert_eq!(req["agent"], "worker-1");
+    }
 }
