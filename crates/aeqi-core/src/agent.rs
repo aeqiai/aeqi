@@ -1683,6 +1683,13 @@ impl Agent {
                 let mut rx_guard = rx.lock().await;
                 let mut notif_count = 0u32;
                 while let Ok(notif) = rx_guard.try_recv() {
+                    let preview: String = notif.content.chars().take(200).collect();
+                    self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                        message: format!(
+                            "background notification injected as user message ({} chars): {preview}",
+                            notif.content.chars().count()
+                        ),
+                    });
                     messages.push(Message {
                         role: Role::User,
                         content: MessageContent::text(&notif.content),
