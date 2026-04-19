@@ -320,6 +320,7 @@ mod tests {
             idea_ids: vec!["a".into(), "b".into(), "a".into(), "".into()],
             query_template: None,
             query_top_k: None,
+            query_tag_filter: None,
             enabled: true,
             cooldown_secs: 0,
             last_fired: None,

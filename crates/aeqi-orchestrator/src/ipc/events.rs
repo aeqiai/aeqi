@@ -66,6 +66,15 @@ pub async fn handle_create_event(
         .get("query_top_k")
         .and_then(|v| v.as_u64())
         .and_then(|v| u32::try_from(v).ok());
+    let query_tag_filter: Option<Vec<String>> = request
+        .get("query_tag_filter")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .filter(|v: &Vec<String>| !v.is_empty());
 
     let new_event = NewEvent {
         agent_id: agent_id_opt,
@@ -74,6 +83,7 @@ pub async fn handle_create_event(
         idea_ids,
         query_template,
         query_top_k,
+        query_tag_filter,
         cooldown_secs,
         system,
     };
@@ -116,6 +126,18 @@ pub async fn handle_update_event(
         serde_json::Value::Number(n) => n.as_u64().and_then(|v| u32::try_from(v).ok()),
         _ => None,
     });
+    let query_tag_filter: Option<Option<Vec<String>>> =
+        request.get("query_tag_filter").map(|v| match v {
+            serde_json::Value::Null => None,
+            serde_json::Value::Array(arr) => {
+                let tags: Vec<String> = arr
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect();
+                if tags.is_empty() { None } else { Some(tags) }
+            }
+            _ => None,
+        });
 
     // Check if any field is provided at all.
     if enabled.is_none()
@@ -124,6 +146,7 @@ pub async fn handle_update_event(
         && idea_ids.is_none()
         && query_template.is_none()
         && query_top_k.is_none()
+        && query_tag_filter.is_none()
     {
         return serde_json::json!({"ok": false, "error": "at least one field to update is required"});
     }
@@ -137,6 +160,7 @@ pub async fn handle_update_event(
             idea_ids.as_deref(),
             query_template.as_ref().map(|v| v.as_deref()),
             query_top_k,
+            query_tag_filter.as_ref().map(|v| v.as_deref()),
         )
         .await
     {
@@ -253,6 +277,7 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
         "idea_ids": e.idea_ids,
         "query_template": e.query_template,
         "query_top_k": e.query_top_k,
+        "query_tag_filter": e.query_tag_filter,
         "enabled": e.enabled,
         "cooldown_secs": e.cooldown_secs,
         "last_fired": e.last_fired,

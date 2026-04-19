@@ -103,6 +103,10 @@ fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
             "query_top_k",
             "ALTER TABLE events ADD COLUMN query_top_k INTEGER",
         ),
+        (
+            "query_tag_filter",
+            "ALTER TABLE events ADD COLUMN query_tag_filter TEXT",
+        ),
     ] {
         if !existing.contains(col) {
             conn.execute(ddl, [])?;

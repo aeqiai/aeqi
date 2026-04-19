@@ -149,10 +149,27 @@ pub trait IdeaStore: Send + Sync {
         ancestor_ids: &[String],
         top_k: usize,
     ) -> anyhow::Result<Vec<Idea>> {
+        self.hierarchical_search_with_tags(query, ancestor_ids, top_k, &[])
+            .await
+    }
+
+    /// Hierarchical search with a tag filter. When `tags` is non-empty, only
+    /// ideas that match at least one of the tags are returned (OR semantics).
+    /// Callers: `on_quest_start` uses this to restrict `query_template`
+    /// retrieval to `[promoted]` so candidate/rejected ideas cannot leak into
+    /// the assembled prompt purely on semantic similarity.
+    async fn hierarchical_search_with_tags(
+        &self,
+        query: &str,
+        ancestor_ids: &[String],
+        top_k: usize,
+        tags: &[String],
+    ) -> anyhow::Result<Vec<Idea>> {
         let mut all = Vec::new();
 
         for agent_id in ancestor_ids {
-            let q = IdeaQuery::new(query, top_k).with_agent(agent_id);
+            let mut q = IdeaQuery::new(query, top_k).with_agent(agent_id);
+            q.tags = tags.to_vec();
             if let Ok(entries) = self.search(&q).await {
                 all.extend(entries);
             }
@@ -161,6 +178,7 @@ pub trait IdeaStore: Send + Sync {
         // Also search global ideas (agent_id IS NULL).
         let mut q = IdeaQuery::new(query, top_k);
         q.agent_id = None;
+        q.tags = tags.to_vec();
         if let Ok(entries) = self.search(&q).await {
             // Only include entries that are truly global (no agent_id).
             all.extend(entries.into_iter().filter(|e| e.agent_id.is_none()));

@@ -191,8 +191,9 @@ pub async fn assemble_ideas_for_patterns(
                     continue;
                 }
                 let top_k = event.query_top_k.unwrap_or(5) as usize;
+                let tag_filter = event.query_tag_filter.clone().unwrap_or_default();
                 match store
-                    .hierarchical_search(&expanded, &ancestor_ids, top_k)
+                    .hierarchical_search_with_tags(&expanded, &ancestor_ids, top_k, &tag_filter)
                     .await
                 {
                     Ok(ideas) => {
@@ -378,6 +379,17 @@ mod tests {
             query: &str,
             _ancestor_ids: &[String],
             _top_k: usize,
+        ) -> anyhow::Result<Vec<Idea>> {
+            self.seen_queries.lock().unwrap().push(query.to_string());
+            Ok(vec![self.idea.clone()])
+        }
+
+        async fn hierarchical_search_with_tags(
+            &self,
+            query: &str,
+            _ancestor_ids: &[String],
+            _top_k: usize,
+            _tags: &[String],
         ) -> anyhow::Result<Vec<Idea>> {
             self.seen_queries.lock().unwrap().push(query.to_string());
             Ok(vec![self.idea.clone()])

@@ -31,6 +31,12 @@ pub struct Event {
     /// template is set but this is absent.
     #[serde(default)]
     pub query_top_k: Option<u32>,
+    /// Restrict `query_template` retrieval to ideas tagged with any of these.
+    /// Empty/None = no filter (all ideas eligible by similarity). The default
+    /// `on_quest_start` seed sets this to `["promoted"]` so candidate or
+    /// rejected skills cannot leak into the assembled prompt.
+    #[serde(default)]
+    pub query_tag_filter: Option<Vec<String>>,
     pub enabled: bool,
     pub cooldown_secs: u64,
     pub last_fired: Option<DateTime<Utc>>,
@@ -51,6 +57,7 @@ pub struct NewEvent {
     pub idea_ids: Vec<String>,
     pub query_template: Option<String>,
     pub query_top_k: Option<u32>,
+    pub query_tag_filter: Option<Vec<String>>,
     pub cooldown_secs: u64,
     pub system: bool,
 }
@@ -86,14 +93,18 @@ impl EventHandlerStore {
         let now = Utc::now();
         let idea_ids_json = serde_json::to_string(&e.idea_ids).unwrap_or_else(|_| "[]".to_string());
         let query_top_k_i64 = e.query_top_k.map(|k| k as i64);
+        let query_tag_filter_json = e
+            .query_tag_filter
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
         {
             let db = self.db.lock().await;
             db.execute(
-                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, enabled, cooldown_secs, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, 1, ?8, ?9, ?10)",
+                "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, query_tag_filter, enabled, cooldown_secs, system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, ?8, 1, ?9, ?10, ?11)",
                 params![
                     id, e.agent_id, e.name, e.pattern,
-                    idea_ids_json, e.query_template, query_top_k_i64,
+                    idea_ids_json, e.query_template, query_top_k_i64, query_tag_filter_json,
                     e.cooldown_secs as i64,
                     if e.system { 1 } else { 0 },
                     now.to_rfc3339(),
@@ -198,6 +209,7 @@ impl EventHandlerStore {
         idea_ids: Option<&[String]>,
         query_template: Option<Option<&str>>,
         query_top_k: Option<Option<u32>>,
+        query_tag_filter: Option<Option<&[String]>>,
     ) -> Result<()> {
         let db = self.db.lock().await;
 
@@ -230,6 +242,12 @@ impl EventHandlerStore {
         if let Some(qk) = query_top_k {
             sets.push("query_top_k = ?");
             values.push(Box::new(qk.map(|k| k as i64)));
+        }
+        if let Some(qtf) = query_tag_filter {
+            sets.push("query_tag_filter = ?");
+            values.push(Box::new(qtf.map(|slice| {
+                serde_json::to_string(slice).unwrap_or_else(|_| "[]".to_string())
+            })));
         }
 
         if sets.is_empty() {
@@ -276,6 +294,7 @@ impl EventHandlerStore {
                 idea_ids: idea_ids.to_vec(),
                 query_template: None,
                 query_top_k: None,
+                query_tag_filter: None,
                 cooldown_secs: 0,
                 system: false,
             })
@@ -418,7 +437,7 @@ pub fn purge_redundant_system_events(
 /// Seed global lifecycle events. One row per lifecycle phase, agent_id = NULL.
 /// Every agent inherits these via `list_for_agent` / `get_events_for_pattern`.
 /// Idempotent: safe to call at every boot.
-/// `(name, pattern, idea_key, idea_content, query_template, query_top_k)`.
+/// `(name, pattern, idea_key, idea_content, query_template, query_top_k, query_tag_filter)`.
 type LifecycleSeed = (
     &'static str,
     &'static str,
@@ -426,6 +445,7 @@ type LifecycleSeed = (
     &'static str,
     Option<&'static str>,
     Option<u32>,
+    Option<&'static [&'static str]>,
 );
 
 pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<()> {
@@ -437,6 +457,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
             None,
             None,
+            None,
         ),
         (
             "on_quest_start",
@@ -444,17 +465,19 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             "session:quest-start",
             "A quest has been assigned to you. You own it end-to-end inside its worktree.\n\nWork the quest: understand the ask, make the change, verify it, and close the quest with a summary when done. Spawn sub-agents, commit, and iterate without asking for mid-quest approval — the assignment is the authorization.\n\nIf you are truly blocked (missing credential, unreachable external service, or a decision only a human can make), close with status `blocked` and a specific question. Ambiguity in the spec is not blocked — make the best call and keep moving.",
             // Surfaces promoted skills relevant to the quest — the read-side of the
-            // closed learning loop (lu-005). Empty quest_description falls through
-            // to a plain "skill promoted" search, which still ranks promoted
-            // skill ideas over unrelated content.
+            // closed learning loop (lu-005). The `promoted` tag filter is a hard
+            // gate: candidate- or rejected-tagged ideas cannot leak into the
+            // assembled prompt purely on semantic similarity (night-shift leak #4).
             Some("skill promoted {quest_description}"),
             Some(5),
+            Some(&["promoted"]),
         ),
         (
             "on_quest_end",
             "session:quest_end",
             "session:quest-end",
             "You are closing a quest. Summarize the outcome, note any concerns a reviewer should look at, and — if you learned something reusable — store it as an idea so the next quest benefits.",
+            None,
             None,
             None,
         ),
@@ -465,12 +488,14 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             "A quest you delegated has completed and the result is available. Review the summary and the diff, decide what to do next, and create follow-up quests if the work isn't done.",
             None,
             None,
+            None,
         ),
         (
             "on_execution_start",
             "session:execution_start",
             "session:execution-start",
             "",
+            None,
             None,
             None,
         ),
@@ -481,12 +506,15 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             "",
             None,
             None,
+            None,
         ),
     ];
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    for &(name, pattern, idea_key, idea_content, query_template, query_top_k) in defaults {
+    for &(name, pattern, idea_key, idea_content, query_template, query_top_k, query_tag_filter) in
+        defaults
+    {
         // Seed ideas are globals (agent_id IS NULL) — one row total, shared by
         // every agent's lifecycle events. Resolve-or-create the canonical row,
         // then overwrite its content so code is the source of truth on every boot.
@@ -525,6 +553,12 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
         };
 
         // Create the global event referencing the shared idea.
+        let tag_filter_owned = query_tag_filter.map(|slice| {
+            slice
+                .iter()
+                .map(|&s| s.to_string())
+                .collect::<Vec<String>>()
+        });
         store
             .create(&NewEvent {
                 agent_id: None,
@@ -533,21 +567,30 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 idea_ids: vec![idea_id],
                 query_template: query_template.map(str::to_string),
                 query_top_k,
+                query_tag_filter: tag_filter_owned.clone(),
                 cooldown_secs: 0,
                 system: true,
             })
             .await?;
 
-        // create() is INSERT OR IGNORE. Refresh query_template / query_top_k on
-        // system events so existing installs pick up code changes — matching
-        // the "code is the source of truth on every boot" pattern used for
-        // seed idea content above.
+        // create() is INSERT OR IGNORE. Refresh query_template / query_top_k /
+        // query_tag_filter on system events so existing installs pick up code
+        // changes — matching the "code is the source of truth on every boot"
+        // pattern used for seed idea content above.
+        let tag_filter_json = tag_filter_owned
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
         {
             let db = store.db.lock().await;
             db.execute(
-                "UPDATE events SET query_template = ?1, query_top_k = ?2
-                 WHERE agent_id IS NULL AND name = ?3 AND system = 1",
-                rusqlite::params![query_template, query_top_k.map(|k| k as i64), name,],
+                "UPDATE events SET query_template = ?1, query_top_k = ?2, query_tag_filter = ?3
+                 WHERE agent_id IS NULL AND name = ?4 AND system = 1",
+                rusqlite::params![
+                    query_template,
+                    query_top_k.map(|k| k as i64),
+                    tag_filter_json,
+                    name,
+                ],
             )
             .map_err(|e| anyhow::anyhow!("failed to refresh seed event {name}: {e}"))?;
         }
@@ -576,6 +619,12 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         .ok()
         .flatten()
         .and_then(|v| u32::try_from(v).ok());
+    let query_tag_filter: Option<Vec<String>> = row
+        .get::<_, Option<String>>("query_tag_filter")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+        .filter(|v| !v.is_empty());
 
     Event {
         id: row.get("id").unwrap_or_default(),
@@ -585,6 +634,7 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         idea_ids,
         query_template,
         query_top_k,
+        query_tag_filter,
         enabled: row.get::<_, i64>("enabled").unwrap_or(1) != 0,
         cooldown_secs: row.get::<_, i64>("cooldown_secs").unwrap_or(0) as u64,
         last_fired,
@@ -609,7 +659,7 @@ mod tests {
                  id TEXT PRIMARY KEY, agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
                  name TEXT NOT NULL, pattern TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'self',
                  idea_ids TEXT NOT NULL DEFAULT '[]',
-                 query_template TEXT, query_top_k INTEGER,
+                 query_template TEXT, query_top_k INTEGER, query_tag_filter TEXT,
                  enabled INTEGER NOT NULL DEFAULT 1,
                  cooldown_secs INTEGER NOT NULL DEFAULT 0,
                  last_fired TEXT, fire_count INTEGER NOT NULL DEFAULT 0,
@@ -775,7 +825,7 @@ mod tests {
 
         // Update with no idea_ids change — idea_ids should remain.
         store
-            .update_fields(&event.id, None, None, None, None, None, None)
+            .update_fields(&event.id, None, None, None, None, None, None, None)
             .await
             .unwrap_err(); // no fields to update
 
@@ -787,7 +837,16 @@ mod tests {
 
         let replacement = vec!["new-a".to_string(), "new-b".to_string()];
         store
-            .update_fields(&event.id, None, None, None, Some(&replacement), None, None)
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                Some(&replacement),
+                None,
+                None,
+                None,
+            )
             .await
             .unwrap();
 
@@ -796,7 +855,16 @@ mod tests {
 
         let cleared: Vec<String> = Vec::new();
         store
-            .update_fields(&event.id, None, None, None, Some(&cleared), None, None)
+            .update_fields(
+                &event.id,
+                None,
+                None,
+                None,
+                Some(&cleared),
+                None,
+                None,
+                None,
+            )
             .await
             .unwrap();
 
