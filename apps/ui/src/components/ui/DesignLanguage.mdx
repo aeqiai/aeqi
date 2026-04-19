@@ -1,10 +1,13 @@
 import { Meta } from "@storybook/blocks";
+import { TokenTable, StatusTokenTable } from "./TokenTable";
 
 <Meta title="Design Language" />
 
 # aeqi design language
 
 The aeqi design system is built on restraint. Every element earns its place through function, not decoration. The interface recedes so the four primitives -- Agents, Events, Quests, Ideas -- can speak clearly.
+
+> Every value in the tables below is read live from `:root` via `getComputedStyle`. There is no hardcoded hex on this page — edit `@aeqi/tokens` or `primitives.css` and this doc updates automatically.
 
 ---
 
@@ -18,25 +21,29 @@ Warm parchment paper, ink text at opacity, one accent — heraldic gold. The acc
 
 A single black at varying opacities carries hierarchy inside the ink system:
 
-| Token                    | Value                  | Usage                      |
-| ------------------------ | ---------------------- | -------------------------- |
-| `--color-text-primary`   | `rgba(0, 0, 0, 0.85)`  | Body text, headings        |
-| `--color-text-secondary` | `rgba(0, 0, 0, 0.5)`   | Labels, descriptions       |
-| `--color-text-muted`     | `rgba(0, 0, 0, 0.3)`   | Hints, timestamps          |
-| `--color-border`         | `rgba(0, 0, 0, 0.08)`  | Panel borders, dividers    |
-| `--color-bg-surface`     | `rgba(0, 0, 0, 0.025)` | Subtle surface distinction |
-| `--color-bg-elevated`    | `rgba(0, 0, 0, 0.05)`  | Hover, elevated panels     |
+<TokenTable
+  rows={[
+    { token: "--color-text-primary", usage: "Body text, headings" },
+    { token: "--color-text-secondary", usage: "Labels, descriptions" },
+    { token: "--color-text-muted", usage: "Hints, timestamps" },
+    { token: "--color-border", usage: "Panel borders, dividers" },
+    { token: "--color-bg-surface", usage: "Subtle surface distinction" },
+    { token: "--color-bg-elevated", usage: "Hover, elevated panels" },
+  ]}
+/>
 
 ### Surfaces — paper and card
 
 The canvas is warm parchment; raised surfaces read as "same material, lifted":
 
-| Token           | Value     | Usage                                       |
-| --------------- | --------- | ------------------------------------------- |
-| `--color-paper` | `#faf6ec` | Page base — the default canvas              |
-| `--color-card`  | `#ffffff` | Raised card / panel (landing)               |
-| `--bg-elevated` | paper     | Dashboard canvas — consumes `--color-paper` |
-| `--bg-base`     | `#fcfaf3` | Dashboard card — warm white on parchment    |
+<TokenTable
+  rows={[
+    { token: "--color-paper", usage: "Page base — the default canvas" },
+    { token: "--color-card", usage: "Raised card / panel (landing)" },
+    { token: "--bg-elevated", usage: "Dashboard canvas — aliases --color-paper" },
+    { token: "--bg-base", usage: "Dashboard card — warm white on parchment" },
+  ]}
+/>
 
 ### Precision over decoration
 
@@ -70,28 +77,32 @@ Usage rules:
 
 Each typeface has a single clear role. Do not introduce more.
 
-| Typeface       | Variable         | Usage                                     |
-| -------------- | ---------------- | ----------------------------------------- |
-| Inter          | `--font-sans`    | UI chrome — labels, body, headings        |
-| JetBrains Mono | `--font-mono`    | Code, IDs, model names, technical values  |
-| Cinzel         | `--font-display` | Page titles, hero, marquee moments        |
-| Zen Dots       | `--font-brand`   | The æqi wordmark only                     |
-| EB Garamond    | `--font-serif`   | Long-form prose (docs, blog, essay tones) |
+<TokenTable
+  rows={[
+    { token: "--font-sans", usage: "Inter — UI chrome: labels, body, headings" },
+    { token: "--font-mono", usage: "JetBrains Mono — code, IDs, model names, technical values" },
+    { token: "--font-display", usage: "Cinzel — page titles, hero, marquee moments" },
+    { token: "--font-brand", usage: "Zen Dots — the æqi wordmark only" },
+    { token: "--font-serif", usage: "EB Garamond — long-form prose (docs, blog, essay tones)" },
+  ]}
+/>
 
 ### Type scale
 
-| Token              | Size             | Usage                        |
-| ------------------ | ---------------- | ---------------------------- |
-| `--font-size-3xs`  | 0.5625rem (9px)  | Micro labels                 |
-| `--font-size-2xs`  | 0.625rem (10px)  | Eyebrow caps                 |
-| `--font-size-xs`   | 0.75rem (12px)   | Badges, timestamps, metadata |
-| `--font-size-sm`   | 0.8125rem (13px) | Secondary text, descriptions |
-| `--font-size-base` | 0.875rem (14px)  | Body text, form labels       |
-| `--font-size-lg`   | 1rem (16px)      | Base / root size             |
-| `--font-size-xl`   | 1.25rem (20px)   | Section headings             |
-| `--font-size-2xl`  | 1.5rem (24px)    | Page titles                  |
-| `--font-size-3xl`  | 1.875rem (30px)  | Hero headlines               |
-| `--font-size-4xl`  | 2.25rem (36px)   | Display                      |
+<TokenTable
+  rows={[
+    { token: "--font-size-3xs", usage: "Micro labels" },
+    { token: "--font-size-2xs", usage: "Eyebrow caps" },
+    { token: "--font-size-xs", usage: "Badges, timestamps, metadata" },
+    { token: "--font-size-sm", usage: "Secondary text, descriptions" },
+    { token: "--font-size-base", usage: "Body text, form labels" },
+    { token: "--font-size-lg", usage: "Base / root size" },
+    { token: "--font-size-xl", usage: "Section headings" },
+    { token: "--font-size-2xl", usage: "Page titles" },
+    { token: "--font-size-3xl", usage: "Hero headlines" },
+    { token: "--font-size-4xl", usage: "Display" },
+  ]}
+/>
 
 Weights: 400 (regular), 500 (medium for labels), 600 (semibold for headings), 700 (bold, rare).
 
@@ -101,27 +112,31 @@ Weights: 400 (regular), 500 (medium for labels), 600 (semibold for headings), 70
 
 A consistent spacing scale based on 4px increments:
 
-| Token       | Value | Usage                                    |
-| ----------- | ----- | ---------------------------------------- |
-| `--space-1` | 4px   | Tight gaps (badge padding, icon margins) |
-| `--space-2` | 8px   | Inline spacing, small gaps               |
-| `--space-3` | 12px  | Form field gaps, compact padding         |
-| `--space-4` | 16px  | Standard padding, section gaps           |
-| `--space-6` | 24px  | Panel padding, larger section gaps       |
-| `--space-8` | 32px  | Page-level spacing                       |
+<TokenTable
+  rows={[
+    { token: "--space-1", usage: "Tight gaps (badge padding, icon margins)" },
+    { token: "--space-2", usage: "Inline spacing, small gaps" },
+    { token: "--space-3", usage: "Form field gaps, compact padding" },
+    { token: "--space-4", usage: "Standard padding, section gaps" },
+    { token: "--space-6", usage: "Panel padding, larger section gaps" },
+    { token: "--space-8", usage: "Page-level spacing" },
+  ]}
+/>
 
 ---
 
 ## Border radii
 
-| Token           | Value | Usage                        |
-| --------------- | ----- | ---------------------------- |
-| `--radius-xs`   | 4px   | Key pills, tight chips       |
-| `--radius-sm`   | 6px   | Badges, tags, small elements |
-| `--radius-md`   | 8px   | Inputs, buttons              |
-| `--radius-lg`   | 12px  | Panels, cards                |
-| `--radius-xl`   | 16px  | Modals, large containers     |
-| `--radius-full` | 999px | Pills, avatars               |
+<TokenTable
+  rows={[
+    { token: "--radius-xs", usage: "Key pills, tight chips" },
+    { token: "--radius-sm", usage: "Badges, tags, small elements" },
+    { token: "--radius-md", usage: "Inputs, buttons" },
+    { token: "--radius-lg", usage: "Panels, cards" },
+    { token: "--radius-xl", usage: "Modals, large containers" },
+    { token: "--radius-full", usage: "Pills, avatars" },
+  ]}
+/>
 
 ---
 
@@ -129,21 +144,30 @@ A consistent spacing scale based on 4px increments:
 
 Status colors are the only chromatic exception outside the accent. They appear minimally — badge dots, tinted backgrounds, subtle text colors — never full-bleed washes:
 
-| Status  | Color     | Token             | Used for                            |
-| ------- | --------- | ----------------- | ----------------------------------- |
-| Success | `#22c55e` | `--color-success` | Done, active, healthy               |
-| Error   | `#ef4444` | `--color-error`   | Failed, validation errors           |
-| Warning | `#f59e0b` | `--color-warning` | Blocked, degraded                   |
-| Info    | `#3b82f6` | `--color-info`    | In progress, informational          |
-| Accent  | `#D4A017` | `--color-accent`  | Wordmark, primary CTA, links, focus |
+<StatusTokenTable
+  rows={[
+    { status: "Success", token: "--color-success", usage: "Done, active, healthy" },
+    { status: "Error", token: "--color-error", usage: "Failed, validation errors" },
+    { status: "Warning", token: "--color-warning", usage: "Blocked, degraded" },
+    { status: "Info", token: "--color-info", usage: "In progress, informational" },
+    { status: "Accent", token: "--color-accent", usage: "Wordmark, primary CTA, links, focus" },
+  ]}
+/>
 
 ---
 
-## Row rhythm (32px)
+## Row rhythm
 
-The app uses a single row height, `--input-h: 32px`, for every dense interactive surface: sidebar nav rows, inputs, buttons (`md` size), the scope indicator. This is also `--sidebar-row-h`. Buttons and inputs placed on the same row line up without tweaks. The composer is taller (multi-line) but borrows the same border/radius/colors so it reads as a member of the same family.
+The app uses a single row height, `--input-h`, for every dense interactive surface: sidebar nav rows, inputs, buttons (`md` size), the scope indicator. This is also `--sidebar-row-h`. Buttons and inputs placed on the same row line up without tweaks. The composer is taller (multi-line) but borrows the same border/radius/colors so it reads as a member of the same family.
 
-Do not introduce new row heights. If a surface needs to feel denser, use `sm` (28px). If it needs to feel weightier (hero, auth), use `lg` (40px).
+<TokenTable
+  rows={[
+    { token: "--input-h", usage: "Canonical row height for dense interactive surfaces" },
+    { token: "--sidebar-row-h", usage: "Sidebar nav rows (aliases --input-h)" },
+  ]}
+/>
+
+Do not introduce new row heights. If a surface needs to feel denser, use `sm`. If it needs to feel weightier (hero, auth), use `lg`.
 
 ---
 
@@ -170,7 +194,7 @@ Do not introduce new row heights. If a surface needs to feel denser, use `sm` (2
 
 - `--input-*` tokens are the source of truth for **every field-like surface**. `<Input>`, `<Textarea>`, the composer, and the few remaining class-based inputs (`.filter-input`, `.agent-settings-input`, `.events-link-input`) all consume them. Edit once, update everywhere.
 - Never hardcode `#ffffff`, `rgba(0, 0, 0, 0.x)`, or hex colors in component CSS. Use a token. If the token you need doesn't exist, add it to `@aeqi/tokens` (shared) first, then alias it in `primitives.css`.
-- Never hardcode radius values. `--radius-md` (8px) for inputs/buttons, `--radius-lg` (12px) for cards/panels, `--radius-xl` (16px) for modals.
+- Never hardcode radius values. Use `--radius-md` for inputs/buttons, `--radius-lg` for cards/panels, `--radius-xl` for modals.
 
 ### Adding a new primitive
 
