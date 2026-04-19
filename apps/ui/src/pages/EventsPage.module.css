@@ -3,48 +3,91 @@
 .stream {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
-.row {
+/* ── Date group header ── */
+.dateGroup {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-base);
+}
+
+.dateLabel {
+  padding: 10px 16px 6px;
+  font-size: var(--section-label-size, 0.6875rem);
+  font-weight: 600;
+  color: var(--section-label-color, rgba(0, 0, 0, 0.28));
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  transition: var(--transition-normal);
+}
+
+.dateLabel::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.6;
+}
+
+/* ── Event row ── */
+.row {
+  display: grid;
+  grid-template-columns: 48px 120px 88px 1fr auto;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px;
+  height: 36px;
+  border-radius: 0;
+  transition: background var(--transition-fast);
   font-size: var(--font-size-xs);
+  position: relative;
 }
 
 .row:hover {
-  background: var(--bg-elevated);
+  background: var(--state-hover);
 }
 
+.row:hover .summary {
+  color: var(--text-primary);
+}
+
+/* ── Columns ── */
 .time {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
-  min-width: 48px;
 }
 
 .typeBadge {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
-  color: var(--accent);
-  background: var(--accent-bg);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  padding: 1px 6px;
+  border-radius: var(--key-pill-radius, 4px);
   flex-shrink: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 116px;
 }
 
 .agent {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   color: var(--text-secondary);
   flex-shrink: 0;
-  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .summary {
@@ -54,21 +97,63 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color var(--transition-fast);
 }
 
 .questId {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  padding: 1px 5px;
+  border-radius: var(--key-pill-radius, 4px);
   flex-shrink: 0;
 }
 
+/* ── Filter badge ── */
 .filterBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--info);
-  background: rgba(59, 130, 246, 0.08);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
+}
+
+/* ── Empty state ── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+  color: var(--border-hover);
+}
+
+.emptyTitle {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.emptyDesc {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.55;
 }

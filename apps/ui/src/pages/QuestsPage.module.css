@@ -11,28 +11,31 @@
 
 .stats {
   display: flex;
-  align-items: center;
-  gap: 0;
+  align-items: stretch;
+  gap: 1px;
   padding: 0 0 16px;
   flex-shrink: 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 4px;
 }
 
 .stat {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 0 20px 0 0;
+  padding: 12px 20px;
+  background: var(--stat-card-bg, var(--bg-base));
+  flex: 1;
 }
 .stat:first-child {
-  padding-left: 0;
+  padding-left: 20px;
 }
 
 .statDivider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin-right: 20px;
-  flex-shrink: 0;
+  display: none;
 }
 
 .statValue {
@@ -106,9 +109,11 @@
 
 .filterTabCount {
   font-size: var(--font-size-2xs);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  color: var(--text-muted);
   padding: 1px 6px;
   border-radius: var(--radius-full);
   min-width: 18px;
@@ -218,15 +223,15 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 12px;
-  background: var(--bg-surface);
+  padding: 8px 12px;
+  background: var(--bg-base);
   border: none;
   cursor: pointer;
   user-select: none;
   transition: background var(--transition-fast);
 }
 .groupHeader:hover {
-  background: var(--bg-elevated);
+  background: var(--state-hover);
 }
 
 .groupChevron {
@@ -253,6 +258,10 @@
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  padding: 1px 6px;
+  border-radius: var(--key-pill-radius, 4px);
 }
 
 .groupBody {
@@ -267,23 +276,50 @@
   gap: 0;
   padding: 0 12px;
   height: 40px;
-  border-top: 1px solid var(--bg-elevated);
+  border-top: 1px solid var(--border-faint, rgba(0, 0, 0, 0.04));
   cursor: pointer;
   transition: background var(--transition-fast);
+  position: relative;
 }
 .row:first-child {
   border-top: none;
 }
 .row:hover {
-  background: var(--bg-elevated);
+  background: var(--state-hover);
+}
+
+/* Subtle left accent strip on active rows — AEQI signature */
+.row[data-status="in_progress"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent-bar-running, var(--info));
+  opacity: 0.7;
+}
+
+.row[data-status="blocked"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent-bar-blocked, var(--warning));
+  opacity: 0.7;
 }
 
 .rowClosed {
   composes: row;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 .rowClosed:hover {
-  opacity: 0.75;
+  opacity: 0.7;
+  background: var(--state-hover);
 }
 
 .rowStatus {
@@ -303,14 +339,19 @@
 }
 
 .rowId {
-  width: 72px;
+  width: 76px;
   flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-right: 4px;
 }
 
 .rowSubject {

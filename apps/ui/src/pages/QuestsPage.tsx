@@ -349,7 +349,7 @@ function QuestRow({ quest }: { quest: Quest }) {
   const isClosed = quest.status === "done" || quest.status === "cancelled";
 
   return (
-    <div className={isClosed ? styles.rowClosed : styles.row}>
+    <div className={isClosed ? styles.rowClosed : styles.row} data-status={quest.status}>
       <div className={styles.rowStatus}>
         <StatusDot status={quest.status} />
       </div>
