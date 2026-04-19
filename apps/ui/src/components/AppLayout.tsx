@@ -60,10 +60,11 @@ export default function AppLayout() {
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
 
   // Resolve current agent + derive the root of its tree.
-  const { rootAgent, isRoot } = useMemo(() => {
+  const { currentAgent, rootAgent, isRoot } = useMemo(() => {
     const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
     const root = current ? findRoot(agents, current.id) : null;
     return {
+      currentAgent: current,
       rootAgent: root,
       isRoot: !!current && !current.parent_id,
     };
@@ -104,6 +105,19 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
   if (!initialLoaded) return <BootLoader />;
+
+  // URL points at an agent that no longer exists (e.g., after a data reset
+  // the stale `aeqi_root` localStorage still referenced it). Drop the stale
+  // pointer and bounce: to the first available root, or to onboarding if
+  // there are none at all.
+  if (agentId && !currentAgent) {
+    localStorage.removeItem("aeqi_root");
+    const firstRoot = agents.find((a) => !a.parent_id);
+    if (firstRoot) {
+      return <Navigate to={`/${encodeURIComponent(firstRoot.id)}`} replace />;
+    }
+    return <Navigate to="/new" replace />;
+  }
 
   const base = `/${encodeURIComponent(agentId)}`;
 

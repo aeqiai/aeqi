@@ -145,8 +145,6 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         </IconButton>
       </div>
 
-      <RootAgentPicker rootId={rootId} collapsed={sidebarCollapsed} />
-
       <nav className="sidebar-nav">
         <a
           className={`sidebar-nav-item ${isActive("profile") ? "active" : ""}`}
@@ -329,7 +327,10 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       </nav>
 
       <div className="left-sidebar-body">
-        <AgentTree />
+        <RootAgentPicker rootId={rootId} collapsed={sidebarCollapsed} />
+        <div className="sidebar-tree-slot">
+          <AgentTree />
+        </div>
       </div>
     </div>
   );

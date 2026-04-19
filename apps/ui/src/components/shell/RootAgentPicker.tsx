@@ -11,10 +11,10 @@ interface RootAgentPickerProps {
 }
 
 /**
- * Persistent root-agent selector in the left rail. Shows the active root
- * identity; clicking opens a menu to switch among the user's roots or
- * create a new one. Replaces the previous root-selection paths that were
- * buried in Settings / routed via URL edits only.
+ * Root-agent selector lifted into the persistent shell. The trigger
+ * pins to the top of the agent tree; when opened, its menu takes over
+ * the tree area underneath (not a floating popover) so picking a root
+ * feels like switching workspaces, not dismissing a dropdown.
  */
 export default function RootAgentPicker({ rootId, collapsed }: RootAgentPickerProps) {
   const navigate = useNavigate();
@@ -49,10 +49,10 @@ export default function RootAgentPicker({ rootId, collapsed }: RootAgentPickerPr
   };
 
   return (
-    <div className="root-picker" ref={rootRef}>
+    <div className={`root-picker${open ? " open" : ""}`} ref={rootRef}>
       <button
         type="button"
-        className={`root-picker-trigger${open ? " open" : ""}`}
+        className="root-picker-trigger"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -63,7 +63,7 @@ export default function RootAgentPicker({ rootId, collapsed }: RootAgentPickerPr
           <>
             <span className="root-picker-label">{label}</span>
             <svg
-              className="root-picker-chevron"
+              className={`root-picker-chevron${open ? " flipped" : ""}`}
               width="10"
               height="10"
               viewBox="0 0 10 10"

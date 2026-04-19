@@ -122,16 +122,27 @@
 }
 
 /* ── Root agent picker ──
-   Lives between the sidebar-header and the nav. Shows the active root
-   identity with a chevron; click opens a menu of all roots plus a
-   "New root" action. When the sidebar is collapsed, the trigger
-   collapses to the avatar alone (label + chevron hidden). */
+   Pinned to the top of the agent tree (inside .left-sidebar-body). The
+   trigger looks like a tree row; when opened, the menu takes over the
+   tree area beneath it so switching roots feels like switching
+   workspaces rather than dismissing a floating dropdown. Collapsed
+   sidebar keeps the old flyout for space reasons. */
 .root-picker {
   position: relative;
-  padding: 4px 8px 0;
+  padding: 6px 8px 4px;
+}
+.left-sidebar:not(.collapsed) .root-picker.open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.left-sidebar:not(.collapsed) .root-picker.open .root-picker-menu {
+  flex: 1;
+  min-height: 0;
 }
 .left-sidebar.collapsed .root-picker {
-  padding: 4px 0 0;
+  padding: 6px 0 4px;
   display: flex;
   justify-content: center;
 }
@@ -140,29 +151,29 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: var(--sidebar-row-h);
+  height: var(--sidebar-row-h);
   padding: 0 8px;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  transition:
-    background 0.1s ease,
-    border-color 0.1s ease;
+  transition: background 0.1s ease;
 }
-.root-picker-trigger:hover,
-.root-picker-trigger.open {
+.root-picker-trigger:hover {
   background: var(--state-hover);
-  border-color: var(--border);
+}
+.root-picker.open .root-picker-trigger {
+  background: var(--state-selected);
 }
 .left-sidebar.collapsed .root-picker-trigger {
   justify-content: center;
   width: auto;
-  padding: 6px;
+  height: auto;
+  padding: 4px;
 }
 .root-picker-label {
   flex: 1;
@@ -171,32 +182,44 @@
   white-space: nowrap;
 }
 .root-picker-chevron {
-  opacity: 0.4;
+  opacity: 0.5;
   flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.root-picker-chevron.flipped {
+  transform: rotate(180deg);
 }
 .root-picker-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 8px;
-  right: 8px;
-  z-index: 30;
-  padding: 4px;
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 6px 0 0;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 1px;
-  max-height: 320px;
   overflow-y: auto;
 }
+/* When the picker is open in expanded mode, hide the agent tree so
+   the menu visually takes over the sidebar body. */
+.left-sidebar:not(.collapsed) .left-sidebar-body:has(.root-picker.open) .sidebar-tree-slot {
+  display: none;
+}
 .left-sidebar.collapsed .root-picker-menu {
+  position: absolute;
+  top: 4px;
   left: 100%;
   right: auto;
-  top: 4px;
+  bottom: auto;
   min-width: 220px;
   margin-left: 8px;
+  margin-top: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  max-height: 320px;
+  z-index: 30;
 }
 .root-picker-item {
   display: flex;
