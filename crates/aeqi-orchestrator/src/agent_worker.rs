@@ -1316,34 +1316,8 @@ impl AgentWorker {
             let (sender, mut rx) = aeqi_core::ChatStreamSender::new(512);
             tokio::spawn(async move {
                 while let Ok(event) = rx.recv().await {
-                    if let (Some(ss), Some(sid)) = (&session_store, &persist_session_id)
-                        && let aeqi_core::ChatStreamEvent::ToolComplete {
-                            tool_use_id,
-                            tool_name,
-                            success,
-                            input_preview,
-                            output_preview,
-                            duration_ms,
-                        } = &event
-                    {
-                        let meta = serde_json::json!({
-                            "tool_use_id": tool_use_id,
-                            "tool_name": tool_name,
-                            "success": success,
-                            "input_preview": input_preview,
-                            "output_preview": output_preview,
-                            "duration_ms": duration_ms,
-                        });
-                        let _ = ss
-                            .record_event_by_session(
-                                sid,
-                                "tool_complete",
-                                "system",
-                                tool_name,
-                                Some("worker"),
-                                Some(&meta),
-                            )
-                            .await;
+                    if let (Some(ss), Some(sid)) = (&session_store, &persist_session_id) {
+                        persist_tool_complete(ss, sid, &event).await;
                     }
                     if let Some(ref bc) = broadcaster {
                         bc.publish(crate::activity::Activity::ChatStream {
@@ -1972,5 +1946,108 @@ impl Observer for CompositeObserver {
         iteration: u32,
     ) -> Vec<aeqi_core::traits::ContextAttachment> {
         self.inner.collect_attachments(iteration).await
+    }
+}
+
+/// Persist a ToolComplete event into session_messages against the given
+/// worker session_id so tool_traces_for_quest can feed the candidate-skill
+/// pipeline on quest completion. Non-ToolComplete events are ignored.
+async fn persist_tool_complete(
+    session_store: &Arc<crate::session_store::SessionStore>,
+    session_id: &str,
+    event: &aeqi_core::ChatStreamEvent,
+) {
+    let aeqi_core::ChatStreamEvent::ToolComplete {
+        tool_use_id,
+        tool_name,
+        success,
+        input_preview,
+        output_preview,
+        duration_ms,
+    } = event
+    else {
+        return;
+    };
+    let meta = serde_json::json!({
+        "tool_use_id": tool_use_id,
+        "tool_name": tool_name,
+        "success": success,
+        "input_preview": input_preview,
+        "output_preview": output_preview,
+        "duration_ms": duration_ms,
+    });
+    let _ = session_store
+        .record_event_by_session(
+            session_id,
+            "tool_complete",
+            "system",
+            tool_name,
+            Some("worker"),
+            Some(&meta),
+        )
+        .await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session_store::SessionStore;
+
+    async fn test_store() -> Arc<SessionStore> {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+            SessionStore::create_tables(&conn).unwrap();
+        }
+        Arc::new(SessionStore::new(Arc::new(pool)))
+    }
+
+    #[tokio::test]
+    async fn persist_tool_complete_writes_row_feeding_tool_traces_for_quest() {
+        let store = test_store().await;
+        let quest_id = "as-regress-1";
+        let session_id = store
+            .create_session("assistant", "task", quest_id, None, Some(quest_id))
+            .await
+            .unwrap();
+
+        let event = aeqi_core::ChatStreamEvent::ToolComplete {
+            tool_use_id: "tu-1".into(),
+            tool_name: "read_file".into(),
+            success: true,
+            input_preview: "/tmp/foo.txt".into(),
+            output_preview: "hello".into(),
+            duration_ms: 42,
+        };
+        persist_tool_complete(&store, &session_id, &event).await;
+
+        let traces = store.tool_traces_for_quest(quest_id).await.unwrap();
+        assert_eq!(
+            traces.len(),
+            1,
+            "tool_traces_for_quest must surface the persisted tool_complete"
+        );
+        assert_eq!(traces[0].tool_name, "read_file");
+    }
+
+    #[tokio::test]
+    async fn persist_tool_complete_ignores_non_toolcomplete_events() {
+        let store = test_store().await;
+        let quest_id = "as-regress-2";
+        let session_id = store
+            .create_session("assistant", "task", quest_id, None, Some(quest_id))
+            .await
+            .unwrap();
+
+        let event = aeqi_core::ChatStreamEvent::TextDelta {
+            text: "hello".into(),
+        };
+        persist_tool_complete(&store, &session_id, &event).await;
+
+        let traces = store.tool_traces_for_quest(quest_id).await.unwrap();
+        assert!(
+            traces.is_empty(),
+            "only ToolComplete events should be persisted as tool_complete rows"
+        );
     }
 }
