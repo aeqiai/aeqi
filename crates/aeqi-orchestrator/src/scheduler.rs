@@ -607,6 +607,11 @@ impl Scheduler {
             &task.description,
         )
         .await;
+        for event_id in &assembled.fired_event_ids {
+            if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
+            }
+        }
         let system_prompt = assembled.system;
 
         // Create or reuse a quest sandbox (git worktree) for isolation.

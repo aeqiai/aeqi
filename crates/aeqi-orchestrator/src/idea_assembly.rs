@@ -129,6 +129,8 @@ pub async fn assemble_ideas_for_patterns(
     let mut allow_sets: Vec<Vec<String>> = Vec::new();
     let mut deny_all: Vec<String> = Vec::new();
     let mut collected_idea_ids: HashSet<String> = HashSet::new();
+    let mut fired_event_ids: Vec<String> = Vec::new();
+    let mut fired_event_seen: HashSet<String> = HashSet::new();
 
     // Walk from root to self (reverse of get_ancestors order).
     for (depth, agent) in ancestors.iter().rev().enumerate() {
@@ -159,8 +161,17 @@ pub async fn assemble_ideas_for_patterns(
         {
             match store.get_by_ids(&event_idea_ids).await {
                 Ok(ideas) => {
+                    let event_owner: std::collections::HashMap<&str, &str> = events_for_agent
+                        .iter()
+                        .flat_map(|e| e.idea_ids.iter().map(move |i| (i.as_str(), e.id.as_str())))
+                        .collect();
                     for idea in ideas {
                         append_idea(&idea, is_self, &mut parts, &mut allow_sets, &mut deny_all);
+                        if let Some(owner) = event_owner.get(idea.id.as_str())
+                            && fired_event_seen.insert(owner.to_string())
+                        {
+                            fired_event_ids.push(owner.to_string());
+                        }
                     }
                 }
                 Err(e) => {
@@ -185,6 +196,7 @@ pub async fn assemble_ideas_for_patterns(
                     .await
                 {
                     Ok(ideas) => {
+                        let mut injected_any = false;
                         for idea in ideas {
                             if collected_idea_ids.insert(idea.id.clone()) {
                                 append_idea(
@@ -194,7 +206,11 @@ pub async fn assemble_ideas_for_patterns(
                                     &mut allow_sets,
                                     &mut deny_all,
                                 );
+                                injected_any = true;
                             }
+                        }
+                        if injected_any && fired_event_seen.insert(event.id.clone()) {
+                            fired_event_ids.push(event.id.clone());
                         }
                     }
                     Err(e) => {
@@ -251,6 +267,7 @@ pub async fn assemble_ideas_for_patterns(
             allow: merged_allow,
             deny: deny_all,
         },
+        fired_event_ids,
     }
 }
 
@@ -385,7 +402,7 @@ mod tests {
             .unwrap();
 
         let event_store = EventHandlerStore::new(registry.db());
-        event_store
+        let event = event_store
             .create(&NewEvent {
                 agent_id: Some(agent.id.clone()),
                 name: "recall-promoted-skills".into(),
@@ -443,6 +460,11 @@ mod tests {
             queries[0], "skills relevant to: Build feature X",
             "query_template should expand {{quest_description}} from AssemblyContext"
         );
+        assert_eq!(
+            assembled.fired_event_ids,
+            vec![event.id.clone()],
+            "event that produced an injected idea must appear in fired_event_ids so record_fire can run"
+        );
     }
 
     /// Sibling regression: a plain `session:start` assembly must not trigger
@@ -498,6 +520,11 @@ mod tests {
         assert!(
             stub.seen_queries.lock().unwrap().is_empty(),
             "no semantic search should run when only quest_start events exist"
+        );
+        assert!(
+            assembled.fired_event_ids.is_empty(),
+            "no event fired → fired_event_ids must remain empty, got {:?}",
+            assembled.fired_event_ids
         );
     }
 

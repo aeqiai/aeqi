@@ -36,4 +36,9 @@ pub struct AssembledPrompt {
     pub system: String,
     /// Merged tool restrictions (intersection of allows, union of denies).
     pub tools: ToolRestrictions,
+    /// IDs of events whose idea_ids or query_template produced at least one
+    /// idea that reached the system prompt. Runtime callers persist these
+    /// via `EventHandlerStore::record_fire` so the Events UI can show the
+    /// real fire count; preflight callers ignore this field.
+    pub fired_event_ids: Vec<String>,
 }
