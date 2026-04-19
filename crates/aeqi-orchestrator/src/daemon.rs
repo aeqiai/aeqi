@@ -407,15 +407,24 @@ impl Daemon {
             warn!(error = %e, "orphan cleanup failed");
         }
 
-        // Purge legacy lifecycle: events (replaced by session: events).
+        // Drop legacy lifecycle:* events and per-agent system events that
+        // shadow globals. See `purge_redundant_system_events` for details.
         {
             let db = self.agent_registry.db();
             let conn = db.lock().await;
-            let purged = conn
-                .execute("DELETE FROM events WHERE pattern LIKE 'lifecycle:%'", [])
-                .unwrap_or(0);
-            if purged > 0 {
-                info!(count = purged, "purged legacy lifecycle: events");
+            match crate::event_handler::purge_redundant_system_events(&conn) {
+                Ok((legacy, shadows)) => {
+                    if legacy > 0 {
+                        info!(count = legacy, "purged legacy lifecycle: events");
+                    }
+                    if shadows > 0 {
+                        info!(
+                            count = shadows,
+                            "purged per-agent system events redundant with globals"
+                        );
+                    }
+                }
+                Err(e) => warn!(error = %e, "event cleanup failed"),
             }
         }
 

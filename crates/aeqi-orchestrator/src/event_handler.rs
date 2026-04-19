@@ -388,6 +388,33 @@ impl EventHandlerStore {
     }
 }
 
+/// Remove events left behind by old seeding paths. Called on daemon boot.
+/// Returns `(legacy_lifecycle_rows, redundant_shadow_rows)`.
+///
+/// Two separate cleanups:
+/// 1. Rows patterned `lifecycle:*` — predate the `session:*` rename (Apr 15).
+/// 2. Per-agent `system` rows at `session:*` patterns that are already covered
+///    by a global (`agent_id IS NULL`) `system` row at the same pattern. These
+///    are shadows from the Apr-16 per-agent migration that predates globals
+///    (Apr 18) and duplicate context when they fire.
+pub fn purge_redundant_system_events(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<(usize, usize)> {
+    let legacy = conn.execute("DELETE FROM events WHERE pattern LIKE 'lifecycle:%'", [])?;
+    let shadows = conn.execute(
+        "DELETE FROM events \
+         WHERE agent_id IS NOT NULL \
+           AND system = 1 \
+           AND pattern LIKE 'session:%' \
+           AND pattern IN ( \
+               SELECT pattern FROM events \
+               WHERE agent_id IS NULL AND system = 1 \
+           )",
+        [],
+    )?;
+    Ok((legacy, shadows))
+}
+
 /// Seed global lifecycle events. One row per lifecycle phase, agent_id = NULL.
 /// Every agent inherits these via `list_for_agent` / `get_events_for_pattern`.
 /// Idempotent: safe to call at every boot.
@@ -775,5 +802,89 @@ mod tests {
 
         let after_clear = store.get(&event.id).await.unwrap().unwrap();
         assert!(after_clear.idea_ids.is_empty());
+    }
+
+    /// The daemon boot purge must:
+    /// - delete legacy `lifecycle:*` rows,
+    /// - delete per-agent `system` rows at `session:*` patterns whose pattern
+    ///   is also covered by a global (`agent_id IS NULL`) `system` row,
+    /// - leave globals untouched,
+    /// - leave per-agent non-system rows untouched (user-created customizations),
+    /// - leave per-agent `system` rows at patterns with no global counterpart
+    ///   untouched (not redundant).
+    #[tokio::test]
+    async fn purge_redundant_system_events_keeps_globals_and_user_rows() {
+        let store = test_store().await;
+
+        // Global system row — keep.
+        store
+            .create(&NewEvent {
+                agent_id: None,
+                name: "global-qs".into(),
+                pattern: "session:quest_start".into(),
+                system: true,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        // Per-agent system row shadowing the global — delete.
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "shadow-qs".into(),
+                pattern: "session:quest_start".into(),
+                system: true,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        // Per-agent system row with no global counterpart — keep.
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "bespoke".into(),
+                pattern: "session:bespoke".into(),
+                system: true,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        // User-created per-agent row at a shadowed pattern — keep (system=0).
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "user-qs".into(),
+                pattern: "session:quest_start".into(),
+                system: false,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        // Legacy lifecycle row — delete.
+        store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "legacy".into(),
+                pattern: "lifecycle:quest-received".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let pool = store.db.clone();
+        let conn = pool.lock().await;
+        let (legacy, shadows) = purge_redundant_system_events(&conn).unwrap();
+        assert_eq!(legacy, 1, "one lifecycle:* row should be purged");
+        assert_eq!(shadows, 1, "only the shadow system row should be purged");
+
+        let mut names: Vec<String> = conn
+            .prepare("SELECT name FROM events ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["bespoke", "global-qs", "user-qs"]);
     }
 }
