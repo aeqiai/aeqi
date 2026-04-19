@@ -1,0 +1,255 @@
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { useDaemonStore } from "@/store/daemon";
+import { Button } from "./ui";
+import type { AgentEvent } from "@/lib/types";
+
+interface Props {
+  event: AgentEvent;
+  /** Agent ID from context — may be undefined for global events. */
+  agentId?: string;
+  onClose: () => void;
+}
+
+export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
+  const agents = useDaemonStore((s) => s.agents);
+
+  // For global events with no agent context, let the user pick one.
+  const isGlobal = event.agent_id == null;
+  const [pickedAgentId, setPickedAgentId] = useState(agentId ?? "");
+
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{
+    system_prompt: string;
+    matched_events: Array<{ name: string; pattern: string }>;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const effectiveAgentId = isGlobal ? pickedAgentId : (agentId ?? "");
+
+  const handleRun = async () => {
+    if (!effectiveAgentId.trim()) {
+      setError("Select an agent first.");
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      const data = await api.triggerEvent({ agent_id: effectiveAgentId.trim() }, event.pattern);
+      setResult({
+        system_prompt: data.system_prompt,
+        matched_events: (data.matched_events ?? []) as Array<{ name: string; pattern: string }>,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (result?.system_prompt) {
+      void navigator.clipboard.writeText(result.system_prompt);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+        background: "var(--color-bg-elevated)",
+        padding: "14px 16px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: "var(--font-size-sm)",
+            color: "var(--color-text-primary)",
+          }}
+        >
+          Test trigger
+        </span>
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 16,
+            lineHeight: 1,
+            color: "var(--color-text-muted)",
+            padding: "0 2px",
+          }}
+          aria-label="Close"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div
+        style={{
+          marginBottom: 8,
+          fontSize: "var(--font-size-xs)",
+          color: "var(--color-text-secondary)",
+        }}
+      >
+        <strong style={{ color: "var(--color-text-primary)" }}>{event.name}</strong>
+        {" · "}
+        <code
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--font-size-2xs)",
+            background: "var(--color-bg-base)",
+            padding: "1px 4px",
+            borderRadius: "var(--radius-sm)",
+          }}
+        >
+          {event.pattern}
+        </code>
+      </div>
+
+      {isGlobal && (
+        <div style={{ marginBottom: 10 }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              marginBottom: 4,
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            Agent
+          </label>
+          <select
+            className="agent-settings-input"
+            value={pickedAgentId}
+            onChange={(e) => setPickedAgentId(e.target.value)}
+            style={{ width: "100%" }}
+          >
+            <option value="">— pick an agent —</option>
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.display_name ?? a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleRun}
+          loading={running}
+          disabled={running}
+        >
+          {running ? "Running..." : "Run"}
+        </Button>
+        {error && (
+          <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-error)" }}>
+            {error}
+          </span>
+        )}
+      </div>
+
+      {result && (
+        <div style={{ marginTop: 14 }}>
+          {result.matched_events.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div
+                style={{
+                  fontSize: "var(--font-size-xs)",
+                  fontWeight: 500,
+                  color: "var(--color-text-secondary)",
+                  marginBottom: 4,
+                }}
+              >
+                Matched events
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {result.matched_events.map((ev, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "var(--font-size-2xs)",
+                      background: "var(--color-accent-subtle)",
+                      color: "var(--color-accent)",
+                      padding: "2px 6px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--color-border)",
+                    }}
+                    title={ev.pattern}
+                  >
+                    {ev.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: 500,
+              color: "var(--color-text-secondary)",
+              marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>Assembled system prompt</span>
+            <button
+              onClick={handleCopy}
+              style={{
+                background: "none",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "var(--font-size-2xs)",
+                padding: "2px 6px",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              Copy
+            </button>
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              padding: "10px 12px",
+              background: "var(--color-bg-base)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-md)",
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--font-size-2xs)",
+              lineHeight: 1.6,
+              maxHeight: 320,
+              overflowY: "auto",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              color: "var(--color-text-primary)",
+            }}
+          >
+            {result.system_prompt || "(empty)"}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}

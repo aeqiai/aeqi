@@ -520,6 +520,22 @@ export const api = {
   deleteEvent: (id: string) =>
     request<Record<string, unknown>>(`/events/${id}`, { method: "DELETE" }),
 
+  triggerEvent: (
+    agentRef: { agent: string } | { agent_id: string },
+    pattern: string,
+    extra?: Record<string, unknown>,
+  ) =>
+    request<{
+      ok: boolean;
+      agent_id: string;
+      pattern: string;
+      system_prompt: string;
+      matched_events: Record<string, unknown>[];
+    }>("/events/trigger", {
+      method: "POST",
+      body: JSON.stringify({ ...agentRef, pattern, ...extra }),
+    }),
+
   // Session children (spawned work)
   getSessionChildren: (sessionId: string) =>
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),

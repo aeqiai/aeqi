@@ -2,7 +2,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::Response,
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 
@@ -17,6 +17,7 @@ pub fn routes() -> Router<AppState> {
             "/events/{id}",
             axum::routing::put(update_event).delete(delete_event),
         )
+        .route("/events/trigger", post(trigger_event))
 }
 
 #[derive(Deserialize, Default)]
@@ -62,4 +63,12 @@ async fn delete_event(
 ) -> Response {
     let params = serde_json::json!({"id": id});
     ipc_proxy(state, scope.as_ref(), "delete_event", params).await
+}
+
+async fn trigger_event(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "trigger_event", body).await
 }

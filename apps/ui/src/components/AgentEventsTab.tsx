@@ -4,6 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
+import TestTriggerPanel from "./TestTriggerPanel";
 import type { AgentEvent, Idea } from "@/lib/types";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
@@ -22,6 +23,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const loadEvents = useAgentDataStore((s) => s.loadEvents);
   const patchEvent = useAgentDataStore((s) => s.patchEvent);
   const removeEvent = useAgentDataStore((s) => s.removeEvent);
+
+  const [showTriggerPanel, setShowTriggerPanel] = useState(false);
+
+  useEffect(() => {
+    setShowTriggerPanel(false);
+  }, [selectedId]);
 
   useEffect(() => {
     loadEvents(agentId);
@@ -254,6 +261,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           <span className="events-detail-pattern">{selected.pattern}</span>
         </div>
         <div className="events-detail-actions">
+          <Button variant="ghost" size="sm" onClick={() => setShowTriggerPanel((v) => !v)}>
+            {showTriggerPanel ? "Hide test" : "Test trigger"}
+          </Button>
           {!isGlobal && (
             <Button
               variant="secondary"
@@ -282,6 +292,14 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           )}
         </div>
       </div>
+
+      {showTriggerPanel && (
+        <TestTriggerPanel
+          event={selected}
+          agentId={agentId}
+          onClose={() => setShowTriggerPanel(false)}
+        />
+      )}
 
       {isGlobal && (
         <div
