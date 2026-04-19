@@ -994,6 +994,41 @@ impl Scheduler {
                         );
                     }
                 }
+
+                // Cross-quest pattern mining: combine this quest's traces with
+                // the agent's last 10 other done-quest traces and extract
+                // 2-gram tool sequences that recur in ≥3 distinct quests.
+                // Closes the loop gap where a well-behaved agent nailing each
+                // quest in one call teaches the runtime nothing within-quest.
+                if let Ok(mut recent) = ss
+                    .recent_quest_traces(&agent_id_clone, 10, Some(&quest_id))
+                    .await
+                {
+                    recent.insert(0, (quest_id.clone(), traces));
+                    let cross = cross_quest_candidate_skill_ideas(&recent, 3);
+                    let cross_tags = vec![
+                        "skill".to_string(),
+                        "candidate".to_string(),
+                        "cross-quest".to_string(),
+                    ];
+                    for cand in cross {
+                        if let Err(e) = is
+                            .store(
+                                &cand.name,
+                                &cand.content,
+                                &cross_tags,
+                                Some(&agent_id_clone),
+                            )
+                            .await
+                        {
+                            warn!(
+                                task = %quest_id,
+                                error = %e,
+                                "failed to persist cross-quest candidate skill"
+                            );
+                        }
+                    }
+                }
             }
 
             // Session resolution: notify creator session and emit quest_result event.
@@ -1244,6 +1279,61 @@ struct CandidateSkill {
     content: String,
 }
 
+/// Mine 2-gram tool-sequence patterns across multiple quests' traces and
+/// emit one cross-quest candidate-skill per pattern appearing in enough
+/// distinct quests. `quest_traces` is `(quest_id, traces_in_order)` for
+/// each quest the caller wants included — typically the last N completed
+/// quests plus the just-closed one. Pure (no I/O) for unit-testability.
+///
+/// Legibility rule: names are stable across evaluations (no quest id in
+/// the name) so `idea_store.store`'s 24h dedupe coalesces repeats. The
+/// content lists the quest ids contributing to the pattern so operators
+/// can verify the evidence before promoting.
+fn cross_quest_candidate_skill_ideas(
+    quest_traces: &[(String, Vec<crate::session_store::ToolTrace>)],
+    min_distinct_quests: usize,
+) -> Vec<CandidateSkill> {
+    // (toolA, toolB) → set of quest ids in which that consecutive pair appeared.
+    let mut bigrams: std::collections::BTreeMap<
+        (String, String),
+        std::collections::BTreeSet<String>,
+    > = std::collections::BTreeMap::new();
+
+    for (quest_id, traces) in quest_traces {
+        for window in traces.windows(2) {
+            let a = &window[0].tool_name;
+            let b = &window[1].tool_name;
+            if a == b {
+                continue;
+            }
+            bigrams
+                .entry((a.clone(), b.clone()))
+                .or_default()
+                .insert(quest_id.clone());
+        }
+    }
+
+    let mut out = Vec::new();
+    for ((a, b), quests) in bigrams {
+        if quests.len() < min_distinct_quests {
+            continue;
+        }
+        let name = format!("cross-quest skill candidate: {a} → {b}");
+        let quest_list: Vec<&str> = quests.iter().map(String::as_str).collect();
+        let content = format!(
+            "## Pattern\n`{a}` followed by `{b}` — appeared in {} distinct quests.\n\n### Quests\n{}\n",
+            quests.len(),
+            quest_list
+                .iter()
+                .map(|q| format!("- {q}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        out.push(CandidateSkill { name, content });
+    }
+    out
+}
+
 /// Group tool traces by `tool_name` and emit one candidate-skill per group
 /// with at least two invocations. Pure (no I/O) so it's cheap to unit-test.
 fn candidate_skill_ideas_from_traces(
@@ -1350,5 +1440,84 @@ mod tests {
         assert!(grep.content.contains("- bar"));
         assert!(grep.content.contains("- baz"));
         assert!(!grep.content.contains("- qux")); // sample cap respected
+    }
+
+    #[test]
+    fn cross_quest_candidate_skill_ideas_requires_min_distinct_quests() {
+        use crate::session_store::ToolTrace;
+        use chrono::Utc;
+
+        let trace = |tool: &str| ToolTrace {
+            session_id: String::new(),
+            tool_name: tool.to_string(),
+            tool_use_id: None,
+            success: Some(true),
+            input_preview: None,
+            output_preview: None,
+            duration_ms: None,
+            timestamp: Utc::now(),
+        };
+
+        let quest_traces = vec![
+            (
+                "q-1".to_string(),
+                vec![trace("grep"), trace("read"), trace("edit")],
+            ),
+            (
+                "q-2".to_string(),
+                vec![trace("grep"), trace("read"), trace("edit")],
+            ),
+            (
+                "q-3".to_string(),
+                vec![trace("grep"), trace("read"), trace("write")],
+            ),
+            ("q-4".to_string(), vec![trace("read"), trace("edit")]),
+        ];
+
+        let out = cross_quest_candidate_skill_ideas(&quest_traces, 3);
+
+        // (grep, read) appears in q-1, q-2, q-3 → 3 quests → qualifies.
+        // (read, edit) appears in q-1, q-2, q-4 → 3 quests → qualifies.
+        // (read, write) appears in q-3 only → does not qualify.
+        assert_eq!(out.len(), 2);
+        let names: Vec<&str> = out.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("grep → read")));
+        assert!(names.iter().any(|n| n.contains("read → edit")));
+        assert!(!names.iter().any(|n| n.contains("read → write")));
+
+        let grep_read = out.iter().find(|c| c.name.contains("grep → read")).unwrap();
+        assert!(grep_read.content.contains("3 distinct quests"));
+        assert!(grep_read.content.contains("- q-1"));
+        assert!(grep_read.content.contains("- q-2"));
+        assert!(grep_read.content.contains("- q-3"));
+    }
+
+    #[test]
+    fn cross_quest_candidate_skill_ideas_skips_same_tool_bigrams() {
+        use crate::session_store::ToolTrace;
+        use chrono::Utc;
+
+        let trace = |tool: &str| ToolTrace {
+            session_id: String::new(),
+            tool_name: tool.to_string(),
+            tool_use_id: None,
+            success: Some(true),
+            input_preview: None,
+            output_preview: None,
+            duration_ms: None,
+            timestamp: Utc::now(),
+        };
+
+        // Same tool called twice in a row is a within-quest-repetition signal
+        // (already covered by candidate_skill_ideas_from_traces) — excluded
+        // here to keep cross-quest patterns informative.
+        let quest_traces = vec![
+            ("q-1".to_string(), vec![trace("grep"), trace("grep")]),
+            ("q-2".to_string(), vec![trace("grep"), trace("grep")]),
+            ("q-3".to_string(), vec![trace("grep"), trace("grep")]),
+        ];
+
+        let out = cross_quest_candidate_skill_ideas(&quest_traces, 3);
+        assert!(out.is_empty());
     }
 }

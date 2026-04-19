@@ -798,6 +798,104 @@ impl SessionStore {
         Ok(rows)
     }
 
+    /// Load tool traces grouped by quest for an agent's recent distinct
+    /// quests. Returns up to `limit_quests` most-recent quests (by most-
+    /// recent session activity), each paired with its full chronological
+    /// trace across every session linked to that quest.
+    ///
+    /// This is the read-side of the cross-quest learning rule: the caller
+    /// mines tool-sequence patterns that recur across quests, not just
+    /// within one. Excludes `exclude_quest_id` from the returned set when
+    /// supplied (so the caller can combine it with a just-closed quest's
+    /// traces without double-counting).
+    pub async fn recent_quest_traces(
+        &self,
+        agent_id: &str,
+        limit_quests: usize,
+        exclude_quest_id: Option<&str>,
+    ) -> Result<Vec<(String, Vec<ToolTrace>)>> {
+        let db = self.db.lock().await;
+
+        let mut stmt = db.prepare(
+            "SELECT s.quest_id, MAX(sm.id) AS last_trace \
+             FROM session_messages sm \
+             JOIN sessions s ON sm.session_id = s.id \
+             WHERE s.agent_id = ?1 \
+               AND s.quest_id IS NOT NULL AND s.quest_id != '' \
+               AND sm.event_type = 'tool_complete' AND sm.summarized = 0 \
+             GROUP BY s.quest_id \
+             ORDER BY last_trace DESC \
+             LIMIT ?2",
+        )?;
+        let quest_ids: Vec<String> = stmt
+            .query_map(params![agent_id, limit_quests as i64 + 1], |row| {
+                let qid: String = row.get(0)?;
+                Ok(qid)
+            })?
+            .filter_map(|r| r.ok())
+            .filter(|qid| exclude_quest_id.is_none_or(|ex| qid != ex))
+            .take(limit_quests)
+            .collect();
+        drop(stmt);
+
+        let mut out: Vec<(String, Vec<ToolTrace>)> = Vec::with_capacity(quest_ids.len());
+        for qid in quest_ids {
+            let mut stmt = db.prepare(
+                "SELECT sm.session_id, sm.content, sm.timestamp, sm.metadata \
+                 FROM session_messages sm \
+                 JOIN sessions s ON sm.session_id = s.id \
+                 WHERE s.quest_id = ?1 AND sm.event_type = 'tool_complete' AND sm.summarized = 0 \
+                 ORDER BY sm.id ASC",
+            )?;
+            let traces = stmt
+                .query_map(params![qid], |row| {
+                    let session_id: Option<String> = row.get(0)?;
+                    let tool_name_fallback: String = row.get(1)?;
+                    let ts_str: String = row.get(2)?;
+                    let metadata_text: Option<String> = row.get(3)?;
+
+                    let metadata: Option<serde_json::Value> = metadata_text
+                        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+
+                    let str_from = |key: &str| -> Option<String> {
+                        metadata
+                            .as_ref()
+                            .and_then(|m| m.get(key))
+                            .and_then(|v| v.as_str().map(|s| s.to_string()))
+                    };
+                    let bool_from = |key: &str| -> Option<bool> {
+                        metadata
+                            .as_ref()
+                            .and_then(|m| m.get(key))
+                            .and_then(|v| v.as_bool())
+                    };
+                    let u64_from = |key: &str| -> Option<u64> {
+                        metadata
+                            .as_ref()
+                            .and_then(|m| m.get(key))
+                            .and_then(|v| v.as_u64())
+                    };
+
+                    Ok(ToolTrace {
+                        session_id: session_id.unwrap_or_default(),
+                        tool_name: str_from("tool_name").unwrap_or(tool_name_fallback),
+                        tool_use_id: str_from("tool_use_id"),
+                        success: bool_from("success"),
+                        input_preview: str_from("input_preview"),
+                        output_preview: str_from("output_preview"),
+                        duration_ms: u64_from("duration_ms"),
+                        timestamp: DateTime::parse_from_rfc3339(&ts_str)
+                            .map(|dt| dt.with_timezone(&Utc))
+                            .unwrap_or_else(|_| Utc::now()),
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            out.push((qid, traces));
+        }
+
+        Ok(out)
+    }
+
     /// List sessions, optionally filtered by agent_id.
     pub async fn list_sessions(
         &self,
