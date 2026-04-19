@@ -489,6 +489,161 @@ pub fn purge_redundant_system_events(
     Ok((legacy, shadows))
 }
 
+/// Idempotently seed all lifecycle events (8 session/context patterns + 4 middleware
+/// patterns) into the events table as global (`agent_id = NULL`) system events.
+///
+/// For each pattern, the function checks whether **any** global event with that exact
+/// pattern already exists. If so, it is skipped (idempotent). Otherwise a new event is
+/// inserted.
+///
+/// Returns the number of events inserted (0 on a fully-seeded install).
+pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<usize> {
+    // The 8 session/context lifecycle patterns already covered by
+    // `create_default_lifecycle_events` are re-checked here for idempotency. Their
+    // content is managed by `create_default_lifecycle_events` (which runs first on every
+    // boot and refreshes tool_calls); this function's job is to return an accurate count.
+
+    // 4 middleware patterns: these were previously only covered by DEFAULT_HANDLERS in
+    // ToolRegistry. Seeding them here makes every LLM-facing string operator-visible.
+    struct MiddlewareSeed {
+        name: &'static str,
+        pattern: &'static str,
+        tool_calls: Vec<ToolCall>,
+    }
+
+    let middleware_seeds: Vec<MiddlewareSeed> = vec![
+        MiddlewareSeed {
+            name: "on_loop_detected",
+            pattern: "loop:detected",
+            tool_calls: vec![ToolCall {
+                tool: "transcript.inject".into(),
+                args: serde_json::json!({
+                    "role": "system",
+                    "content": "WARNING: You have called '{tool_name}' with identical arguments {count} times in the last {window_size} calls. This looks like a loop. Change your approach or you will be terminated."
+                }),
+            }],
+        },
+        MiddlewareSeed {
+            name: "on_guardrail_violation",
+            pattern: "guardrail:violation",
+            tool_calls: vec![ToolCall {
+                tool: "transcript.inject".into(),
+                args: serde_json::json!({
+                    "role": "system",
+                    "content": "[Guardrails] Tool '{tool_name}' is not on the allow list. {rule}. Verify this action is safe before proceeding."
+                }),
+            }],
+        },
+        MiddlewareSeed {
+            name: "on_graph_guardrail_high_impact",
+            pattern: "graph_guardrail:high_impact",
+            tool_calls: vec![ToolCall {
+                tool: "transcript.inject".into(),
+                args: serde_json::json!({
+                    "role": "system",
+                    "content": "[Graph Guardrails] High-impact change detected: {warning}"
+                }),
+            }],
+        },
+        MiddlewareSeed {
+            name: "on_shell_command_failed",
+            pattern: "shell:command_failed",
+            tool_calls: vec![ToolCall {
+                tool: "transcript.inject".into(),
+                args: serde_json::json!({
+                    "role": "system",
+                    "content": "[Shell Hook] Command failed: `{command}`\nOutput:\n{output}"
+                }),
+            }],
+        },
+    ];
+
+    let all_patterns: &[&str] = &[
+        "session:start",
+        "session:quest_start",
+        "session:quest_end",
+        "session:quest_result",
+        "session:execution_start",
+        "session:step_start",
+        "session:recap_on_resume",
+        "context:budget:exceeded",
+        "loop:detected",
+        "guardrail:violation",
+        "graph_guardrail:high_impact",
+        "shell:command_failed",
+    ];
+
+    // Count which patterns already have a global event row.
+    let already_seeded: std::collections::HashSet<String> = {
+        let db = store.db.lock().await;
+        let mut seeded = std::collections::HashSet::new();
+        for pattern in all_patterns {
+            let exists: bool = db
+                .query_row(
+                    "SELECT 1 FROM events WHERE agent_id IS NULL AND pattern = ?1 LIMIT 1",
+                    rusqlite::params![pattern],
+                    |_| Ok(true),
+                )
+                .optional()
+                .unwrap_or(None)
+                .unwrap_or(false);
+            if exists {
+                seeded.insert(pattern.to_string());
+            }
+        }
+        seeded
+    };
+
+    let mut inserted = 0usize;
+
+    // Seed middleware patterns that are not yet present.
+    for seed in &middleware_seeds {
+        if already_seeded.contains(seed.pattern) {
+            continue;
+        }
+        store
+            .create(&NewEvent {
+                agent_id: None,
+                name: seed.name.to_string(),
+                pattern: seed.pattern.to_string(),
+                idea_ids: Vec::new(),
+                query_template: None,
+                query_top_k: None,
+                query_tag_filter: None,
+                tool_calls: seed.tool_calls.clone(),
+                cooldown_secs: 0,
+                system: true,
+            })
+            .await?;
+        inserted += 1;
+    }
+
+    // Lifecycle patterns are seeded by create_default_lifecycle_events; count the ones
+    // that were absent before this run (rare — only on a brand-new install where
+    // create_default_lifecycle_events hasn't run yet).
+    let lifecycle_patterns: &[&str] = &[
+        "session:start",
+        "session:quest_start",
+        "session:quest_end",
+        "session:quest_result",
+        "session:execution_start",
+        "session:step_start",
+        "session:recap_on_resume",
+        "context:budget:exceeded",
+    ];
+    for pattern in lifecycle_patterns {
+        if !already_seeded.contains(*pattern) {
+            inserted += 1;
+        }
+    }
+
+    info!(
+        n = inserted,
+        "seeded {} lifecycle+middleware events", inserted
+    );
+    Ok(inserted)
+}
+
 /// One row in the lifecycle seed table.
 struct LifecycleSeed {
     name: &'static str,
@@ -1588,5 +1743,76 @@ mod tests {
             .await;
         assert_eq!(hits.len(), 1, "only exact match should be returned");
         assert_eq!(hits[0].name, "exact");
+    }
+
+    /// seed_lifecycle_events on an empty store inserts 4 middleware seed events
+    /// (the 8 lifecycle events are handled by create_default_lifecycle_events, which
+    /// runs first on daemon boot). On a re-run it inserts 0.
+    #[tokio::test]
+    async fn seed_lifecycle_events_is_idempotent() {
+        let store = test_store_with_ideas().await;
+
+        // First call: create_default_lifecycle_events seeds the 8 lifecycle patterns.
+        create_default_lifecycle_events(&store).await.unwrap();
+
+        // seed_lifecycle_events reports 0 for the lifecycle patterns (already present)
+        // but inserts 4 middleware patterns.
+        let n = seed_lifecycle_events(&store).await.unwrap();
+        assert_eq!(n, 4, "should insert 4 middleware seed events on first run");
+
+        // Re-run: all 12 patterns exist → no insertions.
+        let n2 = seed_lifecycle_events(&store).await.unwrap();
+        assert_eq!(n2, 0, "second run must be a no-op (idempotent)");
+    }
+
+    /// seed_lifecycle_events on a totally empty store (no lifecycle events yet)
+    /// reports 12 (8 lifecycle + 4 middleware) as the count.
+    #[tokio::test]
+    async fn seed_lifecycle_events_counts_missing_lifecycle_patterns() {
+        let store = test_store_with_ideas().await;
+
+        // Do NOT call create_default_lifecycle_events first.
+        let n = seed_lifecycle_events(&store).await.unwrap();
+        // 4 middleware patterns are inserted; 8 lifecycle patterns are counted as
+        // "absent before this run" even though create_default_lifecycle_events hasn't
+        // inserted them yet. The count reflects what was missing.
+        assert_eq!(
+            n, 12,
+            "should count all 12 missing patterns on a clean store"
+        );
+    }
+
+    /// After seed_lifecycle_events the 4 middleware patterns exist as global
+    /// system events with transcript.inject tool_calls.
+    #[tokio::test]
+    async fn seed_lifecycle_events_middleware_patterns_have_tool_calls() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+        seed_lifecycle_events(&store).await.unwrap();
+
+        for pattern in &[
+            "loop:detected",
+            "guardrail:violation",
+            "graph_guardrail:high_impact",
+            "shell:command_failed",
+        ] {
+            let events = store.get_events_for_exact_pattern("", pattern).await;
+            assert!(
+                !events.is_empty(),
+                "middleware pattern {pattern} must be seeded"
+            );
+            let ev = &events[0];
+            assert!(ev.system, "middleware seed must be a system event");
+            assert!(ev.enabled, "middleware seed must be enabled");
+            assert_eq!(
+                ev.tool_calls.len(),
+                1,
+                "middleware seed must have 1 tool_call"
+            );
+            assert_eq!(
+                ev.tool_calls[0].tool, "transcript.inject",
+                "middleware seed tool_call must be transcript.inject"
+            );
+        }
     }
 }

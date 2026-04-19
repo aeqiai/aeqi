@@ -423,16 +423,30 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 sm.set_event_store(event_handler_store.clone());
             }
 
-            // Seed the six global lifecycle events (agent_id NULL). Every agent
+            // Seed the 8 global lifecycle events (agent_id NULL). Every agent
             // inherits them through the event store's global-fallback queries.
-            // Idempotent — the COALESCE-based unique index on (agent_id, name)
-            // makes re-runs a no-op.
+            // Refreshes tool_calls on every boot so code is the source of truth.
             if let Err(e) = aeqi_orchestrator::event_handler::create_default_lifecycle_events(
                 &event_handler_store,
             )
             .await
             {
                 warn!(error = %e, "failed to seed global lifecycle events");
+            }
+
+            // Seed the 4 middleware patterns (loop:detected, guardrail:violation,
+            // graph_guardrail:high_impact, shell:command_failed) as operator-visible
+            // events. Idempotent — skips patterns that already have a global row.
+            match aeqi_orchestrator::event_handler::seed_lifecycle_events(&event_handler_store)
+                .await
+            {
+                Ok(n) if n > 0 => {
+                    info!(n, "seeded {n} lifecycle+middleware events");
+                }
+                Err(e) => {
+                    warn!(error = %e, "failed to seed middleware events");
+                }
+                _ => {}
             }
 
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
