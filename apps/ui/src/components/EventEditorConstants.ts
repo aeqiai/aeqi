@@ -8,9 +8,9 @@ export const KNOWN_TOOLS = [
   "ideas.assemble",
   "ideas.search",
   "transcript.inject",
+  "transcript.replace_middle",
   "session.status",
   "session.spawn",
-  "context.compress",
 ];
 
 export const COMMON_PATTERNS = [

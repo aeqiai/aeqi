@@ -10,7 +10,6 @@
 // for the LLM-facing executor can call all_tools() on the resulting registry
 // and filter by can_call(name, CallerKind::Llm).
 
-pub mod context_compress;
 pub mod ideas_assemble;
 pub mod ideas_search;
 pub mod session_spawn;
@@ -18,7 +17,6 @@ pub mod session_status;
 pub mod transcript_inject;
 pub mod transcript_replace_middle;
 
-pub use context_compress::ContextCompressTool;
 pub use ideas_assemble::IdeasAssembleTool;
 pub use ideas_search::IdeasSearchTool;
 pub use session_spawn::{SessionSpawnTool, SpawnFn, SpawnRequest};
@@ -69,7 +67,6 @@ pub fn build_runtime_registry_with_spawn(
         Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),
         spawn_tool,
-        Arc::new(ContextCompressTool),
     ];
 
     let mut reg = ToolRegistry::new(tools);
@@ -90,7 +87,6 @@ pub fn build_runtime_registry_with_spawn(
     // ideas.search: open — LLM and events can both run semantic searches.
     // session.status: open — anyone can emit a status message.
     // session.spawn: LLM can spawn sessions (for delegation); events can too.
-    // context.compress: open — the LLM or events can request compaction.
 
     reg
 }
