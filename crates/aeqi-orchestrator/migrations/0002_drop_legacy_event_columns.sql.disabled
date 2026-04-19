@@ -1,0 +1,36 @@
+-- Migration 0002: Drop legacy event columns
+--
+-- DO NOT APPLY until ALL of the following are true:
+--   1. Task #124 (lifecycle event seeder) has shipped in at least one v0.6.x release.
+--   2. Migration 0001 (convert_legacy_events) has run on all target installs, confirming
+--      every event row has tool_calls populated.
+--   3. The fallback code paths have been removed from:
+--        crates/aeqi-orchestrator/src/idea_assembly.rs  (legacy idea_ids + query_template blocks)
+--        crates/aeqi-orchestrator/src/daemon.rs          (session:execution_start ev.idea_ids read)
+--        crates/aeqi-orchestrator/src/event_handler.rs   (Event/NewEvent fields + INSERT/UPDATE)
+--        crates/aeqi-orchestrator/src/agent_registry.rs  (ensure_event_columns ALTER TABLE guards)
+--        apps/ui/src/components/EventEditor.tsx           (legacy query fields section)
+--        apps/ui/src/lib/types.ts                         (legacy fields on Event interface)
+--
+-- To activate:
+--   1. Rename this file to remove the .disabled extension:
+--        mv 0002_drop_legacy_event_columns.sql.disabled 0002_drop_legacy_event_columns.sql
+--   2. Wire migration 0002 into the migration runner (src/migrations.rs).
+--   3. Remove the fallback code (step 3 above).
+--   4. Commit as part of the v0.7.0 release.
+--
+-- ROLLBACK WARNING:
+--   Downgrading from v0.7.0 to v0.6.x after this migration runs is NOT
+--   supported. The columns are permanently gone. Restore from a database
+--   backup taken before the v0.7.0 upgrade if a rollback is needed.
+--
+-- SQLite version note:
+--   DROP COLUMN requires SQLite 3.35.0+.
+--   AEQI bundles SQLite 3.46.0 via rusqlite { features = ["bundled"] },
+--   so ALTER TABLE ... DROP COLUMN is safe to use directly — no 12-step
+--   table rebuild is needed.
+
+ALTER TABLE events DROP COLUMN idea_ids;
+ALTER TABLE events DROP COLUMN query_template;
+ALTER TABLE events DROP COLUMN query_top_k;
+ALTER TABLE events DROP COLUMN query_tag_filter;

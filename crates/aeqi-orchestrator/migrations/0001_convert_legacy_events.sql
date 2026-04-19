@@ -1,0 +1,42 @@
+-- Migration 0001: Convert legacy event columns to tool_calls
+--
+-- This migration is APPLIED IN CODE, not by executing this SQL file.
+-- The conversion logic lives in:
+--
+--   crates/aeqi-orchestrator/src/migrations.rs  (function: run_0001_convert_legacy_events)
+--
+-- Reason: the converter needs to JOIN events → ideas to resolve idea UUIDs to
+-- names for the `ideas.assemble` args. SQLite's SQL dialect cannot do that
+-- procedural join and conditional JSON construction in a single DML statement
+-- without a procedural extension. Doing it in Rust is cleaner, testable, and
+-- avoids a brittle multi-statement SQL script.
+--
+-- What the Rust function does (see src/migrations.rs for the authoritative
+-- implementation):
+--
+--   For every event row where:
+--     tool_calls IS NULL OR tool_calls = '[]'
+--     AND (idea_ids != '[]' OR (query_template IS NOT NULL AND query_template != ''))
+--
+--   Build tool_calls JSON as follows:
+--     1. If idea_ids is a non-empty JSON array:
+--        - Look up the `name` column for each idea UUID in the `ideas` table.
+--        - Append: { "tool": "ideas.assemble", "args": { "names": [<names>] } }
+--          If a UUID has no matching idea row, fall back to using the UUID as the name.
+--     2. If query_template is non-empty:
+--        - Append: { "tool": "ideas.search", "args": {
+--              "query": <query_template value>,
+--              "top_k": <query_top_k or 5>,
+--              "tags": <query_tag_filter array or []>
+--          } }
+--
+--   Write the resulting JSON array to `tool_calls`. Log a summary:
+--     "migration 0001: converted N event rows (legacy→tool_calls)"
+--
+-- Idempotency: rows that already have a non-empty tool_calls value are
+-- never touched, so re-running is safe.
+--
+-- This stub file serves as the migration registry marker. The migration runner
+-- records it as "applied" after the Rust function returns successfully.
+
+-- (intentionally empty — see comment above)
