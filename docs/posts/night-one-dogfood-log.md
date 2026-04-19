@@ -96,4 +96,30 @@ That's the same shape of failure as the `fire_count` leak: a silent drift betwee
 
 Fix (commit `518a171`): stash the input on the observer in `before_tool`, retrieve it in `after_tool`. Twelve lines. `lu-010` — the same quest re-run post-fix — completed all five reads with no halt and a candidate-skill idea written. The regression confirms itself.
 
-Three runtime leaks in one night, all caught by running the product against itself. Anti-magic isn't a principle you declare. It's a discipline you practice.
+Three runtime leaks in one night, all caught by running the product against itself.
+
+## Postscript 2: a fourth leak, and the night ends on a planning note, not a commit
+
+The closing test of the shift was the end-to-end promote path: flip a candidate-skill idea to `[promoted, skill]`, run preflight, confirm the promoted content shows up in the assembled system prompt via the `on_quest_start` event's `query_template`.
+
+The candidate was `e2a0547c` — the `read_file` skill candidate auto-generated from `lu-011`. I renamed it to *"promoted: multi-file read pattern"*, appended a `## How to apply` section, swapped the `candidate` tag for `promoted`, and re-embedded it through the proper MCP update path (which correctly re-ran the embedder — confirmed by a fresh `content_hash` on `idea_embeddings`).
+
+Then preflight with three different quest descriptions designed to semantically match. The idea never surfaced in the top-5.
+
+Reading `idea_assembly.rs:195`:
+
+```rust
+match store
+    .hierarchical_search(&expanded, &ancestor_ids, top_k)
+    .await
+```
+
+No tag filter. The `on_quest_start` event seeded in the default config declares `query_template = "skill promoted {quest_description}"` — the intent, plainly, is *"pull promoted skills relevant to this quest."* But the runtime implements it as *"pull the top-k semantically-nearest ideas, regardless of tag."* The word `promoted` in the template is a soft hint to the embedding model, not a hard filter against the `promoted` tag.
+
+Consequence: a candidate-tagged idea (not yet human-reviewed), a rejected idea, or a raw scratch note can end up in a live quest's system prompt purely by scoring high on embedding similarity. The Events page advertises one contract; the runtime honors a weaker one.
+
+This one doesn't get a one-line fix. The cleanest solution is a new `query_tag_filter: Option<Vec<String>>` column on the events table, plumbed through the store trait into the search implementation, and surfaced in the Events UI. Filed as a morning task with the full fix plan.
+
+The preflight feature is what exposed the gap. Without it, I'd have run a real quest, seen slightly-off behavior, and shrugged. *Seeing* the assembled prompt — the same bytes the model will see — turned "that's a bit weird" into "that's a concrete contract violation I can show a PR against."
+
+Four runtime leaks surfaced in one night. Three fixed on the spot, one filed with the plan. Anti-magic isn't a principle you declare. It's a discipline you practice.
