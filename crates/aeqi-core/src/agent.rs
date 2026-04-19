@@ -738,8 +738,6 @@ impl Agent {
             content: MessageContent::text(prompt),
         });
 
-        self.inject_initial_ideas(&mut messages, prompt).await;
-
         let tool_specs: Vec<ToolSpec> = self.tools.iter().map(|t| t.spec()).collect();
 
         let mut tracker = ContextTracker::default();
@@ -1941,52 +1939,6 @@ impl Agent {
             }
         }
         parts.join("\n\n---\n\n")
-    }
-
-    // -----------------------------------------------------------------------
-    // Ideas
-    // -----------------------------------------------------------------------
-
-    async fn inject_initial_ideas(&self, messages: &mut [Message], prompt: &str) {
-        let Some(ref mem) = self.idea_store else {
-            return;
-        };
-
-        // Search for relevant ideas using the user's prompt as query.
-        // Limit to 10 results — the hybrid search already ranks by relevance.
-        let all_entries = mem
-            .hierarchical_search(prompt, &self.config.ancestor_ids, 10)
-            .await
-            .unwrap_or_default();
-
-        if all_entries.is_empty() {
-            return;
-        }
-
-        // Group by tag for clearer context injection.
-        let mut by_cat: std::collections::BTreeMap<&str, Vec<&crate::traits::Idea>> =
-            std::collections::BTreeMap::new();
-        for entry in &all_entries {
-            let tag = entry.tags.first().map(|s| s.as_str()).unwrap_or("untagged");
-            by_cat.entry(tag).or_default().push(entry);
-        }
-
-        let mut ctx = String::new();
-        for (cat, entries) in &by_cat {
-            ctx.push_str(&format!("## {cat}\n"));
-            for e in entries {
-                ctx.push_str(&format!("- **{}**: {}\n", e.name, e.content));
-            }
-            ctx.push('\n');
-        }
-
-        if let Some(msg) = messages.first_mut()
-            && let MessageContent::Text(t) = &mut msg.content
-        {
-            *t = format!("{t}\n\n# Recalled Knowledge\n{ctx}");
-        }
-
-        debug!(agent = %self.config.name, count = all_entries.len(), "idea context injected");
     }
 
     // -----------------------------------------------------------------------
