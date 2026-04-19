@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
 import Wordmark from "@/components/Wordmark";
 import RoundAvatar from "@/components/RoundAvatar";
+import RootAgentPicker from "./RootAgentPicker";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { IconButton } from "@/components/ui";
@@ -143,6 +144,8 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           </svg>
         </IconButton>
       </div>
+
+      <RootAgentPicker rootId={rootId} collapsed={sidebarCollapsed} />
 
       <nav className="sidebar-nav">
         <a
