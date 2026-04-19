@@ -461,6 +461,26 @@
   overflow: hidden;
   border-top: 1px solid var(--border);
 }
+
+/* ── Sidebar footer — identity anchor ──
+   Pinned at the bottom of the rail. Profile link lives here (Linear /
+   Slack / Vercel pattern): the avatar + name sits below the agent tree
+   so identity doesn't compete with primary navigation. */
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+.left-sidebar.collapsed .sidebar-footer {
+  padding: 8px 0;
+  display: flex;
+  justify-content: center;
+}
+.left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+
 /* ── Content column (holds content card + persistent composer) ── */
 .content-column {
   flex: 1;

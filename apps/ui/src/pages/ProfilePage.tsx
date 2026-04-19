@@ -255,7 +255,7 @@ export default function ProfilePage() {
   };
 
   const provider = (user?.provider as string) || "local";
-  const displayName = `${firstName} ${lastName}`.trim() || "Your profile";
+  const displayName = `${firstName} ${lastName}`.trim() || "Profile";
   const email = (user?.email as string) || "";
 
   return (

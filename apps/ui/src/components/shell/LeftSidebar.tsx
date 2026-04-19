@@ -146,19 +146,6 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       </div>
 
       <nav className="sidebar-nav">
-        <a
-          className={`sidebar-nav-item ${isActive("profile") ? "active" : ""}`}
-          href={hrefFor("profile")}
-          onClick={(e) => {
-            e.preventDefault();
-            goTo("profile");
-          }}
-        >
-          <span className="sidebar-nav-avatar">
-            <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
-          </span>
-          <span className="sidebar-nav-label">{userName}</span>
-        </a>
         {navLink(
           "",
           "Home",
@@ -331,6 +318,22 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         <div className="sidebar-tree-slot">
           <AgentTree />
         </div>
+      </div>
+
+      <div className="sidebar-footer">
+        <a
+          className={`sidebar-nav-item ${isActive("profile") ? "active" : ""}`}
+          href={hrefFor("profile")}
+          onClick={(e) => {
+            e.preventDefault();
+            goTo("profile");
+          }}
+        >
+          <span className="sidebar-nav-avatar">
+            <RoundAvatar name={userName} size={24} src={user?.avatar_url} />
+          </span>
+          <span className="sidebar-nav-label">{userName}</span>
+        </a>
       </div>
     </div>
   );
