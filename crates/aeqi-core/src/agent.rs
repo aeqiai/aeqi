@@ -1517,6 +1517,12 @@ impl Agent {
                             );
                             replacement_state.mark_persisted(&r.id, &persisted_msg);
                             r.output = persisted_msg;
+                            self.emit(crate::chat_stream::ChatStreamEvent::ToolSummarized {
+                                tool_use_id: r.id.clone(),
+                                tool_name: r.name.clone(),
+                                original_bytes: original_len as u64,
+                                summary: r.output.chars().take(200).collect(),
+                            });
                             continue;
                         }
                         Err(e) => {
