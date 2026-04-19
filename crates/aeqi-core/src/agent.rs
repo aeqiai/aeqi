@@ -1578,6 +1578,12 @@ impl Agent {
                              ({iterations}/{} steps). Wrap up current work and commit results NOW.",
                             self.config.max_iterations
                         ));
+                        self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                            message: format!(
+                                "budget pressure: injected 90% warning into last tool result ({iterations}/{} steps)",
+                                self.config.max_iterations
+                            ),
+                        });
                     }
                 } else if budget_pct >= 70
                     && let Some(last) = processed.last_mut()
@@ -1587,6 +1593,12 @@ impl Agent {
                          ({iterations}/{} steps). Plan remaining work efficiently.",
                         self.config.max_iterations
                     ));
+                    self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                        message: format!(
+                            "budget pressure: injected 70% note into last tool result ({iterations}/{} steps)",
+                            self.config.max_iterations
+                        ),
+                    });
                 }
             }
 
@@ -1634,9 +1646,18 @@ impl Agent {
             let total_output_chars: usize = processed.iter().map(|r| r.output.len()).sum();
             if total_output_chars > 5000 {
                 let summary = Self::build_tool_batch_summary(&processed);
+                let summary_chars = summary.chars().count();
                 messages.push(Message {
                     role: Role::System,
                     content: MessageContent::text(summary),
+                });
+                self.emit(crate::chat_stream::ChatStreamEvent::Status {
+                    message: format!(
+                        "tool batch digest: injected summary of {} tool result(s) ({} chars → {} char digest)",
+                        processed.len(),
+                        total_output_chars,
+                        summary_chars
+                    ),
                 });
             }
 
