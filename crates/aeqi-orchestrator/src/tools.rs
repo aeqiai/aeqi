@@ -698,6 +698,9 @@ pub struct QuestsTool {
     activity_log: Arc<ActivityLog>,
     /// Session ID of the calling agent, propagated as creator_session_id.
     session_id: Option<String>,
+    /// Stores needed to fire `on_quest_end` events on close.
+    idea_store: Option<Arc<dyn IdeaStore>>,
+    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
 }
 
 impl QuestsTool {
@@ -711,6 +714,8 @@ impl QuestsTool {
             agent_name,
             activity_log,
             session_id: None,
+            idea_store: None,
+            event_handler_store: None,
         }
     }
 
@@ -718,6 +723,17 @@ impl QuestsTool {
     /// creator_session_id in quest_created events.
     pub fn with_session_id(mut self, id: Option<String>) -> Self {
         self.session_id = id;
+        self
+    }
+
+    /// Supply stores used by `action_close` to assemble `on_quest_end` ideas.
+    pub fn with_event_assembly(
+        mut self,
+        idea_store: Option<Arc<dyn IdeaStore>>,
+        event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
+    ) -> Self {
+        self.idea_store = idea_store;
+        self.event_handler_store = Some(event_handler_store);
         self
     }
 
@@ -986,12 +1002,60 @@ impl QuestsTool {
             })
             .await
         {
-            Ok(_) => Ok(ToolResult::success(format!(
-                "Quest {quest_id} closed as done."
-            ))),
+            Ok(_) => {
+                let base = format!("Quest {quest_id} closed as done.");
+                let message = self
+                    .assemble_quest_end(quest_id, &result_owned, &base)
+                    .await;
+                Ok(ToolResult::success(message))
+            }
             Err(e) => Ok(ToolResult::error(format!(
                 "Failed to close quest {quest_id}: {e}"
             ))),
+        }
+    }
+
+    /// Fire `session:quest_end` events in the worker's agent ancestry and
+    /// prepend any assembled idea content to the close-tool result, so a
+    /// user-configured postmortem/reflection template actually reaches the
+    /// model at quest close (the natural injection point).
+    async fn assemble_quest_end(&self, quest_id: &str, result: &str, base: &str) -> String {
+        let (Some(event_store), Some(agent)) = (
+            self.event_handler_store.as_ref(),
+            self.agent_registry
+                .resolve_by_hint(&self.agent_name)
+                .await
+                .ok()
+                .flatten(),
+        ) else {
+            return base.to_string();
+        };
+
+        let context = crate::idea_assembly::AssemblyContext {
+            quest_description: Some(format!("Quest {quest_id} closed: {result}")),
+            ..Default::default()
+        };
+        let assembled = crate::idea_assembly::assemble_ideas_for_pattern(
+            &self.agent_registry,
+            self.idea_store.as_ref(),
+            event_store.as_ref(),
+            &agent.id,
+            &[],
+            "session:quest_end",
+            &context,
+        )
+        .await;
+
+        for event_id in &assembled.fired_event_ids {
+            if let Err(e) = event_store.record_fire(event_id, 0.0).await {
+                tracing::warn!(event = %event_id, error = %e, "failed to record on_quest_end fire");
+            }
+        }
+
+        if assembled.system.trim().is_empty() {
+            base.to_string()
+        } else {
+            format!("{}\n\n---\n\n{}", assembled.system, base)
         }
     }
 
@@ -1755,7 +1819,8 @@ pub fn build_orchestration_tools(
         agent_registry.clone(),
         agent_name.clone(),
         activity_log.clone(),
-    );
+    )
+    .with_event_assembly(idea_store.clone(), event_handler_store.clone());
 
     // 3. Events tool (create/list/enable/disable/delete)
     let events_tool = EventsTool::new(event_handler_store, agent_name);

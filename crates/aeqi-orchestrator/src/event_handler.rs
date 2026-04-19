@@ -473,6 +473,10 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             Some(&["promoted"]),
         ),
         (
+            // Fires when the worker calls `quests(action=close)` — the assembled
+            // content is prepended to the close tool's success message so a
+            // user-configured postmortem/reflection template actually reaches
+            // the model at the natural quest-closing moment.
             "on_quest_end",
             "session:quest_end",
             "session:quest-end",
