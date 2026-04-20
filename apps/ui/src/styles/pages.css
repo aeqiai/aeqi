@@ -108,7 +108,7 @@
 }
 .auth-input.has-error {
   border-color: var(--error);
-  background: rgba(239, 68, 68, 0.02);
+  background: var(--color-error-bg);
 }
 .auth-input.has-error:focus {
   border-color: var(--error);
@@ -150,8 +150,8 @@
   font-size: var(--font-size-xs);
   color: var(--error);
   padding: var(--space-2) var(--space-3);
-  background: rgba(239, 68, 68, 0.04);
-  border: 1px solid rgba(239, 68, 68, 0.1);
+  background: var(--color-error-bg);
+  border: 1px solid rgba(184, 92, 92, 0.18);
   border-radius: var(--radius-md);
   line-height: 1.4;
 }
@@ -642,8 +642,8 @@
 }
 
 .account-connected-active {
-  background: rgba(34, 197, 94, 0.04);
-  border-color: rgba(34, 197, 94, 0.15);
+  background: var(--color-success-bg);
+  border-color: rgba(46, 143, 113, 0.2);
 }
 
 .account-connect-btn {
@@ -807,13 +807,13 @@
 .account-backup-codes {
   margin-top: var(--space-3);
   padding: var(--space-3);
-  background: rgba(234, 179, 8, 0.08);
-  border: 1px solid rgba(234, 179, 8, 0.2);
+  background: var(--color-warning-bg);
+  border: 1px solid rgba(185, 138, 71, 0.22);
   border-radius: var(--radius-md);
 }
 
 .account-backup-codes-label {
-  color: rgb(161, 98, 7);
+  color: var(--color-warning);
 }
 
 .account-backup-codes-grid {
@@ -834,18 +834,18 @@
 .account-danger-zone {
   margin-top: var(--space-8);
   padding: var(--space-4);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(184, 92, 92, 0.22);
   border-radius: var(--radius-md);
-  background: rgba(220, 38, 38, 0.03);
+  background: var(--color-error-bg);
 }
 
 .account-danger-label {
-  color: rgb(220, 38, 38);
+  color: var(--color-error);
 }
 
 .account-danger-btn {
-  color: rgb(220, 38, 38);
-  border-color: rgba(220, 38, 38, 0.3);
+  color: var(--color-error);
+  border-color: rgba(184, 92, 92, 0.3);
   margin-top: var(--space-2);
   font-size: var(--font-size-sm);
 }

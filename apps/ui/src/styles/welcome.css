@@ -344,7 +344,7 @@
 }
 .new-co-submit:hover {
   background: var(--btn-primary-bg-hover);
-  box-shadow: 0 4px 12px rgba(217, 58, 15, 0.25);
+  box-shadow: 0 4px 12px var(--color-accent-glow);
 }
 .new-co-submit:disabled {
   opacity: 0.35;

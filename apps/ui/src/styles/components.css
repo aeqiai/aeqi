@@ -93,7 +93,7 @@
 
 .status-badge-in_progress {
   color: var(--info);
-  background: rgba(59, 130, 246, 0.06);
+  background: var(--color-info-bg);
   border-color: var(--info);
 }
 .status-badge-in_progress .status-dot {
@@ -102,7 +102,7 @@
 
 .status-badge-done {
   color: var(--success);
-  background: rgba(34, 197, 94, 0.06);
+  background: var(--color-success-bg);
   border-color: var(--success);
 }
 .status-badge-done .status-dot {
@@ -111,7 +111,7 @@
 
 .status-badge-blocked {
   color: var(--warning);
-  background: rgba(245, 158, 11, 0.06);
+  background: var(--color-warning-bg);
   border-color: var(--warning);
 }
 .status-badge-blocked .status-dot {
@@ -120,7 +120,7 @@
 
 .status-badge-failed {
   color: var(--error);
-  background: rgba(239, 68, 68, 0.06);
+  background: var(--color-error-bg);
   border-color: var(--error);
 }
 .status-badge-failed .status-dot {
