@@ -292,6 +292,9 @@ export const api = {
   // Skills (ideas tagged with "skill")
   getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
+  // Identity templates (ideas tagged with "identity") — drives the CreateAgent picker.
+  getIdentityTemplates: () => request<Record<string, unknown>>("/ideas/search?tags=identity"),
+
   // Agent Channels — typed connector config, first-class rows in the
   // `channels` table. `config` is a tagged enum validated server-side.
   getAgentChannels: (agentId: string) =>

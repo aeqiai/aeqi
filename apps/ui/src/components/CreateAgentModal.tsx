@@ -5,10 +5,15 @@ import { useUIStore } from "@/store/ui";
 import { Button, Input, Textarea } from "@/components/ui";
 import "@/styles/modals.css";
 
-interface Skill {
-  name: string;
+interface Idea {
+  name?: string;
   tags?: string[];
 }
+
+// Always-on canonical templates. Fresh installs have nothing tagged "identity"
+// in the idea store, so without these the picker would collapse to a lonely
+// text input. DB-seeded identities merge on top.
+const DEFAULT_TEMPLATES = ["leader", "researcher", "reviewer"];
 
 interface Props {
   open: boolean;
@@ -59,26 +64,26 @@ export default function CreateAgentModal({ open, onClose, defaultParentId }: Pro
   const surfaceRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  // Fetch identity templates from skills
+  // Fetch identity templates and merge with canonical defaults so the picker
+  // always has something to click. Fallback to a manual text input only if
+  // the endpoint itself fails.
   useEffect(() => {
     if (!open) return;
     setLoadingTemplates(true);
     api
-      .getSkills()
+      .getIdentityTemplates()
       .then((data) => {
-        const skills: Skill[] = (data?.skills || data || []) as Skill[];
-        const identity = skills.filter((s) => Array.isArray(s.tags) && s.tags.includes("identity"));
-        if (identity.length > 0) {
-          setTemplates(identity.map((s) => s.name));
-          setUseFallback(false);
-        } else {
-          setTemplates([]);
-          setUseFallback(true);
-        }
+        const ideas = (data?.ideas || []) as Idea[];
+        const seeded = ideas
+          .map((i) => i.name)
+          .filter((n): n is string => typeof n === "string" && n.length > 0);
+        const merged = Array.from(new Set([...DEFAULT_TEMPLATES, ...seeded]));
+        setTemplates(merged);
+        setUseFallback(false);
       })
       .catch(() => {
-        setTemplates([]);
-        setUseFallback(true);
+        setTemplates(DEFAULT_TEMPLATES);
+        setUseFallback(false);
       })
       .finally(() => setLoadingTemplates(false));
   }, [open]);
