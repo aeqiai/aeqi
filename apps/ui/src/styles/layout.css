@@ -221,9 +221,14 @@
   font-weight: 500;
 }
 .sidebar-nav-item > svg {
-  width: 22px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  text-align: center;
+  color: var(--text-muted);
+}
+.sidebar-nav-item:hover > svg,
+.sidebar-nav-item.active > svg {
+  color: var(--text-primary);
 }
 .sidebar-nav-label {
   flex: 1;

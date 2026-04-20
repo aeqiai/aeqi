@@ -18,118 +18,79 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
+/*
+ * Icon family — Lucide register. 16×16 viewBox, stroke 1.5, rounded
+ * caps + joins, no fills. Recognizable standard glyphs; the sidebar
+ * reads as one cohesive set. No bespoke monoline experiments.
+ */
+const iconProps = {
+  viewBox: "0 0 16 16",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
 const ICON_HOME = (
-  <svg
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1"
-    strokeLinecap="square"
-    strokeLinejoin="miter"
-  >
-    <path d="M3 13V8l5-5 5 5v5z" />
+  <svg {...iconProps}>
+    <path d="M2.5 6.5L8 2l5.5 4.5V13a.5.5 0 0 1-.5.5h-3V10h-4v3.5h-3a.5.5 0 0 1-.5-.5V6.5z" />
   </svg>
 );
 const ICON_SESSIONS = (
-  <svg
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1"
-    strokeLinecap="square"
-    strokeLinejoin="miter"
-  >
-    <rect x="2" y="3" width="10" height="4" />
-    <rect x="4" y="9" width="10" height="4" />
+  <svg {...iconProps}>
+    <path d="M13.5 8a5.5 5.5 0 0 1-7.9 4.95L2.5 13.5l.55-3.1A5.5 5.5 0 1 1 13.5 8z" />
   </svg>
 );
 const ICON_AGENTS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="7" cy="3.5" r="1.5" />
-    <circle cx="3" cy="10" r="1.3" />
-    <circle cx="11" cy="10" r="1.3" />
-    <path d="M7 5v3M7 8L3.3 9.3M7 8l3.7 1.3" />
+  <svg {...iconProps}>
+    <circle cx="6" cy="5.5" r="2.25" />
+    <path d="M1.75 13c0-2.25 2-3.75 4.25-3.75S10.25 10.75 10.25 13" />
+    <circle cx="11.25" cy="4.75" r="1.5" />
+    <path d="M14.25 11.5c0-1.5-1.35-2.5-3-2.5" />
   </svg>
 );
 const ICON_EVENTS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 5.5a4 4 0 018 0V8l1 1.5H2L3 8V5.5z" />
-    <path d="M6 11.5a1 1 0 002 0" />
+  <svg {...iconProps}>
+    <path d="M1.5 8h2.5l1.5-4.5L9 12.5l1.5-4.5h4" />
   </svg>
 );
 const ICON_QUESTS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3.5 2v10M3.5 2.5h7L9 5l1.5 2.5H3.5" />
+  <svg {...iconProps}>
+    <path d="M6 3.5h7.5" />
+    <path d="M6 8h7.5" />
+    <path d="M6 12.5h7.5" />
+    <path d="M2 3.5l1 1 1.5-1.75" />
+    <path d="M2 8l1 1 1.5-1.75" />
+    <path d="M2 12.5l1 1 1.5-1.75" />
   </svg>
 );
 const ICON_IDEAS = (
-  <svg
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1"
-    strokeLinecap="square"
-    strokeLinejoin="miter"
-  >
-    <path d="M8 2l6 6-6 6-6-6z" />
+  <svg {...iconProps}>
+    <path d="M5.5 10.75a4 4 0 1 1 5 0V12h-5v-1.25z" />
+    <path d="M6.5 14h3" />
   </svg>
 );
 const ICON_CHANNELS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 5h9M3 9h9M6 2L5 12M9 2L8 12" />
+  <svg {...iconProps}>
+    <path d="M5.5 2.5L4 13.5" />
+    <path d="M12 2.5L10.5 13.5" />
+    <path d="M2 6h12" />
+    <path d="M2 10h12" />
   </svg>
 );
 const ICON_DRIVE = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M2 4.5a1 1 0 011-1h3l1 1.5h4a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-6.5z" />
+  <svg {...iconProps}>
+    <rect x="2" y="4" width="12" height="8" rx="1" />
+    <path d="M2 8h12" />
+    <circle cx="4.5" cy="10" r="0.4" fill="currentColor" stroke="none" />
+    <circle cx="6.5" cy="10" r="0.4" fill="currentColor" stroke="none" />
   </svg>
 );
 const ICON_SETTINGS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="7" cy="7" r="2.2" />
-    <path d="M7 1.8v1.6M7 10.6v1.6M12.2 7h-1.6M3.4 7H1.8M10.7 3.3l-1.1 1.1M4.4 9.6l-1.1 1.1M10.7 10.7L9.6 9.6M4.4 4.4L3.3 3.3" />
+  <svg {...iconProps}>
+    <circle cx="8" cy="8" r="2" />
+    <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
   </svg>
 );
 
@@ -143,17 +104,8 @@ const PRIMITIVES: NavItem[] = [
 ];
 
 const ICON_TOOLS = (
-  <svg
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M2.5 9.5L6 6l3 3 2.5-2.5M6 6l-1.5-1.5M9 9l1.5 1.5" />
-    <circle cx="11.5" cy="3" r="1.2" />
-    <circle cx="2.5" cy="11.5" r="1.2" />
+  <svg {...iconProps}>
+    <path d="M13 3.5a2.75 2.75 0 0 1-3.6 3.6l-5.8 5.8a1.25 1.25 0 0 1-1.75-1.75l5.8-5.8A2.75 2.75 0 0 1 11.25 1.75l-1.9 1.9 1.25 1.25L12.5 3z" />
   </svg>
 );
 
@@ -229,21 +181,9 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="1" y="2" width="14" height="12" rx="2" />
-            <path d="M6 2v12" />
-            {sidebarCollapsed ? (
-              <path d="M9.5 6.5L11.5 8L9.5 9.5" />
-            ) : (
-              <path d="M11.5 6.5L9.5 8L11.5 9.5" />
-            )}
+          <svg {...iconProps}>
+            <rect x="2" y="3" width="12" height="10" rx="1.5" />
+            <path d="M6.5 3v10" />
           </svg>
         </IconButton>
       </div>
