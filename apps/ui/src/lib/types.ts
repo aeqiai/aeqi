@@ -240,3 +240,45 @@ export interface WorkerEvent {
   reason?: string;
   [key: string]: unknown;
 }
+
+// Company templates — a pre-threaded bundle of seed agents / events / ideas /
+// quests that spawns a ready-to-go root agent. The shape mirrors Stream C's
+// `/api/templates` contract; optional fields stay loose so a sparse template
+// (no seed quests, no seed events) still renders cleanly.
+export interface TemplateSeedAgent {
+  name: string;
+  display_name?: string;
+  tagline?: string;
+  role?: string;
+  identity?: string;
+}
+
+export interface TemplateSeedEvent {
+  pattern: string;
+  name?: string;
+  description?: string;
+}
+
+export interface TemplateSeedIdea {
+  name: string;
+  tags?: string[];
+  summary?: string;
+}
+
+export interface TemplateSeedQuest {
+  subject: string;
+  description?: string;
+  priority?: string;
+}
+
+export interface CompanyTemplate {
+  slug: string;
+  name: string;
+  tagline?: string;
+  description?: string;
+  tags?: string[];
+  seed_agents?: TemplateSeedAgent[];
+  seed_events?: TemplateSeedEvent[];
+  seed_ideas?: TemplateSeedIdea[];
+  seed_quests?: TemplateSeedQuest[];
+}

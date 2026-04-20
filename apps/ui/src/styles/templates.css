@@ -1,0 +1,545 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  Templates — /templates route
+ *
+ *  A catalog of pre-threaded companies. The page is the front door of
+ *  AEQI: goal → company → evolving runtime. The hero reads like a
+ *  bookshelf label, the grid like a store of ready-made ops.
+ *
+ *  Palette: dashboard light (paper + white cards + ink). One
+ *  typographic gesture per section (display serif on the eyebrow,
+ *  sans on the body). Jade is reserved for the primary CTA only.
+ *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.tpl-page {
+  width: 100%;
+  min-height: 100%;
+  padding: 56px 32px 96px;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-canvas);
+}
+
+.tpl-inner {
+  width: 100%;
+  max-width: 960px;
+  animation: tpl-fade-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes tpl-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Header ──────────────────────────────────────── */
+
+.tpl-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 28px;
+  transition: color 0.12s;
+}
+.tpl-back:hover {
+  color: var(--text-secondary);
+}
+
+.tpl-hero {
+  margin-bottom: 36px;
+}
+.tpl-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.tpl-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+  line-height: 1.15;
+}
+.tpl-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 560px;
+  line-height: 1.5;
+}
+
+/* ── Grid ────────────────────────────────────────── */
+
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.tpl-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  min-height: 180px;
+}
+.tpl-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.tpl-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring-muted);
+}
+
+.tpl-card-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  margin: 0;
+}
+.tpl-card-tagline {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+.tpl-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Count pills along the bottom of the card */
+.tpl-card-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tpl-card-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
+  color: var(--text-muted);
+}
+.tpl-card-count-n {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Deep-link highlight — the card that matches ?start= gets a jade edge */
+.tpl-card.is-highlighted {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+/* ── Detail view ─────────────────────────────────── */
+
+.tpl-detail-hero {
+  margin-bottom: 32px;
+}
+.tpl-detail-name {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 0 0 10px;
+  line-height: 1.05;
+}
+.tpl-detail-tagline {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+.tpl-detail-desc {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin: 0 0 24px;
+  line-height: 1.6;
+  max-width: 640px;
+}
+
+.tpl-detail-cta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.tpl-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tpl-cta-primary:hover {
+  background: var(--btn-primary-bg-hover);
+  box-shadow: 0 4px 12px var(--color-accent-glow);
+}
+.tpl-cta-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.tpl-cta-secondary {
+  font-size: 13px;
+  padding: 8px 14px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tpl-cta-secondary:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+/* ── Seed sections — four-primitive ledger ─────── */
+
+.tpl-seed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.tpl-seed-section {
+  padding: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tpl-seed-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.tpl-seed-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.tpl-seed-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tpl-seed-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tpl-seed-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.tpl-seed-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.tpl-seed-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.tpl-seed-item-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.tpl-seed-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── States ─────────────────────────────────────── */
+
+.tpl-status {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 40px 0;
+  text-align: center;
+}
+.tpl-error {
+  font-size: 12px;
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  margin-bottom: 16px;
+}
+
+/* ── Spawn modal — confirm name + start ─────────── */
+
+.tpl-modal-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.tpl-modal-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.tpl-modal-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+.tpl-modal-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.tpl-modal-field {
+  margin-bottom: 20px;
+}
+.tpl-modal-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.tpl-modal-input {
+  width: 100%;
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: border-color 0.12s;
+}
+.tpl-modal-input:focus {
+  outline: none;
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
+}
+.tpl-modal-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.tpl-modal-summary {
+  padding: 12px 14px;
+  background: var(--bg-row);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+.tpl-modal-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tpl-modal-summary-row + .tpl-modal-summary-row {
+  margin-top: 3px;
+}
+.tpl-modal-summary-v {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.tpl-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* ── /new page — template CTA ───────────────────── */
+
+.tpl-promo-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  margin-bottom: 14px;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.tpl-promo-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 14px var(--color-accent-glow);
+}
+.tpl-promo-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+.tpl-promo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tpl-promo-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.tpl-promo-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+.tpl-promo-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition:
+    transform 0.15s,
+    color 0.15s;
+}
+.tpl-promo-card:hover .tpl-promo-arrow {
+  color: var(--color-accent);
+  transform: translateX(2px);
+}
+
+.tpl-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.tpl-divider::before,
+.tpl-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-faint);
+}
+.tpl-divider-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+/* ── Responsive ─────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .tpl-page {
+    padding: 32px 18px 64px;
+  }
+  .tpl-title {
+    font-size: 26px;
+  }
+  .tpl-detail-name {
+    font-size: 30px;
+  }
+  .tpl-grid {
+    grid-template-columns: 1fr;
+  }
+}

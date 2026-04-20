@@ -1,6 +1,6 @@
 import { clearSessionData } from "@/lib/session";
 import { getScopedRoot, type AppMode } from "@/lib/appMode";
-import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
+import type { CompanyTemplate, EventInvocationRow, InvocationStepRow } from "@/lib/types";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -292,8 +292,10 @@ export const api = {
   // Skills (ideas tagged with "skill")
   getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
-  // Identity templates (ideas tagged with "identity") — drives the CreateAgent picker.
-  getIdentityTemplates: () => request<Record<string, unknown>>("/ideas/search?tags=identity"),
+  // Identity templates (ideas tagged with "identity") — powers the
+  // CreateAgentModal picker. Returns { ideas: [...] }.
+  getIdentityTemplates: () =>
+    request<{ ideas: Array<{ name?: string; tags?: string[] }> }>("/ideas/search?tags=identity"),
 
   // Agent Channels — typed connector config, first-class rows in the
   // `channels` table. `config` is a tagged enum validated server-side.
@@ -496,6 +498,17 @@ export const api = {
     request<Record<string, unknown>>("/sessions", {
       method: "POST",
       body: JSON.stringify({ agent_id: agentId }),
+    }),
+
+  // Company templates — pre-threaded bundles. Catalog comes from Stream C's
+  // `/api/templates`; spawn creates a root agent + seeds agents/events/ideas/
+  // quests atomically and returns the new root_agent_id.
+  getTemplates: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/templates"),
+
+  spawnTemplate: (data: { template: string; display_name?: string }) =>
+    request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   // Spawn Agent
