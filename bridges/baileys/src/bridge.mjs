@@ -43,6 +43,19 @@ let sock = null;
 let sessionDir = null;
 let reconnectTimer = null;
 
+// Message ids we just sent, so `messages.upsert` can distinguish our own
+// echoes (drop) from the user typing on the same phone / self-chat (forward).
+// Ordered Set; cap at 512, drop oldest on overflow.
+const sentMessageIds = new Set();
+function rememberSent(id) {
+  if (!id) return;
+  sentMessageIds.add(id);
+  if (sentMessageIds.size > 512) {
+    const oldest = sentMessageIds.values().next().value;
+    sentMessageIds.delete(oldest);
+  }
+}
+
 function send(obj) {
   process.stdout.write(JSON.stringify(obj) + "\n");
 }
@@ -125,10 +138,18 @@ async function startSocket(dir) {
       const text = extractText(msg);
       if (text === null) continue;
       const jid = msg.key.remoteJid;
+      const fromMe = !!msg.key.fromMe;
+      // Drop our own replies bouncing back through the event stream.
+      // But keep `fromMe` messages the bridge didn't send — that's the
+      // user typing on the paired phone or texting their own number.
+      if (fromMe && sentMessageIds.has(msg.key.id)) {
+        sentMessageIds.delete(msg.key.id);
+        continue;
+      }
       emit("message_in", {
         id: msg.key.id,
         jid,
-        from_me: !!msg.key.fromMe,
+        from_me: fromMe,
         is_group: jid?.endsWith("@g.us") ?? false,
         participant: msg.key.participant ?? null,
         push_name: msg.pushName ?? null,
@@ -162,6 +183,7 @@ async function handle(method, params) {
       if (!jid || typeof jid !== "string") throw new Error("send_text: jid required");
       if (typeof text !== "string") throw new Error("send_text: text required");
       const res = await sock.sendMessage(jid, { text });
+      rememberSent(res?.key?.id);
       return { id: res?.key?.id ?? null, jid };
     }
 

@@ -275,15 +275,11 @@ async fn handle_bridge_event(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let from_me = ev
-                .data
-                .get("from_me")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if from_me {
-                // Ignore our own outgoing echoes.
-                return Ok(());
-            }
+            // Own-echo filtering lives in the Node bridge now: it tracks
+            // ids it sent via `send_text` and drops just those. A `from_me`
+            // message that survives to Rust is either a legitimate self-chat
+            // (user texting their own number) or the user typing from the
+            // paired phone — both should wake the agent.
 
             if !allowed_jids.is_empty() && !allowed_jids.iter().any(|j| j == jid) {
                 debug!(jid, "dropping message from non-allowed jid");
