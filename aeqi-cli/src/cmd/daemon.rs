@@ -332,10 +332,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.execution_registry = execution_registry.clone();
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
-            if let Some(ref ss) = session_store {
-                daemon.gateway_manager =
-                    Arc::new(GatewayManager::new().with_session_store(ss.clone()));
-            }
+            daemon.gateway_manager = Arc::new(GatewayManager::new());
             daemon.activity_stream = activity_stream;
             daemon.message_router = message_router;
             daemon.default_provider = default_provider;

@@ -7,23 +7,15 @@ use aeqi_core::ChatStreamEvent;
 use aeqi_core::chat_stream::ChatStreamSender;
 use aeqi_core::traits::{CompletedResponse, DeliveryMode, SessionGateway};
 
-use crate::session_store::SessionStore;
-
-/// Manages output gateways for sessions.
-/// Each session can have multiple gateways. The dispatcher fans out
-/// agent responses to all registered gateways. For gateway-originated
-/// sessions (e.g. Telegram), the dispatcher also persists the
-/// assistant response on Complete. For IPC-originated sessions (web UI),
-/// the daemon IPC handler records per-step and calls `ensure_dispatcher`
-/// for gateway fan-out only — that path explicitly skips DB writes to
-/// avoid duplicates.
+/// Manages output gateways for sessions. The dispatcher fans out agent
+/// responses to every registered gateway; persistence is owned elsewhere
+/// (the IPC chat_send handler writes per-iteration rows), so the dispatcher
+/// itself is write-only on the network side.
 pub struct GatewayManager {
     /// Per-session registered gateways.
     registrations: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
     /// Active dispatcher tasks per session.
     dispatchers: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
-    /// Session store for recording messages.
-    session_store: Option<Arc<SessionStore>>,
     /// Persistent gateways: auto-registered when a session starts streaming.
     /// Keyed by session_id. These survive across session restarts.
     persistent: Mutex<HashMap<String, Vec<Arc<dyn SessionGateway>>>>,
@@ -40,14 +32,8 @@ impl GatewayManager {
         Self {
             registrations: Mutex::new(HashMap::new()),
             dispatchers: Mutex::new(HashMap::new()),
-            session_store: None,
             persistent: Mutex::new(HashMap::new()),
         }
-    }
-
-    pub fn with_session_store(mut self, ss: Arc<SessionStore>) -> Self {
-        self.session_store = Some(ss);
-        self
     }
 
     /// Pre-subscribe to a stream sender BEFORE spawning a session.
@@ -142,9 +128,8 @@ impl GatewayManager {
         if !dispatchers.contains_key(session_id) {
             let sid = session_id.to_string();
             let gw_clone = gateways.clone();
-            let ss = self.session_store.clone();
             let handle = tokio::spawn(async move {
-                dispatch_loop(sid, rx, gw_clone, ss).await;
+                dispatch_loop(sid, rx, gw_clone).await;
             });
             dispatchers.insert(session_id.to_string(), handle);
         }
@@ -172,7 +157,7 @@ impl GatewayManager {
         let rx = stream_sender.subscribe();
         let sid = session_id.to_string();
         let handle = tokio::spawn(async move {
-            dispatch_loop(sid, rx, gateways, None).await;
+            dispatch_loop(sid, rx, gateways).await;
         });
         dispatchers.insert(session_id.to_string(), handle);
     }
@@ -198,9 +183,14 @@ async fn dispatch_loop(
     session_id: String,
     mut rx: tokio::sync::broadcast::Receiver<ChatStreamEvent>,
     gateways: Arc<Mutex<Vec<Arc<dyn SessionGateway>>>>,
-    session_store: Option<Arc<SessionStore>>,
 ) {
+    // Batched gateways (Telegram, WhatsApp) ship only the final assistant
+    // message — not the intermediate "let me check X" monologue the model
+    // emits between tool calls. StepComplete marks an iteration boundary;
+    // we drop everything accumulated before it so only the last iteration's
+    // text reaches the channel at Complete.
     let mut accumulated_text = String::new();
+    let mut reset_on_next_delta = false;
 
     loop {
         match rx.recv().await {
@@ -225,7 +215,20 @@ async fn dispatch_loop(
                 // Accumulate for batched gateways
                 match &event {
                     ChatStreamEvent::TextDelta { text } => {
+                        if reset_on_next_delta {
+                            accumulated_text.clear();
+                            reset_on_next_delta = false;
+                        }
                         accumulated_text.push_str(text);
+                    }
+                    ChatStreamEvent::StepComplete { .. } => {
+                        // An iteration just finished. If another TextDelta
+                        // arrives, it's the next iteration speaking and we
+                        // want to keep only its text. If Complete arrives
+                        // first (last iteration, no more tools), the flag
+                        // stays set but never triggers — leaving the final
+                        // iteration's accumulated text intact.
+                        reset_on_next_delta = true;
                     }
                     ChatStreamEvent::Complete {
                         total_prompt_tokens,
@@ -235,20 +238,11 @@ async fn dispatch_loop(
                         ..
                     } => {
                         if !accumulated_text.is_empty() {
-                            // Record the assistant response ONCE before delivering to gateways.
-                            if let Some(ref ss) = session_store {
-                                let _ = ss
-                                    .record_event_by_session(
-                                        &session_id,
-                                        "message",
-                                        "assistant",
-                                        &accumulated_text,
-                                        Some("agent"),
-                                        None,
-                                    )
-                                    .await;
-                            }
-
+                            // Persistence is owned by the IPC chat_send handler
+                            // (daemon.rs) which writes per-iteration rows with
+                            // `source=web`. Recording here too would duplicate
+                            // the final iteration's text under `source=agent`
+                            // and make the UI show it twice.
                             let response = CompletedResponse {
                                 text: accumulated_text.clone(),
                                 iterations: *iterations,
@@ -271,6 +265,7 @@ async fn dispatch_loop(
                             }
                         }
                         accumulated_text.clear();
+                        reset_on_next_delta = false;
                     }
                     _ => {}
                 }
