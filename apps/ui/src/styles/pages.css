@@ -6,13 +6,20 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--bg-base);
+  background: var(--color-paper);
   padding: var(--space-8) var(--space-6);
 }
 
+/* Editorial card: flat white card raised off ivory paper.
+   The auth surface is one focused object on the page. */
 .auth-container {
   width: 100%;
-  max-width: 340px;
+  max-width: 380px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-8);
+  box-shadow: var(--shadow-md);
   animation: auth-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -34,25 +41,27 @@
 }
 
 .auth-logo {
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
   line-height: 1;
   user-select: none;
 }
 
+/* Cinzel masthead — the periodical-style title that anchors the card.
+   Optically larger than body — auth is a moment, not a utility. */
 .auth-heading {
   font-family: var(--font-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: 0.01em;
-  margin: 0 0 var(--space-1);
-  line-height: 1.2;
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--space-2);
+  line-height: 1.15;
 }
 
 .auth-subheading {
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin: 0 0 var(--space-6);
   line-height: 1.5;
 }
@@ -74,9 +83,9 @@
 
 .auth-input {
   width: 100%;
-  padding: 10px var(--space-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  padding: 12px var(--space-3);
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -89,9 +98,9 @@
     background 0.15s;
 }
 .auth-input:focus {
-  background: var(--bg-base);
-  border-color: var(--border-hover);
-  box-shadow: var(--ring-muted);
+  background: var(--color-card);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 .auth-input:focus-visible {
   outline: 2px solid var(--accent);

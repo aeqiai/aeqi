@@ -12,24 +12,23 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Three-tier surface system — all dark mineral, layered by value.
-       canvas  — outside the card (the "desk")        — deep mineral void
+  /* Three-tier surface system — warm ivory layered by value.
+       canvas  — outside the card (the "desk")        — slightly-warm paper
        card    — the main content pane ("index card")  — primary surface
        paper   — the right rail inside the card        — elevated surface
-     Each tier is slightly lighter than the one beneath it so the radiused
-     card lifts off the body and the rail reads as a separate document
-     inside it. In v2 dark mode "paper" is a semantic name for the surface
-     layer, not a literal parchment color. */
-  --color-canvas: #080c0b; /* deepest — the desk */
-  --bg-base: var(--color-paper); /* #111715 — the main surface */
+     Each tier lifts the next — the radiused card floats off the desk and
+     the rail reads as a separate document inside it. In v3 light mode
+     "paper" is both the semantic name and the literal ivory color. */
+  --color-canvas: #f5f0e4; /* warmer than paper — the desk */
+  --bg-base: var(--color-paper); /* #faf6ec — the main surface */
   --bg-surface: var(--color-bg-surface);
-  --bg-elevated: var(--color-card); /* #151d1a — elevated cards, rails */
+  --bg-elevated: var(--color-card); /* #ffffff — elevated cards, rails */
   --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #0b0f0e — outside the card */
+  --bg-canvas: var(--color-bg-base); /* #f5f0e4 — outside the card */
 
   /* Ink surface aliases — the recessed / inset well used by the composer
-     and other sunken surfaces. In v2 dark mode "ink" is not an inverse
-     palette, it's just the deepest surface in the stack. */
+     and other sunken surfaces. In v3 light mode "ink" is a sunken ivory
+     well, one shade darker than paper — not a dark inverse palette. */
   --ink-bg: var(--color-ink);
   --ink-bg-elevated: var(--color-ink-elevated);
   --ink-border: var(--color-ink-border);
@@ -46,12 +45,11 @@
 
   /* ── State layers ─────────────────────────────────────
      Semi-transparent overlays for interactive states.
-     On dark surfaces, state layers are white-at-low-alpha
-     ("one step lighter") — the dark-mode inverse of Material's
-     black-alpha overlays. One token per state, no per-surface
+     On light paper surfaces, state layers are black-at-low-alpha
+     ("one step darker"). One token per state, no per-surface
      variants. Use for hover / selected / pressed — NOT for
      base surface elevations (that's what --bg-* is for). */
-  --state-hover: rgba(255, 255, 255, 0.035);
+  --state-hover: rgba(0, 0, 0, 0.03);
   --state-selected: rgba(63, 174, 140, 0.12);
   --state-pressed: rgba(63, 174, 140, 0.2);
 
@@ -84,13 +82,13 @@
 
   --accent-glow: var(--color-accent-glow);
   --accent-glow-strong: rgba(63, 174, 140, 0.28);
-  --success-glow: rgba(88, 199, 162, 0.14);
+  --success-glow: rgba(46, 143, 113, 0.14);
   --border-accent: rgba(63, 174, 140, 0.35);
   --shadow-glow: 0 0 0 1px rgba(63, 174, 140, 0.2);
   --shadow-glow-strong: 0 0 24px rgba(63, 174, 140, 0.18);
 
   /* Focus rings — 3px halo used by inputs, code digits, etc. */
-  --ring-muted: 0 0 0 3px rgba(255, 255, 255, 0.05);
+  --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.06);
   --ring-danger: 0 0 0 3px rgba(184, 92, 92, 0.2);
 
   /* Sidebar row rhythm — one height for every row in the left rail
@@ -127,11 +125,11 @@
   --font-display: "Cinzel", Georgia, serif;
 
   /* CTA button tokens — jade primary, outlined secondary.
-     Primary jade text sits on jade bg; tuned for the deepest contrast
-     against dark mineral surroundings without punching through. */
+     Primary is white text on jade (inverse of light UI — the jade pill
+     has enough value density for white to hold) tuned against ivory. */
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
-  --btn-primary-text: #0b0f0e;
+  --btn-primary-text: #ffffff;
   --btn-secondary-bg: transparent;
   --btn-secondary-text: var(--text-primary);
   --btn-secondary-border: var(--border);
@@ -160,12 +158,12 @@
   --accent-bar-done: var(--success);
 
   /* Key/ID pill — monospace chip for quest IDs, event types, agent names */
-  --key-pill-bg: rgba(255, 255, 255, 0.04);
-  --key-pill-border: rgba(255, 255, 255, 0.07);
+  --key-pill-bg: rgba(0, 0, 0, 0.04);
+  --key-pill-border: rgba(0, 0, 0, 0.07);
   --key-pill-radius: var(--radius-xs);
 
   /* Section heading rhythm — date groups, group headers */
-  --section-label-color: rgba(231, 241, 237, 0.42);
+  --section-label-color: rgba(0, 0, 0, 0.42);
   --section-label-size: var(--font-size-micro);
 
   /* Stat card accent — top border on settings/quests stats */

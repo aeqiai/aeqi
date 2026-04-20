@@ -1,17 +1,18 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  AEQI Design Language — v2 (Dark Mineral + Jade)
+ *  AEQI Design Language — v3 (Ivory Paper + Jade)
  *  ──────────────────────────────────────────────────
- *  Deep mineral dark with disciplined jade accent.
- *  The interface reads as infrastructure: alive but controlled,
- *  premium without decoration, futuristic without neon.
+ *  Warm ivory paper, flat white card, near-black ink,
+ *  one jade accent. The interface reads as an editorial
+ *  workbench: warm but disciplined, premium without
+ *  decoration, legible before flashy.
  *
- *  Ratio rule — hold these or it goes muddy:
- *    ~75%  dark neutrals (mineral, stone, graphite)
- *    ~20%  soft text / light contrast
- *    ~5%   jade accent (CTAs, active nav, focus, selected, key icons)
+ *  Ratio rule — hold these or it goes generic:
+ *    ~65%  ivory paper + white card surfaces
+ *    ~30%  ink body copy (black at 25–90% alpha)
+ *    ~5%   jade accent (CTAs, active nav, focus, selected, wordmark)
  *
  *  Avoid:
- *    - pure black backgrounds (too harsh, flattens the mineral tone)
+ *    - pure-black ink everywhere (too harsh, kills the warm paper)
  *    - saturated emerald / neon green / bright cyan (gaming aesthetic)
  *    - glossy green gradients everywhere (fake-AI SaaS)
  *    - success = accent everywhere (muddies both)
@@ -22,104 +23,106 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Backgrounds — dark mineral, layered by value not by tint */
-  --color-bg-base: #0b0f0e; /* page background, the void behind everything */
-  --color-bg-surface: #111715; /* main surface — cards, panels, main content */
-  --color-bg-elevated: #151d1a; /* raised — modals, popovers, active cards */
-  --color-bg-overlay: #1a2320; /* highest — tooltips, floating menus */
+  /* Backgrounds — warm ivory paper + flat white card, layered by value
+     not by tint. The "canvas" is the desk behind everything, slightly
+     warmer than paper so the main card floats off it. */
+  --color-bg-base: #f5f0e4; /* page background — warmer than paper */
+  --color-bg-surface: #faf6ec; /* main surface — ivory paper */
+  --color-bg-elevated: #ffffff; /* raised — modals, popovers, cards */
+  --color-bg-overlay: #ffffff; /* highest — tooltips, floating menus */
 
   /* Surfaces — semantic aliases used across landing + dashboard.
-     --color-paper  page base / main content surface
-     --color-card   raised panel / alternating section
-     Both resolve to dark mineral values; "paper" is a semantic name,
-     not a light-mode assumption. */
-  --color-paper: #111715;
-  --color-card: #151d1a;
+     --color-paper  page base / main content surface (warm ivory)
+     --color-card   raised panel / alternating section (flat white)
+     Paper is the quiet warmth; Card is the clean break that alternates. */
+  --color-paper: #faf6ec;
+  --color-card: #ffffff;
 
-  /* Ink — inverse surface (a still-darker well inside the dark UI).
-     Retained for components that need a recessed / inset look — the
-     composer, code blocks, sunken wells. In v2 ink is not an inverse
-     palette; it's simply the deepest surface in the dark stack. */
-  --color-ink: #080c0b;
-  --color-ink-elevated: #0f1412;
-  --color-ink-border: rgba(210, 236, 227, 0.08);
-  --color-ink-border-hover: rgba(210, 236, 227, 0.14);
+  /* Ink — a gently-recessed inset well on paper. Warm off-paper, darker
+     than paper so the composer and code blocks read as sunken. In v3
+     "ink" is a recessed surface, not a dark palette. */
+  --color-ink: #f0eadb; /* inset well — sunken ivory */
+  --color-ink-elevated: #f5f0e4;
+  --color-ink-border: rgba(0, 0, 0, 0.06);
+  --color-ink-border-hover: rgba(0, 0, 0, 0.1);
   --color-ink-border-focus: rgba(63, 174, 140, 0.45);
-  --color-ink-text: #e8f0ec;
-  --color-ink-text-muted: #97aaa3;
-  --color-ink-text-dim: #667770;
+  --color-ink-text: rgba(0, 0, 0, 0.85);
+  --color-ink-text-muted: rgba(0, 0, 0, 0.5);
+  --color-ink-text-dim: rgba(0, 0, 0, 0.3);
 
-  /* Text — light, with warm neutral undertone so it reads against jade
-     without tinting cyan/green */
-  --color-text-primary: #e8f0ec;
-  --color-text-secondary: #97aaa3;
-  --color-text-muted: #667770;
+  /* Text — near-black with slight warmth; reads against paper without
+     looking crushed. 85/50/30 covers body, secondary, and marginalia. */
+  --color-text-primary: rgba(0, 0, 0, 0.85);
+  --color-text-secondary: rgba(0, 0, 0, 0.55);
+  --color-text-muted: rgba(0, 0, 0, 0.35);
 
   /* Accent — jade. The one brand color. Used sparingly for CTAs, active
-     nav, focus rings, selected states, and key icons. Not a surface tint. */
+     nav, focus rings, selected states, and key icons. Not a surface tint.
+     On light surfaces hover is DARKER (pressed feeling) and dim is LIGHTER
+     (marginalia) — inverse of a dark-mode accent scale. */
   --color-accent: #3fae8c; /* primary jade */
-  --color-accent-hover: #55c19f; /* brighter on hover */
+  --color-accent-hover: #2e8f71; /* darker on hover/press */
   --color-accent-pressed: #2e8f71; /* darker on active */
-  --color-accent-dim: #2e8f71; /* muted jade for marginalia */
+  --color-accent-dim: #55c19f; /* lighter jade for marginalia */
   --color-accent-bg: rgba(
     63,
     174,
     140,
-    0.12
+    0.1
   ); /* soft tint for pills/callouts */
-  --color-accent-glow: rgba(63, 174, 140, 0.16); /* focus halo / subtle glow */
+  --color-accent-glow: rgba(63, 174, 140, 0.18); /* focus halo */
 
-  /* Borders — white at low alpha so they work on any dark surface */
-  --color-border-faint: rgba(255, 255, 255, 0.04);
-  --color-border: rgba(255, 255, 255, 0.07);
-  --color-border-hover: rgba(255, 255, 255, 0.12);
+  /* Borders — black at low alpha so they read as hairlines on paper */
+  --color-border-faint: rgba(0, 0, 0, 0.04);
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-hover: rgba(0, 0, 0, 0.14);
 
-  /* Status — semantic. Success is slightly brighter jade than accent so
-     success pills don't muddy with CTAs. Warning is muted amber, not
-     safety-vest orange. Error is restrained oxide red, not fire-engine. */
-  --color-success: #58c7a2;
+  /* Status — semantic. Success is the darker jade so it doesn't wash out
+     on white. Warning is muted amber. Error is restrained oxide red. */
+  --color-success: #2e8f71;
   --color-error: #b85c5c;
   --color-warning: #b98a47;
   --color-info: #6f86a8; /* muted steel blue — secondary accent for data */
 
-  /* Status — backgrounds (10-12% opacity, tuned for dark surfaces) */
-  --color-success-bg: rgba(88, 199, 162, 0.12);
-  --color-error-bg: rgba(184, 92, 92, 0.14);
-  --color-warning-bg: rgba(185, 138, 71, 0.12);
-  --color-info-bg: rgba(111, 134, 168, 0.14);
+  /* Status — backgrounds (10-14% opacity, tuned for light surfaces) */
+  --color-success-bg: rgba(46, 143, 113, 0.1);
+  --color-error-bg: rgba(184, 92, 92, 0.1);
+  --color-warning-bg: rgba(185, 138, 71, 0.1);
+  --color-info-bg: rgba(111, 134, 168, 0.1);
 
   /* Scrim — modal/overlay backdrop */
-  --color-scrim: rgba(0, 0, 0, 0.65);
+  --color-scrim: rgba(0, 0, 0, 0.35);
 
-  /* Glass / frosted — jade-tinted mineral for floating panels */
-  --color-glass-bg: rgba(17, 23, 21, 0.82);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
+  /* Glass / frosted — white-tinted paper for floating panels */
+  --color-glass-bg: rgba(255, 255, 255, 0.82);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
 
-  /* Brand — domain-specific. Tuned for dark backgrounds. */
-  --color-brand-venture: #8b8ff0;
-  --color-brand-fund: #8a98b0;
-  --color-brand-entity: #b3bfcb;
-  --color-brand-foundation: #9aa3a0;
+  /* Brand — domain-specific. Tuned for light backgrounds (one shade
+     darker than the v2 dark-mode picks so they hold contrast on paper). */
+  --color-brand-venture: #6468d8;
+  --color-brand-fund: #5b6c88;
+  --color-brand-entity: #6b7884;
+  --color-brand-foundation: #5e6864;
 
   /* Funding stages */
-  --color-funding-angel: #58c7a2;
-  --color-funding-seed: #8b8ff0;
-  --color-funding-bridge: #6f86a8;
-  --color-funding-series: #b3bfcb;
-  --color-funding-exit: #d7e6df;
+  --color-funding-angel: #2e8f71;
+  --color-funding-seed: #6468d8;
+  --color-funding-bridge: #5b6c88;
+  --color-funding-series: #6b7884;
+  --color-funding-exit: #3a4743;
 
   /* Roles */
-  --color-role-partner: #55c19f;
-  --color-role-advisor: #58c7a2;
-  --color-role-holder: #d7e6df;
-  --color-role-director: #8b8ff0;
-  --color-role-executive: #97aaa3;
+  --color-role-partner: #2e8f71;
+  --color-role-advisor: #3fae8c;
+  --color-role-holder: #3a4743;
+  --color-role-director: #6468d8;
+  --color-role-executive: #5b6c88;
   --color-role-dealflow: #6f86a8;
 
   /* Supporting neutrals — stone, divider, highlight */
-  --color-stone: #222a27; /* cold mineral for secondary surfaces */
-  --color-divider: rgba(255, 255, 255, 0.06);
-  --color-highlight: #d7e6df; /* soft light tint, use sparingly */
+  --color-stone: #e8e1cf; /* warm mineral for secondary surfaces */
+  --color-divider: rgba(0, 0, 0, 0.06);
+  --color-highlight: #2e3331; /* soft dark tint, use sparingly */
 
   /* ── Typography ─────────────────────────────────── */
 
@@ -173,13 +176,14 @@
   --radius-xl: 16px;
   --radius-full: 999px;
 
-  /* ── Shadows — deeper on dark surfaces ─────────── */
+  /* ── Shadows — soft on paper, not dramatic ─────── */
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
   --shadow-xl:
-    0 20px 25px -5px rgba(0, 0, 0, 0.55), 0 8px 10px -6px rgba(0, 0, 0, 0.45);
+    0 20px 25px -5px rgba(0, 0, 0, 0.08),
+    0 8px 10px -6px rgba(0, 0, 0, 0.06);
 
   /* ── Transitions ────────────────────────────────── */
 
@@ -206,24 +210,24 @@
   /* ── Elevation — value-based depth layers ──────── */
 
   --elevation-0: transparent;
-  --elevation-1: rgba(255, 255, 255, 0.025);
-  --elevation-2: rgba(255, 255, 255, 0.05);
-  --elevation-3: rgba(255, 255, 255, 0.08);
+  --elevation-1: rgba(0, 0, 0, 0.02);
+  --elevation-2: rgba(0, 0, 0, 0.04);
+  --elevation-3: rgba(0, 0, 0, 0.06);
 
   /* ── Textures — grain, glass ──────────────────── */
 
-  --texture-grain-opacity: 0.04;
+  --texture-grain-opacity: 0.03;
   --texture-grain-frequency: 0.9;
   --texture-glass-blur: 24px;
-  --texture-glass-bg: rgba(17, 23, 21, 0.82);
-  --texture-glass-border: rgba(255, 255, 255, 0.08);
+  --texture-glass-bg: rgba(255, 255, 255, 0.82);
+  --texture-glass-border: rgba(0, 0, 0, 0.08);
 
   /* ── Interaction states ─────────────────────────── */
 
   --hover-lift: -1px;
-  --hover-bg: rgba(255, 255, 255, 0.03);
+  --hover-bg: rgba(0, 0, 0, 0.03);
   --focus-ring:
-    0 0 0 2px var(--color-bg-base), 0 0 0 4px var(--color-accent-glow);
+    0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-accent-glow);
   --active-scale: 0.98;
 
   /* ── Prose / content widths ─────────────────────── */
@@ -250,7 +254,7 @@ html {
   color: var(--color-text-primary);
 }
 
-/* ── Scrollbar — jade-tinted, still subtle ───────── */
+/* ── Scrollbar — subtle ink on paper ───────────── */
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -260,16 +264,16 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: var(--radius-xs);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(63, 174, 140, 0.35);
+  background: rgba(63, 174, 140, 0.45);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
 /* ── Reduced motion ───────────────────────────────── */
