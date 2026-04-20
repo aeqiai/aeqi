@@ -262,7 +262,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
-  background: var(--bg-surface);
+  background: var(--bg-canvas);
   border-left: 1px solid var(--border);
 }
 
