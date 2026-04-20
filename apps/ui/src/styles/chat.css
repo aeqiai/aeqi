@@ -1120,7 +1120,7 @@
   gap: 4px;
   font-size: 11px;
   color: var(--text-secondary);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
@@ -1404,7 +1404,7 @@
   color: var(--text-primary);
 }
 .asv-send-stack .asv-send.busy:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 /* ── Dashboard Home ── */
@@ -1492,7 +1492,7 @@
 
 .dash-home-budget-track {
   height: 4px;
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border-radius: var(--radius-full);
   overflow: hidden;
 }

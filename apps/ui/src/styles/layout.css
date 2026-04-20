@@ -280,7 +280,7 @@
   transition: background 0.1s;
 }
 .co-trigger:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 .co-brand {
   width: 22px;
@@ -381,15 +381,15 @@
 }
 
 /* The card: rounded on all sides, body row (main + rail) stacked above
-   the persistent composer. Subtle double-layer shadow lifts the card off
-   the parchment body. */
+   the persistent composer. White document surface floats off the canvas;
+   in-card raised rows/chips tint DOWN to paper (--bg-row), never up. */
 .content-card {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-base);
+  background: var(--color-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow:
@@ -431,7 +431,7 @@
 .content-cta-col .asv-sidebar {
   width: 100%;
   flex: 1;
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 /* Composer band: the card's bottom region. Dark ink surface that spans
@@ -820,7 +820,7 @@
   color: var(--text-muted);
 }
 .ctx-prompts-summary:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   color: var(--text-secondary);
 }
 /* Live event indicator */
@@ -867,7 +867,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-secondary);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 8px;
@@ -904,7 +904,7 @@
   font-size: 9px;
   padding: 1px 5px;
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 .ctx-prompt-empty {
   font-size: var(--font-size-2xs);
@@ -924,7 +924,7 @@
 }
 
 .ctx-quest-row:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .ctx-quest-dot {
@@ -960,7 +960,7 @@
 }
 
 .ctx-idea-row:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .ctx-idea-key {
@@ -988,7 +988,7 @@
 }
 
 .ctx-event-row:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .ctx-event-time {
@@ -1082,7 +1082,7 @@
   background: var(--bg-surface);
 }
 .content-topbar-action:active {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 /* Breadcrumb elements */
 .content-topbar-breadcrumb {
@@ -1660,7 +1660,7 @@
 }
 .channel-type-option:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 .channel-type-option.active {
   background: var(--text-primary);

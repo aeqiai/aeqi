@@ -132,7 +132,7 @@
 /* Project card */
 .progress-bar-bg {
   height: 6px;
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border-radius: var(--radius-xs);
   overflow: hidden;
 }
@@ -170,7 +170,7 @@
 }
 
 .agent-card-compact:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   color: inherit;
 }
 
@@ -240,7 +240,7 @@
 .expertise-tag {
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
@@ -761,7 +761,7 @@
   font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
   color: var(--text-muted);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   padding: 1px 6px;
   border-radius: var(--radius-xs);
 }

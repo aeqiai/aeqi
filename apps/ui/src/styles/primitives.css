@@ -19,12 +19,20 @@
      Each tier lifts the next — the radiused card floats off the desk and
      the rail reads as a separate document inside it. In v3 light mode
      "paper" is both the semantic name and the literal neutral color. */
-  --color-canvas: var(--color-bg-base); /* #eeeadd — the desk */
-  --bg-base: var(--color-paper); /* #f7f7f4 — the main surface */
+  --color-canvas: var(--color-bg-base); /* #f1f1ee — the desk */
+  --bg-base: var(--color-paper); /* #f7f7f4 — panels/inputs/modals */
   --bg-surface: var(--color-bg-surface);
-  --bg-elevated: var(--color-card); /* #ffffff — elevated cards, rails */
+  --bg-elevated: var(--color-card); /* #ffffff — overlays (palette, modals, drawer hover) */
   --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #eeeadd — outside the card */
+  --bg-canvas: var(--color-bg-base); /* #f1f1ee — outside the card */
+
+  /* In-card raised row/chip tint. The main content card is white
+     (the "document"); items inside that need to stand out go subtly
+     DARKER (paper tint) — the inverse of dark-mode intuition. Used
+     for zebra rows, hover surfaces, chips on the white card. Modals
+     and overlays (which sit on paper) keep using --bg-elevated for
+     their white lift. */
+  --bg-row: var(--color-paper); /* #f7f7f4 */
 
   /* Well surface aliases — the recessed / inset surface used by the
      composer and other sunken panes. In v3 light mode the well is a

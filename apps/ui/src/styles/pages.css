@@ -724,7 +724,7 @@
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .account-kyc-row {
@@ -826,7 +826,7 @@
 .account-backup-code {
   font-size: var(--font-size-sm);
   padding: var(--space-1) var(--space-2);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border-radius: var(--radius-xs);
   font-family: var(--font-mono);
 }
@@ -952,7 +952,7 @@
 }
 
 .account-invite-item--available {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .account-invite-item--used {
@@ -1133,7 +1133,7 @@
 }
 
 .dash-quest:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .dash-quest-subject {
@@ -1151,7 +1151,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 4px 10px 4px 4px;
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
@@ -1559,7 +1559,7 @@
 .edge-relation {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   padding: 0 4px;
   border-radius: var(--radius-xs);
 }
@@ -1796,7 +1796,7 @@
 }
 
 .ctx-quest:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .ctx-quest-subject {
@@ -1814,7 +1814,7 @@
 }
 
 .ctx-event:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
 }
 
 .ctx-event-type {
@@ -1900,7 +1900,7 @@
 }
 
 .key-new-banner {
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
@@ -1977,7 +1977,7 @@
   grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
-  background: var(--bg-elevated);
+  background: var(--bg-row);
   font-size: 0.75rem;
   font-weight: 550;
   color: var(--text-secondary);
