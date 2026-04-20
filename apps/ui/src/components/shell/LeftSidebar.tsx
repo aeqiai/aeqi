@@ -71,14 +71,6 @@ const ICON_IDEAS = (
     <path d="M6.5 14h3" />
   </svg>
 );
-const ICON_CHANNELS = (
-  <svg {...iconProps}>
-    <path d="M5.5 2.5L4 13.5" />
-    <path d="M12 2.5L10.5 13.5" />
-    <path d="M2 6h12" />
-    <path d="M2 10h12" />
-  </svg>
-);
 const ICON_DRIVE = (
   <svg {...iconProps}>
     <rect x="2" y="4" width="12" height="8" rx="1" />
@@ -103,15 +95,7 @@ const PRIMITIVES: NavItem[] = [
   { id: "ideas", label: "Ideas", icon: ICON_IDEAS },
 ];
 
-const ICON_TOOLS = (
-  <svg {...iconProps}>
-    <path d="M13 3.5a2.75 2.75 0 0 1-3.6 3.6l-5.8 5.8a1.25 1.25 0 0 1-1.75-1.75l5.8-5.8A2.75 2.75 0 0 1 11.25 1.75l-1.9 1.9 1.25 1.25L12.5 3z" />
-  </svg>
-);
-
 const CONFIGURE: NavItem[] = [
-  { id: "channels", label: "Channels", icon: ICON_CHANNELS },
-  { id: "tools", label: "Tools", icon: ICON_TOOLS },
   { id: "drive", label: "Drive", icon: ICON_DRIVE },
   { id: "settings", label: "Settings", icon: ICON_SETTINGS },
 ];

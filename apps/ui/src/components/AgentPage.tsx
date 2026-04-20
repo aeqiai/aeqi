@@ -12,6 +12,12 @@ import BrandMark from "./BrandMark";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
+const SETTINGS_SUB_TABS = [
+  { id: "settings", label: "Settings" },
+  { id: "channels", label: "Channels" },
+  { id: "tools", label: "Tools" },
+] as const;
+
 // Routes that AgentPage knows how to render. No-tab resolves to "home" — the
 // agent's dashboard. ContentTopBar is the primary nav and lives outside of
 // this component.
@@ -178,20 +184,54 @@ export default function AgentPage({
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
-
-      {activeTab === "tools" && (
-        <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
+      {(activeTab === "settings" || activeTab === "channels" || activeTab === "tools") && (
+        <SettingsShell activeSubTab={activeTab}>
+          {activeTab === "settings" && (
+            <SettingsPanel
+              agent={agent}
+              agentId={agentId}
+              resolvedAgentId={resolvedAgentId}
+              showToast={showToast}
+            />
+          )}
+          {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
+          {activeTab === "tools" && (
+            <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
+          )}
+        </SettingsShell>
       )}
+    </div>
+  );
+}
 
-      {activeTab === "settings" && (
-        <SettingsPanel
-          agent={agent}
-          agentId={agentId}
-          resolvedAgentId={resolvedAgentId}
-          showToast={showToast}
-        />
-      )}
+/**
+ * Settings umbrella. Renders a hairline tab row across Settings / Channels /
+ * Tools — the three "configure how this agent works" panes. Sidebar only shows
+ * "Settings"; Channels + Tools are reached via this tab row (or directly by
+ * URL — /channels and /tools still work as entry points).
+ */
+function SettingsShell({
+  activeSubTab,
+  children,
+}: {
+  activeSubTab: string;
+  children: React.ReactNode;
+}) {
+  const { goAgent, agentId } = useNav();
+  return (
+    <div className="settings-shell">
+      <div className="settings-shell-tabs">
+        {SETTINGS_SUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`settings-shell-tab${activeSubTab === t.id ? " active" : ""}`}
+            onClick={() => agentId && goAgent(agentId, t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="settings-shell-body">{children}</div>
     </div>
   );
 }

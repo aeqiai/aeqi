@@ -1090,6 +1090,65 @@
   opacity: 1;
 }
 
+/* ── Settings shell ──
+   Umbrella for Settings / Channels / Tools. One hairline tab row across
+   the top — left-aligned, flush with the 24px content gutter, matching
+   the topbar rhythm. The active tab carries a 1.5px ink underline; no
+   pills, no background fills. Reads as an inline filter on the same
+   page, not a separate toolbar. */
+.settings-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.settings-shell-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 20px;
+  height: 44px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-shell-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.settings-shell-tab:hover {
+  color: var(--text-primary);
+}
+.settings-shell-tab.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.settings-shell-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 1.5px;
+  background: var(--text-primary);
+}
+.settings-shell-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Budget meter ──
    Compact $spent / $cap pill with a slim progress bar under the
    numbers. Lives in the chat topbar right slot, replacing the
