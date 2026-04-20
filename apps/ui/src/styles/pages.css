@@ -2028,4 +2028,194 @@
   text-decoration: underline;
 }
 
+/* ── Quest Board (kanban) ──────────────────────────────
+   Shown in the main pane when no quest is selected. The rail holds the
+   full list; this view exists to give the user a state-grouped bird's-eye
+   view + a real inline create flow without a modal. Linear/Jira spirit:
+   dense rows, column counts, priority tags, no color for decoration's
+   sake — priority uses steel accent, nothing else. */
+.quest-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 20px 28px 28px;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.quest-board-compose {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  background: var(--bg-surface);
+  transition: border-color 0.15s;
+}
+.quest-board-compose:focus-within {
+  border-color: var(--color-accent);
+}
+.quest-board-compose-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+.quest-board-compose-input::placeholder {
+  color: var(--text-muted);
+}
+.quest-board-compose-priority {
+  border: 1px solid var(--border);
+  background: var(--bg-canvas);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  outline: none;
+}
+.quest-board-error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--error);
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+.quest-board-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.quest-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-canvas);
+  overflow: hidden;
+}
+.quest-col[data-status="in_progress"] {
+  border-color: rgba(90, 115, 152, 0.35);
+}
+.quest-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.quest-col-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.quest-col-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.quest-col-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quest-col-empty {
+  padding: 14px 6px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.quest-card {
+  position: relative;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.quest-card:hover {
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+}
+.quest-card-subject {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text-primary);
+  font-weight: 450;
+  margin-bottom: 6px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.quest-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+.quest-card-priority {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg-canvas);
+}
+.quest-card-priority--critical {
+  color: #9a3b3b;
+  border-color: rgba(154, 59, 59, 0.35);
+  background: rgba(154, 59, 59, 0.06);
+}
+.quest-card-priority--high {
+  color: var(--color-accent);
+  border-color: rgba(90, 115, 152, 0.35);
+  background: var(--color-accent-bg);
+}
+.quest-card-priority--low {
+  color: var(--text-muted);
+}
+.quest-card-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
 /* ── Onboarding celebration animations ──────────────── */

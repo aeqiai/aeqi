@@ -5,12 +5,11 @@ import { Button } from "@/components/ui";
 import BudgetMeter from "./BudgetMeter";
 
 /**
- * Content top bar — agent context + actions for the current view.
+ * Content top bar — agent context + secondary actions.
  *
- * Navigation lives in the left rail (agent tree + surface nav). This bar
- * shows the current agent + tab as a title, plus the contextual right-side
- * actions: graph-view toggle on Ideas, a single primary "create" button
- * whose label matches the tab, and the budget meter.
+ * Primary "New X" CTAs live in the right-rail header (ContentCTA), adjacent
+ * to the list they mutate. This bar carries: breadcrumb title, view toggles
+ * that affect the main pane (Ideas graph toggle), and the budget meter.
  */
 
 const TITLES: Record<string, string> = {
@@ -25,13 +24,6 @@ const TITLES: Record<string, string> = {
   settings: "Settings",
 };
 
-const CREATE_LABEL: Record<string, string> = {
-  agents: "New agent",
-  events: "New event",
-  quests: "New quest",
-  ideas: "New idea",
-};
-
 export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,7 +34,6 @@ export default function ContentTopBar() {
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "sessions";
   const title = TITLES[section] || section;
-  const createLabel = CREATE_LABEL[section];
 
   const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
   const toggleExplore = () => {
@@ -82,26 +73,6 @@ export default function ContentTopBar() {
               <path d="M3 3 L9 3 M3 3 L6 9 M9 3 L6 9" strokeLinecap="round" />
             </svg>
             {exploreActive ? "Close graph" : "Explore"}
-          </Button>
-        )}
-        {createLabel && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 2.5v7M2.5 6h7" />
-            </svg>
-            {createLabel}
           </Button>
         )}
         {appMode !== "platform" && (

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, EmptyState } from "./ui";
+import { Button } from "./ui";
 import type { Quest, QuestStatus, QuestPriority } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
@@ -136,36 +136,31 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     [save],
   );
 
-  // "New quest" rail action.
+  // "New quest" rail action: focus the inline composer when the rail's
+  // create button fires. Navigating away from any selection takes us to the
+  // board view where the composer lives.
   useEffect(() => {
     const handler = () => {
       goAgent(agentId, "quests", undefined, { replace: true });
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLInputElement>("[data-quest-compose-subject]")?.focus();
+      });
     };
     window.addEventListener("aeqi:create", handler);
     return () => window.removeEventListener("aeqi:create", handler);
   }, [agentId, goAgent]);
 
-  // Empty state when nothing selected.
+  // No quest selected → show the board: inline composer + kanban columns.
   if (!quest) {
     const agentQuests = quests.filter((q) => q.agent_id === agent?.id);
-    const activeCount = agentQuests.filter(
-      (q) => q.status !== "done" && q.status !== "cancelled",
-    ).length;
     return (
-      <div className="asv-main" style={{ padding: "24px 28px", overflowY: "auto" }}>
-        <EmptyState
-          title={
-            agentQuests.length === 0
-              ? "No quests yet"
-              : `${activeCount} active quest${activeCount !== 1 ? "s" : ""}`
-          }
-          description={
-            agentQuests.length === 0
-              ? "Create a quest from the right rail to start tracking work."
-              : "Select a quest from the right to view and edit its details."
-          }
-        />
-      </div>
+      <QuestBoard
+        agentId={agentId}
+        resolvedAgentId={agent?.id || agentId}
+        quests={agentQuests}
+        onCreated={fetchQuests}
+        onPick={(id) => goAgent(agentId, "quests", id)}
+      />
     );
   }
 
@@ -555,6 +550,156 @@ const sectionLabel: React.CSSProperties = {
   letterSpacing: "0.05em",
   marginBottom: 6,
 };
+
+/**
+ * Board view shown when no quest is selected.
+ *
+ * Top: inline composer — subject + priority + create. Submit POSTs the
+ * quest and refreshes the daemon store. Below: four kanban columns
+ * (Todo / In Progress / Blocked / Done). Done is capped to 10 most-recent
+ * to keep the column from blowing out after months of work.
+ */
+function QuestBoard({
+  agentId: _agentId,
+  resolvedAgentId,
+  quests,
+  onCreated,
+  onPick,
+}: {
+  agentId: string;
+  resolvedAgentId: string;
+  quests: Quest[];
+  onCreated: () => void;
+  onPick: (id: string) => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [priority, setPriority] = useState<QuestPriority>("normal");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = useCallback(async () => {
+    const s = subject.trim();
+    if (!s || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.createQuest({
+        project: resolvedAgentId,
+        subject: s,
+        priority,
+        agent_id: resolvedAgentId,
+      });
+      setSubject("");
+      setPriority("normal");
+      onCreated();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to create quest");
+    } finally {
+      setBusy(false);
+    }
+  }, [subject, priority, busy, resolvedAgentId, onCreated]);
+
+  const columns: Array<{ status: QuestStatus; label: string }> = [
+    { status: "pending", label: "Todo" },
+    { status: "in_progress", label: "In progress" },
+    { status: "blocked", label: "Blocked" },
+    { status: "done", label: "Done" },
+  ];
+
+  const grouped: Record<QuestStatus, Quest[]> = {
+    pending: [],
+    in_progress: [],
+    blocked: [],
+    done: [],
+    cancelled: [],
+  };
+  for (const q of quests) grouped[q.status]?.push(q);
+  // Sort each column: most recent updated_at first.
+  for (const k of Object.keys(grouped) as QuestStatus[]) {
+    grouped[k].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  }
+  // Cap Done at 10 to keep visual weight balanced.
+  grouped.done = grouped.done.slice(0, 10);
+
+  return (
+    <div className="quest-board">
+      <div className="quest-board-compose">
+        <input
+          data-quest-compose-subject
+          className="quest-board-compose-input"
+          placeholder="New quest — what needs to happen?"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          disabled={busy}
+        />
+        <select
+          className="quest-board-compose-priority"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as QuestPriority)}
+          disabled={busy}
+        >
+          {(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => (
+            <option key={p} value={p}>
+              {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+        <Button variant="primary" size="sm" onClick={submit} disabled={!subject.trim() || busy}>
+          {busy ? "Creating…" : "Create"}
+        </Button>
+      </div>
+      {err && <div className="quest-board-error">{err}</div>}
+
+      <div className="quest-board-columns">
+        {columns.map((col) => {
+          const list = grouped[col.status] || [];
+          return (
+            <section key={col.status} className="quest-col" data-status={col.status}>
+              <header className="quest-col-header">
+                <span className="quest-col-label">{col.label}</span>
+                <span className="quest-col-count">{list.length}</span>
+              </header>
+              <div className="quest-col-body">
+                {list.length === 0 ? (
+                  <div className="quest-col-empty">Nothing here</div>
+                ) : (
+                  list.map((q) => (
+                    <article
+                      key={q.id}
+                      className="quest-card"
+                      data-priority={q.priority}
+                      onClick={() => onPick(q.id)}
+                    >
+                      <div className="quest-card-subject">{q.subject}</div>
+                      <div className="quest-card-meta">
+                        {q.priority !== "normal" && (
+                          <span
+                            className={`quest-card-priority quest-card-priority--${q.priority}`}
+                          >
+                            {PRIORITY_LABELS[q.priority]}
+                          </span>
+                        )}
+                        {q.updated_at && (
+                          <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
+                        )}
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function CloseButton({ questId, onDone }: { questId: string; onDone: () => void }) {
   const [closing, setClosing] = useState(false);

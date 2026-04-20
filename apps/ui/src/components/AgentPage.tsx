@@ -107,8 +107,9 @@ export default function AgentPage({
             </div>
           ) : (
             <EmptyState
-              title="No child agents"
-              description="This agent hasn't spawned any sub-agents yet. Sub-agents are created automatically when a quest requires delegation."
+              eyebrow="Agents"
+              title="No sub-agents yet"
+              description="Sub-agents spawn automatically when a quest requires delegation — or create one manually from the right rail."
             />
           )}
         </div>

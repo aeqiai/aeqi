@@ -399,12 +399,13 @@ export const api = {
 
   // Write: Create Quest
   createQuest: (data: {
-    root: string;
+    project: string;
     subject: string;
     description?: string;
     priority?: string;
     acceptance_criteria?: string;
-    assignee?: string;
+    agent_id?: string;
+    agent?: string;
   }) =>
     request<Record<string, unknown>>("/quests", {
       method: "POST",

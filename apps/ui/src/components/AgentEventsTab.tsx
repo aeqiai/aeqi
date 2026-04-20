@@ -324,8 +324,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         </div>
         <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
           <EmptyState
+            eyebrow="Events"
             title="Select an event"
-            description="Pick an event from the right to view or edit it."
+            description="Events = triggers. Pick one from the right rail to view or edit its pattern + tool calls."
           />
         </div>
       </div>
