@@ -34,10 +34,10 @@ const GithubIcon = () => (
 );
 
 const POINTS = [
-  "Agents that write code, review PRs, and ship autonomously",
-  "Agents as persistent systems with shared memory",
-  "Real-time sessions — chat with agents as they work",
-  "Knowledge that compounds across every task",
+  "Agents ship code, run ops, chase growth",
+  "Treasury, cap table, payroll — one audit trail",
+  "On-chain ownership and settlement",
+  "Open source. Self-hostable. Free to launch.",
 ];
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -222,7 +222,7 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Get early access</h1>
-          <p className="auth-subheading">AEQI is the OS for autonomous agents. Be first in line.</p>
+          <p className="auth-subheading">Autonomous companies. Run by agents. Owned on-chain.</p>
           <form className="auth-form" onSubmit={handleWaitlistSubmit}>
             <Input
               size="lg"
@@ -517,11 +517,7 @@ export default function SignupPage() {
 
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <h2 className="signup-pitch-heading">Autonomous agent infrastructure</h2>
-          <p className="signup-pitch-sub">
-            Deploy agents that operate autonomously — engineering, research, design, operations —
-            continuously and in parallel.
-          </p>
+          <h2 className="signup-pitch-heading">The company runs itself.</h2>
           <ul className="signup-points">
             {POINTS.map((p) => (
               <li key={p} className="signup-point">
