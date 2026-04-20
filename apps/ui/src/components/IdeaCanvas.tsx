@@ -13,6 +13,13 @@ type DecisionState = "idle" | "saving" | "done";
 
 const SAVED_FLASH_MS = 1200;
 
+function formatCount(text: string): string {
+  const chars = text.length;
+  if (chars < 200) return `${chars} chars`;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return `${words} words`;
+}
+
 function extractHashtags(text: string): string[] {
   const re = /(?:^|\s)#([a-z0-9_-]+)/gi;
   const out = new Set<string>();
@@ -51,6 +58,17 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   const addIdea = useAgentDataStore((s) => s.addIdea);
   const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId]);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
+  // All tags the agent has used elsewhere — ranked by frequency — power the
+  // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
+  const tagSuggestions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of ideas ?? []) {
+      for (const t of i.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([t]) => t);
+  }, [ideas]);
 
   const isEdit = !!idea;
   const [name, setName] = useState(idea?.name ?? "");
@@ -305,6 +323,7 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
       <TagsEditor
         tags={inlineTags}
         typed={typedTags}
+        suggestions={tagSuggestions}
         onAdd={(t) => {
           const next = [...typedTags, t];
           setTypedTags(next);
@@ -379,6 +398,15 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
             setContent(e.target.value);
             markDirty();
           }}
+          onKeyDown={(e) => {
+            // Esc: drop back to rendered view when there's nothing to lose.
+            // If the user has unsaved changes we stay in edit so they can
+            // see the Save button; a second Esc still escapes focus.
+            if (e.key === "Escape" && isEdit && !dirtyRef.current) {
+              e.preventDefault();
+              setBodyMode("view");
+            }
+          }}
           onBlur={() => {
             // Only drop back to rendered view when there are no unsaved
             // changes — otherwise the user would lose their editing surface
@@ -389,13 +417,25 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
       ) : (
         <div
           className="ideas-canvas-body ideas-canvas-body-rendered"
+          role="textbox"
+          tabIndex={0}
+          aria-label="Click to edit"
           onClick={() => setBodyMode("edit")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setBodyMode("edit");
+            }
+          }}
         >
           {content.trim() ? (
             <RichMarkdown body={content} ideasByName={ideasByName} agentId={agentId} />
           ) : (
             <span className="ideas-canvas-body-empty">Click to write…</span>
           )}
+          <span className="ideas-canvas-body-edit-hint" aria-hidden>
+            ↵ edit
+          </span>
         </div>
       )}
 
@@ -405,7 +445,15 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           {error && <span className="ideas-canvas-error">{error}</span>}
         </div>
         <div className="ideas-canvas-actions">
-          <span className="ideas-canvas-hint">⌘ + Enter</span>
+          {(bodyMode === "edit" || !isEdit) && content.length > 0 && (
+            <span className="ideas-canvas-count">{formatCount(content)}</span>
+          )}
+          {(!isEdit || saveState === "dirty") && (
+            <span className="ideas-canvas-hint" aria-hidden>
+              <kbd>⌘</kbd>
+              <kbd>↵</kbd>
+            </span>
+          )}
           <Button
             variant="primary"
             size="sm"

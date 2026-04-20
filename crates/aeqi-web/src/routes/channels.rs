@@ -24,6 +24,11 @@ pub fn routes() -> Router<AppState> {
         .route("/channels/{id}", axum::routing::delete(delete_channel))
         .route("/channels/{id}/enabled", patch(set_enabled))
         .route("/channels/{id}/allowed-chats", patch(set_allowed_chats))
+        .route("/channels/{id}/baileys-status", get(baileys_status))
+        .route(
+            "/channels/{id}/baileys-logout",
+            axum::routing::post(baileys_logout),
+        )
 }
 
 async fn list_channels(
@@ -97,4 +102,28 @@ async fn set_allowed_chats(
         .unwrap_or(serde_json::json!([]));
     let params = serde_json::json!({"id": id, "chat_ids": chat_ids});
     ipc_proxy(state, scope.as_ref(), "channels_set_allowed_chats", params).await
+}
+
+/// `GET /channels/:id/baileys-status` → `{ ok, status }`. Used by the
+/// WhatsApp Baileys pairing UI to poll for the current QR code and
+/// connection state.
+async fn baileys_status(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    let params = serde_json::json!({"id": id});
+    ipc_proxy(state, scope.as_ref(), "channels_baileys_status", params).await
+}
+
+/// `POST /channels/:id/baileys-logout` → `{ ok, logged_out }`. Disconnects
+/// the WhatsApp Baileys session and wipes auth state — the user will need
+/// to re-scan a QR next time the channel starts.
+async fn baileys_logout(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    let params = serde_json::json!({"id": id});
+    ipc_proxy(state, scope.as_ref(), "channels_baileys_logout", params).await
 }

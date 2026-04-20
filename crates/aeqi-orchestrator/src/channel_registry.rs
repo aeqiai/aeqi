@@ -14,14 +14,18 @@ use tracing::warn;
 
 use crate::agent_registry::ConnectionPool;
 
+// Re-exports come through the crate root (see `lib.rs`).
+
 /// Which transport a channel speaks.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum ChannelKind {
     Telegram,
     Discord,
     Slack,
     Whatsapp,
+    /// Personal WhatsApp Web via the Baileys Node bridge — QR-paired, no Twilio.
+    WhatsappBaileys,
 }
 
 impl ChannelKind {
@@ -31,6 +35,7 @@ impl ChannelKind {
             ChannelKind::Discord => "discord",
             ChannelKind::Slack => "slack",
             ChannelKind::Whatsapp => "whatsapp",
+            ChannelKind::WhatsappBaileys => "whatsapp-baileys",
         }
     }
 
@@ -40,6 +45,7 @@ impl ChannelKind {
             "discord" => Some(Self::Discord),
             "slack" => Some(Self::Slack),
             "whatsapp" => Some(Self::Whatsapp),
+            "whatsapp-baileys" => Some(Self::WhatsappBaileys),
             _ => None,
         }
     }
@@ -48,12 +54,13 @@ impl ChannelKind {
 /// Typed config per channel kind. The DB column stores this as JSON,
 /// deserialized against the kind column.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ChannelConfig {
     Telegram(TelegramConfig),
     Discord(DiscordConfig),
     Slack(SlackConfig),
     Whatsapp(WhatsappConfig),
+    WhatsappBaileys(WhatsappBaileysConfig),
 }
 
 impl ChannelConfig {
@@ -63,6 +70,7 @@ impl ChannelConfig {
             Self::Discord(_) => ChannelKind::Discord,
             Self::Slack(_) => ChannelKind::Slack,
             Self::Whatsapp(_) => ChannelKind::Whatsapp,
+            Self::WhatsappBaileys(_) => ChannelKind::WhatsappBaileys,
         }
     }
 }
@@ -97,6 +105,22 @@ pub struct WhatsappConfig {
     pub access_token: String,
     #[serde(default)]
     pub verify_token: Option<String>,
+}
+
+/// Baileys-backed WhatsApp (user's own WhatsApp Web session).
+///
+/// No tokens — auth is a scanned QR. `session_dir`, when set, overrides
+/// the default path (`~/.aeqi/platforms/whatsapp-baileys/<channel_id>`);
+/// keep it `None` for the default, which lets the channel_id govern the
+/// filesystem layout.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WhatsappBaileysConfig {
+    #[serde(default)]
+    pub session_dir: Option<String>,
+    /// Optional JID-level whitelist. Applied in addition to the shared
+    /// `channel_allowed_chats` table.
+    #[serde(default)]
+    pub allowed_jids: Vec<String>,
 }
 
 /// A channel row: one transport binding for one agent.

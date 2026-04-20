@@ -326,6 +326,27 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ chat_ids: chatIds }),
     }),
+  // WhatsApp Baileys pairing: poll for QR + connection state. Returns
+  // `{ status: null }` while the gateway task hasn't registered yet
+  // (e.g., daemon just restarted).
+  getChannelBaileysStatus: (id: string) =>
+    request<{
+      ok: boolean;
+      status: null | {
+        state: "spawning" | "connecting" | "awaiting_qr" | "ready" | "disconnected";
+        qr: string | null;
+        qr_data_url: string | null;
+        last_reason: string | null;
+        me: string | null;
+      };
+    }>(`/channels/${encodeURIComponent(id)}/baileys-status`),
+  // Force-disconnect a Baileys channel and wipe its auth state on disk.
+  // The user will need to re-scan a QR before it sends/receives again.
+  logoutChannelBaileys: (id: string) =>
+    request<{ ok: boolean; logged_out?: boolean }>(
+      `/channels/${encodeURIComponent(id)}/baileys-logout`,
+      { method: "POST" },
+    ),
   getChannelSessions: (agentId: string) =>
     request<Record<string, unknown>>(`/channel-sessions?agent_id=${encodeURIComponent(agentId)}`),
   updateIdea: (id: string, body: Record<string, unknown>) =>

@@ -140,6 +140,64 @@ pub async fn handle_channels_set_enabled(
     }
 }
 
+/// `channels_baileys_status { id }` → `{ ok, status }` for the WhatsApp
+/// Baileys pairing flow. Returns `{ ok, status: null }` if the channel is
+/// not currently spawned (e.g., disabled, daemon restarting). Tenancy is
+/// derived from the row.
+pub async fn handle_channels_baileys_status(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(id) = request_field(request, "id") else {
+        return serde_json::json!({"ok": false, "error": "id required"});
+    };
+    let store = store(ctx);
+    let channel = match store.get_by_id(id).await {
+        Ok(None) => return serde_json::json!({"ok": true, "status": null}),
+        Ok(Some(c)) => c,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    if !check_agent_access(&ctx.agent_registry, allowed, &channel.agent_id).await {
+        return serde_json::json!({"ok": true, "status": null});
+    }
+    match aeqi_gates::whatsapp_baileys::lookup_status(id).await {
+        Some(handle) => {
+            let snapshot = handle.read().await.clone();
+            serde_json::json!({"ok": true, "status": snapshot})
+        }
+        None => serde_json::json!({"ok": true, "status": null}),
+    }
+}
+
+/// `channels_baileys_logout { id }` → `{ ok, logged_out: bool }`
+///
+/// Forces a WhatsApp Baileys channel to disconnect and wipe its auth
+/// state on disk. The user will need to re-scan a QR to reconnect. The
+/// channel row itself is left intact.
+pub async fn handle_channels_baileys_logout(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(id) = request_field(request, "id") else {
+        return serde_json::json!({"ok": false, "error": "id required"});
+    };
+    let store = store(ctx);
+    let channel = match store.get_by_id(id).await {
+        Ok(None) => return serde_json::json!({"ok": true, "logged_out": false}),
+        Ok(Some(c)) => c,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    if !check_agent_access(&ctx.agent_registry, allowed, &channel.agent_id).await {
+        return serde_json::json!({"ok": true, "logged_out": false});
+    }
+    match aeqi_gates::whatsapp_baileys::logout_channel(id).await {
+        Ok(did) => serde_json::json!({"ok": true, "logged_out": did}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 /// `channels_set_allowed_chats { id, chat_ids: [string] }` → `{ ok, channel }`
 ///
 /// Replaces the full allowed_chats set for the channel. Empty list = no

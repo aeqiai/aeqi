@@ -61,7 +61,13 @@ pub struct AssemblyContext {
     pub quest_description: Option<String>,
 }
 
-/// Assemble the full prompt for an agent + task combination.
+/// Assemble the foundational system prompt for a session — `session:start`
+/// ideas only. This is the stable, once-per-session context (identity, role,
+/// skills) that persists across every turn and iteration.
+///
+/// Per-turn refresh context lives in `assemble_execution_context` and is
+/// injected ephemerally by the agent loop; per-iteration refresh lives in
+/// `assemble_step_ideas_for_worker`.
 ///
 /// Order: root ancestor → ... → parent → self → task ideas.
 /// Within each level, ideas are ordered as referenced by their events.
@@ -83,7 +89,34 @@ pub async fn assemble_ideas(
         event_store,
         agent_id,
         task_idea_ids,
-        &["session:start", "session:execution_start"],
+        &["session:start"],
+        &AssemblyContext::default(),
+        tool_dispatch,
+    )
+    .await
+}
+
+/// Assemble the per-turn refresh context — `session:execution_start` ideas
+/// only. Returned as an `AssembledPrompt` (string + tool restrictions) so the
+/// caller can merge tool restrictions with the foundational prompt if any.
+///
+/// The resulting `.system` string is injected ephemerally by the agent as a
+/// system message appended AFTER the user message on every LLM request within
+/// the turn — matching the lifetime of the event (fires once per spawn).
+pub async fn assemble_execution_context(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    tool_dispatch: Option<&ToolDispatch<'_>>,
+) -> AssembledPrompt {
+    assemble_ideas_for_patterns(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        &[],
+        &["session:execution_start"],
         &AssemblyContext::default(),
         tool_dispatch,
     )

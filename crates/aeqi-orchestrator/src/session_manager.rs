@@ -416,6 +416,7 @@ impl SessionManager {
             .event_store
             .clone()
             .unwrap_or_else(|| Arc::new(EventHandlerStore::new(agent_registry.db())));
+        let mut execution_context: String = String::new();
         let mut system_prompt = if let Some(ref id) = agent_uuid {
             // Build a runtime tool registry so event tool_calls can execute.
             // The session_id is not yet known at this point (created in step 9),
@@ -510,6 +511,23 @@ impl SessionManager {
             // in-run events like session:step_start). Firing again here would
             // double-count fire_count and total_cost_usd.
             let _ = &assembled.fired_event_ids;
+
+            // Per-turn refresh context from `session:execution_start` events.
+            // Assembled here (reusing the same registry + dispatch) and stored
+            // in the outer `execution_context` binding so the agent can inject
+            // it as a system message after the user prompt on every LLM
+            // request within this spawn. Ephemeral: rebuilt each spawn.
+            let exec_assembled = crate::idea_assembly::assemble_execution_context(
+                agent_registry,
+                self.idea_store.as_ref(),
+                &event_store,
+                id,
+                Some(&dispatch),
+            )
+            .await;
+            let _ = &exec_assembled.fired_event_ids;
+            execution_context = exec_assembled.system;
+
             // Safety net: if assembly returned empty, use a sensible default.
             if assembled.system.trim().is_empty() {
                 "You are a helpful AI agent.".to_string()
@@ -879,7 +897,8 @@ impl SessionManager {
             aeqi_core::Agent::new(agent_config, provider, tools, observer, system_prompt)
                 .with_chat_stream(stream_sender.clone())
                 .with_step_ideas(step_idea_specs)
-                .with_step_events(step_event_metas);
+                .with_step_events(step_event_metas)
+                .with_execution_context(execution_context);
 
         if let Some(ref mem) = idea_store_for_agent {
             agent = agent.with_idea_store(mem.clone());
@@ -998,17 +1017,19 @@ impl SessionManager {
         // compaction pipeline can refer to the correct session). For pre-assigned
         // session_ids (from channel_sessions), ensure the DB row exists.
         //
-        // `session_is_new` tracks whether THIS spawn created the session row.
-        // True only on the session's very first spawn — used below to gate
-        // `session:start` fires (which are per-session, not per-turn).
-        let mut session_is_new = false;
+        // `is_first_execution` tracks whether this is the first spawn on this
+        // session — used to gate `session:start` (once-per-session system-prompt
+        // equivalent). Row existence alone is not enough: a session can be
+        // pre-created by a separate `create_session` IPC call before any
+        // execution runs, so we also check for prior `event_fired` rows.
+        let mut is_first_execution = false;
         let session_id = {
             let sid = pregenerated_session_id.clone();
             if let Some(ref ss) = self.session_store {
                 let aid = agent_uuid.as_deref().unwrap_or("");
                 let display_name = opts.name.as_deref().unwrap_or(&agent_name);
                 if ss.get_session(&sid).await.ok().flatten().is_none() {
-                    session_is_new = true;
+                    is_first_execution = true;
                     let _ = ss
                         .create_session_with_id(
                             &sid,
@@ -1019,11 +1040,13 @@ impl SessionManager {
                             quest_id,
                         )
                         .await;
+                } else {
+                    is_first_execution = !ss.has_prior_execution(&sid).await;
                 }
             }
             sid
         };
-        let _ = session_resumed; // informational; gating uses session_is_new
+        let _ = session_resumed; // informational; gating uses is_first_execution
 
         // 9.5. Fire lifecycle events for this spawn and pre-persist their
         // `event_fired` rows BEFORE the user-message row so the UI timeline
@@ -1032,7 +1055,8 @@ impl SessionManager {
         //   session:start (once per session) →
         //   session:execution_start (every spawn) →
         //   user message →
-        //   session:step_start (per LLM iteration, emitted by agent.run)
+        //   session:step_start (per LLM iteration, emitted by agent.run,
+        //   rendered below the step divider in the UI)
         //
         // We persist here (rather than letting the daemon observe EventFired
         // and persist in its WS handler) for two reasons:
@@ -1047,50 +1071,65 @@ impl SessionManager {
         //
         // `session:step_start` is NOT batched — the Agent emits EventFired
         // per StepEventMeta at its true firing point inside the run loop.
-        let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
-        if let Some(aid) = agent_uuid.as_deref() {
-            let patterns: &[&str] = if session_is_new {
-                &["session:start", "session:execution_start"]
-            } else {
-                &["session:execution_start"]
-            };
-            let mut seen_event_ids: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
-            for pattern in patterns {
-                for event in event_store.get_events_for_pattern(aid, pattern).await {
-                    if !seen_event_ids.insert(event.id.clone()) {
-                        continue;
-                    }
-                    if let Some(ref ss) = self.session_store {
-                        let metadata = serde_json::json!({
-                            "event_id": event.id,
-                            "event_name": event.name,
-                            "pattern": event.pattern,
-                            "idea_ids": event.idea_ids,
-                        });
-                        let _ = ss
-                            .record_event_by_session(
-                                &session_id,
-                                "event_fired",
-                                "system",
-                                "",
-                                Some("web"),
-                                Some(&metadata),
-                            )
-                            .await;
-                    }
-                    if let Err(e) = event_store.record_fire(&event.id, 0.0).await {
-                        tracing::warn!(event = %event.id, error = %e, "failed to record event fire");
-                    }
-                    initial_events.push(ChatStreamEvent::EventFired {
-                        event_id: event.id,
-                        event_name: event.name,
-                        pattern: event.pattern,
-                        idea_ids: event.idea_ids,
-                        prepersisted: true,
-                    });
+        // Helper: pre-persist `event_fired` rows for a given pattern and
+        // build EventFired stream events. Returns the list of stream events
+        // so the caller can flush them to subscribers in the desired order.
+        let fire_pattern = async |pattern: &str,
+                                  aid: &str,
+                                  seen: &mut std::collections::HashSet<String>|
+               -> Vec<ChatStreamEvent> {
+            let mut out: Vec<ChatStreamEvent> = Vec::new();
+            for event in event_store.get_events_for_pattern(aid, pattern).await {
+                if !seen.insert(event.id.clone()) {
+                    continue;
                 }
+                if let Some(ref ss) = self.session_store {
+                    let metadata = serde_json::json!({
+                        "event_id": event.id,
+                        "event_name": event.name,
+                        "pattern": event.pattern,
+                        "idea_ids": event.idea_ids,
+                    });
+                    let _ = ss
+                        .record_event_by_session(
+                            &session_id,
+                            "event_fired",
+                            "system",
+                            "",
+                            Some("web"),
+                            Some(&metadata),
+                        )
+                        .await;
+                }
+                if let Err(e) = event_store.record_fire(&event.id, 0.0).await {
+                    tracing::warn!(event = %event.id, error = %e, "failed to record event fire");
+                }
+                out.push(ChatStreamEvent::EventFired {
+                    event_id: event.id,
+                    event_name: event.name,
+                    pattern: event.pattern,
+                    idea_ids: event.idea_ids,
+                    prepersisted: true,
+                });
             }
+            out
+        };
+
+        let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
+        let mut seen_event_ids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+
+        // Fire lifecycle events BEFORE the user message — canonical AI shape
+        // is context-before-input: the model loads state first, then reads
+        // the request. `session:start` is session-scoped (once at birth),
+        // `session:execution_start` is turn-scoped (every spawn).
+        if let Some(aid) = agent_uuid.as_deref() {
+            if is_first_execution {
+                initial_events
+                    .extend(fire_pattern("session:start", aid, &mut seen_event_ids).await);
+            }
+            initial_events
+                .extend(fire_pattern("session:execution_start", aid, &mut seen_event_ids).await);
         }
 
         // 10. Record prompt as user message (with sender identity when available).

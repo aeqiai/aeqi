@@ -718,6 +718,11 @@ pub struct Agent {
     /// is wired). Detectors do not author LLM-facing content — that is the
     /// event's job.
     detectors: Vec<Arc<dyn crate::detector::PatternDetector>>,
+    /// Per-turn refresh context assembled from `session:execution_start`
+    /// events. Injected as a system message AFTER the user message on every
+    /// LLM request within this spawn. Set once per spawn — lifetime matches
+    /// `session:execution_start` (once per turn). Empty string = no injection.
+    execution_context: String,
 }
 
 impl Agent {
@@ -744,6 +749,7 @@ impl Agent {
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pattern_dispatcher: None,
             detectors: Vec::new(),
+            execution_context: String::new(),
         }
     }
 
@@ -810,6 +816,14 @@ impl Agent {
     /// Attach step-level ideas that are re-read from disk before each API call.
     pub fn with_step_ideas(mut self, specs: Vec<StepIdeaSpec>) -> Self {
         self.step_ideas = Mutex::new(specs);
+        self
+    }
+
+    /// Attach per-turn refresh context assembled from `session:execution_start`
+    /// events. Injected as a system message appended after the user message on
+    /// every LLM request within this spawn. Lifetime matches a single turn.
+    pub fn with_execution_context(mut self, ctx: String) -> Self {
+        self.execution_context = ctx;
         self
     }
 
@@ -1101,19 +1115,32 @@ impl Agent {
                 active_model.clone()
             };
 
-            // Build request. Single lock on step_ideas, clone messages once.
+            // Build request. Clone messages once; append ephemeral per-turn
+            // and per-iteration context as system messages at the end so they
+            // are the freshest context the model sees before generating.
+            //   execution_context → per-turn (session:execution_start), same
+            //     content across every iteration within this spawn
+            //   step_ctx          → per-iteration (session:step_start), fresh
+            //     each LLM call
+            // Neither is persisted in `messages` — they're rebuilt per request.
             let step_ctx = self.build_step_context().await;
             let mut request_messages = messages.clone();
+            if !self.execution_context.is_empty() {
+                request_messages.push(Message {
+                    role: Role::System,
+                    content: MessageContent::text(format!(
+                        "<execution-context>\n{}\n</execution-context>",
+                        self.execution_context
+                    )),
+                });
+            }
             if !step_ctx.is_empty() {
-                request_messages.insert(
-                    1,
-                    Message {
-                        role: Role::System,
-                        content: MessageContent::text(format!(
-                            "<step-context>\n{step_ctx}\n</step-context>"
-                        )),
-                    },
-                );
+                request_messages.push(Message {
+                    role: Role::System,
+                    content: MessageContent::text(format!(
+                        "<step-context>\n{step_ctx}\n</step-context>"
+                    )),
+                });
             }
             let request = ChatRequest {
                 model: step_model,
@@ -1130,14 +1157,15 @@ impl Agent {
                 })
                 .await;
 
+            // Emit the StepStart divider first, then the per-step EventFired
+            // pills. UI reads: the "Step N" divider opens the step, and the
+            // event pills that follow belong to that step (context injected
+            // for this iteration). DB persistence mirrors emission order.
             self.emit(crate::chat_stream::ChatStreamEvent::StepStart {
                 step: iterations,
                 model: request.model.clone(),
             });
 
-            // Truthful per-step event_fired emission. Every LLM step is a
-            // fresh firing of `session:step_start` (and any sibling per-step
-            // events), so emit a pill per event right after the step marker.
             {
                 let step_events = self.step_events.lock().await;
                 for ev in step_events.iter() {

@@ -171,13 +171,13 @@ impl SessionExecutor for QueueExecutor {
         // so a late executor still publishes to the right bus.
         let stream_sender = self.stream_registry.get_or_create(session_id).await;
 
-        // auto_close=false matches the old `interactive()` SpawnOptions for web;
-        // without_initial_prompt_record because the IPC handler already wrote
-        // the user message row before enqueueing.
+        // auto_close=false matches the old `interactive()` SpawnOptions for web.
+        // spawn_session records the initial user-message row itself, so the
+        // `event_fired` rows for session:start / session:execution_start sort
+        // BEFORE the user message in the timeline.
         let mut opts = SpawnOptions::interactive()
             .with_session_id(session_id.to_string())
-            .with_stream_sender(stream_sender)
-            .without_initial_prompt_record();
+            .with_stream_sender(stream_sender);
         if let Some(ref s) = queued.sender_id {
             opts = opts.with_sender_id(s.clone());
         }

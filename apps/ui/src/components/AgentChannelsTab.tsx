@@ -4,6 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore, type ChannelEntry } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
+import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_CHANNELS: ChannelEntry[] = [];
@@ -18,7 +19,8 @@ interface ChannelSession {
 
 const CHANNEL_TYPES = [
   { value: "telegram", label: "Telegram" },
-  { value: "whatsapp", label: "WhatsApp" },
+  { value: "whatsapp", label: "WhatsApp Cloud" },
+  { value: "whatsapp-baileys", label: "WhatsApp (QR pair)" },
 ] as const;
 
 const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?: string }[]> = {
@@ -27,6 +29,10 @@ const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?
     { label: "Phone Number ID", placeholder: "Meta WhatsApp Phone Number ID" },
     { label: "Access Token", placeholder: "Meta Graph API access token", type: "password" },
   ],
+  // Baileys has no pre-connection fields — pairing is a QR handshake that
+  // happens after the channel row is created. The Add form shows a
+  // short explanation instead of inputs.
+  "whatsapp-baileys": [],
 };
 
 function fieldKey(label: string): string {
@@ -48,6 +54,10 @@ function buildConfig(
         phone_number_id: fields.phone_number_id ?? "",
         access_token: fields.access_token ?? "",
       };
+    case "whatsapp-baileys":
+      // No pre-pair fields. Session dir defaults server-side, and any
+      // JID whitelist is added later via the allowed_chats mechanism.
+      return { kind, allowed_jids: [] };
     default:
       return { kind, ...fields };
   }
@@ -207,6 +217,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </div>
           );
         })}
+        {newChannelType === "whatsapp-baileys" && (
+          <p className="channel-form-hint">
+            Pairing is done by scanning a QR code with WhatsApp on your phone. After you press
+            Connect, a QR will appear on this channel's detail page. The session is stored on the
+            server and survives restarts.
+          </p>
+        )}
         {error && <div className="channel-form-error">{error}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
@@ -301,7 +318,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
 
       <div style={{ marginBottom: 16 }}>
         {Object.entries(selected.config)
-          .filter(([k]) => k !== "allowed_chats")
+          .filter(([k]) => k !== "allowed_chats" && k !== "allowed_jids")
           .map(([k, v]) => (
             <div key={k} className="agent-settings-field">
               <span className="agent-settings-label">{k.replace(/_/g, " ")}</span>
@@ -313,6 +330,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </div>
           ))}
       </div>
+
+      {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
 
       {chats.length === 0 ? (
         <div className="events-detail-loading">No active chats yet.</div>

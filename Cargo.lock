@@ -91,6 +91,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -152,6 +153,7 @@ name = "aeqi-orchestrator"
 version = "0.7.0"
 dependencies = [
  "aeqi-core",
+ "aeqi-gates",
  "aeqi-graph",
  "aeqi-ideas",
  "aeqi-providers",

@@ -1118,6 +1118,22 @@ impl Daemon {
                     )
                     .await
                 }
+                "channels_baileys_status" => {
+                    crate::ipc::channels::handle_channels_baileys_status(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "channels_baileys_logout" => {
+                    crate::ipc::channels::handle_channels_baileys_logout(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
 
                 "quests" => crate::ipc::quests::handle_quests(&ctx, &request, &allowed_roots).await,
                 "create_quest" => {
@@ -1485,77 +1501,40 @@ impl Daemon {
                             None
                         };
 
-                        // Resolve store_session_id: use explicit session_id_hint, or find/create one.
-                        let store_session_id: Option<String> = if let Some(ref sid) =
-                            session_id_hint
-                        {
-                            // Verify session exists; record user message with sender identity.
-                            if let Some(ref cs) = session_store {
-                                let _ = cs
-                                    .record_event_by_session_with_sender(
-                                        sid,
-                                        "message",
-                                        "user",
-                                        message,
-                                        Some("web"),
-                                        None,
-                                        web_sender_id.as_deref(),
-                                        Some("web"),
-                                    )
-                                    .await;
-                            }
-                            Some(sid.clone())
-                        } else if let Some(ref cs) = session_store {
-                            // Find or create a session for this agent.
-                            let agent_uuid = if let Some(ref aid) = agent_id_direct {
-                                Some(aid.clone())
-                            } else {
-                                match agent_registry.resolve_by_hint(&agent_hint).await {
-                                    Ok(Some(agent)) => Some(agent.id),
-                                    _ => None,
-                                }
-                            };
-                            let usid = if let Some(ref uuid) = agent_uuid {
-                                // Try to find existing active session.
-                                match cs.list_sessions(Some(uuid), 1).await {
-                                    Ok(sessions) => {
-                                        if let Some(s) =
-                                            sessions.first().filter(|s| s.status == "active")
-                                        {
-                                            Some(s.id.clone())
-                                        } else {
-                                            // Create a new session.
-                                            cs.create_session(uuid, "web", &agent_hint, None, None)
-                                                .await
-                                                .ok()
-                                        }
+                        // Resolve store_session_id: use explicit session_id_hint,
+                        // find existing active session, or generate a fresh UUID.
+                        //
+                        // Row creation AND user-message recording both happen inside
+                        // spawn_session so `session_is_new=true` on a brand-new session
+                        // and `session:start` fires. They also ensure the event_fired
+                        // rows sort BEFORE the user-message row in the timeline.
+                        let store_session_id: Option<String> =
+                            if let Some(ref sid) = session_id_hint {
+                                Some(sid.clone())
+                            } else if let Some(ref cs) = session_store {
+                                let agent_uuid = if let Some(ref aid) = agent_id_direct {
+                                    Some(aid.clone())
+                                } else {
+                                    match agent_registry.resolve_by_hint(&agent_hint).await {
+                                        Ok(Some(agent)) => Some(agent.id),
+                                        _ => None,
                                     }
-                                    Err(_) => cs
-                                        .create_session(uuid, "web", &agent_hint, None, None)
-                                        .await
-                                        .ok(),
+                                };
+                                if let Some(ref uuid) = agent_uuid {
+                                    match cs.list_sessions(Some(uuid), 1).await {
+                                        Ok(sessions) => sessions
+                                            .first()
+                                            .filter(|s| s.status == "active")
+                                            .map(|s| s.id.clone())
+                                            .or_else(|| Some(::uuid::Uuid::new_v4().to_string())),
+                                        Err(_) => Some(::uuid::Uuid::new_v4().to_string()),
+                                    }
+                                } else {
+                                    None
                                 }
                             } else {
                                 None
                             };
-                            if let Some(ref sid) = usid {
-                                let _ = cs
-                                    .record_event_by_session_with_sender(
-                                        sid,
-                                        "message",
-                                        "user",
-                                        message,
-                                        Some("web"),
-                                        None,
-                                        web_sender_id.as_deref(),
-                                        Some("web"),
-                                    )
-                                    .await;
-                            }
-                            usid
-                        } else {
-                            None
-                        };
 
                         // Legacy chat_id for backward-compatible JSON responses.
                         let chat_id = named_channel_chat_id(

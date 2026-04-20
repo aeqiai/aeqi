@@ -59,6 +59,7 @@ pub use agent_registry::RunRecord;
 pub use agent_router::{AgentRouter, RouteDecision};
 pub use channel_registry::{
     Channel, ChannelConfig, ChannelKind, ChannelStore, NewChannel, TelegramConfig,
+    WhatsappBaileysConfig,
 };
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;

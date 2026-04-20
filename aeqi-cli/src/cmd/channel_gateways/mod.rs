@@ -26,6 +26,7 @@ use aeqi_orchestrator::{
 use tracing::warn;
 
 pub(crate) mod telegram;
+pub(crate) mod whatsapp_baileys;
 
 /// Shared dependencies every gateway spawner needs. Cloned into each task.
 #[derive(Clone)]
@@ -65,6 +66,16 @@ pub(crate) fn dispatch(channel: Channel, ctx: &SpawnContext) -> bool {
                 "whatsapp channels don't have a pollable gateway yet — webhook integration pending"
             );
             false
+        }
+        ChannelConfig::WhatsappBaileys(cfg) => {
+            whatsapp_baileys::spawn_whatsapp_baileys_gateway(
+                cfg,
+                channel.id,
+                channel.agent_id,
+                channel.allowed_chats,
+                ctx.clone(),
+            );
+            true
         }
         ChannelConfig::Discord(_) | ChannelConfig::Slack(_) => {
             warn!(

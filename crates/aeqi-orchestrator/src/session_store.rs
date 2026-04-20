@@ -1262,6 +1262,23 @@ impl SessionStore {
         Ok(session)
     }
 
+    /// Returns true if this session has any prior `event_fired` row — i.e.
+    /// at least one execution has already dispatched lifecycle events.
+    /// Used by `spawn_session` to gate the once-per-session `session:start`
+    /// event: fire iff no prior execution. Covers both cases where the
+    /// session row is created (a) by spawn_session itself or (b) via a
+    /// separate create_session IPC call before the first message.
+    pub async fn has_prior_execution(&self, session_id: &str) -> bool {
+        let db = self.db.lock().await;
+        let count: Result<i64, _> = db.query_row(
+            "SELECT COUNT(*) FROM session_messages
+             WHERE session_id = ?1 AND event_type = 'event_fired'",
+            params![session_id],
+            |row| row.get(0),
+        );
+        matches!(count, Ok(n) if n > 0)
+    }
+
     /// List child sessions for a given parent session.
     pub async fn list_children(&self, parent_id: &str) -> Result<Vec<Session>> {
         let db = self.db.lock().await;

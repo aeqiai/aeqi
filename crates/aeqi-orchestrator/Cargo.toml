@@ -11,6 +11,7 @@ aeqi-quests = { workspace = true }
 aeqi-providers = { workspace = true }
 aeqi-tools = { workspace = true }
 aeqi-graph = { workspace = true }
+aeqi-gates = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -119,6 +119,8 @@ function IdeasRailFilters({
   tag,
   onTag,
   tagCounts,
+  shownCount,
+  totalCount,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -127,19 +129,39 @@ function IdeasRailFilters({
   tag: string | null;
   onTag: (v: string | null) => void;
   tagCounts: Array<[string, number]>;
+  shownCount: number;
+  totalCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const hasFilters = scope !== "all" || tag !== null;
+  const isFiltered = hasFilters || search.trim() !== "";
+  const clearAll = () => {
+    onSearch("");
+    onScope("all");
+    onTag(null);
+  };
   return (
     <div className="ideas-rail-filters">
       <div className="ideas-rail-search-row">
-        <input
-          className="ideas-rail-search"
-          type="text"
-          placeholder="Search ideas…"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-        />
+        <span className="ideas-rail-search-field">
+          <input
+            className="ideas-rail-search"
+            type="text"
+            placeholder="Search ideas…"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              className="ideas-rail-search-clear"
+              onClick={() => onSearch("")}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </span>
         <button
           type="button"
           className={`ideas-rail-filter-toggle${open || hasFilters ? " active" : ""}`}
@@ -161,6 +183,17 @@ function IdeasRailFilters({
           </svg>
           {hasFilters && <span className="ideas-rail-filter-dot" aria-hidden />}
         </button>
+      </div>
+      <div className="ideas-rail-count-row">
+        <span className="ideas-rail-count">
+          {isFiltered ? `${shownCount} of ${totalCount}` : `${totalCount}`}
+          <span className="ideas-rail-count-label"> {totalCount === 1 ? "idea" : "ideas"}</span>
+        </span>
+        {isFiltered && (
+          <button type="button" className="ideas-rail-clear-all" onClick={clearAll}>
+            Clear
+          </button>
+        )}
       </div>
       {open && (
         <div className="ideas-rail-filter-body">
@@ -501,6 +534,8 @@ export default function ContentCTA() {
           tag={ideasTag}
           onTag={setIdeasTag}
           tagCounts={tagCounts}
+          shownCount={filteredIdeas.length}
+          totalCount={ideas.length}
         />
       )}
       <div className="asv-sidebar-list">

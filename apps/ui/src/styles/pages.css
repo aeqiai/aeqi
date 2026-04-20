@@ -1310,20 +1310,19 @@
   background: var(--text-muted);
   flex-shrink: 0;
 }
-.idea-link-chip.rel-supports .idea-link-chip-dot {
-  background: var(--color-success);
+/* Three rendered relations: mentions/embeds live in the body and are
+   identified by glyph shape; adjacent is an explicit edge. We use dot
+   shape + border-dash pattern to differentiate, not color — the palette
+   is monochromatic by conviction. */
+.idea-link-chip.rel-mentions .idea-link-chip-dot {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
 }
-.idea-link-chip.rel-contradicts .idea-link-chip-dot {
-  background: var(--color-error);
+.idea-link-chip.rel-embeds .idea-link-chip-dot {
+  background: var(--text-primary);
 }
-.idea-link-chip.rel-supersedes .idea-link-chip-dot {
-  background: var(--color-brand-venture);
-}
-.idea-link-chip.rel-caused_by .idea-link-chip-dot {
-  background: var(--color-warning);
-}
-.idea-link-chip.rel-derived_from .idea-link-chip-dot {
-  background: var(--color-info);
+.idea-link-chip.rel-adjacent .idea-link-chip-dot {
+  background: var(--text-muted);
 }
 .idea-link-chip-label {
   background: none;
@@ -1370,11 +1369,13 @@
 }
 .idea-link-picker {
   position: relative;
-  background: var(--bg);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   width: 260px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
 }
 .idea-link-picker-input {
   width: 100%;
