@@ -211,8 +211,6 @@ pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String)
     }
 }
 
-// PromptRecord — DELETED. All knowledge/instructions are ideas now.
-
 /// Lifecycle status of an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -232,8 +230,6 @@ impl std::fmt::Display for AgentStatus {
     }
 }
 
-/// A lightweight SQLite connection pool.
-///
 /// A single execution record tracked in the `runs` table.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct RunRecord {
@@ -2683,17 +2679,14 @@ You are a worker agent."#;
         let reg = test_registry().await;
         let agent = reg.spawn("analyst", None, None, None).await.unwrap();
 
-        // Full name match.
         let by_name = reg.resolve_by_hint("analyst").await.unwrap();
         assert!(by_name.is_some());
         assert_eq!(by_name.unwrap().id, agent.id);
 
-        // UUID match.
         let by_uuid = reg.resolve_by_hint(&agent.id).await.unwrap();
         assert!(by_uuid.is_some());
         assert_eq!(by_uuid.unwrap().name, "analyst");
 
-        // No match.
         let none = reg.resolve_by_hint("zzz-no-such-agent").await.unwrap();
         assert!(none.is_none());
     }
@@ -2705,25 +2698,21 @@ You are a worker agent."#;
         let child_a = reg.spawn("a", None, Some(&root.id), None).await.unwrap();
         let _child_b = reg.spawn("b", None, Some(&root.id), None).await.unwrap();
 
-        // Pause child_a.
         reg.set_status(&child_a.id, AgentStatus::Paused)
             .await
             .unwrap();
 
-        // All agents, no filter.
         let all = reg.list(None, None).await.unwrap();
         assert_eq!(all.len(), 3);
 
-        // Filter by parent = root.
         let children = reg.list(Some(Some(&root.id)), None).await.unwrap();
         assert_eq!(children.len(), 2);
 
-        // Filter by parent IS NULL (root agents).
+        // parent IS NULL = root agents only
         let roots = reg.list(Some(None), None).await.unwrap();
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].name, "root");
 
-        // Filter by status = active under root.
         let active_children = reg
             .list(Some(Some(&root.id)), Some(AgentStatus::Active))
             .await
@@ -2731,7 +2720,6 @@ You are a worker agent."#;
         assert_eq!(active_children.len(), 1);
         assert_eq!(active_children[0].name, "b");
 
-        // Filter by status = paused, any parent.
         let paused = reg.list(None, Some(AgentStatus::Paused)).await.unwrap();
         assert_eq!(paused.len(), 1);
         assert_eq!(paused[0].name, "a");
@@ -2750,7 +2738,6 @@ You are a worker agent."#;
 
         let active = reg.list_active().await.unwrap();
         assert_eq!(active.len(), 2);
-        // All returned agents are active.
         for agent in &active {
             assert_eq!(agent.status, AgentStatus::Active);
         }
@@ -2759,7 +2746,7 @@ You are a worker agent."#;
         assert!(names.contains(&"active2"));
         assert!(!names.contains(&"paused1"));
 
-        // Verify that the paused agent still exists in the full list.
+        // Paused != deleted — still retrievable via get().
         let found = reg.get(&a.id).await.unwrap();
         assert!(found.is_some());
     }
@@ -2796,7 +2783,6 @@ You are a worker agent."#;
         let reg = test_registry().await;
         let agent = reg.spawn("tasker", None, None, None).await.unwrap();
 
-        // Create two tasks.
         let t1 = reg
             .create_task(&agent.id, "Build API", "Build the REST API", &[], &[])
             .await
@@ -2812,7 +2798,6 @@ You are a worker agent."#;
             .await
             .unwrap();
 
-        // Get by ID.
         let fetched = reg.get_task(&t1.id.0).await.unwrap().unwrap();
         assert_eq!(fetched.name, "Build API");
         assert_eq!(fetched.description, "Build the REST API");
@@ -2821,15 +2806,12 @@ You are a worker agent."#;
         assert_eq!(fetched2.idea_ids, vec!["idea-abc".to_string()]);
         assert_eq!(fetched2.labels, vec!["testing".to_string()]);
 
-        // Get nonexistent.
         let missing = reg.get_task("no-such-task").await.unwrap();
         assert!(missing.is_none());
 
-        // List all (no filter).
         let all = reg.list_tasks(None, None).await.unwrap();
         assert_eq!(all.len(), 2);
 
-        // Mark one done and filter by status.
         reg.update_task_status(&t1.id.0, aeqi_quests::QuestStatus::Done)
             .await
             .unwrap();
@@ -2841,7 +2823,6 @@ You are a worker agent."#;
         assert_eq!(done.len(), 1);
         assert_eq!(done[0].name, "Build API");
 
-        // Filter by agent_id.
         let by_agent = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
         assert_eq!(by_agent.len(), 2);
     }
