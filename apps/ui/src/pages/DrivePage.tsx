@@ -120,18 +120,17 @@ export default function DrivePage() {
   };
 
   return (
-    <div className="page-content">
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          Drive
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
-          Shared drive for this root agent. Any agent in the tree can read these files. 25 MB per
-          file.
+    <div className="page-content drive-page">
+      <div className="drive-page-head">
+        <span className="drive-page-eyebrow">Drive</span>
+        <h1 className="drive-page-title">Workspace files</h1>
+        <p className="drive-page-subtitle">
+          Shared across every agent in this workspace. 25 MB per file.
         </p>
       </div>
 
       <div
+        className={`drive-dropzone${dragOver ? " drive-dropzone--hover" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -139,16 +138,6 @@ export default function DrivePage() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        style={{
-          border: `1.5px dashed ${dragOver ? "var(--text-primary)" : "var(--border)"}`,
-          borderRadius: "var(--radius-md)",
-          padding: "28px 20px",
-          textAlign: "center",
-          cursor: "pointer",
-          background: dragOver ? "var(--state-hover)" : "transparent",
-          transition: "all 0.15s ease",
-          marginBottom: 20,
-        }}
       >
         <input
           ref={inputRef}
@@ -161,24 +150,13 @@ export default function DrivePage() {
           }}
         />
         {uploading ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              color: "var(--text-secondary)",
-            }}
-          >
-            <Spinner size="sm" /> Uploading...
+          <div className="drive-dropzone-state">
+            <Spinner size="sm" /> Uploading…
           </div>
         ) : (
-          <>
-            <div style={{ fontSize: 14, color: "var(--text-primary)", marginBottom: 4 }}>
-              Drop files here or click to upload
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Up to 25 MB per file</div>
-          </>
+          <div className="drive-dropzone-state">
+            <span className="drive-dropzone-primary">Drop files or click to upload</span>
+          </div>
         )}
       </div>
 
@@ -203,7 +181,10 @@ export default function DrivePage() {
           <Spinner />
         </div>
       ) : files.length === 0 ? (
-        <EmptyState title="No files yet" description="Upload a file to get started." />
+        <EmptyState
+          title="No files yet"
+          description="Drop a file above — any agent in the workspace can read it."
+        />
       ) : (
         <div
           style={{
