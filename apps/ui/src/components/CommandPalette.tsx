@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 
@@ -18,6 +18,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const appMode = useAuthStore((s) => s.appMode);
+  const { agentId } = useParams<{ agentId?: string }>();
 
   const go = useCallback(
     (path: string) => {
@@ -35,58 +36,76 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     }
     inputRef.current?.focus();
 
+    const scope = agentId ? `/${agentId}` : "";
     const buildItems = async () => {
-      const navItems: PaletteItem[] = [
-        {
-          id: "nav-dashboard",
-          label: "Dashboard",
-          hint: "Overview",
-          section: "Navigate",
-          action: () => go("/"),
-        },
-        {
-          id: "nav-agents-list",
-          label: "Agents",
-          hint: "Select a root agent",
-          section: "Navigate",
-          action: () => go("/"),
-        },
-        {
-          id: "nav-quests",
-          label: "Quests",
-          hint: "View all quests",
-          section: "Navigate",
-          action: () => go("/quests"),
-        },
-        {
-          id: "nav-sessions",
-          label: "Sessions",
-          hint: "Agent sessions",
-          section: "Navigate",
-          action: () => go("/sessions"),
-        },
-        {
-          id: "nav-events",
-          label: "Events",
-          hint: "Event stream",
-          section: "Navigate",
-          action: () => go("/events"),
-        },
-        {
-          id: "nav-ideas",
-          label: "Ideas",
-          hint: "Agent knowledge",
-          section: "Navigate",
-          action: () => go("/ideas"),
-        },
-        {
-          id: "nav-settings",
-          label: "Settings",
-          hint: "Configuration",
-          section: "Navigate",
-          action: () => go("/settings"),
-        },
-      ];
+      const navItems: PaletteItem[] = agentId
+        ? [
+            {
+              id: "nav-inbox",
+              label: "Inbox",
+              hint: "Sessions",
+              section: "Navigate",
+              action: () => go(`${scope}/sessions`),
+            },
+            {
+              id: "nav-quests",
+              label: "Quests",
+              hint: "Work items",
+              section: "Navigate",
+              action: () => go(`${scope}/quests`),
+            },
+            {
+              id: "nav-events",
+              label: "Events",
+              hint: "Triggers",
+              section: "Navigate",
+              action: () => go(`${scope}/events`),
+            },
+            {
+              id: "nav-ideas",
+              label: "Ideas",
+              hint: "Knowledge",
+              section: "Navigate",
+              action: () => go(`${scope}/ideas`),
+            },
+            {
+              id: "nav-channels",
+              label: "Channels",
+              hint: "Integrations",
+              section: "Navigate",
+              action: () => go(`${scope}/channels`),
+            },
+            {
+              id: "nav-drive",
+              label: "Drive",
+              hint: "Files",
+              section: "Navigate",
+              action: () => go(`${scope}/drive`),
+            },
+            {
+              id: "nav-tools",
+              label: "Tools",
+              hint: "Capabilities",
+              section: "Navigate",
+              action: () => go(`${scope}/tools`),
+            },
+            {
+              id: "nav-settings",
+              label: "Settings",
+              hint: "Configuration",
+              section: "Navigate",
+              action: () => go(`${scope}/settings`),
+            },
+          ]
+        : [
+            {
+              id: "nav-new",
+              label: "New agent",
+              hint: "Create",
+              section: "Navigate",
+              action: () => go("/new"),
+            },
+          ];
 
       try {
         const [agentsData, questsData, ideasData] = await Promise.all([
@@ -110,7 +129,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           label: `${q.id}: ${q.subject}`,
           hint: (q.status as string) || "",
           section: "Quests",
-          action: () => go(`/quests`),
+          action: () => go(agentId ? `${scope}/quests/${q.id}` : "/"),
         }));
 
         const rawIdeas = (ideasData.ideas || []) as Array<Record<string, unknown>>;
@@ -119,7 +138,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           label: (m.name || m.title || "Idea") as string,
           hint: ((m.content || "") as string).slice(0, 50),
           section: "Ideas",
-          action: () => go(`/ideas`),
+          action: () => go(agentId ? `${scope}/ideas/${m.id || m.name}` : "/"),
         }));
 
         setItems([...navItems, ...agentItems, ...questItems, ...ideaItems]);
@@ -128,7 +147,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go, appMode]);
+  }, [open, go, appMode, agentId]);
 
   const filtered = query
     ? items.filter(

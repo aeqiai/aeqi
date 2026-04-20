@@ -235,7 +235,16 @@ export function useWebSocketChat({
                   timestamp: Date.now(),
                   eventFire: fire,
                 };
-                setMessages((prev) => [...prev, fireMsg]);
+                setMessages((prev) => {
+                  let insertAt = prev.length;
+                  for (let i = prev.length - 1; i >= 0; i--) {
+                    if (prev[i].role === "user") {
+                      insertAt = i;
+                      break;
+                    }
+                  }
+                  return [...prev.slice(0, insertAt), fireMsg, ...prev.slice(insertAt)];
+                });
               }
               break;
             }

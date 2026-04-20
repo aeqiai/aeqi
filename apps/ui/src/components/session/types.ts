@@ -197,11 +197,16 @@ export function sessionLabel(s: SessionInfo): string {
       .replace(/^Telegram Group\s*/i, "Group")
       .replace(/^telegram:\s*/i, "")
       .replace(/^whatsapp:\s*/i, "");
+    const trimmed = stripped.trim();
+    // Sessions that inherited the agent's name/slug carry no thread info —
+    // treat them as untitled and fall through to first_message.
+    const looksLikeAgentRef = s.agent_name && trimmed.toLowerCase() === s.agent_name.toLowerCase();
     if (
       stripped &&
       stripped !== s.id &&
       !stripped.startsWith("session-") &&
-      !GENERIC_SESSION_NAMES.test(stripped.trim())
+      !GENERIC_SESSION_NAMES.test(trimmed) &&
+      !looksLikeAgentRef
     ) {
       return stripped;
     }
