@@ -18,13 +18,12 @@ const SETTINGS_SUB_TABS = [
   { id: "tools", label: "Tools" },
 ] as const;
 
-// Routes that AgentPage knows how to render. No-tab resolves to "home" — the
-// agent's dashboard. ContentTopBar is the primary nav and lives outside of
-// this component.
+// Routes that AgentPage knows how to render. No-tab resolves to the Inbox
+// (id "sessions") — the agent's landing surface. ContentTopBar is the primary
+// nav and lives outside of this component.
 const TABS = [
-  { id: "home", label: "Home" },
+  { id: "sessions", label: "Inbox" },
   { id: "settings", label: "Settings" },
-  { id: "sessions", label: "Sessions" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },
   { id: "channels", label: "Channels" },
@@ -32,13 +31,6 @@ const TABS = [
   { id: "ideas", label: "Ideas" },
   { id: "tools", label: "Tools" },
 ];
-
-function formatTokens(n?: number): string {
-  if (n == null || n === 0) return "0";
-  if (n < 1_000) return String(n);
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}K`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
 
 export default function AgentPage({
   agentId,
@@ -53,20 +45,16 @@ export default function AgentPage({
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
   const itemId = itemIdProp ?? params.itemId;
-  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "home";
+  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
-  const quests = useDaemonStore((s) => s.quests);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
 
   const resolvedAgentId = agent?.id || agentId;
 
   // Child agents for the "agents" tab
   const childAgents = agents.filter((a) => a.parent_id === agent?.id);
-
-  // Quest counts for the dashboard tab (lightweight — just IDs + status)
-  const agentQuests = quests.filter((q) => (q as Record<string, unknown>).agent_id === agent?.id);
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -97,58 +85,6 @@ export default function AgentPage({
       )}
 
       {/* Tab content */}
-      {activeTab === "home" && (
-        <div className="page-content">
-          <div className="agent-stat-cards">
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">{agent?.session_count ?? 0}</span>
-              <span className="agent-stat-card-label">Sessions</span>
-            </div>
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">
-                {agentQuests.filter((q) => (q as Record<string, unknown>).status === "done").length}
-              </span>
-              <span className="agent-stat-card-label">Completed</span>
-            </div>
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">
-                {
-                  agentQuests.filter((q) => (q as Record<string, unknown>).status === "in_progress")
-                    .length
-                }
-              </span>
-              <span className="agent-stat-card-label">In Progress</span>
-            </div>
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">{formatTokens(agent?.total_tokens)}</span>
-              <span className="agent-stat-card-label">Tokens</span>
-            </div>
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">
-                {agent?.budget_usd != null ? `$${agent.budget_usd.toFixed(0)}` : "—"}
-              </span>
-              <span className="agent-stat-card-label">Budget</span>
-            </div>
-            <div className="agent-stat-card">
-              <span className="agent-stat-card-value">{childAgents.length}</span>
-              <span className="agent-stat-card-label">Children</span>
-            </div>
-          </div>
-          {agent?.idea_ids && agent.idea_ids.length > 0 && (
-            <div className="agent-settings-section">
-              <h3 className="agent-settings-heading">Ideas ({agent.idea_ids.length})</h3>
-              <div className="agent-stat-ideas">
-                {agent.idea_ids.map((id) => (
-                  <span key={id} className="agent-idea-pill">
-                    {id}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {activeTab === "sessions" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />

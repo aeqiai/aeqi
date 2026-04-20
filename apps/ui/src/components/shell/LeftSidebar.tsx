@@ -32,14 +32,11 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const ICON_HOME = (
+const ICON_INBOX = (
   <svg {...iconProps}>
-    <path d="M2.5 6.5L8 2l5.5 4.5V13a.5.5 0 0 1-.5.5h-3V10h-4v3.5h-3a.5.5 0 0 1-.5-.5V6.5z" />
-  </svg>
-);
-const ICON_SESSIONS = (
-  <svg {...iconProps}>
-    <path d="M13.5 8a5.5 5.5 0 0 1-7.9 4.95L2.5 13.5l.55-3.1A5.5 5.5 0 1 1 13.5 8z" />
+    <path d="M2 9.5L4 3.5h8l2 6" />
+    <path d="M2 9.5v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3" />
+    <path d="M2 9.5h3.5l.75 1.5h3.5l.75-1.5H14" />
   </svg>
 );
 const ICON_AGENTS = (
@@ -87,8 +84,7 @@ const ICON_SETTINGS = (
 );
 
 const PRIMITIVES: NavItem[] = [
-  { id: "", label: "Home", icon: ICON_HOME },
-  { id: "sessions", label: "Sessions", icon: ICON_SESSIONS },
+  { id: "sessions", label: "Inbox", icon: ICON_INBOX },
   { id: "agents", label: "Agents", icon: ICON_AGENTS },
   { id: "events", label: "Events", icon: ICON_EVENTS },
   { id: "quests", label: "Quests", icon: ICON_QUESTS },
@@ -122,16 +118,20 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const profileHref = `${base}/profile`;
   const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
 
-  const navHref = (id: string) => (id ? `${base}/${id}` : base);
+  // Inbox lives at the agent root (/:agentId) — no tab segment in the URL.
+  // Every other primitive/configure tab gets its normal /:agentId/:tab path.
+  const navHref = (id: string) => (id === "sessions" ? base : `${base}/${id}`);
   const isActive = (id: string) => {
     if (!base) return false;
-    if (id === "") return path === base || path === `${base}/`;
+    if (id === "sessions") {
+      return path === base || path === `${base}/` || path.startsWith(`${base}/sessions`);
+    }
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
   const renderNav = (item: NavItem) => (
     <a
-      key={item.id || "home"}
+      key={item.id}
       className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
       href={navHref(item.id)}
       onClick={(e) => {

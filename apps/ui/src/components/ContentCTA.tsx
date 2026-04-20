@@ -107,7 +107,9 @@ export default function ContentCTA() {
     itemId?: string;
   }>();
   const { goAgent } = useNav();
-  const section = tab || "";
+  // No tab means Inbox — treat it identically to the "sessions" section so the
+  // rail (session list + "New message" CTA) renders on /:agentId.
+  const section = tab || "sessions";
 
   // --- Sessions -----------------------------------------------------------
   const sessions = useChatStore((s) =>
@@ -206,7 +208,7 @@ export default function ContentCTA() {
 
   switch (section) {
     case "sessions":
-      header = { label: "New chat", event: "aeqi:new-session" };
+      header = { label: "New message", event: "aeqi:new-session" };
       items = sessions.map((s) => {
         const n = s.name?.toLowerCase() || "";
         const badge = n.includes("telegram")

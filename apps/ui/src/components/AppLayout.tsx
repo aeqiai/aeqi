@@ -16,8 +16,6 @@ import type { Agent } from "@/lib/types";
 // Out-of-flow pages rendered inside the shell — lazy to keep AppLayout light.
 // Drive is root-only. Profile is user-scoped but lives under
 // /:agentId/profile so it inherits the sidebar + tree chrome (Refined A).
-const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
-const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 
@@ -59,13 +57,12 @@ export default function AppLayout() {
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
 
   // Resolve current agent + derive the root of its tree.
-  const { currentAgent, rootAgent, isRoot } = useMemo(() => {
+  const { currentAgent, rootAgent } = useMemo(() => {
     const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
     const root = current ? findRoot(agents, current.id) : null;
     return {
       currentAgent: current,
       rootAgent: root,
-      isRoot: !!current && !current.parent_id,
     };
   }, [agents, agentId]);
 
@@ -122,28 +119,27 @@ export default function AppLayout() {
   const base = `/${encodeURIComponent(agentId)}`;
 
   // Pick what renders in the main content area.
-  //   - no tab + root + platform mode  → welcome card (onboarding)
-  //   - no tab + root                  → dashboard home
   //   - drive                          → dedicated page (available on every agent)
   //   - profile                        → user profile (any agent scope)
+  //   - no tab                         → Inbox (agent landing — same as tab="sessions")
   //   - everything else                → AgentPage with tab/itemId
   const isDrive = tab === "drive";
-  const rootDefault = isRoot && !tab;
   const isProfile = tab === "profile";
+  // Inbox is the default surface. No-tab URLs are treated identically to
+  // tab="sessions" so /:agentId renders the Inbox directly — no redirect,
+  // no "home" dashboard, no welcome splash.
+  const effectiveTab = tab || "sessions";
 
   // Profile is platform-mode only — runtime mode has nowhere to manage
-  // account-level identity, so kick back to the agent's home.
+  // account-level identity, so kick back to the agent's Inbox.
   if (isProfile && appMode && appMode !== "platform") {
     return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
   }
 
   const mainContent = (() => {
-    if (rootDefault) {
-      return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
-    }
     if (isDrive) return <DrivePage />;
     if (isProfile) return <ProfilePage />;
-    return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
+    return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
   // ContentTopBar is the primary per-agent nav — always mount it when there's
@@ -154,9 +150,9 @@ export default function AppLayout() {
   // CTA right rail are noise there.
   const showComposer = !isProfile && !!agentId;
   const showCTA = !isProfile;
-  // The rail only has content for tabs that are master/detail. Home,
-  // drive, apps, settings → rail reserves its space (no twitch) but is
-  // left empty and transparent so the card reads as one clean pane.
+  // The rail only has content for tabs that are master/detail. Drive,
+  // settings → rail reserves its space (no twitch) but is left empty and
+  // transparent so the card reads as one clean pane.
   const RAIL_TABS = new Set([
     "sessions",
     "events",
@@ -166,10 +162,9 @@ export default function AppLayout() {
     "ideas",
     "agents",
   ]);
-  const hasRailContent = !!tab && RAIL_TABS.has(tab);
-  // AgentSessionView only mounts when AgentPage is rendered AND the active
-  // tab is "sessions". Home (no tab) no longer implies chat — it's a dashboard.
-  const sessionsMounted = !rootDefault && !isDrive && !isProfile && tab === "sessions";
+  const hasRailContent = RAIL_TABS.has(effectiveTab);
+  // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
+  const sessionsMounted = !isDrive && !isProfile && effectiveTab === "sessions";
 
   return (
     <>

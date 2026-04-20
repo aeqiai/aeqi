@@ -14,8 +14,8 @@ import BudgetMeter from "./BudgetMeter";
  */
 
 const TITLES: Record<string, string> = {
-  "": "Home",
-  sessions: "Sessions",
+  "": "Inbox",
+  sessions: "Inbox",
   agents: "Agents",
   events: "Events",
   quests: "Quests",
@@ -40,7 +40,7 @@ export default function ContentTopBar() {
   const appMode = useAuthStore((s) => s.appMode);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-  const section = tab || "";
+  const section = tab || "sessions";
   const title = TITLES[section] || section;
   const createLabel = CREATE_LABEL[section];
 
