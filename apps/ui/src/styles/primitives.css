@@ -12,24 +12,24 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Three-tier surface system.
-     The dashboard stacks three surfaces inside one frame:
-       canvas  — outside the card (the "desk") — warm stone grey
-       card    — the main content pane ("index card")            — pure white
-       paper   — the right rail inside the card ("document")     — parchment
-     Landing still uses two tiers (paper + card) because there's no outer
-     shell to sit on. The dashboard needs the third, darker surface so the
-     bordered + radiused card visibly lifts off the body and the rail
-     doesn't blend into whatever is behind the app. */
-  --color-canvas: #ebeae6;
-  --bg-base: var(--color-card);
+  /* Three-tier surface system — all dark mineral, layered by value.
+       canvas  — outside the card (the "desk")        — deep mineral void
+       card    — the main content pane ("index card")  — primary surface
+       paper   — the right rail inside the card        — elevated surface
+     Each tier is slightly lighter than the one beneath it so the radiused
+     card lifts off the body and the rail reads as a separate document
+     inside it. In v2 dark mode "paper" is a semantic name for the surface
+     layer, not a literal parchment color. */
+  --color-canvas: #080c0b; /* deepest — the desk */
+  --bg-base: var(--color-paper); /* #111715 — the main surface */
   --bg-surface: var(--color-bg-surface);
-  --bg-elevated: var(--color-paper);
+  --bg-elevated: var(--color-card); /* #151d1a — elevated cards, rails */
   --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-canvas);
+  --bg-canvas: var(--color-bg-base); /* #0b0f0e — outside the card */
 
-  /* Ink surface aliases — semantic names for the dark composer / inverse
-     surfaces. One source of truth; components reference these, not raw hex. */
+  /* Ink surface aliases — the recessed / inset well used by the composer
+     and other sunken surfaces. In v2 dark mode "ink" is not an inverse
+     palette, it's just the deepest surface in the stack. */
   --ink-bg: var(--color-ink);
   --ink-bg-elevated: var(--color-ink-elevated);
   --ink-border: var(--color-ink-border);
@@ -38,7 +38,7 @@
   --ink-text: var(--color-ink-text);
   --ink-text-muted: var(--color-ink-text-muted);
   --ink-text-dim: var(--color-ink-text-dim);
-  --ink-ring-focus: 0 0 0 3px rgba(82, 82, 91, 0.25);
+  --ink-ring-focus: 0 0 0 3px var(--color-accent-glow);
 
   /* Legacy background aliases */
   --bg-secondary: var(--color-bg-surface);
@@ -46,15 +46,14 @@
 
   /* ── State layers ─────────────────────────────────────
      Semi-transparent overlays for interactive states.
-     They adapt to whatever surface they sit on — 6% ink
-     over the canvas reads the same "one step darker" as
-     6% over a card. This is the Material/Linear pattern:
-     one token per state, no per-surface variants.
-     Use these for hover, selected, and pressed — NOT for
+     On dark surfaces, state layers are white-at-low-alpha
+     ("one step lighter") — the dark-mode inverse of Material's
+     black-alpha overlays. One token per state, no per-surface
+     variants. Use for hover / selected / pressed — NOT for
      base surface elevations (that's what --bg-* is for). */
-  --state-hover: rgba(0, 0, 0, 0.035);
-  --state-selected: rgba(0, 0, 0, 0.09);
-  --state-pressed: rgba(0, 0, 0, 0.12);
+  --state-hover: rgba(255, 255, 255, 0.035);
+  --state-selected: rgba(63, 174, 140, 0.12);
+  --state-pressed: rgba(63, 174, 140, 0.2);
 
   /* Text */
   --text-primary: var(--color-text-primary);
@@ -83,16 +82,16 @@
 
   /* ── Dashboard-specific tokens (not in shared package) ─── */
 
-  --accent-glow: transparent;
-  --accent-glow-strong: transparent;
-  --success-glow: rgba(34, 197, 94, 0.08);
-  --border-accent: var(--color-border-hover);
-  --shadow-glow: none;
-  --shadow-glow-strong: none;
+  --accent-glow: var(--color-accent-glow);
+  --accent-glow-strong: rgba(63, 174, 140, 0.28);
+  --success-glow: rgba(88, 199, 162, 0.14);
+  --border-accent: rgba(63, 174, 140, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(63, 174, 140, 0.2);
+  --shadow-glow-strong: 0 0 24px rgba(63, 174, 140, 0.18);
 
   /* Focus rings — 3px halo used by inputs, code digits, etc. */
-  --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.04);
-  --ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.06);
+  --ring-muted: 0 0 0 3px rgba(255, 255, 255, 0.05);
+  --ring-danger: 0 0 0 3px rgba(184, 92, 92, 0.2);
 
   /* Sidebar row rhythm — one height for every row in the left rail
      (nav items, agent tree, scope indicator). 32px is the Linear /
@@ -127,10 +126,12 @@
      marquee moments. Rendered in --text-primary, never in accent. */
   --font-display: "Cinzel", Georgia, serif;
 
-  /* CTA button tokens — heraldic gold primary, ink secondary. */
+  /* CTA button tokens — jade primary, outlined secondary.
+     Primary jade text sits on jade bg; tuned for the deepest contrast
+     against dark mineral surroundings without punching through. */
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
-  --btn-primary-text: #ffffff;
+  --btn-primary-text: #0b0f0e;
   --btn-secondary-bg: transparent;
   --btn-secondary-text: var(--text-primary);
   --btn-secondary-border: var(--border);
@@ -159,12 +160,12 @@
   --accent-bar-done: var(--success);
 
   /* Key/ID pill — monospace chip for quest IDs, event types, agent names */
-  --key-pill-bg: rgba(0, 0, 0, 0.035);
-  --key-pill-border: rgba(0, 0, 0, 0.07);
+  --key-pill-bg: rgba(255, 255, 255, 0.04);
+  --key-pill-border: rgba(255, 255, 255, 0.07);
   --key-pill-radius: var(--radius-xs);
 
   /* Section heading rhythm — date groups, group headers */
-  --section-label-color: rgba(0, 0, 0, 0.28);
+  --section-label-color: rgba(231, 241, 237, 0.42);
   --section-label-size: var(--font-size-micro);
 
   /* Stat card accent — top border on settings/quests stats */
