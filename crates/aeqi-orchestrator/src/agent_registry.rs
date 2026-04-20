@@ -1188,6 +1188,29 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Set visual identity (color + avatar) for an agent. Either field may be
+    /// `None` to leave it unset. Used by template spawn to carry the template's
+    /// styling onto the freshly-created agent without a second round-trip.
+    pub async fn set_visual_identity(
+        &self,
+        id: &str,
+        color: Option<&str>,
+        avatar: Option<&str>,
+    ) -> Result<()> {
+        if color.is_none() && avatar.is_none() {
+            return Ok(());
+        }
+        let db = self.db.lock().await;
+        let updated = db.execute(
+            "UPDATE agents SET color = COALESCE(?1, color), avatar = COALESCE(?2, avatar) WHERE id = ?3",
+            params![color, avatar, id],
+        )?;
+        if updated == 0 {
+            anyhow::bail!("agent '{id}' not found");
+        }
+        Ok(())
+    }
+
     /// Resolve workdir for an agent — walks ancestor chain to find first non-None.
     pub async fn resolve_workdir(&self, agent_id: &str) -> Result<Option<String>> {
         let ancestors = self.get_ancestors(agent_id).await?;

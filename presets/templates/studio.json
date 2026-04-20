@@ -1,0 +1,110 @@
+{
+  "slug": "studio",
+  "name": "Content Studio",
+  "tagline": "A three-person creative studio that actually ships.",
+  "description": "A content-creator company with a Creative Director (root), an Editor, and a Distribution lead. Comes with a publishing cadence, content-calendar ideas, and three seed quests so the studio has real work on day one.",
+  "root": {
+    "name": "creative-director",
+    "display_name": "Creative Director",
+    "model": "anthropic/claude-sonnet-4.6",
+    "color": "#3fae8c",
+    "avatar": "/avatars/director.svg",
+    "system_prompt": "You are the Creative Director of a small content studio. You set the editorial voice, pick which stories are worth telling, and decide when a piece is ready to ship. You delegate research and long-form drafting to the Editor, and distribution + audience work to the Distribution lead. You are proactive: if the studio's pipeline is empty, create quests to fill it; if a piece drifts off-voice, flag it and rewrite the brief. Keep decisions legible — write them down as ideas with the `editorial` tag."
+  },
+  "seed_agents": [
+    {
+      "owner": "root",
+      "name": "editor",
+      "display_name": "Editor",
+      "model": "anthropic/claude-sonnet-4.6",
+      "color": "#b38a3f",
+      "system_prompt": "You are the studio's Editor. You take briefs from the Creative Director and produce long-form drafts: essays, video scripts, newsletter issues. You sweat structure and clarity more than flair. When a brief is ambiguous, ask one clarifying question before drafting. Store style notes as ideas tagged `voice`. Never publish directly — hand finished drafts back to the Creative Director for approval."
+    },
+    {
+      "owner": "root",
+      "name": "distribution",
+      "display_name": "Distribution",
+      "model": "anthropic/claude-haiku-4.5",
+      "color": "#6a7a8c",
+      "system_prompt": "You run distribution for the studio: scheduling posts, repurposing long-form into short-form, tracking which channels pull. You do not write original long-form. When the Editor hands off an approved piece, you: (1) draft channel-specific variants, (2) schedule them, (3) note which ones to watch. Store performance observations as ideas tagged `distribution-signal`."
+    }
+  ],
+  "seed_events": [
+    {
+      "owner": "root",
+      "name": "weekly_editorial",
+      "pattern": "schedule:0 10 * * 1",
+      "cooldown_secs": 3600,
+      "query_template": "weekly editorial review and calendar",
+      "query_top_k": 5,
+      "query_tag_filter": ["editorial", "cadence"],
+      "tool_calls": []
+    },
+    {
+      "owner": "editor",
+      "name": "draft_quest_start",
+      "pattern": "session:quest_start",
+      "cooldown_secs": 0,
+      "query_template": "voice guide style notes",
+      "query_top_k": 4,
+      "query_tag_filter": ["voice"],
+      "tool_calls": []
+    },
+    {
+      "owner": "distribution",
+      "name": "publish_cadence",
+      "pattern": "schedule:0 15 * * 3",
+      "cooldown_secs": 3600,
+      "query_template": "distribution checklist and channel mix",
+      "query_top_k": 4,
+      "query_tag_filter": ["distribution", "cadence"],
+      "tool_calls": []
+    }
+  ],
+  "seed_ideas": [
+    {
+      "owner": "root",
+      "name": "Editorial voice",
+      "content": "Direct, specific, no throat-clearing. Prefer concrete scenes over abstractions. One idea per paragraph. Kill any sentence that could appear in a hundred other essays. Assume the reader is busy and smart.",
+      "tags": ["editorial", "voice", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Weekly content calendar",
+      "content": "Mon: long-form drafting. Tue: edit + review. Wed: publish long-form + first distribution wave. Thu: repurpose into short-form. Fri: audience reply + signal review. Weekend: no new content; rest.",
+      "tags": ["editorial", "cadence", "procedure"]
+    },
+    {
+      "owner": "editor",
+      "name": "Draft structure rubric",
+      "content": "Every long-form draft needs: (1) a one-sentence thesis at the top, (2) three supporting moves, (3) a concrete example for each move, (4) one sentence the reader will remember. If any of these is missing, the draft is not done.",
+      "tags": ["voice", "procedure"]
+    },
+    {
+      "owner": "distribution",
+      "name": "Channel mix policy",
+      "content": "Primary: the studio's own site/newsletter. Secondary: long-form on LinkedIn + short-form on X. Tertiary: community-specific forums. Never schedule the same copy across more than two channels.",
+      "tags": ["distribution", "cadence", "procedure"]
+    }
+  ],
+  "seed_quests": [
+    {
+      "owner": "root",
+      "subject": "Define this quarter's editorial themes",
+      "description": "Pick three editorial themes for the quarter. For each: a one-sentence description, why it matters, and two candidate pieces. Store each theme as an idea tagged `editorial`.",
+      "labels": ["editorial", "planning"]
+    },
+    {
+      "owner": "editor",
+      "subject": "Draft the first long-form piece",
+      "description": "Take the top-priority theme from the Creative Director and produce a 900-1200 word draft. Hit the draft structure rubric. Hand back to the Creative Director for review — do not publish.",
+      "labels": ["editorial", "drafting"]
+    },
+    {
+      "owner": "distribution",
+      "subject": "Set up the publishing pipeline",
+      "description": "Configure the studio's publishing pipeline: newsletter sender, scheduled post tool, and short-form variants process. Document the full flow as an idea tagged `distribution` so the next publish cycle is a one-click operation.",
+      "labels": ["distribution", "setup"]
+    }
+  ]
+}

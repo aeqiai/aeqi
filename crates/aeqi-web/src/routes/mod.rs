@@ -11,6 +11,7 @@ mod ideas;
 mod quests;
 mod roots;
 mod sessions;
+mod templates;
 mod vfs;
 mod webhooks;
 
@@ -37,4 +38,5 @@ pub fn api_routes() -> Router<AppState> {
         .merge(channels::routes())
         .merge(vfs::routes())
         .merge(hosting::routes())
+        .merge(templates::routes())
 }

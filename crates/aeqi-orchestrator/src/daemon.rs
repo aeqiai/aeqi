@@ -1275,6 +1275,19 @@ impl Daemon {
                 "seed_ideas" => {
                     crate::ipc::seed::handle_seed_ideas(&ctx, &request, &allowed_roots).await
                 }
+
+                "list_templates" => {
+                    crate::ipc::templates::handle_list_templates(&ctx, &request, &allowed_roots)
+                        .await
+                }
+                "template_detail" => {
+                    crate::ipc::templates::handle_template_detail(&ctx, &request, &allowed_roots)
+                        .await
+                }
+                "spawn_template" => {
+                    crate::ipc::templates::handle_spawn_template(&ctx, &request, &allowed_roots)
+                        .await
+                }
                 "list_ideas" => {
                     crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_roots).await
                 }
