@@ -48,6 +48,13 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               action: () => go(`${scope}/sessions`),
             },
             {
+              id: "nav-agents-tab",
+              label: "Agents",
+              hint: "Sub-agents",
+              section: "Navigate",
+              action: () => go(`${scope}/agents`),
+            },
+            {
               id: "nav-quests",
               label: "Quests",
               hint: "Work items",

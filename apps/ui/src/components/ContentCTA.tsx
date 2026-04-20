@@ -316,6 +316,8 @@ export default function ContentCTA() {
     case "sessions":
       header = { label: "New message", event: "aeqi:new-session" };
       items = sessions
+        // Quest execution sessions belong in the Quests tab, not the Inbox.
+        .filter((s) => s.session_type !== "task")
         .map((s) => {
           const n = s.name?.toLowerCase() || "";
           const badge = n.includes("telegram")
