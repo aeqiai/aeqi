@@ -26,10 +26,10 @@
   --bg-overlay: var(--color-bg-overlay);
   --bg-canvas: var(--color-bg-base); /* #f1f1ee — outside the card */
 
-  /* Sidebar tint — a single subtle value step below paper so the sidebar
-     reads as its own surface under a hairline divider. No floating, no
-     rounding — the shell is architectural, not decorative. */
-  --bg-sidebar: #f3f3f0;
+  /* Sidebar tint — a single subtle value step below the white content
+     so the sidebar reads as its own surface under a hairline divider.
+     No floating, no rounding — the shell is architectural. */
+  --bg-sidebar: #f7f7f5;
 
   /* In-card raised row/chip tint. The main content card is white
      (the "document"); items inside that need to stand out go subtly
