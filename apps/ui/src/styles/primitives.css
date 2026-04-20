@@ -42,6 +42,12 @@
   /* Legacy background aliases */
   --bg-secondary: var(--color-bg-surface);
   --bg-primary: var(--color-bg-base);
+  --bg-subtle: rgba(0, 0, 0, 0.03);
+
+  /* Destructive — legacy alias used by confirm buttons, delete actions.
+     Routes through --color-error so the ivory palette stays coherent;
+     the old fallback was #e55 fire-engine red which reads cheap on paper. */
+  --destructive: var(--color-error);
 
   /* ── State layers ─────────────────────────────────────
      Semi-transparent overlays for interactive states.

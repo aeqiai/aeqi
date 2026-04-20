@@ -962,19 +962,19 @@
   border: 1px solid transparent;
 }
 .asv-file-chip--created {
-  color: var(--color-success, #22a360);
-  background: rgba(34, 163, 96, 0.06);
-  border-color: rgba(34, 163, 96, 0.15);
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: rgba(46, 143, 113, 0.18);
 }
 .asv-file-chip--modified {
-  color: var(--color-warning, #b45309);
-  background: rgba(180, 83, 9, 0.06);
-  border-color: rgba(180, 83, 9, 0.15);
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border-color: rgba(185, 138, 71, 0.18);
 }
 .asv-file-chip--deleted {
-  color: var(--error, #dc2626);
-  background: rgba(220, 38, 38, 0.06);
-  border-color: rgba(220, 38, 38, 0.15);
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border-color: rgba(184, 92, 92, 0.18);
 }
 .asv-file-chip-dot {
   width: 5px;

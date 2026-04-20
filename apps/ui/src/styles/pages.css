@@ -518,15 +518,15 @@
 }
 
 .account-feedback-success {
-  background: rgba(34, 197, 94, 0.08);
-  color: var(--success, #16a34a);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid rgba(46, 143, 113, 0.2);
 }
 
 .account-feedback-error {
-  background: rgba(239, 68, 68, 0.06);
-  color: var(--error, #dc2626);
-  border: 1px solid rgba(239, 68, 68, 0.15);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border: 1px solid rgba(184, 92, 92, 0.2);
 }
 
 /* ── Settings page ─────────────────────────────────── */
@@ -1315,19 +1315,19 @@
   flex-shrink: 0;
 }
 .idea-link-chip.rel-supports .idea-link-chip-dot {
-  background: #16a34a;
+  background: var(--color-success);
 }
 .idea-link-chip.rel-contradicts .idea-link-chip-dot {
-  background: #dc2626;
+  background: var(--color-error);
 }
 .idea-link-chip.rel-supersedes .idea-link-chip-dot {
-  background: #7c3aed;
+  background: var(--color-brand-venture);
 }
 .idea-link-chip.rel-caused_by .idea-link-chip-dot {
-  background: #ea580c;
+  background: var(--color-warning);
 }
 .idea-link-chip.rel-derived_from .idea-link-chip-dot {
-  background: #0891b2;
+  background: var(--color-info);
 }
 .idea-link-chip-label {
   background: none;
@@ -2011,11 +2011,11 @@
 }
 
 .key-revoke-btn {
-  color: var(--error, #ef4444);
+  color: var(--color-error);
 }
 .key-revoke-btn:hover {
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--error, #ef4444);
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .key-empty {
