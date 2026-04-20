@@ -13,31 +13,37 @@
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
   /* Three-tier surface system — warm ivory layered by value.
-       canvas  — outside the card (the "desk")        — slightly-warm paper
-       card    — the main content pane ("index card")  — primary surface
-       paper   — the right rail inside the card        — elevated surface
+       canvas  — outside the card (the "desk")        — one step off paper
+       paper   — the main content pane                — primary surface
+       card    — raised cards / rails / alternating   — elevated surface
      Each tier lifts the next — the radiused card floats off the desk and
      the rail reads as a separate document inside it. In v3 light mode
      "paper" is both the semantic name and the literal ivory color. */
-  --color-canvas: #f5f0e4; /* warmer than paper — the desk */
-  --bg-base: var(--color-paper); /* #faf6ec — the main surface */
+  --color-canvas: var(--color-bg-base); /* #eeeadd — the desk */
+  --bg-base: var(--color-paper); /* #f4f1e8 — the main surface */
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: var(--color-card); /* #ffffff — elevated cards, rails */
   --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #f5f0e4 — outside the card */
+  --bg-canvas: var(--color-bg-base); /* #eeeadd — outside the card */
 
-  /* Ink surface aliases — the recessed / inset well used by the composer
-     and other sunken surfaces. In v3 light mode "ink" is a sunken ivory
-     well, one shade darker than paper — not a dark inverse palette. */
-  --ink-bg: var(--color-ink);
-  --ink-bg-elevated: var(--color-ink-elevated);
-  --ink-border: var(--color-ink-border);
-  --ink-border-hover: var(--color-ink-border-hover);
-  --ink-border-focus: var(--color-ink-border-focus);
+  /* Well surface aliases — the recessed / inset surface used by the
+     composer and other sunken panes. In v3 light mode the well is a
+     sunken ivory one shade darker than paper — not a dark inverse
+     palette. Text inside the well uses the main ink-* scale; the
+     well's contrast comes from its surface, not bespoke text tokens.
+
+     The --ink-* alias names are kept because every sunken-surface
+     selector in the codebase uses them; they now point at --color-well-*
+     for surfaces and --color-ink-* for text. */
+  --ink-bg: var(--color-well-bg);
+  --ink-bg-elevated: var(--color-well-elevated);
+  --ink-border: var(--color-well-border);
+  --ink-border-hover: var(--color-well-border-hover);
+  --ink-border-focus: var(--color-well-border-focus);
   --ink-text: var(--color-ink-text);
-  --ink-text-muted: var(--color-ink-text-muted);
-  --ink-text-dim: var(--color-ink-text-dim);
-  --ink-ring-focus: 0 0 0 3px var(--color-accent-glow);
+  --ink-text-muted: var(--color-ink-secondary);
+  --ink-text-dim: var(--color-ink-muted);
+  --ink-ring-focus: 0 0 0 3px var(--color-focus-ring);
 
   /* Legacy background aliases */
   --bg-secondary: var(--color-bg-surface);

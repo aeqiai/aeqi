@@ -8,7 +8,7 @@
  *
  *  Ratio rule — hold these or it goes generic:
  *    ~65%  ivory paper + white card surfaces
- *    ~30%  ink body copy (black at 25–90% alpha)
+ *    ~30%  ink body copy (black at 18–90% alpha)
  *    ~5%   jade accent (CTAs, active nav, focus, selected, wordmark)
  *
  *  Avoid:
@@ -25,36 +25,55 @@
 
   /* Backgrounds — warm ivory paper + flat white card, layered by value
      not by tint. The "canvas" is the desk behind everything, slightly
-     warmer than paper so the main card floats off it. */
-  --color-bg-base: #f5f0e4; /* page background — warmer than paper */
-  --color-bg-surface: #faf6ec; /* main surface — ivory paper */
+     warmer than paper so the main card floats off it.
+
+     Paper shifted from #faf6ec → #f4f1e8 — less creamy, less decorative,
+     more controlled. Paper and card now form a cleaner hierarchy. */
+  --color-bg-base: #eeeadd; /* page background — one step warmer than paper */
+  --color-bg-surface: #f4f1e8; /* main surface — ivory paper */
   --color-bg-elevated: #ffffff; /* raised — modals, popovers, cards */
   --color-bg-overlay: #ffffff; /* highest — tooltips, floating menus */
 
   /* Surfaces — semantic aliases used across landing + dashboard.
-     --color-paper  page base / main content surface (warm ivory)
-     --color-card   raised panel / alternating section (flat white)
-     Paper is the quiet warmth; Card is the clean break that alternates. */
-  --color-paper: #faf6ec;
+     --color-paper        page base / main content surface
+     --color-card         raised panel / alternating section
+     --color-section-alt  same white as card, used when a section needs to
+                          break paper with a clean white pane (signup right
+                          column, feature rows). Kept distinct so we can
+                          retune alternating sections without touching
+                          raised cards. */
+  --color-paper: #f4f1e8;
   --color-card: #ffffff;
+  --color-section-alt: #ffffff;
 
-  /* Ink — a gently-recessed inset well on paper. Warm off-paper, darker
-     than paper so the composer and code blocks read as sunken. In v3
-     "ink" is a recessed surface, not a dark palette. */
-  --color-ink: #f0eadb; /* inset well — sunken ivory */
-  --color-ink-elevated: #f5f0e4;
-  --color-ink-border: rgba(0, 0, 0, 0.06);
-  --color-ink-border-hover: rgba(0, 0, 0, 0.1);
-  --color-ink-border-focus: rgba(63, 174, 140, 0.45);
-  --color-ink-text: rgba(0, 0, 0, 0.85);
-  --color-ink-text-muted: rgba(0, 0, 0, 0.5);
-  --color-ink-text-dim: rgba(0, 0, 0, 0.3);
+  /* Well — a gently-recessed inset surface on paper. Warm off-paper,
+     darker than paper so the composer and code blocks read as sunken.
+     "Well" is a recessed surface, not a dark palette. Retuned to track
+     the new #f4f1e8 paper: ink-well should be ~5 RGB units darker.
+     Text inside the well uses the main --color-ink-* scale below. */
+  --color-well-bg: #ede8db;
+  --color-well-elevated: #f0ecdf;
+  --color-well-border: rgba(0, 0, 0, 0.06);
+  --color-well-border-hover: rgba(0, 0, 0, 0.1);
+  --color-well-border-focus: rgba(63, 174, 140, 0.45);
 
-  /* Text — near-black with slight warmth; reads against paper without
-     looking crushed. 85/50/30 covers body, secondary, and marginalia. */
-  --color-text-primary: rgba(0, 0, 0, 0.85);
-  --color-text-secondary: rgba(0, 0, 0, 0.55);
-  --color-text-muted: rgba(0, 0, 0, 0.35);
+  /* Ink / Text — the ink-on-paper scale. 90/85/45/25/18 covers titles,
+     body, secondary, marginalia, and disabled. Slight warmth from the
+     alpha-on-paper blend; no hard black anywhere.
+     --color-text-* names are the canonical code-facing aliases used
+     everywhere in the dashboard; the --color-ink-* names mirror them
+     so new code reads naturally (ink-on-paper). */
+  --color-ink-primary: rgba(0, 0, 0, 0.9); /* titles, mastheads */
+  --color-ink-text: rgba(0, 0, 0, 0.85); /* body copy */
+  --color-ink-secondary: rgba(0, 0, 0, 0.45); /* lead, captions */
+  --color-ink-muted: rgba(0, 0, 0, 0.25); /* eyebrows, section marks */
+  --color-ink-disabled: rgba(0, 0, 0, 0.18); /* disabled text */
+
+  --color-text-title: var(--color-ink-primary);
+  --color-text-primary: var(--color-ink-text);
+  --color-text-secondary: var(--color-ink-secondary);
+  --color-text-muted: var(--color-ink-muted);
+  --color-text-disabled: var(--color-ink-disabled);
 
   /* Accent — jade. The one brand color. Used sparingly for CTAs, active
      nav, focus rings, selected states, and key icons. Not a surface tint.
@@ -64,18 +83,27 @@
   --color-accent-hover: #2e8f71; /* darker on hover/press */
   --color-accent-pressed: #2e8f71; /* darker on active */
   --color-accent-dim: #55c19f; /* lighter jade for marginalia */
-  --color-accent-bg: rgba(
-    63,
-    174,
-    140,
-    0.1
-  ); /* soft tint for pills/callouts */
-  --color-accent-glow: rgba(63, 174, 140, 0.18); /* focus halo */
+  --color-accent-bg: rgba(63, 174, 140, 0.1); /* #3fae8c1a */
+  --color-accent-glow: rgba(63, 174, 140, 0.18); /* ambient halo */
 
-  /* Borders — black at low alpha so they read as hairlines on paper */
+  /* Interaction utilities — the engineering surface for links, focus,
+     selection, and text-on-accent. One set of names so we don't hunt for
+     "what colour is a link again" in the codebase. */
+  --color-link: var(--color-accent);
+  --color-link-hover: var(--color-accent-hover);
+  --color-focus-ring: rgba(63, 174, 140, 0.38);
+  --color-selection: rgba(63, 174, 140, 0.15);
+  --color-text-on-accent: #ffffff;
+
+  /* Borders + dividers — black at low alpha so they read as hairlines
+     on paper. --color-divider is the softer one (section breaks), while
+     --color-border is the structural hairline (card edges, inputs). */
   --color-border-faint: rgba(0, 0, 0, 0.04);
-  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border: rgba(0, 0, 0, 0.06);
   --color-border-hover: rgba(0, 0, 0, 0.14);
+  --color-divider: rgba(0, 0, 0, 0.04);
+  --color-hover: rgba(0, 0, 0, 0.03);
+  --color-disabled-surface: rgba(0, 0, 0, 0.025);
 
   /* Status — semantic. Success is the darker jade so it doesn't wash out
      on white. Warning is muted amber. Error is restrained oxide red. */
@@ -119,9 +147,10 @@
   --color-role-executive: #5b6c88;
   --color-role-dealflow: #6f86a8;
 
-  /* Supporting neutrals — stone, divider, highlight */
+  /* Supporting neutrals — stone, highlight. (Divider is defined above
+     in the borders block so the structural + section-break tokens live
+     together.) */
   --color-stone: #e8e1cf; /* warm mineral for secondary surfaces */
-  --color-divider: rgba(0, 0, 0, 0.06);
   --color-highlight: #2e3331; /* soft dark tint, use sparingly */
 
   /* ── Typography ─────────────────────────────────── */
@@ -182,8 +211,7 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
   --shadow-xl:
-    0 20px 25px -5px rgba(0, 0, 0, 0.08),
-    0 8px 10px -6px rgba(0, 0, 0, 0.06);
+    0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
 
   /* ── Transitions ────────────────────────────────── */
 
