@@ -1,31 +1,25 @@
-/* ── Shell — three floating panels on the desk ──
-   Body paints the desk (canvas). The shell itself is transparent; each
-   of the three regions (sidebar, main stack, rail) paints its own fill
-   and rounds its outer-facing corners. No dividers — the value step
-   between panel fills and the desk peeking through at the rounded
-   corners carries the layout. */
+/* ── Shell — flush, flat, architectural. Linear / Vercel / Stripe.
+   No gaps, no floating panels, no rounded outer corners. Structure
+   comes from flush panels separated by hairline dividers at 6% ink. */
 .shell {
   display: flex;
-  gap: 8px;
   height: 100vh;
-  padding: 0 8px 8px;
-  box-sizing: border-box;
   overflow: hidden;
-  background: transparent;
+  background: var(--color-paper);
   max-width: 1440px;
   margin: 0 auto;
 }
 
-/* ── Left Sidebar — darker panel, left-rounded ──
-   One step darker than the desk so it reads as a seated panel. Top-left
-   and bottom-left corners round against the viewport edge; right edge
-   is flush (faces the content card across the 8px gap). No divider. */
+/* ── Left Sidebar — tinted surface flush to the viewport.
+   A single subtle value step below paper (the sidebar tint) plus a
+   1px hairline right border is all the separation the layout needs.
+   No radius, no floating — the sidebar is architectural. */
 .left-sidebar {
-  width: 200px;
+  width: 224px;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  border-right: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
   transition: width var(--transition-normal);
@@ -82,7 +76,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 12px 0 16px;
-  height: 48px;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -340,29 +335,28 @@
   display: none;
 }
 
-/* ── Sidebar footer — identity anchor ──
-   Pinned at the bottom of the rail (Linear / Slack / Vercel pattern).
-   No divider; the spacing + the rail's rounded bottom corner carry
-   the visual anchor. */
+/* ── Sidebar footer — identity anchor.
+   Pinned at the bottom of the rail (Linear pattern). Hairline top
+   border separates it from the scrollable tree above. */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   padding: 8px;
+  border-top: 1px solid var(--border);
 }
 .left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
 }
 
-/* ── Content column — holds the main stack and (optional) rail as a
-   two-column row. Transparent; each child paints its own fill. */
+/* ── Content column — holds main stack and (optional) rail as a row.
+   Transparent; the paper surface is painted by the shell. */
 .content-column {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: row;
-  gap: 8px;
   overflow: hidden;
   background: transparent;
 }
@@ -370,42 +364,42 @@
   /* intentionally empty */
 }
 
-/* Main stack — content card + composer stacked in the main column. */
+/* Main stack — topbar, scroll, composer stacked vertically. Transparent. */
 .content-main-stack {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: transparent;
 }
 
-/* Content card — the paper document. Rounded on all four corners so it
-   reads as a single floating panel. No border, no shadow — the desk
-   peeking through at the corners is the only framing. */
+/* Content card — flat structural wrapper. Holds topbar + scroll only
+   (composer is its sibling inside content-main-stack). No chrome. */
 .content-card {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-paper);
+  background: transparent;
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   box-shadow: none;
 }
 
-/* Rail column — darker panel mirroring the sidebar on the right edge.
-   Rounded top-right and bottom-right; left edge flush (faces the card
-   across the 8px gap). */
+/* Rail column — same paper surface as the content, separated only by a
+   1px hairline left border. The rail is NOT a second tinted surface —
+   it's the main content's right column, held apart by a single line. */
 .content-cta-col {
-  width: 240px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-sidebar);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  border-left: none;
+  background: transparent;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
 }
 .content-cta-col .asv-sidebar {
   width: 100%;
@@ -413,14 +407,16 @@
   background: transparent;
 }
 
-/* Composer band — sits below the content card, inside the main stack
-   so it only spans the main column (never under the rail). */
+/* Composer band — the precision instrument at the bottom of the main
+   column. Flat, hairline top border, generous horizontal padding. The
+   composer itself spans the column edge-to-edge; no pill, no shadow. */
 .composer-row {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  padding: 12px 0 0;
+  padding: 0;
   background: transparent;
+  border-top: 1px solid var(--border);
   border-radius: 0;
 }
 .composer-wrap {
@@ -997,9 +993,10 @@
 .content-topbar {
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  height: 48px;
-  min-height: 48px;
+  padding: 0 24px;
+  height: 56px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: transparent;
   gap: 12px;
