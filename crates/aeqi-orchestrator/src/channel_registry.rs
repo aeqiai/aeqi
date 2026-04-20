@@ -146,6 +146,17 @@ pub struct NewChannel {
     pub config: ChannelConfig,
 }
 
+/// Hook that spawns the per-channel background gateway (Baileys Node bridge,
+/// Telegram poller, …). Implemented in aeqi-cli where the full `SpawnContext`
+/// lives; registered on the `Daemon` at startup so IPC create/enable handlers
+/// can bring a freshly-written row live without waiting for a daemon restart.
+pub trait ChannelSpawner: Send + Sync {
+    /// Spawn (or re-spawn) the gateway task for this channel. Returns `true`
+    /// if a task was started. Must be non-blocking — the implementation owns
+    /// its own `tokio::spawn`.
+    fn spawn(&self, channel: Channel) -> bool;
+}
+
 /// Typed errors that user-facing callers need to discriminate. `Conflict` is
 /// the one the IPC/HTTP layer maps to a 409-like response; everything else
 /// collapses into a generic 500-ish storage error.

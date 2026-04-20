@@ -69,7 +69,12 @@ pub async fn handle_channels_upsert(
         config,
     };
     match store(ctx).create(&new).await {
-        Ok(channel) => serde_json::json!({"ok": true, "channel": channel}),
+        Ok(channel) => {
+            if let Some(spawner) = ctx.channel_spawner.as_ref() {
+                spawner.spawn(channel.clone());
+            }
+            serde_json::json!({"ok": true, "channel": channel})
+        }
         Err(ChannelError::Conflict { kind }) => serde_json::json!({
             "ok": false,
             "code": "conflict",

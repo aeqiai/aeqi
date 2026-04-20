@@ -51,6 +51,7 @@ pub struct CommandContext {
     pub skill_loader: Option<Arc<SkillLoader>>,
     pub execution_registry: Arc<ExecutionRegistry>,
     pub stream_registry: Arc<StreamRegistry>,
+    pub channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
 }
 
 pub use crate::daemon::ActivityBuffer;

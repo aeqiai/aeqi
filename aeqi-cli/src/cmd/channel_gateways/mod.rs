@@ -19,7 +19,7 @@
 use std::sync::Arc;
 
 use aeqi_orchestrator::{
-    Channel, ChannelConfig, GatewayManager, SessionManager, SessionStore,
+    Channel, ChannelConfig, ChannelSpawner, GatewayManager, SessionManager, SessionStore,
     agent_registry::AgentRegistry, execution_registry::ExecutionRegistry,
     stream_registry::StreamRegistry,
 };
@@ -85,5 +85,23 @@ pub(crate) fn dispatch(channel: Channel, ctx: &SpawnContext) -> bool {
             );
             false
         }
+    }
+}
+
+/// `ChannelSpawner` impl that closes over a `SpawnContext` so IPC handlers
+/// can bring a newly-created channel live without a daemon restart.
+pub(crate) struct LiveChannelSpawner {
+    ctx: SpawnContext,
+}
+
+impl LiveChannelSpawner {
+    pub(crate) fn new(ctx: SpawnContext) -> Self {
+        Self { ctx }
+    }
+}
+
+impl ChannelSpawner for LiveChannelSpawner {
+    fn spawn(&self, channel: Channel) -> bool {
+        dispatch(channel, &self.ctx)
     }
 }

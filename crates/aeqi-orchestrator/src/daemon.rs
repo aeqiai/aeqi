@@ -213,6 +213,7 @@ struct IpcContext {
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
     stream_registry: Arc<crate::stream_registry::StreamRegistry>,
     execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
+    channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -260,6 +261,10 @@ pub struct Daemon {
     /// live `agent.run()` tasks. Short-lived: the queue executor inserts
     /// on spawn and removes on join. IPC stop / auto-commit read from here.
     pub execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
+    /// Brings a newly-persisted channel row live without waiting for a
+    /// daemon restart. Populated by the CLI at startup; `None` leaves the
+    /// old "spawn-on-boot" behavior intact.
+    pub channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
 }
 
 impl Daemon {
@@ -300,7 +305,15 @@ impl Daemon {
             gateway_manager: Arc::new(GatewayManager::new()),
             stream_registry: Arc::new(crate::stream_registry::StreamRegistry::new()),
             execution_registry: Arc::new(crate::execution_registry::ExecutionRegistry::new()),
+            channel_spawner: None,
         }
+    }
+
+    pub fn set_channel_spawner(
+        &mut self,
+        spawner: Arc<dyn crate::channel_registry::ChannelSpawner>,
+    ) {
+        self.channel_spawner = Some(spawner);
     }
 
     pub fn set_background_automation_enabled(&mut self, enabled: bool) {
@@ -655,6 +668,7 @@ impl Daemon {
                     event_handler_store: self.event_handler_store.clone(),
                     stream_registry: self.stream_registry.clone(),
                     execution_registry: self.execution_registry.clone(),
+                    channel_spawner: self.channel_spawner.clone(),
                 });
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
@@ -1036,6 +1050,7 @@ impl Daemon {
                 skill_loader: ipc_ctx.skill_loader.clone(),
                 execution_registry: ipc_ctx.execution_registry.clone(),
                 stream_registry: ipc_ctx.stream_registry.clone(),
+                channel_spawner: ipc_ctx.channel_spawner.clone(),
             };
 
             let response = match cmd {

@@ -427,6 +427,12 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 }
             }
 
+            // Give the IPC create/enable path a way to bring a newly-written
+            // channel row live without waiting for a daemon restart.
+            daemon.set_channel_spawner(Arc::new(
+                crate::cmd::channel_gateways::LiveChannelSpawner::new(spawn_ctx.clone()),
+            ));
+
             // Legacy fallback: if [channels.telegram] is configured in aeqi.toml,
             // start a single gateway bound to the root agent.
             if gateway_count == 0
