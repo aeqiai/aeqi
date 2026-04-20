@@ -214,6 +214,13 @@ pub enum Commands {
 
     /// Run as an MCP (Model Context Protocol) server.
     Mcp,
+
+    /// Seed preset ideas (skills + vanilla identity) into the idea store.
+    Seed {
+        /// Also purge junk identity ideas (magical-loli test pack) before seeding.
+        #[arg(long)]
+        reset_identities: bool,
+    },
 }
 
 #[derive(Subcommand)]

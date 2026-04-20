@@ -382,6 +382,33 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 _ => {}
             }
 
+            // Seed preset ideas (skills + vanilla identity) from
+            // presets/seed_ideas/*.md. Insert-if-absent — operator edits persist
+            // across restarts. Missing presets dir is a no-op (not an error).
+            match aeqi_orchestrator::preset_seeder::seed_preset_ideas(&event_handler_store).await {
+                Ok(results) => {
+                    let inserted = results
+                        .iter()
+                        .filter(|r| {
+                            matches!(
+                                r.status,
+                                aeqi_orchestrator::preset_seeder::SeedStatus::Inserted
+                            )
+                        })
+                        .count();
+                    if inserted > 0 {
+                        info!(
+                            inserted,
+                            total = results.len(),
+                            "seeded {inserted} preset ideas"
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!(error = %e, "failed to seed preset ideas");
+                }
+            }
+
             let event_count = event_handler_store.count_enabled().await.unwrap_or(0);
             println!("Events: {event_count} enabled");
             daemon.event_handler_store = Some(event_handler_store);

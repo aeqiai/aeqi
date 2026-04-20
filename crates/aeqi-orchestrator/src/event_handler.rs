@@ -85,7 +85,7 @@ pub struct NewEvent {
 
 /// SQLite-backed event handler store. Shares the aeqi.db connection pool.
 pub struct EventHandlerStore {
-    db: Arc<ConnectionPool>,
+    pub(crate) db: Arc<ConnectionPool>,
 }
 
 impl EventHandlerStore {
@@ -671,7 +671,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             name: "on_session_start",
             pattern: "session:start",
             idea_key: "session:start",
-            idea_content: "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nIdeas are the only persistent context. If something is worth remembering across sessions, store it as an idea — tagged so future-you can find it. Searching and storing ideas is a deliberate tool call, not automatic.",
+            idea_content: "You are an AEQI agent. Your world is four primitives: agents (you and your peers), ideas (text you can read, write, and search), quests (work items with worktrees), events (patterns that inject ideas at lifecycle moments).\n\nBe proactive. When the user describes a goal, don't just answer — shape the runtime to serve it:\n  - Store new knowledge as an idea (see skill: `create-idea`).\n  - Convert actionable work into a quest (see skill: `create-quest`).\n  - Schedule recurring work as an event (see skill: `create-event`).\n  - Delegate sub-problems by spawning a sub-agent (see skill: `spawn-subagent`).\n  - Adjust tool access per agent when scopes change (see skill: `manage-tools`).\n  - Evolve your own identity when patterns stabilise (see skill: `evolve-identity`).\n\nSearch ideas before assuming — `ideas(action='search', tags=['skill'])` lists the starter library. Ideas are the only persistent context. If something is worth remembering across sessions, store it as a tagged idea.",
             skip_idea_seed: false,
             query_template: None,
             query_top_k: None,

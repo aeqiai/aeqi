@@ -19,6 +19,7 @@ pub(crate) mod prompt;
 pub(crate) mod quests;
 pub(crate) mod run;
 pub(crate) mod secrets;
+pub(crate) mod seed;
 pub(crate) mod setup;
 pub(crate) mod start;
 pub(crate) mod status;
