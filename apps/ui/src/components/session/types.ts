@@ -184,26 +184,36 @@ export function currentRunningToolName(segments: MessageSegment[]): string | und
   return undefined;
 }
 
+// Generic/placeholder session names that should fall through to the
+// first-message derivation. "Permanent Session" is the runtime default;
+// "Fork" is set when we fork from a message.
+const GENERIC_SESSION_NAMES = /^(permanent session|session|new session|fork)(\s*\(.*\))?$/i;
+
 /** Derive a short display label for a session */
 export function sessionLabel(s: SessionInfo): string {
   if (s.name) {
-    // Strip transport prefix — the badge already shows TG/WA.
     const stripped = s.name
       .replace(/^Telegram DM:\s*/i, "")
       .replace(/^Telegram Group\s*/i, "Group")
       .replace(/^telegram:\s*/i, "")
       .replace(/^whatsapp:\s*/i, "");
-    if (stripped && stripped !== s.id && !stripped.startsWith("session-")) return stripped;
+    if (
+      stripped &&
+      stripped !== s.id &&
+      !stripped.startsWith("session-") &&
+      !GENERIC_SESSION_NAMES.test(stripped.trim())
+    ) {
+      return stripped;
+    }
   }
-  // Derive from first message — first ~5 words.
   if (s.first_message) {
     const words = s.first_message
       .replace(/[\n\r]+/g, " ")
       .trim()
       .split(/\s+/)
-      .slice(0, 6);
+      .slice(0, 8);
     const label = words.join(" ");
-    return label.length > 32 ? label.slice(0, 30) + "..." : label;
+    return label.length > 40 ? label.slice(0, 38) + "…" : label;
   }
-  return s.id.slice(0, 8);
+  return "Untitled";
 }

@@ -70,6 +70,22 @@ interface RailItem {
   dimmed?: boolean;
   /** Session/item status — drives accent-bar color on the row. */
   status?: string;
+  /** Optional group bucket — triggers a group header above the row when the
+   *  bucket changes. Only used by the Inbox rail for date chunks. */
+  group?: string;
+  /** Raw timestamp used to derive the group — kept for sorting. */
+  sortKey?: number;
+}
+
+function recencyBucket(ts: number): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayMs = 86_400_000;
+  if (ts >= today) return "Today";
+  if (ts >= today - dayMs) return "Yesterday";
+  if (ts >= today - 7 * dayMs) return "This week";
+  if (ts >= today - 30 * dayMs) return "This month";
+  return "Earlier";
 }
 
 /** Header config: what the "+" button does and what it says. */
@@ -209,28 +225,35 @@ export default function ContentCTA() {
   switch (section) {
     case "sessions":
       header = { label: "New message", event: "aeqi:new-session" };
-      items = sessions.map((s) => {
-        const n = s.name?.toLowerCase() || "";
-        const badge = n.includes("telegram")
-          ? "TG"
-          : n.includes("whatsapp")
-            ? "WA"
-            : s.session_type === "web"
-              ? "Web"
-              : undefined;
-        const meta = s.created_at
-          ? new Date(s.created_at).toLocaleDateString([], { month: "short", day: "numeric" })
-          : undefined;
-        return {
-          id: s.id,
-          name: sessionLabel(s),
-          badge,
-          preview: s.first_message ? s.first_message.slice(0, 40) : undefined,
-          meta: s.message_count != null ? `${s.message_count}` : meta,
-          status: s.status,
-        };
-      });
-      emptyText = "Start a new chat to begin a session with this agent.";
+      items = sessions
+        .map((s) => {
+          const n = s.name?.toLowerCase() || "";
+          const badge = n.includes("telegram")
+            ? "TG"
+            : n.includes("whatsapp")
+              ? "WA"
+              : s.session_type === "web"
+                ? "Web"
+                : undefined;
+          const tsRaw = s.last_active || s.created_at;
+          const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
+          const label = sessionLabel(s);
+          const meta =
+            s.message_count != null && s.message_count > 0 ? `${s.message_count}` : undefined;
+          return {
+            id: s.id,
+            name: label,
+            badge,
+            // If the label came from first_message, don't repeat it as preview.
+            preview: undefined,
+            meta,
+            status: s.status,
+            group: ts ? recencyBucket(ts) : "Earlier",
+            sortKey: ts,
+          };
+        })
+        .sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
+      emptyText = "No threads yet. Type below to start one.";
       break;
 
     case "events":
@@ -414,35 +437,44 @@ export default function ContentCTA() {
       )}
       <div className="asv-sidebar-list">
         {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className={`asv-session-item${item.id === itemId ? " active" : ""}${
-              item.dimmed ? " asv-session-item--disabled" : ""
-            }`}
-            data-status={item.status}
-            onClick={() => handleSelect(item.id)}
-          >
-            <div className="asv-session-item-top">
-              <span className="asv-session-item-name">{item.name}</span>
-              {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
-            </div>
-            {(item.preview || item.meta) && (
-              <div className="asv-session-item-bottom">
-                {item.preview && <span className="asv-session-item-preview">{item.preview}</span>}
-                {item.meta && (
-                  <span
-                    className={
-                      section === "sessions" ? "asv-session-item-count" : "asv-session-item-date"
-                    }
-                  >
-                    {item.meta}
-                  </span>
+        {items.map((item, i) => {
+          const showHeader = !!item.group && (i === 0 || items[i - 1]?.group !== item.group);
+          return (
+            <div key={item.id} className="asv-sidebar-row">
+              {showHeader && <div className="asv-sidebar-group-header">{item.group}</div>}
+              <div
+                className={`asv-session-item${item.id === itemId ? " active" : ""}${
+                  item.dimmed ? " asv-session-item--disabled" : ""
+                }`}
+                data-status={item.status}
+                onClick={() => handleSelect(item.id)}
+              >
+                <div className="asv-session-item-top">
+                  <span className="asv-session-item-name">{item.name}</span>
+                  {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
+                </div>
+                {(item.preview || item.meta) && (
+                  <div className="asv-session-item-bottom">
+                    {item.preview && (
+                      <span className="asv-session-item-preview">{item.preview}</span>
+                    )}
+                    {item.meta && (
+                      <span
+                        className={
+                          section === "sessions"
+                            ? "asv-session-item-count"
+                            : "asv-session-item-date"
+                        }
+                      >
+                        {item.meta}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

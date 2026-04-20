@@ -280,42 +280,53 @@
   max-width: 720px;
 }
 
-/* ── Empty state ── */
+/* ── Empty state ──
+   Left-aligned, restrained. No hero logo — the brand is already in the
+   top-left. The eyebrow label + title give enough visual weight without
+   competing with the composer accent below. */
 .asv-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 6px;
-  padding: 48px;
+  gap: 8px;
+  padding: 48px 56px;
+  max-width: 640px;
 }
 
-.asv-empty-icon {
-  margin-bottom: 10px;
-  opacity: 0.9;
+.asv-empty-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
 .asv-empty-title {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
 .asv-empty-hint {
   font-size: 13px;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
+  max-width: 48ch;
+  line-height: 1.55;
 }
 
 .asv-empty-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
 }
 .asv-empty-suggestion {
   font-family: var(--font-sans);
@@ -323,8 +334,8 @@
   color: var(--text-secondary);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 14px;
+  border-radius: 4px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: all 0.12s;
 }
@@ -332,6 +343,22 @@
   border-color: var(--border-hover);
   color: var(--text-primary);
   background: var(--bg-surface);
+}
+
+/* ── Rail group headers ──
+   Today / Yesterday / This week / Earlier — used by the Inbox rail to
+   chunk sessions by recency without adding color noise. */
+.asv-sidebar-group-header {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 14px 12px 6px;
+}
+.asv-sidebar-group-header:first-child {
+  padding-top: 8px;
 }
 
 /* ── Message layout ── */

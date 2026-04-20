@@ -1,5 +1,3 @@
-import BrandMark from "../BrandMark";
-
 interface EmptyStateProps {
   agentName: string;
   displayName: string;
@@ -13,26 +11,27 @@ export default function EmptyState({
   activeSessionId,
   onSuggestionClick,
 }: EmptyStateProps) {
+  if (activeSessionId) {
+    return (
+      <div className="asv-empty">
+        <div className="asv-empty-hint">Loading session…</div>
+      </div>
+    );
+  }
   return (
     <div className="asv-empty">
-      <div className="asv-empty-icon">
-        <BrandMark size={40} />
-      </div>
-      <div className="asv-empty-title">{displayName}</div>
+      <div className="asv-empty-eyebrow">New thread</div>
+      <div className="asv-empty-title">Message {displayName}</div>
       <div className="asv-empty-hint">
-        {activeSessionId
-          ? "Session loaded — type a message to continue."
-          : "Type a message to start a real-time conversation with this agent."}
+        Type below to start. Threads stay in Inbox; agents reply in real-time.
       </div>
-      {!activeSessionId && (
-        <div className="asv-empty-suggestions">
-          {["What can you do?", "Show me your tools", "What quests are open?"].map((q) => (
-            <button key={q} className="asv-empty-suggestion" onClick={() => onSuggestionClick(q)}>
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="asv-empty-suggestions">
+        {["What can you do?", "What quests are open?", "Summarize recent activity"].map((q) => (
+          <button key={q} className="asv-empty-suggestion" onClick={() => onSuggestionClick(q)}>
+            {q}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
