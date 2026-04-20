@@ -415,14 +415,29 @@
 /* Composer band — the precision instrument at the bottom of the main
    column. Flat, hairline top border, generous horizontal padding. The
    composer itself spans the column edge-to-edge; no pill, no shadow. */
+/* Composer row — the live action surface.
+   A steel-blue accent line replaces the neutral hairline so the speak-
+   to-your-agent surface reads as alive at rest (uses --accent-bar-running,
+   the same token as active quest rows — consistent vocabulary). On focus
+   the bar thickens and picks up a soft glow. */
 .composer-row {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
   padding: 0;
   background: transparent;
-  border-top: 1px solid var(--border);
+  border-top: 1.5px solid var(--accent-bar-running);
   border-radius: 0;
+  box-shadow: 0 -1px 0 0 var(--color-accent-bg);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.composer-row:has(.asv-composer-inner:focus-within) {
+  border-top-color: var(--color-accent);
+  box-shadow:
+    0 -1px 0 0 var(--color-accent-bg),
+    0 -6px 16px -6px var(--color-accent-glow);
 }
 .composer-wrap {
   flex: 1;
@@ -1968,32 +1983,6 @@
   flex: 0 0 auto;
   padding-top: 4px;
 }
-.ideas-canvas-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  opacity: 0.55;
-  transition:
-    opacity 0.15s,
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
-}
-.ideas-canvas-menu-trigger:hover,
-.ideas-canvas-menu-trigger[aria-expanded="true"] {
-  opacity: 1;
-  color: var(--text-primary);
-  background: var(--bg-base);
-  border-color: var(--border);
-}
 .ideas-canvas-menu-popover {
   position: absolute;
   top: calc(100% + 4px);
@@ -2210,58 +2199,6 @@
   color: var(--destructive, #e55);
 }
 
-/* Unified save/delete buttons on the canvas footer — inline, subtle. */
-.ideas-canvas-btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
-}
-.ideas-canvas-btn:hover {
-  border-color: var(--accent-dim);
-  color: var(--accent);
-}
-.ideas-canvas-btn.primary {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: var(--accent-dim);
-}
-.ideas-canvas-btn.primary:hover {
-  filter: brightness(1.05);
-}
-.ideas-canvas-btn.ghost {
-  border-color: transparent;
-  color: var(--text-muted);
-}
-.ideas-canvas-btn.ghost:hover {
-  color: var(--text-primary);
-  border-color: var(--border);
-}
-.ideas-canvas-btn.danger {
-  color: var(--text-muted);
-}
-.ideas-canvas-btn.danger:hover {
-  color: var(--destructive, #e55);
-  border-color: var(--destructive, #e55);
-}
-.ideas-canvas-btn.danger.confirm {
-  color: #fff;
-  background: var(--destructive, #e55);
-  border-color: var(--destructive, #e55);
-}
-.ideas-canvas-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* Candidate-skill decision banner — shown above the body when an idea has both
    tags "skill" and "candidate" and has not yet been promoted or rejected. */
 .ideas-canvas-decision {
@@ -2329,9 +2266,11 @@
     background 0.25s,
     transform 0.25s;
 }
-.ideas-canvas-save-indicator.state-pending .ideas-canvas-save-dot {
-  background: var(--text-muted);
-  opacity: 0.5;
+.ideas-canvas-save-indicator.state-dirty {
+  color: var(--text-body);
+}
+.ideas-canvas-save-indicator.state-dirty .ideas-canvas-save-dot {
+  background: var(--accent);
 }
 .ideas-canvas-save-indicator.state-saving .ideas-canvas-save-dot {
   background: var(--accent);
