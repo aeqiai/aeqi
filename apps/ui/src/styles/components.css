@@ -818,7 +818,13 @@
 .persistent-composer .asv-send {
   color: var(--ink-text-muted);
 }
+/* Ready-to-send: the gold seal. Heraldic accent against sumi ink — the
+   one place the brand color appears on the composer, and only when a
+   message is queued to fire. */
 .persistent-composer .asv-send.ready {
-  background: var(--ink-text);
+  background: var(--accent);
   color: var(--ink-bg);
+}
+.persistent-composer .asv-send.ready:hover {
+  background: var(--color-accent-hover);
 }

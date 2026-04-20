@@ -2,7 +2,7 @@
   "name": "aeqi-ui",
   "description": "Web control plane for the AEQI agent runtime",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "license": "MIT",
   "author": "aeqixyz",
   "repository": {
