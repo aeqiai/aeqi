@@ -13,6 +13,8 @@ interface Skill {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Pre-selected parent in the dropdown. Falls back to activeRoot when absent. */
+  defaultParentId?: string;
 }
 
 /**
@@ -36,7 +38,7 @@ function collectTree(agents: Array<{ id: string; parent_id?: string | null }>, r
   return new Set(out);
 }
 
-export default function CreateAgentModal({ open, onClose }: Props) {
+export default function CreateAgentModal({ open, onClose, defaultParentId }: Props) {
   const agents = useDaemonStore((s) => s.agents);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const activeRoot = useUIStore((s) => s.activeRoot);
@@ -93,13 +95,13 @@ export default function CreateAgentModal({ open, onClose }: Props) {
     if (open) {
       setTemplate("");
       setDisplayName("");
-      setParentId(activeRoot || "");
+      setParentId(defaultParentId || activeRoot || "");
       setSystemPrompt("");
       setError("");
       setSuccess(false);
       setTimeout(() => nameRef.current?.focus(), 50);
     }
-  }, [open, activeRoot]);
+  }, [open, activeRoot, defaultParentId]);
 
   // Escape key
   useEffect(() => {

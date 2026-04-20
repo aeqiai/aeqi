@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
@@ -9,6 +9,7 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import BrandMark from "./BrandMark";
+import CreateAgentModal from "./CreateAgentModal";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
@@ -92,27 +93,11 @@ export default function AgentPage({
       )}
 
       {activeTab === "agents" && (
-        <div className="page-content" style={{ padding: "16px" }}>
-          {childAgents.length > 0 ? (
-            <div className="agent-children-grid">
-              {childAgents.map((child) => (
-                <div key={child.id} className="agent-child-card" onClick={() => goAgent(child.id)}>
-                  <BrandMark size={22} />
-                  <div>
-                    <div className="agent-child-name">{child.display_name || child.name}</div>
-                    <div className="agent-child-status">{child.status}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              eyebrow="Agents"
-              title="No sub-agents yet"
-              description="Sub-agents spawn automatically when a quest requires delegation — or create one manually from the right rail."
-            />
-          )}
-        </div>
+        <AgentsTab
+          parentAgentId={resolvedAgentId}
+          childAgents={childAgents}
+          onSelectChild={(id) => goAgent(id)}
+        />
       )}
 
       {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
@@ -137,6 +122,61 @@ export default function AgentPage({
           )}
         </SettingsShell>
       )}
+    </div>
+  );
+}
+
+/**
+ * Agents sub-tab. Listens for the shared `aeqi:create` event (fired by the
+ * right-rail "New agent" CTA) and opens CreateAgentModal pre-filled with the
+ * current agent as parent, so the spawn lands as a direct child.
+ */
+function AgentsTab({
+  parentAgentId,
+  childAgents,
+  onSelectChild,
+}: {
+  parentAgentId: string;
+  childAgents: ReturnType<typeof useDaemonStore.getState>["agents"];
+  onSelectChild: (id: string) => void;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
+  useEffect(() => {
+    const handler = () => setModalOpen(true);
+    window.addEventListener("aeqi:create", handler);
+    return () => window.removeEventListener("aeqi:create", handler);
+  }, []);
+
+  return (
+    <div className="page-content" style={{ padding: "16px" }}>
+      {childAgents.length > 0 ? (
+        <div className="agent-children-grid">
+          {childAgents.map((child) => (
+            <div
+              key={child.id}
+              className="agent-child-card"
+              onClick={() => onSelectChild(child.id)}
+            >
+              <BrandMark size={22} />
+              <div>
+                <div className="agent-child-name">{child.display_name || child.name}</div>
+                <div className="agent-child-status">{child.status}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          eyebrow="Agents"
+          title="No sub-agents yet"
+          description="Spawn one from the right rail — it inherits this agent as its parent."
+        />
+      )}
+      <CreateAgentModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        defaultParentId={parentAgentId}
+      />
     </div>
   );
 }
