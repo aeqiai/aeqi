@@ -448,13 +448,14 @@
   letter-spacing: -0.005em;
 }
 
-/* Agent prose — Space Grotesk gives the agent its own typographic
-   voice, distinct from Inter (UI chrome) and JetBrains Mono (operator
-   input + tools). Geometric sans, slightly tighter tracking than Inter,
+/* Agent prose — EB Garamond gives the agent's output its own
+   typographic voice, distinct from Host Grotesk (UI chrome) and
+   JetBrains Mono (operator input + tools). A quiet literary serif
    reads as "considered output" rather than UI label copy. */
 .asv-msg-assistant .asv-msg-content {
-  font-family: "Space Grotesk", var(--font-sans);
-  letter-spacing: -0.012em;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  letter-spacing: 0;
 }
 
 .asv-msg-assistant .asv-msg-content p {

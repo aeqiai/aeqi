@@ -217,7 +217,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
 
         // Label.
         if (isSelected || isHovered || n.hotness > 0.5 || sim.length < 30) {
-          ctx!.font = "11px 'Inter', sans-serif";
+          ctx!.font = "11px 'Host Grotesk', sans-serif";
           ctx!.fillStyle = "rgba(0,0,0,0.7)";
           ctx!.textAlign = "center";
           ctx!.fillText(n.name, n.x, n.y + radius + 14);

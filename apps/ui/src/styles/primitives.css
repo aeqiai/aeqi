@@ -70,8 +70,8 @@
      variants. Use for hover / selected / pressed — NOT for
      base surface elevations (that's what --bg-* is for). */
   --state-hover: rgba(0, 0, 0, 0.03);
-  --state-selected: rgba(111, 134, 168, 0.12);
-  --state-pressed: rgba(111, 134, 168, 0.2);
+  --state-selected: rgba(90, 115, 152, 0.12);
+  --state-pressed: rgba(90, 115, 152, 0.2);
 
   /* Text */
   --text-primary: var(--color-text-primary);
@@ -101,11 +101,11 @@
   /* ── Dashboard-specific tokens (not in shared package) ─── */
 
   --accent-glow: var(--color-accent-glow);
-  --accent-glow-strong: rgba(111, 134, 168, 0.28);
+  --accent-glow-strong: rgba(90, 115, 152, 0.28);
   --success-glow: rgba(46, 143, 113, 0.14);
-  --border-accent: rgba(111, 134, 168, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(111, 134, 168, 0.2);
-  --shadow-glow-strong: 0 0 24px rgba(111, 134, 168, 0.18);
+  --border-accent: rgba(90, 115, 152, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(90, 115, 152, 0.2);
+  --shadow-glow-strong: 0 0 24px rgba(90, 115, 152, 0.18);
 
   /* Focus rings — 3px halo used by inputs, code digits, etc. */
   --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.06);
