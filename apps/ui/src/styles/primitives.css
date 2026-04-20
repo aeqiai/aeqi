@@ -12,15 +12,15 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Three-tier surface system — warm ivory layered by value.
+  /* Three-tier surface system — neutral paper layered by value.
        canvas  — outside the card (the "desk")        — one step off paper
        paper   — the main content pane                — primary surface
        card    — raised cards / rails / alternating   — elevated surface
      Each tier lifts the next — the radiused card floats off the desk and
      the rail reads as a separate document inside it. In v3 light mode
-     "paper" is both the semantic name and the literal ivory color. */
+     "paper" is both the semantic name and the literal neutral color. */
   --color-canvas: var(--color-bg-base); /* #eeeadd — the desk */
-  --bg-base: var(--color-paper); /* #f4f1e8 — the main surface */
+  --bg-base: var(--color-paper); /* #f7f7f4 — the main surface */
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: var(--color-card); /* #ffffff — elevated cards, rails */
   --bg-overlay: var(--color-bg-overlay);
@@ -28,7 +28,7 @@
 
   /* Well surface aliases — the recessed / inset surface used by the
      composer and other sunken panes. In v3 light mode the well is a
-     sunken ivory one shade darker than paper — not a dark inverse
+     sunken neutral one shade darker than paper — not a dark inverse
      palette. Text inside the well uses the main ink-* scale; the
      well's contrast comes from its surface, not bespoke text tokens.
 
@@ -51,7 +51,7 @@
   --bg-subtle: rgba(0, 0, 0, 0.03);
 
   /* Destructive — legacy alias used by confirm buttons, delete actions.
-     Routes through --color-error so the ivory palette stays coherent;
+     Routes through --color-error so the palette stays coherent;
      the old fallback was #e55 fire-engine red which reads cheap on paper. */
   --destructive: var(--color-error);
 
@@ -62,8 +62,8 @@
      variants. Use for hover / selected / pressed — NOT for
      base surface elevations (that's what --bg-* is for). */
   --state-hover: rgba(0, 0, 0, 0.03);
-  --state-selected: rgba(63, 174, 140, 0.12);
-  --state-pressed: rgba(63, 174, 140, 0.2);
+  --state-selected: rgba(111, 134, 168, 0.12);
+  --state-pressed: rgba(111, 134, 168, 0.2);
 
   /* Text */
   --text-primary: var(--color-text-primary);
@@ -93,11 +93,11 @@
   /* ── Dashboard-specific tokens (not in shared package) ─── */
 
   --accent-glow: var(--color-accent-glow);
-  --accent-glow-strong: rgba(63, 174, 140, 0.28);
+  --accent-glow-strong: rgba(111, 134, 168, 0.28);
   --success-glow: rgba(46, 143, 113, 0.14);
-  --border-accent: rgba(63, 174, 140, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(63, 174, 140, 0.2);
-  --shadow-glow-strong: 0 0 24px rgba(63, 174, 140, 0.18);
+  --border-accent: rgba(111, 134, 168, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(111, 134, 168, 0.2);
+  --shadow-glow-strong: 0 0 24px rgba(111, 134, 168, 0.18);
 
   /* Focus rings — 3px halo used by inputs, code digits, etc. */
   --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.06);
@@ -136,9 +136,9 @@
      marquee moments. Rendered in --text-primary, never in accent. */
   --font-display: "Cinzel", Georgia, serif;
 
-  /* CTA button tokens — jade primary, outlined secondary.
-     Primary is white text on jade (inverse of light UI — the jade pill
-     has enough value density for white to hold) tuned against ivory. */
+  /* CTA button tokens — steel-blue primary, outlined secondary.
+     Primary is white text on steel blue (inverse of light UI — the steel
+     pill has enough value density for white to hold) tuned against paper. */
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
   --btn-primary-text: #ffffff;

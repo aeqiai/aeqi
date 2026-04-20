@@ -1,20 +1,23 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  AEQI Design Language — v3 (Ivory Paper + Jade)
+ *  AEQI Design Language — v3 (Neutral Paper + Steel Blue)
  *  ──────────────────────────────────────────────────
- *  Warm ivory paper, flat white card, near-black ink,
- *  one jade accent. The interface reads as an editorial
- *  workbench: warm but disciplined, premium without
- *  decoration, legible before flashy.
+ *  Cool neutral paper, flat white card, near-black ink,
+ *  one steel-blue accent. The interface reads as a
+ *  precise workbench: institutional, calm, intelligent —
+ *  Bloomberg × Palantir × protocol-layer register.
  *
  *  Ratio rule — hold these or it goes generic:
- *    ~65%  ivory paper + white card surfaces
+ *    ~65%  neutral paper + white card surfaces
  *    ~30%  ink body copy (black at 18–90% alpha)
- *    ~5%   jade accent (CTAs, active nav, focus, selected, wordmark)
+ *    ~5%   steel-blue accent (CTAs, active nav, focus, selected, wordmark)
+ *
+ *  Jade is reserved for the success semantic (completed quests, resolved
+ *  events) so brand and status signal read visually distinct.
  *
  *  Avoid:
- *    - pure-black ink everywhere (too harsh, kills the warm paper)
- *    - saturated emerald / neon green / bright cyan (gaming aesthetic)
- *    - glossy green gradients everywhere (fake-AI SaaS)
+ *    - pure-black ink everywhere (too harsh, kills the neutral paper)
+ *    - royal blue / navy / saturated cyan (too corporate-SaaS)
+ *    - glossy blue gradients everywhere (fake-enterprise)
  *    - success = accent everywhere (muddies both)
  *
  *  @aeqi/tokens — single source of truth.
@@ -23,14 +26,15 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Backgrounds — warm ivory paper + flat white card, layered by value
-     not by tint. The "canvas" is the desk behind everything, slightly
-     warmer than paper so the main card floats off it.
+  /* Backgrounds — cool neutral paper + flat white card, layered by
+     value not by tint. The "canvas" is the desk behind everything,
+     slightly darker than paper so the main card floats off it.
 
-     Paper shifted from #faf6ec → #f4f1e8 — less creamy, less decorative,
-     more controlled. Paper and card now form a cleaner hierarchy. */
-  --color-bg-base: #eeeadd; /* page background — one step warmer than paper */
-  --color-bg-surface: #f4f1e8; /* main surface — ivory paper */
+     Paper is #f7f7f4 — cool, software-neutral, nearly white with a
+     whisper of warmth. No cream, no editorial softness. Pairs with
+     pure-white card to form a tight value hierarchy. */
+  --color-bg-base: #f1f1ee; /* page background — one step darker than paper */
+  --color-bg-surface: #f7f7f4; /* main surface — neutral paper */
   --color-bg-elevated: #ffffff; /* raised — modals, popovers, cards */
   --color-bg-overlay: #ffffff; /* highest — tooltips, floating menus */
 
@@ -42,20 +46,20 @@
                           column, feature rows). Kept distinct so we can
                           retune alternating sections without touching
                           raised cards. */
-  --color-paper: #f4f1e8;
+  --color-paper: #f7f7f4;
   --color-card: #ffffff;
   --color-section-alt: #ffffff;
 
-  /* Well — a gently-recessed inset surface on paper. Warm off-paper,
+  /* Well — a gently-recessed inset surface on paper. Cool off-paper,
      darker than paper so the composer and code blocks read as sunken.
      "Well" is a recessed surface, not a dark palette. Retuned to track
-     the new #f4f1e8 paper: ink-well should be ~5 RGB units darker.
+     the new #f7f7f4 paper: well should be ~5 RGB units darker.
      Text inside the well uses the main --color-ink-* scale below. */
-  --color-well-bg: #ede8db;
-  --color-well-elevated: #f0ecdf;
+  --color-well-bg: #f0f0ed;
+  --color-well-elevated: #f4f4f1;
   --color-well-border: rgba(0, 0, 0, 0.06);
   --color-well-border-hover: rgba(0, 0, 0, 0.1);
-  --color-well-border-focus: rgba(63, 174, 140, 0.45);
+  --color-well-border-focus: rgba(111, 134, 168, 0.45);
 
   /* Ink / Text — the ink-on-paper scale. 90/85/45/25/18 covers titles,
      body, secondary, marginalia, and disabled. Slight warmth from the
@@ -75,24 +79,24 @@
   --color-text-muted: var(--color-ink-muted);
   --color-text-disabled: var(--color-ink-disabled);
 
-  /* Accent — jade. The one brand color. Used sparingly for CTAs, active
-     nav, focus rings, selected states, and key icons. Not a surface tint.
-     On light surfaces hover is DARKER (pressed feeling) and dim is LIGHTER
-     (marginalia) — inverse of a dark-mode accent scale. */
-  --color-accent: #3fae8c; /* primary jade */
-  --color-accent-hover: #2e8f71; /* darker on hover/press */
-  --color-accent-pressed: #2e8f71; /* darker on active */
-  --color-accent-dim: #55c19f; /* lighter jade for marginalia */
-  --color-accent-bg: rgba(63, 174, 140, 0.1); /* #3fae8c1a */
-  --color-accent-glow: rgba(63, 174, 140, 0.18); /* ambient halo */
+  /* Accent — steel blue. The one brand color. Used sparingly for CTAs,
+     active nav, focus rings, selected states, and key icons. Not a
+     surface tint. On light surfaces hover is DARKER (pressed feeling)
+     and dim is LIGHTER (marginalia). */
+  --color-accent: #6f86a8; /* primary steel blue */
+  --color-accent-hover: #5b7294; /* darker on hover/press */
+  --color-accent-pressed: #5b7294; /* darker on active */
+  --color-accent-dim: #8ea3c0; /* lighter steel for marginalia */
+  --color-accent-bg: rgba(111, 134, 168, 0.1); /* #6f86a81a */
+  --color-accent-glow: rgba(111, 134, 168, 0.18); /* ambient halo */
 
   /* Interaction utilities — the engineering surface for links, focus,
      selection, and text-on-accent. One set of names so we don't hunt for
      "what colour is a link again" in the codebase. */
   --color-link: var(--color-accent);
   --color-link-hover: var(--color-accent-hover);
-  --color-focus-ring: rgba(63, 174, 140, 0.38);
-  --color-selection: rgba(63, 174, 140, 0.15);
+  --color-focus-ring: rgba(111, 134, 168, 0.38);
+  --color-selection: rgba(111, 134, 168, 0.15);
   --color-text-on-accent: #ffffff;
 
   /* Borders + dividers — black at low alpha so they read as hairlines
@@ -296,7 +300,7 @@ html {
   border-radius: var(--radius-xs);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(63, 174, 140, 0.45);
+  background: rgba(111, 134, 168, 0.45);
 }
 
 * {
