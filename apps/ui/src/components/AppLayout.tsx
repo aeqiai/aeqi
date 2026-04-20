@@ -177,34 +177,32 @@ export default function AppLayout() {
         <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
 
         <div className={`content-column${showCTA && !hasRailContent ? " no-rail" : ""}`}>
-          <div className="content-card">
-            <div className="content-card-body">
-              <div className="content-main">
-                {showTopBar ? (
-                  <>
-                    <ContentTopBar />
-                    <div className="content-scroll">
-                      <Suspense fallback={null}>{mainContent}</Suspense>
-                    </div>
-                  </>
-                ) : (
-                  <Suspense fallback={null}>{mainContent}</Suspense>
-                )}
-                {showComposer && (
-                  <ComposerRow
-                    agentId={agentId || null}
-                    base={base}
-                    sessionsMounted={sessionsMounted}
-                  />
-                )}
-              </div>
-              {showCTA && hasRailContent && (
-                <aside className="content-cta-col">
-                  <ContentCTA />
-                </aside>
+          <div className="content-main-stack">
+            <div className="content-card">
+              {showTopBar ? (
+                <>
+                  <ContentTopBar />
+                  <div className="content-scroll">
+                    <Suspense fallback={null}>{mainContent}</Suspense>
+                  </div>
+                </>
+              ) : (
+                <Suspense fallback={null}>{mainContent}</Suspense>
               )}
             </div>
+            {showComposer && (
+              <ComposerRow
+                agentId={agentId || null}
+                base={base}
+                sessionsMounted={sessionsMounted}
+              />
+            )}
           </div>
+          {showCTA && hasRailContent && (
+            <aside className="content-cta-col">
+              <ContentCTA />
+            </aside>
+          )}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

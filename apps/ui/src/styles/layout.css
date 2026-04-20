@@ -1,31 +1,31 @@
-/* ── Shell — capped viewport like social apps ──
-   Background is intentionally transparent: body already paints
-   var(--bg-elevated). No side borders — the shell bg and the outer
-   body bg are the same color, so the borders just drew a visible
-   seam on wide screens / when zoomed out. The 1440px cap alone is
-   enough to convey the "capped app canvas" pattern; the card inside
-   is what carries the visual frame. */
+/* ── Shell — three floating panels on the desk ──
+   Body paints the desk (canvas). The shell itself is transparent; each
+   of the three regions (sidebar, main stack, rail) paints its own fill
+   and rounds its outer-facing corners. No dividers — the value step
+   between panel fills and the desk peeking through at the rounded
+   corners carries the layout. */
 .shell {
   display: flex;
+  gap: 8px;
   height: 100vh;
+  padding: 0 8px 8px;
+  box-sizing: border-box;
   overflow: hidden;
   background: transparent;
   max-width: 1440px;
   margin: 0 auto;
 }
 
-/* ── Left Sidebar (agent tree) ──
-   The sidebar shares the page canvas (one shade darker than the content
-   paper) so the value step between it and the content column *is* the
-   divider. A faint right hairline reinforces the seam without turning the
-   rail into a separate surface. No top pad — content-topbar and
-   sidebar-header both start flush at y=0. */
+/* ── Left Sidebar — darker panel, left-rounded ──
+   One step darker than the desk so it reads as a seated panel. Top-left
+   and bottom-left corners round against the viewport edge; right edge
+   is flush (faces the content card across the 8px gap). No divider. */
 .left-sidebar {
   width: 200px;
   display: flex;
   flex-direction: column;
-  background: transparent;
-  border-right: 1px solid var(--border-faint);
+  background: var(--bg-sidebar);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   flex-shrink: 0;
   position: relative;
   transition: width var(--transition-normal);
@@ -307,18 +307,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-top: 1px solid var(--border);
 }
 
 /* Per-agent surface nav — the primary thing a user clicks — pinned at
-   the top of the body. Bottom border separates it from the tree below. */
+   the top of the body. No divider; spacing carries the separation. */
 .sidebar-surface-nav {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 1px;
   padding: 8px;
-  border-bottom: 1px solid var(--border);
 }
 
 /* Agent tree takes the flexible bottom region — scrolls inside itself
@@ -344,83 +342,69 @@
 
 /* ── Sidebar footer — identity anchor ──
    Pinned at the bottom of the rail (Linear / Slack / Vercel pattern).
-   Top border separates it from the scrollable tree above so the
-   profile reads as a deliberate anchor, not a loose row. */
+   No divider; the spacing + the rail's rounded bottom corner carry
+   the visual anchor. */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   padding: 8px;
-  border-top: 1px solid var(--border);
 }
 .left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
 }
 
-/* ── Content column — single paper surface, no card frame.
-   Paper sits on top of the darker canvas body; the value step between
-   canvas (sidebar) and paper (content) reads as the layout seam. No
-   rounded corners, no outer border — the composer pill below is the
-   only elevated element in the shell. */
+/* ── Content column — holds the main stack and (optional) rail as a
+   two-column row. Transparent; each child paints its own fill. */
 .content-column {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  gap: 8px;
   overflow: hidden;
-  background: var(--color-paper);
+  background: transparent;
 }
-
-/* With no card framing the content, the "no rail" variant doesn't need
-   to shrink the column — let the page-content max-width do the work of
-   keeping line length sane. Kept as a hook for future variants. */
 .content-column.no-rail {
   /* intentionally empty */
 }
 
-/* Former card wrapper — now a transparent flex container. Kept as a
-   structural node so the body row / composer stacking still works,
-   but it contributes zero visual chrome. */
-.content-card {
+/* Main stack — content card + composer stacked in the main column. */
+.content-main-stack {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
 }
 
-/* Body row: content-main + optional rail side-by-side. */
-.content-card-body {
+/* Content card — the paper document. Rounded on all four corners so it
+   reads as a single floating panel. No border, no shadow — the desk
+   peeking through at the corners is the only framing. */
+.content-card {
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: row;
-  overflow: hidden;
-}
-
-.content-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-paper);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: none;
 }
 
-/* Rail column — 240px of tinted paper that sits alongside the main
-   scroll without a divider. The subtle bg step (paper → bg-canvas)
-   reads as a companion column, not a bolted-on sidebar. */
+/* Rail column — darker panel mirroring the sidebar on the right edge.
+   Rounded top-right and bottom-right; left edge flush (faces the card
+   across the 8px gap). */
 .content-cta-col {
   width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-canvas);
+  background: var(--bg-sidebar);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   border-left: none;
 }
 .content-cta-col .asv-sidebar {
@@ -429,14 +413,13 @@
   background: transparent;
 }
 
-/* Composer band — transparent container that centers the floating
-   composer pill against the paper. The pill itself (.asv-composer-inner)
-   carries the elevation; this row just holds the safe margin below. */
+/* Composer band — sits below the content card, inside the main stack
+   so it only spans the main column (never under the rail). */
 .composer-row {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  padding: 12px 16px 20px;
+  padding: 12px 0 0;
   background: transparent;
   border-radius: 0;
 }
@@ -1017,7 +1000,6 @@
   padding: 0 20px;
   height: 48px;
   min-height: 48px;
-  border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
   background: transparent;
   gap: 12px;

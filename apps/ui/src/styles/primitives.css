@@ -26,6 +26,10 @@
   --bg-overlay: var(--color-bg-overlay);
   --bg-canvas: var(--color-bg-base); /* #f1f1ee — outside the card */
 
+  /* Floating sidebar + rail panels — one step darker than the desk so
+     they seat visibly on the body canvas with rounded outer corners. */
+  --bg-sidebar: #e6e6e0;
+
   /* In-card raised row/chip tint. The main content card is white
      (the "document"); items inside that need to stand out go subtly
      DARKER (paper tint) — the inverse of dark-mode intuition. Used

@@ -76,7 +76,6 @@
   padding: 0 12px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
 }
 /* Primary action inside the rail header — a restrained outlined pill,
