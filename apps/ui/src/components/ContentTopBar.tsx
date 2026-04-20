@@ -22,6 +22,7 @@ const TITLES: Record<string, string> = {
   channels: "Channels",
   drive: "Drive",
   settings: "Settings",
+  tools: "Tools",
 };
 
 export default function ContentTopBar() {
