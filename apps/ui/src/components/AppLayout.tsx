@@ -190,6 +190,13 @@ export default function AppLayout() {
                 ) : (
                   <Suspense fallback={null}>{mainContent}</Suspense>
                 )}
+                {showComposer && (
+                  <ComposerRow
+                    agentId={agentId || null}
+                    base={base}
+                    sessionsMounted={sessionsMounted}
+                  />
+                )}
               </div>
               {showCTA && hasRailContent && (
                 <aside className="content-cta-col">
@@ -197,13 +204,6 @@ export default function AppLayout() {
                 </aside>
               )}
             </div>
-            {showComposer && (
-              <ComposerRow
-                agentId={agentId || null}
-                base={base}
-                sessionsMounted={sessionsMounted}
-              />
-            )}
           </div>
         </div>
       </div>

@@ -65,7 +65,7 @@
 .left-sidebar.collapsed .sidebar-nav-avatar {
   width: 16px;
 }
-.left-sidebar.collapsed .left-sidebar-body {
+.left-sidebar.collapsed .sidebar-tree-slot {
   display: none;
 }
 

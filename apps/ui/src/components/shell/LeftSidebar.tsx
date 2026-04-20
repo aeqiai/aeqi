@@ -20,27 +20,27 @@ interface NavItem {
 
 const ICON_HOME = (
   <svg
-    viewBox="0 0 14 14"
+    viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    strokeWidth="1"
+    strokeLinecap="square"
+    strokeLinejoin="miter"
   >
-    <path d="M2 7l5-4.5L12 7" />
-    <path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" />
+    <path d="M3 13V8l5-5 5 5v5z" />
   </svg>
 );
 const ICON_SESSIONS = (
   <svg
-    viewBox="0 0 14 14"
+    viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    strokeWidth="1"
+    strokeLinecap="square"
+    strokeLinejoin="miter"
   >
-    <path d="M2 4.5a1.5 1.5 0 011.5-1.5h7A1.5 1.5 0 0112 4.5v4a1.5 1.5 0 01-1.5 1.5H5l-3 2.5V4.5z" />
+    <rect x="2" y="3" width="10" height="4" />
+    <rect x="4" y="9" width="10" height="4" />
   </svg>
 );
 const ICON_AGENTS = (
@@ -85,15 +85,14 @@ const ICON_QUESTS = (
 );
 const ICON_IDEAS = (
   <svg
-    viewBox="0 0 14 14"
+    viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.1"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    strokeWidth="1"
+    strokeLinecap="square"
+    strokeLinejoin="miter"
   >
-    <path d="M5 10h4M5.5 11.5h3" />
-    <path d="M4 7a3 3 0 116 0c0 1.5-1 2-1 3H5c0-1-1-1.5-1-3z" />
+    <path d="M8 2l6 6-6 6-6-6z" />
   </svg>
 );
 const ICON_CHANNELS = (
