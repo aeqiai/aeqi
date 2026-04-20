@@ -22,13 +22,15 @@ use tokio::sync::Mutex;
 
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
+use crate::dispatch::Dispatcher;
 use crate::event_handler::EventHandlerStore;
+use crate::execution_registry::ExecutionRegistry;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
-use crate::prompt_loader::PromptLoader;
-use crate::scheduler::Scheduler;
 use crate::session_manager::SessionManager;
 use crate::session_store::SessionStore;
+use crate::skill_loader::SkillLoader;
+use crate::stream_registry::StreamRegistry;
 
 /// Shared context for all IPC command handlers.
 /// Replaces the 13 loose parameters previously passed to handle_socket_connection.
@@ -44,10 +46,11 @@ pub struct CommandContext {
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     pub default_model: String,
     pub session_manager: Arc<SessionManager>,
-    pub scheduler: Arc<Scheduler>,
+    pub dispatcher: Arc<Dispatcher>,
     pub daily_budget_usd: f64,
-    pub project_budgets: std::collections::HashMap<String, f64>,
-    pub prompt_loader: Option<Arc<PromptLoader>>,
+    pub skill_loader: Option<Arc<SkillLoader>>,
+    pub execution_registry: Arc<ExecutionRegistry>,
+    pub stream_registry: Arc<StreamRegistry>,
 }
 
 pub use crate::daemon::ActivityBuffer;

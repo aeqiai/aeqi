@@ -29,42 +29,15 @@ pub async fn handle_status(
     } else {
         project_names
     };
-    let worker_count = ctx.scheduler.config.max_workers;
+    let worker_count = ctx.dispatcher.config.max_workers;
 
     let spent = ctx.activity_log.daily_cost().await.unwrap_or(0.0);
     let budget = ctx.daily_budget_usd;
     let remaining = (budget - spent).max(0.0);
-    let project_costs = ctx
-        .activity_log
-        .daily_costs_by_project()
-        .await
-        .unwrap_or_default();
-    let project_budget_info: serde_json::Map<String, serde_json::Value> = {
-        let mut all_projects: std::collections::HashSet<String> =
-            ctx.project_budgets.keys().cloned().collect();
-        all_projects.extend(project_costs.keys().cloned());
-        all_projects
-            .into_iter()
-            .filter(|name| is_allowed(allowed, name))
-            .map(|name| {
-                let p_spent = project_costs.get(&name).copied().unwrap_or(0.0);
-                let p_budget = ctx.project_budgets.get(&name).copied().unwrap_or(budget);
-                let p_remaining = (p_budget - p_spent).max(0.0);
-                (
-                    name,
-                    serde_json::json!({
-                        "spent_usd": p_spent,
-                        "budget_usd": p_budget,
-                        "remaining_usd": p_remaining,
-                    }),
-                )
-            })
-            .collect()
-    };
 
-    let active = ctx.scheduler.active_count().await;
-    let agent_counts = ctx.scheduler.agent_counts().await;
-    let workers = ctx.scheduler.worker_status().await;
+    let active = ctx.execution_registry.active_ids().await.len();
+    let agent_counts = ctx.execution_registry.agent_counts().await;
+    let workers = ctx.execution_registry.status_snapshot().await;
 
     serde_json::json!({
         "ok": true,
@@ -74,7 +47,6 @@ pub async fn handle_status(
         "cost_today_usd": spent,
         "daily_budget_usd": budget,
         "budget_remaining_usd": remaining,
-        "project_budgets": project_budget_info,
         "scheduler_active": true,
         "scheduler_active_workers": active,
         "scheduler_agent_counts": agent_counts,
@@ -95,7 +67,7 @@ pub async fn handle_readiness(
         .map(|agents| {
             agents
                 .iter()
-                .map(|a| (a.name.clone(), ctx.scheduler.config.max_workers))
+                .map(|a| (a.name.clone(), ctx.dispatcher.config.max_workers))
                 .collect()
         })
         .unwrap_or_default();
@@ -110,7 +82,7 @@ pub async fn handle_worker_progress(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let workers = ctx.scheduler.worker_status().await;
+    let workers = ctx.execution_registry.status_snapshot().await;
     let workers: Vec<serde_json::Value> = if allowed.is_some() {
         workers
             .into_iter()
@@ -191,35 +163,12 @@ pub async fn handle_cost(
     } else {
         report
     };
-    let project_budget_info: serde_json::Map<String, serde_json::Value> = {
-        let mut all_projects: std::collections::HashSet<String> =
-            ctx.project_budgets.keys().cloned().collect();
-        all_projects.extend(report.keys().cloned());
-        all_projects
-            .into_iter()
-            .filter(|name| is_allowed(allowed, name))
-            .map(|name| {
-                let p_spent = report.get(&name).copied().unwrap_or(0.0);
-                let p_budget = ctx.project_budgets.get(&name).copied().unwrap_or(budget);
-                let p_remaining = (p_budget - p_spent).max(0.0);
-                (
-                    name,
-                    serde_json::json!({
-                        "spent_usd": p_spent,
-                        "budget_usd": p_budget,
-                        "remaining_usd": p_remaining,
-                    }),
-                )
-            })
-            .collect()
-    };
     serde_json::json!({
         "ok": true,
         "spent_today_usd": spent,
         "daily_budget_usd": budget,
         "remaining_usd": remaining,
         "per_project": report,
-        "project_budgets": project_budget_info,
     })
 }
 
@@ -321,11 +270,11 @@ pub async fn handle_skills(
     _request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    // Use unified PromptLoader if available, otherwise fall back to ad-hoc scan.
-    let loader = match ctx.prompt_loader {
+    // Use unified SkillLoader if available, otherwise fall back to ad-hoc scan.
+    let loader = match ctx.skill_loader {
         Some(ref l) => l.clone(),
         None => {
-            let l = crate::prompt_loader::PromptLoader::from_cwd();
+            let l = crate::skill_loader::SkillLoader::from_cwd();
             std::sync::Arc::new(l)
         }
     };

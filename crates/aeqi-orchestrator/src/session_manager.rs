@@ -1,18 +1,17 @@
-//! Session Manager — holds running agent sessions in memory.
+//! Session Manager — builds and spawns single-shot agent runs.
 //!
-//! Each running session is a spawned `Agent::run()` task with a perpetual input
-//! channel. Messages are injected via `input_tx`, responses collected via
-//! `ChatStreamSender` broadcast. Sessions persist until explicitly closed (which
-//! drops the input channel, causing the agent loop to exit).
-//!
-//! Two kinds of sessions:
-//! - **Permanent**: one per agent, always alive, IS the agent's identity
-//! - **Spawned**: created by triggers, prompts, or users — persistent until closed
+//! A session is *not* an in-memory entity. It is persisted state (transcript,
+//! metadata) in `SessionStore` plus, while one run is executing, a live
+//! `ExecutionHandle` in `ExecutionRegistry`. This module's job is assembly:
+//! given an agent hint + a user message, build the agent, wire its tools
+//! and sandbox, and spawn the tokio task that runs `agent.run()` to
+//! completion. The caller (the queue executor) owns the returned join
+//! handle and the lifecycle of the execution entry.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
@@ -25,108 +24,10 @@ use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
 use crate::idea_assembly::ToolDispatch;
-use crate::prompt_loader::PromptLoader;
 use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn};
-use crate::sandbox::{QuestDiff, QuestSandbox, SandboxConfig};
+use crate::sandbox::{QuestSandbox, SandboxConfig};
 use crate::session_store::SessionStore;
-
-/// A running agent session — the in-memory handle to a live agent loop.
-pub struct RunningSession {
-    pub session_id: String,
-    pub agent_id: String,
-    pub agent_name: String,
-    /// Correlation ID for distributed tracing. Propagated to child sessions
-    /// (delegations) and included in all structured log spans.
-    pub correlation_id: String,
-    pub input_tx: mpsc::UnboundedSender<aeqi_core::SessionInput>,
-    pub stream_sender: ChatStreamSender,
-    pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
-    pub join_handle: tokio::task::JoinHandle<anyhow::Result<AgentResult>>,
-    pub chat_id: i64,
-    /// Session sandbox (git worktree + optional bwrap). None if unsandboxed.
-    pub sandbox: Option<Arc<QuestSandbox>>,
-}
-
-impl RunningSession {
-    /// Send a message and wait for the agent's response.
-    ///
-    /// Subscribes to the stream, pushes the message, collects TextDelta events
-    /// until a Complete event arrives. Returns the accumulated response text
-    /// and token counts.
-    pub async fn send_and_wait(&self, message: &str) -> anyhow::Result<SessionResponse> {
-        // Subscribe BEFORE pushing so we don't miss events.
-        let mut rx = self.stream_sender.subscribe();
-
-        // Push message into the agent loop.
-        self.input_tx
-            .send(aeqi_core::SessionInput::text(message))
-            .map_err(|_| anyhow::anyhow!("session closed — agent loop exited"))?;
-
-        // Collect response.
-        let mut text = String::new();
-        let mut iterations = 0u32;
-        let mut prompt_tokens = 0u32;
-        let mut completion_tokens = 0u32;
-
-        loop {
-            match tokio::time::timeout(std::time::Duration::from_secs(300), rx.recv()).await {
-                Ok(Ok(event)) => match event {
-                    ChatStreamEvent::TextDelta { text: delta } => {
-                        text.push_str(&delta);
-                    }
-                    ChatStreamEvent::Tombstone { .. } => {
-                        // Discard partial text from a failed streaming attempt.
-                        text.clear();
-                    }
-                    ChatStreamEvent::Complete {
-                        total_prompt_tokens,
-                        total_completion_tokens,
-                        iterations: iters,
-                        ..
-                    } => {
-                        prompt_tokens = total_prompt_tokens;
-                        completion_tokens = total_completion_tokens;
-                        iterations = iters;
-                        break;
-                    }
-                    _ => {
-                        // StepStart, ToolStart, ToolComplete, etc. — skip.
-                    }
-                },
-                Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(n))) => {
-                    warn!(lagged = n, "stream subscriber lagged — some events lost");
-                }
-                Ok(Err(tokio::sync::broadcast::error::RecvError::Closed)) => {
-                    // Agent loop ended without a Complete event.
-                    break;
-                }
-                Err(_) => {
-                    return Err(anyhow::anyhow!("session response timed out (300s)"));
-                }
-            }
-        }
-
-        Ok(SessionResponse {
-            text,
-            iterations,
-            prompt_tokens,
-            completion_tokens,
-        })
-    }
-
-    /// Check if the agent loop is still running.
-    pub fn is_alive(&self) -> bool {
-        !self.join_handle.is_finished()
-    }
-}
-
-/// Response from a session send.
-pub struct SessionResponse {
-    pub text: String,
-    pub iterations: u32,
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-}
+use crate::skill_loader::SkillLoader;
 
 /// What kind of session to spawn.
 /// Options for spawning a session. Every field is optional context —
@@ -153,6 +54,16 @@ pub struct SpawnOptions {
     pub sender_id: Option<String>,
     /// Transport that originated this session (e.g. "web", "telegram", "ipc").
     pub transport: Option<String>,
+    /// Pre-existing broadcast sender to use instead of minting a fresh one.
+    /// When the queue-driven executor runs a spawn, the IPC handler has
+    /// already subscribed to a `StreamRegistry` sender for this session_id;
+    /// passing that same sender here ensures events reach the subscriber.
+    pub stream_sender: Option<ChatStreamSender>,
+    /// Per-run budget ceiling in USD. When `quest_id` is set, the universal
+    /// middleware chain is attached and `CostTrackingMiddleware` enforces
+    /// this value. Left `None` for non-quest sessions (chat/interactive) —
+    /// they don't run the middleware chain.
+    pub task_budget_usd: Option<f64>,
 }
 
 impl Default for SpawnOptions {
@@ -168,6 +79,8 @@ impl Default for SpawnOptions {
             name: None,
             sender_id: None,
             transport: None,
+            stream_sender: None,
+            task_budget_usd: None,
         }
     }
 }
@@ -234,6 +147,16 @@ impl SpawnOptions {
         self
     }
 
+    pub fn with_stream_sender(mut self, sender: ChatStreamSender) -> Self {
+        self.stream_sender = Some(sender);
+        self
+    }
+
+    pub fn with_budget(mut self, usd: f64) -> Self {
+        self.task_budget_usd = Some(usd);
+        self
+    }
+
     fn session_type_str(&self) -> &str {
         if self.parent_id.is_some() {
             "delegation"
@@ -247,11 +170,18 @@ impl SpawnOptions {
     }
 }
 
-/// Returned from `spawn_session` — the caller uses this to subscribe to events.
+/// Returned from `spawn_session` — the caller owns the execution lifecycle
+/// and tears down the sandbox after the join handle resolves.
 pub struct SpawnedSession {
     pub session_id: String,
+    pub agent_id: String,
+    pub agent_name: String,
     pub correlation_id: String,
     pub stream_sender: ChatStreamSender,
+    pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
+    pub sandbox: Option<Arc<QuestSandbox>>,
+    /// The agent task's join handle. Caller must `.await` it.
+    pub join_handle: tokio::task::JoinHandle<anyhow::Result<AgentResult>>,
     /// Events that fired during session creation itself (e.g. session:start
     /// ideas being injected). The broadcast channel has no subscribers at
     /// the moment these fire, so the caller must forward them to its wire
@@ -259,9 +189,17 @@ pub struct SpawnedSession {
     pub initial_events: Vec<ChatStreamEvent>,
 }
 
-/// Manages all running agent sessions in the daemon.
+/// Builds agents and launches single-shot runs. Stateless w.r.t. sessions —
+/// lifecycle state lives in `SessionStore` (durable) and `ExecutionRegistry`
+/// (transient, held by the caller during the run).
 pub struct SessionManager {
-    sessions: Mutex<HashMap<String, RunningSession>>,
+    /// Per-session execution lock. spawn_session acquires the entry for
+    /// its session_id, guaranteeing at most one agent run per session at
+    /// any time. This is a belt-and-suspenders guard alongside the
+    /// DB-backed `pending_messages` claim lease — both enforce per-session
+    /// FIFO, but the lock also protects direct `spawn_session` callers
+    /// that bypass the queue (tests, internal utilities).
+    execution_locks: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     // Dependencies for spawn_session (injected via configure()).
     agent_registry: Option<Arc<AgentRegistry>>,
     session_store: Option<Arc<SessionStore>>,
@@ -273,7 +211,7 @@ pub struct SessionManager {
     /// Sandbox configuration. When set, sessions are sandboxed in git worktrees.
     sandbox_config: Option<SandboxConfig>,
     /// Unified prompt file loader.
-    prompt_loader: Option<Arc<PromptLoader>>,
+    skill_loader: Option<Arc<SkillLoader>>,
     /// Event handler store for event-driven idea assembly.
     event_store: Option<Arc<EventHandlerStore>>,
     /// Data directory for graph DB fallback.
@@ -286,7 +224,7 @@ pub struct SessionManager {
 impl SessionManager {
     pub fn new() -> Self {
         Self {
-            sessions: Mutex::new(HashMap::new()),
+            execution_locks: Mutex::new(HashMap::new()),
             agent_registry: None,
             session_store: None,
             default_model: String::new(),
@@ -295,11 +233,22 @@ impl SessionManager {
             idea_store: None,
             default_project: String::new(),
             sandbox_config: None,
-            prompt_loader: None,
+            skill_loader: None,
             event_store: None,
             data_dir: None,
             default_provider: None,
         }
+    }
+
+    /// Acquire (or create) the per-session execution lock handle. Callers
+    /// must `.lock().await` on the returned Arc to actually serialize; the
+    /// handle is released when the guard is dropped.
+    async fn execution_lock_handle(&self, session_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+        let mut locks = self.execution_locks.lock().await;
+        locks
+            .entry(session_id.to_string())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone()
     }
 
     /// Inject dependencies that aren't available at construction time.
@@ -330,8 +279,8 @@ impl SessionManager {
     }
 
     /// Set the unified prompt loader.
-    pub fn set_prompt_loader(&mut self, loader: Arc<PromptLoader>) {
-        self.prompt_loader = Some(loader);
+    pub fn set_skill_loader(&mut self, loader: Arc<SkillLoader>) {
+        self.skill_loader = Some(loader);
     }
 
     /// Set the event handler store for event-driven idea assembly.
@@ -431,6 +380,25 @@ impl SessionManager {
             Some(ref agent) => (agent.name.clone(), Some(agent.id.clone())),
             None => (agent_id_or_hint.to_string(), None),
         };
+
+        // Pre-generate the session_id so it can be:
+        //   (a) used as the key for the per-session execution lock
+        //   (b) set in AgentConfig before the DB session row is created
+        //       (the compaction pipeline dispatches on the real session_id).
+        // When `opts.session_id` is Some, we reuse it; otherwise mint a fresh UUID.
+        let pregenerated_session_id = opts
+            .session_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+        // Acquire the per-session execution lock before doing any state-dependent
+        // work (history load, agent construction, run). Two rapid-fire spawn_session
+        // calls for the same session_id now serialize here — the second waits until
+        // the first's agent.run() has completed and the guard has been dropped.
+        // The guard is moved into the tokio::spawn task that runs the agent so it
+        // lives for the full execution, not just spawn_session's sync prefix.
+        let exec_lock = self.execution_lock_handle(&pregenerated_session_id).await;
+        let exec_guard = exec_lock.lock_owned().await;
 
         // Resolve ancestor IDs for hierarchical memory search.
         let ancestor_ids: Vec<String> = if let Some(ref id) = agent_uuid {
@@ -536,11 +504,12 @@ impl SessionManager {
                 Some(&dispatch),
             )
             .await;
-            for event_id in &assembled.fired_event_ids {
-                if let Err(e) = event_store.record_fire(event_id, 0.0).await {
-                    tracing::warn!(event = %event_id, error = %e, "failed to record event fire");
-                }
-            }
+            // `record_fire` / `event_fired` row writes are owned by the
+            // lifecycle-event pre-persist block below (for session:start and
+            // session:execution_start) and by the daemon WS handler (for
+            // in-run events like session:step_start). Firing again here would
+            // double-count fire_count and total_cost_usd.
+            let _ = &assembled.fired_event_ids;
             // Safety net: if assembly returned empty, use a sensible default.
             if assembled.system.trim().is_empty() {
                 "You are a helpful AI agent.".to_string()
@@ -650,8 +619,17 @@ impl SessionManager {
             .map(|s| s.worktree_path.clone())
             .unwrap_or_else(|| workdir.clone());
 
-        // 4. Create chat stream sender early so file tools can emit FileChanged events.
-        let (stream_sender, _initial_rx) = ChatStreamSender::new(256);
+        // 4. Create or reuse chat stream sender so file tools can emit FileChanged
+        // events. When the caller pre-supplies one (queue-driven executor path,
+        // where the IPC handler has already subscribed to a `StreamRegistry`
+        // sender), use it so events reach the subscriber. Otherwise mint a fresh
+        // one and rely on the caller to subscribe via `SpawnedSession`.
+        let stream_sender = if let Some(s) = opts.stream_sender.clone() {
+            s
+        } else {
+            let (s, _initial_rx) = ChatStreamSender::new(256);
+            s
+        };
 
         // 4. Build tools.
         let mut tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
@@ -737,12 +715,12 @@ impl SessionManager {
             tools.retain(|t| !agent.tool_deny.contains(&t.spec().name));
         }
 
-        // 5b. Discover all available prompts via unified PromptLoader.
-        let all_prompts: Arc<Vec<aeqi_tools::Prompt>> = if let Some(ref loader) = self.prompt_loader
+        // 5b. Discover all available prompts via unified SkillLoader.
+        let all_prompts: Arc<Vec<aeqi_tools::Prompt>> = if let Some(ref loader) = self.skill_loader
         {
             loader.all().await
         } else {
-            // No prompt_loader configured — return empty. No ad-hoc disk scanning.
+            // No skill_loader configured — return empty. No ad-hoc disk scanning.
             Arc::new(Vec::new())
         };
 
@@ -803,15 +781,6 @@ impl SessionManager {
             None
         };
 
-        // Pre-generate the session_id so it can be set in AgentConfig before the
-        // session DB row is created. The actual DB session is created at step 9
-        // using `create_session_with_id` when a pre-generated id is available,
-        // or `opts.session_id` if one was provided by the caller.
-        let pregenerated_session_id = opts
-            .session_id
-            .clone()
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-
         let agent_config = aeqi_core::AgentConfig {
             model,
             max_iterations,
@@ -826,8 +795,46 @@ impl SessionManager {
         };
 
         // 7. Create Agent with ChatStreamSender, attach memory.
-        let observer: Arc<dyn aeqi_core::traits::Observer> =
+        //
+        // Quest-backed sessions get the universal middleware chain wrapped
+        // around `LogObserver`; chat/interactive sessions run a bare
+        // `LogObserver`. Wiring here (rather than inside AgentWorker) is the
+        // Phase 2 unification point — once QuestEnqueuer lands in Phase 3,
+        // every quest run flows through here and the scheduler's parallel
+        // middleware attachment goes away.
+        let base_observer: Arc<dyn aeqi_core::traits::Observer> =
             Arc::new(aeqi_core::traits::LogObserver);
+        let observer: Arc<dyn aeqi_core::traits::Observer> = if opts.quest_id.is_some() {
+            let budget = opts.task_budget_usd.unwrap_or(5.0);
+            let chain = crate::middleware::build_universal_chain(
+                budget,
+                self.idea_store.as_ref(),
+                agent_uuid.as_deref(),
+            )
+            .await;
+            let mut worker_ctx = crate::middleware::WorkerContext::new(
+                opts.quest_id.clone().unwrap_or_default(),
+                prompt.chars().take(500).collect::<String>(),
+                &agent_name,
+                &self.default_project,
+            );
+            // Signal to ContextCompressionMiddleware that the agent loop
+            // handles compaction directly — middleware defers.
+            worker_ctx.agent_compaction_active = true;
+            worker_ctx.model = self.default_model.clone();
+            worker_ctx.session_id = pregenerated_session_id.clone();
+            worker_ctx.registry = Some(Arc::new(crate::runtime_tools::build_runtime_registry(
+                self.idea_store.clone(),
+                self.session_store.clone(),
+            )));
+            Arc::new(crate::middleware::MiddlewareObserver::new(
+                Arc::new(chain),
+                worker_ctx,
+                base_observer,
+            ))
+        } else {
+            base_observer
+        };
 
         // Load session:step_start ideas as step context (injected every LLM call).
         //
@@ -977,16 +984,10 @@ impl SessionManager {
             }
         }
 
-        // 8. If Interactive, create perpetual input channel.
-        let (agent, input_tx, cancel_token) = if is_interactive {
-            let cancel = agent.cancel_token();
-            let (agent, tx) = agent.with_perpetual_input();
-            (agent, tx, cancel)
-        } else {
-            let cancel = agent.cancel_token();
-            let (tx, _rx) = mpsc::unbounded_channel();
-            (agent, tx, cancel)
-        };
+        // 8. Single-shot only: sessions are persisted state, never kept alive.
+        // Each user message spawns a run-to-completion execution via the
+        // per-session queue; no perpetual input channel.
+        let cancel_token = agent.cancel_token();
 
         // 9. Create session in DB.
         let parent_id = opts.parent_id.as_deref();
@@ -996,12 +997,18 @@ impl SessionManager {
         // Use the pre-generated session_id (set in AgentConfig at step 6 so the
         // compaction pipeline can refer to the correct session). For pre-assigned
         // session_ids (from channel_sessions), ensure the DB row exists.
+        //
+        // `session_is_new` tracks whether THIS spawn created the session row.
+        // True only on the session's very first spawn — used below to gate
+        // `session:start` fires (which are per-session, not per-turn).
+        let mut session_is_new = false;
         let session_id = {
             let sid = pregenerated_session_id.clone();
             if let Some(ref ss) = self.session_store {
                 let aid = agent_uuid.as_deref().unwrap_or("");
                 let display_name = opts.name.as_deref().unwrap_or(&agent_name);
                 if ss.get_session(&sid).await.ok().flatten().is_none() {
+                    session_is_new = true;
                     let _ = ss
                         .create_session_with_id(
                             &sid,
@@ -1016,33 +1023,45 @@ impl SessionManager {
             }
             sid
         };
+        let _ = session_resumed; // informational; gating uses session_is_new
 
-        // 9.5. Record event-fire rows so the user can see which events injected
-        // which ideas into this session's context. One row per event that fired.
-        // We also build ChatStreamEvents for the caller to forward onto the
-        // live wire — the broadcast channel has no subscribers yet at this
-        // point, so a direct send would be lost.
+        // 9.5. Fire lifecycle events for this spawn and pre-persist their
+        // `event_fired` rows BEFORE the user-message row so the UI timeline
+        // renders them in semantic order:
         //
-        // Only session-level patterns belong here: session:start fires once
-        // per session and session:execution_start fires once per user message
-        // (the initial prompt counts). session:recap_on_resume fires on
-        // resumed sessions. session:step_start is NOT batched here — it
-        // fires per LLM step. The Agent itself emits `EventFired` for each
-        // `StepEventMeta` at `StepStart`, so the pill renders at its true
-        // firing point rather than batched upfront.
+        //   session:start (once per session) →
+        //   session:execution_start (every spawn) →
+        //   user message →
+        //   session:step_start (per LLM iteration, emitted by agent.run)
+        //
+        // We persist here (rather than letting the daemon observe EventFired
+        // and persist in its WS handler) for two reasons:
+        //   1. The event_fired row must sort BEFORE the user-message row by
+        //      `session_messages.id` — the timeline orders by id ASC.
+        //   2. The broadcast channel may have no subscribers yet, so a
+        //      non-persisted wire emission would be lost.
+        //
+        // Each emitted ChatStreamEvent carries `prepersisted: true` so the
+        // daemon's wire-observer skips its own row-write and record_fire
+        // calls, avoiding double persistence and double fire-count.
+        //
+        // `session:step_start` is NOT batched — the Agent emits EventFired
+        // per StepEventMeta at its true firing point inside the run loop.
         let mut initial_events: Vec<ChatStreamEvent> = Vec::new();
         if let Some(aid) = agent_uuid.as_deref() {
-            let mut patterns: Vec<&str> = vec!["session:start", "session:execution_start"];
-            if session_resumed {
-                patterns.push("session:recap_on_resume");
-            }
+            let patterns: &[&str] = if session_is_new {
+                &["session:start", "session:execution_start"]
+            } else {
+                &["session:execution_start"]
+            };
+            let mut seen_event_ids: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
             for pattern in patterns {
-                let fired = event_store.get_events_for_pattern(aid, pattern).await;
-                for event in fired {
-                    if event.idea_ids.is_empty() {
+                for event in event_store.get_events_for_pattern(aid, pattern).await {
+                    if !seen_event_ids.insert(event.id.clone()) {
                         continue;
                     }
-                    if let Some(ss) = self.session_store.as_ref() {
+                    if let Some(ref ss) = self.session_store {
                         let metadata = serde_json::json!({
                             "event_id": event.id,
                             "event_name": event.name,
@@ -1055,16 +1074,20 @@ impl SessionManager {
                                 "event_fired",
                                 "system",
                                 "",
-                                Some(session_type_str),
+                                Some("web"),
                                 Some(&metadata),
                             )
                             .await;
+                    }
+                    if let Err(e) = event_store.record_fire(&event.id, 0.0).await {
+                        tracing::warn!(event = %event.id, error = %e, "failed to record event fire");
                     }
                     initial_events.push(ChatStreamEvent::EventFired {
                         event_id: event.id,
                         event_name: event.name,
                         pattern: event.pattern,
                         idea_ids: event.idea_ids,
+                        prepersisted: true,
                     });
                 }
             }
@@ -1099,6 +1122,10 @@ impl SessionManager {
         let spawn_transport = opts.transport.clone();
 
         let join_handle = tokio::spawn(async move {
+            // Hold the per-session execution lock for the entire agent.run().
+            // Dropped when this task completes, unblocking the next queued
+            // spawn_session call for the same session_id.
+            let _exec_guard = exec_guard;
             let result = agent.run(&prompt_owned).await;
             // On completion, record result and close session (unless Interactive — those
             // stay open until explicitly closed).
@@ -1145,22 +1172,7 @@ impl SessionManager {
 
         // 12. Generate correlation ID for distributed tracing.
         let correlation_id = uuid::Uuid::new_v4().to_string();
-
-        // 13. Register RunningSession.
         let agent_id_for_session = agent_uuid.unwrap_or_default();
-        let running = RunningSession {
-            session_id: session_id.clone(),
-            agent_id: agent_id_for_session.clone(),
-            agent_name: agent_name.clone(),
-            correlation_id: correlation_id.clone(),
-            input_tx,
-            stream_sender: stream_sender.clone(),
-            cancel_token,
-            join_handle,
-            chat_id: 0,
-            sandbox,
-        };
-        self.register(running).await;
 
         let _ = activity_log
             .emit(
@@ -1181,256 +1193,20 @@ impl SessionManager {
             "spawn_session: session spawned"
         );
 
-        // 14. Return SpawnedSession.
+        // 13. Return the spawned-session handle. The caller is responsible
+        // for registering this with the `ExecutionRegistry`, awaiting the
+        // join handle, and tearing down the sandbox afterwards.
         Ok(SpawnedSession {
             session_id,
+            agent_id: agent_id_for_session,
+            agent_name,
             correlation_id,
             stream_sender,
+            cancel_token,
+            sandbox,
+            join_handle,
             initial_events,
         })
-    }
-
-    /// Register a running session.
-    pub async fn register(&self, session: RunningSession) {
-        let session_id = session.session_id.clone();
-        let agent_name = session.agent_name.clone();
-        info!(session_id = %session_id, agent = %agent_name, "session registered");
-        self.sessions.lock().await.insert(session_id, session);
-    }
-
-    /// Get a reference to a running session for sending messages.
-    /// Returns None if session doesn't exist or agent loop has exited.
-    pub async fn get(&self, session_id: &str) -> Option<()> {
-        let sessions = self.sessions.lock().await;
-        sessions
-            .get(session_id)
-            .and_then(|s| if s.is_alive() { Some(()) } else { None })
-    }
-
-    /// Send a message to a running session and wait for the response.
-    pub async fn send(&self, session_id: &str, message: &str) -> anyhow::Result<SessionResponse> {
-        let sessions = self.sessions.lock().await;
-        let session = sessions
-            .get(session_id)
-            .ok_or_else(|| anyhow::anyhow!("session '{}' not running", session_id))?;
-
-        if !session.is_alive() {
-            return Err(anyhow::anyhow!(
-                "session '{}' agent loop has exited",
-                session_id
-            ));
-        }
-
-        session.send_and_wait(message).await
-    }
-
-    /// Subscribe to a session's stream for real-time events.
-    pub async fn subscribe(
-        &self,
-        session_id: &str,
-    ) -> Option<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
-        let sessions = self.sessions.lock().await;
-        sessions
-            .get(session_id)
-            .map(|s| s.stream_sender.subscribe())
-    }
-
-    /// Inject a message into a running session without waiting for the response.
-    /// Returns a broadcast receiver for streaming events. The caller reads events
-    /// from the receiver until Complete arrives.
-    pub async fn send_streaming(
-        &self,
-        session_id: &str,
-        message: &str,
-    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
-        self.send_streaming_with_ideas(session_id, message, None)
-            .await
-    }
-
-    pub async fn send_streaming_with_ideas(
-        &self,
-        session_id: &str,
-        message: &str,
-        execution_ideas: Option<String>,
-    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<ChatStreamEvent>> {
-        let sessions = self.sessions.lock().await;
-        let session = sessions
-            .get(session_id)
-            .ok_or_else(|| anyhow::anyhow!("session '{}' not running", session_id))?;
-
-        if !session.is_alive() {
-            return Err(anyhow::anyhow!(
-                "session '{}' agent loop has exited",
-                session_id
-            ));
-        }
-
-        let rx = session.stream_sender.subscribe();
-
-        let mut input = aeqi_core::SessionInput::text(message);
-        input.execution_ideas = execution_ideas;
-        session
-            .input_tx
-            .send(input)
-            .map_err(|_| anyhow::anyhow!("session closed — agent loop exited"))?;
-
-        Ok(rx)
-    }
-
-    /// Remove and shut down a session. Drops input_tx which causes the agent
-    /// loop to exit at the next await point.
-    ///
-    /// If the session has a sandbox, extracts the diff before tearing down.
-    /// Returns the diff if there were changes, or None.
-    pub async fn close(&self, session_id: &str) -> bool {
-        let removed = self.sessions.lock().await.remove(session_id);
-        if let Some(session) = removed {
-            info!(
-                session_id = %session_id,
-                agent = %session.agent_name,
-                "session closed — dropping input channel"
-            );
-            // Drop input_tx — agent loop sees None from recv() and exits.
-            drop(session.input_tx);
-            // Cancel token as backup.
-            session
-                .cancel_token
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-
-            // Tear down sandbox (worktree cleanup).
-            // For now, auto-discard changes. A future API can expose
-            // close_with_finalize() for commit/merge workflows.
-            if let Some(ref sandbox) = session.sandbox
-                && let Err(e) = sandbox.teardown().await
-            {
-                warn!(session_id = %session_id, error = %e, "sandbox teardown failed");
-            }
-
-            true
-        } else {
-            debug!(session_id = %session_id, "close: session not found (already stopped?)");
-            false
-        }
-    }
-
-    /// Close a session and extract the sandbox diff before teardown.
-    /// Returns Some(diff) if the session had a sandbox with changes, None otherwise.
-    pub async fn close_with_diff(&self, session_id: &str) -> Option<QuestDiff> {
-        let removed = self.sessions.lock().await.remove(session_id);
-        if let Some(session) = removed {
-            info!(
-                session_id = %session_id,
-                agent = %session.agent_name,
-                "session closed with diff extraction"
-            );
-
-            drop(session.input_tx);
-            session
-                .cancel_token
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-
-            // Wait briefly for agent loop to finish.
-            let _ =
-                tokio::time::timeout(std::time::Duration::from_secs(5), session.join_handle).await;
-
-            // Extract diff from sandbox.
-            if let Some(ref sandbox) = session.sandbox {
-                match sandbox.extract_diff().await {
-                    Ok(d) if !d.files_changed.is_empty() => return Some(d),
-                    Ok(_) => {
-                        // No changes — tear down immediately.
-                        let _ = sandbox.teardown().await;
-                    }
-                    Err(e) => {
-                        warn!(session_id = %session_id, error = %e, "failed to extract diff");
-                        let _ = sandbox.teardown().await;
-                    }
-                }
-            }
-            None
-        } else {
-            None
-        }
-    }
-
-    /// Reap dead sessions (agent loops that exited on their own).
-    pub async fn reap_dead(&self) {
-        let mut sessions = self.sessions.lock().await;
-        let dead: Vec<String> = sessions
-            .iter()
-            .filter(|(_, s)| !s.is_alive())
-            .map(|(id, _)| id.clone())
-            .collect();
-
-        for id in &dead {
-            sessions.remove(id);
-        }
-
-        if !dead.is_empty() {
-            info!(count = dead.len(), "reaped dead sessions: {:?}", dead);
-        }
-    }
-
-    /// List all running session IDs.
-    pub async fn list_running(&self) -> Vec<String> {
-        self.sessions.lock().await.keys().cloned().collect()
-    }
-
-    /// Check if a session is running.
-    pub async fn is_running(&self, session_id: &str) -> bool {
-        let sessions = self.sessions.lock().await;
-        sessions.get(session_id).is_some_and(|s| s.is_alive())
-    }
-
-    /// Auto-commit changes in a session's quest worktree after a turn completes.
-    pub async fn auto_commit(&self, session_id: &str, turn: u32) {
-        let sessions = self.sessions.lock().await;
-        if let Some(session) = sessions.get(session_id)
-            && let Some(ref sb) = session.sandbox
-        {
-            sb.auto_commit(turn).await;
-        }
-    }
-
-    /// Cancel a running session's current execution.
-    pub async fn cancel_session(&self, session_id: &str) -> bool {
-        let sessions = self.sessions.lock().await;
-        if let Some(session) = sessions.get(session_id) {
-            // Fire `session:stopped` into the live stream before flipping the
-            // cancel token so the pill renders at the truthful moment the
-            // user hit stop. The daemon stream reader's generic EventFired
-            // arm records the event_fired row and calls record_fire — same
-            // path as any other per-step event.
-            if let Some(ref es) = self.event_store {
-                let fired = es
-                    .get_events_for_pattern(&session.agent_id, "session:stopped")
-                    .await;
-                for ev in fired {
-                    session.stream_sender.send(ChatStreamEvent::EventFired {
-                        event_id: ev.id,
-                        event_name: ev.name,
-                        pattern: ev.pattern,
-                        idea_ids: ev.idea_ids,
-                    });
-                }
-            }
-            session
-                .cancel_token
-                .store(true, std::sync::atomic::Ordering::SeqCst);
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Get the broadcast stream sender for a running session.
-    /// Returns None if the session doesn't exist or is no longer alive.
-    pub async fn get_stream_sender(&self, session_id: &str) -> Option<ChatStreamSender> {
-        let sessions = self.sessions.lock().await;
-        sessions
-            .get(session_id)
-            .filter(|s| s.is_alive())
-            .map(|s| s.stream_sender.clone())
     }
 }
 

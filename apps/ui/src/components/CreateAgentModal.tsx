@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
 import { Button, Input, Textarea } from "@/components/ui";
 import "@/styles/modals.css";
 
@@ -14,9 +15,31 @@ interface Props {
   onClose: () => void;
 }
 
+/**
+ * Gather all descendants of `rootId` (inclusive) for parent-agent scoping —
+ * a sub-agent should only attach under something in the current tree.
+ */
+function collectTree(agents: Array<{ id: string; parent_id?: string | null }>, rootId: string) {
+  const children = new Map<string, string[]>();
+  for (const a of agents) {
+    const p = a.parent_id || "";
+    if (!p) continue;
+    if (!children.has(p)) children.set(p, []);
+    children.get(p)!.push(a.id);
+  }
+  const out: string[] = [];
+  const walk = (id: string) => {
+    out.push(id);
+    for (const c of children.get(id) || []) walk(c);
+  };
+  walk(rootId);
+  return new Set(out);
+}
+
 export default function CreateAgentModal({ open, onClose }: Props) {
   const agents = useDaemonStore((s) => s.agents);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const activeRoot = useUIStore((s) => s.activeRoot);
 
   const [templates, setTemplates] = useState<string[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -32,6 +55,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
   const [success, setSuccess] = useState(false);
 
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   // Fetch identity templates from skills
   useEffect(() => {
@@ -57,17 +81,25 @@ export default function CreateAgentModal({ open, onClose }: Props) {
       .finally(() => setLoadingTemplates(false));
   }, [open]);
 
-  // Reset form state when opening
+  // Scoped parent list: only agents in the active tree.
+  const scopedParents = useMemo(() => {
+    if (!activeRoot) return agents;
+    const set = collectTree(agents, activeRoot);
+    return agents.filter((a) => set.has(a.id));
+  }, [agents, activeRoot]);
+
+  // Reset form state when opening, default parent to active root.
   useEffect(() => {
     if (open) {
       setTemplate("");
       setDisplayName("");
-      setParentId("");
+      setParentId(activeRoot || "");
       setSystemPrompt("");
       setError("");
       setSuccess(false);
+      setTimeout(() => nameRef.current?.focus(), 50);
     }
-  }, [open]);
+  }, [open, activeRoot]);
 
   // Escape key
   useEffect(() => {
@@ -90,7 +122,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
 
   const handleSubmit = async () => {
     if (!template.trim()) {
-      setError("Template is required.");
+      setError("Pick a template to continue.");
       return;
     }
     setSubmitting(true);
@@ -104,7 +136,7 @@ export default function CreateAgentModal({ open, onClose }: Props) {
       });
       setSuccess(true);
       await fetchAgents();
-      setTimeout(() => onClose(), 600);
+      setTimeout(() => onClose(), 700);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to spawn agent.");
     } finally {
@@ -112,21 +144,30 @@ export default function CreateAgentModal({ open, onClose }: Props) {
     }
   };
 
+  const parentAgent = scopedParents.find((a) => a.id === parentId);
+
   if (!open) return null;
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-surface" ref={surfaceRef}>
-        <h2 className="modal-title">New Agent</h2>
+      <div className="modal-surface cam-surface" ref={surfaceRef}>
+        <header className="cam-hero">
+          <div className="cam-hero-eyebrow">Spawn</div>
+          <h2 className="cam-hero-title">New agent</h2>
+          <p className="cam-hero-sub">
+            {parentAgent
+              ? `Attaches under ${parentAgent.display_name || parentAgent.name}.`
+              : "A fresh root agent. No parent — its own tree."}
+          </p>
+        </header>
 
         {error && <div className="modal-error">{error}</div>}
-        {success && <div className="modal-success">Agent spawned successfully.</div>}
+        {success && <div className="modal-success">Agent spawned. Taking you back.</div>}
 
-        {/* Template */}
         <div className="modal-field">
-          <label className="modal-label">Template *</label>
+          <label className="modal-label">Identity</label>
           {loadingTemplates ? (
-            <div className="modal-hint">Loading templates...</div>
+            <div className="cam-skeleton" />
           ) : useFallback ? (
             <>
               <Input
@@ -136,74 +177,80 @@ export default function CreateAgentModal({ open, onClose }: Props) {
                 placeholder="e.g. researcher"
               />
               <div className="cam-template-fallback-hint">
-                No identity templates found. Enter a template name manually.
+                No identity templates found. Enter one manually.
               </div>
             </>
           ) : (
-            <select
-              className="modal-select"
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-            >
-              <option value="">Select template...</option>
-              {templates.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <div className="cam-template-grid" role="radiogroup" aria-label="Identity template">
+              {templates.map((t) => {
+                const active = template === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={`cam-template-card${active ? " is-active" : ""}`}
+                    onClick={() => setTemplate(t)}
+                  >
+                    <span className="cam-template-card-dot" />
+                    <span className="cam-template-card-name">{t}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Display name */}
-        <div className="modal-field">
-          <label className="modal-label">Display Name</label>
-          <Input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Optional custom name"
-          />
+        <div className="cam-row">
+          <div className="modal-field cam-field-grow">
+            <label className="modal-label">Name</label>
+            <Input
+              ref={nameRef}
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+          <div className="modal-field cam-field-grow">
+            <label className="modal-label">Parent</label>
+            <select
+              className="modal-select"
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+            >
+              <option value="">None (root)</option>
+              {scopedParents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.display_name || a.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Parent agent */}
         <div className="modal-field">
-          <label className="modal-label">Parent Agent</label>
-          <select
-            className="modal-select"
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-          >
-            <option value="">None</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.display_name || a.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* System prompt */}
-        <div className="modal-field">
-          <label className="modal-label">System Prompt</label>
+          <label className="modal-label">System prompt override</label>
           <Textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Override or customize the template's system prompt..."
-            rows={4}
+            placeholder="Leave blank to inherit from the template."
+            rows={3}
           />
         </div>
 
-        {/* Submit */}
-        <div className="modal-actions">
+        <div className="modal-actions cam-actions">
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
           <Button
             variant="primary"
-            fullWidth
             onClick={handleSubmit}
             loading={submitting}
             disabled={submitting || success || !template.trim()}
           >
-            {submitting ? "Spawning..." : "Create Agent"}
+            {submitting ? "Spawning..." : success ? "Spawned" : "Spawn agent"}
           </Button>
         </div>
       </div>

@@ -38,7 +38,7 @@ pub struct EventFilter {
 /// The unified activity log, backed by a shared SQLite connection.
 pub struct ActivityLog {
     db: Arc<crate::agent_registry::ConnectionPool>,
-    /// Broadcast channel for push-based event dispatch (scheduler subscribes).
+    /// Broadcast channel for push-based event dispatch (QuestEnqueuer subscribes).
     broadcast_tx: tokio::sync::broadcast::Sender<serde_json::Value>,
 }
 
@@ -50,7 +50,7 @@ impl ActivityLog {
     }
 
     /// Subscribe to the event broadcast channel for push-based dispatch.
-    /// The scheduler uses this to wake immediately on relevant events
+    /// The QuestEnqueuer uses this to wake immediately on relevant events
     /// (quest_created, quest_completed) instead of polling.
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<serde_json::Value> {
         self.broadcast_tx.subscribe()
@@ -115,7 +115,7 @@ impl ActivityLog {
 
         debug!(id = %id, event_type = %event_type, "event emitted");
 
-        // Broadcast for push-based dispatch (scheduler wakes immediately).
+        // Broadcast for push-based dispatch (QuestEnqueuer wakes immediately).
         // Ignore send errors — no subscribers is fine.
         let _ = self.broadcast_tx.send(serde_json::json!({
             "type": event_type,

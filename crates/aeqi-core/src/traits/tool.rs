@@ -131,4 +131,21 @@ pub trait Tool: Send + Sync {
     fn activity_description(&self, _input: &serde_json::Value) -> Option<String> {
         None
     }
+
+    /// Whether this tool's `output` should be appended to an event's assembled
+    /// context parts when invoked via the event dispatch path.
+    ///
+    /// True for tools whose output IS context (e.g. `ideas.assemble` returning
+    /// the assembled idea bodies). False for side-effect tools whose `output`
+    /// is a diagnostic acknowledgement (e.g. `transcript.inject`,
+    /// `session.spawn`, `session.send`) — those must not leak into the LLM
+    /// prompt or the model will echo the diagnostic back as if it were an
+    /// instruction.
+    ///
+    /// Default is `false` (safe — only whitelisted context-producing tools
+    /// contribute to assembled parts). Does not affect LLM-invoked tool_calls,
+    /// which always feed `output` back as a tool_result message.
+    fn produces_context(&self) -> bool {
+        false
+    }
 }

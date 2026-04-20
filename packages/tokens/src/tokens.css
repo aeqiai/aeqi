@@ -31,6 +31,19 @@
   --color-paper: #faf6ec;
   --color-card: #ffffff;
 
+  /* Ink — the single dark surface in the system. Used for the persistent
+     composer (terminal-prompt feel against the light card) and any future
+     inverse surface. Follows the same "one base + border tiers" pattern
+     as the light side, just inverted. */
+  --color-ink: #18181b;
+  --color-ink-elevated: #27272a;
+  --color-ink-border: #27272a;
+  --color-ink-border-hover: #3f3f46;
+  --color-ink-border-focus: #52525b;
+  --color-ink-text: #fafafa;
+  --color-ink-text-muted: #a1a1aa;
+  --color-ink-text-dim: #71717a;
+
   /* Text */
   --color-text-primary: rgba(0, 0, 0, 0.85);
   --color-text-secondary: rgba(0, 0, 0, 0.5);

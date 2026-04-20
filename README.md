@@ -64,7 +64,7 @@ An event defines *when* an agent acts: when pattern X fires on agent Y's scope, 
 | **Once** | Fire at a specific time, auto-disable |
 | **Webhook** | `POST /api/webhooks/:id` with optional HMAC-SHA256 |
 
-Events either belong to a specific agent or are **global** (`agent_id IS NULL`) — global events fire for every agent. The six session lifecycle events (`session:start`, `session:quest_start`, `session:quest_end`, `session:quest_result`, `session:execution_start`, `session:step_start`) ship as globals that point at shared seed ideas, so every agent inherits them for free.
+Events either belong to a specific agent or are **global** (`agent_id IS NULL`) — global events fire for every agent. The six session lifecycle events (`session:start`, `session:quest_start`, `session:quest_end`, `session:quest_result`, `session:step_start`, `session:stopped`) ship as globals that point at shared seed ideas, so every agent inherits them for free.
 
 ### Activity (infrastructure)
 

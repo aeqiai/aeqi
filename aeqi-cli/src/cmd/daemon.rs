@@ -1,6 +1,6 @@
 use aeqi_core::SecretStore;
 use aeqi_orchestrator::{
-    AEQIMetrics, ActivityLog, AgentRouter, Daemon, GatewayManager, Scheduler, SchedulerConfig,
+    AEQIMetrics, ActivityLog, AgentRouter, Daemon, DispatchConfig, Dispatcher, GatewayManager,
     SessionManager, SessionStore,
 };
 use anyhow::{Context, Result};
@@ -11,8 +11,8 @@ use tracing::{info, warn};
 
 use crate::cli::DaemonAction;
 use crate::helpers::{
-    build_provider_for_project, build_provider_for_runtime, build_tools, daemon_ipc_request,
-    get_api_key, load_config, load_config_with_agents, open_ideas, pid_file_path,
+    build_provider_for_project, build_provider_for_runtime, daemon_ipc_request, get_api_key,
+    load_config, load_config_with_agents, open_ideas, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
 
@@ -53,14 +53,6 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             let advisor_agents = config.advisor_agents();
             let mut skipped_projects = Vec::new();
             let mut skipped_advisors = Vec::new();
-
-            // Collect per-project budget ceilings from config.
-            let mut project_budgets = std::collections::HashMap::new();
-            for project_cfg in &config.agent_spawns {
-                if let Some(budget) = project_cfg.max_cost_per_day_usd {
-                    project_budgets.insert(project_cfg.name.clone(), budget);
-                }
-            }
 
             // Build agent router for message classification.
             let classifier_api_key = get_api_key(&config).unwrap_or_default();
@@ -152,7 +144,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // -----------------------------------------------------------
             // Spawn root agents in the registry and build the
-            // global Scheduler.
+            // global Dispatcher.
             // -----------------------------------------------------------
             let total_max_workers: u32 = config.agent_spawns.iter().map(|c| c.max_workers).sum();
 
@@ -249,8 +241,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             // Agent identity prompts are now managed via ideas.db — prompt store import removed.
 
-            // Build the global Scheduler.
-            let scheduler_config = SchedulerConfig {
+            // Build the global Dispatcher.
+            let dispatch_config = DispatchConfig {
                 max_workers: total_max_workers.max(4),
                 default_timeout_secs: 3600,
                 worker_max_budget_usd: config
@@ -258,15 +250,13 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .first()
                     .and_then(|c| c.max_budget_usd)
                     .unwrap_or(5.0),
-                reflect_model: config
-                    .default_model_for_provider(aeqi_core::config::ProviderKind::OpenRouter),
                 adaptive_retry: config.orchestrator.adaptive_retry,
                 failure_analysis_model: config.orchestrator.failure_analysis_model.clone(),
                 max_task_retries: config.orchestrator.max_task_retries,
                 daily_budget_usd,
             };
 
-            // Build a default provider for the scheduler. Prefer the first configured
+            // Build a default provider for the dispatcher. Prefer the first configured
             // root agent, but fall back to the runtime's default provider so dynamically
             // created root agents can still execute sessions.
             let default_provider: Option<Arc<dyn aeqi_core::traits::Provider>> =
@@ -301,53 +291,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 })
                 .unwrap_or_default();
 
-            let scheduler_provider: Arc<dyn aeqi_core::traits::Provider> = if let Some(first) =
-                config.agent_spawns.first()
-            {
-                match build_provider_for_project(&config, &first.name) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        warn!(error = %e, "scheduler: failed to build provider, using default");
-                        match default_provider.clone() {
-                            Some(p) => p,
-                            None => {
-                                warn!(
-                                    "no provider available — scheduler will not process agent tasks"
-                                );
-                                Arc::new(aeqi_providers::noop::NoopProvider)
-                            }
-                        }
-                    }
-                }
-            } else {
-                match default_provider.clone() {
-                    Some(p) => p,
-                    None => {
-                        warn!("no provider available — scheduler will not process agent tasks");
-                        Arc::new(aeqi_providers::noop::NoopProvider)
-                    }
-                }
-            };
-
-            // Build tools against the first configured agent_spawn's repo, or
-            // fall back to the daemon's current working directory. Shipping
-            // workers with an empty tool set leaves the LLM unable to read or
-            // write files — the exact kind of opinionated-runtime leak Track E
-            // hunts for.
-            let scheduler_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = {
-                let workdir = config
-                    .agent_spawns
-                    .first()
-                    .map(|first| config.resolve_repo(&first.repo))
-                    .unwrap_or_else(|| {
-                        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                    });
-                build_tools(&workdir)
-            };
-
             let metrics = Arc::new(AEQIMetrics::new());
 
-            // Create and configure SessionManager BEFORE sharing it with scheduler.
+            // Create and configure SessionManager BEFORE sharing it with dispatcher.
             let mut session_manager = SessionManager::new();
             if let Some(ref ss) = session_store {
                 let sm_default_project = config
@@ -369,30 +315,21 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             }
             let session_manager = Arc::new(session_manager);
 
-            let scheduler = Scheduler::new(
-                scheduler_config,
-                agent_reg.clone(),
-                scheduler_provider,
-                scheduler_tools,
-                metrics.clone(),
-                activity_stream.clone(),
-                activity_log.clone(),
-            );
+            let dispatcher = Arc::new(Dispatcher::new(dispatch_config));
 
-            // Wire optional services into the scheduler.
-            let scheduler = {
-                let mut s = scheduler;
-                s.session_store = session_store.clone();
-                // Wire memory for the scheduler (shared single store).
-                s.idea_store = shared_idea_store.clone();
-                // Wire session manager for session resolution on task completion.
-                s.session_manager = Some(session_manager.clone());
-                Arc::new(s)
-            };
+            // Shared per-session broadcast registry — the daemon IPC path,
+            // the queue executor, and the schedule timer all publish through
+            // the same bus so WS subscribers see all events.
+            let stream_registry =
+                Arc::new(aeqi_orchestrator::stream_registry::StreamRegistry::new());
+            let execution_registry =
+                Arc::new(aeqi_orchestrator::execution_registry::ExecutionRegistry::new());
 
             // Construct the daemon — use the shared session_manager.
             let mut daemon =
-                Daemon::new(metrics, scheduler.clone(), agent_reg.clone(), activity_log);
+                Daemon::new(metrics, dispatcher.clone(), agent_reg.clone(), activity_log);
+            daemon.stream_registry = stream_registry.clone();
+            daemon.execution_registry = execution_registry.clone();
             daemon.session_manager = session_manager;
             daemon.session_store = session_store.clone();
             if let Some(ref ss) = session_store {
@@ -404,14 +341,13 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.default_provider = default_provider;
             daemon.default_model = default_model;
             daemon.daily_budget_usd = daily_budget_usd;
-            daemon.project_budgets = project_budgets;
 
             // Prompt loader for session-time skill resolution (disk fallback).
             // No auto-import — ideas come from the platform's global template store.
-            let prompt_loader = Arc::new(aeqi_orchestrator::PromptLoader::from_cwd());
-            daemon.prompt_loader = Some(prompt_loader.clone());
+            let skill_loader = Arc::new(aeqi_orchestrator::SkillLoader::from_cwd());
+            daemon.skill_loader = Some(skill_loader.clone());
             if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {
-                sm.set_prompt_loader(prompt_loader);
+                sm.set_skill_loader(skill_loader);
             }
 
             // Set up event handler store (the fourth primitive).
@@ -464,7 +400,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             daemon.set_pid_file(pid_path);
             daemon.set_socket_path(socket_path.clone());
 
-            info!(total_max_workers, "global scheduler initialized");
+            info!(total_max_workers, "global dispatcher initialized");
 
             let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
 
@@ -474,6 +410,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 default_provider: daemon.default_provider.clone(),
                 session_store: daemon.session_store.clone(),
                 gateway_manager: daemon.gateway_manager.clone(),
+                stream_registry: daemon.stream_registry.clone(),
+                execution_registry: daemon.execution_registry.clone(),
             };
             let mut gateway_count = 0u32;
             match channel_store.list_enabled().await {

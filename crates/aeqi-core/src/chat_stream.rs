@@ -75,11 +75,20 @@ pub enum ChatStreamEvent {
     /// injecting one or more ideas into the agent's context. The frontend
     /// renders this as an inline "event → ideas" chip row so the user can
     /// see exactly what context was added and by which event.
+    ///
+    /// `prepersisted` signals that the producer has already written the
+    /// corresponding `event_fired` row and called `record_fire`. The daemon's
+    /// wire-observer skips both writes when this is true, avoiding double
+    /// persistence and double fire-count for events emitted by `spawn_session`
+    /// (session:start, session:execution_start) that need their row ordered
+    /// BEFORE the user-message row for correct UI timeline ordering.
     EventFired {
         event_id: String,
         event_name: String,
         pattern: String,
         idea_ids: Vec<String>,
+        #[serde(default)]
+        prepersisted: bool,
     },
 
     /// A file on disk was created or modified by the agent.

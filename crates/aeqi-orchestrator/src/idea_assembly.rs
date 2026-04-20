@@ -83,7 +83,7 @@ pub async fn assemble_ideas(
         event_store,
         agent_id,
         task_idea_ids,
-        &["session:start"],
+        &["session:start", "session:execution_start"],
         &AssemblyContext::default(),
         tool_dispatch,
     )
@@ -615,12 +615,19 @@ async fn dispatch_event_tool_calls(
                     sub_ctx.insert("last_tool_result".to_string(), result.output.clone());
                     results_so_far.push(result.clone());
 
-                    if !result.output.is_empty() && result.output != "(no ideas assembled)" {
-                        // 6. Append output to assembled context parts.
+                    // Only context-producing tools (ideas.*) contribute their
+                    // output to assembled parts. Side-effect tools like
+                    // transcript.inject return a diagnostic ack whose text
+                    // must not leak into the LLM prompt — otherwise the model
+                    // will echo the injection back inside its answer.
+                    let produces_context = dispatch.registry.produces_context(&tc.tool);
+                    if produces_context
+                        && !result.output.is_empty()
+                        && result.output != "(no ideas assembled)"
+                    {
                         parts.push(result.output.clone());
                         produced_output = true;
 
-                        // Emit status for tools that assemble ideas (by name pattern).
                         if tc.tool.starts_with("ideas.") {
                             dispatch
                                 .ctx

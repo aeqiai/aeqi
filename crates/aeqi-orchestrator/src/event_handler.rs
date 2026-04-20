@@ -560,13 +560,12 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
 
     let all_patterns: &[&str] = &[
         "session:start",
+        "session:execution_start",
         "session:quest_start",
         "session:quest_end",
         "session:quest_result",
-        "session:execution_start",
         "session:step_start",
         "session:stopped",
-        "session:recap_on_resume",
         "context:budget:exceeded",
         "loop:detected",
         "guardrail:violation",
@@ -624,13 +623,12 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
     // create_default_lifecycle_events hasn't run yet).
     let lifecycle_patterns: &[&str] = &[
         "session:start",
+        "session:execution_start",
         "session:quest_start",
         "session:quest_end",
         "session:quest_result",
-        "session:execution_start",
         "session:step_start",
         "session:stopped",
-        "session:recap_on_resume",
         "context:budget:exceeded",
     ];
     for pattern in lifecycle_patterns {
@@ -684,6 +682,20 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
                 tool: "ideas.assemble".into(),
                 args: serde_json::json!({ "names": ["session:start"] }),
             }],
+        },
+        LifecycleSeed {
+            name: "on_execution_start",
+            pattern: "session:execution_start",
+            idea_key: "session:execution-start",
+            // Empty by default — fires every turn as a UI/observability marker.
+            // Operators can attach ideas or tool_calls to inject per-turn context
+            // (e.g. recall recent activity, surface fresh reminders).
+            idea_content: "",
+            skip_idea_seed: false,
+            query_template: None,
+            query_top_k: None,
+            query_tag_filter: None,
+            tool_calls: Vec::new(),
         },
         LifecycleSeed {
             name: "on_quest_start",
@@ -748,19 +760,6 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             }],
         },
         LifecycleSeed {
-            name: "on_execution_start",
-            pattern: "session:execution_start",
-            idea_key: "session:execution-start",
-            idea_content: "",
-            skip_idea_seed: false,
-            query_template: None,
-            query_top_k: None,
-            query_tag_filter: None,
-            // Empty idea_content — no context to inject at execution start by default.
-            // Operator can add tool_calls here to inject custom context.
-            tool_calls: Vec::new(),
-        },
-        LifecycleSeed {
             name: "on_step_start",
             pattern: "session:step_start",
             idea_key: "session:step-start",
@@ -787,24 +786,6 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
             // customise the behaviour (e.g. inject a reflection prompt so the
             // agent captures why it was stopped).
             tool_calls: Vec::new(),
-        },
-        LifecycleSeed {
-            name: "on_recap_on_resume",
-            pattern: "session:recap_on_resume",
-            idea_key: "session:recap-on-resume",
-            // Fires once per resumed session when the forked/loaded history was
-            // non-empty. Gives the configured idea template a chance to provide
-            // the model with recap guidance — replaces the old hardcoded
-            // fetch_recap path ripped out as leak #11.
-            idea_content: "This session is resuming with prior history loaded above. Before continuing, briefly recap where you left off — the last concrete action, the current objective, and any in-flight blockers — so the next step is grounded in that thread rather than starting cold.",
-            skip_idea_seed: false,
-            query_template: None,
-            query_top_k: None,
-            query_tag_filter: None,
-            tool_calls: vec![ToolCall {
-                tool: "ideas.assemble".into(),
-                args: serde_json::json!({ "names": ["session:recap-on-resume"] }),
-            }],
         },
         LifecycleSeed {
             name: "on_context_budget_exceeded",
@@ -1620,15 +1601,13 @@ mod tests {
         );
         assert_eq!(ss.tool_calls[0].tool, "ideas.assemble");
 
-        // Verify all 7 seeds were created (reuse `all` already fetched above).
+        // Verify all 6 seeds were created (reuse `all` already fetched above).
         let seed_patterns = [
             "session:start",
             "session:quest_start",
             "session:quest_end",
             "session:quest_result",
-            "session:execution_start",
             "session:step_start",
-            "session:recap_on_resume",
             "context:budget:exceeded",
         ];
         for pattern in &seed_patterns {
@@ -1777,7 +1756,7 @@ mod tests {
         let n = seed_lifecycle_events(&store).await.unwrap();
         assert_eq!(n, 4, "should insert 4 middleware seed events on first run");
 
-        // Re-run: all 12 patterns exist → no insertions.
+        // Re-run: all 11 patterns exist → no insertions.
         let n2 = seed_lifecycle_events(&store).await.unwrap();
         assert_eq!(n2, 0, "second run must be a no-op (idempotent)");
     }
@@ -1790,12 +1769,12 @@ mod tests {
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 4 middleware patterns are inserted; 9 lifecycle patterns are counted as
+        // 4 middleware patterns are inserted; 8 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 13,
-            "should count all 13 missing patterns on a clean store"
+            n, 12,
+            "should count all 12 missing patterns on a clean store"
         );
     }
 

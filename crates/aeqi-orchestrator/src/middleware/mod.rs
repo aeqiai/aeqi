@@ -15,6 +15,7 @@ pub mod cost_tracking;
 pub mod graph_guardrails;
 pub mod guardrails;
 pub mod loop_detection;
+pub mod observer;
 pub mod safety_net;
 pub mod shell_hooks;
 #[cfg(test)]
@@ -27,6 +28,7 @@ pub use cost_tracking::CostTrackingMiddleware;
 pub use graph_guardrails::GraphGuardrailsMiddleware;
 pub use guardrails::GuardrailsMiddleware;
 pub use loop_detection::LoopDetectionMiddleware;
+pub use observer::MiddlewareObserver;
 pub use safety_net::SafetyNetMiddleware;
 pub use shell_hooks::ShellHookMiddleware;
 
@@ -487,6 +489,47 @@ impl MiddlewareChain {
         all.sort_by_key(|a| a.priority);
         all
     }
+}
+
+// ---------------------------------------------------------------------------
+// Universal chain builder
+// ---------------------------------------------------------------------------
+
+/// Assemble the standard quest-execution middleware stack.
+///
+/// This is the single source of truth for "which middleware runs for a quest
+/// run." Both the legacy `AgentWorker` path (via `scheduler.rs`) and the
+/// unified `SessionManager::spawn_session` quest path call this — so any
+/// change to the default set applies uniformly.
+///
+/// `shell_hook_idea_store` enables per-agent shell hooks when provided. Pass
+/// `None` for code paths that don't have an idea store (tests, bare
+/// ephemeral sessions).
+pub async fn build_universal_chain(
+    budget_usd: f64,
+    shell_hook_idea_store: Option<&std::sync::Arc<dyn aeqi_core::traits::IdeaStore>>,
+    agent_id: Option<&str>,
+) -> MiddlewareChain {
+    let data_dir = dirs::home_dir().unwrap_or_default().join(".aeqi");
+    let mut layers: Vec<Box<dyn Middleware>> = vec![
+        Box::new(LoopDetectionMiddleware::new()),
+        Box::new(CostTrackingMiddleware::new(budget_usd)),
+        Box::new(ContextBudgetMiddleware::new(200)),
+        Box::new(GraphGuardrailsMiddleware::new(&data_dir)),
+        Box::new(GuardrailsMiddleware::with_defaults()),
+        Box::new(ContextCompressionMiddleware::new()),
+        Box::new(ClarificationMiddleware::new()),
+        Box::new(SafetyNetMiddleware::new()),
+    ];
+
+    if let Some(store) = shell_hook_idea_store {
+        let shell_hooks = ShellHookMiddleware::from_idea_store(store, agent_id).await;
+        if shell_hooks.has_hooks() {
+            layers.push(Box::new(shell_hooks));
+        }
+    }
+
+    MiddlewareChain::new(layers)
 }
 
 // ---------------------------------------------------------------------------

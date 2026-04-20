@@ -205,6 +205,18 @@ impl ToolRegistry {
         tool.execute(args).await
     }
 
+    /// Whether the named tool's `output` is context (e.g. `ideas.assemble`)
+    /// rather than a side-effect diagnostic (e.g. `transcript.inject`). Used
+    /// by event dispatch to decide whether to append output to assembled parts.
+    ///
+    /// Returns `false` for unknown tools (safe default).
+    pub fn produces_context(&self, tool_name: &str) -> bool {
+        self.tools
+            .get(tool_name)
+            .map(|t| t.produces_context())
+            .unwrap_or(false)
+    }
+
     /// Fire all events configured for `pattern`, running their tool_calls.
     ///
     /// The registry has no event store wired — this method always returns `Ok(false)`

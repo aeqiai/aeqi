@@ -124,6 +124,15 @@ pub struct SessionTrace {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// A claimed pending message — returned by `claim_next_pending`.
+/// While this row exists in 'running' state it is the per-session
+/// execution lease. Deletion (via `delete_pending`) releases the lease.
+#[derive(Debug, Clone)]
+pub struct PendingClaim {
+    pub id: i64,
+    pub payload: String,
+}
+
 /// Persistent session store backed by SQLite.
 pub struct SessionStore {
     db: Arc<crate::agent_registry::ConnectionPool>,
@@ -237,7 +246,18 @@ impl SessionStore {
                  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
                  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
              );
-             CREATE INDEX IF NOT EXISTS idx_sg_session ON session_gateways(session_id);",
+             CREATE INDEX IF NOT EXISTS idx_sg_session ON session_gateways(session_id);
+
+             CREATE TABLE IF NOT EXISTS pending_messages (
+                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                 session_id TEXT NOT NULL,
+                 payload    TEXT NOT NULL,
+                 status     TEXT NOT NULL DEFAULT 'queued',
+                 created_at INTEGER NOT NULL,
+                 started_at INTEGER
+             );
+             CREATE INDEX IF NOT EXISTS idx_pending_session_status
+                 ON pending_messages(session_id, status, id);",
         )
         .context("failed to create session store tables")?;
 
@@ -282,6 +302,89 @@ impl SessionStore {
         )
         .context("failed to create event invocation tables")?;
         Ok(())
+    }
+
+    // ── Pending message queue (per-session FIFO, DB-backed lease) ──
+
+    /// Enqueue a pending message for a session. Returns the new row id.
+    /// The payload is opaque JSON — the executor deserializes it.
+    pub async fn enqueue_pending(&self, session_id: &str, payload: &str) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().timestamp();
+        db.execute(
+            "INSERT INTO pending_messages (session_id, payload, status, created_at) \
+             VALUES (?1, ?2, 'queued', ?3)",
+            params![session_id, payload, now],
+        )
+        .context("failed to enqueue pending message")?;
+        Ok(db.last_insert_rowid())
+    }
+
+    /// Atomically claim the next queued message for a session, iff no other
+    /// message is currently in 'running' state for that session. Returns
+    /// `(id, payload)` on success, `None` if nothing to run right now.
+    ///
+    /// This is the sole serialization point per session: the `NOT EXISTS`
+    /// subquery guarantees at most one 'running' row per session_id.
+    pub async fn claim_next_pending(&self, session_id: &str) -> Result<Option<PendingClaim>> {
+        let db = self.db.lock().await;
+        let now = Utc::now().timestamp();
+        let mut stmt = db.prepare(
+            "UPDATE pending_messages \
+             SET status = 'running', started_at = ?1 \
+             WHERE id = ( \
+                 SELECT id FROM pending_messages p1 \
+                 WHERE p1.session_id = ?2 AND p1.status = 'queued' \
+                   AND NOT EXISTS ( \
+                       SELECT 1 FROM pending_messages p2 \
+                       WHERE p2.session_id = p1.session_id AND p2.status = 'running' \
+                   ) \
+                 ORDER BY id LIMIT 1 \
+             ) \
+             RETURNING id, payload",
+        )?;
+        let mut rows = stmt.query(params![now, session_id])?;
+        if let Some(row) = rows.next()? {
+            let id: i64 = row.get(0)?;
+            let payload: String = row.get(1)?;
+            Ok(Some(PendingClaim { id, payload }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Delete a pending row after its execution completes (success or
+    /// handled failure). The row acts as the per-session lease while it
+    /// exists in 'running' state — deletion releases the lease.
+    pub async fn delete_pending(&self, id: i64) -> Result<()> {
+        let db = self.db.lock().await;
+        db.execute("DELETE FROM pending_messages WHERE id = ?1", params![id])
+            .context("failed to delete pending message")?;
+        Ok(())
+    }
+
+    /// Return distinct session_ids that have at least one 'queued' row.
+    /// Used at daemon startup to resume drain after a crash.
+    pub async fn sessions_with_queued(&self) -> Result<Vec<String>> {
+        let db = self.db.lock().await;
+        let mut stmt =
+            db.prepare("SELECT DISTINCT session_id FROM pending_messages WHERE status = 'queued'")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
+    }
+
+    /// Recover from a daemon crash: delete any orphaned 'running' rows.
+    /// Returns the number of rows dropped. Agent runs have side effects
+    /// (tool calls, external APIs) — replaying them is usually wrong, so
+    /// the default policy is drop-and-log rather than requeue.
+    pub async fn recover_orphaned_running(&self) -> Result<usize> {
+        let db = self.db.lock().await;
+        let n = db.execute("DELETE FROM pending_messages WHERE status = 'running'", [])?;
+        Ok(n)
     }
 
     // ── Legacy chat_id methods (used by message_router / Telegram pipeline) ──

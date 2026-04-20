@@ -20,7 +20,8 @@ use std::sync::Arc;
 
 use aeqi_orchestrator::{
     Channel, ChannelConfig, GatewayManager, SessionManager, SessionStore,
-    agent_registry::AgentRegistry,
+    agent_registry::AgentRegistry, execution_registry::ExecutionRegistry,
+    stream_registry::StreamRegistry,
 };
 use tracing::warn;
 
@@ -34,6 +35,8 @@ pub(crate) struct SpawnContext {
     pub default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     pub session_store: Option<Arc<SessionStore>>,
     pub gateway_manager: Arc<GatewayManager>,
+    pub stream_registry: Arc<StreamRegistry>,
+    pub execution_registry: Arc<ExecutionRegistry>,
 }
 
 /// Dispatch a single channel row to its kind-specific spawner.

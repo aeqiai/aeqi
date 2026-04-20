@@ -2,27 +2,176 @@ import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
 import Wordmark from "@/components/Wordmark";
 import RoundAvatar from "@/components/RoundAvatar";
-import RootAgentPicker from "./RootAgentPicker";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { IconButton } from "@/components/ui";
 
 interface LeftSidebarProps {
-  /** The current root agent (derived from URL agent's ancestry). */
   rootId: string;
-  /** The currently viewed agent from URL. */
   agentId: string | null;
-  /** Current pathname — used for active-state matching. */
   path: string;
 }
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const ICON_HOME = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 7l5-4.5L12 7" />
+    <path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" />
+  </svg>
+);
+const ICON_SESSIONS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 4.5a1.5 1.5 0 011.5-1.5h7A1.5 1.5 0 0112 4.5v4a1.5 1.5 0 01-1.5 1.5H5l-3 2.5V4.5z" />
+  </svg>
+);
+const ICON_AGENTS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="7" cy="3.5" r="1.5" />
+    <circle cx="3" cy="10" r="1.3" />
+    <circle cx="11" cy="10" r="1.3" />
+    <path d="M7 5v3M7 8L3.3 9.3M7 8l3.7 1.3" />
+  </svg>
+);
+const ICON_EVENTS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 5.5a4 4 0 018 0V8l1 1.5H2L3 8V5.5z" />
+    <path d="M6 11.5a1 1 0 002 0" />
+  </svg>
+);
+const ICON_QUESTS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3.5 2v10M3.5 2.5h7L9 5l1.5 2.5H3.5" />
+  </svg>
+);
+const ICON_IDEAS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M5 10h4M5.5 11.5h3" />
+    <path d="M4 7a3 3 0 116 0c0 1.5-1 2-1 3H5c0-1-1-1.5-1-3z" />
+  </svg>
+);
+const ICON_CHANNELS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 5h9M3 9h9M6 2L5 12M9 2L8 12" />
+  </svg>
+);
+const ICON_DRIVE = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 4.5a1 1 0 011-1h3l1 1.5h4a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-6.5z" />
+  </svg>
+);
+const ICON_SETTINGS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="7" cy="7" r="2.2" />
+    <path d="M7 1.8v1.6M7 10.6v1.6M12.2 7h-1.6M3.4 7H1.8M10.7 3.3l-1.1 1.1M4.4 9.6l-1.1 1.1M10.7 10.7L9.6 9.6M4.4 4.4L3.3 3.3" />
+  </svg>
+);
+
+const PRIMITIVES: NavItem[] = [
+  { id: "", label: "Home", icon: ICON_HOME },
+  { id: "sessions", label: "Sessions", icon: ICON_SESSIONS },
+  { id: "agents", label: "Agents", icon: ICON_AGENTS },
+  { id: "events", label: "Events", icon: ICON_EVENTS },
+  { id: "quests", label: "Quests", icon: ICON_QUESTS },
+  { id: "ideas", label: "Ideas", icon: ICON_IDEAS },
+];
+
+const ICON_TOOLS = (
+  <svg
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.1"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2.5 9.5L6 6l3 3 2.5-2.5M6 6l-1.5-1.5M9 9l1.5 1.5" />
+    <circle cx="11.5" cy="3" r="1.2" />
+    <circle cx="2.5" cy="11.5" r="1.2" />
+  </svg>
+);
+
+const CONFIGURE: NavItem[] = [
+  { id: "channels", label: "Channels", icon: ICON_CHANNELS },
+  { id: "tools", label: "Tools", icon: ICON_TOOLS },
+  { id: "drive", label: "Drive", icon: ICON_DRIVE },
+  { id: "settings", label: "Settings", icon: ICON_SETTINGS },
+];
+
 /**
- * Application left rail: brand, primary nav, agent tree.
+ * Application left rail: brand, agent tree, current-agent surface nav, profile.
  *
- * Version B: every nav link targets the CURRENT agent in the URL, not the
- * root — so on `/child-1/sessions` the "Events" link goes to
- * `/child-1/events`, not `/rootId/events`. Drive and Apps stay root-only
- * and resolve to the root's URL regardless of where you clicked from.
+ * One surface for every navigation decision. The tree picks WHO (which agent);
+ * the surface nav below picks WHAT about them (home, sessions, primitives,
+ * configure). No top-bar tabs, no gear drawer — everything the user might
+ * want is visible and scannable in a single column.
  */
 export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
@@ -35,75 +184,30 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const currentId = agentId || rootId;
   const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
   const rootBase = rootId ? `/${encodeURIComponent(rootId)}` : "";
-  const isOnRoot = !!currentId && currentId === rootId;
+  const profileHref = `${base}/profile`;
+  const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
 
-  /**
-   * Active-state check. `p` is a tab name like "sessions" (or "" for the
-   * agent's home). We match the current URL against the current agent's
-   * path, so navigating between agents highlights the right row.
-   */
-  const isActive = (p: string) => {
-    const full = p === "" ? base : `${base}/${p}`;
-    if (p === "") return path === base || path === `${base}/`;
-    return path === full || path.startsWith(`${full}/`);
+  const navHref = (id: string) => (id ? `${base}/${id}` : base);
+  const isActive = (id: string) => {
+    if (!base) return false;
+    if (id === "") return path === base || path === `${base}/`;
+    return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const hrefFor = (p: string, rootOnly = false) => {
-    const scope = rootOnly ? rootBase : base;
-    return p === "" ? scope || "/" : `${scope}/${p}`;
-  };
-  const goTo = (p: string, rootOnly = false) => navigate(hrefFor(p, rootOnly));
-
-  const navLink = (
-    p: string,
-    label: string,
-    icon: React.ReactNode,
-    action?: string,
-    opts?: { rootOnly?: boolean },
-  ) => {
-    const rootOnly = !!opts?.rootOnly;
-    const disabled = rootOnly && !isOnRoot;
-    const activeMatch = rootOnly
-      ? path === hrefFor(p, true) || path.startsWith(`${hrefFor(p, true)}/`)
-      : isActive(p);
-    return (
-      <a
-        className={`sidebar-nav-item ${activeMatch ? "active" : ""}${disabled ? " disabled" : ""}`}
-        href={hrefFor(p, rootOnly)}
-        onClick={(e) => {
-          e.preventDefault();
-          goTo(p, rootOnly);
-        }}
-      >
-        {icon}
-        <span className="sidebar-nav-label">{label}</span>
-        {action && (
-          <span
-            className="sidebar-nav-action"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              goTo(p, rootOnly);
-              setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 50);
-            }}
-            title={action}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 2.5v7M2.5 6h7" />
-            </svg>
-          </span>
-        )}
-      </a>
-    );
-  };
+  const renderNav = (item: NavItem) => (
+    <a
+      key={item.id || "home"}
+      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
+      href={navHref(item.id)}
+      onClick={(e) => {
+        e.preventDefault();
+        navigate(navHref(item.id));
+      }}
+    >
+      {item.icon}
+      <span className="sidebar-nav-label">{item.label}</span>
+    </a>
+  );
 
   return (
     <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
@@ -130,7 +234,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.3"
+            strokeWidth="1.1"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
@@ -145,176 +249,14 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         </IconButton>
       </div>
 
-      <nav className="sidebar-nav">
-        {navLink(
-          "",
-          "Home",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-          >
-            <path d="M2 7.5l5-4.5 5 4.5" />
-            <path d="M3.5 6.5v5a.5.5 0 00.5.5h2.5V9.5h1V12H10a.5.5 0 00.5-.5v-5" />
-          </svg>,
-        )}
-        {navLink(
-          "settings",
-          "Settings",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-          </svg>,
-        )}
-        {navLink(
-          "sessions",
-          "Sessions",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-          >
-            <path d="M2 3h10v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
-            <path d="M5 6h4M5 8.5h2" />
-          </svg>,
-        )}
-        {navLink(
-          "events",
-          "Events",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-          >
-            <polyline points="1 7 4 4 7 9 10 3 13 7" />
-          </svg>,
-        )}
-        {navLink(
-          "channels",
-          "Channels",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M2 4a2 2 0 012-2h6a2 2 0 012 2v4a2 2 0 01-2 2H6l-3 2v-2H4a2 2 0 01-2-2V4z" />
-          </svg>,
-        )}
-        {navLink(
-          "quests",
-          "Quests",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-          >
-            <path d="M4 3h8M4 7h8M4 11h6M2 3v0.4.0v0M2 11v0" strokeLinecap="round" />
-          </svg>,
-          "New quest",
-        )}
-        {navLink(
-          "ideas",
-          "Ideas",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-          >
-            <path
-              d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
-              strokeLinecap="round"
-            />
-          </svg>,
-          "New idea",
-        )}
-        {navLink(
-          "drive",
-          "Drive",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M2 4.5a1 1 0 011-1h3l1.5 1.5H11a1 1 0 011 1V10a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5z" />
-          </svg>,
-          undefined,
-          { rootOnly: true },
-        )}
-        {navLink(
-          "tools",
-          "Tools",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-          >
-            <path d="M8.5 2.5l3 3-7.5 7.5H1v-3l7.5-7.5z" />
-          </svg>,
-        )}
-        {navLink(
-          "apps",
-          "Apps",
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinejoin="round"
-          >
-            <rect x="2" y="2" width="4" height="4" rx="0.5" />
-            <rect x="8" y="2" width="4" height="4" rx="0.5" />
-            <rect x="2" y="8" width="4" height="4" rx="0.5" />
-            <rect x="8" y="8" width="4" height="4" rx="0.5" />
-          </svg>,
-          undefined,
-          { rootOnly: true },
-        )}
-      </nav>
-
       <div className="left-sidebar-body">
-        <RootAgentPicker rootId={rootId} collapsed={sidebarCollapsed} />
+        {currentId && (
+          <nav className="sidebar-surface-nav">
+            {PRIMITIVES.map(renderNav)}
+            {CONFIGURE.map(renderNav)}
+          </nav>
+        )}
+
         <div className="sidebar-tree-slot">
           <AgentTree />
         </div>
@@ -322,11 +264,11 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
 
       <div className="sidebar-footer">
         <a
-          className={`sidebar-nav-item ${isActive("profile") ? "active" : ""}`}
-          href={hrefFor("profile")}
+          className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
+          href={profileHref}
           onClick={(e) => {
             e.preventDefault();
-            goTo("profile");
+            navigate(profileHref);
           }}
         >
           <span className="sidebar-nav-avatar">

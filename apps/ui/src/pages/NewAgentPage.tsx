@@ -32,6 +32,8 @@ export default function NewAgentPage() {
         (resp as Record<string, unknown>).id ||
         (resp as Record<string, unknown>).root ||
         name.trim();
+      if (imageUrl) localStorage.setItem("aeqi_root_avatar", imageUrl);
+      if (tagline.trim()) localStorage.setItem("aeqi_root_tagline", tagline.trim());
       setActiveRoot(rootId as string);
       // Backend auto-creates an agent -- fetch it immediately
       await fetchAgents();
@@ -149,7 +151,7 @@ export default function NewAgentPage() {
         </button>
 
         <p className="new-co-hint">
-          You can change the name, avatar, and tagline anytime from settings.
+          You can rename or re-skin your agent anytime from its home page.
         </p>
       </div>
     </div>

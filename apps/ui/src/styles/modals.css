@@ -117,11 +117,144 @@
 
 /* ── Create Agent Modal (cam-) ── */
 
+.cam-surface {
+  width: 560px;
+}
+
+.cam-hero {
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+
+.cam-hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.cam-hero-title {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.cam-hero-sub {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.cam-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.cam-field-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.cam-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.cam-template-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.cam-template-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-elevated, var(--bg-surface));
+}
+
+.cam-template-card:active {
+  transform: scale(0.98);
+}
+
+.cam-template-card.is-active {
+  border-color: var(--accent, var(--border-hover));
+  background: var(--bg-elevated, var(--bg-surface));
+  box-shadow: 0 0 0 1px var(--accent, var(--border-hover)) inset;
+}
+
+.cam-template-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: 0 0 auto;
+  transition: background-color var(--transition-fast);
+}
+
+.cam-template-card.is-active .cam-template-card-dot {
+  background: var(--success, var(--accent));
+}
+
+.cam-template-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cam-template-fallback-hint {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   margin-top: var(--space-1);
   font-style: italic;
+}
+
+.cam-skeleton {
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    var(--bg-elevated, var(--bg-surface)) 50%,
+    var(--bg-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: cam-skeleton-shine 1.4s linear infinite;
+}
+
+@keyframes cam-skeleton-shine {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.cam-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* ── Create Prompt Modal (cpm-) ── */

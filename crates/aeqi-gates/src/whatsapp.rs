@@ -22,6 +22,8 @@ pub struct WhatsAppChannel {
     /// Receiver handed out by `start()`. Wrapped in Option so it can be taken once.
     incoming_rx: std::sync::Mutex<Option<mpsc::Receiver<IncomingMessage>>>,
     shutdown: tokio::sync::watch::Sender<bool>,
+    // Held to keep the watch channel alive; a dropped receiver would cause
+    // sends to error. Not polled directly — subscribers clone from it.
     #[allow(dead_code)]
     shutdown_rx: tokio::sync::watch::Receiver<bool>,
 }

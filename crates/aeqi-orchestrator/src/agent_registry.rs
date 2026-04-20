@@ -1685,6 +1685,30 @@ impl AgentRegistry {
         Ok(ready)
     }
 
+    /// Count quests currently in `in_progress` state, grouped by agent_id.
+    /// Used by `QuestEnqueuer` to enforce per-agent concurrency caps without
+    /// needing an in-memory worker map.
+    pub async fn in_progress_counts_by_agent(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u32>> {
+        let db = self.sessions_db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT agent_id, COUNT(*) FROM quests \
+             WHERE status = 'in_progress' AND agent_id IS NOT NULL \
+             GROUP BY agent_id",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let agent_id: String = row.get(0)?;
+            let count: i64 = row.get(1)?;
+            Ok((agent_id, count as u32))
+        })?;
+        let mut map = std::collections::HashMap::new();
+        for r in rows.flatten() {
+            map.insert(r.0, r.1);
+        }
+        Ok(map)
+    }
+
     /// Get a quest by ID.
     pub async fn get_task(&self, quest_id: &str) -> Result<Option<aeqi_quests::Quest>> {
         let db = self.sessions_db.lock().await;
@@ -1721,6 +1745,49 @@ impl AgentRegistry {
             "UPDATE quests SET status = ?1, updated_at = ?2, closed_at = COALESCE(?3, closed_at) WHERE id = ?4",
             params![status_str, now, closed_at, quest_id],
         )?;
+        Ok(())
+    }
+
+    /// Atomically finalize a quest run. One SQLite transaction covers the
+    /// status flip, the `retry_count` bump (for retry outcomes), and the
+    /// `closed_at` stamp (for terminal outcomes). Replaces the legacy
+    /// select-then-update pair (`update_task` + `update_task_status`) so a
+    /// concurrent finalize cannot interleave between the read and the write.
+    ///
+    /// - `bump_retry = true` increments `retry_count` by 1 (used when the
+    ///   agent stopped with a retryable reason and the quest is going back
+    ///   to `Pending`).
+    /// - `Done` and `Cancelled` stamp `closed_at` to now.
+    pub async fn finalize_quest(
+        &self,
+        quest_id: &str,
+        status: aeqi_quests::QuestStatus,
+        bump_retry: bool,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let status_str = status.to_string();
+        let closed_at = if matches!(
+            status,
+            aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled
+        ) {
+            Some(now.clone())
+        } else {
+            None
+        };
+        let retry_delta: i64 = if bump_retry { 1 } else { 0 };
+
+        let db = self.sessions_db.lock().await;
+        let tx = db.unchecked_transaction()?;
+        tx.execute(
+            "UPDATE quests SET
+                status = ?1,
+                updated_at = ?2,
+                closed_at = COALESCE(?3, closed_at),
+                retry_count = retry_count + ?4
+             WHERE id = ?5",
+            params![status_str, now, closed_at, retry_delta, quest_id],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -2487,6 +2554,47 @@ mod tests {
         // Moving root under child would create a cycle.
         let result = reg.move_agent(&root.id, Some(&child.id)).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn finalize_quest_done_stamps_closed_at() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let quest = reg
+            .create_task(&agent.id, "subj", "desc", &[], &[])
+            .await
+            .unwrap();
+
+        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Done, false)
+            .await
+            .unwrap();
+
+        let got = reg.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(got.status, aeqi_quests::QuestStatus::Done);
+        assert_eq!(got.retry_count, 0);
+        assert!(got.closed_at.is_some(), "Done must stamp closed_at");
+    }
+
+    #[tokio::test]
+    async fn finalize_quest_retry_bumps_counter_and_leaves_closed_at_null() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let quest = reg
+            .create_task(&agent.id, "subj", "desc", &[], &[])
+            .await
+            .unwrap();
+
+        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Pending, true)
+            .await
+            .unwrap();
+        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Pending, true)
+            .await
+            .unwrap();
+
+        let got = reg.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(got.status, aeqi_quests::QuestStatus::Pending);
+        assert_eq!(got.retry_count, 2);
+        assert!(got.closed_at.is_none(), "Pending must not stamp closed_at");
     }
 
     #[tokio::test]

@@ -81,6 +81,7 @@ struct TelegramChat {
 
 #[derive(Deserialize)]
 struct TelegramUser {
+    // Parsed for payload validation; identity is tracked by username/first_name.
     #[allow(dead_code)]
     id: i64,
     first_name: String,

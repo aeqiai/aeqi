@@ -94,6 +94,8 @@ async fn run_telegram_gateway(
         default_provider,
         session_store,
         gateway_manager,
+        stream_registry,
+        execution_registry,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(tg_channel.as_ref()).await {
@@ -167,9 +169,12 @@ async fn run_telegram_gateway(
             }
         };
 
-        // Route through session_manager.
+        // Route through the per-session queue.
         let tg = tg_channel.clone();
         let sm = session_manager.clone();
+        let ar = agent_registry.clone();
+        let sr = stream_registry.clone();
+        let er = execution_registry.clone();
         let gm = gateway_manager.clone();
         let provider = default_provider.clone();
         let aid = agent_id.clone();
@@ -178,108 +183,114 @@ async fn run_telegram_gateway(
         tokio::spawn(async move {
             let _ = tg.send_typing(chat_id).await;
 
-            // Resolve the Telegram user sender identity.
-            let user_sender_id =
-                if let Some(ref ss) = session_store_clone {
-                    let sender = ss
-                        .resolve_sender(
-                            "telegram",
-                            &telegram_user_id.to_string(),
-                            &sender_name,
-                            None,
-                            None,
-                            Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
-                        )
-                        .await
-                        .ok();
-
-                    // Record the user's inbound message with sender identity.
-                    if let Some(ref s) = sender {
-                        let _ = ss.record_message(
-                        &session_id,
-                        &s.id,
+            // Resolve the Telegram user sender identity + record the inbound
+            // message with that identity before enqueueing, so the executor
+            // loads it as part of the transcript.
+            let user_sender_id = if let Some(ref ss) = session_store_clone {
+                let sender = ss
+                    .resolve_sender(
                         "telegram",
-                        "user",
-                        &user_text,
-                        Some(&serde_json::json!({"chat_id": chat_id, "message_id": message_id})),
-                    ).await;
-                    }
-                    sender.map(|s| s.id)
-                } else {
-                    None
-                };
+                        &telegram_user_id.to_string(),
+                        &sender_name,
+                        None,
+                        None,
+                        Some(&serde_json::json!({"username": sender_name, "chat_id": chat_id})),
+                    )
+                    .await
+                    .ok();
 
-            // Register TelegramGateway for this session (deduplicated by gateway_id).
+                if let Some(ref s) = sender {
+                    let _ = ss
+                        .record_message(
+                            &session_id,
+                            &s.id,
+                            "telegram",
+                            "user",
+                            &user_text,
+                            Some(
+                                &serde_json::json!({"chat_id": chat_id, "message_id": message_id}),
+                            ),
+                        )
+                        .await;
+                }
+                sender.map(|s| s.id)
+            } else {
+                None
+            };
+
+            // Register persistent TelegramGateway so web-originated messages
+            // also deliver to Telegram.
             let tg_gw: Arc<dyn aeqi_core::traits::SessionGateway> =
                 Arc::new(TelegramGateway::new(tg.clone(), chat_id, &aid));
-
-            // Store as persistent so web-originated messages also deliver to Telegram.
             gm.register_persistent(&session_id, tg_gw.clone()).await;
 
-            if sm.is_running(&session_id).await {
-                // Session already alive — register gateway and inject message.
-                // GatewayManager's dispatcher delivers the response to Telegram.
-                if let Some(stream_sender) = sm.get_stream_sender(&session_id).await {
-                    gm.register(&session_id, tg_gw, &stream_sender).await;
-                }
-                if let Err(e) = sm.send_streaming(&session_id, &user_text).await {
-                    warn!(error = %e, session_id = %session_id, "session send failed");
-                    let out = aeqi_core::traits::OutgoingMessage {
-                        channel: "telegram".to_string(),
-                        recipient: String::new(),
-                        text: format!("Error: {}", e),
-                        metadata: serde_json::json!({ "chat_id": chat_id }),
-                    };
-                    let _ = tg.send(out).await;
-                }
-            } else {
-                // No running session — spawn a new interactive session.
-                let Some(provider) = provider else {
-                    let out = aeqi_core::traits::OutgoingMessage {
-                        channel: "telegram".to_string(),
-                        recipient: String::new(),
-                        text: "No provider configured.".to_string(),
-                        metadata: serde_json::json!({ "chat_id": chat_id }),
-                    };
-                    let _ = tg.send(out).await;
-                    return;
+            let Some(provider) = provider else {
+                let out = aeqi_core::traits::OutgoingMessage {
+                    channel: "telegram".to_string(),
+                    recipient: String::new(),
+                    text: "No provider configured.".to_string(),
+                    metadata: serde_json::json!({ "chat_id": chat_id }),
                 };
+                let _ = tg.send(out).await;
+                return;
+            };
 
-                let mut opts = aeqi_orchestrator::session_manager::SpawnOptions::interactive()
-                    .with_session_id(session_id.clone())
-                    .with_name(format!("telegram:{}", chat_id))
-                    .with_transport("telegram".to_string());
-                // Pass sender_id so spawn_session records the initial prompt with identity.
-                if let Some(ref sid) = user_sender_id {
-                    opts = opts.with_sender_id(sid.clone());
-                }
-                // The initial prompt is already recorded above with sender identity,
-                // so skip the default recording in spawn_session.
-                opts = opts.without_initial_prompt_record();
+            let Some(ss) = session_store_clone else {
+                let out = aeqi_core::traits::OutgoingMessage {
+                    channel: "telegram".to_string(),
+                    recipient: String::new(),
+                    text: "No session store configured.".to_string(),
+                    metadata: serde_json::json!({ "chat_id": chat_id }),
+                };
+                let _ = tg.send(out).await;
+                return;
+            };
 
-                match sm.spawn_session(&aid, &user_text, provider, opts).await {
-                    Ok(spawned) => {
-                        info!(
-                            session_id = %spawned.session_id,
-                            agent_id = %aid,
-                            "spawned telegram session"
-                        );
-                        // Pre-subscribe before registering to avoid missing early events.
-                        let pre_rx = spawned.stream_sender.subscribe();
-                        gm.register_with_rx(&session_id, tg_gw, pre_rx).await;
-                    }
-                    Err(e) => {
-                        warn!(error = %e, "failed to spawn session for telegram");
-                        let out = aeqi_core::traits::OutgoingMessage {
-                            channel: "telegram".to_string(),
-                            recipient: String::new(),
-                            text: format!("Error: {}", e),
-                            metadata: serde_json::json!({ "chat_id": chat_id }),
-                        };
-                        let _ = tg.send(out).await;
-                    }
-                }
+            // Bind the persistent gateway to the session's broadcast bus and
+            // ensure the dispatcher is live, so streamed events reach Telegram.
+            let sender = sr.get_or_create(&session_id).await;
+            gm.activate_persistent(&session_id, &sender).await;
+            gm.ensure_dispatcher(&session_id, &sender).await;
+
+            // Telegram sessions are chat-only; the adaptive_retry path only
+            // fires on quest runs, so leave the classifier knobs at defaults.
+            let executor: Arc<dyn aeqi_orchestrator::session_queue::SessionExecutor> =
+                Arc::new(aeqi_orchestrator::queue_executor::QueueExecutor {
+                    session_manager: sm.clone(),
+                    agent_registry: ar.clone(),
+                    stream_registry: sr.clone(),
+                    execution_registry: er.clone(),
+                    provider,
+                    activity_log: None,
+                    session_store: Some(ss.clone()),
+                    idea_store: None,
+                    adaptive_retry: false,
+                    failure_analysis_model: String::new(),
+                });
+            let queued = aeqi_orchestrator::queue_executor::QueuedMessage::chat(
+                aid.clone(),
+                user_text.clone(),
+                user_sender_id.clone(),
+                Some("telegram".to_string()),
+            );
+            let payload = queued
+                .to_payload()
+                .expect("QueuedMessage serialization is infallible");
+
+            if let Err(e) =
+                aeqi_orchestrator::session_queue::enqueue(ss, executor, &session_id, &payload).await
+            {
+                warn!(error = %e, session_id = %session_id, "telegram: failed to enqueue message");
+                let out = aeqi_core::traits::OutgoingMessage {
+                    channel: "telegram".to_string(),
+                    recipient: String::new(),
+                    text: format!("Error: {}", e),
+                    metadata: serde_json::json!({ "chat_id": chat_id }),
+                };
+                let _ = tg.send(out).await;
+                return;
             }
+            info!(session_id = %session_id, agent_id = %aid, "enqueued telegram message");
 
             // React with thumbs up.
             if message_id > 0 {

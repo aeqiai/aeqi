@@ -1,46 +1,49 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
+import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
-
-const PAGE_CONFIG: Record<string, { title: string; create?: { label: string } }> = {
-  agents: { title: "Agents", create: { label: "New agent" } },
-  events: { title: "Events", create: { label: "New event" } },
-  quests: { title: "Quests", create: { label: "New quest" } },
-  ideas: { title: "Ideas", create: { label: "New idea" } },
-  sessions: { title: "Sessions" },
-  settings: { title: "Settings" },
-  profile: { title: "Profile" },
-  tools: { title: "Tools" },
-  drive: { title: "Drive" },
-  apps: { title: "Apps" },
-};
+import BudgetMeter from "./BudgetMeter";
 
 /**
- * Header strip shown above non-AgentPage content (root dashboard, drive,
- * apps). Version B: tab comes directly from URL params.
+ * Content top bar — agent context + actions for the current view.
+ *
+ * Navigation lives in the left rail (agent tree + surface nav). This bar
+ * shows the current agent + tab as a title, plus the contextual right-side
+ * actions: graph-view toggle on Ideas, a single primary "create" button
+ * whose label matches the tab, and the budget meter.
  */
+
+const TITLES: Record<string, string> = {
+  "": "Home",
+  sessions: "Sessions",
+  agents: "Agents",
+  events: "Events",
+  quests: "Quests",
+  ideas: "Ideas",
+  channels: "Channels",
+  drive: "Drive",
+  settings: "Settings",
+};
+
+const CREATE_LABEL: Record<string, string> = {
+  agents: "New agent",
+  events: "New event",
+  quests: "New quest",
+  ideas: "New idea",
+};
+
 export default function ContentTopBar() {
-  const { agentId, tab } = useParams<{ agentId?: string; tab?: string }>();
+  const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const cost = useDaemonStore((s) => s.cost);
   const agents = useDaemonStore((s) => s.agents);
+  const appMode = useAuthStore((s) => s.appMode);
 
+  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "";
-  let config = PAGE_CONFIG[section];
-  if (!config) {
-    // Home (no tab) — the agent's own name shows in the left rail/avatar,
-    // so keep this label generic instead of repeating it.
-    config = { title: "Home" };
-  }
+  const title = TITLES[section] || section;
+  const createLabel = CREATE_LABEL[section];
 
-  // Count active agents in this tree (exclude the root itself, which is the workspace).
-  const activeAgents = agents.filter((a) => {
-    if (a.id === agentId || !a.parent_id) return false;
-    const s = a.status;
-    return s === "active" || s === "running";
-  }).length;
-
-  // Ideas-only "Explore" toggle. URL-driven so the graph view is linkable
-  // and survives reloads; the itemId in the route already acts as focus.
   const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
   const toggleExplore = () => {
     const next = new URLSearchParams(searchParams);
@@ -51,10 +54,12 @@ export default function ContentTopBar() {
 
   return (
     <div className="content-topbar">
-      <div className="content-topbar-left">
-        <span className="content-topbar-title">{config.title}</span>
-        {activeAgents > 0 && <span className="content-topbar-meta">{activeAgents} active</span>}
+      <div className="content-topbar-title">
+        {agent && <span className="content-topbar-agent">{agent.display_name || agent.name}</span>}
+        {agent && <span className="content-topbar-sep">/</span>}
+        <span className="content-topbar-section">{title}</span>
       </div>
+
       <div className="content-topbar-right">
         {section === "ideas" && (
           <Button
@@ -79,7 +84,7 @@ export default function ContentTopBar() {
             {exploreActive ? "Close graph" : "Explore"}
           </Button>
         )}
-        {config.create && (
+        {createLabel && (
           <Button
             variant="secondary"
             size="sm"
@@ -96,8 +101,14 @@ export default function ContentTopBar() {
             >
               <path d="M6 2.5v7M2.5 6h7" />
             </svg>
-            {config.create.label}
+            {createLabel}
           </Button>
+        )}
+        {appMode !== "platform" && (
+          <BudgetMeter
+            spent={(cost?.spent_today_usd as number) ?? 0}
+            cap={agent?.budget_usd ?? (cost?.daily_budget_usd as number) ?? 0}
+          />
         )}
       </div>
     </div>

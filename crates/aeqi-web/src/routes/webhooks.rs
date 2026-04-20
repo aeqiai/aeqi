@@ -17,6 +17,9 @@ pub fn routes() -> Router<AppState> {
 }
 
 /// Twilio WhatsApp webhook payload (form-encoded).
+// Fields are read by serde during form deserialization; the runtime
+// only uses a subset, but keeping the full shape parsed ensures malformed
+// payloads are rejected early.
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 struct TwilioWhatsAppWebhook {

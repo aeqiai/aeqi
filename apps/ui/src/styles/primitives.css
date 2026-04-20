@@ -12,14 +12,33 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Backgrounds — same vocabulary as the landing.
-     Page canvas is --color-paper (warm parchment); cards are
-     --color-card (pure white). Pure white on parchment lifts
-     decisively and keeps the dashboard 1:1 with /brand. */
+  /* Three-tier surface system.
+     The dashboard stacks three surfaces inside one frame:
+       canvas  — outside the card (the "desk") — warm stone grey
+       card    — the main content pane ("index card")            — pure white
+       paper   — the right rail inside the card ("document")     — parchment
+     Landing still uses two tiers (paper + card) because there's no outer
+     shell to sit on. The dashboard needs the third, darker surface so the
+     bordered + radiused card visibly lifts off the body and the rail
+     doesn't blend into whatever is behind the app. */
+  --color-canvas: #ebeae6;
   --bg-base: var(--color-card);
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: var(--color-paper);
   --bg-overlay: var(--color-bg-overlay);
+  --bg-canvas: var(--color-canvas);
+
+  /* Ink surface aliases — semantic names for the dark composer / inverse
+     surfaces. One source of truth; components reference these, not raw hex. */
+  --ink-bg: var(--color-ink);
+  --ink-bg-elevated: var(--color-ink-elevated);
+  --ink-border: var(--color-ink-border);
+  --ink-border-hover: var(--color-ink-border-hover);
+  --ink-border-focus: var(--color-ink-border-focus);
+  --ink-text: var(--color-ink-text);
+  --ink-text-muted: var(--color-ink-text-muted);
+  --ink-text-dim: var(--color-ink-text-dim);
+  --ink-ring-focus: 0 0 0 3px rgba(82, 82, 91, 0.25);
 
   /* Legacy background aliases */
   --bg-secondary: var(--color-bg-surface);
@@ -161,7 +180,7 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-elevated);
+  background: var(--bg-canvas);
   color: var(--text-primary);
   line-height: 1.5;
 }

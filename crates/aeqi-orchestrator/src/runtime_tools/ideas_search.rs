@@ -132,6 +132,10 @@ impl Tool for IdeasSearchTool {
     fn is_concurrent_safe(&self, _input: &serde_json::Value) -> bool {
         true
     }
+
+    fn produces_context(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

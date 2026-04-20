@@ -10,6 +10,7 @@ use tracing::{info, warn};
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::execution_registry::{ExecutionHandle, ExecutionRegistry};
 use crate::session_manager::{SessionManager, SpawnOptions};
 
 /// Runs schedule-type events without polling.
@@ -17,6 +18,7 @@ pub struct ScheduleTimer {
     event_store: Arc<EventHandlerStore>,
     activity_log: Arc<ActivityLog>,
     session_manager: Arc<SessionManager>,
+    execution_registry: Arc<ExecutionRegistry>,
     default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
 }
 
@@ -26,12 +28,14 @@ impl ScheduleTimer {
         _agent_registry: Arc<AgentRegistry>,
         activity_log: Arc<ActivityLog>,
         session_manager: Arc<SessionManager>,
+        execution_registry: Arc<ExecutionRegistry>,
         default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     ) -> Self {
         Self {
             event_store,
             activity_log,
             session_manager,
+            execution_registry,
             default_provider,
         }
     }
@@ -127,6 +131,33 @@ impl ScheduleTimer {
                     session_id = %spawned.session_id,
                     "schedule event fired → session spawned"
                 );
+
+                // Register the execution so IPC status/cancel can see it, and
+                // drive the join in a detached task so it clears itself from
+                // the registry when the run completes.
+                let exec_reg = self.execution_registry.clone();
+                let sandbox = spawned.sandbox.clone();
+                exec_reg
+                    .register(ExecutionHandle {
+                        session_id: spawned.session_id.clone(),
+                        agent_id: spawned.agent_id.clone(),
+                        agent_name: spawned.agent_name.clone(),
+                        correlation_id: spawned.correlation_id.clone(),
+                        cancel_token: spawned.cancel_token.clone(),
+                        sandbox: sandbox.clone(),
+                        quest_id: None,
+                        started_at: std::time::Instant::now(),
+                    })
+                    .await;
+                for event in spawned.initial_events {
+                    spawned.stream_sender.send(event);
+                }
+                let sid = spawned.session_id.clone();
+                tokio::spawn(async move {
+                    let _ = spawned.join_handle.await;
+                    exec_reg.unregister(&sid).await;
+                    drop(sandbox);
+                });
             }
             Err(e) => {
                 warn!(event = %event.name, error = %e, "failed to spawn session from schedule");

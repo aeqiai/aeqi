@@ -18,7 +18,8 @@ use aeqi_core::traits::{Channel, OutgoingMessage};
 pub struct ProgressTracker {
     pub channel: Arc<dyn Channel>,
     pub chat_id: i64,
-    pub scheduler: Arc<crate::scheduler::Scheduler>,
+    /// Shared execution registry — read to count active sessions per agent.
+    pub execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
     pub checkin_interval: Duration,
     pub alarm_interval: Duration,
     pub min_flood_interval: Duration,
@@ -52,15 +53,15 @@ impl ProgressTracker {
             let elapsed = session_start.elapsed();
 
             let (total_working, total_pending, active_projects) = {
-                let active = self.scheduler.active_count().await;
-                let counts = self.scheduler.agent_counts().await;
+                let active = self.execution_registry.active_ids().await.len();
+                let counts = self.execution_registry.agent_counts().await;
                 let project_str = match counts.len() {
                     0 => "no agents".to_string(),
                     1 => counts.keys().next().cloned().unwrap_or_default(),
                     n => format!("{n} agents"),
                 };
-                // Scheduler only tracks running workers; treat active as "working",
-                // pending is 0 (tasks are managed elsewhere now).
+                // Live executions are "working"; pending-message queue is not
+                // accounted here (would need a separate SessionStore lookup).
                 (active, 0usize, project_str)
             };
 

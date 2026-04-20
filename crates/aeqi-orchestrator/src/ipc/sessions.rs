@@ -116,7 +116,7 @@ pub async fn handle_close_session(
         }
     }
 
-    let was_running = ctx.session_manager.close(session_id).await;
+    let was_running = ctx.execution_registry.cancel(session_id).await;
     let db_closed = if let Some(ref ss) = ctx.session_store {
         ss.close_session(session_id).await.is_ok()
     } else {

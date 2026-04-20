@@ -493,6 +493,8 @@ pub struct ContentReplacementState {
     replacements: std::collections::HashMap<String, ReplacementType>,
 }
 
+// Variants recorded per tool_use_id for auditability. Matched by Debug
+// output and visible via the activity log; not destructured in hot paths.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 enum ReplacementType {
@@ -632,8 +634,6 @@ pub struct SessionInput {
     pub step_ideas: Vec<StepIdeaSpec>,
     /// Quest ID to attach to this session.
     pub quest_id: Option<String>,
-    /// Execution-start ideas to inject as a system message for this execution.
-    pub execution_ideas: Option<String>,
 }
 
 impl SessionInput {
@@ -1146,6 +1146,7 @@ impl Agent {
                         event_name: ev.event_name.clone(),
                         pattern: ev.pattern.clone(),
                         idea_ids: ev.idea_ids.clone(),
+                        prepersisted: false,
                     });
                 }
             }
@@ -1513,18 +1514,6 @@ impl Agent {
                                             .lock()
                                             .await
                                             .extend(input.step_ideas.clone());
-                                    }
-
-                                    // Inject execution-start ideas before the user message.
-                                    if let Some(ref exec_ideas) = input.execution_ideas
-                                        && !exec_ideas.is_empty()
-                                    {
-                                        messages.push(Message {
-                                            role: Role::System,
-                                            content: MessageContent::text(format!(
-                                                "<execution-context>\n{exec_ideas}\n</execution-context>"
-                                            )),
-                                        });
                                     }
 
                                     messages.push(Message {

@@ -20,7 +20,7 @@
    Without this, the brand sits 8px higher than the content-topbar → the
    "top strip" looks staggered. */
 .left-sidebar {
-  width: 220px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   background: transparent;
@@ -29,7 +29,11 @@
   position: relative;
   transition: width var(--transition-normal);
   overflow: hidden;
-  padding-top: 8px;
+  /* 9px (not 8px) top pad so the sidebar header band's y aligns with the
+     content-topbar. The content card has a 1px border above its topbar,
+     which shifts it down by 1px; matching that here keeps brand + nav
+     icons on the same horizontal line. */
+  padding-top: 9px;
 }
 .left-sidebar.collapsed {
   width: 52px;
@@ -119,158 +123,6 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-/* ── Root agent picker ──
-   Pinned to the top of the agent tree (inside .left-sidebar-body). The
-   trigger looks like a tree row; when opened, the menu takes over the
-   tree area beneath it so switching roots feels like switching
-   workspaces rather than dismissing a floating dropdown. Collapsed
-   sidebar keeps the old flyout for space reasons. */
-.root-picker {
-  position: relative;
-  padding: 6px 8px 4px;
-}
-.left-sidebar:not(.collapsed) .root-picker.open {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.left-sidebar:not(.collapsed) .root-picker.open .root-picker-menu {
-  flex: 1;
-  min-height: 0;
-}
-.left-sidebar.collapsed .root-picker {
-  padding: 6px 0 4px;
-  display: flex;
-  justify-content: center;
-}
-.root-picker-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: var(--sidebar-row-h);
-  padding: 0 8px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-.root-picker-trigger:hover {
-  background: var(--state-hover);
-}
-.root-picker.open .root-picker-trigger {
-  background: var(--state-selected);
-}
-.left-sidebar.collapsed .root-picker-trigger {
-  justify-content: center;
-  width: auto;
-  height: auto;
-  padding: 4px;
-}
-.root-picker-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.root-picker-chevron {
-  opacity: 0.5;
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
-}
-.root-picker-chevron.flipped {
-  transform: rotate(180deg);
-}
-.root-picker-menu {
-  padding: 6px 0 0;
-  margin-top: 4px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overflow-y: auto;
-}
-/* When the picker is open in expanded mode, hide the agent tree so
-   the menu visually takes over the sidebar body. */
-.left-sidebar:not(.collapsed) .left-sidebar-body:has(.root-picker.open) .sidebar-tree-slot {
-  display: none;
-}
-.left-sidebar.collapsed .root-picker-menu {
-  position: absolute;
-  top: 4px;
-  left: 100%;
-  right: auto;
-  bottom: auto;
-  min-width: 220px;
-  margin-left: 8px;
-  margin-top: 0;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-base);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  max-height: 320px;
-  z-index: 30;
-}
-.root-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-.root-picker-item:hover {
-  background: var(--state-hover);
-}
-.root-picker-item.active {
-  background: var(--state-selected);
-}
-.root-picker-item-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.root-picker-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-.root-picker-item-new {
-  color: var(--text-secondary);
-}
-.root-picker-plus {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.root-picker-empty {
-  padding: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  text-align: center;
 }
 
 /* ── Agent scope (above tree) ── */
@@ -462,16 +314,48 @@
   border-top: 1px solid var(--border);
 }
 
+/* Per-agent surface nav — the primary thing a user clicks — pinned at
+   the top of the body. Bottom border separates it from the tree below. */
+.sidebar-surface-nav {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Agent tree takes the flexible bottom region — scrolls inside itself
+   if it overflows; the nav above stays fixed on screen. */
+.sidebar-tree-slot {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-surface-nav .sidebar-section-label {
+  padding: 8px 8px 4px;
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--section-label-color);
+}
+.left-sidebar.collapsed .sidebar-surface-nav .sidebar-section-label {
+  display: none;
+}
+
 /* ── Sidebar footer — identity anchor ──
    Pinned at the bottom of the rail (Linear / Slack / Vercel pattern).
-   No border-top: the row reads as just another sidebar-nav-item, same
-   padding / row-height / radius as the rows above. display:flex
-   column so the child stretches to full width. */
+   Top border separates it from the scrollable tree above so the
+   profile reads as a deliberate anchor, not a loose row. */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   padding: 8px;
+  border-top: 1px solid var(--border);
 }
 .left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
   justify-content: center;
@@ -489,16 +373,38 @@
   gap: 8px;
 }
 
-/* The card: rounded on all sides, two columns inside (main + CTA rail). */
+/* When no right rail is present, the card physically shrinks by 240px —
+   its right border sits where content ends, and the leftover 240px is
+   canvas. No empty placeholder inside the card. */
+.content-column.no-rail {
+  padding-right: calc(8px + 240px);
+}
+
+/* The card: rounded on all sides, body row (main + rail) stacked above
+   the persistent composer. Subtle double-layer shadow lifts the card off
+   the parchment body. */
 .content-card {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+/* Body row: content-main + optional rail side-by-side. Grows to fill
+   whatever space the composer doesn't claim. */
+.content-card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
 }
 
 .content-main {
@@ -509,39 +415,45 @@
   overflow: hidden;
 }
 
+/* Rail column — always reserves 240px so content-main's width is the
+   same across tabs. A permanent left border closes off the content-main
+   region so the empty case reads as "rail zone, currently empty" rather
+   than "content card stretched weirdly wide". Parchment bg only paints
+   when there's actual content, so the empty case stays clean. */
 .content-cta-col {
   width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-left: 1px solid var(--border);
 }
-/* Rail is white, same as the main card. One continuous content surface
-   separated only by a 1px border — the Linear / Vercel / Stripe pattern.
-   Sessions + CTAs read as first-class, not secondary chrome. */
 .content-cta-col .asv-sidebar {
   width: 100%;
   flex: 1;
-  border-left: 1px solid var(--border);
-  background: var(--bg-base);
+  background: var(--bg-elevated);
 }
 
-/* Composer row: aligned with the card, but spacer on the right keeps the
-   composer centered to the .content-main width (CTA column is excluded). */
+/* Composer band: the card's bottom region. Dark ink surface that spans
+   edge-to-edge (under both content-main and rail), with bottom corners
+   inheriting the card's radius so the band reads as part of the card,
+   not an attached strip. No border — the ink/light contrast is the seam. */
 .composer-row {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
+  padding: 14px 20px;
+  background: var(--ink-bg);
+  border-bottom-left-radius: calc(var(--radius-xl) - 1px);
+  border-bottom-right-radius: calc(var(--radius-xl) - 1px);
 }
 .composer-wrap {
   flex: 1;
   min-width: 0;
   display: flex;
-  justify-content: center;
 }
 .composer-spacer {
-  width: 240px;
-  flex-shrink: 0;
+  display: none;
 }
 
 /* Legacy: AgentPage and others still reference .content-area. Keep it as a
@@ -1102,44 +1014,50 @@
   white-space: nowrap;
 }
 
-/* Content top bar — matches page-tab bar height so the top strip reads as a
-   single thin horizontal band instead of a chunky header. */
+/* Content top bar — the primary per-agent nav strip.
+   Left: Home icon + primitive tabs (Sessions · Agents · Events · Quests · Ideas).
+   Right: contextual actions (create, explore), budget meter, gear icon.
+   Height matches the left sidebar's header band so the two sit on one line. */
 .content-topbar {
   display: flex;
   align-items: center;
-  padding: 0 0 0 16px;
+  padding: 0 12px 0 8px;
   height: 40px;
   min-height: 40px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--bg-base);
+  gap: 12px;
 }
-.content-topbar-left {
+/* Title block — "{agent name} / {section}". Navigation lives in the left
+   rail, so this bar is context-only: it says where you are, not where
+   you can go. */
+.content-topbar-title {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-}
-.content-topbar-title {
+  flex: 1;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.015em;
 }
-.content-topbar-meta {
-  font-size: var(--font-size-2xs, 11px);
-  font-family: var(--font-mono);
+.content-topbar-agent {
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.content-topbar-section {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
 }
 .content-topbar-right {
   display: flex;
   align-items: center;
   gap: var(--space-3, 8px);
-  flex: 1;
   min-width: 0;
   justify-content: flex-end;
-  padding-right: 16px;
 }
 
 /* ── Header action section (aligned with session sidebar) ── */

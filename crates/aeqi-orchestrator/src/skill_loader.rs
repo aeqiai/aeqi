@@ -1,6 +1,8 @@
-//! Unified prompt discovery — single source of truth for loading prompt files from disk.
+//! Unified skill discovery — single source of truth for loading skill `.md`
+//! files from disk (`projects/*/skills`, `projects/*/agents`). These are
+//! operator-edited files layered on top of the idea store.
 //!
-//! Replaces the three independent disk-scan paths (session_manager, ipc/status,
+//! Replaces three independent disk-scan paths (session_manager, ipc/status,
 //! vfs) with one configurable, cached loader.
 
 use std::path::PathBuf;
@@ -8,9 +10,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
 
-/// A discovered prompt file on disk (for IPC/status listing).
+/// A discovered skill file on disk (for IPC/status listing).
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct PromptFileEntry {
+pub struct SkillFileEntry {
     pub name: String,
     pub source: String,
     pub kind: &'static str,
@@ -18,29 +20,29 @@ pub struct PromptFileEntry {
     pub content: String,
 }
 
-/// Where to look for prompt `.md` files.
+/// Where to look for skill `.md` files.
 #[derive(Debug, Clone)]
-pub struct PromptLoaderConfig {
+pub struct SkillLoaderConfig {
     /// Base directory containing `projects/` subtree.
-    /// Prompts are discovered at `{base}/projects/shared/skills`,
+    /// Skills are discovered at `{base}/projects/shared/skills`,
     /// `{base}/projects/shared/agents`, and per-project dirs.
     pub base_dir: PathBuf,
 }
 
-/// Cached prompt file loader. Thread-safe, async-friendly.
-pub struct PromptLoader {
-    config: PromptLoaderConfig,
-    /// Cached prompt objects (aeqi_tools::Prompt). Populated on first access.
-    prompts: RwLock<Option<Arc<Vec<aeqi_tools::Prompt>>>>,
+/// Cached skill file loader. Thread-safe, async-friendly.
+pub struct SkillLoader {
+    config: SkillLoaderConfig,
+    /// Cached skill definitions parsed from disk. Populated on first access.
+    skills: RwLock<Option<Arc<Vec<aeqi_tools::Prompt>>>>,
     /// Cached entries (for IPC responses). Populated on first access.
-    entries: RwLock<Option<Arc<Vec<PromptFileEntry>>>>,
+    entries: RwLock<Option<Arc<Vec<SkillFileEntry>>>>,
 }
 
-impl PromptLoader {
-    pub fn new(config: PromptLoaderConfig) -> Self {
+impl SkillLoader {
+    pub fn new(config: SkillLoaderConfig) -> Self {
         Self {
             config,
-            prompts: RwLock::new(None),
+            skills: RwLock::new(None),
             entries: RwLock::new(None),
         }
     }
@@ -48,10 +50,10 @@ impl PromptLoader {
     /// Derive config from the daemon's current working directory.
     pub fn from_cwd() -> Self {
         let base_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        Self::new(PromptLoaderConfig { base_dir })
+        Self::new(SkillLoaderConfig { base_dir })
     }
 
-    /// Directories to scan for prompt `.md` files.
+    /// Directories to scan for skill `.md` files.
     fn scan_dirs(&self) -> Vec<(PathBuf, String)> {
         let base = &self.config.base_dir;
         let mut dirs: Vec<(PathBuf, String)> = vec![
@@ -81,12 +83,12 @@ impl PromptLoader {
         dirs
     }
 
-    /// Load all prompts (aeqi_tools::Prompt) from configured directories.
+    /// Load all skill definitions from configured directories.
     /// Results are cached; call `invalidate()` to force re-scan.
     pub async fn all(&self) -> Arc<Vec<aeqi_tools::Prompt>> {
         // Fast path: return cached.
         {
-            let guard = self.prompts.read().await;
+            let guard = self.skills.read().await;
             if let Some(ref cached) = *guard {
                 return cached.clone();
             }
@@ -104,13 +106,13 @@ impl PromptLoader {
         all.dedup_by(|b, a| a.name == b.name);
 
         let arc = Arc::new(all);
-        *self.prompts.write().await = Some(arc.clone());
+        *self.skills.write().await = Some(arc.clone());
         arc
     }
 
-    /// Load all prompt file entries (for IPC status/skills responses).
+    /// Load all skill file entries (for IPC status/skills responses).
     /// Results are cached; call `invalidate()` to force re-scan.
-    pub async fn entries(&self) -> Arc<Vec<PromptFileEntry>> {
+    pub async fn entries(&self) -> Arc<Vec<SkillFileEntry>> {
         // Fast path.
         {
             let guard = self.entries.read().await;
@@ -140,10 +142,10 @@ impl PromptLoader {
                     .to_string_lossy()
                     .to_string();
                 let content = std::fs::read_to_string(&path).unwrap_or_default();
-                all.push(PromptFileEntry {
+                all.push(SkillFileEntry {
                     name,
                     source: source.clone(),
-                    kind: "prompt",
+                    kind: "skill",
                     path: path.clone(),
                     content,
                 });
@@ -155,21 +157,21 @@ impl PromptLoader {
         arc
     }
 
-    /// Resolve a single prompt by name. Returns None if not found.
+    /// Resolve a single skill by name. Returns None if not found.
     pub async fn find(&self, name: &str) -> Option<aeqi_tools::Prompt> {
-        let prompts = self.all().await;
-        prompts.iter().find(|p| p.name == name).cloned()
+        let skills = self.all().await;
+        skills.iter().find(|p| p.name == name).cloned()
     }
 
     /// Invalidate cached data. Next access re-scans disk.
     pub async fn invalidate(&self) {
-        *self.prompts.write().await = None;
+        *self.skills.write().await = None;
         *self.entries.write().await = None;
-        debug!("prompt_loader: cache invalidated");
+        debug!("skill_loader: cache invalidated");
     }
 
     /// Filter entries by allowed project names (for tenancy).
-    pub async fn entries_filtered(&self, allowed: &Option<Vec<String>>) -> Vec<PromptFileEntry> {
+    pub async fn entries_filtered(&self, allowed: &Option<Vec<String>>) -> Vec<SkillFileEntry> {
         let entries = self.entries().await;
         if allowed.is_none() {
             return entries.as_ref().clone();
@@ -204,7 +206,7 @@ mod tests {
     #[tokio::test]
     async fn discover_from_empty_dir() {
         let tmp = TempDir::new().unwrap();
-        let loader = PromptLoader::new(PromptLoaderConfig {
+        let loader = SkillLoader::new(SkillLoaderConfig {
             base_dir: tmp.path().to_path_buf(),
         });
         let prompts = loader.all().await;
@@ -222,7 +224,7 @@ mod tests {
         )
         .unwrap();
 
-        let loader = PromptLoader::new(PromptLoaderConfig {
+        let loader = SkillLoader::new(SkillLoaderConfig {
             base_dir: tmp.path().to_path_buf(),
         });
         let prompts = loader.all().await;
@@ -236,7 +238,7 @@ mod tests {
         let skills_dir = tmp.path().join("projects/shared/skills");
         std::fs::create_dir_all(&skills_dir).unwrap();
 
-        let loader = PromptLoader::new(PromptLoaderConfig {
+        let loader = SkillLoader::new(SkillLoaderConfig {
             base_dir: tmp.path().to_path_buf(),
         });
 
@@ -277,7 +279,7 @@ mod tests {
         )
         .unwrap();
 
-        let loader = PromptLoader::new(PromptLoaderConfig {
+        let loader = SkillLoader::new(SkillLoaderConfig {
             base_dir: tmp.path().to_path_buf(),
         });
 

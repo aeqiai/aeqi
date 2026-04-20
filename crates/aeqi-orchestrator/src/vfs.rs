@@ -59,7 +59,7 @@ pub struct VfsSearchResponse {
 pub struct VfsTree {
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
     session_store: Option<Arc<crate::session_store::SessionStore>>,
-    prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
+    skill_loader: Option<Arc<crate::skill_loader::SkillLoader>>,
 }
 
 impl VfsTree {
@@ -67,7 +67,7 @@ impl VfsTree {
         Self {
             agent_registry,
             session_store: None,
-            prompt_loader: None,
+            skill_loader: None,
         }
     }
 
@@ -75,12 +75,12 @@ impl VfsTree {
     pub fn with_direct_deps(
         agent_registry: Arc<crate::agent_registry::AgentRegistry>,
         session_store: Option<Arc<crate::session_store::SessionStore>>,
-        prompt_loader: Option<Arc<crate::prompt_loader::PromptLoader>>,
+        skill_loader: Option<Arc<crate::skill_loader::SkillLoader>>,
     ) -> Self {
         Self {
             agent_registry,
             session_store,
-            prompt_loader,
+            skill_loader,
         }
     }
 
@@ -327,7 +327,7 @@ impl VfsTree {
     // --- Skills ---
 
     async fn list_skills(&self) -> anyhow::Result<Vec<VfsNode>> {
-        if let Some(ref loader) = self.prompt_loader {
+        if let Some(ref loader) = self.skill_loader {
             let entries = loader.entries().await;
             let nodes = entries
                 .iter()
@@ -343,7 +343,7 @@ impl VfsTree {
             return Ok(nodes);
         }
 
-        // No prompt_loader configured — return empty.
+        // No skill_loader configured — return empty.
         Ok(Vec::new())
     }
 

@@ -38,7 +38,7 @@ All must pass. The pre-commit hook enforces this.
 - Design system: `apps/ui/src/styles/primitives.css` for tokens
 
 ### Architecture
-- Events = pattern + tool_calls (Vec<ToolCall>). 9 lifecycle seeds: session:start, session:quest_start, session:quest_end, session:quest_result, session:execution_start, session:step_start, session:stopped, session:recap_on_resume, context:budget:exceeded.
+- Events = pattern + tool_calls (Vec<ToolCall>). 7 lifecycle seeds: session:start, session:quest_start, session:quest_end, session:quest_result, session:step_start, session:stopped, context:budget:exceeded. session:start fires once per execution (resumed or fresh).
 - ToolRegistry unifies LLM-fired and event-fired tool calls with CallerKind (Llm/Event/System) ACLs.
 - Middleware detectors fire patterns (loop:detected, guardrail:violation, graph_guardrail:high_impact, shell:command_failed); events own the response via tool_calls; DEFAULT_HANDLERS preserve old behavior as fallback.
 - Compaction-as-delegation: context:budget:exceeded fires session.spawn (lightweight ephemeral compactor session) + transcript.replace_middle. Current session_id preserved. Inline compaction pipeline is fallback when no PatternDispatcher.

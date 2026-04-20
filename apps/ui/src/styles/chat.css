@@ -68,36 +68,41 @@
   }
 }
 /* Aligns visually with .content-topbar (same 40px height + border) so the
-   card reads as a single horizontal header spanning both columns. */
+   card reads as a single horizontal header spanning both columns.
+   Zero padding so the gold CTA inside can go edge-to-edge. */
 .asv-sidebar-header {
   height: 40px;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0;
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-/* Flat row action (no nested button box) — the header row is now compact
-   enough that a bordered button inside it feels heavy. */
+/* Primary CTA — the one gold bar at the top of the rail. Fills the 40px
+   header band edge-to-edge so white-on-gold reads as "this is THE action
+   for this tab" without competing chrome. Uses the design system's
+   --btn-primary-* tokens; editing those re-skins this button automatically. */
 .asv-session-new-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   width: 100%;
   height: 100%;
   font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: none;
+  font-weight: 600;
+  color: var(--btn-primary-text);
+  background: var(--btn-primary-bg);
   border: none;
   cursor: pointer;
   padding: 0;
-  transition: color 0.1s;
+  letter-spacing: 0.01em;
+  transition: background 0.12s ease;
 }
 .asv-session-new-btn:hover {
-  color: var(--text-primary);
+  background: var(--btn-primary-bg-hover);
 }
 .asv-sidebar-list {
   flex: 1;
@@ -1263,10 +1268,11 @@
   gap: 2px;
 }
 .asv-attach-btn {
-  opacity: 0.6;
+  color: var(--text-muted);
+  transition: color 0.12s ease;
 }
 .asv-attach-btn:hover {
-  opacity: 1;
+  color: var(--text-primary);
 }
 
 .asv-textarea {
@@ -1280,7 +1286,7 @@
   min-height: 48px;
   max-height: 360px;
   line-height: 24px;
-  padding: 2px 0;
+  padding: 4px 0 2px;
   letter-spacing: -0.01em;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1304,7 +1310,7 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 5px 6px 0;
+  padding: 8px 8px 0;
   font-size: 10px;
   color: var(--text-muted);
   opacity: 0;
@@ -1372,7 +1378,7 @@
 
 .asv-send:disabled {
   cursor: default;
-  opacity: 0.2;
+  opacity: 0.35;
 }
 .asv-send:disabled .asv-send-label {
   display: none;

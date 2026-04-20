@@ -223,8 +223,8 @@ export function useWebSocketChat({
               // Render the pill inline at the truthful firing point —
               // inside the current streaming message's segments, directly
               // after the step marker the agent just emitted. If the stream
-              // hasn't started a step yet (e.g. session:execution_start at
-              // turn start), emit a standalone row instead.
+              // hasn't started a step yet (e.g. session:start at turn
+              // start), emit a standalone row instead.
               if (segments.length > 0) {
                 segments.push({ kind: "event_fire", fire });
                 setLiveSegments([...segments]);

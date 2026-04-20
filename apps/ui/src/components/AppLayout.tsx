@@ -14,12 +14,11 @@ import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 import type { Agent } from "@/lib/types";
 
 // Out-of-flow pages rendered inside the shell — lazy to keep AppLayout light.
-// Drive/Apps are root-only. Profile is user-scoped but lives under
+// Drive is root-only. Profile is user-scoped but lives under
 // /:agentId/profile so it inherits the sidebar + tree chrome (Refined A).
 const RuntimeHomePage = lazy(() => import("@/pages/RuntimeHomePage"));
 const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
-const AppsPage = lazy(() => import("@/pages/AppsPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 
 /** Walk up parent_id to find the root ancestor. */
@@ -125,10 +124,10 @@ export default function AppLayout() {
   // Pick what renders in the main content area.
   //   - no tab + root + platform mode  → welcome card (onboarding)
   //   - no tab + root                  → dashboard home
-  //   - drive / apps (root-only)       → dedicated pages
+  //   - drive                          → dedicated page (available on every agent)
   //   - profile                        → user profile (any agent scope)
   //   - everything else                → AgentPage with tab/itemId
-  const rootOnly = isRoot && (tab === "drive" || tab === "apps");
+  const isDrive = tab === "drive";
   const rootDefault = isRoot && !tab;
   const isProfile = tab === "profile";
 
@@ -142,50 +141,70 @@ export default function AppLayout() {
     if (rootDefault) {
       return appMode === "platform" ? <WelcomePage /> : <RuntimeHomePage />;
     }
-    if (rootOnly && tab === "drive") return <DrivePage />;
-    if (rootOnly && tab === "apps") return <AppsPage />;
+    if (isDrive) return <DrivePage />;
     if (isProfile) return <ProfilePage />;
     return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
   })();
 
-  const usesTopBar = rootDefault || rootOnly;
+  // ContentTopBar is the primary per-agent nav — always mount it when there's
+  // an agent in scope. Profile owns its own header and is user-scoped, so it
+  // opts out. No-agent routes (pre-boot) render raw.
+  const showTopBar = !!agentId && !isProfile;
   // Profile owns its own header + tabs and is user-scoped — composer and
   // CTA right rail are noise there.
   const showComposer = !isProfile && !!agentId;
   const showCTA = !isProfile;
+  // The rail only has content for tabs that are master/detail. Home,
+  // drive, apps, settings → rail reserves its space (no twitch) but is
+  // left empty and transparent so the card reads as one clean pane.
+  const RAIL_TABS = new Set([
+    "sessions",
+    "events",
+    "channels",
+    "tools",
+    "quests",
+    "ideas",
+    "agents",
+  ]);
+  const hasRailContent = !!tab && RAIL_TABS.has(tab);
   // AgentSessionView only mounts when AgentPage is rendered AND the active
-  // tab resolves to "sessions" (which is the fallback when tab is absent).
-  // Everything else must stash + navigate — the window event has no listener.
-  const sessionsMounted = !rootDefault && !rootOnly && !isProfile && (!tab || tab === "sessions");
+  // tab is "sessions". Home (no tab) no longer implies chat — it's a dashboard.
+  const sessionsMounted = !rootDefault && !isDrive && !isProfile && tab === "sessions";
 
   return (
     <>
       <div className="shell">
         <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
 
-        <div className="content-column">
+        <div className={`content-column${showCTA && !hasRailContent ? " no-rail" : ""}`}>
           <div className="content-card">
-            <div className="content-main">
-              {usesTopBar ? (
-                <>
-                  <ContentTopBar />
-                  <div className="content-scroll">
-                    <Suspense fallback={null}>{mainContent}</Suspense>
-                  </div>
-                </>
-              ) : (
-                <Suspense fallback={null}>{mainContent}</Suspense>
+            <div className="content-card-body">
+              <div className="content-main">
+                {showTopBar ? (
+                  <>
+                    <ContentTopBar />
+                    <div className="content-scroll">
+                      <Suspense fallback={null}>{mainContent}</Suspense>
+                    </div>
+                  </>
+                ) : (
+                  <Suspense fallback={null}>{mainContent}</Suspense>
+                )}
+              </div>
+              {showCTA && hasRailContent && (
+                <aside className="content-cta-col">
+                  <ContentCTA />
+                </aside>
               )}
             </div>
-            {showCTA && (
-              <aside className="content-cta-col">
-                <ContentCTA />
-              </aside>
+            {showComposer && (
+              <ComposerRow
+                agentId={agentId || null}
+                base={base}
+                sessionsMounted={sessionsMounted}
+              />
             )}
           </div>
-          {showComposer && (
-            <ComposerRow agentId={agentId || null} base={base} sessionsMounted={sessionsMounted} />
-          )}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

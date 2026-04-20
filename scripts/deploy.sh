@@ -155,7 +155,7 @@ if ! $SKIP_RESTART; then
         echo "  platform: $PLATFORM_STATUS  $PLATFORM_HEALTH"
 
         sleep 2
-        HOST_STATUS=$(systemctl is-active aeqi-host-luca-eich 2>/dev/null || echo "not yet")
+        HOST_STATUS=$(systemctl is-active aeqi-host-luca-eich 2>/dev/null || true)
         echo "  host:     $HOST_STATUS"
 
         if [[ "$PLATFORM_STATUS" == "active" ]]; then

@@ -24,7 +24,7 @@ pub async fn handle_vfs_list(
     let vfs = crate::vfs::VfsTree::with_direct_deps(
         ctx.agent_registry.clone(),
         ctx.session_store.clone(),
-        ctx.prompt_loader.clone(),
+        ctx.skill_loader.clone(),
     );
     match vfs.list(path).await {
         Ok(mut resp) => {
@@ -68,7 +68,7 @@ pub async fn handle_vfs_read(
     let vfs = crate::vfs::VfsTree::with_direct_deps(
         ctx.agent_registry.clone(),
         ctx.session_store.clone(),
-        ctx.prompt_loader.clone(),
+        ctx.skill_loader.clone(),
     );
     match vfs.read(path).await {
         Ok(resp) => serde_json::to_value(resp).unwrap_or_else(|_| serde_json::json!({"ok": false})),
@@ -89,7 +89,7 @@ pub async fn handle_vfs_search(
     let vfs = crate::vfs::VfsTree::with_direct_deps(
         ctx.agent_registry.clone(),
         ctx.session_store.clone(),
-        ctx.prompt_loader.clone(),
+        ctx.skill_loader.clone(),
     );
     match vfs.search(query).await {
         Ok(mut resp) => {

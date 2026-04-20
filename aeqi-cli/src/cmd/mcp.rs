@@ -9,6 +9,8 @@ use crate::helpers::load_config;
 
 #[derive(Debug, Deserialize)]
 struct McpRequest {
+    // Required by JSON-RPC 2.0 framing; parsed to reject non-conforming
+    // payloads but never read thereafter — responses always set "2.0".
     #[allow(dead_code)]
     jsonrpc: String,
     id: Option<serde_json::Value>,

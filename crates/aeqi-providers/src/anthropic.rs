@@ -267,6 +267,9 @@ struct SseMessageStart {
     message: SseMessageStartMessage,
 }
 
+// Full message envelope parsed from the `message_start` SSE frame.
+// Fields are read by serde; we currently surface only usage via a wrapper
+// but keep the model field parsed for future provider telemetry.
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct SseMessageStartMessage {

@@ -9,12 +9,14 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import BrandMark from "./BrandMark";
-import BudgetMeter from "./BudgetMeter";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
+// Routes that AgentPage knows how to render. No-tab resolves to "home" — the
+// agent's dashboard. ContentTopBar is the primary nav and lives outside of
+// this component.
 const TABS = [
-  { id: "dashboard", label: "Dashboard" },
+  { id: "home", label: "Home" },
   { id: "settings", label: "Settings" },
   { id: "sessions", label: "Sessions" },
   { id: "agents", label: "Agents" },
@@ -45,14 +47,12 @@ export default function AgentPage({
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
   const itemId = itemIdProp ?? params.itemId;
-  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
+  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "home";
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
-  const cost = useDaemonStore((s) => s.cost);
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-  const displayName = agent?.display_name || agent?.name || agentId;
 
   const resolvedAgentId = agent?.id || agentId;
 
@@ -74,23 +74,6 @@ export default function AgentPage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {/* Breadcrumb header */}
-      <div className="content-topbar">
-        <div className="content-topbar-left">
-          <BrandMark size={14} />
-          <span className="content-topbar-title">{displayName}</span>
-          {agent?.model && (
-            <span className="content-topbar-meta">{agent.model.split("/").pop()}</span>
-          )}
-        </div>
-        <div className="content-topbar-right">
-          <BudgetMeter
-            spent={(cost?.spent_today_usd as number) ?? 0}
-            cap={agent?.budget_usd ?? (cost?.daily_budget_usd as number) ?? 0}
-          />
-        </div>
-      </div>
-
       {/* Save feedback toast */}
       {toast && (
         <div
@@ -108,7 +91,7 @@ export default function AgentPage({
       )}
 
       {/* Tab content */}
-      {activeTab === "dashboard" && (
+      {activeTab === "home" && (
         <div className="page-content">
           <div className="agent-stat-cards">
             <div className="agent-stat-card">

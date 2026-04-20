@@ -20,7 +20,6 @@ export const COMMON_PATTERNS = [
   "session:quest_start",
   "session:quest_end",
   "session:quest_result",
-  "session:recap_on_resume",
-  "session:execution_start",
+  "context:budget:exceeded",
   "loop:detected",
 ];

@@ -92,22 +92,6 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M2 4.5h10M2 4.5v6a1 1 0 001 1h8a1 1 0 001-1v-6M5 2.5h4a1 1 0 011 1v1H4v-1a1 1 0 011-1z" />
     </svg>
   ),
-  apps: (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-    >
-      <rect x="2" y="2" width="4" height="4" rx="0.5" />
-      <rect x="8" y="2" width="4" height="4" rx="0.5" />
-      <rect x="2" y="8" width="4" height="4" rx="0.5" />
-      <rect x="8" y="8" width="4" height="4" rx="0.5" />
-    </svg>
-  ),
 };
 
 const PRIMARY_ITEMS = [
@@ -135,7 +119,6 @@ const SECONDARY_ITEMS = [
   { key: "ideas", name: "Ideas", route: "/ideas" },
   { key: "settings", name: "Settings", route: "/settings" },
   { key: "drive", name: "Drive", route: "/drive" },
-  { key: "apps", name: "Apps", route: "/apps" },
 ];
 
 export default function WelcomePage() {

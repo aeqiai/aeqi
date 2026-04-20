@@ -316,15 +316,35 @@ export default function ContentCTA() {
       });
       emptyText = ideas.length === 0 ? "No ideas yet" : "No matches";
       break;
-    case "agents":
+    case "agents": {
       header = { label: "New agent", event: "aeqi:create" };
+      const parent = agents.find((a) => a.id === agentId || a.name === agentId);
+      if (parent) {
+        const children = agents.filter((a) => a.parent_id === parent.id);
+        items = children.map((c) => ({
+          id: c.id,
+          name: c.display_name || c.name,
+          preview: c.status,
+          meta: c.session_count ? `${c.session_count}` : undefined,
+          status: c.status,
+        }));
+      }
+      emptyText = "No sub-agents yet";
       break;
+    }
     default:
       header = null;
   }
 
   const handleSelect = (id: string) => {
     if (!agentId) return;
+    // Agents tab: picking a child navigates INTO that agent's home, not into
+    // a child-detail route on the parent. The other tabs keep their normal
+    // master/detail pattern.
+    if (section === "agents") {
+      goAgent(id);
+      return;
+    }
     goAgent(agentId, section, id, { replace: true });
   };
 

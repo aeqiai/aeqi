@@ -770,16 +770,55 @@
   color: var(--text-primary);
 }
 
-/* ── Persistent composer (below content card in shell) ──
-   The inner box already inherits the shared input language from
-   chat.css; the only override here is to strip the outer .asv-composer
-   padding so the composer sits flush against the shell's 8px gap
-   (the shell handles spacing at the layout level, not here). */
+/* ── Persistent composer (bottom of the content card) ──
+   The persistent composer IS the card's bottom band — no inner box,
+   no border, no rounded inner rectangle. The dark ink surface fills
+   the full card width edge-to-edge; the row below owns the padding
+   so the content area (textarea, chips, send) stays comfortable. */
 .persistent-composer {
   width: 100%;
-  max-width: 760px;
+  max-width: none;
 }
 .persistent-composer .asv-composer {
   background: transparent;
   padding: 0;
+  align-items: stretch;
+}
+.persistent-composer .asv-composer-inner {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  max-width: none;
+  color: var(--ink-text);
+  box-shadow: none;
+}
+.persistent-composer .asv-composer-inner:hover,
+.persistent-composer .asv-composer-inner:focus-within {
+  border: none;
+  box-shadow: none;
+}
+.persistent-composer .asv-textarea {
+  color: var(--ink-text);
+}
+.persistent-composer .asv-textarea::placeholder {
+  color: var(--ink-text-dim);
+}
+.persistent-composer .asv-attach-chip {
+  background: var(--ink-bg-elevated);
+  color: var(--ink-text);
+  border: 1px solid var(--ink-border);
+}
+.persistent-composer .asv-attach-chip-x {
+  color: var(--ink-text-muted);
+}
+.persistent-composer .asv-attach-chip-x:hover {
+  color: var(--ink-text);
+}
+.persistent-composer .asv-send {
+  color: var(--ink-text-muted);
+}
+.persistent-composer .asv-send.ready {
+  background: var(--ink-text);
+  color: var(--ink-bg);
 }
