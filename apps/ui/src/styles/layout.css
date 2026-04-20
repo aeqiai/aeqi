@@ -1856,12 +1856,18 @@
 .ideas-rail-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 10px 10px;
   border-bottom: 1px solid var(--border);
 }
+.ideas-rail-search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
 .ideas-rail-search {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 6px 10px;
   font-size: 12px;
   color: var(--text-primary);
@@ -1874,17 +1880,14 @@
 .ideas-rail-search:focus {
   border-color: var(--accent);
 }
-.ideas-rail-scope {
-  display: flex;
-  gap: 4px;
-}
-.ideas-rail-scope-btn {
-  flex: 1;
-  padding: 4px 0;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.ideas-rail-filter-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   color: var(--text-muted);
   background: transparent;
   border: 1px solid var(--border);
@@ -1892,16 +1895,58 @@
   cursor: pointer;
   transition:
     color 0.15s,
-    background 0.15s,
+    border-color 0.15s;
+}
+.ideas-rail-filter-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+.ideas-rail-filter-toggle.active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.ideas-rail-filter-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.ideas-rail-filter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+.ideas-rail-scope {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.ideas-rail-scope-btn {
+  padding: 2px 0;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    color 0.15s,
     border-color 0.15s;
 }
 .ideas-rail-scope-btn:hover {
   color: var(--text-primary);
 }
 .ideas-rail-scope-btn.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: var(--accent-dim);
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
 }
 .ideas-rail-tags {
   display: flex;
@@ -1952,6 +1997,14 @@
 /* Active / editing canvas gets a subtle AEQI accent bar on focus-within */
 .ideas-canvas:focus-within {
   border-left-color: var(--border-hover);
+}
+.ideas-canvas-eyebrow {
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 .ideas-canvas-head {
   display: flex;

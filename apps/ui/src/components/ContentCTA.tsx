@@ -103,6 +103,97 @@ function eventTransport(ev: AgentEvent): string | null {
   return prefix.toUpperCase();
 }
 
+type IdeasScope = "all" | "mine" | "global" | "inherited";
+
+/**
+ * Ideas rail filter panel. Search is always visible. Scope and tag
+ * facets hide behind a disclosure so the default rail stays quiet —
+ * the user flips them open only when their idea list gets big enough
+ * to need filtering.
+ */
+function IdeasRailFilters({
+  search,
+  onSearch,
+  scope,
+  onScope,
+  tag,
+  onTag,
+  tagCounts,
+}: {
+  search: string;
+  onSearch: (v: string) => void;
+  scope: IdeasScope;
+  onScope: (v: IdeasScope) => void;
+  tag: string | null;
+  onTag: (v: string | null) => void;
+  tagCounts: Array<[string, number]>;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasFilters = scope !== "all" || tag !== null;
+  return (
+    <div className="ideas-rail-filters">
+      <div className="ideas-rail-search-row">
+        <input
+          className="ideas-rail-search"
+          type="text"
+          placeholder="Search ideas…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
+        <button
+          type="button"
+          className={`ideas-rail-filter-toggle${open || hasFilters ? " active" : ""}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          title="Filters"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M1.5 3h9M3 6h6M4.5 9h3" />
+          </svg>
+          {hasFilters && <span className="ideas-rail-filter-dot" aria-hidden />}
+        </button>
+      </div>
+      {open && (
+        <div className="ideas-rail-filter-body">
+          <div className="ideas-rail-scope">
+            {(["all", "mine", "global", "inherited"] as IdeasScope[]).map((s) => (
+              <button
+                key={s}
+                className={`ideas-rail-scope-btn${scope === s ? " active" : ""}`}
+                onClick={() => onScope(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          {tagCounts.length > 0 && (
+            <div className="ideas-rail-tags">
+              {tagCounts.slice(0, 18).map(([t, n]) => (
+                <button
+                  key={t}
+                  className={`ideas-rail-tag${tag === t ? " active" : ""}`}
+                  onClick={() => onTag(tag === t ? null : t)}
+                >
+                  {t} <span className="ideas-rail-tag-count">{n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Unified right rail inside the content card.
  *
@@ -179,7 +270,6 @@ export default function ContentCTA() {
   // here. State stays resident across section switches — cheap and keeps
   // the user's in-flight filters when they flip back.
   const [ideasSearch, setIdeasSearch] = useState("");
-  type IdeasScope = "all" | "mine" | "global" | "inherited";
   const [ideasScope, setIdeasScope] = useState<IdeasScope>("all");
   const [ideasTag, setIdeasTag] = useState<string | null>(null);
 
@@ -401,39 +491,15 @@ export default function ContentCTA() {
         )}
       </div>
       {section === "ideas" && (
-        <div className="ideas-rail-filters">
-          <input
-            className="ideas-rail-search"
-            type="text"
-            placeholder="Search…"
-            value={ideasSearch}
-            onChange={(e) => setIdeasSearch(e.target.value)}
-          />
-          <div className="ideas-rail-scope">
-            {(["all", "mine", "global", "inherited"] as IdeasScope[]).map((s) => (
-              <button
-                key={s}
-                className={`ideas-rail-scope-btn${ideasScope === s ? " active" : ""}`}
-                onClick={() => setIdeasScope(s)}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-          {tagCounts.length > 0 && (
-            <div className="ideas-rail-tags">
-              {tagCounts.slice(0, 12).map(([t, n]) => (
-                <button
-                  key={t}
-                  className={`ideas-rail-tag${ideasTag === t ? " active" : ""}`}
-                  onClick={() => setIdeasTag(ideasTag === t ? null : t)}
-                >
-                  {t} <span className="ideas-rail-tag-count">{n}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <IdeasRailFilters
+          search={ideasSearch}
+          onSearch={setIdeasSearch}
+          scope={ideasScope}
+          onScope={setIdeasScope}
+          tag={ideasTag}
+          onTag={setIdeasTag}
+          tagCounts={tagCounts}
+        />
       )}
       <div className="asv-sidebar-list">
         {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}

@@ -3,14 +3,14 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea } from "@/lib/types";
+import { Button, IconButton } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
 
-type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type DecisionState = "idle" | "saving" | "done";
 
-const SAVE_DEBOUNCE_MS = 800;
 const SAVED_FLASH_MS = 1200;
 
 function extractHashtags(text: string): string[] {
@@ -35,13 +35,14 @@ function mergeTags(body: string, typed: string[]): string[] {
 }
 
 /**
- * Apple Notes-style idea canvas. Always-editable, borderless, autosaving.
+ * Apple Notes-style idea canvas. Always-editable, borderless. Explicit save.
  *
  * Two modes collapse into the same surface:
- * - `create`: no idea yet. Cmd+Enter commits; URL swaps to the new idea's ID.
- * - `edit`: idea exists. Any change schedules a debounced autosave; blur
- *   flushes immediately. No explicit save button — the saved indicator
- *   is the only feedback.
+ * - `create`: no idea yet. Cmd+Enter or Save button commits; URL swaps to
+ *   the new idea's ID.
+ * - `edit`: idea exists. Typing marks the canvas dirty; Save button or
+ *   Cmd+Enter persists. Navigating away with unsaved changes flushes to
+ *   avoid silent data loss.
  */
 export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: Idea }) {
   const { goAgent } = useNav();
@@ -74,13 +75,18 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
 
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const debounceRef = useRef<number | null>(null);
   const flashRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
   const inflightRef = useRef(false);
   const latestRef = useRef({ name, content, typedTags });
 
   latestRef.current = { name, content, typedTags };
+
+  const markDirty = useCallback(() => {
+    if (!isEdit) return;
+    dirtyRef.current = true;
+    setSaveState("dirty");
+  }, [isEdit]);
 
   // When the selected idea changes, reset the canvas to its values.
   useEffect(() => {
@@ -157,21 +163,11 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     }
   }, [idea, agentId, patchIdea]);
 
-  // Schedule a debounced autosave whenever content changes (edit mode only).
-  const scheduleSave = useCallback(() => {
-    if (!isEdit) return;
-    dirtyRef.current = true;
-    setSaveState("pending");
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      flushSave();
-    }, SAVE_DEBOUNCE_MS);
-  }, [isEdit, flushSave]);
-
-  // Flush on unmount or when switching to a different idea.
+  // Flush on unmount / idea switch so accidental navigation doesn't lose work.
+  // No debounced autosave while typing — the Save button / Cmd+Enter is the
+  // only deliberate persist path.
   useEffect(() => {
     return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
       if (flashRef.current) window.clearTimeout(flashRef.current);
       if (dirtyRef.current) flushSave();
     };
@@ -214,13 +210,12 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     }
   }, [isEdit, agentId, addIdea, goAgent]);
 
-  // Cmd/Ctrl + Enter — commit in create mode, force-flush in edit mode.
+  // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
       e.preventDefault();
       if (isEdit) {
-        if (debounceRef.current) window.clearTimeout(debounceRef.current);
         flushSave();
       } else {
         handleCreate();
@@ -285,22 +280,17 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
 
   return (
     <div className="asv-main ideas-canvas">
+      {!isEdit && <div className="ideas-canvas-eyebrow">New idea</div>}
       <div className="ideas-canvas-head">
         <input
           ref={titleRef}
           className="ideas-canvas-title"
           type="text"
-          placeholder="Title"
+          placeholder={isEdit ? "Title" : "Name this idea…"}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            scheduleSave();
-          }}
-          onBlur={() => {
-            if (isEdit && dirtyRef.current) {
-              if (debounceRef.current) window.clearTimeout(debounceRef.current);
-              flushSave();
-            }
+            markDirty();
           }}
         />
         {isEdit && (
@@ -318,14 +308,14 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
         onAdd={(t) => {
           const next = [...typedTags, t];
           setTypedTags(next);
-          scheduleSave();
+          markDirty();
         }}
         onRemove={(t) => {
           // Only allow removing a typed tag; hashtag chips live in the body.
           if (typedTags.includes(t)) {
             const next = typedTags.filter((x) => x !== t);
             setTypedTags(next);
-            scheduleSave();
+            markDirty();
           }
         }}
       />
@@ -334,22 +324,22 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
         <div className="ideas-canvas-decision">
           <div className="ideas-canvas-decision-label">Skill candidate — promote or reject?</div>
           <div className="ideas-canvas-decision-actions">
-            <button
-              type="button"
-              className="ideas-canvas-btn primary"
-              disabled={decisionState === "saving"}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={decisionState === "saving" && !showRejectPanel}
               onClick={handlePromote}
             >
-              {decisionState === "saving" && !showRejectPanel ? "Promoting…" : "Promote"}
-            </button>
-            <button
-              type="button"
-              className="ideas-canvas-btn danger"
+              Promote
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
               disabled={decisionState === "saving"}
               onClick={() => setShowRejectPanel((v) => !v)}
             >
               Reject
-            </button>
+            </Button>
           </div>
           {showRejectPanel && (
             <div className="ideas-canvas-reject-panel">
@@ -360,21 +350,18 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
                 onChange={(e) => setRejectRationale(e.target.value)}
               />
               <div className="ideas-canvas-decision-actions">
-                <button
-                  type="button"
-                  className="ideas-canvas-btn danger"
-                  disabled={decisionState === "saving" || !rejectRationale.trim()}
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={decisionState === "saving"}
+                  disabled={!rejectRationale.trim()}
                   onClick={handleReject}
                 >
-                  {decisionState === "saving" ? "Rejecting…" : "Confirm rejection"}
-                </button>
-                <button
-                  type="button"
-                  className="ideas-canvas-btn ghost"
-                  onClick={() => setShowRejectPanel(false)}
-                >
+                  Confirm rejection
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowRejectPanel(false)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -390,14 +377,13 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           value={content}
           onChange={(e) => {
             setContent(e.target.value);
-            scheduleSave();
+            markDirty();
           }}
           onBlur={() => {
-            if (isEdit && dirtyRef.current) {
-              if (debounceRef.current) window.clearTimeout(debounceRef.current);
-              flushSave();
-            }
-            if (isEdit) setBodyMode("view");
+            // Only drop back to rendered view when there are no unsaved
+            // changes — otherwise the user would lose their editing surface
+            // (and the Save button would have nothing to flush visually).
+            if (isEdit && !dirtyRef.current) setBodyMode("view");
           }}
         />
       ) : (
@@ -418,19 +404,18 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           <SaveIndicator state={saveState} />
           {error && <span className="ideas-canvas-error">{error}</span>}
         </div>
-        {!isEdit && (
-          <div className="ideas-canvas-actions">
-            <span className="ideas-canvas-hint">⌘ + Enter</span>
-            <button
-              type="button"
-              className="ideas-canvas-btn primary"
-              onClick={handleCreate}
-              disabled={saveState === "saving"}
-            >
-              {saveState === "saving" ? "Saving…" : "Save"}
-            </button>
-          </div>
-        )}
+        <div className="ideas-canvas-actions">
+          <span className="ideas-canvas-hint">⌘ + Enter</span>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={saveState === "saving"}
+            disabled={isEdit && saveState !== "dirty"}
+            onClick={isEdit ? flushSave : handleCreate}
+          >
+            Save
+          </Button>
+        </div>
       </div>
 
       {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
@@ -479,19 +464,19 @@ function IdeaMenu({
 
   return (
     <div className="ideas-canvas-menu" ref={rootRef}>
-      <button
-        type="button"
-        className="ideas-canvas-menu-trigger"
-        onClick={() => setOpen((v) => !v)}
+      <IconButton
+        variant="ghost"
+        size="sm"
         aria-label="More actions"
         aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
           <circle cx="3" cy="8" r="1.4" />
           <circle cx="8" cy="8" r="1.4" />
           <circle cx="13" cy="8" r="1.4" />
         </svg>
-      </button>
+      </IconButton>
       {open && (
         <div className="ideas-canvas-menu-popover" role="menu">
           <button
@@ -510,8 +495,8 @@ function IdeaMenu({
 
 function SaveIndicator({ state }: { state: SaveState }) {
   const label =
-    state === "pending"
-      ? "Editing…"
+    state === "dirty"
+      ? "Edited — unsaved"
       : state === "saving"
         ? "Saving…"
         : state === "saved"
