@@ -1,47 +1,39 @@
 ---
 name: create-idea
-tags: [skill, idea]
+tags: [skill, meta, idea]
 description: How to capture knowledge, skills, and context as a persistent tagged idea.
 ---
 
 # Skill: create an idea
 
-Ideas are AEQI's long-term memory. Anything worth remembering across sessions — facts, conventions, skills, user preferences, project context, reusable workflows — goes here.
+Ideas are AEQI's long-term memory. Facts, conventions, skills, user preferences, project context, reusable workflows — anything worth remembering across sessions — goes here.
 
 ## Tool
 
 ```
-ideas(action='store', name='<slug>', content='<markdown body>', tags=['tag1', 'tag2'])
+ideas(action='store',
+      name='<stable-slug>',
+      content='<markdown body>',
+      tags=['tag1', 'tag2'],
+      agent_id='<id>')                 // optional; omit for global
 ```
 
-- `name` — stable slug. Snake-case or hyphen-case. Used for exact-match lookup, so make it specific enough to avoid collisions (`aeqi-deploy-script` not `deploy`).
-- `content` — free-form markdown. Can include headings, code blocks, lists. This is what gets surfaced on retrieval, so write for future-you.
-- `tags` — classification. Conventions:
-  - `skill` for reusable how-tos / workflows
-  - `identity` for agent self-definitions
-  - `project:<slug>` for project-scoped context
-  - `promoted` for tested, approved skills (only these surface on `session:quest_start`)
-  - `evergreen` for stable library content
+- `name` — stable slug, snake- or hyphen-case. Used for exact-match lookup, so be specific (`aeqi-deploy-script` not `deploy`).
+- `content` — free-form markdown. Write for future-you.
+- `tags` — classification. Conventions: `skill` (reusable how-tos), `identity` (agent self-definition), `meta` (skills about operating AEQI), `promoted` (approved skills that surface on quest start), `evergreen` (stable library content).
 
-## Good names
+## Other actions
 
-- `skill:*` — like `skill:deploy`, `skill:debug-baileys`
-- subject-verb — `agent-spawn-pattern`, `quest-priority-rubric`
-- avoid generic slugs (`notes`, `memory`) — they collide fast
+- `ideas(action='search', query='<text>', top_k=5, agent_id=<optional>)`.
+- `ideas(action='update', id=<id>, name=?, content=?, tags=?)` — modify an existing idea by id.
+- `ideas(action='delete', id=<id>)`.
 
 ## When to store
 
-- You just discovered how to do something. Write the recipe.
-- The user told you a preference. Persist it.
-- You solved a tricky bug. Capture the fix + the signature.
-- A pattern repeats across three+ conversations. Promote it.
+New fact, recipe, or pattern that repeats across conversations. User preferences. Tricky bug fixes.
 
 ## When NOT to store
 
-- Ephemeral session state (use the transcript).
-- Generic knowledge already in the model's weights.
-- Hallucinated content you didn't verify.
+Ephemeral session state, generic knowledge already in the model, unverified claims.
 
-## After storing
-
-Verify with `ideas(action='search', query='...')` so future-you will actually find it.
+Verify after: `ideas(action='search', query='<something from content>')`.

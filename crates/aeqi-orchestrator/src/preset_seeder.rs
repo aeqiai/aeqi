@@ -348,7 +348,12 @@ pub async fn purge_test_identity_ideas(store: &EventHandlerStore) -> Result<Vec<
 mod tests {
     use super::*;
     use crate::agent_registry::AgentRegistry;
+    use std::sync::Mutex;
     use tempfile::tempdir;
+
+    /// Serialize any test that mutates the shared `AEQI_PRESETS_DIR` env var
+    /// so parallel tests don't trample each other's env setup.
+    static PRESETS_ENV_LOCK: Mutex<()> = Mutex::new(());
 
     async fn setup_store() -> (tempfile::TempDir, EventHandlerStore) {
         let tmp = tempdir().unwrap();
@@ -439,6 +444,8 @@ mod tests {
     async fn seed_preset_ideas_handles_missing_dir() {
         let (_tmp, store) = setup_store().await;
         // Isolate the env so tests don't pick up the repo's own presets dir.
+        // Serialize with other tests that mutate AEQI_PRESETS_DIR.
+        let _guard = PRESETS_ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var("AEQI_PRESETS_DIR", "/nonexistent/path/that/does/not/exist");
         }
@@ -447,6 +454,96 @@ mod tests {
             std::env::remove_var("AEQI_PRESETS_DIR");
         }
         assert!(results.is_empty());
+    }
+
+    /// Founder MVP contract: every vanilla agent must be able to discover
+    /// five meta-ideas that teach it HOW to operate AEQI — how to propose a
+    /// quest, create an event, create an idea, evolve identity, and spawn a
+    /// sub-agent. These live as preset markdown files and seed into the
+    /// global idea store on first boot. If any goes missing, newly-spawned
+    /// agents lose their operating manual silently — this test catches it.
+    #[tokio::test]
+    async fn seed_preset_ideas_installs_five_operating_meta_ideas() {
+        const REQUIRED_META_IDEAS: &[&str] = &[
+            "create-quest",
+            "create-event",
+            "create-idea",
+            "evolve-identity",
+            "spawn-subagent",
+        ];
+
+        let (_tmp, store) = setup_store().await;
+
+        // Point the seeder at the repo's actual presets/ dir via the
+        // workspace root (two levels up from crates/aeqi-orchestrator).
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = manifest_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root resolves from CARGO_MANIFEST_DIR");
+        let presets_dir = repo_root.join("presets");
+        assert!(
+            presets_dir.join("seed_ideas").is_dir(),
+            "expected seed_ideas dir at {}/seed_ideas",
+            presets_dir.display(),
+        );
+
+        let _guard = PRESETS_ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("AEQI_PRESETS_DIR", &presets_dir);
+        }
+        let results = seed_preset_ideas(&store).await.unwrap();
+        unsafe {
+            std::env::remove_var("AEQI_PRESETS_DIR");
+        }
+
+        // Every required meta-idea must be Inserted (fresh DB) AND in the DB
+        // so future assembly / search can surface it.
+        for required in REQUIRED_META_IDEAS {
+            let seen = results.iter().any(|r| r.name == *required);
+            assert!(
+                seen,
+                "seed_preset_ideas did not process required meta-idea '{required}'; \
+                 results: {:?}",
+                results.iter().map(|r| &r.name).collect::<Vec<_>>(),
+            );
+
+            let db = store.db.lock().await;
+            let present: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                    rusqlite::params![required],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            assert_eq!(
+                present, 1,
+                "meta-idea '{required}' must land in the global idea store \
+                 exactly once (agent_id IS NULL)"
+            );
+        }
+
+        // Bonus: each of the five meta-ideas should carry the `meta` tag so
+        // operators can list them together via ideas(action='search', tags=['meta']).
+        for required in REQUIRED_META_IDEAS {
+            let db = store.db.lock().await;
+            let has_meta_tag: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM idea_tags t \
+                     JOIN ideas i ON i.id = t.idea_id \
+                     WHERE i.name = ?1 AND t.tag = 'meta'",
+                    rusqlite::params![required],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            assert_eq!(
+                has_meta_tag, 1,
+                "meta-idea '{required}' must be tagged 'meta' so it's \
+                 discoverable as an operating skill"
+            );
+        }
     }
 
     #[tokio::test]

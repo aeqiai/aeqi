@@ -1,62 +1,35 @@
 ---
 name: manage-tools
-tags: [skill, tools]
-description: How to configure per-agent tool allow/deny lists — the capability scoping layer.
+tags: [skill, meta, tools]
+description: How tool capability scoping works — allow lists, deny lists, and the ancestor merge.
 ---
 
 # Skill: manage tools
 
-Every agent has a tool configuration. By default they inherit the runtime's ambient tools (ideas, quests, agents, events, shell, file_edit, ...). Scope them tighter when risk or focus demands it.
+Every agent has a tool configuration: an allow list (opt-in), a deny list (subtractive), and the ambient registry as defaults. Scope tools tighter when risk or focus demands it.
 
-## Shapes
+## Where it's set
 
-On agent creation or update:
+Tool scope is operator-owned — the LLM does not mutate allow/deny directly. It's configured via:
 
-```
-agents(action='update', id=<id>,
-       tool_allow=['ideas.*', 'quests.*'],     # opt-in list (narrow)
-       tool_deny=['shell.*', 'file_edit.*'])    # deny-list (subtractive)
-```
+- **Template frontmatter** (`agents/<name>/agent.md`) — `tool_allow:` / `tool_deny:` become the spawned agent's defaults.
+- **Ideas** — any assembled idea may carry `tool_allow` / `tool_deny` hints, scope-bounded to when the idea is present.
+- **Host UI / daemon config** — the Settings pane exposes per-agent allow/deny.
 
-Wildcards: `ideas.*` matches `ideas.search`, `ideas.store`, `ideas.assemble`.
+To propose a scope change as an agent, store an idea describing the desired scope and flag the operator in your reply.
 
-## Allow vs deny
+## Merge semantics
 
-- **`tool_allow`** is an allowlist. Non-empty allow = ONLY those tools available. Use when you want a tightly-scoped agent (e.g. research-only, no side effects).
-- **`tool_deny`** subtracts from whatever's allowed. Use for targeted removal (e.g. a production-facing agent with shell denied).
-- Both can apply. Allow is evaluated first; deny trims from the result.
-
-## Merge semantics up the ancestor chain
-
-A child agent's effective tool set is:
-
-1. Runtime defaults (all registered tools)
-2. Intersected with parent allow (if any), minus parent deny
-3. Intersected with own allow (if any), minus own deny
-
-So children can only *narrow* from the parent — never expand.
+Child effective set = runtime registry ∩ parent's effective set − each level's deny. Children only narrow — never expand.
 
 ## Patterns
 
-**Read-only agent:**
-```
-tool_allow=['ideas.search', 'quests.list', 'quests.get', 'agents.get', 'events.list']
-```
-
-**Creative writing agent (no runtime mutations):**
-```
-tool_deny=['shell.*', 'file_edit.*', 'quests.create', 'quests.close']
-```
-
-**Ops bot (scheduled, narrow tool set):**
-```
-tool_allow=['shell.run', 'ideas.store', 'events.emit']
-```
+- Read-only: `tool_allow = [ideas, quests]`.
+- Creative writing: `tool_deny = [shell, code]`.
+- Scheduled ops bot: `tool_allow = [shell, ideas, events]`.
 
 ## Observability
 
-Denied tool calls fire `guardrail:violation` events. Connect that pattern to `transcript.inject` to let the LLM see why a call was rejected, or to `session.spawn` to escalate.
+Denied calls emit `guardrail:violation`. Wire an event on that pattern to surface a hint so the model sees why.
 
-## Principle
-
-Tool scope is the primary safety layer. It's cheaper and more legible than training an agent to "be careful" with omnipotent capabilities.
+Tool scope is the primary safety layer — cheaper than training "be careful".

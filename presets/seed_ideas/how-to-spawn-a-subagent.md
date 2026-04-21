@@ -1,55 +1,35 @@
 ---
 name: spawn-subagent
-tags: [skill, agent]
+tags: [skill, meta, agent]
 description: How to create a child agent to handle a bounded sub-goal or specialization.
 ---
 
 # Skill: spawn a sub-agent
 
-Sub-agents are how AEQI scales one conversation into a team. Spawn one when a sub-problem has a clear deliverable, specialized tool needs, or a distinct persona.
+Sub-agents scale one conversation into a team. Spawn one when a sub-problem has a clear deliverable, a distinct persona, or a specialized tool footprint.
 
-## Creating a persistent sub-agent
-
-Persistent agents live in the registry across sessions. Create with:
+## Persistent sub-agent — `agents.hire`
 
 ```
-agents(action='create',
-       name='<name>',
-       parent=<your-id>,
-       identity_idea='<idea-slug>',
-       tools={allow: [...], deny: [...]})
+agents(action='hire',
+       template='<template-dir-name>',     // e.g. 'leader', 'researcher', 'reviewer'
+       parent_id='<your-agent-id>')        // defaults to caller
 ```
 
-Or via the UI: Create Agent modal picks identity from ideas tagged `identity`.
+Templates live as `agents/<name>/agent.md` — a markdown file with frontmatter (name, role, runtime) plus the system content. The template defines the agent's identity at hire time; tools are inherited from the parent unless narrowed (see `manage-tools`).
 
-The `identity_idea` field points at an idea — that idea becomes the agent's always-on system context. Use existing ideas like `vanilla-assistant`, `leader`, or create a new identity via the `evolve-identity` skill.
+After hiring, the new agent appears in `agents(action='list')` and you can delegate via `quests(action='create', agent='<new-agent-name>', ...)`.
 
-## Spawning an ephemeral session
+## Ephemeral session — `session.spawn` (event tool)
 
-For a one-shot sub-task, spawn an ephemeral session instead of a persistent agent:
-
-```
-session.spawn(agent: '<name>', seed: '<initial prompt>')
-```
-
-These are cheap, disposable, and great for:
-- Compaction (context:budget:exceeded)
-- Single-turn research questions
-- Parallel fan-out where each branch produces one artifact
+For a one-shot sub-task fired from an event: `{tool: 'session.spawn', args: {agent: '<name>', seed: '<initial prompt>'}}`. Cheap, disposable — great for compaction (`context:budget:exceeded`) or single-turn research.
 
 ## Parent/child mechanics
 
-- Child agents inherit the parent's tool allow-list unless overridden.
-- Children see parent-scoped ideas via the ancestor walk in idea assembly.
-- Quests can be assigned to any agent in your subtree.
-- Closing a parent does NOT close its children; handle explicitly.
+- Children inherit the parent's tool allow-list; can only narrow.
+- Assign work via `quests(action='create', agent='<child>', ...)`.
+- Retire with `agents(action='retire', agent='<name>')`.
 
 ## When NOT to spawn
 
-- The sub-problem is one tool call. Just call the tool.
-- You'd spawn "another you". Agents are for specialization, not multiplication.
-- The parent already has the context and tools. Spawning just adds latency.
-
-## After spawning
-
-Watch `quests(action='list', root=<child-id>)` to see what they're working on. Use `events(...)` on the child to set up its own rituals.
+The sub-problem is one tool call. You'd spawn "another you". The parent already has the context. Use sub-agents for specialization, not multiplication.

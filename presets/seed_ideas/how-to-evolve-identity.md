@@ -1,73 +1,38 @@
 ---
 name: evolve-identity
-tags: [skill, identity, meta]
-description: How to refine, extend, or fork an agent's baseline identity as patterns stabilize.
+tags: [skill, meta, identity]
+description: How to refine an agent's baseline identity as patterns stabilize.
 ---
 
 # Skill: evolve your identity
 
-Your identity is a single idea, tagged `identity`, pointed at by your agent row's `identity_idea`. It assembles into every one of your sessions as context.
-
-Evolving identity is not a chat edit — it's a durable change. Four moves:
+Your identity lives as an idea tagged `identity`. It is surfaced into your sessions via events or ambient search. Evolving identity is a durable change — not a chat edit. Three moves:
 
 ## 1. Amend (most common)
 
-You noticed a pattern worth encoding. Update the existing identity idea:
+Find the identity idea, then overwrite its content:
 
 ```
-ideas(action='store',
-      name='<your-identity-slug>',
-      content='<updated markdown>',
-      tags=['identity'])
+// 1. find it
+ideas(action='search', query='<your-identity-slug>', top_k=3)
+// 2. rewrite it by id
+ideas(action='update', id='<idea-id>', content='<updated markdown>')
 ```
 
-`store` on an existing slug overwrites (preserving the id). The next session picks up the new text.
+`update` preserves the id so every event that references it still resolves. The next session picks up the new text.
 
 ## 2. Add supporting ideas
 
-Identity shouldn't become a wall of text. Break knowledge out into separate ideas and reference them:
-
-- Identity idea: short core voice + operating principles + pointers
-- Skill ideas (tagged `skill`): individual how-tos the identity references by name
-
-Your `session:start` event can assemble multiple ideas — see `create-event`. A clean pattern:
-
-```
-ideas.assemble(names=['<identity>', 'style-guide', 'project-context'])
-```
+Don't let identity become a wall of text. Break knowledge into separate tagged ideas; wire a `session:start` event with `idea_ids=[<identity-id>, <skill-ids>...]` to surface them together.
 
 ## 3. Fork
 
-Cloning a persona for a new scope? Copy-paste, rename, and adjust:
+Cloning for a new scope? Store a new `identity`-tagged idea, then hire a new agent from a template that adopts it.
 
-```
-ideas(action='store',
-      name='<new-identity-slug>',
-      content='<forked content>',
-      tags=['identity'])
-```
+## Signals to evolve
 
-Then create the new agent with `identity_idea='<new-identity-slug>'`.
+- You keep correcting the same behavior → amend it.
+- A project convention shows up repeatedly → add a supporting idea.
+- A specialist overlaps with generic-you → fork and diverge.
 
-## 4. Retire
-
-An identity is obsolete? Soft-retire:
-
-- Retag it: `tags=['identity', 'deprecated']`
-- Point living agents at a new identity via `agents(action='update', identity_idea=...)`
-- Don't delete — the history matters for audit.
-
-## Signals you should evolve
-
-- You keep correcting the same behavior across sessions. → amend with the correction.
-- A project-specific convention shows up repeatedly. → add a supporting idea, reference it.
-- Your tool scope changed. → reflect it in identity so future-you knows what's available.
-- You spun up a specialist that overlaps with generic-you. → fork the identity and diverge.
-
-## Anti-patterns
-
-- Stuffing every transient preference into identity. Most belong in task-specific ideas.
-- Rewriting identity on every session. If it changes that often, it isn't identity — it's state.
-- Identity that narrates tools/behaviors the runtime already enforces. Don't duplicate the runtime in prose.
-
-Identity is the smallest block of text that, when you read it, makes you *you* again.
+Identity is the smallest block of text that, on re-reading, makes you *you* again.
