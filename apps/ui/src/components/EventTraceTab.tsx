@@ -224,14 +224,12 @@ export default function EventTraceTab({ sessionId }: Props) {
 
   if (!sessionId) {
     return (
-      <div
-        style={{
-          padding: "20px 28px",
-          color: "var(--text-muted)",
-          fontSize: "var(--font-size-sm)",
-        }}
-      >
-        Select a session to view its event invocation trace.
+      <div style={{ padding: "20px 28px" }}>
+        <EmptyState
+          eyebrow="Trace"
+          title="No session selected"
+          description="Pick a session from the inbox to see which events it fired, their steps, and where time went."
+        />
       </div>
     );
   }

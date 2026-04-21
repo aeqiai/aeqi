@@ -68,7 +68,7 @@ describe("EventTraceTab smoke", () => {
         <EventTraceTab sessionId="" />
       </StrictMode>,
     );
-    expect(screen.getByText(/select a session/i)).toBeInTheDocument();
+    expect(screen.getByText(/no session selected/i)).toBeInTheDocument();
   });
 
   it("renders invocation rows after loading", async () => {
