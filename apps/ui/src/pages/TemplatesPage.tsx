@@ -159,8 +159,6 @@ export default function TemplatesPage() {
 
             {loading ? (
               <div className="tpl-status">Loading templates...</div>
-            ) : templates.length === 0 ? (
-              <div className="tpl-status">No templates available yet.</div>
             ) : (
               <div className="tpl-grid" role="list">
                 {templates.map((tpl) => {
