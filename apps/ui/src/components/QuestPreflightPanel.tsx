@@ -137,7 +137,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                       justifyContent: "space-between",
                     }}
                   >
-                    <span>System prompt</span>
+                    <span>Assembled context</span>
                     <span style={{ fontWeight: 400 }}>{charCount.toLocaleString()} chars</span>
                   </div>
                   <pre

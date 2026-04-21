@@ -279,7 +279,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
               justifyContent: "space-between",
             }}
           >
-            <span>Assembled system prompt</span>
+            <span>Assembled context</span>
             <button
               onClick={handleCopy}
               style={{
