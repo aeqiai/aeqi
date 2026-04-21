@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import AgentAvatar from "./AgentAvatar";
 import Wordmark from "./Wordmark";
-import { EmptyState, Panel } from "./ui";
+import { Button, EmptyState, Panel } from "./ui";
 import type { Agent } from "@/lib/types";
 
 const NO_AGENTS: Agent[] = [];
@@ -66,12 +66,18 @@ export default function HomeDashboard() {
         {name && <p className="home-name">{name}</p>}
       </header>
 
-      <button type="button" className="home-cta" onClick={() => navigate("/new")}>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        className="home-cta"
+        onClick={() => navigate("/new")}
+      >
         <span className="home-cta-label">{ctaLabel}</span>
         <span className="home-cta-arrow" aria-hidden>
           →
         </span>
-      </button>
+      </Button>
 
       <Panel
         title="Autonomous companies"

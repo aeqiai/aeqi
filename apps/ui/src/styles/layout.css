@@ -3947,37 +3947,18 @@
   color: var(--text-secondary);
 }
 
-/* Primary CTA — the one decision this page exists to capture. Full-width
-   accent slab with a single arrow glyph on the right; expands/contracts
-   on hover so the affordance reads as "push through, land on the flow." */
+/* Primary CTA — the one decision this page exists to capture. Hero-sized
+   modifier on top of <Button variant="primary" size="lg" fullWidth>:
+   the primitive owns color, border, focus-ring, disabled, press; this
+   modifier only reshapes it into a full-width slab with a label/arrow
+   split so the affordance reads as "push through, land on the flow." */
 .home-cta {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  width: 100%;
-  padding: 20px 24px;
-  background: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  color: var(--bg-base);
-  font: inherit;
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  letter-spacing: -0.005em;
+  height: auto;
+  padding: var(--space-5) var(--space-6);
   text-align: left;
-  cursor: pointer;
-  transition:
-    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.16s,
-    filter 0.16s;
-}
-.home-cta:hover,
-.home-cta:focus-visible {
-  outline: none;
-  filter: brightness(1.05);
-  box-shadow: 0 6px 20px -12px color-mix(in oklch, var(--color-accent) 70%, transparent);
-  transform: translateY(-1px);
+  letter-spacing: -0.005em;
 }
 .home-cta:hover .home-cta-arrow,
 .home-cta:focus-visible .home-cta-arrow {
@@ -3987,14 +3968,14 @@
   min-width: 0;
 }
 .home-cta-arrow {
-  font-size: 18px;
+  font-size: var(--font-size-xl);
   line-height: 1;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--transition-normal);
 }
 
 .home-panel-count {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs, 10px);
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.08em;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -4024,7 +4005,7 @@
   text-align: left;
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: background 0.12s;
+  transition: background var(--transition-fast);
 }
 .home-company:hover,
 .home-company:focus-visible {
@@ -4044,16 +4025,16 @@
 }
 .home-company-meta {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs, 10px);
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .home-company-arrow {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   color: var(--text-muted);
   transition:
-    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.18s;
+    transform var(--transition-normal),
+    color var(--transition-normal);
 }
