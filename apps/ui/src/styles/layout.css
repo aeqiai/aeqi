@@ -240,7 +240,11 @@
 }
 .sidebar-nav-item.no-icon .sidebar-nav-label {
   font-family: var(--font-brand);
-  font-size: 15px;
+  /* Primitives are a continuation of the æqi wordmark above, so they
+     must stay subordinate to it — brand sits at 18px, primitives at
+     13px.  Never raise above 16px; if they outweigh the wordmark the
+     rail stops reading as a brand axis and starts reading as nav. */
+  font-size: 13px;
   font-weight: 400;
   letter-spacing: -0.01em;
   line-height: 1;
