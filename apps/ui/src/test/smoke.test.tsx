@@ -3,7 +3,6 @@ import { StrictMode } from "react";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
-import DashboardHome from "@/components/DashboardHome";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
@@ -107,77 +106,6 @@ describe("AgentQuestsTab smoke", () => {
         <MemoryRouter initialEntries={["/root-1/quests"]}>
           <Routes>
             <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-  });
-});
-
-describe("DashboardHome smoke", () => {
-  beforeEach(() => {
-    // Reset daemon store to defaults so tests are isolated.
-    useDaemonStore.setState({
-      status: null,
-      dashboard: null,
-      cost: null,
-      agents: [],
-      quests: [],
-      events: [],
-      workerEvents: [],
-      wsConnected: false,
-      loading: false,
-      initialLoaded: false,
-    });
-  });
-
-  it("renders with empty store state", () => {
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/root-1"]}>
-          <Routes>
-            <Route path=":agentId/*" element={<DashboardHome />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-  });
-
-  it("renders with populated agents/quests/events", () => {
-    useDaemonStore.setState({
-      agents: [
-        {
-          id: "root-1",
-          name: "root-1",
-          display_name: "Root",
-          model: "opus",
-          status: "active",
-          parent_id: null,
-        },
-        {
-          id: "child-1",
-          name: "child-1",
-          display_name: "Child",
-          model: "sonnet",
-          status: "idle",
-          parent_id: "root-1",
-        },
-      ] as never,
-      quests: [
-        { id: "q1", status: "in_progress" },
-        { id: "q2", status: "blocked" },
-        { id: "q3", status: "done" },
-      ],
-      cost: { spent_today_usd: 1.5, daily_budget_usd: 10 },
-      events: [],
-    });
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/root-1"]}>
-          <Routes>
-            <Route path=":agentId/*" element={<DashboardHome />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

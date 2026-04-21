@@ -1,211 +1,7 @@
-.welcome {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100%;
-  padding: 48px 24px;
-}
+/* Styles for the /new page (root company creation + sub-agent spawn).
+   The former /welcome landing was retired — HomeDashboard owns `/` now —
+   so every `.welcome-*` selector was dead code and is gone. */
 
-.welcome-inner {
-  width: 100%;
-  max-width: 480px;
-}
-
-/* Identity block — avatar + name + tagline inline */
-.welcome-identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-.welcome-identity-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.welcome-name {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  border-radius: var(--radius-sm);
-  transition: background 0.1s;
-}
-.welcome-name:hover {
-  background: var(--bg-row);
-}
-.welcome-sub {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-  cursor: pointer;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  border-radius: var(--radius-sm);
-  transition: background 0.1s;
-}
-.welcome-sub:hover {
-  background: var(--bg-row);
-}
-
-.welcome-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.welcome-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.welcome-card:hover {
-  background: var(--bg-row);
-}
-
-.welcome-card-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-.welcome-card:hover .welcome-card-icon {
-  color: var(--text-secondary);
-  border-color: var(--border-hover);
-}
-
-.welcome-card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.welcome-card-body h3 {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.welcome-card-body p {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 2px 0 0;
-  line-height: 1.3;
-}
-
-.welcome-card-arrow {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all 0.15s;
-}
-
-.welcome-card:hover .welcome-card-arrow {
-  opacity: 1;
-  transform: translateX(0);
-  color: var(--text-secondary);
-}
-
-/* Secondary nav — compact 4-column grid */
-.welcome-grid-secondary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
-  margin-top: 8px;
-}
-
-.welcome-card-sm {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 8px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.welcome-card-sm:hover {
-  background: var(--bg-row);
-}
-
-.welcome-card-icon-sm {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-}
-.welcome-card-sm:hover .welcome-card-icon-sm {
-  color: var(--text-secondary);
-}
-
-.welcome-card-label-sm {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.welcome-card-sm:hover .welcome-card-label-sm {
-  color: var(--text-secondary);
-}
-
-.welcome-new-co {
-  margin-top: 8px;
-  padding: 10px 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.12s;
-  width: 100%;
-  text-align: left;
-}
-.welcome-new-co:hover {
-  color: var(--text-secondary);
-  border-color: var(--border-hover);
-}
-
-.welcome-footer {
-  margin-top: 40px;
-  text-align: center;
-}
-.welcome-footer p {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.6;
-}
-.welcome-link {
-  color: var(--text-muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.welcome-link:hover {
-  color: var(--text-secondary);
-}
-
-/* New agent page */
 @keyframes ws-fade-in {
   from {
     opacity: 0;
@@ -216,6 +12,7 @@
     transform: translateY(0);
   }
 }
+
 .new-co-page {
   display: flex;
   align-items: center;
@@ -383,26 +180,6 @@
   margin-top: 12px;
 }
 
-.welcome-footer {
-  margin-top: 32px;
-  text-align: center;
-}
-
-.welcome-footer p {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.5;
-}
-.welcome-link {
-  color: var(--text-muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.welcome-link:hover {
-  color: var(--text-secondary);
-}
-
 /* ── Sub-agent spawn page (/new?parent=…) ─────────────────────────── */
 
 /* Wider container than the root form — the identity grid + prompt override
@@ -534,26 +311,4 @@
 .new-sub-cancel:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.welcome-getting-started {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  background: var(--state-hover);
-  border-radius: 12px;
-}
-.welcome-getting-started-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-.welcome-getting-started-hint {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
 }
