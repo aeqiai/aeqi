@@ -91,21 +91,36 @@ export default function DashboardHome() {
     <div className="dash-home">
       {/* Quick stats */}
       <div className="dash-home-stats">
-        <div className="dash-stat">
+        <button
+          type="button"
+          className="dash-stat"
+          onClick={() => activeRoot && goAgent(activeRoot, "agents")}
+          disabled={!activeRoot}
+        >
           <span className="dash-stat-value">{activeAgentCount}</span>
           <span className="dash-stat-label">Agents Online</span>
-        </div>
-        <div className="dash-stat">
+        </button>
+        <button
+          type="button"
+          className="dash-stat"
+          onClick={() => activeRoot && goAgent(activeRoot, "quests")}
+          disabled={!activeRoot}
+        >
           <span className="dash-stat-value">{activeQuests.length}</span>
           <span className="dash-stat-label">Active Quests</span>
-        </div>
-        <div className="dash-stat">
+        </button>
+        <button
+          type="button"
+          className="dash-stat"
+          onClick={() => activeRoot && goAgent(activeRoot, "quests")}
+          disabled={!activeRoot}
+        >
           <span className={`dash-stat-value${blockedQuests.length > 0 ? " dash-stat-warn" : ""}`}>
             {blockedQuests.length}
           </span>
           <span className="dash-stat-label">Blocked</span>
-        </div>
-        <div className="dash-stat">
+        </button>
+        <div className="dash-stat is-static">
           <span className="dash-stat-value">{formatUsd(spent)}</span>
           <span className="dash-stat-label">Usage Today</span>
         </div>
