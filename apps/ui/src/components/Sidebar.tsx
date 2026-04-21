@@ -219,7 +219,7 @@ function RootRow({
   return (
     <div className={styles.node}>
       <div
-        className={`${isSelectedRow ? styles.rowActive : styles.row} ${styles.rootRow}`}
+        className={isSelectedRow ? styles.rowActive : styles.row}
         onClick={() =>
           onSelectAgent({
             id: agent.id,

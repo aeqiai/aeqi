@@ -42,7 +42,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .node {
@@ -53,7 +53,7 @@
 .children {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .empty {
@@ -63,10 +63,16 @@
   text-align: center;
 }
 
-/* Agent row — shares --sidebar-row-h rhythm with .sidebar-nav-item */
+/* Agent row — shares --sidebar-row-h rhythm with .sidebar-nav-item.
+ *
+ * Rows are flush-left (padding-left 8) regardless of depth; the visual
+ * indent comes from rail columns inserted before the chevron. The rail
+ * columns are 18px wide — identical to the chevron column — so every
+ * vertical connector is perfectly under the parent's chevron at the
+ * depth above. */
 .row {
   min-height: var(--sidebar-row-h);
-  padding: 0 8px 0 4px;
+  padding: 0 8px;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: transparent;
@@ -75,7 +81,6 @@
     background 0.1s ease,
     color 0.1s ease;
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
   border-radius: var(--radius-md);
   display: flex;
@@ -93,17 +98,13 @@
   font-weight: 500;
 }
 
-/* Root rows sit flush-left and don't participate in the rail system. */
-.rootRow {
-  padding-left: 8px;
-}
-
-/* Rail columns — each ancestor depth contributes one 14px column.
-   Center line sits at x = 7px so connectors line up perfectly. */
+/* Rail columns — one per ancestor depth. Each is 18px wide (matches the
+   chevron column); the vertical line sits at x=9 so it's precisely
+   below the chevron of the node at that depth. */
 .guideLine,
 .guideGap,
 .connector {
-  width: 14px;
+  width: 18px;
   flex-shrink: 0;
   position: relative;
   align-self: stretch;
@@ -113,18 +114,19 @@
 .guideLine::before {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   top: 0;
   bottom: 0;
   width: 1px;
   background: var(--border);
 }
 
-/* Middle child — tee: line runs through top-to-bottom with an outbound stub. */
+/* Middle child — tee: line runs top-to-bottom, with a horizontal tick
+   reaching out toward the chevron. */
 .connectorMid::before {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   top: 0;
   bottom: 0;
   width: 1px;
@@ -133,32 +135,50 @@
 .connectorMid::after {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   right: 0;
   top: 50%;
   height: 1px;
   background: var(--border);
 }
 
-/* Last child — elbow: line runs top → middle, then outbound stub. */
+/* Last child — elbow: line runs top to midpoint, then out. A small
+   border-radius at the corner softens the elbow. */
 .connectorEnd::before {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   top: 0;
   height: calc(50% + 0.5px);
   width: 1px;
   background: var(--border);
-  border-bottom-left-radius: 3px;
+  border-bottom-left-radius: 5px;
 }
 .connectorEnd::after {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   right: 0;
   top: 50%;
   height: 1px;
   background: var(--border);
+}
+
+/* Parent stub — every expanded parent drops a 1px line from directly
+   below its chevron down to the top of its first child. With aligned
+   rail columns (chevron center == rail-line x), this stub visually
+   continues straight into the first child's connector, so the tree
+   reads as one unbroken descent instead of isolated scattered ticks. */
+.collapseBtn[aria-expanded="true"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 9px);
+  width: 1px;
+  height: 10px;
+  background: var(--border);
+  transform: translateX(-0.5px);
+  pointer-events: none;
 }
 
 /* Hairline brightens on row hover to reinforce the connection. */
@@ -191,6 +211,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
+  position: relative;
   background: transparent;
   border: 0;
   border-radius: 4px;
