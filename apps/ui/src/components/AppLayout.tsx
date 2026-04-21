@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
-import { Navigate, useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
@@ -40,6 +40,7 @@ function findRoot(agents: Agent[], id: string): Agent | null {
  */
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searching, setSearching] = useState(false);
 
   const {
@@ -82,7 +83,12 @@ export default function AppLayout() {
   }, [fetchAll, rootId]);
   useDaemonSocket();
 
-  // ⌘K / Ctrl+K command palette.
+  // Global keyboard shortcuts:
+  //   ⌘K / Ctrl+K — command palette
+  //   Esc          — close palette
+  //   N            — spawn a sub-agent under the current agent (skip when
+  //                  typing in an input/textarea, or when modifiers are held,
+  //                  so real text entry is never hijacked).
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
   useEffect(() => {
@@ -91,12 +97,24 @@ export default function AppLayout() {
         e.preventDefault();
         if (searching) closeSearch();
         else openSearch();
+        return;
       }
-      if (e.key === "Escape" && searching) closeSearch();
+      if (e.key === "Escape" && searching) {
+        closeSearch();
+        return;
+      }
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+        if (searching) return;
+        e.preventDefault();
+        navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [searching, openSearch, closeSearch]);
+  }, [searching, openSearch, closeSearch, agentId, navigate]);
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
