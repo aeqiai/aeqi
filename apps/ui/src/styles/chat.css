@@ -122,13 +122,24 @@
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  width: 100%;
   min-height: 48px;
   padding: 8px 12px;
   cursor: pointer;
+  border: 0;
   border-bottom: 1px solid var(--color-border-faint);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   transition: background 0.1s;
 }
 .asv-session-item:hover {
+  background: var(--state-hover);
+}
+.asv-session-item:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -2px;
   background: var(--state-hover);
 }
 /* Active state: a 2px accent bar on the left + the --state-selected

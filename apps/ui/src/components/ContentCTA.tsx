@@ -558,11 +558,13 @@ export default function ContentCTA() {
           return (
             <div key={item.id} className="asv-sidebar-row">
               {showHeader && <div className="asv-sidebar-group-header">{item.group}</div>}
-              <div
+              <button
+                type="button"
                 className={`asv-session-item${item.id === itemId ? " active" : ""}${
                   item.dimmed ? " asv-session-item--disabled" : ""
                 }`}
                 data-status={item.status}
+                aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
                 <div className="asv-session-item-top">
@@ -587,7 +589,7 @@ export default function ContentCTA() {
                     )}
                   </div>
                 )}
-              </div>
+              </button>
             </div>
           );
         })}
