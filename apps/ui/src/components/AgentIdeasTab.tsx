@@ -116,9 +116,13 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       .finally(() => setGraphLoading(false));
   }, [view, agentId]);
 
+  // Graph → detail: push a new history entry so browser-back returns to
+  // the graph view. Using `replace: true` here stranded the user on the
+  // list view after drilling into a node — hitting back wiped the graph
+  // mode entirely.
   const handleGraphSelect = (node: GraphNode | null) => {
     if (!node) return;
-    goAgent(agentId, "ideas", node.id, { replace: true });
+    goAgent(agentId, "ideas", node.id);
   };
 
   // "+ New idea" — compose mode is an explicit search param so the default

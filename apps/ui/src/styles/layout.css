@@ -2994,6 +2994,20 @@
 .ideas-list-group .inline-picker-group-label::first-letter {
   color: var(--accent);
 }
+/* Sticky group heads — long lists stay oriented while scanning.
+   Paper background locks the row so list content scrolls underneath
+   instead of bleeding through. */
+.ideas-list-group .inline-picker-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-top: 16px;
+  padding-bottom: 6px;
+  background: var(--color-paper);
+}
+.ideas-list-group:first-child .inline-picker-group {
+  padding-top: 14px;
+}
 
 /* ──────────────────────────────────────────────────────────────────
    Ideas graph view — same primitive-head as the list above the
@@ -3318,9 +3332,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md);
   z-index: 20;
 }
 .ideas-canvas-menu-item {
@@ -3343,15 +3355,15 @@
   background: var(--bg-base);
 }
 .ideas-canvas-menu-item.danger {
-  color: var(--destructive, #e55);
+  color: var(--destructive);
 }
 .ideas-canvas-menu-item.danger:hover {
-  color: #fff;
-  background: var(--destructive, #e55);
+  color: var(--color-text-on-accent);
+  background: var(--destructive);
 }
 .ideas-canvas-menu-item.danger.confirm {
-  color: #fff;
-  background: var(--destructive, #e55);
+  color: var(--color-text-on-accent);
+  background: var(--destructive);
 }
 .ideas-canvas-title::placeholder {
   color: var(--text-muted);
@@ -3463,7 +3475,7 @@
   margin: 0 1px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  background: var(--bg-subtle);
   color: var(--text-secondary);
   font: inherit;
   font-size: 0.92em;
@@ -3476,7 +3488,7 @@
 }
 .idea-mention:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: var(--border-strong, rgba(0, 0, 0, 0.16));
+  border-color: var(--border-hover);
 }
 .idea-mention-broken {
   border-style: dashed;
@@ -3492,14 +3504,17 @@
   padding: 10px 12px;
   margin: 0.5em 0;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--border-strong, rgba(0, 0, 0, 0.16));
-  border-radius: 6px;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
+  border-left: 3px solid var(--accent-dim);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
   cursor: pointer;
-  transition: border-color 0.12s;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
 }
 .idea-embed:hover {
-  border-color: var(--border-strong, rgba(0, 0, 0, 0.2));
+  border-left-color: var(--accent);
+  background: var(--state-hover);
 }
 .idea-embed-head {
   display: flex;
@@ -3572,7 +3587,7 @@
 }
 .ideas-canvas-error {
   font-size: 11px;
-  color: var(--destructive, #e55);
+  color: var(--destructive);
 }
 
 /* Candidate-skill decision — a marginalia strip. Left accent rule
@@ -3675,7 +3690,7 @@
     transform 0.25s;
 }
 .ideas-canvas-save-indicator.state-dirty {
-  color: var(--text-body);
+  color: var(--text-primary);
 }
 .ideas-canvas-save-indicator.state-dirty .ideas-canvas-save-dot {
   background: var(--accent);
@@ -3804,10 +3819,8 @@
   padding: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
   z-index: 30;
 }
 .ideas-tag-suggest-item {
