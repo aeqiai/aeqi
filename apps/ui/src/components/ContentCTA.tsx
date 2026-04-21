@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import { useAgentDataStore } from "@/store/agentData";
 import { useNav } from "@/hooks/useNav";
-import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { ALL_TOOLS } from "@/lib/tools";
 import type { AgentEvent, Agent, Idea, Quest } from "@/lib/types";
 
@@ -50,7 +48,6 @@ function snippetFor(text: string, query: string, length = 80): string {
 
 // Stable empty-array reference. Returning a fresh `[]` from a Zustand
 // selector on every render triggers React error #185 (infinite update loop).
-const NO_SESSIONS: SessionInfo[] = [];
 const NO_EVENTS: AgentEvent[] = [];
 const NO_CHANNELS: import("@/store/agentData").ChannelEntry[] = [];
 const NO_IDEAS: Idea[] = [];
@@ -70,22 +67,6 @@ interface RailItem {
   dimmed?: boolean;
   /** Session/item status — drives accent-bar color on the row. */
   status?: string;
-  /** Optional group bucket — triggers a group header above the row when the
-   *  bucket changes. Only used by the Inbox rail for date chunks. */
-  group?: string;
-  /** Raw timestamp used to derive the group — kept for sorting. */
-  sortKey?: number;
-}
-
-function recencyBucket(ts: number): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const dayMs = 86_400_000;
-  if (ts >= today) return "Today";
-  if (ts >= today - dayMs) return "Yesterday";
-  if (ts >= today - 7 * dayMs) return "This week";
-  if (ts >= today - 30 * dayMs) return "This month";
-  return "Earlier";
 }
 
 /** Header config: what the "+" button does and what it says. */
@@ -247,14 +228,10 @@ export default function ContentCTA() {
     itemId?: string;
   }>();
   const { goAgent } = useNav();
-  // No tab means Inbox — treat it identically to the "sessions" section so the
-  // rail (session list + "New message" CTA) renders on /:agentId.
+  // Inbox lives in its own left-adjacent threads rail (SessionsRail), so the
+  // right-rail CTA stays on the agent's non-Inbox tabs. If somehow mounted
+  // without a tab, fall through to "sessions" and render empty.
   const section = tab || "sessions";
-
-  // --- Sessions -----------------------------------------------------------
-  const sessions = useChatStore((s) =>
-    section === "sessions" && agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
-  );
 
   // --- Events -------------------------------------------------------------
   const loadEvents = useAgentDataStore((s) => s.loadEvents);
@@ -346,41 +323,6 @@ export default function ContentCTA() {
   let emptyText = "";
 
   switch (section) {
-    case "sessions":
-      header = { label: "New message", event: "aeqi:new-session" };
-      items = sessions
-        // Quest execution sessions belong in the Quests tab, not the Inbox.
-        .filter((s) => s.session_type !== "task")
-        .map((s) => {
-          const n = s.name?.toLowerCase() || "";
-          const badge = n.includes("telegram")
-            ? "TG"
-            : n.includes("whatsapp")
-              ? "WA"
-              : s.session_type === "web"
-                ? "Web"
-                : undefined;
-          const tsRaw = s.last_active || s.created_at;
-          const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
-          const label = sessionLabel(s);
-          const meta =
-            s.message_count != null && s.message_count > 0 ? `${s.message_count}` : undefined;
-          return {
-            id: s.id,
-            name: label,
-            badge,
-            // If the label came from first_message, don't repeat it as preview.
-            preview: undefined,
-            meta,
-            status: s.status,
-            group: ts ? recencyBucket(ts) : "Earlier",
-            sortKey: ts,
-          };
-        })
-        .sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
-      emptyText = "No threads yet. Type below to start one.";
-      break;
-
     case "events":
       header = { label: "New event", event: "aeqi:new-event" };
       items = events.map((ev) => {
@@ -541,7 +483,7 @@ export default function ContentCTA() {
       <div className="asv-sidebar-list">
         {items.length === 0 &&
           emptyText &&
-          (header && section !== "sessions" && emptyText !== "No matches" ? (
+          (header && emptyText !== "No matches" ? (
             <button
               type="button"
               className="asv-sidebar-empty-cta"
@@ -553,46 +495,30 @@ export default function ContentCTA() {
           ) : (
             <div className="asv-sidebar-empty">{emptyText}</div>
           ))}
-        {items.map((item, i) => {
-          const showHeader = !!item.group && (i === 0 || items[i - 1]?.group !== item.group);
-          return (
-            <div key={item.id} className="asv-sidebar-row">
-              {showHeader && <div className="asv-sidebar-group-header">{item.group}</div>}
-              <button
-                type="button"
-                className={`asv-session-item${item.id === itemId ? " active" : ""}${
-                  item.dimmed ? " asv-session-item--disabled" : ""
-                }`}
-                data-status={item.status}
-                aria-current={item.id === itemId ? "true" : undefined}
-                onClick={() => handleSelect(item.id)}
-              >
-                <div className="asv-session-item-top">
-                  <span className="asv-session-item-name">{item.name}</span>
-                  {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
+        {items.map((item) => (
+          <div key={item.id} className="asv-sidebar-row">
+            <button
+              type="button"
+              className={`asv-session-item${item.id === itemId ? " active" : ""}${
+                item.dimmed ? " asv-session-item--disabled" : ""
+              }`}
+              data-status={item.status}
+              aria-current={item.id === itemId ? "true" : undefined}
+              onClick={() => handleSelect(item.id)}
+            >
+              <div className="asv-session-item-top">
+                <span className="asv-session-item-name">{item.name}</span>
+                {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
+              </div>
+              {(item.preview || item.meta) && (
+                <div className="asv-session-item-bottom">
+                  {item.preview && <span className="asv-session-item-preview">{item.preview}</span>}
+                  {item.meta && <span className="asv-session-item-date">{item.meta}</span>}
                 </div>
-                {(item.preview || item.meta) && (
-                  <div className="asv-session-item-bottom">
-                    {item.preview && (
-                      <span className="asv-session-item-preview">{item.preview}</span>
-                    )}
-                    {item.meta && (
-                      <span
-                        className={
-                          section === "sessions"
-                            ? "asv-session-item-count"
-                            : "asv-session-item-date"
-                        }
-                      >
-                        {item.meta}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </button>
-            </div>
-          );
-        })}
+              )}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

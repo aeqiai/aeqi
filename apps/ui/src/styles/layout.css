@@ -440,6 +440,26 @@
   background: transparent;
 }
 
+/* Threads rail — the Inbox's left-adjacent index column. Mirrors
+   .content-cta-col visually but lives between the left sidebar and the
+   content column, with a right-hand hairline instead of a left-hand one. */
+.sessions-rail-col {
+  width: var(--sidebar-panel-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+}
+.sessions-rail-col .asv-sidebar {
+  width: 100%;
+  flex: 1;
+  background: transparent;
+  border-left: none;
+}
+
 /* Composer band — the precision instrument at the bottom of the main
    column. Flat, hairline top border, generous horizontal padding. The
    composer itself spans the column edge-to-edge; no pill, no shadow. */
