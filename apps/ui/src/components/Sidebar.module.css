@@ -74,9 +74,11 @@
   font-weight: 500;
 }
 
-/* Rail columns — one per ancestor depth. Each is 18px wide (matches the
-   chevron column); the SVG glyph inside paints a line at x=9 so it's
-   precisely below the chevron of the node at that depth.
+/* Rail columns — one per ancestor depth. Each is 16px wide (matches the
+   avatar iconSlot and the 16px SVG slot in sidebar-nav-item primitives);
+   the glyph inside paints its trunk at x=8 so every vertical line across
+   the sidebar — rails, stubs, avatar-column axis, primitive-nav icon
+   column — shares the same vertical axis.
 
    `color` drives the SVG stroke via `currentColor`. Default is a muted
    wash of the accent so rest-state rails stay quiet; row hover / active
@@ -84,7 +86,7 @@
 .guideLine,
 .guideGap,
 .connector {
-  width: 18px;
+  width: 16px;
   flex-shrink: 0;
   position: relative;
   align-self: stretch;
@@ -121,9 +123,6 @@
   transform: translateX(-0.5px);
   pointer-events: none;
   transition: background 0.12s ease;
-}
-.iconSlot {
-  position: relative;
 }
 
 /* Light up lineage on hover/active. */
@@ -179,16 +178,20 @@
   color: var(--text-secondary);
 }
 
-/* Brandmark slot — fixed 22px footprint that matches the SVG icon column
-   in .sidebar-nav-item, so the "æ" lines up with Sessions/Quests/Events
-   icons stacked above. */
+/* Avatar slot — 16px footprint, identical to the SVG icon column in
+   .sidebar-nav-item, so the tree's block avatars sit on exactly the
+   same vertical axis as Agents/Events/Quests/Ideas icons above. The
+   avatar graphic inside is also 16px so there's no internal padding —
+   the iconSlot's center is the avatar's center, which is also where
+   the lineage stub and child rails align. */
 .iconSlot {
-  width: 22px;
+  width: 16px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: center;
+  position: relative;
 }
 
 .rowLabel {
@@ -198,7 +201,7 @@
   flex: 1;
   min-width: 0;
   align-self: center;
-  padding-left: 6px;
+  padding-left: 8px;
 }
 
 /* Descendant count pill — only shows when collapsed. */

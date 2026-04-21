@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import AgentAvatar from "./AgentAvatar";
 import BlockAvatar from "./BlockAvatar";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
@@ -101,16 +100,20 @@ function findRootId(agents: Agent[], id: string): string | null {
  * cell stretches to match --sidebar-row-h.
  */
 function RailGlyph({ variant }: { variant: "guide" | "tee" | "elbow" }) {
+  // 16×32 cell. Trunk runs at x=8 (cell center) so it lines up perfectly
+  // with the avatar column above (also 16px, center at 8) and the
+  // primitive-nav icons in sidebar-nav-item (SVG width 16, identical
+  // row-padding). Branch exits to the right edge at x=16.
   const d =
     variant === "guide"
-      ? "M9 0 V32"
+      ? "M8 0 V32"
       : variant === "tee"
-        ? "M9 0 V32 M9 9 Q9 16 16 16 H18"
-        : "M9 0 V9 Q9 16 16 16 H18";
+        ? "M8 0 V32 M8 9 Q8 16 14 16 H16"
+        : "M8 0 V9 Q8 16 14 16 H16";
   return (
     <svg
       className={styles.railSvg}
-      viewBox="0 0 18 32"
+      viewBox="0 0 16 32"
       preserveAspectRatio="none"
       aria-hidden="true"
     >
@@ -318,7 +321,7 @@ function RootRow({
         onKeyDown={onKeyDown}
       >
         <span className={styles.iconSlot}>
-          <AgentAvatar name={label} />
+          <BlockAvatar name={label} size={16} />
         </span>
         <span className={styles.rowLabel}>{label}</span>
         {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
