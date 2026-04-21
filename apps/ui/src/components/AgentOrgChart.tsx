@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "./BlockAvatar";
@@ -84,6 +84,20 @@ export default function AgentOrgChart({
     return info;
   }, [org]);
 
+  // Claim focus on the root card when the chart first mounts — only if
+  // nothing else has grabbed it. Lets keyboard users land here and start
+  // arrow-walking without hunting for the first Tab stop.
+  const chartRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const active = document.activeElement;
+    const claimable = !active || active === document.body || active.tagName === "HTML";
+    if (!claimable) return;
+    const first = el.querySelector<HTMLElement>("[data-agent-id]");
+    first?.focus({ preventScroll: true });
+  }, [parentAgentId]);
+
   if (!org) return null;
 
   const handleSelect = (id: string) => {
@@ -134,7 +148,7 @@ export default function AgentOrgChart({
   };
 
   return (
-    <div className="org-chart" onKeyDown={onKeyDown}>
+    <div className="org-chart" ref={chartRef} onKeyDown={onKeyDown}>
       <div className="org-scroll">
         <OrgNodeView
           node={org}
