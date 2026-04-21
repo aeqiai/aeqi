@@ -126,31 +126,98 @@ pub async fn handle_agent_spawn(
     }
     let cwd = std::env::current_dir().unwrap_or_default();
     let md_path = cwd.join("agents").join(template).join("agent.md");
-    let template_content = std::fs::read_to_string(&md_path).ok();
-    match template_content {
-        Some(content) => {
-            let project = request.get("project").and_then(|v| v.as_str());
-            match ctx
-                .agent_registry
-                .spawn_from_template(&content, project)
-                .await
-            {
-                Ok(agent) => serde_json::json!({
-                    "ok": true,
-                    "agent": {
-                        "id": agent.id,
-                        "name": agent.name,
-                        "display_name": agent.display_name,
-                        "status": agent.status,
-                    }
-                }),
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
-            }
+    let template_content = match std::fs::read_to_string(&md_path) {
+        Ok(c) => c,
+        Err(_) => {
+            return serde_json::json!({"ok": false, "error": format!("template not found: {template}")});
         }
-        None => {
-            serde_json::json!({"ok": false, "error": format!("template not found: {template}")})
+    };
+    spawn_agent_from_content(
+        &ctx.agent_registry,
+        ctx.idea_store.as_ref(),
+        &template_content,
+        request,
+    )
+    .await
+}
+
+/// Handler-inner for `/api/agents/spawn`. Split out so it can be unit-tested
+/// without constructing the full `CommandContext`.
+///
+/// Honours three UI-supplied overrides on top of the base template:
+/// - `parent_id` — attaches the new agent under an existing agent (hierarchy)
+/// - `display_name` — overrides the frontmatter display_name
+/// - `system_prompt` — persisted as an `identity` + `evergreen` idea owned by
+///   the agent, matching the shape used by the company-template spawn path.
+pub(crate) async fn spawn_agent_from_content(
+    registry: &crate::agent_registry::AgentRegistry,
+    idea_store: Option<&std::sync::Arc<dyn aeqi_core::traits::IdeaStore>>,
+    template_content: &str,
+    request: &serde_json::Value,
+) -> serde_json::Value {
+    let parent_id = request
+        .get("parent_id")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let display_name_override = request
+        .get("display_name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let system_prompt_override = request
+        .get("system_prompt")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let mut agent = match registry
+        .spawn_from_template(template_content, parent_id)
+        .await
+    {
+        Ok(a) => a,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let mut warnings: Vec<String> = Vec::new();
+
+    if let Some(name) = display_name_override {
+        match registry.update_display_name(&agent.id, Some(name)).await {
+            Ok(()) => agent.display_name = Some(name.to_string()),
+            Err(err) => warnings.push(format!("display_name update failed: {err}")),
         }
     }
+
+    if let Some(prompt) = system_prompt_override {
+        match idea_store {
+            Some(store) => {
+                let label = agent.display_name.as_deref().unwrap_or(&agent.name);
+                let idea_name = format!("Persona — {label}");
+                let tags = vec!["identity".to_string(), "evergreen".to_string()];
+                if let Err(err) = store
+                    .store(&idea_name, prompt, &tags, Some(&agent.id))
+                    .await
+                {
+                    warnings.push(format!("identity idea store failed: {err}"));
+                }
+            }
+            None => {
+                warnings.push("system_prompt ignored: idea store unavailable".to_string());
+            }
+        }
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "agent": {
+            "id": agent.id,
+            "name": agent.name,
+            "display_name": agent.display_name,
+            "parent_id": agent.parent_id,
+            "status": agent.status,
+        },
+        "warnings": warnings,
+    })
 }
 
 pub async fn handle_agent_set_status(
@@ -450,5 +517,133 @@ pub async fn handle_resolve_approval(
     {
         Ok(()) => serde_json::json!({"ok": true}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agent_registry::AgentRegistry;
+    use std::sync::Arc;
+
+    const LEADER_TEMPLATE: &str =
+        "---\nname: leader\nmodel: anthropic/claude-sonnet-4.6\n---\n\nYou are a leader.";
+
+    async fn test_registry() -> AgentRegistry {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_path_buf();
+        std::mem::forget(dir);
+        AgentRegistry::open(&path).unwrap()
+    }
+
+    fn test_idea_store() -> Arc<dyn aeqi_core::traits::IdeaStore> {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("ideas.db");
+        std::mem::forget(dir);
+        Arc::new(aeqi_ideas::SqliteIdeas::open(&db_path, 30.0).unwrap())
+    }
+
+    #[tokio::test]
+    async fn spawn_agent_honours_parent_id_display_name_and_system_prompt() {
+        let registry = test_registry().await;
+        let idea_store = test_idea_store();
+
+        let root = registry
+            .spawn("company", None, None, None)
+            .await
+            .expect("root spawn");
+
+        let request = serde_json::json!({
+            "template": "leader",
+            "parent_id": root.id,
+            "display_name": "CEO",
+            "system_prompt": "You are the CEO. Decisive, restrained.",
+        });
+
+        let resp =
+            spawn_agent_from_content(&registry, Some(&idea_store), LEADER_TEMPLATE, &request).await;
+
+        assert_eq!(resp.get("ok").and_then(|v| v.as_bool()), Some(true));
+        let warnings = resp
+            .get("warnings")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+        let agent_json = resp.get("agent").expect("agent block");
+        let new_id = agent_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            agent_json.get("parent_id").and_then(|v| v.as_str()),
+            Some(root.id.as_str()),
+            "parent_id must flow through to the DB row"
+        );
+        assert_eq!(
+            agent_json.get("display_name").and_then(|v| v.as_str()),
+            Some("CEO"),
+            "display_name override must be persisted"
+        );
+
+        let identity_ideas = idea_store
+            .ideas_by_tags(&["identity".to_string()], 50)
+            .await
+            .unwrap();
+        assert!(
+            identity_ideas
+                .iter()
+                .any(|i| i.agent_id.as_deref() == Some(new_id.as_str())),
+            "system_prompt override must be persisted as an identity idea \
+             owned by the new agent; got {:?}",
+            identity_ideas
+                .iter()
+                .map(|i| (&i.name, &i.agent_id))
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_agent_without_overrides_still_succeeds() {
+        let registry = test_registry().await;
+        let idea_store = test_idea_store();
+
+        let request = serde_json::json!({ "template": "leader" });
+        let resp =
+            spawn_agent_from_content(&registry, Some(&idea_store), LEADER_TEMPLATE, &request).await;
+
+        assert_eq!(resp.get("ok").and_then(|v| v.as_bool()), Some(true));
+        let agent_json = resp.get("agent").expect("agent block");
+        assert_eq!(
+            agent_json.get("name").and_then(|v| v.as_str()),
+            Some("leader")
+        );
+        assert!(agent_json.get("parent_id").is_some_and(|v| v.is_null()));
+    }
+
+    #[tokio::test]
+    async fn spawn_agent_warns_when_system_prompt_given_but_no_idea_store() {
+        let registry = test_registry().await;
+
+        let request = serde_json::json!({
+            "template": "leader",
+            "system_prompt": "body",
+        });
+        let resp = spawn_agent_from_content(&registry, None, LEADER_TEMPLATE, &request).await;
+
+        assert_eq!(resp.get("ok").and_then(|v| v.as_bool()), Some(true));
+        let warnings = resp
+            .get("warnings")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            warnings.iter().any(|w| w
+                .as_str()
+                .is_some_and(|s| s.contains("idea store unavailable"))),
+            "expected an idea-store-unavailable warning; got {warnings:?}",
+        );
     }
 }
