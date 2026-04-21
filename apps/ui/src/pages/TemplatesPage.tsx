@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
 import SpawnTemplateModal from "@/components/SpawnTemplateModal";
+import { Spinner } from "@/components/ui";
 import "@/styles/templates.css";
 
 /**
@@ -158,7 +159,10 @@ export default function TemplatesPage() {
             )}
 
             {loading ? (
-              <div className="tpl-status">Loading templates...</div>
+              <div className="tpl-status">
+                <Spinner size="sm" />
+                Loading templates…
+              </div>
             ) : (
               <div className="tpl-grid" role="list">
                 {templates.map((tpl) => {

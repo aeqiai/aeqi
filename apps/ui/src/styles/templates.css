@@ -324,10 +324,13 @@
 /* ── States ─────────────────────────────────────── */
 
 .tpl-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 13px;
   color: var(--text-muted);
   padding: 40px 0;
-  text-align: center;
 }
 .tpl-error {
   font-size: 12px;
