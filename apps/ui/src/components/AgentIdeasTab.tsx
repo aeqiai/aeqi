@@ -54,6 +54,13 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const view: "list" | "graph" = searchParams.get("view") === "graph" ? "graph" : "list";
   const composing = searchParams.get("compose") === "1";
 
+  const setView = (next: "list" | "graph") => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "graph") params.set("view", "graph");
+    else params.delete("view");
+    setSearchParams(params, { replace: true });
+  };
+
   const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
   const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
 
@@ -108,51 +115,50 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
 
   if (view === "graph") {
     return (
-      <div
-        className="asv-main"
-        style={{
-          padding: "20px 28px",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {graphLoading ? (
-          <div
-            style={{
-              color: "var(--text-muted)",
-              fontSize: 13,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Spinner size="sm" />
-            Loading graph…
+      <div className="ideas-graph">
+        <div className="ideas-graph-head">
+          <div className="ideas-graph-head-title">
+            <span className="ideas-graph-head-mark" aria-hidden>
+              ◇
+            </span>
+            {graphData.nodes.length > 0 && !graphLoading ? (
+              <span className="ideas-graph-head-copy">
+                {graphData.nodes.length} ideas · {graphData.edges.length} links
+              </span>
+            ) : (
+              <span className="ideas-graph-head-copy">Graph</span>
+            )}
           </div>
-        ) : graphData.nodes.length === 0 ? (
-          <EmptyState
-            title="No ideas to graph"
-            description="Create ideas to see them connected here."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-idea"))}
-              >
-                New idea
-              </Button>
-            }
-          />
-        ) : (
-          <div style={{ flex: 1, minHeight: 0 }}>
+          <ViewToggle view="graph" onChange={setView} />
+        </div>
+        <div className="ideas-graph-canvas">
+          {graphLoading ? (
+            <div className="ideas-graph-loading">
+              <Spinner size="sm" />
+              <span>Loading graph…</span>
+            </div>
+          ) : graphData.nodes.length === 0 ? (
+            <EmptyState
+              title="No ideas to graph"
+              description="Create ideas to see them connected here."
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-idea"))}
+                >
+                  New idea
+                </Button>
+              }
+            />
+          ) : (
             <IdeaGraph
               nodes={graphData.nodes}
               edges={graphData.edges}
               onSelect={handleGraphSelect}
               selectedId={selectedId}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   }
@@ -165,10 +171,73 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     return <IdeaCanvas key={selected?.id ?? "compose"} agentId={agentId} idea={selected} />;
   }
 
-  return <IdeasPicker agentId={agentId} ideas={ideas} />;
+  return <IdeasPicker agentId={agentId} ideas={ideas} view={view} onViewChange={setView} />;
 }
 
-function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: "list" | "graph";
+  onChange: (next: "list" | "graph") => void;
+}) {
+  return (
+    <div className="ideas-view-toggle" role="tablist" aria-label="View mode">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "list"}
+        className={`ideas-view-toggle-btn${view === "list" ? " active" : ""}`}
+        onClick={() => onChange("list")}
+      >
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path
+            d="M2 3h8M2 6h8M2 9h8"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+        </svg>
+        list
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "graph"}
+        className={`ideas-view-toggle-btn${view === "graph" ? " active" : ""}`}
+        onClick={() => onChange("graph")}
+      >
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          aria-hidden
+        >
+          <circle cx="3" cy="3" r="1.3" />
+          <circle cx="9" cy="3" r="1.3" />
+          <circle cx="6" cy="9" r="1.3" />
+          <path d="M3 3 L9 3 M3 3 L6 9 M9 3 L6 9" strokeLinecap="round" />
+        </svg>
+        graph
+      </button>
+    </div>
+  );
+}
+
+function IdeasPicker({
+  agentId,
+  ideas,
+  view,
+  onViewChange,
+}: {
+  agentId: string;
+  ideas: Idea[];
+  view: "list" | "graph";
+  onViewChange: (next: "list" | "graph") => void;
+}) {
   const { goAgent } = useNav();
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<IdeasScope>("all");
@@ -282,6 +351,8 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
               </button>
             </>
           )}
+          <div className="ideas-list-stat-spacer" aria-hidden />
+          <ViewToggle view={view} onChange={onViewChange} />
         </div>
         <div className="ideas-list-search-row">
           <span className="ideas-list-search-field">

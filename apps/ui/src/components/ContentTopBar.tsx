@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
@@ -33,7 +33,6 @@ const PRIMITIVE_WORDS: Record<string, string> = {
 
 export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const cost = useDaemonStore((s) => s.cost);
@@ -45,14 +44,6 @@ export default function ContentTopBar() {
   const primitiveWord = PRIMITIVE_WORDS[section];
   const isProfile = location.pathname === "/profile" || location.pathname.startsWith("/profile/");
   const isHome = !agentId && !isProfile;
-
-  const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
-  const toggleExplore = () => {
-    const next = new URLSearchParams(searchParams);
-    if (exploreActive) next.delete("view");
-    else next.set("view", "graph");
-    setSearchParams(next, { replace: true });
-  };
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
@@ -130,29 +121,6 @@ export default function ContentTopBar() {
         >
           ?
         </button>
-        {section === "ideas" && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`explore-btn${exploreActive ? " active" : ""}`}
-            onClick={toggleExplore}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <circle cx="3" cy="3" r="1.3" />
-              <circle cx="9" cy="3" r="1.3" />
-              <circle cx="6" cy="9" r="1.3" />
-              <path d="M3 3 L9 3 M3 3 L6 9 M9 3 L6 9" strokeLinecap="round" />
-            </svg>
-            {exploreActive ? "Close graph" : "Explore"}
-          </Button>
-        )}
         {agent && (
           <Button
             variant="secondary"

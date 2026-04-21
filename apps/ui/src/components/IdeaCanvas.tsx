@@ -315,7 +315,17 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   return (
     <div className="asv-main ideas-canvas">
       <div className="ideas-canvas-eyebrow">
-        <span className="ideas-canvas-eyebrow-kind">{isEdit ? "Idea" : "New idea"}</span>
+        <button
+          type="button"
+          className="ideas-canvas-eyebrow-back"
+          onClick={() => goAgent(agentId, "ideas", undefined)}
+          title="Back to ideas"
+        >
+          <span className="ideas-canvas-eyebrow-chevron" aria-hidden>
+            ←
+          </span>
+          <span className="ideas-canvas-eyebrow-kind">{isEdit ? "Ideas" : "New idea"}</span>
+        </button>
         {scopeLabel && (
           <>
             <EyebrowSep />

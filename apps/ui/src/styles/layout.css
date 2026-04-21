@@ -284,24 +284,18 @@
   padding-left: 8px;
 }
 .sidebar-nav-item.no-icon .sidebar-nav-label {
-  /* Sigil + word: the accent-tinted initial stays in the brand face
-     (the mark), the tail relaxes into sans at a light weight so the
-     row stays subordinate to the æqi wordmark above. */
+  /* Sigil + word: the whole word lives in the brand face — accent-tinted
+     initial + matching-weight tail, a continuation of the æqi wordmark
+     above. */
+  font-family: var(--font-brand);
   font-size: 13px;
-  letter-spacing: 0;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   line-height: 1;
   padding: 2px 0;
 }
 .sidebar-nav-initial {
-  font-family: var(--font-brand);
-  font-weight: 400;
-  letter-spacing: -0.02em;
   color: var(--color-accent);
-}
-.sidebar-nav-tail {
-  font-family: var(--font-sans);
-  font-weight: 300;
-  letter-spacing: 0.01em;
 }
 /* Collapsed rail: hide the word's tail so only the accent-tinted initial
    shows. Luca's rule — the rail spells A-E-Q-I cleanly down the edge;
@@ -450,20 +444,9 @@
   background: transparent;
 }
 
-/* Main stack — topbar, scroll, composer stacked vertically. Transparent. */
-.content-main-stack {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: transparent;
-}
-
-/* Content card — tinted frame. Holds topbar + body-row (composer is
-   its sibling inside content-main-stack). The sidebar tint continues
-   through this card so the topbar + sidebar read as one continuous
-   frame. The paper body-row floats inset with a rounded top-left. */
+/* Content card — the tinted frame. Holds the topbar and the paper
+   sheet. The sidebar tint flows through here so the topbar + sidebar
+   read as one continuous frame; the paper sheet floats inset below. */
 .content-card {
   flex: 1;
   min-height: 0;
@@ -476,19 +459,30 @@
   box-shadow: none;
 }
 
-/* Body row — the paper surface under the topbar. Rounded top-left so
-   the paper sheet reads as inset into the tinted frame above and to
-   the left. Holds the optional sessions rail + the scroll area. The
-   composer sits OUTSIDE this row (below the card) so it spans the
-   full content column width. */
+/* Paper sheet — sits inside the tinted frame, below the topbar. Holds
+   the body row (optional sessions rail + main scroll) and, on the
+   inbox surface, the composer as its last child. Rounded top-left
+   is the defining gesture: the sheet reads as inset into the frame
+   above and to the left. */
+.content-paper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-card);
+  border-top-left-radius: var(--radius-lg);
+}
+
+/* Body row — rail + scroll, full width inside the paper sheet. The
+   paper surface is owned by .content-paper; this row stays transparent. */
 .content-body-row {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: row;
   overflow: hidden;
-  background: var(--color-card);
-  border-top-left-radius: var(--radius-lg);
+  background: transparent;
 }
 
 /* Threads rail — the Inbox's left-side index column, now embedded
@@ -1387,16 +1381,19 @@
   color: var(--text-primary);
   white-space: nowrap;
 }
-/* Primitive breadcrumb — echoes the sidebar: sigil initial in the
-   brand face, tail in light sans. Kept small/subordinate so the
+/* Primitive breadcrumb — echoes the sidebar: whole word in the brand
+   face with an accent-tinted initial. Kept small/subordinate so the
    agent name stays the anchor. */
 .content-topbar-crumb {
-  font-family: var(--font-sans);
+  font-family: var(--font-brand);
   font-size: 13px;
-  font-weight: 300;
-  letter-spacing: 0.01em;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+.content-topbar-crumb .sidebar-nav-initial {
+  color: var(--color-accent);
 }
 .content-topbar-right {
   display: flex;
@@ -2604,7 +2601,6 @@
   letter-spacing: 0;
 }
 .ideas-list-stat-clear {
-  margin-left: auto;
   padding: 0;
   font: inherit;
   font-family: var(--font-mono);
@@ -2620,6 +2616,61 @@
 }
 .ideas-list-stat-clear:hover {
   color: var(--text-primary);
+}
+.ideas-list-stat-spacer {
+  flex: 1;
+}
+
+/* List ↔ graph — a restrained segmented control. Lives at the right
+   end of the stat row on the list, and inside the graph-view header
+   so there's always a one-click path back. Sigil-tinted active tab
+   echoes the "word with accent initial" language from the sidebar. */
+.ideas-view-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 2px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ideas-view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-family: var(--font-brand);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.ideas-view-toggle-btn svg {
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+}
+.ideas-view-toggle-btn:hover {
+  color: var(--text-primary);
+}
+.ideas-view-toggle-btn:hover svg {
+  opacity: 0.85;
+}
+.ideas-view-toggle-btn.active {
+  color: var(--accent);
+  background: var(--color-card);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.02),
+    0 0 0 1px var(--accent-dim);
+}
+.ideas-view-toggle-btn.active svg {
+  opacity: 1;
 }
 .ideas-list-search-row {
   display: flex;
@@ -2976,6 +3027,83 @@
   margin-right: 2px;
 }
 
+/* Ideas tag-group label — borrows the sidebar's sigil+word treatment
+   so grouping headers read as named categories in the brand voice,
+   not administrative mono-caps metadata. Scoped to ideas so the event
+   / channel / tool pickers keep their admin-caps label language. */
+.ideas-list-group .inline-picker-group-label {
+  font-family: var(--font-brand);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--text-secondary);
+}
+.ideas-list-group .inline-picker-group-label::first-letter {
+  color: var(--accent);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Ideas graph view — dedicated shell so the view toggle + identity
+   band stays visible above the force-directed canvas.
+   ────────────────────────────────────────────────────────────────── */
+.ideas-graph {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.ideas-graph-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 28px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+.ideas-graph-head-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.ideas-graph-head-mark {
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(1px);
+}
+.ideas-graph-head-copy {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ideas-graph-canvas {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  padding: 16px 28px 20px;
+  overflow: hidden;
+}
+.ideas-graph-canvas > * {
+  flex: 1;
+  min-height: 0;
+}
+.ideas-graph-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 40px 0 0;
+}
+
 /* ------------------------------------------------------------------
    Channels tab — single-row list with kind pill + status dot
    ------------------------------------------------------------------ */
@@ -3218,9 +3346,44 @@
 }
 .ideas-canvas-eyebrow-kind {
   color: var(--text-secondary);
+  font-family: inherit;
 }
 .ideas-canvas-eyebrow-sep {
   opacity: 0.35;
+}
+.ideas-canvas-eyebrow-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  transition: color 0.12s ease;
+}
+.ideas-canvas-eyebrow-back:hover,
+.ideas-canvas-eyebrow-back:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+.ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-kind,
+.ideas-canvas-eyebrow-back:focus-visible .ideas-canvas-eyebrow-kind {
+  color: var(--accent);
+}
+.ideas-canvas-eyebrow-chevron {
+  font-size: 12px;
+  line-height: 1;
+  transform: translateY(-1px);
+  opacity: 0.6;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+.ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-chevron {
+  opacity: 1;
+  transform: translate(-2px, -1px);
 }
 .ideas-canvas-eyebrow-scope {
   color: var(--accent);

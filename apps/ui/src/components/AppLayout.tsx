@@ -278,11 +278,12 @@ export default function AppLayout() {
   // fixed height so the header band reads as one strip across the shell
   // regardless of whether an agent is in scope.
   const showTopBar = true;
-  // Profile + home own their own header + are user-scoped — composer is
-  // noise there.
-  const showComposer = !isProfile && !!agentId && !isHome;
   // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
   const sessionsMounted = !isDrive && !isProfile && !isHome && effectiveTab === "sessions";
+  // Composer lives with the inbox only — the other W-primitive surfaces
+  // (agents/events/quests/ideas) own their own editing affordances and
+  // don't need a persistent composer eating vertical space.
+  const showComposer = sessionsMounted;
   // Inbox gets its own left-adjacent threads rail. Every other tab owns its
   // full width and embeds its own picker in the page body.
   const showSessionsRail =
@@ -294,11 +295,11 @@ export default function AppLayout() {
         <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
 
         <div className="content-column">
-          <div className="content-main-stack">
-            <div className="content-card">
-              {showTopBar ? (
-                <>
-                  <ContentTopBar />
+          <div className="content-card">
+            {showTopBar ? (
+              <>
+                <ContentTopBar />
+                <div className="content-paper">
                   <div className="content-body-row">
                     {showSessionsRail && (
                       <aside className="sessions-rail-col">
@@ -309,17 +310,17 @@ export default function AppLayout() {
                       <Suspense fallback={null}>{mainContent}</Suspense>
                     </div>
                   </div>
-                </>
-              ) : (
-                <Suspense fallback={null}>{mainContent}</Suspense>
-              )}
-            </div>
-            {showComposer && (
-              <ComposerRow
-                agentId={agentId || null}
-                base={base}
-                sessionsMounted={sessionsMounted}
-              />
+                  {showComposer && (
+                    <ComposerRow
+                      agentId={agentId || null}
+                      base={base}
+                      sessionsMounted={sessionsMounted}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <Suspense fallback={null}>{mainContent}</Suspense>
             )}
           </div>
         </div>

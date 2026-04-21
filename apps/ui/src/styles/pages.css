@@ -1261,13 +1261,6 @@
   overflow: hidden;
 }
 
-/* Explore toggle in content header — enter the graph view at will */
-.explore-btn.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: var(--accent-dim);
-}
-
 /* Agent settings button in content header — twin of Explore, but tied
    to the agent's configure surfaces (settings / tools / channels). */
 .topbar-settings-btn.active {
