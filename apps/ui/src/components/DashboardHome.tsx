@@ -245,17 +245,26 @@ export default function DashboardHome() {
                 <div className="dash-activity-group">
                   <div className="dash-activity-group-label">{group.label}</div>
                 </div>
-                {group.items.map((e: any, i: number) => (
-                  <div key={e.id || i} className="dash-activity-row">
-                    <span className="dash-activity-time">
-                      {timeAgo(e.timestamp || e.created_at)}
-                    </span>
-                    <span className="dash-activity-agent">{e.agent || e.actor || "\u2014"}</span>
-                    <span className="dash-activity-summary">
-                      {e.summary || e.reasoning || e.description || e.decision_type || "\u2014"}
-                    </span>
-                  </div>
-                ))}
+                {group.items.map((e: any, i: number) => {
+                  const targetAgent = e.agent_id || e.agent || e.actor;
+                  return (
+                    <button
+                      key={e.id || i}
+                      type="button"
+                      className="dash-activity-row"
+                      onClick={() => targetAgent && goAgent(targetAgent, "events")}
+                      disabled={!targetAgent}
+                    >
+                      <span className="dash-activity-time">
+                        {timeAgo(e.timestamp || e.created_at)}
+                      </span>
+                      <span className="dash-activity-agent">{e.agent || e.actor || "\u2014"}</span>
+                      <span className="dash-activity-summary">
+                        {e.summary || e.reasoning || e.description || e.decision_type || "\u2014"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </div>

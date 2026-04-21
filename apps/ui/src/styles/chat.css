@@ -1893,10 +1893,26 @@
   font-size: var(--font-size-2xs);
   transition: background var(--transition-fast);
   position: relative;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.dash-activity-row:hover {
+.dash-activity-row:disabled {
+  cursor: default;
+}
+
+.dash-activity-row:hover:not(:disabled) {
   background: var(--state-hover);
+}
+
+.dash-activity-row:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -2px;
 }
 
 .dash-activity-time {
