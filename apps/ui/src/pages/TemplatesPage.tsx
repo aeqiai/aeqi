@@ -34,6 +34,10 @@ export default function TemplatesPage() {
   const [detailSlug, setDetailSlug] = useState<string | null>(null);
   const [modalTemplate, setModalTemplate] = useState<CompanyTemplate | null>(null);
 
+  useEffect(() => {
+    document.title = "templates · æqi";
+  }, []);
+
   // Fetch catalog. On any failure, fall back to the fixture catalog so we
   // never ship a blank store — even before Stream C's endpoint is live.
   useEffect(() => {

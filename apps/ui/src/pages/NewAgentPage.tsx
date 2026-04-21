@@ -46,6 +46,10 @@ export default function NewAgentPage() {
     [allAgents, parentId, subAgentMode],
   );
 
+  useEffect(() => {
+    document.title = subAgentMode ? "new sub-agent · æqi" : "new agent · æqi";
+  }, [subAgentMode]);
+
   // Daemon store may be cold on direct URL load (/new lives outside
   // AppLayout, which is the usual bootstrap). Fetch once so parentAgent
   // resolves to a real label instead of the "this agent" fallback.

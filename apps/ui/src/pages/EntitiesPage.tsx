@@ -46,6 +46,10 @@ export default function EntitiesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    document.title = "agents · æqi";
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
     setError(null);
 
