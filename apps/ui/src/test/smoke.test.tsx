@@ -8,6 +8,7 @@ import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
 import AgentOrgChart from "@/components/AgentOrgChart";
+import NewAgentPage from "@/pages/NewAgentPage";
 import { useDaemonStore } from "@/store/daemon";
 
 /**
@@ -306,5 +307,41 @@ describe("AgentOrgChart smoke", () => {
     // row with exactly one child would — but we don't have grandchildren
     // in this fixture. So we just assert the chart rendered at all.
     expect(container.querySelector(".org-chart")).not.toBeNull();
+  });
+});
+
+describe("NewAgentPage smoke", () => {
+  beforeEach(() => {
+    useDaemonStore.setState({
+      agents: [
+        { id: "root", name: "root", display_name: "Root", status: "active", parent_id: null },
+      ] as never,
+    });
+  });
+
+  it("renders root mode (no parent query) without loop errors", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/new"]}>
+          <Routes>
+            <Route path="/new" element={<NewAgentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("renders sub-agent mode (?parent=root) with the identity picker", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/new?parent=root"]}>
+          <Routes>
+            <Route path="/new" element={<NewAgentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
   });
 });
