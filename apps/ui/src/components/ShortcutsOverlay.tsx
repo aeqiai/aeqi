@@ -19,6 +19,7 @@ const SHORTCUTS: { keys: string[][]; label: string; sep?: string }[] = [
   { keys: [["C"]], label: "Focus the composer" },
   { keys: [["J"], ["K"]], label: "Navigate cards in the quest kanban" },
   { keys: [["←"], ["→"], ["↑"], ["↓"]], label: "Walk the agent org chart" },
+  { keys: [["+"]], label: "Spawn a sub-agent under the focused org-chart card" },
   { keys: [["G", "A"]], label: "Jump to Agents", sep: "then" },
   { keys: [["G", "E"]], label: "Jump to Events", sep: "then" },
   { keys: [["G", "Q"]], label: "Jump to Quests", sep: "then" },

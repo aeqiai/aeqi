@@ -93,17 +93,22 @@ export default function AgentOrgChart({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!navIndex) return;
-    if (
-      e.key !== "ArrowLeft" &&
-      e.key !== "ArrowRight" &&
-      e.key !== "ArrowUp" &&
-      e.key !== "ArrowDown"
-    )
-      return;
+    const isArrow =
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowRight" ||
+      e.key === "ArrowUp" ||
+      e.key === "ArrowDown";
+    const isPlus = e.key === "+" || e.key === "=";
+    if (!isArrow && !isPlus) return;
     const active = (e.target as HTMLElement).closest("[data-agent-id]") as HTMLElement | null;
     if (!active) return;
     const id = active.dataset.agentId;
     if (!id) return;
+    if (isPlus) {
+      e.preventDefault();
+      navigate(`/new?parent=${encodeURIComponent(id)}`);
+      return;
+    }
     const entry = navIndex.get(id);
     if (!entry) return;
     let dest: string | null = null;
