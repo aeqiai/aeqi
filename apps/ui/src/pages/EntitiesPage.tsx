@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, EmptyState, Spinner } from "@/components/ui";
 import type { Agent } from "@/lib/types";
 
 interface Entity {
@@ -155,13 +155,17 @@ export default function EntitiesPage() {
       {loading ? (
         <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
             color: "var(--text-muted)",
             fontSize: 13,
             padding: "40px 0",
-            textAlign: "center",
           }}
         >
-          Loading agents...
+          <Spinner size="sm" />
+          Loading agents…
         </div>
       ) : entities.length === 0 ? (
         <EmptyState
