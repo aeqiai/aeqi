@@ -193,6 +193,11 @@
   color: var(--text-muted);
   margin-top: var(--space-5);
 }
+/* Verify-email resend row sits further below the code inputs so the
+   inputs read as the primary action and the resend link as secondary. */
+.verify-resend {
+  margin-top: var(--space-8);
+}
 .auth-switch a {
   color: var(--text-secondary);
   text-decoration: none;
