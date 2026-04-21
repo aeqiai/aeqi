@@ -493,6 +493,28 @@
   line-height: 1.5;
 }
 
+/* Inline action link used in account-settings rows that delegate to a
+   full-page flow (change password, connect account, etc.) — reads as a
+   secondary action, not a button, so it doesn't compete with the
+   primary save button at the end of each section. */
+.account-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.account-action-link:hover,
+.account-action-link:focus-visible {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: none;
+}
+
 .account-field-row {
   display: flex;
   gap: var(--space-2);

@@ -16,6 +16,7 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
+const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -85,6 +86,12 @@ export default function App() {
                   <Route path="new" element={<NewAgentPage />} />
                   <Route path="templates" element={<TemplatesPage />} />
                   <Route path="agents" element={<AgentsPage />} />
+
+                  {/* Account-action routes — auth-style standalone pages
+                      (wordmark + card + footer), reached from the profile
+                      security tab. Password changes never share a surface
+                      with daily profile editing. */}
+                  <Route path="change-password" element={<ChangePasswordPage />} />
 
                   {/* Home dashboard + profile + every agent at /:agentId/...
                       share the same shell — AppLayout decides content from

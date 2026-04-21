@@ -15,38 +15,6 @@ const TABS = [
   { id: "preferences", label: "Preferences" },
 ];
 
-function EyeIcon({ visible }: { visible: boolean }) {
-  if (visible)
-    return (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      >
-        <path d="M6.5 3.8A6.4 6.4 0 018 3.5c4 0 6.5 4.5 6.5 4.5a10.7 10.7 0 01-1.3 1.7M9.4 9.4A2 2 0 016.6 6.6" />
-        <path d="M1.5 8s1.2-2.2 3.2-3.5M1 1l14 14" />
-      </svg>
-    );
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-    >
-      <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8s-2.5 4.5-6.5 4.5S1.5 8 1.5 8z" />
-      <circle cx="8" cy="8" r="2" />
-    </svg>
-  );
-}
-
 const CheckIcon = () => (
   <svg
     width="16"
@@ -112,17 +80,6 @@ export default function ProfilePage() {
     type: "success" | "error";
     msg: string;
   } | null>(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordFeedback, setPasswordFeedback] = useState<{
-    type: "success" | "error";
-    msg: string;
-  } | null>(null);
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // TOTP state
   const [totpSetup, setTotpSetup] = useState<{ secret: string; uri: string } | null>(null);
@@ -216,35 +173,6 @@ export default function ProfilePage() {
       });
     } finally {
       setPhishingSaving(false);
-    }
-  };
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordFeedback(null);
-    if (newPassword.length < 8) {
-      setPasswordFeedback({ type: "error", msg: "Password must be at least 8 characters." });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordFeedback({ type: "error", msg: "Passwords don't match." });
-      return;
-    }
-    setPasswordSaving(true);
-    try {
-      await api.changePassword(currentPassword, newPassword);
-      setPasswordFeedback({ type: "success", msg: "Password updated." });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setTimeout(() => setPasswordFeedback(null), 3000);
-    } catch (e: unknown) {
-      setPasswordFeedback({
-        type: "error",
-        msg: e instanceof Error ? e.message : "Password change failed.",
-      });
-    } finally {
-      setPasswordSaving(false);
     }
   };
 
@@ -616,101 +544,18 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Change Password */}
+            {/* Change password — moved to its own /change-password auth-style
+                page. We don't inline the form here because password changes
+                should share aesthetics with login / signup / reset, not with
+                profile editing. */}
             <div className="account-field-lg">
-              <label className="account-field-label">Change password</label>
-              <form
-                className="account-password-form"
-                onSubmit={handlePasswordChange}
-                autoComplete="off"
-              >
-                <div className="auth-password-wrap">
-                  <input
-                    className="auth-input auth-input-password"
-                    type={showCurrentPw ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => {
-                      setCurrentPassword(e.target.value);
-                      setPasswordFeedback(null);
-                    }}
-                    placeholder="Current password"
-                    autoComplete="current-password"
-                    aria-label="Current password"
-                  />
-                  <button
-                    type="button"
-                    className="auth-password-toggle"
-                    onClick={() => setShowCurrentPw(!showCurrentPw)}
-                    tabIndex={-1}
-                    aria-label={showCurrentPw ? "Hide current password" : "Show current password"}
-                  >
-                    <EyeIcon visible={showCurrentPw} />
-                  </button>
-                </div>
-                <div className="auth-password-wrap">
-                  <input
-                    className="auth-input auth-input-password"
-                    type={showNewPw ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value);
-                      setPasswordFeedback(null);
-                    }}
-                    placeholder="New password"
-                    autoComplete="new-password"
-                    aria-label="New password"
-                  />
-                  <button
-                    type="button"
-                    className="auth-password-toggle"
-                    onClick={() => setShowNewPw(!showNewPw)}
-                    tabIndex={-1}
-                    aria-label={showNewPw ? "Hide new password" : "Show new password"}
-                  >
-                    <EyeIcon visible={showNewPw} />
-                  </button>
-                </div>
-                <div className="auth-password-wrap">
-                  <input
-                    className="auth-input auth-input-password"
-                    type={showConfirmPw ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value);
-                      setPasswordFeedback(null);
-                    }}
-                    placeholder="Confirm new password"
-                    autoComplete="new-password"
-                    aria-label="Confirm new password"
-                  />
-                  <button
-                    type="button"
-                    className="auth-password-toggle"
-                    onClick={() => setShowConfirmPw(!showConfirmPw)}
-                    tabIndex={-1}
-                    aria-label={showConfirmPw ? "Hide confirm password" : "Show confirm password"}
-                  >
-                    <EyeIcon visible={showConfirmPw} />
-                  </button>
-                </div>
-                {passwordFeedback && (
-                  <div
-                    className={`account-feedback account-feedback-${passwordFeedback.type}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {passwordFeedback.msg}
-                  </div>
-                )}
-                <Button
-                  variant="primary"
-                  type="submit"
-                  loading={passwordSaving}
-                  disabled={!currentPassword || !newPassword || !confirmPassword}
-                >
-                  Update password
-                </Button>
-              </form>
+              <label className="account-field-label">Password</label>
+              <p className="account-field-desc">
+                Change your password on a dedicated page. We'll ask for your current one first.
+              </p>
+              <Link to="/change-password" className="account-action-link">
+                Change password →
+              </Link>
             </div>
 
             {/* Connected Accounts */}
