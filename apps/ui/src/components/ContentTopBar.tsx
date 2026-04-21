@@ -49,6 +49,7 @@ export default function ContentTopBar() {
   };
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
+  const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -102,6 +103,15 @@ export default function ContentTopBar() {
             <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
             <kbd>K</kbd>
           </span>
+        </button>
+        <button
+          type="button"
+          className="content-topbar-help"
+          onClick={openShortcuts}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+        >
+          ?
         </button>
         {section === "ideas" && (
           <Button

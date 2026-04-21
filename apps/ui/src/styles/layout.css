@@ -1175,6 +1175,37 @@
   }
 }
 
+/* Help pill — discreet `?` that opens the shortcuts cheatsheet.
+   Matches the search pill's height + shape so the right cluster reads
+   as one group; stripped down to just the glyph to stay quiet. */
+.content-topbar-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.content-topbar-help:hover,
+.content-topbar-help:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+
 /* ── Header action section (aligned with session sidebar) ── */
 .content-topbar-action {
   width: var(--sidebar-panel-width);

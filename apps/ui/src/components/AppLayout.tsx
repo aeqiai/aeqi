@@ -135,6 +135,13 @@ export default function AppLayout() {
     window.addEventListener("aeqi:open-palette", openSearch);
     return () => window.removeEventListener("aeqi:open-palette", openSearch);
   }, [openSearch]);
+  // UI-triggered shortcuts overlay — lets the topbar `?` button open the
+  // cheatsheet without prop-drilling the setter.
+  useEffect(() => {
+    const open = () => setShortcutsOpen(true);
+    window.addEventListener("aeqi:open-shortcuts", open);
+    return () => window.removeEventListener("aeqi:open-shortcuts", open);
+  }, []);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
