@@ -12,17 +12,11 @@ import BudgetMeter from "./BudgetMeter";
  * that affect the main pane (Ideas graph toggle), and the budget meter.
  */
 
-const TITLES: Record<string, string> = {
-  channels: "Channels",
-  drive: "Drive",
-  settings: "Settings",
-  tools: "Tools",
-};
-// Breadcrumb primitives render lowercase with an accent-tinted initial.
-// `sessions` (the agent's inbox) is suppressed — when you click an agent
-// you land there, so naming it twice (agent name → "/ inbox") is noise.
-// The other primitives get a breadcrumb because they're a deliberate
-// detour away from the default surface.
+// Breadcrumb renders lowercase with an accent-tinted initial — the only
+// sections that earn a breadcrumb are the four W-primitives. `sessions`
+// is the agent's default surface (no crumb), and settings/tools/channels
+// are carried by the lit Settings button + the settings-shell sub-tab
+// row below; repeating them here is just noise.
 const PRIMITIVE_WORDS: Record<string, string> = {
   agents: "agents",
   events: "events",
@@ -56,7 +50,7 @@ export default function ContentTopBar() {
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const settingsActive = section === "settings" || section === "tools" || section === "channels";
-  const showCrumb = Boolean(primitiveWord) || Boolean(TITLES[section]);
+  const showCrumb = Boolean(primitiveWord);
 
   return (
     <div className="content-topbar">
@@ -75,15 +69,9 @@ export default function ContentTopBar() {
           ))}
         {agent && showCrumb && <span className="content-topbar-sep">/</span>}
         {showCrumb && (
-          <span className={`content-topbar-section${primitiveWord ? " is-primitive" : ""}`}>
-            {primitiveWord ? (
-              <>
-                <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
-                {primitiveWord.slice(1)}
-              </>
-            ) : (
-              TITLES[section] || section
-            )}
+          <span className="content-topbar-section is-primitive">
+            <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
+            {primitiveWord.slice(1)}
           </span>
         )}
       </div>
