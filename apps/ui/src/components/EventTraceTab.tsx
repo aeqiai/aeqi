@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { EmptyState } from "@/components/ui";
 import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
 
 interface Props {
@@ -281,16 +282,11 @@ export default function EventTraceTab({ sessionId }: Props) {
       )}
 
       {!loading && !error && invocations.length === 0 && (
-        <div
-          style={{
-            color: "var(--text-muted)",
-            fontSize: "var(--font-size-sm)",
-            padding: "24px 0",
-            textAlign: "center",
-          }}
-        >
-          No event invocations recorded for this session yet.
-        </div>
+        <EmptyState
+          eyebrow="Trace"
+          title="No event invocations yet"
+          description="Once this session fires middleware or lifecycle events, each invocation will show up here with timings and steps."
+        />
       )}
 
       {selectedId != null && (

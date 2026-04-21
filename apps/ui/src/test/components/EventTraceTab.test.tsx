@@ -170,7 +170,7 @@ describe("EventTraceTab smoke", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/no event invocations recorded/i)).toBeInTheDocument();
+      expect(screen.getByText(/no event invocations yet/i)).toBeInTheDocument();
     });
   });
 
