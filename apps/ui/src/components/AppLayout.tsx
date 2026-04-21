@@ -123,6 +123,11 @@ export default function AppLayout() {
         setShortcutsOpen((s) => !s);
         return;
       }
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openSearch();
+        return;
+      }
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");

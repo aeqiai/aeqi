@@ -10,6 +10,7 @@ import "@/styles/shortcuts.css";
  */
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["⌘", "K"], label: "Open command palette" },
+  { keys: ["/"], label: "Open command palette" },
   { keys: ["N"], label: "Spawn a sub-agent under the current agent" },
   { keys: ["?"], label: "Show this list" },
   { keys: ["Esc"], label: "Close overlays" },
