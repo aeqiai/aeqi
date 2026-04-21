@@ -115,7 +115,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
     <div className="idea-links-panel">
       {buckets.mentions.length > 0 && (
         <LinkRow
-          label="Mentions"
+          label="MENTIONS"
           hint={RELATION_HINT.mentions}
           chips={buckets.mentions.map((l) => (
             <LinkChip
@@ -130,7 +130,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
       )}
       {buckets.embeds.length > 0 && (
         <LinkRow
-          label="Embeds"
+          label="EMBEDS"
           hint={RELATION_HINT.embeds}
           chips={buckets.embeds.map((l) => (
             <LinkChip
@@ -144,7 +144,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
         />
       )}
       <LinkRow
-        label="Adjacent"
+        label="ADJACENT"
         hint={RELATION_HINT.adjacent}
         chips={
           <>
@@ -202,7 +202,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
       />
       {hasBacklinks && (
         <LinkRow
-          label="Referenced by"
+          label="REFERENCED BY"
           hint="Incoming — any relation"
           chips={edges.backlinks.map((b: IdeaBacklink) => (
             <LinkChip

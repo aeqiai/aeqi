@@ -229,19 +229,34 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   }, [isEdit, agentId, addIdea, goAgent]);
 
   // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
+  // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
+  // when focus is already in an editable surface so it never eats real keystrokes.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
-      e.preventDefault();
-      if (isEdit) {
-        flushSave();
-      } else {
-        handleCreate();
+    const handler = (ev: KeyboardEvent) => {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
+        ev.preventDefault();
+        if (isEdit) flushSave();
+        else handleCreate();
+        return;
+      }
+      if (
+        ev.key === "e" &&
+        !ev.metaKey &&
+        !ev.ctrlKey &&
+        !ev.altKey &&
+        isEdit &&
+        bodyMode === "view"
+      ) {
+        const tgt = ev.target as HTMLElement | null;
+        const tag = tgt?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tgt?.isContentEditable) return;
+        ev.preventDefault();
+        setBodyMode("edit");
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isEdit, flushSave, handleCreate]);
+  }, [isEdit, flushSave, handleCreate, bodyMode]);
 
   const handleDelete = async () => {
     if (!idea) return;
@@ -298,13 +313,29 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
 
   return (
     <div className="asv-main ideas-canvas">
-      {!isEdit && <div className="ideas-canvas-eyebrow">New idea</div>}
+      <div className="ideas-canvas-eyebrow">
+        {isEdit ? (
+          <>
+            <span className="ideas-canvas-eyebrow-kind">Idea</span>
+            {idea?.id && (
+              <>
+                <span className="ideas-canvas-eyebrow-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="ideas-canvas-eyebrow-id">{idea.id.slice(0, 8)}</span>
+              </>
+            )}
+          </>
+        ) : (
+          <span className="ideas-canvas-eyebrow-kind">New idea</span>
+        )}
+      </div>
       <div className="ideas-canvas-head">
         <input
           ref={titleRef}
           className="ideas-canvas-title"
           type="text"
-          placeholder={isEdit ? "Title" : "Name this idea…"}
+          placeholder={isEdit ? "Untitled" : "Name this idea…"}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -392,7 +423,11 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
         <textarea
           ref={bodyRef}
           className="ideas-canvas-body"
-          placeholder="Start typing… #hashtags, [[mentions]], ![[embeds]]."
+          placeholder={
+            isEdit
+              ? "Keep writing…"
+              : "Write the idea.\n\n#tag to tag · [[name]] to link · ![[name]] to embed"
+          }
           value={content}
           onChange={(e) => {
             setContent(e.target.value);
@@ -434,7 +469,8 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
             <span className="ideas-canvas-body-empty">Click to write…</span>
           )}
           <span className="ideas-canvas-body-edit-hint" aria-hidden>
-            ↵ edit
+            <kbd>E</kbd>
+            <span>edit</span>
           </span>
         </div>
       )}
@@ -448,21 +484,22 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
           {(bodyMode === "edit" || !isEdit) && content.length > 0 && (
             <span className="ideas-canvas-count">{formatCount(content)}</span>
           )}
-          {(!isEdit || saveState === "dirty") && (
+          {(!isEdit || saveState === "dirty" || saveState === "saving") && (
             <span className="ideas-canvas-hint" aria-hidden>
               <kbd>⌘</kbd>
               <kbd>↵</kbd>
             </span>
           )}
-          <Button
-            variant="primary"
-            size="sm"
-            loading={saveState === "saving"}
-            disabled={isEdit && saveState !== "dirty"}
-            onClick={isEdit ? flushSave : handleCreate}
-          >
-            Save
-          </Button>
+          {(!isEdit || saveState === "dirty" || saveState === "saving") && (
+            <Button
+              variant="primary"
+              size="sm"
+              loading={saveState === "saving"}
+              onClick={isEdit ? flushSave : handleCreate}
+            >
+              Save
+            </Button>
+          )}
         </div>
       </div>
 

@@ -181,17 +181,21 @@
   pointer-events: none;
 }
 
-/* Hairline brightens on row hover to reinforce the connection. */
+/* Hairline brightens on row hover to reinforce the connection.
+   Stubs included so a hovered parent lights up the line dropping into
+   its first child, not just its inbound rail segment. */
 .row:hover .guideLine::before,
 .row:hover .connectorMid::before,
 .row:hover .connectorMid::after,
 .row:hover .connectorEnd::before,
 .row:hover .connectorEnd::after,
+.row:hover .collapseBtn[aria-expanded="true"]::after,
 .rowActive .guideLine::before,
 .rowActive .connectorMid::before,
 .rowActive .connectorMid::after,
 .rowActive .connectorEnd::before,
-.rowActive .connectorEnd::after {
+.rowActive .connectorEnd::after,
+.rowActive .collapseBtn[aria-expanded="true"]::after {
   background: var(--border-hover);
 }
 

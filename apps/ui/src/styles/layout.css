@@ -2136,31 +2136,56 @@
 /* ------------------------------------------------------------------
    Ideas compose canvas — clean borderless editor when no idea is selected
    ------------------------------------------------------------------ */
+/* ── Editorial document surface ──
+   The idea page is a document, not a form. A measure-constrained column
+   centers the work; metadata lives in a quiet top strip; the footer is a
+   hairline status rail. Typography does the hierarchy.                     */
 .ideas-canvas {
   display: flex;
   flex-direction: column;
-  padding: 24px 32px 16px;
-  overflow: hidden;
-  border-left: 2px solid transparent;
-  transition: border-left-color var(--transition-fast);
+  padding: 28px clamp(16px, 4vw, 40px) 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-/* Active / editing canvas gets a subtle AEQI accent bar on focus-within */
-.ideas-canvas:focus-within {
-  border-left-color: var(--border-hover);
+.ideas-canvas > * {
+  width: 100%;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  flex: 0 0 auto;
+}
+.ideas-canvas > .ideas-canvas-body {
+  flex: 1 1 auto;
+  min-height: 280px;
 }
 .ideas-canvas-eyebrow {
-  margin-bottom: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-muted);
+  user-select: none;
+}
+.ideas-canvas-eyebrow-kind {
+  color: var(--text-secondary);
+}
+.ideas-canvas-eyebrow-sep {
+  opacity: 0.45;
+}
+.ideas-canvas-eyebrow-id {
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 .ideas-canvas-head {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .ideas-canvas-head .ideas-canvas-title {
   margin-bottom: 0;
@@ -2170,9 +2195,11 @@
 .ideas-canvas-title {
   width: 100%;
   padding: 0;
-  margin-bottom: 12px;
-  font-size: 24px;
+  margin-bottom: 10px;
+  font-size: clamp(26px, 2.6vw, 32px);
   font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.18;
   color: var(--text-primary);
   background: transparent;
   border: none;
@@ -2239,18 +2266,22 @@
   width: 100%;
   min-height: 0;
   padding: 0;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.72;
+  letter-spacing: 0.002em;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
   resize: none;
   font-family: inherit;
+  white-space: pre-wrap;
 }
 .ideas-canvas-body::placeholder {
   color: var(--text-muted);
-  opacity: 0.55;
+  opacity: 0.5;
+  white-space: pre-line;
+  line-height: 1.72;
 }
 
 /* ── Rendered (click-to-edit) body mode ── */
@@ -2279,12 +2310,13 @@
   float: right;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
+  gap: 6px;
+  padding: 3px 6px 3px 4px;
   margin: -2px 0 0 8px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -2292,6 +2324,21 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
+}
+.ideas-canvas-body-edit-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 2px;
 }
 .ideas-canvas-body-rendered:hover .ideas-canvas-body-edit-hint,
 .ideas-canvas-body-rendered:focus-visible .ideas-canvas-body-edit-hint {
@@ -2402,11 +2449,8 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
-}
-.ideas-canvas-footer:has(.ideas-canvas-actions) {
-  padding-top: 12px;
-  margin-top: 12px;
+  padding-top: 10px;
+  margin-top: 14px;
   border-top: 1px solid var(--border);
 }
 .ideas-canvas-tags {
@@ -2587,20 +2631,22 @@
 .ideas-tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: 2px;
+  padding: 1px 8px 1px 7px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-dim);
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: 999px;
   transition:
     border-color 0.15s,
-    filter 0.15s;
+    color 0.15s;
 }
 .ideas-tag-chip.removable:hover {
-  filter: brightness(1.05);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 .ideas-tag-chip-x {
   display: inline-flex;
@@ -2609,27 +2655,28 @@
   width: 14px;
   height: 14px;
   padding: 0;
-  margin-left: 2px;
+  margin-left: 1px;
   font-size: 13px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--text-muted);
   background: transparent;
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  opacity: 0.65;
+  opacity: 0.7;
   transition:
     opacity 0.15s,
-    background 0.15s;
+    color 0.15s;
 }
 .ideas-tag-chip-x:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
 }
 .ideas-tag-add {
-  padding: 2px 8px;
+  padding: 1px 8px;
   font-family: var(--font-mono);
   font-size: 11px;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   background: transparent;
   border: 1px dashed var(--border);
@@ -2640,8 +2687,8 @@
     border-color 0.15s;
 }
 .ideas-tag-add:hover {
-  color: var(--accent);
-  border-color: var(--accent-dim);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 .ideas-tag-input-wrap {
   position: relative;

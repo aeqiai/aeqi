@@ -1265,61 +1265,78 @@
   border-color: var(--accent-dim);
 }
 
+/* Link panel — typography-driven related-ideas section.
+   Each relation renders as a row with a fixed-width mono label on the left
+   and label-only references on the right. No chip borders, no backgrounds;
+   the dot shape differentiates relation, underline-on-hover signals link. */
 .idea-links-panel {
-  margin-top: 20px;
+  width: 100%;
+  max-width: 720px;
+  margin: 28px auto 0;
   padding-top: 14px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .idea-links-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 12px;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 13px;
 }
 .idea-links-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
   color: var(--text-muted);
-  min-width: 92px;
-  padding-top: 4px;
-  font-weight: 500;
+  padding-top: 3px;
+  user-select: none;
 }
 .idea-links-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 4px;
   flex: 1;
   position: relative;
+  min-width: 0;
 }
 .idea-link-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 4px 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-subtle);
-  font-size: 12px;
-  line-height: 1.5;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.55;
 }
 .idea-link-chip-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--text-muted);
   flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
 }
-/* Three rendered relations: mentions/embeds live in the body and are
-   identified by glyph shape; adjacent is an explicit edge. We use dot
-   shape + border-dash pattern to differentiate, not color — the palette
-   is monochromatic by conviction. */
+.idea-link-chip:hover .idea-link-chip-dot {
+  opacity: 1;
+}
+/* Three relations kept monochromatic: open circle (mentions), filled square
+   (embeds), filled dot (adjacent). Shape, not color. */
 .idea-link-chip.rel-mentions .idea-link-chip-dot {
   background: transparent;
   border: 1.5px solid var(--text-muted);
 }
 .idea-link-chip.rel-embeds .idea-link-chip-dot {
   background: var(--text-primary);
+  border-radius: 1px;
+  opacity: 0.85;
 }
 .idea-link-chip.rel-adjacent .idea-link-chip-dot {
   background: var(--text-muted);
@@ -1328,44 +1345,64 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  max-width: 180px;
+  font-size: 13px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
 }
 .idea-link-chip-label:hover {
-  color: var(--accent);
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
 }
 .idea-link-chip-remove {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0 4px;
-  font-size: 14px;
+  padding: 0 2px;
+  margin-left: -2px;
+  font-size: 13px;
   line-height: 1;
-  border-radius: 8px;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+.idea-link-chip:hover .idea-link-chip-remove {
+  opacity: 0.7;
 }
 .idea-link-chip-remove:hover {
-  color: var(--text);
-  background: var(--bg-hover);
+  opacity: 1;
+  color: var(--text-primary);
+  background: transparent;
 }
 .idea-link-add {
   background: none;
-  border: 1px dashed var(--border);
-  border-radius: 12px;
+  border: none;
+  border-bottom: 1px dashed var(--border-hover);
+  border-radius: 0;
   color: var(--text-muted);
-  padding: 2px 10px;
+  padding: 0 1px 1px;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 .idea-link-add:hover {
-  color: var(--accent);
-  border-color: var(--accent-dim);
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 .idea-link-picker {
   position: relative;
@@ -2108,9 +2145,32 @@
   border-radius: var(--radius-md);
   background: var(--bg-canvas);
   overflow: hidden;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
 }
 .quest-col[data-status="in_progress"] {
   border-color: rgba(90, 115, 152, 0.35);
+}
+/* Active drop target — subtle accent frame + lifted background; children
+   keep their own hover so the drop still feels precise. */
+.quest-col[data-drop-target] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.quest-col[data-drop-target] .quest-col-header {
+  background: transparent;
+  border-bottom-color: var(--color-accent);
+}
+.quest-col[data-drop-target] .quest-col-empty {
+  color: var(--color-accent);
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 .quest-col-header {
   display: flex;
@@ -2160,14 +2220,24 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  cursor: pointer;
+  cursor: grab;
   transition:
     border-color 0.12s,
-    background 0.12s;
+    background 0.12s,
+    opacity 0.12s,
+    transform 0.12s;
 }
 .quest-card:hover {
   border-color: var(--border-hover);
   background: var(--state-hover);
+}
+.quest-card:active {
+  cursor: grabbing;
+}
+.quest-card[data-dragging] {
+  opacity: 0.35;
+  /* Browser renders a ghost at full opacity; dimming the source card gives
+     the tactile "this is the one moving" read. */
 }
 .quest-card-subject {
   font-family: var(--font-sans);

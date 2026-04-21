@@ -177,379 +177,155 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const priorities: QuestPriority[] = ["critical", "high", "normal", "low"];
 
   return (
-    <div className="asv-main" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 20px",
-          borderBottom: "1px solid var(--border)",
-          flexShrink: 0,
-          minHeight: 40,
-        }}
-      >
+    <div className="asv-main quest-detail">
+      <div className="quest-detail-topbar">
         <StatusDot status={quest.status} />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "var(--font-size-2xs)",
-            color: "var(--text-muted)",
-          }}
-        >
-          {quest.id}
-        </span>
+        <span className="quest-detail-id">{quest.id}</span>
         {saveIndicator && (
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "var(--font-size-2xs)",
-              color:
-                saveState === "error"
-                  ? "var(--error)"
-                  : saveState === "saved"
-                    ? "var(--success)"
-                    : "var(--text-muted)",
-            }}
-          >
-            {saveIndicator}
-          </span>
+          <span className={`quest-detail-save state-${saveState}`}>{saveIndicator}</span>
         )}
         {quest.updated_at && !saveIndicator && (
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "var(--font-size-2xs)",
-              color: "var(--text-muted)",
-            }}
-          >
-            {timeAgo(quest.updated_at)}
-          </span>
+          <span className="quest-detail-updated">{timeAgo(quest.updated_at)}</span>
         )}
       </div>
 
-      {/* Scrollable body */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", minHeight: 0 }}>
-        {error && (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: "6px 10px",
-              borderRadius: 4,
-              background: "rgba(239,68,68,0.08)",
-              color: "var(--error)",
-              fontSize: "var(--font-size-xs)",
-            }}
-          >
-            {error}
+      <div className="quest-detail-scroll">
+        <div className="quest-detail-col">
+          {error && <div className="quest-detail-error">{error}</div>}
+
+          <div className="quest-detail-eyebrow">
+            <span className="quest-detail-eyebrow-kind">Quest</span>
+            <span className="quest-detail-eyebrow-sep" aria-hidden>
+              ·
+            </span>
+            <span className="quest-detail-eyebrow-status">{STATUS_LABELS[quest.status]}</span>
           </div>
-        )}
 
-        {/* Title (read-only) */}
-        <h2
-          style={{
-            fontSize: "var(--font-size-lg)",
-            fontWeight: 600,
-            color: "var(--text-primary)",
-            margin: "0 0 16px",
-            lineHeight: 1.3,
-          }}
-        >
-          {quest.subject}
-        </h2>
+          <h2 className="quest-detail-title">{quest.subject}</h2>
 
-        {/* Meta row: status + priority selectors */}
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            marginBottom: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <FieldRow label="Status">
-            <select
-              value={status}
-              onChange={(e) => handleStatusChange(e.target.value as QuestStatus)}
-              style={selectStyle}
-            >
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
-
-          <FieldRow label="Priority">
-            <select
-              value={priority}
-              onChange={(e) => handlePriorityChange(e.target.value as QuestPriority)}
-              style={selectStyle}
-            >
-              {priorities.map((p) => (
-                <option key={p} value={p}>
-                  {PRIORITY_LABELS[p]}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
-        </div>
-
-        {/* Description edit */}
-        <div style={{ marginBottom: 20 }}>
-          <div
-            style={{
-              fontSize: "var(--font-size-xs)",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: 6,
-            }}
-          >
-            Description
-          </div>
-          <textarea
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              scheduleSave();
-            }}
-            onBlur={() => {
-              if (dirtyRef.current) save();
-            }}
-            placeholder="Add a description…"
-            rows={6}
-            style={{
-              width: "100%",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--font-size-sm)",
-              lineHeight: 1.6,
-              padding: "8px 12px",
-              outline: "none",
-              resize: "vertical",
-              transition: "border-color var(--transition-fast)",
-              boxSizing: "border-box",
-            }}
-            onFocus={(e) => {
-              (e.target as HTMLTextAreaElement).style.borderColor = "var(--border-hover)";
-            }}
-            onBlurCapture={(e) => {
-              (e.target as HTMLTextAreaElement).style.borderColor = "var(--border)";
-            }}
-          />
-        </div>
-
-        {/* Acceptance criteria (read-only if set) */}
-        {quest.acceptance_criteria && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={sectionLabel}>Acceptance Criteria</div>
-            <div
-              style={{
-                fontSize: "var(--font-size-sm)",
-                color: "var(--text-secondary)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {quest.acceptance_criteria}
-            </div>
-          </div>
-        )}
-
-        {/* Worktree path */}
-        {quest.worktree_path && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={sectionLabel}>Worktree Path</div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--font-size-xs)",
-                color: "var(--text-secondary)",
-                background: "var(--bg-elevated)",
-                padding: "6px 10px",
-                borderRadius: "var(--radius-md)",
-                wordBreak: "break-all",
-              }}
-            >
-              {quest.worktree_path}
-            </div>
-            {quest.worktree_branch && (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--font-size-xs)",
-                  color: "var(--text-muted)",
-                }}
+          <div className="quest-detail-meta">
+            <label className="quest-detail-meta-field">
+              <span className="quest-detail-meta-label">Status</span>
+              <select
+                className="quest-detail-select"
+                value={status}
+                onChange={(e) => handleStatusChange(e.target.value as QuestStatus)}
               >
-                branch: {quest.worktree_branch}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Labels */}
-        {quest.labels && quest.labels.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={sectionLabel}>Labels</div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-              {quest.labels.map((l) => (
-                <span
-                  key={l}
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--font-size-2xs)",
-                    padding: "2px 8px",
-                    borderRadius: "var(--radius-full)",
-                    background: "var(--bg-elevated)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {l}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Cost + checkpoints */}
-        {(quest.cost_usd > 0 || (quest.checkpoints && quest.checkpoints.length > 0)) && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={sectionLabel}>Execution</div>
-            {quest.cost_usd > 0 && (
-              <div
-                style={{
-                  fontSize: "var(--font-size-xs)",
-                  color: "var(--text-secondary)",
-                  marginBottom: 6,
-                }}
+                {statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="quest-detail-meta-field">
+              <span className="quest-detail-meta-label">Priority</span>
+              <select
+                className="quest-detail-select"
+                value={priority}
+                onChange={(e) => handlePriorityChange(e.target.value as QuestPriority)}
               >
-                Cost:{" "}
-                <span style={{ fontFamily: "var(--font-mono)" }}>${quest.cost_usd.toFixed(4)}</span>
+                {priorities.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="quest-detail-section">
+            <div className="quest-detail-section-label">Description</div>
+            <textarea
+              className="quest-detail-textarea"
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                scheduleSave();
+              }}
+              onBlur={() => {
+                if (dirtyRef.current) save();
+              }}
+              placeholder="Add a description…"
+              rows={6}
+            />
+          </div>
+
+          {quest.acceptance_criteria && (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Acceptance criteria</div>
+              <div className="quest-detail-prose">{quest.acceptance_criteria}</div>
+            </div>
+          )}
+
+          {quest.worktree_path && (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Worktree</div>
+              <div className="quest-detail-worktree">
+                <code className="quest-detail-code">{quest.worktree_path}</code>
+                {quest.worktree_branch && (
+                  <span className="quest-detail-branch">branch · {quest.worktree_branch}</span>
+                )}
               </div>
-            )}
-            {quest.checkpoints && quest.checkpoints.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-                {quest.checkpoints.map((cp, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: "var(--radius-md)",
-                      background: "var(--bg-elevated)",
-                      fontSize: "var(--font-size-xs)",
-                      color: "var(--text-secondary)",
-                      borderLeft: "2px solid var(--border)",
-                    }}
-                  >
-                    <div style={{ color: "var(--text-primary)", marginBottom: 2 }}>
-                      {cp.progress}
-                    </div>
-                    <div style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                      {timeAgo(cp.timestamp)} · {cp.steps_used} steps · ${cp.cost_usd.toFixed(4)}
-                    </div>
-                  </div>
+            </div>
+          )}
+
+          {quest.labels && quest.labels.length > 0 && (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Labels</div>
+              <div className="quest-detail-labels">
+                {quest.labels.map((l) => (
+                  <span key={l} className="quest-detail-label-chip">
+                    {l}
+                  </span>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Outcome */}
-        {quest.outcome && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={sectionLabel}>Outcome</div>
-            <div
-              style={{
-                padding: "8px 12px",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-elevated)",
-                fontSize: "var(--font-size-sm)",
-                color: "var(--text-secondary)",
-                lineHeight: 1.6,
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  marginRight: 8,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--font-size-xs)",
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                }}
-              >
-                {quest.outcome.kind}
-              </span>
-              {quest.outcome.summary}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Danger zone — close/cancel */}
-        {quest.status !== "done" && quest.status !== "cancelled" && (
-          <div
-            style={{
-              marginTop: 32,
-              paddingTop: 16,
-              borderTop: "1px solid var(--border)",
-              display: "flex",
-              gap: 8,
-            }}
-          >
-            <CloseButton questId={quest.id} onDone={fetchQuests} />
-          </div>
-        )}
+          {(quest.cost_usd > 0 || (quest.checkpoints && quest.checkpoints.length > 0)) && (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Execution</div>
+              {quest.cost_usd > 0 && (
+                <div className="quest-detail-cost">
+                  Cost · <span className="quest-detail-cost-n">${quest.cost_usd.toFixed(4)}</span>
+                </div>
+              )}
+              {quest.checkpoints && quest.checkpoints.length > 0 && (
+                <ol className="quest-detail-checkpoints">
+                  {quest.checkpoints.map((cp, i) => (
+                    <li key={i} className="quest-detail-checkpoint">
+                      <div className="quest-detail-checkpoint-progress">{cp.progress}</div>
+                      <div className="quest-detail-checkpoint-meta">
+                        {timeAgo(cp.timestamp)} · {cp.steps_used} steps · ${cp.cost_usd.toFixed(4)}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+
+          {quest.outcome && (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Outcome</div>
+              <div className="quest-detail-outcome">
+                <span className="quest-detail-outcome-kind">{quest.outcome.kind}</span>
+                <span className="quest-detail-outcome-summary">{quest.outcome.summary}</span>
+              </div>
+            </div>
+          )}
+
+          {quest.status !== "done" && quest.status !== "cancelled" && (
+            <div className="quest-detail-footer">
+              <CloseButton questId={quest.id} onDone={fetchQuests} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span
-        style={{
-          fontSize: "var(--font-size-xs)",
-          color: "var(--text-muted)",
-          minWidth: 52,
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: "3px 8px",
-  background: "var(--bg-elevated)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-primary)",
-  fontFamily: "var(--font-sans)",
-  fontSize: "var(--font-size-xs)",
-  outline: "none",
-  cursor: "pointer",
-};
-
-const sectionLabel: React.CSSProperties = {
-  fontSize: "var(--font-size-xs)",
-  fontWeight: 600,
-  color: "var(--text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  marginBottom: 6,
-};
 
 /**
  * Board view shown when no quest is selected.
@@ -576,6 +352,38 @@ function QuestBoard({
   const [priority, setPriority] = useState<QuestPriority>("normal");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
+  // dim themselves; `dropTarget` is the column that'll receive the drop so its
+  // frame can light up. `optimistic` overrides a quest's displayed status until
+  // the server roundtrip lands — the UI feels instant, and a failed patch
+  // simply reverts when we clear the entry.
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<QuestStatus | null>(null);
+  const [optimistic, setOptimistic] = useState<Record<string, QuestStatus>>({});
+
+  const handleDrop = useCallback(
+    async (questId: string, next: QuestStatus) => {
+      const q = quests.find((x) => x.id === questId);
+      if (!q) return;
+      const current = optimistic[questId] ?? q.status;
+      if (current === next) return;
+      setOptimistic((s) => ({ ...s, [questId]: next }));
+      try {
+        await api.updateQuest(questId, { status: next });
+        onCreated();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Failed to move quest");
+      } finally {
+        setOptimistic((s) => {
+          const copy = { ...s };
+          delete copy[questId];
+          return copy;
+        });
+      }
+    },
+    [quests, optimistic, onCreated],
+  );
 
   const submit = useCallback(async () => {
     const s = subject.trim();
@@ -613,7 +421,10 @@ function QuestBoard({
     done: [],
     cancelled: [],
   };
-  for (const q of quests) grouped[q.status]?.push(q);
+  for (const q of quests) {
+    const status = optimistic[q.id] ?? q.status;
+    grouped[status]?.push(q);
+  }
   // Sort each column: most recent updated_at first.
   for (const k of Object.keys(grouped) as QuestStatus[]) {
     grouped[k].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
@@ -659,21 +470,59 @@ function QuestBoard({
       <div className="quest-board-columns">
         {columns.map((col) => {
           const list = grouped[col.status] || [];
+          const isTarget = dropTarget === col.status;
           return (
-            <section key={col.status} className="quest-col" data-status={col.status}>
+            <section
+              key={col.status}
+              className="quest-col"
+              data-status={col.status}
+              data-drop-target={isTarget || undefined}
+              onDragOver={(e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (dropTarget !== col.status) setDropTarget(col.status);
+              }}
+              onDragLeave={(e) => {
+                // Only clear the highlight when the pointer actually leaves
+                // the column's own rectangle — not when it crosses onto a
+                // child card (relatedTarget would still be inside us).
+                const related = e.relatedTarget as Node | null;
+                if (related && e.currentTarget.contains(related)) return;
+                if (dropTarget === col.status) setDropTarget(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/plain") || dragging;
+                if (id) void handleDrop(id, col.status);
+                setDragging(null);
+                setDropTarget(null);
+              }}
+            >
               <header className="quest-col-header">
                 <span className="quest-col-label">{col.label}</span>
                 <span className="quest-col-count">{list.length}</span>
               </header>
               <div className="quest-col-body">
                 {list.length === 0 ? (
-                  <div className="quest-col-empty">Nothing here</div>
+                  <div className="quest-col-empty">{isTarget ? "Drop here" : "Nothing here"}</div>
                 ) : (
                   list.map((q) => (
                     <article
                       key={q.id}
                       className="quest-card"
                       data-priority={q.priority}
+                      data-dragging={dragging === q.id || undefined}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", q.id);
+                        setDragging(q.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setDropTarget(null);
+                      }}
                       onClick={() => onPick(q.id)}
                     >
                       <div className="quest-card-subject">{q.subject}</div>
