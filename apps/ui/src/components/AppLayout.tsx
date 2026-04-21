@@ -32,7 +32,8 @@ function findRoot(agents: Agent[], id: string): Agent | null {
 }
 
 /**
- * Top-level shell: sidebar, content card, right rail, persistent composer.
+ * Top-level shell: sidebar, content card, persistent composer. (The old
+ * right rail was removed — each tab now renders its own inline picker.)
  *
  * Version B: routes are flat — `/:agentId/[:tab/[:itemId]]`. This component
  * parses those params, resolves the target agent, derives the tree's root
@@ -130,7 +131,7 @@ export default function AppLayout() {
   const gDeadlineRef = useRef<number>(0);
   // The top-bar "Search" button dispatches `aeqi:open-palette` so callers
   // don't need AppLayout-scoped state threaded down — same pattern as the
-  // per-tab `+ New X` buttons in the right rail.
+  // per-tab `+ New X` buttons inside each inline picker.
   useEffect(() => {
     window.addEventListener("aeqi:open-palette", openSearch);
     return () => window.removeEventListener("aeqi:open-palette", openSearch);

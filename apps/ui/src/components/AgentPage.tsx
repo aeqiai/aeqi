@@ -127,9 +127,9 @@ export default function AgentPage({
 
 /**
  * Agents sub-tab. Listens for the shared `aeqi:create` event (fired by the
- * right-rail "New agent" CTA) and navigates to the full-page spawn flow at
- * `/new?parent=<parentAgentId>`. Creating an agent is a first-class act —
- * it gets a page, not a modal.
+ * tab's inline picker "New agent" CTA) and navigates to the full-page spawn
+ * flow at `/new?parent=<parentAgentId>`. Creating an agent is a first-class
+ * act — it gets a page, not a modal.
  */
 function AgentsTab({
   parentAgentId,

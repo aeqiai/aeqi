@@ -53,8 +53,8 @@ function StatusDot({ status }: { status: QuestStatus }) {
 
 /**
  * Quest detail canvas. Shown in the `.asv-main` region when a quest is selected
- * via `/:agentId/quests/:itemId`. When no quest is selected, shows the compose
- * state (create a new one or pick from the right rail).
+ * via `/:agentId/quests/:itemId`. When no quest is selected, shows the kanban
+ * board (`QuestBoard`) with an inline composer and the full column grid.
  */
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();

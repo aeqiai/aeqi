@@ -64,9 +64,9 @@ function buildConfig(
 }
 
 /**
- * Channels detail pane. The list is in the global right rail; this
- * component only renders the selected channel's detail view, plus the
- * add-channel form when the rail's "+" button fires `aeqi:new-channel`.
+ * Channels tab. Renders the inline picker (connected channels list) on
+ * one side and the selected channel's detail view on the other, plus the
+ * add-channel form when the picker's "+" button fires `aeqi:new-channel`.
  */
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();

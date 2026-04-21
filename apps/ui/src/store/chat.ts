@@ -42,8 +42,8 @@ interface ChatState {
   setPendingMessage: (msg: PendingMessage | null) => void;
   /**
    * Per-agent session list, populated by the active AgentSessionView so the
-   * unified right rail (rendered in AppLayout) can show the sessions list
-   * with the same data without re-fetching.
+   * SessionsRail (left-adjacent threads column) can render the same data
+   * without re-fetching.
    */
   sessionsByAgent: Record<string, SessionInfo[]>;
   setSessionsForAgent: (agentId: string, sessions: SessionInfo[]) => void;

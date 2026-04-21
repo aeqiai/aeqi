@@ -11,8 +11,8 @@
 }
 
 /* "+ New company" row at the top. Subtle secondary treatment — the one
-   truly-primary action per tab is the gold CTA in the right rail, so this
-   stays quiet: the accent is still scarce. */
+   truly-primary action per tab is the CTA inside each tab's own inline
+   picker, so this stays quiet: the accent is still scarce. */
 .newCompany {
   display: flex;
   align-items: center;
