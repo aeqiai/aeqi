@@ -76,6 +76,11 @@
    top-left. The eyebrow label + title give enough visual weight without
    competing with the composer accent below. */
 .asv-empty {
+  /* Break out of .asv-messages' right-pinning (flex-end is for message
+     bubbles; the empty state belongs at the left gutter so the eyebrow
+     label + title carry weight against negative space, not against a
+     squeezed 640px column on the wrong edge of the viewport). */
+  align-self: stretch;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -83,7 +88,7 @@
   justify-content: center;
   gap: var(--space-2);
   padding: 48px 56px;
-  max-width: 640px;
+  max-width: none;
 }
 
 .asv-empty-eyebrow {
