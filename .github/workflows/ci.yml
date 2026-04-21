@@ -43,6 +43,12 @@ jobs:
         run: npm --prefix apps/ui run build
 
       # ── Backend ───────────────────────────────────
+      # Baileys bridge deps — aeqi-gates tests boot the Node bridge as a
+      # subprocess and assert on its ready event, so node_modules has to
+      # exist before the Rust test layer runs.
+      - name: Baileys bridge install
+        run: npm --prefix bridges/baileys ci
+
       - name: Rust format check
         run: cargo fmt --check
 
