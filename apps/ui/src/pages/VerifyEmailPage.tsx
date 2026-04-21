@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import Wordmark from "@/components/Wordmark";
+import { Spinner } from "@/components/ui";
 
 export default function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -115,7 +116,12 @@ export default function VerifyEmailPage() {
         </div>
 
         {error && <div className="auth-error">{error}</div>}
-        {loading && <p className="auth-subheading">Verifying...</p>}
+        {loading && (
+          <p className="auth-subheading auth-verifying">
+            <Spinner size="sm" />
+            Verifying…
+          </p>
+        )}
 
         <p className="auth-switch" style={{ marginTop: 32 }}>
           Didn't get the code?{" "}

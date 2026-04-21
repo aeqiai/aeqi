@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Spinner } from "@/components/ui";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24">
@@ -467,7 +467,12 @@ export default function SignupPage() {
               {verifyError}
             </div>
           )}
-          {verifyLoading && <p className="auth-subheading auth-verifying">Verifying...</p>}
+          {verifyLoading && (
+            <p className="auth-subheading auth-verifying">
+              <Spinner size="sm" />
+              Verifying…
+            </p>
+          )}
           <p className="auth-switch">
             Didn't get the code?{" "}
             {resendCooldown > 0 ? (

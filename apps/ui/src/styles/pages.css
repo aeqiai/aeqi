@@ -208,6 +208,9 @@
   color: var(--text-secondary);
 }
 .auth-verifying {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin: var(--space-2) 0;
 }
 .auth-cooldown {
