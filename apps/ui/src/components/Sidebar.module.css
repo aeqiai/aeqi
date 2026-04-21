@@ -104,10 +104,13 @@
   overflow: visible;
 }
 
-/* Parent stub — every expanded parent drops a short segment from
-   directly below its chevron to the top of its first child. Same accent
-   wash as the rails so it reads as one continuous lineage. */
-.collapseBtn[aria-expanded="true"]::after {
+/* Parent stub — every expanded parent drops a short segment from directly
+   below its avatar to the top of its first child. The chevron now lives at
+   the row's right edge so the lineage anchor moved to the avatar slot to
+   keep the vertical line reading as one continuous thread. Rendered only
+   on expanded rows (those whose row carries aria-expanded="true"). */
+.row[aria-expanded="true"] .iconSlot::after,
+.rowActive[aria-expanded="true"] .iconSlot::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -119,6 +122,9 @@
   pointer-events: none;
   transition: background 0.12s ease;
 }
+.iconSlot {
+  position: relative;
+}
 
 /* Light up lineage on hover/active. */
 .row:hover .guideLine,
@@ -129,21 +135,22 @@
 .rowActive .connectorEnd {
   color: var(--accent);
 }
-.row:hover .collapseBtn[aria-expanded="true"]::after,
-.rowActive .collapseBtn[aria-expanded="true"]::after {
+.row:hover[aria-expanded="true"] .iconSlot::after,
+.rowActive[aria-expanded="true"] .iconSlot::after {
   background: var(--accent);
 }
 
-/* Collapse toggle — a proper 18×18 button. Sits to the left of the icon
-   slot; leaves a matching-sized spacer on leaves so labels align across
-   the tree regardless of expandability. */
+/* Collapse toggle — a proper 18×18 button. Anchored at the row's right
+   edge so the avatar stays flush-left; leaves a matching-sized spacer on
+   leaf rows so the right-hand column alignment is stable whether the row
+   can expand or not. */
 .collapseBtn,
 .collapseSpacer {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
   align-self: center;
-  margin: 0 4px 0 0;
+  margin: 0 0 0 4px;
 }
 .collapseBtn {
   display: inline-flex;

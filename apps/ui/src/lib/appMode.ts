@@ -17,17 +17,11 @@ export function getScopedRoot(): string {
   // In the browser, extract from URL: /uuid/agents → UUID
   const path = window.location.pathname;
   const segments = path.split("/").filter(Boolean);
-  // Skip known root-level routes that are NOT root agent names.
-  const rootRoutes = new Set([
-    "login",
-    "signup",
-    "waitlist",
-    "verify",
-    "auth",
-    "reset-password",
-    "new",
-  ]);
-  if (segments.length > 0 && !rootRoutes.has(segments[0])) {
+  // Skip known root-level routes that are NOT root agent names. Anything
+  // the App.tsx router matches as a literal top-level path must be listed
+  // here; otherwise the segment is mis-read as a root agent ID, poisoning
+  // the X-Root header and the `aeqi_root` cache on every /:non-agent visit.
+  if (segments.length > 0 && !NON_AGENT_ROUTES.has(segments[0])) {
     return decodeURIComponent(segments[0]);
   }
   // Fallback for pre-navigation contexts.
@@ -40,5 +34,25 @@ export function getScopedRoot(): string {
       stored = legacy;
     }
   }
+  // If a prior bug wrote a non-agent segment (e.g. "profile") into the
+  // cache, discard it so we don't keep shipping garbage in X-Root.
+  if (stored && NON_AGENT_ROUTES.has(stored)) {
+    localStorage.removeItem("aeqi_root");
+    stored = null;
+  }
   return stored || "";
 }
+
+const NON_AGENT_ROUTES = new Set([
+  "login",
+  "signup",
+  "waitlist",
+  "verify",
+  "auth",
+  "reset-password",
+  "new",
+  "profile",
+  "templates",
+  "agents",
+  "drive",
+]);

@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
+import AgentAvatar from "./AgentAvatar";
 import BlockAvatar from "./BlockAvatar";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
@@ -211,6 +213,11 @@ function AgentNodeView({
         onKeyDown={onKeyDown}
       >
         <Rail ancestors={ancestors} isLast={isLast} />
+        <span className={styles.iconSlot}>
+          <BlockAvatar name={label} size={16} />
+        </span>
+        <span className={styles.rowLabel}>{label}</span>
+        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
         {hasChildren ? (
           <button
             type="button"
@@ -225,11 +232,6 @@ function AgentNodeView({
         ) : (
           <span className={styles.collapseSpacer} aria-hidden="true" />
         )}
-        <span className={styles.iconSlot}>
-          <BlockAvatar name={label} size={16} />
-        </span>
-        <span className={styles.rowLabel}>{label}</span>
-        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
       </div>
       {showChildren && (
         <div className={styles.children}>
@@ -315,6 +317,11 @@ function RootRow({
         onClick={select}
         onKeyDown={onKeyDown}
       >
+        <span className={styles.iconSlot}>
+          <AgentAvatar name={label} />
+        </span>
+        <span className={styles.rowLabel}>{label}</span>
+        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
         {hasChildren ? (
           <button
             type="button"
@@ -329,11 +336,6 @@ function RootRow({
         ) : (
           <span className={styles.collapseSpacer} aria-hidden="true" />
         )}
-        <span className={styles.iconSlot}>
-          <BlockAvatar name={label} size={18} />
-        </span>
-        <span className={styles.rowLabel}>{label}</span>
-        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
       </div>
       {showChildren &&
         subtree &&
@@ -363,15 +365,21 @@ export default function AgentTree() {
   const navigate = useNavigate();
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
   const allAgents = useDaemonStore((s) => s.agents);
+  const activeRoot = useUIStore((s) => s.activeRoot);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const { agentId } = useParams<{ agentId?: string }>();
   const selectedId = agentId || null;
 
-  const activeRootId = useMemo(
-    () => (agentId ? findRootId(allAgents, agentId) : null),
-    [agentId, allAgents],
-  );
+  // Context-less routes (/, /profile, /drive) still expand the last-visited
+  // root so the tree reads identically everywhere. When there's no last root,
+  // the first root auto-expands — collapsed guessing games are worse than a
+  // consistent default.
+  const activeRootId = useMemo(() => {
+    if (agentId) return findRootId(allAgents, agentId);
+    if (activeRoot && allAgents.some((a) => a.id === activeRoot)) return activeRoot;
+    return allAgents.find((a) => !a.parent_id)?.id || null;
+  }, [agentId, activeRoot, allAgents]);
 
   const roots = useMemo(() => allAgents.filter((a) => !a.parent_id), [allAgents]);
 

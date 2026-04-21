@@ -50,12 +50,6 @@
 .left-sidebar.collapsed .sidebar-nav-action {
   display: none;
 }
-/* The four W-primitives have no icon — the accent-tinted initial IS
-   their icon. Keep the label visible when collapsed so the rail spells
-   A-E-Q-I down the edge. The tail span is hidden via its own rule. */
-.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
-  display: inline;
-}
 .left-sidebar.collapsed .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
@@ -274,34 +268,20 @@
 }
 .sidebar-nav-item:hover > svg,
 .sidebar-nav-item.active > svg {
-  color: var(--text-primary);
-}
-/* aeqi primitive nav — the four W-primitives (agents / events / quests /
-   ideas) render in the brand typeface, flush-left, with the leading
-   letter tinted in the accent. They ARE the wordmark spelled out — a
-   continuation of æqi above, not another row of nav chrome. */
-.sidebar-nav-item.no-icon {
-  padding-left: 8px;
-}
-.sidebar-nav-item.no-icon .sidebar-nav-label {
-  /* Sigil + word: the whole word lives in the brand face — accent-tinted
-     initial + matching-weight tail, a continuation of the æqi wordmark
-     above. */
-  font-family: var(--font-brand);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  padding: 2px 0;
-}
-.sidebar-nav-initial {
   color: var(--color-accent);
 }
-/* Collapsed rail: hide the word's tail so only the accent-tinted initial
-   shows. Luca's rule — the rail spells A-E-Q-I cleanly down the edge;
-   no half-clipped "agen" ghosts. */
-.left-sidebar.collapsed .sidebar-nav-tail {
-  display: none;
+/* Primitive placeholder — rendered on /`` and /profile where there's no
+   agent in scope yet. Keeps the sidebar silhouette stable so that clicking
+   into a root doesn't shift the layout; visually muted so it reads as a
+   not-yet-reachable affordance rather than an active link. */
+.sidebar-nav-item.disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.sidebar-nav-item.disabled > svg {
+  color: var(--text-muted);
 }
 .sidebar-nav-label {
   flex: 1;
@@ -371,51 +351,20 @@
 .sidebar-surface-nav {
   gap: 4px;
 }
-.sidebar-surface-nav .sidebar-nav-item.no-icon {
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  min-height: 32px;
-  transition:
-    border-color 0.1s,
-    background 0.1s,
-    box-shadow 0.1s,
-    color 0.1s;
-}
-.sidebar-surface-nav .sidebar-nav-item.no-icon:hover {
-  background: var(--bg-surface);
-  border-color: var(--border-hover);
-}
-.sidebar-surface-nav .sidebar-nav-item.no-icon.active {
-  background: var(--color-accent-bg);
-  border-color: var(--color-accent-dim, var(--color-accent-bg));
-  box-shadow: inset 2px 0 0 var(--color-accent);
-}
-
-/* Collapsed rail — each primitive compresses into a 36×36 square tile,
-   the accent initial dead-centered. White fill carries over so the
-   letters read as buttons rather than stray glyphs down the edge. */
+/* Collapsed rail — each primitive compresses into a 36×36 square,
+   centered icon. No tile chrome; the icon alone carries the rail
+   the way Linear/Notion collapsed sidebars do. */
 .left-sidebar.collapsed .sidebar-surface-nav {
   padding: 8px;
   align-items: center;
 }
 .left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item {
-  padding: 0;
-}
-.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item.no-icon {
   width: 36px;
   height: 36px;
   padding: 0;
   min-height: 0;
   justify-content: center;
   align-items: center;
-}
-.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item.no-icon .sidebar-nav-label {
-  flex: none;
-  padding: 0;
-  font-size: 15px;
-  line-height: 1;
 }
 
 /* ── Sidebar footer — identity anchor.
@@ -515,38 +464,78 @@
    reads as one horizontal band across all three columns. Holds only the
    icon-only "+ new" button on the right; the section identity is already
    conveyed by the accent-tinted initial in the surface nav. */
-.threads-rail-header {
-  height: 52px;
-  min-height: 52px;
-  padding: 0 14px;
+/* Primitive head — the unified header row every primitive page wears at
+   the top. Left: sigil + lowercase word (brand font, matching sidebar nav
+   tree). Right: one small, flat "new" CTA. The pattern collapses the
+   orphan "+ at the top" that each page used to sprout individually.
+   Shared across threads rail, ideas list, events list, quests board. */
+.primitive-head {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  height: 52px;
+  min-height: 52px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border-faint, rgba(0, 0, 0, 0.05));
 }
-.threads-rail-new-btn {
-  width: 24px;
-  height: 24px;
+.primitive-head-title {
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.primitive-head-initial {
+  color: var(--color-accent);
+}
+.primitive-head-count {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+.primitive-head-new {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition:
-    color 0.12s ease,
-    background 0.12s ease;
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
 }
-.threads-rail-new-btn:hover,
-.threads-rail-new-btn:focus-visible {
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-  outline: none;
+.primitive-head-new:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-row);
+}
+.primitive-head-new:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+.primitive-head-new svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.primitive-head-new:hover svg {
+  opacity: 1;
 }
 .threads-rail-list {
   flex: 1;
@@ -582,13 +571,14 @@
   background: var(--border);
   opacity: 0.5;
 }
-/* Row — single-line dense: [dot] [name, flex] [badge?] [time]. 36px
-   min-height creates a calmer cadence than the old 48px + pill layout.
-   Rhythm comes from density + group rules, not inter-row hairlines. */
+/* Row — single-line dense: [name, flex] [badge?] [time]. 36px min-height
+   creates a calmer cadence than the old 48px + pill layout. Selection is
+   carried by the .active state alone (background tint + 2px left bar);
+   status dots were removed as redundant noise. */
 .threads-rail-row {
   position: relative;
   display: grid;
-  grid-template-columns: 12px 1fr auto auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -621,34 +611,6 @@
   bottom: 0;
   width: 2px;
   background: var(--text-primary);
-}
-.threads-rail-row-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  opacity: 0.3;
-  justify-self: center;
-  transition:
-    background 0.12s ease,
-    opacity 0.12s ease;
-}
-.threads-rail-row[data-status="active"] .threads-rail-row-dot {
-  background: var(--accent-bar-running, var(--info));
-  opacity: 0.85;
-}
-.threads-rail-row[data-status="idle"] .threads-rail-row-dot,
-.threads-rail-row[data-status="done"] .threads-rail-row-dot {
-  background: var(--accent-bar-done, var(--success));
-  opacity: 0.6;
-}
-.threads-rail-row[data-status="error"] .threads-rail-row-dot,
-.threads-rail-row[data-status="cancelled"] .threads-rail-row-dot {
-  background: var(--accent-bar-blocked, var(--warning));
-  opacity: 0.75;
-}
-.threads-rail-row.active .threads-rail-row-dot {
-  opacity: 1;
 }
 .threads-rail-row-name {
   font-family: var(--font-sans);
@@ -1382,19 +1344,12 @@
   color: var(--text-primary);
   white-space: nowrap;
 }
-/* Primitive breadcrumb — echoes the sidebar: whole word in the brand
-   face with an accent-tinted initial. Kept small/subordinate so the
-   agent name stays the anchor. */
+/* Primitive breadcrumb — plain sans, subordinate to the agent name so
+   the identity stays the anchor. Matches the sidebar primitive label. */
 .content-topbar-crumb {
-  font-family: var(--font-brand);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   white-space: nowrap;
-}
-.content-topbar-crumb .sidebar-nav-initial {
-  color: var(--color-accent);
 }
 .content-topbar-right {
   display: flex;
@@ -1544,55 +1499,13 @@
 }
 
 /* ── Settings shell ──
-   Umbrella for Settings / Channels / Tools. One hairline tab row across
-   the top — left-aligned, flush with the 24px content gutter, matching
-   the topbar rhythm. The active tab carries a 1.5px ink underline; no
-   pills, no background fills. Reads as an inline filter on the same
-   page, not a separate toolbar. */
+   Umbrella for Settings / Channels / Tools. Shares one PageTabs row
+   with Profile so the app speaks a single tab language. */
 .settings-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-}
-.settings-shell-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0 20px;
-  height: 44px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.settings-shell-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  height: 100%;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.12s ease;
-}
-.settings-shell-tab:hover {
-  color: var(--text-primary);
-}
-.settings-shell-tab.active {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.settings-shell-tab.active::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 1.5px;
-  background: var(--text-primary);
 }
 .settings-shell-body {
   flex: 1;
@@ -2573,59 +2486,15 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 28px 12px;
+  padding: 14px 28px 12px;
   border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
 }
-.ideas-list-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.ideas-list-stat-count {
-  color: var(--text-primary);
-  font-size: 11px;
-  letter-spacing: 0;
-  font-weight: 600;
-}
-.ideas-list-stat-label {
-  opacity: 0.85;
-}
-.ideas-list-stat-sep {
-  opacity: 0.35;
-  letter-spacing: 0;
-}
-.ideas-list-stat-clear {
-  padding: 0;
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-bottom: 1px dashed var(--border-hover);
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.ideas-list-stat-clear:hover {
-  color: var(--text-primary);
-}
-.ideas-list-stat-spacer {
-  flex: 1;
-}
 
-/* List ↔ graph — a restrained segmented control. Lives at the right
-   end of the stat row on the list, and inside the graph-view header
-   so there's always a one-click path back. Sigil-tinted active tab
-   echoes the "word with accent initial" language from the sidebar. */
+/* List ↔ graph — a restrained segmented control that now lives inside
+   the primitive-head, right-aligned with `+ new idea`. Sigil-tinted
+   active tab echoes the "word with accent initial" language from the
+   sidebar. */
 .ideas-view-toggle {
   display: inline-flex;
   align-items: stretch;
@@ -2672,6 +2541,47 @@
 }
 .ideas-view-toggle-btn.active svg {
   opacity: 1;
+}
+
+/* Primitive-head right cluster — view toggle + `+ new idea`. Sits in
+   the 52px head band so switching views never moves the eye. */
+.primitive-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Filter indicator — a thin line under the filter controls that only
+   appears when the result set is narrowed. Two-tone count + one-word
+   reset keyword, no heavy mono-caps. */
+.ideas-list-filter-indicator {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.ideas-list-filter-indicator strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.ideas-list-filter-reset {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--accent-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ideas-list-filter-reset:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-hover);
 }
 .ideas-list-search-row {
   display: flex;
@@ -2824,7 +2734,6 @@
   overflow-y: auto;
 }
 .ideas-list-row {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2842,29 +2751,25 @@
     background 0.12s ease,
     color 0.12s ease;
 }
-.ideas-list-row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-  transition: background 0.12s ease;
-}
 .ideas-list-row:hover {
   background: var(--state-hover);
-}
-.ideas-list-row:hover::before {
-  background: color-mix(in oklch, var(--accent) 45%, transparent);
 }
 .ideas-list-row:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -2px;
   background: var(--state-hover);
 }
-.ideas-list-row:focus-visible::before {
-  background: var(--accent);
+
+/* Search-match highlight — inline <mark> wrapper for the matched token
+   inside row name + snippet. Keeps the run of text flowing; only the
+   matched slice lifts via weight + a whisper of accent-dim behind it. */
+.ideas-list-row-match {
+  padding: 0 1px;
+  margin: 0 -1px;
+  color: var(--text-primary);
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+  border-radius: 2px;
+  font-weight: 600;
 }
 .ideas-list-row-head {
   display: flex;
@@ -3000,16 +2905,21 @@
 .ideas-list-hint {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 18px;
   padding: 10px 28px 14px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--text-muted);
-  opacity: 0.55;
+  opacity: 0.6;
   border-top: 1px solid var(--border-faint);
   user-select: none;
+}
+.ideas-list-hint span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .ideas-list-hint kbd {
   display: inline-flex;
@@ -3025,7 +2935,6 @@
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: 2px;
-  margin-right: 2px;
 }
 
 /* Ideas tag-group label — borrows the sidebar's sigil+word treatment
@@ -3045,8 +2954,9 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   Ideas graph view — dedicated shell so the view toggle + identity
-   band stays visible above the force-directed canvas.
+   Ideas graph view — same primitive-head as the list above the
+   force-directed canvas so switching modes feels like a toggle, not
+   a navigation.
    ────────────────────────────────────────────────────────────────── */
 .ideas-graph {
   flex: 1;
@@ -3054,35 +2964,6 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-}
-.ideas-graph-head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 28px 12px;
-  border-bottom: 1px solid var(--border-faint);
-  flex-shrink: 0;
-}
-.ideas-graph-head-title {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-.ideas-graph-head-mark {
-  color: var(--accent);
-  font-size: 14px;
-  line-height: 1;
-  transform: translateY(1px);
-}
-.ideas-graph-head-copy {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
 .ideas-graph-canvas {
   flex: 1;
@@ -3338,10 +3219,11 @@
   align-items: baseline;
   gap: 10px;
   margin-bottom: 10px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
   color: var(--text-muted);
   user-select: none;
 }
@@ -3349,8 +3231,13 @@
   color: var(--text-secondary);
   font-family: inherit;
 }
+.ideas-canvas-eyebrow-initial {
+  color: var(--accent);
+}
 .ideas-canvas-eyebrow-sep {
-  opacity: 0.35;
+  opacity: 0.4;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 .ideas-canvas-eyebrow-back {
   display: inline-flex;
@@ -3366,29 +3253,33 @@
 }
 .ideas-canvas-eyebrow-back:hover,
 .ideas-canvas-eyebrow-back:focus-visible {
-  color: var(--accent);
+  color: var(--text-primary);
   outline: none;
 }
 .ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-kind,
 .ideas-canvas-eyebrow-back:focus-visible .ideas-canvas-eyebrow-kind {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 .ideas-canvas-eyebrow-chevron {
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1;
-  transform: translateY(-1px);
-  opacity: 0.6;
+  transform: translateY(0);
+  opacity: 0.55;
   transition:
     opacity 0.12s ease,
     transform 0.12s ease;
 }
 .ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-chevron {
   opacity: 1;
-  transform: translate(-2px, -1px);
+  transform: translateX(-2px);
 }
 .ideas-canvas-eyebrow-scope {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--accent);
-  letter-spacing: 0.22em;
   font-weight: 600;
 }
 .ideas-canvas-head {
@@ -4059,30 +3950,14 @@
   margin: 0 auto;
   width: 100%;
 }
+/* Hero — three stacked rows: wordmark, greeting, name. No metrics,
+   no eyebrow, no chrome. The visual weight of the page sits in the
+   CTA that follows. */
 .home-hero {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-}
-.home-eyebrow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs, 10px);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.home-eyebrow-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-}
-.home-eyebrow-date {
-  font-variant-numeric: tabular-nums;
+  align-items: flex-start;
+  gap: var(--space-3);
 }
 .home-greeting {
   margin: 0;
@@ -4092,102 +3967,67 @@
   letter-spacing: -0.01em;
   line-height: 1.05;
   color: var(--text-primary);
+  text-transform: lowercase;
 }
+.home-name {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--text-secondary);
+}
+
+/* Primary CTA — the one decision this page exists to capture. Full-width
+   accent slab with a single arrow glyph on the right; expands/contracts
+   on hover so the affordance reads as "push through, land on the flow." */
+.home-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  padding: 20px 24px;
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--bg-base);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.16s,
+    filter 0.16s;
+}
+.home-cta:hover,
+.home-cta:focus-visible {
+  outline: none;
+  filter: brightness(1.05);
+  box-shadow: 0 6px 20px -12px color-mix(in oklch, var(--color-accent) 70%, transparent);
+  transform: translateY(-1px);
+}
+.home-cta:hover .home-cta-arrow,
+.home-cta:focus-visible .home-cta-arrow {
+  transform: translateX(3px);
+}
+.home-cta-label {
+  min-width: 0;
+}
+.home-cta-arrow {
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .home-panel-count {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs, 10px);
   letter-spacing: 0.08em;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-}
-
-/* Flat row list inside Panel — no nested borders, single hairline separator. */
-.home-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.home-rows > li + li {
-  border-top: 1px solid var(--border-faint);
-}
-.home-row {
-  display: grid;
-  grid-template-columns: 84px 1fr auto auto;
-  align-items: baseline;
-  gap: var(--space-4);
-  width: 100%;
-  padding: var(--space-3) var(--space-2);
-  background: transparent;
-  border: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background 0.12s;
-}
-.home-row:hover,
-.home-row:focus-visible {
-  background: var(--state-hover);
-  outline: none;
-}
-.home-row-kind {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs, 10px);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.home-row-summary {
-  min-width: 0;
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-}
-.home-row-agent {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.home-row-time {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  min-width: 28px;
-  text-align: right;
-}
-.home-row-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--text-muted);
-  align-self: center;
-}
-.home-row-dot.status-in-progress {
-  background: var(--color-info, var(--accent));
-}
-.home-row-dot.status-blocked {
-  background: var(--color-warning, #c08a4a);
-}
-.home-row-dot.status-pending {
-  background: var(--text-muted);
 }
 
 .home-companies {

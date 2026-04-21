@@ -62,6 +62,7 @@ export default function AppLayout() {
 
   const agents = useDaemonStore((s) => s.agents);
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const activeRoot = useUIStore((s) => s.activeRoot);
 
   // Resolve current agent + derive the root of its tree.
   const { currentAgent, rootAgent } = useMemo(() => {
@@ -73,12 +74,26 @@ export default function AppLayout() {
     };
   }, [agents, agentId]);
 
-  const rootId = rootAgent?.id || agentId;
+  // Fallback root for context-less routes (/, /profile, /drive) so the sidebar
+  // surface-nav + tree expansion render the same everywhere. Prefer:
+  //   current agent's root → last-visited root (if it still exists) → first root.
+  // We deliberately do NOT fall back to the raw `agentId` from the URL — if
+  // it doesn't resolve to a real agent we've already redirected home above,
+  // and we never want to cache a non-agent segment (e.g. "profile") as the
+  // active root.
+  const firstRoot = useMemo(() => agents.find((a) => !a.parent_id)?.id || null, [agents]);
+  const activeRootValid = useMemo(
+    () => (activeRoot && agents.some((a) => a.id === activeRoot) ? activeRoot : null),
+    [agents, activeRoot],
+  );
+  const rootId = rootAgent?.id || activeRootValid || firstRoot || "";
 
   // Sync the active root scope into the UI store (used by /profile etc.).
+  // Only commit once we have a verified-real root, otherwise the initial
+  // pre-load render can persist a bogus value into localStorage.
   useEffect(() => {
-    if (rootId) setActiveRoot(rootId);
-  }, [rootId, setActiveRoot]);
+    if (rootId && agents.some((a) => a.id === rootId)) setActiveRoot(rootId);
+  }, [rootId, agents, setActiveRoot]);
 
   // Browser tab title — echoes the current primitive + agent so multi-tab
   // power users can scan their window strip. Format mirrors the in-app
@@ -292,7 +307,7 @@ export default function AppLayout() {
   return (
     <>
       <div className="shell">
-        <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
+        <LeftSidebar agentId={agentId} path={path} />
 
         <div className="content-column">
           <div className="content-card">

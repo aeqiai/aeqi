@@ -8,7 +8,6 @@ import { useUIStore } from "@/store/ui";
 import { IconButton } from "@/components/ui";
 
 interface LeftSidebarProps {
-  rootId: string;
   agentId: string | null;
   path: string;
 }
@@ -16,17 +15,14 @@ interface LeftSidebarProps {
 interface NavItem {
   id: string;
   label: React.ReactNode;
-  icon?: React.ReactNode;
-  /** Hover tooltip — also serves the collapsed rail, where the label
-   *  clips to a single initial character.  Power users discover the
-   *  `g + letter` jump shortcut here. */
+  icon: React.ReactNode;
+  /** Hover tooltip — hosts the `g + letter` jump shortcut hint. */
   title?: string;
 }
 
 /*
- * Icon family — Lucide register. 16×16 viewBox, stroke 1.5, rounded
- * caps + joins, no fills. Recognizable standard glyphs; the sidebar
- * reads as one cohesive set. No bespoke monoline experiments.
+ * Lucide register — 16×16, stroke 1.5, rounded caps + joins, no fills.
+ * Standard glyphs, one cohesive set.
  */
 const iconProps = {
   viewBox: "0 0 16 16",
@@ -37,21 +33,34 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-// The four W-primitives (agents / events / quests / ideas) spell themselves
-// out — lowercase labels with the leading letter tinted in the brand accent
-// so the rail reads A-E-Q-I vertically and every nav item stays
-// self-descriptive. No icon slot; the word is the icon.
-const BrandInitial = ({ word }: { word: string }) => (
-  <>
-    <span className="sidebar-nav-initial">{word[0]}</span>
-    <span className="sidebar-nav-tail">{word.slice(1)}</span>
-  </>
+const IconAgents = () => (
+  <svg {...iconProps}>
+    <circle cx="8" cy="6" r="2.5" />
+    <path d="M3 13.5a5 5 0 0 1 10 0" />
+  </svg>
+);
+const IconEvents = () => (
+  <svg {...iconProps}>
+    <path d="M9 2 3 9h4l-1 5 7-7H9l1-5z" />
+  </svg>
+);
+const IconQuests = () => (
+  <svg {...iconProps}>
+    <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+    <path d="M5.5 8l2 2 3-4" />
+  </svg>
+);
+const IconIdeas = () => (
+  <svg {...iconProps}>
+    <path d="M8 1.75v1.5M13.5 4.5l-1 1M2.5 4.5l1 1M5.25 10.5a3.5 3.5 0 1 1 5.5 0c-.3.4-.5.8-.6 1.25H5.85c-.1-.45-.3-.85-.6-1.25z" />
+    <path d="M6.25 14h3.5" />
+  </svg>
 );
 const PRIMITIVES: NavItem[] = [
-  { id: "agents", label: <BrandInitial word="agents" />, title: "Agents · G then A" },
-  { id: "events", label: <BrandInitial word="events" />, title: "Events · G then E" },
-  { id: "quests", label: <BrandInitial word="quests" />, title: "Quests · G then Q" },
-  { id: "ideas", label: <BrandInitial word="ideas" />, title: "Ideas · G then I" },
+  { id: "agents", label: "Agents", icon: <IconAgents />, title: "Agents · G then A" },
+  { id: "events", label: "Events", icon: <IconEvents />, title: "Events · G then E" },
+  { id: "quests", label: "Quests", icon: <IconQuests />, title: "Quests · G then Q" },
+  { id: "ideas", label: "Ideas", icon: <IconIdeas />, title: "Ideas · G then I" },
 ];
 
 /**
@@ -62,7 +71,7 @@ const PRIMITIVES: NavItem[] = [
  * configure). No top-bar tabs, no gear drawer — everything the user might
  * want is visible and scannable in a single column.
  */
-export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps) {
+export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
@@ -75,8 +84,13 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   // email local-part as fallback, "Local" in runtime (no-auth) mode.
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
-  const currentId = agentId || rootId;
-  const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
+  // Primitive nav is scoped to the selected agent. On `/` and `/profile`
+  // no agent is picked yet, so the items can't navigate anywhere — but we
+  // still render them as inert placeholders so the sidebar's silhouette is
+  // identical across surfaces and clicking into an agent doesn't yank the
+  // layout. The nav row is always mounted; disabled state is purely visual.
+  const primitivesDisabled = !agentId;
+  const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
   // Profile is a top-level user-scoped route — never namespaced under an
   // agent. Keeps the URL clean on home and avoids dead-ending when no root
   // is in scope.
@@ -89,23 +103,36 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const renderNav = (item: NavItem) => (
-    <a
-      key={item.id}
-      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}${
-        item.icon ? "" : " no-icon"
-      }`}
-      href={navHref(item.id)}
-      title={item.title}
-      onClick={(e) => {
-        e.preventDefault();
-        navigate(navHref(item.id));
-      }}
-    >
-      {item.icon}
-      <span className="sidebar-nav-label">{item.label}</span>
-    </a>
-  );
+  const renderNav = (item: NavItem) => {
+    if (primitivesDisabled) {
+      return (
+        <span
+          key={item.id}
+          className="sidebar-nav-item disabled"
+          title="Pick a root agent to open this primitive"
+          aria-disabled="true"
+        >
+          {item.icon}
+          <span className="sidebar-nav-label">{item.label}</span>
+        </span>
+      );
+    }
+    return (
+      <a
+        key={item.id}
+        className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
+        href={navHref(item.id)}
+        title={item.title}
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(navHref(item.id));
+        }}
+      >
+        {item.icon}
+        <span className="sidebar-nav-label">{item.label}</span>
+      </a>
+    );
+  };
 
   return (
     <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
@@ -155,7 +182,12 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       </div>
 
       <div className="left-sidebar-body">
-        {currentId && <nav className="sidebar-surface-nav">{PRIMITIVES.map(renderNav)}</nav>}
+        <nav
+          className={`sidebar-surface-nav${primitivesDisabled ? " disabled" : ""}`}
+          aria-disabled={primitivesDisabled || undefined}
+        >
+          {PRIMITIVES.map(renderNav)}
+        </nav>
 
         <div className="sidebar-tree-slot">
           <AgentTree />
