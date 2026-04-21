@@ -77,6 +77,29 @@ export default function AppLayout() {
     if (rootId) setActiveRoot(rootId);
   }, [rootId, setActiveRoot]);
 
+  // Browser tab title — echoes the current primitive + agent so multi-tab
+  // power users can scan their window strip. Format mirrors the in-app
+  // breadcrumb: "<section> — <agent> · æqi". Bare "æqi" before an agent
+  // resolves.
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      sessions: "Inbox",
+      channels: "Channels",
+      drive: "Drive",
+      settings: "Settings",
+      tools: "Tools",
+      profile: "Profile",
+      agents: "agents",
+      events: "events",
+      quests: "quests",
+      ideas: "ideas",
+    };
+    const section = tab || "sessions";
+    const sectionTitle = titles[section] || section;
+    const agentLabel = currentAgent?.display_name || currentAgent?.name;
+    document.title = agentLabel ? `${sectionTitle} — ${agentLabel} · æqi` : "æqi";
+  }, [tab, currentAgent]);
+
   // Daemon bootstrap + live updates.
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   useEffect(() => {
