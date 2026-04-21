@@ -771,18 +771,16 @@
 }
 
 /* ── Persistent composer ──
-   The persistent composer is a floating white pill on paper — the one
-   elevated surface in the shell. The base .asv-composer-inner provides
-   the pill (shadow, radius, focus ring); this block only tunes the
-   text / chip colors for the light-paper context. */
+   The persistent composer sits on paper as the precision instrument
+   at the bottom of the shell. Spans the full content-column width —
+   the 720px thread cap above owns its own rhythm; the composer is
+   its own row and earns its own span. */
 .persistent-composer {
   width: 100%;
-  max-width: none;
   display: flex;
-  /* Flush right — matches the thread column's flex-end alignment so the
-     conversation reads as a single right-hugging pane. Collapses to
-     full width on narrow viewports because the inner has no min-width. */
-  justify-content: flex-end;
+}
+.persistent-composer .asv-composer-inner {
+  max-width: none;
 }
 .persistent-composer .asv-send.ready {
   background: var(--accent);

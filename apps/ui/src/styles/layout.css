@@ -11,15 +11,14 @@
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
-   A single subtle value step below paper (the sidebar tint) plus a
-   1px hairline right border is all the separation the layout needs.
-   No radius, no floating — the sidebar is architectural. */
+   The sidebar tint continues into the content card's tinted frame
+   (both --bg-sidebar), so no internal hairline is needed; the paper
+   body-row's rounded top-left carves the visual boundary. */
 .left-sidebar {
   width: 224px;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
   transition: width var(--transition-normal);
