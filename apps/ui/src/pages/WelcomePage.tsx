@@ -270,23 +270,10 @@ export default function WelcomePage() {
           </div>
         </div>
 
-        {/* Getting started banner */}
-        <div
-          style={{
-            padding: "16px 20px",
-            background: "rgba(0,0,0,0.02)",
-            borderRadius: 12,
-            marginBottom: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+        <div className="welcome-getting-started">
           <div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: "rgba(0,0,0,0.7)", margin: 0 }}>
-              Get started
-            </p>
-            <p style={{ fontSize: 12, color: "rgba(0,0,0,0.35)", margin: "2px 0 0" }}>
+            <p className="welcome-getting-started-title">Get started</p>
+            <p className="welcome-getting-started-hint">
               Create your first agent or assign a quest
             </p>
           </div>
