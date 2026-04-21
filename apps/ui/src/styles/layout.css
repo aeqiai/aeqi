@@ -444,9 +444,9 @@
   background: transparent;
 }
 
-/* Threads rail — the Inbox's left-adjacent index column. Mirrors
-   .content-cta-col visually but lives between the left sidebar and the
-   content column, with a right-hand hairline instead of a left-hand one. */
+/* Threads rail — the Inbox's left-adjacent index column. Lives between
+   the primary LeftSidebar and the main content column, with a right-hand
+   hairline so it reads as the index pane of a master/detail pair. */
 .sessions-rail-col {
   width: var(--sidebar-panel-width);
   flex-shrink: 0;
@@ -457,11 +457,233 @@
   border-right: 1px solid var(--border);
   border-radius: 0;
 }
-.sessions-rail-col .asv-sidebar {
-  width: 100%;
+@media (max-width: 768px) {
+  .sessions-rail-col {
+    display: none;
+  }
+}
+.threads-rail {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  min-height: 0;
   background: transparent;
-  border-left: none;
+}
+/* Header — matches the adjacent content-topbar height (56px) so the card
+   reads as one horizontal band across all three columns. Editorial:
+   lowercase label with tinted first letter (sidebar primitives treatment)
+   on the left, icon-only + button on the right. No pill chrome. */
+.threads-rail-header {
+  height: 56px;
+  min-height: 56px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.threads-rail-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+.threads-rail-title-initial {
+  color: var(--color-accent);
+}
+.threads-rail-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.threads-rail-new-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.threads-rail-new-btn:hover,
+.threads-rail-new-btn:focus-visible {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  outline: none;
+}
+.threads-rail-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-bottom: 8px;
+}
+/* Group header — editorial divider: small mono label on the left with
+   a hairline rule stretching to the right edge. Reads like a Bloomberg
+   section break, not a centered/indented pill. */
+.threads-rail-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 14px 6px;
+}
+.threads-rail-group:first-child {
+  padding-top: 10px;
+}
+.threads-rail-group-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.threads-rail-group-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.5;
+}
+/* Row — single-line dense: [dot] [name, flex] [badge?] [time]. 36px
+   min-height creates a calmer cadence than the old 48px + pill layout.
+   Rhythm comes from density + group rules, not inter-row hairlines. */
+.threads-rail-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.threads-rail-row:hover {
+  background: var(--state-hover);
+}
+.threads-rail-row:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -2px;
+  background: var(--state-hover);
+}
+.threads-rail-row.active {
+  background: var(--state-selected);
+}
+.threads-rail-row.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-primary);
+}
+.threads-rail-row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.3;
+  justify-self: center;
+  transition:
+    background 0.12s ease,
+    opacity 0.12s ease;
+}
+.threads-rail-row[data-status="active"] .threads-rail-row-dot {
+  background: var(--accent-bar-running, var(--info));
+  opacity: 0.85;
+}
+.threads-rail-row[data-status="idle"] .threads-rail-row-dot,
+.threads-rail-row[data-status="done"] .threads-rail-row-dot {
+  background: var(--accent-bar-done, var(--success));
+  opacity: 0.6;
+}
+.threads-rail-row[data-status="error"] .threads-rail-row-dot,
+.threads-rail-row[data-status="cancelled"] .threads-rail-row-dot {
+  background: var(--accent-bar-blocked, var(--warning));
+  opacity: 0.75;
+}
+.threads-rail-row.active .threads-rail-row-dot {
+  opacity: 1;
+}
+.threads-rail-row-name {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.threads-rail-row.active .threads-rail-row-name {
+  font-weight: 500;
+}
+.threads-rail-row-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  padding: 1px 4px;
+  border-radius: var(--key-pill-radius, 3px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.threads-rail-row-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+}
+.threads-rail-row.active .threads-rail-row-time {
+  color: var(--text-secondary);
+}
+.threads-rail-empty {
+  padding: 32px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.threads-rail-empty-title {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.threads-rail-empty-hint {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* Composer band — the precision instrument at the bottom of the main

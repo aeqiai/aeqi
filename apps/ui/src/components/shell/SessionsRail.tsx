@@ -4,15 +4,13 @@ import { useChatStore } from "@/store/chat";
 import { useNav } from "@/hooks/useNav";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 
-// Stable empty-array reference. Returning a fresh `[]` from a Zustand
-// selector on every render triggers React error #185 (infinite update loop).
 const NO_SESSIONS: SessionInfo[] = [];
 
 interface ThreadRow {
   id: string;
   name: string;
   badge?: string;
-  meta?: string;
+  time: string;
   status?: string;
   group: string;
   sortKey: number;
@@ -29,14 +27,26 @@ function recencyBucket(ts: number): string {
   return "Earlier";
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function relativeTime(ts: number): string {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return "now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d`;
+  const d = new Date(ts);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 /**
  * Threads rail — the left-adjacent index column for the Inbox surface.
  *
  * Mounted between the primary LeftSidebar and the main content column when
  * the current tab is Inbox (sessions). Other tabs keep their right rail via
- * ContentCTA. The rail lists chat sessions for the current agent with a
- * "New message" CTA header and the recency grouping the right rail used to
- * own. Click behavior is unchanged — `goAgent(agentId, "sessions", id)`.
+ * ContentCTA. Dense single-line rows with a status dot, the thread label,
+ * and a right-aligned relative timestamp — Bloomberg-Terminal-for-threads.
  */
 export default function SessionsRail() {
   const { agentId, itemId } = useParams<{ agentId?: string; itemId?: string }>();
@@ -47,36 +57,30 @@ export default function SessionsRail() {
   );
 
   const items = useMemo<ThreadRow[]>(() => {
-    return (
-      sessions
-        // Quest execution sessions belong in the Quests tab, not the Inbox.
-        .filter((s) => s.session_type !== "task")
-        .map((s) => {
-          const n = s.name?.toLowerCase() || "";
-          const badge = n.includes("telegram")
-            ? "TG"
-            : n.includes("whatsapp")
-              ? "WA"
-              : s.session_type === "web"
-                ? "Web"
-                : undefined;
-          const tsRaw = s.last_active || s.created_at;
-          const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
-          const label = sessionLabel(s);
-          const meta =
-            s.message_count != null && s.message_count > 0 ? `${s.message_count}` : undefined;
-          return {
-            id: s.id,
-            name: label,
-            badge,
-            meta,
-            status: s.status,
-            group: ts ? recencyBucket(ts) : "Earlier",
-            sortKey: ts,
-          };
-        })
-        .sort((a, b) => b.sortKey - a.sortKey)
-    );
+    return sessions
+      .filter((s) => s.session_type !== "task")
+      .map((s) => {
+        const n = s.name?.toLowerCase() || "";
+        const badge = n.includes("telegram")
+          ? "TG"
+          : n.includes("whatsapp")
+            ? "WA"
+            : s.session_type === "web"
+              ? "Web"
+              : undefined;
+        const tsRaw = s.last_active || s.created_at;
+        const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
+        return {
+          id: s.id,
+          name: sessionLabel(s),
+          badge,
+          time: relativeTime(ts),
+          status: s.status,
+          group: ts ? recencyBucket(ts) : "Earlier",
+          sortKey: ts,
+        };
+      })
+      .sort((a, b) => b.sortKey - a.sortKey);
   }, [sessions]);
 
   const handleSelect = (id: string) => {
@@ -87,54 +91,61 @@ export default function SessionsRail() {
   const fireNewSession = () => window.dispatchEvent(new CustomEvent("aeqi:new-session"));
 
   return (
-    <div className="asv-sidebar">
-      <div className="asv-sidebar-header">
+    <div className="threads-rail">
+      <div className="threads-rail-header">
+        <div className="threads-rail-title">
+          <span className="threads-rail-title-initial">i</span>nbox
+          {items.length > 0 && <span className="threads-rail-count">{items.length}</span>}
+        </div>
         <button
           type="button"
-          className="asv-session-new-btn"
+          className="threads-rail-new-btn"
           onClick={fireNewSession}
           aria-label="New message"
+          title="New message"
         >
           <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             aria-hidden
           >
-            <path d="M6 2.5v7M2.5 6h7" />
+            <path d="M7 3v8M3 7h8" />
           </svg>
-          New message
         </button>
       </div>
-      <div className="asv-sidebar-list">
+      <div className="threads-rail-list">
         {items.length === 0 && (
-          <div className="asv-sidebar-empty">No threads yet. Type below to start one.</div>
+          <div className="threads-rail-empty">
+            <div className="threads-rail-empty-title">No threads yet</div>
+            <div className="threads-rail-empty-hint">Type below to start one</div>
+          </div>
         )}
         {items.map((item, i) => {
           const showHeader = i === 0 || items[i - 1]?.group !== item.group;
           return (
-            <div key={item.id} className="asv-sidebar-row">
-              {showHeader && <div className="asv-sidebar-group-header">{item.group}</div>}
+            <div key={item.id}>
+              {showHeader && (
+                <div className="threads-rail-group">
+                  <span className="threads-rail-group-label">{item.group}</span>
+                  <span className="threads-rail-group-rule" />
+                </div>
+              )}
               <button
                 type="button"
-                className={`asv-session-item${item.id === itemId ? " active" : ""}`}
+                className={`threads-rail-row${item.id === itemId ? " active" : ""}`}
                 data-status={item.status}
                 aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
-                <div className="asv-session-item-top">
-                  <span className="asv-session-item-name">{item.name}</span>
-                  {item.badge && <span className="asv-session-item-transport">{item.badge}</span>}
-                </div>
-                {item.meta && (
-                  <div className="asv-session-item-bottom">
-                    <span className="asv-session-item-count">{item.meta}</span>
-                  </div>
-                )}
+                <span className="threads-rail-row-dot" aria-hidden />
+                <span className="threads-rail-row-name">{item.name}</span>
+                {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
+                <span className="threads-rail-row-time">{item.time}</span>
               </button>
             </div>
           );
