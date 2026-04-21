@@ -132,18 +132,42 @@ function AgentNodeView({
   const label = node.display_name || node.name;
   const descendantCount = countDescendants(node);
 
+  const select = () =>
+    onSelectAgent({
+      id: node.id,
+      name: node.name,
+      display_name: node.display_name,
+      model: node.model,
+    });
+  // Treeview-ish: Enter/Space selects the row, ArrowRight expands or moves into
+  // children, ArrowLeft collapses. Keeps focus management lightweight — no
+  // roving tabindex yet; Tab still walks all rows in order.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      select();
+      return;
+    }
+    if (hasChildren && e.key === "ArrowRight" && !isExpanded) {
+      e.preventDefault();
+      onToggle(node.id, true, e as unknown as React.MouseEvent);
+    }
+    if (hasChildren && e.key === "ArrowLeft" && isExpanded) {
+      e.preventDefault();
+      onToggle(node.id, false, e as unknown as React.MouseEvent);
+    }
+  };
+
   return (
     <div className={styles.node}>
       <div
         className={isActive ? styles.rowActive : styles.row}
-        onClick={() =>
-          onSelectAgent({
-            id: node.id,
-            name: node.name,
-            display_name: node.display_name,
-            model: node.model,
-          })
-        }
+        role="treeitem"
+        tabIndex={0}
+        aria-selected={isActive}
+        aria-expanded={hasChildren ? isExpanded : undefined}
+        onClick={select}
+        onKeyDown={onKeyDown}
       >
         <Rail ancestors={ancestors} isLast={isLast} />
         {hasChildren ? (
@@ -216,18 +240,39 @@ function RootRow({
   const isExpanded = expanded[agent.id] ?? isActive;
   const showChildren = hasChildren && isExpanded;
 
+  const select = () =>
+    onSelectAgent({
+      id: agent.id,
+      name: agent.name,
+      display_name: agent.display_name,
+      model: agent.model,
+    });
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      select();
+      return;
+    }
+    if (hasChildren && e.key === "ArrowRight" && !isExpanded) {
+      e.preventDefault();
+      onToggle(agent.id, true, e as unknown as React.MouseEvent);
+    }
+    if (hasChildren && e.key === "ArrowLeft" && isExpanded) {
+      e.preventDefault();
+      onToggle(agent.id, false, e as unknown as React.MouseEvent);
+    }
+  };
+
   return (
     <div className={styles.node}>
       <div
         className={isSelectedRow ? styles.rowActive : styles.row}
-        onClick={() =>
-          onSelectAgent({
-            id: agent.id,
-            name: agent.name,
-            display_name: agent.display_name,
-            model: agent.model,
-          })
-        }
+        role="treeitem"
+        tabIndex={0}
+        aria-selected={isSelectedRow}
+        aria-expanded={hasChildren ? isExpanded : undefined}
+        onClick={select}
+        onKeyDown={onKeyDown}
       >
         {hasChildren ? (
           <button
@@ -317,7 +362,7 @@ export default function AgentTree() {
         </span>
         <span className={styles.rowLabel}>New company</span>
       </button>
-      <div className={styles.list}>
+      <div className={styles.list} role="tree" aria-label="Agent tree">
         {roots.length === 0 && <div className={styles.empty}>No agents</div>}
         {roots.map((r) => (
           <RootRow

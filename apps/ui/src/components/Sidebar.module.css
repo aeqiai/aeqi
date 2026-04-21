@@ -91,6 +91,11 @@
   color: var(--text-primary);
   background: var(--state-hover);
 }
+.row:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+  color: var(--text-primary);
+}
 .rowActive {
   composes: row;
   color: var(--text-primary);
