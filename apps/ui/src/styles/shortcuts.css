@@ -55,6 +55,20 @@
   padding: 0 2px;
 }
 
+.shortcuts-chord {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcuts-or {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 6px;
+}
+
 .shortcuts-label {
   margin: 0;
   font-size: 13px;
