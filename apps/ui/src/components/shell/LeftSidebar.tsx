@@ -46,25 +46,12 @@ const BrandInitial = ({ word }: { word: string }) => (
     <span className="sidebar-nav-tail">{word.slice(1)}</span>
   </>
 );
-const ICON_DRIVE = (
-  <svg {...iconProps}>
-    <rect x="2" y="4" width="12" height="8" rx="1" />
-    <path d="M2 8h12" />
-    <circle cx="4.5" cy="10" r="0.4" fill="currentColor" stroke="none" />
-    <circle cx="6.5" cy="10" r="0.4" fill="currentColor" stroke="none" />
-  </svg>
-);
 const PRIMITIVES: NavItem[] = [
   { id: "agents", label: <BrandInitial word="agents" />, title: "Agents · G then A" },
   { id: "events", label: <BrandInitial word="events" />, title: "Events · G then E" },
   { id: "quests", label: <BrandInitial word="quests" />, title: "Quests · G then Q" },
   { id: "ideas", label: <BrandInitial word="ideas" />, title: "Ideas · G then I" },
 ];
-
-// Settings is no longer a rail primitive — it lives on the agent itself, via
-// a gear icon in the top bar. Drive stays here for now; it'll fold into
-// Ideas (attach-file) in a follow-up.
-const CONFIGURE: NavItem[] = [{ id: "drive", label: "Drive", icon: ICON_DRIVE, title: "Drive" }];
 
 /**
  * Application left rail: brand, agent tree, current-agent surface nav, profile.
@@ -143,12 +130,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       </div>
 
       <div className="left-sidebar-body">
-        {currentId && (
-          <nav className="sidebar-surface-nav">
-            {PRIMITIVES.map(renderNav)}
-            {CONFIGURE.map(renderNav)}
-          </nav>
-        )}
+        {currentId && <nav className="sidebar-surface-nav">{PRIMITIVES.map(renderNav)}</nav>}
 
         <div className="sidebar-tree-slot">
           <AgentTree />
