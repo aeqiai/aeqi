@@ -327,6 +327,14 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             eyebrow="Events"
             title="Select an event"
             description="Events = triggers. Pick one from the right rail to view or edit its pattern + tool calls."
+            action={
+              <Button
+                variant="primary"
+                onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-event"))}
+              >
+                New event
+              </Button>
+            }
           />
         </div>
       </div>

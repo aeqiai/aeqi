@@ -249,6 +249,14 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         <EmptyState
           title="Select a channel"
           description="Pick a channel from the right to view its config, or add one."
+          action={
+            <Button
+              variant="primary"
+              onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-channel"))}
+            >
+              Add channel
+            </Button>
+          }
         />
       </div>
     );
