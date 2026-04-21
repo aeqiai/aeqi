@@ -14,8 +14,8 @@ interface LeftSidebarProps {
 
 interface NavItem {
   id: string;
-  label: string;
-  icon: React.ReactNode;
+  label: React.ReactNode;
+  icon?: React.ReactNode;
 }
 
 /*
@@ -39,18 +39,16 @@ const ICON_INBOX = (
     <path d="M2 9.5h3.5l.75 1.5h3.5l.75-1.5H14" />
   </svg>
 );
-// The four W-primitives (Agents / Events / Quests / Ideas) get literal
-// A/E/Q/I letters in the brand wordmark face + accent color — the sidebar
-// itself spells AEQI. Same 16×16 slot as the SVG icons so rhythm holds.
-const BrandLetter = ({ ch }: { ch: string }) => (
-  <span className="sidebar-brand-letter" aria-hidden="true">
-    {ch}
-  </span>
+// The four W-primitives (agents / events / quests / ideas) spell themselves
+// out — lowercase labels with the leading letter tinted in the brand accent
+// so the rail still reads A-E-Q-I vertically, but every nav item stays
+// self-descriptive. No icon slot; the word is the icon.
+const BrandInitial = ({ word }: { word: string }) => (
+  <>
+    <span className="sidebar-nav-initial">{word[0]}</span>
+    {word.slice(1)}
+  </>
 );
-const ICON_AGENTS = <BrandLetter ch="A" />;
-const ICON_EVENTS = <BrandLetter ch="E" />;
-const ICON_QUESTS = <BrandLetter ch="Q" />;
-const ICON_IDEAS = <BrandLetter ch="I" />;
 const ICON_DRIVE = (
   <svg {...iconProps}>
     <rect x="2" y="4" width="12" height="8" rx="1" />
@@ -68,10 +66,10 @@ const ICON_SETTINGS = (
 
 const PRIMITIVES: NavItem[] = [
   { id: "sessions", label: "Inbox", icon: ICON_INBOX },
-  { id: "agents", label: "Agents", icon: ICON_AGENTS },
-  { id: "events", label: "Events", icon: ICON_EVENTS },
-  { id: "quests", label: "Quests", icon: ICON_QUESTS },
-  { id: "ideas", label: "Ideas", icon: ICON_IDEAS },
+  { id: "agents", label: <BrandInitial word="agents" /> },
+  { id: "events", label: <BrandInitial word="events" /> },
+  { id: "quests", label: <BrandInitial word="quests" /> },
+  { id: "ideas", label: <BrandInitial word="ideas" /> },
 ];
 
 const CONFIGURE: NavItem[] = [
@@ -115,7 +113,9 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const renderNav = (item: NavItem) => (
     <a
       key={item.id}
-      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
+      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}${
+        item.icon ? "" : " no-icon"
+      }`}
       href={navHref(item.id)}
       onClick={(e) => {
         e.preventDefault();

@@ -231,22 +231,32 @@
 .sidebar-nav-item.active > svg {
   color: var(--text-primary);
 }
-/* AEQI letter glyph — same 16px slot as SVG icons, pinned to the brand
-   face and color so the rail itself spells A-E-Q-I. Unlike the SVG icons,
-   letters do not dim/brighten on hover/active — identity stays constant. */
-.sidebar-brand-letter {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-brand);
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1;
+/* aeqi primitive nav — lowercase label with the leading letter tinted
+   in the brand accent. Read vertically, the colored initials spell
+   A-E-Q-I; read horizontally, each row is a plain, legible word. The
+   color stays constant across hover/active (identity, not state). */
+.sidebar-nav-initial {
   color: var(--color-accent);
-  letter-spacing: 0;
+  font-weight: 600;
+}
+/* Nav items without a leading icon (the four AEQI primitives) — keep the
+   same left edge as icon rows so the label column still aligns under the
+   wordmark. 16px icon width + 8px gap = 24px reserved at the start. */
+.sidebar-nav-item.no-icon {
+  padding-left: 32px;
+}
+/* Collapsed rail: primitives have no icon to fall back on, so clip the
+   label to just the first letter. The colored initial does the work;
+   "gents" etc. overflows a 16px window and gets hidden. */
+.left-sidebar.collapsed .sidebar-nav-item.no-icon {
+  padding: 8px;
+}
+.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
+  display: inline-block;
+  width: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
 }
 .sidebar-nav-label {
   flex: 1;
