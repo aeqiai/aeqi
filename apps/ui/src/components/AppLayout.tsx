@@ -112,6 +112,7 @@ export default function AppLayout() {
   // Global keyboard shortcuts:
   //   ⌘K / Ctrl+K — command palette
   //   /           — command palette (vim-style)
+  //   ⌘B / Ctrl+B — toggle sidebar (VS Code convention)
   //   ?           — shortcuts cheatsheet
   //   Esc         — close palette / overlay
   //   N           — spawn a sub-agent under the current agent
@@ -149,6 +150,11 @@ export default function AppLayout() {
         e.preventDefault();
         if (searching) closeSearch();
         else openSearch();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        useUIStore.getState().toggleSidebar();
         return;
       }
       if (e.key === "Escape") {

@@ -14,6 +14,7 @@ import "@/styles/shortcuts.css";
 // the sidebar A-E-Q-I wordmark.
 const SHORTCUTS: { keys: string[][]; label: string; sep?: string }[] = [
   { keys: [["⌘", "K"], ["/"]], label: "Open command palette" },
+  { keys: [["⌘", "B"]], label: "Toggle sidebar" },
   { keys: [["N"]], label: "Spawn a sub-agent under the current agent" },
   { keys: [["C"]], label: "Focus the composer" },
   { keys: [["G", "A"]], label: "Jump to Agents", sep: "then" },
