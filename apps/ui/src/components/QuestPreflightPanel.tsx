@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { Spinner } from "@/components/ui";
 
 interface PreflightResult {
   system: string;
@@ -104,7 +105,18 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
         </span>
         Preview assembled context
         {loading && (
-          <span style={{ marginLeft: 4, opacity: 0.5, fontStyle: "italic" }}>loading…</span>
+          <span
+            style={{
+              marginLeft: 4,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              color: "var(--text-muted)",
+            }}
+          >
+            <Spinner size="sm" />
+            <span style={{ fontStyle: "italic" }}>loading…</span>
+          </span>
         )}
       </button>
 
@@ -119,7 +131,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                 fontStyle: "italic",
               }}
             >
-              No context configured — plain user-prompt run
+              No context configured — runs with just user input
             </p>
           ) : result ? (
             <>
@@ -169,7 +181,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                     fontStyle: "italic",
                   }}
                 >
-                  No context configured — plain user-prompt run
+                  No context configured — runs with just user input
                 </p>
               )}
 
@@ -193,7 +205,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                 fontStyle: "italic",
               }}
             >
-              No context configured — plain user-prompt run
+              No context configured — runs with just user input
             </p>
           ) : null}
         </div>
