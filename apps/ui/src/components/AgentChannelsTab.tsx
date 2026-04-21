@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore, type ChannelEntry } from "@/store/agentData";
-import { Button } from "./ui";
+import { Button, EmptyState } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
@@ -370,9 +370,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
 
       {chats.length === 0 ? (
-        <div className="events-detail-loading">
-          No active chats yet. Messages on this channel will appear here once they arrive.
-        </div>
+        <EmptyState
+          eyebrow="chats"
+          title="No active chats yet"
+          description="Messages on this channel will show up here once they arrive."
+        />
       ) : (
         <div>
           <div
