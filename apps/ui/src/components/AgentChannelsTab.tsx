@@ -370,7 +370,9 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
       {selected.kind === "whatsapp-baileys" && <BaileysPairingPanel channelId={selected.id} />}
 
       {chats.length === 0 ? (
-        <div className="events-detail-loading">No active chats yet.</div>
+        <div className="events-detail-loading">
+          No active chats yet. Messages on this channel will appear here once they arrive.
+        </div>
       ) : (
         <div>
           <div
