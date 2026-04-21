@@ -81,7 +81,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 12px 0 16px;
-  height: 56px;
+  height: 52px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -511,13 +511,13 @@
   min-height: 0;
   background: transparent;
 }
-/* Header — matches the adjacent content-topbar height (56px) so the card
+/* Header — matches the adjacent content-topbar height (52px) so the card
    reads as one horizontal band across all three columns. Holds only the
    icon-only "+ new" button on the right; the section identity is already
    conveyed by the accent-tinted initial in the surface nav. */
 .threads-rail-header {
-  height: 56px;
-  min-height: 56px;
+  height: 52px;
+  min-height: 52px;
   padding: 0 14px;
   display: flex;
   align-items: center;
@@ -1307,9 +1307,9 @@
 .content-topbar {
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  height: 56px;
-  min-height: 56px;
+  padding: 0 20px;
+  height: 52px;
+  min-height: 52px;
   flex-shrink: 0;
   background: transparent;
   gap: 12px;
@@ -1324,13 +1324,13 @@
   min-width: 0;
   flex: 1;
 }
-/* Agent identity — the anchor of the topbar. Avatar on the left grounds
-   the name visually; the name itself runs in the display face so the
-   user can always read "where am I?" at a glance. */
+/* Agent identity — echoes the active row in the sidebar agent tree:
+   22px avatar slot + sans 12px name in primary ink. No display face,
+   no scale bump — the topbar is a context band, not a hero. */
 .content-topbar-agent {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   color: var(--text-primary);
   text-decoration: none;
@@ -1339,17 +1339,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .content-topbar-agent-name {
-  font-family: var(--font-display, inherit);
-  font-size: 16px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1362,6 +1362,7 @@
 }
 .content-topbar-agent-link .content-topbar-agent-name {
   color: var(--text-secondary);
+  font-weight: 400;
   transition: color 0.1s ease;
 }
 .content-topbar-agent-link:hover .content-topbar-agent-name {
@@ -1371,13 +1372,13 @@
   outline: 1px solid var(--border-hover);
   outline-offset: 2px;
 }
-/* Non-agent scope labels (Home / Profile) — same display face so the
-   topbar's left anchor reads consistently across all routes. */
+/* Non-agent scope labels (Profile) — same sans voice so the topbar
+   identity is consistent across routes. */
 .content-topbar-scope {
-  font-family: var(--font-display, inherit);
-  font-size: 16px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   color: var(--text-primary);
   white-space: nowrap;
 }

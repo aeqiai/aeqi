@@ -43,7 +43,6 @@ export default function ContentTopBar() {
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
   const isProfile = location.pathname === "/profile" || location.pathname.startsWith("/profile/");
-  const isHome = !agentId && !isProfile;
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
@@ -58,13 +57,12 @@ export default function ContentTopBar() {
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
-        {isHome && <span className="content-topbar-scope">Home</span>}
         {isProfile && <span className="content-topbar-scope">Profile</span>}
         {agent &&
           (section === "sessions" ? (
             <span className="content-topbar-agent">
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={agentName} size={26} />
+                <BlockAvatar name={agentName} size={22} />
               </span>
               <span className="content-topbar-agent-name">{agentName}</span>
             </span>
@@ -75,7 +73,7 @@ export default function ContentTopBar() {
               title={`Back to ${agentName}'s inbox`}
             >
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={agentName} size={26} />
+                <BlockAvatar name={agentName} size={22} />
               </span>
               <span className="content-topbar-agent-name">{agentName}</span>
             </Link>
