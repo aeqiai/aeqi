@@ -371,7 +371,7 @@ function SubAgentForm({
 
         <section className="new-sub-section">
           <label className="new-sub-label" htmlFor="new-sub-prompt">
-            System prompt
+            Identity
             <span className="new-sub-optional"> · override</span>
           </label>
           <textarea
