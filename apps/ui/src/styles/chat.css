@@ -975,7 +975,10 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: none;
+  /* Caps to the same 720-wide column as the thread, so the input stays
+     vertically aligned with the message rows above it. Parent
+     .persistent-composer right-aligns this pane. */
+  max-width: 720px;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -1121,7 +1124,9 @@
   justify-content: flex-end;
   width: 100%;
   max-width: 720px;
-  margin: 0 auto;
+  /* Right-aligned with the composer + thread column. */
+  margin-left: auto;
+  margin-right: 0;
   padding: 8px 8px 0;
   font-size: 10px;
   color: var(--text-muted);

@@ -779,7 +779,10 @@
   width: 100%;
   max-width: none;
   display: flex;
-  justify-content: center;
+  /* Flush right — matches the thread column's flex-end alignment so the
+     conversation reads as a single right-hugging pane. Collapses to
+     full width on narrow viewports because the inner has no min-width. */
+  justify-content: flex-end;
 }
 .persistent-composer .asv-send.ready {
   background: var(--accent);
