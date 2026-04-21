@@ -50,7 +50,7 @@ const ICON_INBOX = (
 const BrandInitial = ({ word }: { word: string }) => (
   <>
     <span className="sidebar-nav-initial">{word[0]}</span>
-    {word.slice(1)}
+    <span className="sidebar-nav-tail">{word.slice(1)}</span>
   </>
 );
 const ICON_DRIVE = (

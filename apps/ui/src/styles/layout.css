@@ -253,14 +253,11 @@
 .sidebar-nav-initial {
   color: var(--color-accent);
 }
-/* Collapsed rail: clip the primitive label to just the first letter so
-   the colored initial still does the work. "gents" etc. overflows the
-   16px window and gets hidden. */
-.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
-  display: inline-block;
-  width: 16px;
-  overflow: hidden;
-  white-space: nowrap;
+/* Collapsed rail: hide the word's tail so only the accent-tinted initial
+   shows. Luca's rule — the rail spells A-E-Q-I cleanly down the edge;
+   no half-clipped "agen" ghosts. */
+.left-sidebar.collapsed .sidebar-nav-tail {
+  display: none;
 }
 .sidebar-nav-label {
   flex: 1;
