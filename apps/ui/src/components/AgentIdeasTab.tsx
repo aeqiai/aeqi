@@ -389,6 +389,7 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
               </div>
               {items.map((idea) => {
                 const snippet = snippetFor(idea.content, search);
+                const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
                 const extraTags = (idea.tags?.length ?? 0) - 1;
                 return (
                   <button
@@ -400,9 +401,14 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
                     <div className="ideas-list-row-head">
                       <span className="ideas-list-row-name">{idea.name}</span>
                       {idea.agent_id == null && (
-                        <span className="ideas-list-row-scope">GLOBAL</span>
+                        <span className="ideas-list-row-scope">Global</span>
                       )}
                       {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
+                      {wordCount > 0 && (
+                        <span className="ideas-list-row-words" aria-hidden>
+                          {wordCount}w
+                        </span>
+                      )}
                     </div>
                     {snippet && <div className="ideas-list-row-snippet">{snippet}</div>}
                   </button>

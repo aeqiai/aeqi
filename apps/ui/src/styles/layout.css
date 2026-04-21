@@ -2581,19 +2581,20 @@
   flex: 1;
   min-width: 0;
   padding: 7px 28px 7px 12px;
+  font-family: inherit;
   font-size: 13px;
   color: var(--text-primary);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: var(--input-radius, var(--radius-sm));
   outline: none;
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
 }
 .ideas-list-search:focus {
-  border-color: var(--border-hover);
-  box-shadow: var(--ring-muted);
+  border-color: var(--input-border-focus, var(--border-hover));
+  box-shadow: var(--input-ring-focus, var(--ring-muted));
 }
 .ideas-list-search-clear {
   position: absolute;
@@ -2719,10 +2720,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
   min-height: 36px;
-  padding: 10px 28px;
+  padding: 12px 28px;
   border: 0;
   border-bottom: 1px solid var(--border-faint);
   background: transparent;
@@ -2730,15 +2731,33 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.ideas-list-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
 }
 .ideas-list-row:hover {
   background: var(--state-hover);
+}
+.ideas-list-row:hover::before {
+  background: color-mix(in oklch, var(--accent) 45%, transparent);
 }
 .ideas-list-row:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -2px;
   background: var(--state-hover);
+}
+.ideas-list-row:focus-visible::before {
+  background: var(--accent);
 }
 .ideas-list-row-head {
   display: flex;
@@ -2748,8 +2767,9 @@
 }
 .ideas-list-row-name {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
+  letter-spacing: -0.005em;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -2760,14 +2780,25 @@
 .ideas-list-row-scope {
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 .ideas-list-row-more {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
+  flex-shrink: 0;
+}
+.ideas-list-row-words {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 .ideas-list-row-snippet {
   font-family: var(--font-sans);
@@ -2808,18 +2839,19 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
-  padding: 48px 32px 40px;
-  max-width: 460px;
+  gap: 16px;
+  padding: 56px 32px 40px;
+  max-width: 480px;
 }
 .ideas-list-empty-hero.muted .ideas-list-empty-title {
   color: var(--text-secondary);
 }
 .ideas-list-empty-title {
-  font-size: 28px;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(28px, 3vw, 36px);
   font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  letter-spacing: 0.005em;
+  line-height: 1.18;
   color: var(--text-primary);
 }
 .ideas-list-empty-body {
@@ -3120,11 +3152,11 @@
 .ideas-canvas-eyebrow {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 10px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-muted);
   user-select: none;
@@ -3133,56 +3165,40 @@
   color: var(--text-secondary);
 }
 .ideas-canvas-eyebrow-sep {
-  opacity: 0.45;
-}
-.ideas-canvas-eyebrow-id {
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  opacity: 0.8;
-  font-variant-numeric: tabular-nums;
+  opacity: 0.35;
 }
 .ideas-canvas-eyebrow-scope {
-  font-weight: 600;
   color: var(--accent);
-  letter-spacing: 0.14em;
-}
-.ideas-canvas-eyebrow-meta {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-}
-.ideas-canvas-eyebrow-num {
-  color: var(--text-secondary);
+  letter-spacing: 0.22em;
   font-weight: 600;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
 }
 .ideas-canvas-head {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .ideas-canvas-head .ideas-canvas-title {
   margin-bottom: 0;
   flex: 1;
   min-width: 0;
 }
+/* Editorial title — display face (Cinzel) mirrors the home hero. Subtle
+   optical letterspacing because small-caps-esque serifs tighten naturally
+   when kerned flat. */
 .ideas-canvas-title {
   width: 100%;
   padding: 0;
-  margin-bottom: 10px;
-  font-size: clamp(26px, 2.6vw, 32px);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  margin-bottom: 14px;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(28px, 2.8vw, 36px);
+  font-weight: 500;
+  letter-spacing: 0.01em;
   line-height: 1.18;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
-  font-family: inherit;
 }
 
 /* Top-right ⋯ kebab — destructive actions hide here (Notion-style) */
@@ -3271,10 +3287,6 @@
   white-space: normal;
   outline: none;
   border-radius: 4px;
-  transition: background 120ms ease;
-}
-.ideas-canvas-body-rendered:hover {
-  background: var(--state-hover);
 }
 .ideas-canvas-body-rendered:focus-visible {
   box-shadow: var(--ring-muted);
@@ -3427,9 +3439,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding-top: 10px;
-  margin-top: 14px;
-  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border-faint);
 }
 .ideas-canvas-tags {
   display: flex;
@@ -3483,19 +3495,19 @@
   color: var(--destructive, #e55);
 }
 
-/* Candidate-skill decision — compact horizontal bar lifted to the top of
-   the canvas, sitting directly under the eyebrow. Reject rationale slides
-   out below when the user commits to that branch. */
+/* Candidate-skill decision — a marginalia strip. Left accent rule
+   without a full box; reads as editorial commentary on the document,
+   not a form waiting to be filled. Reject rationale slides out below
+   when the user commits to that branch. */
 .ideas-canvas-decision-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
+  gap: 10px;
+  padding: 4px 0 4px 14px;
+  margin-bottom: 18px;
   background: transparent;
-  border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .ideas-canvas-decision-head {
   display: flex;

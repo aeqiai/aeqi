@@ -310,49 +310,17 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   }, [idea, agentId, patchIdea, content, rejectRationale]);
 
   const inlineTags = mergeTags(content, typedTags);
-  const wordCount = useMemo(() => content.trim().split(/\s+/).filter(Boolean).length, [content]);
-  const tagCount = inlineTags.length;
-  const scopeLabel = idea?.agent_id == null && isEdit ? "GLOBAL" : null;
+  const scopeLabel = idea?.agent_id == null && isEdit ? "Global" : null;
 
   return (
     <div className="asv-main ideas-canvas">
       <div className="ideas-canvas-eyebrow">
-        {isEdit ? (
+        <span className="ideas-canvas-eyebrow-kind">{isEdit ? "Idea" : "New idea"}</span>
+        {scopeLabel && (
           <>
-            <span className="ideas-canvas-eyebrow-kind">Idea</span>
-            {idea?.id && (
-              <>
-                <EyebrowSep />
-                <span className="ideas-canvas-eyebrow-id">{idea.id.slice(0, 8)}</span>
-              </>
-            )}
-            {scopeLabel && (
-              <>
-                <EyebrowSep />
-                <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
-              </>
-            )}
-            {tagCount > 0 && (
-              <>
-                <EyebrowSep />
-                <span className="ideas-canvas-eyebrow-meta">
-                  <span className="ideas-canvas-eyebrow-num">{tagCount}</span>
-                  {tagCount === 1 ? "tag" : "tags"}
-                </span>
-              </>
-            )}
-            {wordCount > 0 && (
-              <>
-                <EyebrowSep />
-                <span className="ideas-canvas-eyebrow-meta">
-                  <span className="ideas-canvas-eyebrow-num">{wordCount}</span>
-                  {wordCount === 1 ? "word" : "words"}
-                </span>
-              </>
-            )}
+            <EyebrowSep />
+            <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
           </>
-        ) : (
-          <span className="ideas-canvas-eyebrow-kind">New idea</span>
         )}
       </div>
       <div className="ideas-canvas-head">
