@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -1017,9 +1017,9 @@ function ApiKeyTab() {
       <div style={{ marginTop: "var(--space-6)" }}>
         <p className="account-field-desc">
           To create secret keys for a specific agent, go to{" "}
-          <a href={href("/settings?tab=api-keys")} className="key-link">
+          <Link to={href("/settings?tab=api-keys")} className="key-link">
             Settings &rarr; API Keys
-          </a>
+          </Link>
           .
         </p>
       </div>

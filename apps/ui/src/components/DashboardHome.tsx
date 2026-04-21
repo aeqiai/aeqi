@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { useUIStore } from "@/store/ui";
@@ -176,9 +176,9 @@ export default function DashboardHome() {
             <div className="dash-home-nudge">
               <p className="dash-home-nudge-copy">
                 Your agents are ready.{" "}
-                <a href={href("/quests")} className="dash-home-nudge-link">
+                <Link to={href("/quests")} className="dash-home-nudge-link">
                   Create a quest
-                </a>{" "}
+                </Link>{" "}
                 to put them to work.
               </p>
             </div>
