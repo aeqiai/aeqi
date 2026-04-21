@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
+import BlockAvatar from "./BlockAvatar";
 import BudgetMeter from "./BudgetMeter";
 
 /**
@@ -61,26 +62,36 @@ export default function ContentTopBar() {
   const settingsActive = section === "settings" || section === "tools" || section === "channels";
   const showCrumb = Boolean(primitiveWord);
 
+  const agentName = agent ? agent.display_name || agent.name : "";
+
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
-        {isHome && <span className="content-topbar-section">Home</span>}
-        {isProfile && <span className="content-topbar-section">Profile</span>}
+        {isHome && <span className="content-topbar-scope">Home</span>}
+        {isProfile && <span className="content-topbar-scope">Profile</span>}
         {agent &&
           (section === "sessions" ? (
-            <span className="content-topbar-agent">{agent.display_name || agent.name}</span>
+            <span className="content-topbar-agent">
+              <span className="content-topbar-agent-avatar" aria-hidden>
+                <BlockAvatar name={agentName} size={26} />
+              </span>
+              <span className="content-topbar-agent-name">{agentName}</span>
+            </span>
           ) : (
             <Link
               to={`/${encodeURIComponent(agent.id)}`}
               className="content-topbar-agent content-topbar-agent-link"
-              title={`Back to ${agent.display_name || agent.name}'s inbox`}
+              title={`Back to ${agentName}'s inbox`}
             >
-              {agent.display_name || agent.name}
+              <span className="content-topbar-agent-avatar" aria-hidden>
+                <BlockAvatar name={agentName} size={26} />
+              </span>
+              <span className="content-topbar-agent-name">{agentName}</span>
             </Link>
           ))}
         {agent && showCrumb && <span className="content-topbar-sep">/</span>}
         {showCrumb && (
-          <span className="content-topbar-section is-primitive">
+          <span className="content-topbar-crumb">
             <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
             {primitiveWord.slice(1)}
           </span>

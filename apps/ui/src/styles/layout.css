@@ -284,19 +284,24 @@
   padding-left: 8px;
 }
 .sidebar-nav-item.no-icon .sidebar-nav-label {
-  font-family: var(--font-brand);
-  /* Primitives are a continuation of the æqi wordmark above, so they
-     must stay subordinate to it — brand sits at 18px, primitives at
-     13px.  Never raise above 16px; if they outweigh the wordmark the
-     rail stops reading as a brand axis and starts reading as nav. */
+  /* Sigil + word: the accent-tinted initial stays in the brand face
+     (the mark), the tail relaxes into sans at a light weight so the
+     row stays subordinate to the æqi wordmark above. */
   font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1;
   padding: 2px 0;
 }
 .sidebar-nav-initial {
+  font-family: var(--font-brand);
+  font-weight: 400;
+  letter-spacing: -0.02em;
   color: var(--color-accent);
+}
+.sidebar-nav-tail {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  letter-spacing: 0.01em;
 }
 /* Collapsed rail: hide the word's tail so only the accent-tinted initial
    shows. Luca's rule — the rail spells A-E-Q-I cleanly down the edge;
@@ -1321,42 +1326,77 @@
 .content-topbar-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
   flex: 1;
-  font-size: 13px;
 }
+/* Agent identity — the anchor of the topbar. Avatar on the left grounds
+   the name visually; the name itself runs in the display face so the
+   user can always read "where am I?" at a glance. */
 .content-topbar-agent {
-  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.content-topbar-agent-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.content-topbar-agent-name {
+  font-family: var(--font-display, inherit);
+  font-size: 16px;
   font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .content-topbar-agent-link {
-  text-decoration: none;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   transition: color 0.1s ease;
 }
-.content-topbar-agent-link:hover {
+.content-topbar-agent-link .content-topbar-agent-name {
+  color: var(--text-secondary);
+  transition: color 0.1s ease;
+}
+.content-topbar-agent-link:hover .content-topbar-agent-name {
   color: var(--text-primary);
 }
 .content-topbar-agent-link:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: 2px;
 }
-.content-topbar-section {
+/* Non-agent scope labels (Home / Profile) — same display face so the
+   topbar's left anchor reads consistently across all routes. */
+.content-topbar-scope {
+  font-family: var(--font-display, inherit);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
   color: var(--text-primary);
-  font-weight: 600;
   white-space: nowrap;
 }
-/* Primitive section titles echo the sidebar: brand typeface, lowercase,
-   colored initial. Keeps the breadcrumb visually tied to the rail. */
-.content-topbar-section.is-primitive {
-  font-family: var(--font-brand);
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+/* Primitive breadcrumb — echoes the sidebar: sigil initial in the
+   brand face, tail in light sans. Kept small/subordinate so the
+   agent name stays the anchor. */
+.content-topbar-crumb {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 .content-topbar-right {
   display: flex;
