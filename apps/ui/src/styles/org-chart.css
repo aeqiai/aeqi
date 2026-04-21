@@ -1,0 +1,180 @@
+/* Agent org-chart — shown on the Agents tab.
+ *
+ * Classic top-down hierarchy: the parent sits above a row of direct
+ * reports, connected by hairline CSS pseudo-elements. Nodes are cards;
+ * clicking a card navigates into that agent's home.
+ *
+ * Layout: each .org-node is a flex column (card + children row). The
+ * connector system uses three pseudo-elements:
+ *   - parent card's ::after  → 20px vertical line down to a horizontal bar
+ *   - org-children::before   → horizontal bar spanning siblings
+ *   - child node's ::before  → 20px vertical line up from bar
+ *
+ * When a parent has a single child the horizontal bar collapses (no
+ * visible span), so the connection reads as one clean spine.
+ */
+
+.org-chart {
+  padding: 24px 16px 32px;
+  width: 100%;
+  overflow: hidden;
+}
+.org-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px;
+  display: flex;
+  justify-content: center;
+  min-width: 100%;
+}
+
+/* Each node = card stacked above its children row. */
+.org-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 10px;
+  position: relative;
+}
+
+/* Parent card drops a 20px spine down toward the children bar. */
+.org-node.has-below > .org-card::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  transform: translateX(-0.5px);
+}
+
+/* Row of direct children sits 20px below parent. Horizontal bar is
+   drawn only when there are siblings — single-child rows use just the
+   two vertical stubs. */
+.org-children {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+  margin-top: 20px;
+  position: relative;
+  gap: 4px;
+}
+.org-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: var(--border);
+}
+.org-children.is-single::before {
+  display: none;
+}
+
+/* Each child lifts a 20px spine to meet the horizontal bar above. */
+.org-children > .org-node::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  transform: translateX(-0.5px);
+}
+
+/* Node card — the clickable surface. */
+.org-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+  max-width: 260px;
+  padding: 10px 14px;
+  background: var(--bg-surface, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    transform 0.12s ease;
+  font-family: var(--font-sans);
+}
+.org-card:hover {
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+}
+.org-card:active {
+  transform: translateY(1px);
+}
+.org-card:focus-visible {
+  outline: 1px solid var(--border-accent, var(--border-hover));
+  outline-offset: 2px;
+}
+
+/* Root gets a stronger shell — this is the agent you're currently on. */
+.org-card.is-root {
+  min-width: 220px;
+  padding: 14px 18px;
+  border-color: var(--border-hover);
+  background: var(--bg-base);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+}
+
+/* "+ New agent" add-slot — reads as empty-ish but still inviting. */
+.org-card.is-add {
+  border-style: dashed;
+  color: var(--text-secondary);
+  background: transparent;
+}
+.org-card.is-add:hover {
+  color: var(--text-primary);
+  border-style: solid;
+  background: var(--state-hover);
+}
+
+.org-card-avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.org-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.org-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.org-card-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.org-card.is-root .org-card-name {
+  font-size: 14px;
+}
+
+/* Lines brighten on hover of the card so the spine reads as alive. */
+.org-card:hover + .org-children::before,
+.org-card:hover::after {
+  background: var(--border-hover);
+}

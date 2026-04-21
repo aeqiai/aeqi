@@ -8,7 +8,7 @@ import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
-import BrandMark from "./BrandMark";
+import AgentOrgChart from "./AgentOrgChart";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
@@ -151,29 +151,17 @@ function AgentsTab({
   }, [goToSpawn]);
 
   return (
-    <div className="page-content" style={{ padding: "16px" }}>
+    <div className="page-content" style={{ padding: 0 }}>
       {childAgents.length > 0 ? (
-        <div className="agent-children-grid">
-          {childAgents.map((child) => (
-            <div
-              key={child.id}
-              className="agent-child-card"
-              onClick={() => onSelectChild(child.id)}
-            >
-              <BrandMark size={22} />
-              <div>
-                <div className="agent-child-name">{child.display_name || child.name}</div>
-                <div className="agent-child-status">{child.status}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <AgentOrgChart parentAgentId={parentAgentId} onSelect={onSelectChild} />
       ) : (
-        <EmptyState
-          eyebrow="Agents"
-          title="No sub-agents yet"
-          description="Spawn one from the right rail — it inherits this agent as its parent."
-        />
+        <div style={{ padding: 16 }}>
+          <EmptyState
+            eyebrow="Agents"
+            title="No sub-agents yet"
+            description="Spawn one from the right rail — it joins the org chart as a direct report."
+          />
+        </div>
       )}
     </div>
   );
