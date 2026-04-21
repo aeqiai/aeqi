@@ -1226,9 +1226,17 @@
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  border-radius: 2px;
 }
 .asv-attach-chip-x:hover {
   color: var(--error);
+}
+.asv-attach-chip-x:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
 }
 /* Picker dropdown */
 /* Tag filter bar */

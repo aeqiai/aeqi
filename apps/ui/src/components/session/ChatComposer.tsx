@@ -90,31 +90,40 @@ export default function ChatComposer({
                 {sessionPrompts.map((p, i) => (
                   <span key={`p-${i}`} className="asv-attach-chip">
                     {p}
-                    <span
+                    <button
+                      type="button"
                       className="asv-attach-chip-x"
                       onClick={() => setSessionPrompts((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${p}`}
                     >
                       ×
-                    </span>
+                    </button>
                   </span>
                 ))}
                 {sessionTask && (
                   <span className="asv-attach-chip">
                     {sessionTask.name}
-                    <span className="asv-attach-chip-x" onClick={() => setSessionTask(null)}>
+                    <button
+                      type="button"
+                      className="asv-attach-chip-x"
+                      onClick={() => setSessionTask(null)}
+                      aria-label={`Remove ${sessionTask.name}`}
+                    >
                       ×
-                    </span>
+                    </button>
                   </span>
                 )}
                 {attachedFiles.map((f, i) => (
                   <span key={`f-${i}`} className="asv-attach-chip">
                     {f.name}
-                    <span
+                    <button
+                      type="button"
                       className="asv-attach-chip-x"
                       onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${f.name}`}
                     >
                       ×
-                    </span>
+                    </button>
                   </span>
                 ))}
               </div>
