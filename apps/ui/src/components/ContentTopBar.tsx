@@ -1,4 +1,4 @@
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
@@ -19,11 +19,11 @@ const TITLES: Record<string, string> = {
   tools: "Tools",
 };
 // Breadcrumb primitives render lowercase with an accent-tinted initial.
-// Inbox joins the four W-primitives here even though the URL segment is
-// `sessions` — in the page title it's "inbox" so the leading `i` can pick
-// up the brand blue, mirroring the rail's rhythm.
+// `sessions` (the agent's inbox) is suppressed — when you click an agent
+// you land there, so naming it twice (agent name → "/ inbox") is noise.
+// The other primitives get a breadcrumb because they're a deliberate
+// detour away from the default surface.
 const PRIMITIVE_WORDS: Record<string, string> = {
-  sessions: "inbox",
   agents: "agents",
   events: "events",
   quests: "quests",
@@ -33,6 +33,7 @@ const PRIMITIVE_WORDS: Record<string, string> = {
 export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const cost = useDaemonStore((s) => s.cost);
   const agents = useDaemonStore((s) => s.agents);
   const appMode = useAuthStore((s) => s.appMode);
@@ -54,6 +55,9 @@ export default function ContentTopBar() {
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
+  const settingsActive = section === "settings" || section === "tools" || section === "channels";
+  const showCrumb = Boolean(primitiveWord) || Boolean(TITLES[section]);
+
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
@@ -69,40 +73,19 @@ export default function ContentTopBar() {
               {agent.display_name || agent.name}
             </Link>
           ))}
-        {agent && (
-          <Link
-            to={`/${encodeURIComponent(agent.id)}/settings`}
-            className={`content-topbar-gear${section === "settings" || section === "tools" || section === "channels" ? " active" : ""}`}
-            aria-label="Agent settings"
-            title="Agent settings — model, tools, channels"
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="8" cy="8" r="2" />
-              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
-            </svg>
-          </Link>
+        {agent && showCrumb && <span className="content-topbar-sep">/</span>}
+        {showCrumb && (
+          <span className={`content-topbar-section${primitiveWord ? " is-primitive" : ""}`}>
+            {primitiveWord ? (
+              <>
+                <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
+                {primitiveWord.slice(1)}
+              </>
+            ) : (
+              TITLES[section] || section
+            )}
+          </span>
         )}
-        {agent && <span className="content-topbar-sep">/</span>}
-        <span className={`content-topbar-section${primitiveWord ? " is-primitive" : ""}`}>
-          {primitiveWord ? (
-            <>
-              <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
-              {primitiveWord.slice(1)}
-            </>
-          ) : (
-            TITLES[section] || section
-          )}
-        </span>
       </div>
 
       <div className="content-topbar-right">
@@ -158,6 +141,31 @@ export default function ContentTopBar() {
               <path d="M3 3 L9 3 M3 3 L6 9 M9 3 L6 9" strokeLinecap="round" />
             </svg>
             {exploreActive ? "Close graph" : "Explore"}
+          </Button>
+        )}
+        {agent && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
+            onClick={() => navigate(`/${encodeURIComponent(agent.id)}/settings`)}
+            title="Agent settings — model, tools, channels"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="8" r="2" />
+              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
+            </svg>
+            Settings
           </Button>
         )}
         {appMode !== "platform" && (

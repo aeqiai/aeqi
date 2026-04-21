@@ -1268,6 +1268,14 @@
   border-color: var(--accent-dim);
 }
 
+/* Agent settings button in content header — twin of Explore, but tied
+   to the agent's configure surfaces (settings / tools / channels). */
+.topbar-settings-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+
 /* Link panel — typography-driven related-ideas section.
    Each relation renders as a row with a fixed-width mono label on the left
    and label-only references on the right. No chip borders, no backgrounds;

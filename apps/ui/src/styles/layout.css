@@ -414,6 +414,61 @@
   display: none;
 }
 
+/* ── Primitive tiles (sidebar-surface-nav) ──
+   Each W-primitive is a small paper tile on the sidebar's warm ground.
+   White fill + hairline border turns the lowercase brand-type word into
+   an obvious clickable surface instead of a loose letter. Active state
+   borrows the accent-tinted paper + inset bar from the explore toggle. */
+.sidebar-surface-nav {
+  gap: 4px;
+}
+.sidebar-surface-nav .sidebar-nav-item.no-icon {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 32px;
+  transition:
+    border-color 0.1s,
+    background 0.1s,
+    box-shadow 0.1s,
+    color 0.1s;
+}
+.sidebar-surface-nav .sidebar-nav-item.no-icon:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-hover);
+}
+.sidebar-surface-nav .sidebar-nav-item.no-icon.active {
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent-dim, var(--color-accent-bg));
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+/* Collapsed rail — each primitive compresses into a 36×36 square tile,
+   the accent initial dead-centered. White fill carries over so the
+   letters read as buttons rather than stray glyphs down the edge. */
+.left-sidebar.collapsed .sidebar-surface-nav {
+  padding: 8px;
+  align-items: center;
+}
+.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item {
+  padding: 0;
+}
+.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item.no-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  min-height: 0;
+  justify-content: center;
+  align-items: center;
+}
+.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item.no-icon .sidebar-nav-label {
+  flex: none;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
 /* ── Sidebar footer — identity anchor.
    Pinned at the bottom of the rail (Linear pattern). Hairline top
    border separates it from the scrollable tree above. */
