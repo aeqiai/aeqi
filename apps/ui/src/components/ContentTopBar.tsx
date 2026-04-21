@@ -20,9 +20,12 @@ const TITLES: Record<string, string> = {
   settings: "Settings",
   tools: "Tools",
 };
-// The four W-primitives render lowercase with an accent-tinted initial —
-// same treatment as the sidebar so the breadcrumb echoes the rail.
+// Breadcrumb primitives render lowercase with an accent-tinted initial.
+// Inbox joins the four W-primitives here even though the URL segment is
+// `sessions` — in the page title it's "inbox" so the leading `i` can pick
+// up the brand blue, mirroring the rail's rhythm.
 const PRIMITIVE_WORDS: Record<string, string> = {
+  sessions: "inbox",
   agents: "agents",
   events: "events",
   quests: "quests",
