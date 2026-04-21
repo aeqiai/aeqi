@@ -18,6 +18,10 @@ export default function VerifyEmailPage() {
   }, [pendingEmail]);
 
   useEffect(() => {
+    document.title = "verify email · æqi";
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated()) {
       localStorage.removeItem("aeqi_pending_email");
       navigate("/", { replace: true });

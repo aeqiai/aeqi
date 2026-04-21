@@ -17,6 +17,10 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    document.title = "reset password · æqi";
+  }, []);
+
+  useEffect(() => {
     if (success) {
       const timer = setTimeout(() => navigate("/login", { replace: true }), 3000);
       return () => clearTimeout(timer);

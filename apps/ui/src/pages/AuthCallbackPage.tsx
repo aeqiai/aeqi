@@ -9,6 +9,10 @@ export default function AuthCallbackPage() {
   const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
 
   useEffect(() => {
+    document.title = "signing in · æqi";
+  }, []);
+
+  useEffect(() => {
     // Token comes in query string: /auth/callback?token=JWT
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");

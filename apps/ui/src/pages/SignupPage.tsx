@@ -88,6 +88,15 @@ export default function SignupPage() {
   }, [waitlist]);
 
   useEffect(() => {
+    document.title =
+      mode === "waitlist"
+        ? "waitlist · æqi"
+        : step === "verify"
+          ? "verify email · æqi"
+          : "sign up · æqi";
+  }, [mode, step]);
+
+  useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);

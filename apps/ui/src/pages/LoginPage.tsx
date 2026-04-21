@@ -73,6 +73,17 @@ export default function LoginPage() {
   }, [fetchAuthMode]);
 
   useEffect(() => {
+    const titles: Record<typeof step, string> = {
+      credentials: "log in · æqi",
+      verify: "verify email · æqi",
+      "2fa": "two-factor · æqi",
+      totp: "two-factor · æqi",
+      forgot: "reset password · æqi",
+    };
+    document.title = titles[step];
+  }, [step]);
+
+  useEffect(() => {
     if (isAuthenticated()) navigate("/", { replace: true });
   }, [isAuthenticated, navigate]);
 
