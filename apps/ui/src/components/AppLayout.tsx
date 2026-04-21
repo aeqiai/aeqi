@@ -5,6 +5,7 @@ import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
 import ContentCTA from "./ContentCTA";
 import LeftSidebar from "./shell/LeftSidebar";
+import SessionsRail from "./shell/SessionsRail";
 import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
 import ShortcutsOverlay from "./ShortcutsOverlay";
@@ -231,23 +232,24 @@ export default function AppLayout() {
   // The rail only has content for tabs that are master/detail. Drive,
   // settings → rail reserves its space (no twitch) but is left empty and
   // transparent so the card reads as one clean pane.
-  const RAIL_TABS = new Set([
-    "sessions",
-    "events",
-    "channels",
-    "tools",
-    "quests",
-    "ideas",
-    "agents",
-  ]);
+  const RAIL_TABS = new Set(["events", "channels", "tools", "quests", "ideas", "agents"]);
   const hasRailContent = RAIL_TABS.has(effectiveTab);
   // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
   const sessionsMounted = !isDrive && !isProfile && effectiveTab === "sessions";
+  // Inbox gets its own left-adjacent threads rail instead of the right rail,
+  // so the master/detail pair flows with natural reading order.
+  const showSessionsRail = effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive;
 
   return (
     <>
       <div className="shell">
         <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
+
+        {showSessionsRail && (
+          <aside className="sessions-rail-col">
+            <SessionsRail />
+          </aside>
+        )}
 
         <div className={`content-column${showCTA && !hasRailContent ? " no-rail" : ""}`}>
           <div className="content-main-stack">
