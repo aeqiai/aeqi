@@ -7,6 +7,7 @@ import ContentCTA from "./ContentCTA";
 import LeftSidebar from "./shell/LeftSidebar";
 import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
+import ShortcutsOverlay from "./ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
@@ -42,6 +43,7 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searching, setSearching] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const {
     agentId = "",
@@ -85,10 +87,11 @@ export default function AppLayout() {
 
   // Global keyboard shortcuts:
   //   ⌘K / Ctrl+K — command palette
-  //   Esc          — close palette
-  //   N            — spawn a sub-agent under the current agent (skip when
-  //                  typing in an input/textarea, or when modifiers are held,
-  //                  so real text entry is never hijacked).
+  //   ?           — shortcuts cheatsheet
+  //   Esc         — close palette / overlay
+  //   N           — spawn a sub-agent under the current agent (skip when
+  //                 typing in an input/textarea, or when modifiers are held,
+  //                 so real text entry is never hijacked).
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
   useEffect(() => {
@@ -99,22 +102,28 @@ export default function AppLayout() {
         else openSearch();
         return;
       }
-      if (e.key === "Escape" && searching) {
-        closeSearch();
+      if (e.key === "Escape") {
+        if (searching) closeSearch();
+        if (shortcutsOpen) setShortcutsOpen(false);
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+      if (isEditable || searching) return;
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setShortcutsOpen((s) => !s);
         return;
       }
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const target = e.target as HTMLElement | null;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
-        if (searching) return;
         e.preventDefault();
         navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [searching, openSearch, closeSearch, agentId, navigate]);
+  }, [searching, shortcutsOpen, openSearch, closeSearch, agentId, navigate]);
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
@@ -219,6 +228,7 @@ export default function AppLayout() {
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   );
 }
