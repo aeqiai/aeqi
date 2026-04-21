@@ -15,14 +15,18 @@ import BudgetMeter from "./BudgetMeter";
 const TITLES: Record<string, string> = {
   "": "Inbox",
   sessions: "Inbox",
-  agents: "Agents",
-  events: "Events",
-  quests: "Quests",
-  ideas: "Ideas",
   channels: "Channels",
   drive: "Drive",
   settings: "Settings",
   tools: "Tools",
+};
+// The four W-primitives render lowercase with an accent-tinted initial —
+// same treatment as the sidebar so the breadcrumb echoes the rail.
+const PRIMITIVE_WORDS: Record<string, string> = {
+  agents: "agents",
+  events: "events",
+  quests: "quests",
+  ideas: "ideas",
 };
 
 export default function ContentTopBar() {
@@ -34,7 +38,7 @@ export default function ContentTopBar() {
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "sessions";
-  const title = TITLES[section] || section;
+  const primitiveWord = PRIMITIVE_WORDS[section];
 
   const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
   const toggleExplore = () => {
@@ -64,7 +68,16 @@ export default function ContentTopBar() {
             </Link>
           ))}
         {agent && <span className="content-topbar-sep">/</span>}
-        <span className="content-topbar-section">{title}</span>
+        <span className={`content-topbar-section${primitiveWord ? " is-primitive" : ""}`}>
+          {primitiveWord ? (
+            <>
+              <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
+              {primitiveWord.slice(1)}
+            </>
+          ) : (
+            TITLES[section] || section
+          )}
+        </span>
       </div>
 
       <div className="content-topbar-right">

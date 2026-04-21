@@ -1104,6 +1104,14 @@
   font-weight: 600;
   white-space: nowrap;
 }
+/* Primitive section titles echo the sidebar: brand typeface, lowercase,
+   colored initial. Keeps the breadcrumb visually tied to the rail. */
+.content-topbar-section.is-primitive {
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
 .content-topbar-right {
   display: flex;
   align-items: center;
