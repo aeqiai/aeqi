@@ -412,7 +412,7 @@ export default function ContentCTA() {
         badge: c.kind.toUpperCase(),
         preview: "Connected",
       }));
-      emptyText = "No channels";
+      emptyText = "No channels yet";
       break;
 
     case "tools":
@@ -442,7 +442,7 @@ export default function ContentCTA() {
           dimmed: isClosed,
         };
       });
-      emptyText = "No quests";
+      emptyText = "No quests yet";
       break;
     case "ideas":
       header = { label: "New idea", event: "aeqi:new-idea" };
@@ -539,7 +539,20 @@ export default function ContentCTA() {
         />
       )}
       <div className="asv-sidebar-list">
-        {items.length === 0 && emptyText && <div className="asv-sidebar-empty">{emptyText}</div>}
+        {items.length === 0 &&
+          emptyText &&
+          (header && section !== "sessions" && emptyText !== "No matches" ? (
+            <button
+              type="button"
+              className="asv-sidebar-empty-cta"
+              onClick={() => window.dispatchEvent(new CustomEvent(header!.event))}
+            >
+              <span className="asv-sidebar-empty-cta-label">{emptyText}</span>
+              <span className="asv-sidebar-empty-cta-hint">{header.label}</span>
+            </button>
+          ) : (
+            <div className="asv-sidebar-empty">{emptyText}</div>
+          ))}
         {items.map((item, i) => {
           const showHeader = !!item.group && (i === 0 || items[i - 1]?.group !== item.group);
           return (

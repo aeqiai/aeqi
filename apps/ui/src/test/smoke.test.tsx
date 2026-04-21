@@ -76,6 +76,44 @@ describe("ContentCTA smoke", () => {
     ).not.toThrow();
   });
 
+  it("shows an actionable empty-state CTA when a tab has zero items", () => {
+    useDaemonStore.setState({
+      status: null,
+      dashboard: null,
+      cost: null,
+      agents: [
+        {
+          id: "root-1",
+          name: "root-1",
+          display_name: "Root",
+          model: "opus",
+          status: "active",
+          parent_id: null,
+        },
+      ] as never,
+      quests: [],
+      events: [],
+      workerEvents: [],
+      wsConnected: false,
+      loading: false,
+      initialLoaded: false,
+    });
+    const { container } = render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1/quests"]}>
+          <Routes>
+            <Route path=":agentId/:tab/*" element={<ContentCTA />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    // Quest tab with zero quests — expect the dashed CTA button, not a plain div.
+    const cta = container.querySelector(".asv-sidebar-empty-cta");
+    expect(cta).not.toBeNull();
+    expect(cta?.textContent).toContain("No quests yet");
+    expect(cta?.textContent).toContain("New quest");
+  });
+
   it("renders without throwing on a child-agent chat route", () => {
     expect(() =>
       render(
