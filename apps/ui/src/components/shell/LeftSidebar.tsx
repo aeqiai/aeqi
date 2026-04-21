@@ -95,6 +95,8 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const authMode = useAuthStore((s) => s.authMode);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const isMac =
+    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
   const currentId = agentId || rootId;
@@ -151,7 +153,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           className="sidebar-collapse-btn"
           onClick={toggleSidebar}
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={`${sidebarCollapsed ? "Expand" : "Collapse"} sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
         >
           <svg {...iconProps}>
             <rect x="2" y="3" width="12" height="10" rx="1.5" />
