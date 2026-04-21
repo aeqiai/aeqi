@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useChatStore } from "@/store/chat";
 import { useUIStore } from "@/store/ui";
@@ -37,6 +38,7 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 export default function DashboardHome() {
+  const navigate = useNavigate();
   const { href } = useNav();
   const quests = useDaemonStore((s) => s.quests);
   const agents = useDaemonStore((s) => s.agents);
@@ -145,7 +147,9 @@ export default function DashboardHome() {
           <Button
             variant="primary"
             className="dash-home-welcome-cta"
-            onClick={() => window.dispatchEvent(new CustomEvent("aeqi:create"))}
+            onClick={() =>
+              navigate(activeRoot ? `/new?parent=${encodeURIComponent(activeRoot)}` : "/new")
+            }
           >
             Hire an agent
           </Button>
