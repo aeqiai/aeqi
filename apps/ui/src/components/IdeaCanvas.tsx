@@ -310,6 +310,9 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   }, [idea, agentId, patchIdea, content, rejectRationale]);
 
   const inlineTags = mergeTags(content, typedTags);
+  const wordCount = useMemo(() => content.trim().split(/\s+/).filter(Boolean).length, [content]);
+  const tagCount = inlineTags.length;
+  const scopeLabel = idea?.agent_id == null && isEdit ? "GLOBAL" : null;
 
   return (
     <div className="asv-main ideas-canvas">
@@ -319,10 +322,32 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
             <span className="ideas-canvas-eyebrow-kind">Idea</span>
             {idea?.id && (
               <>
-                <span className="ideas-canvas-eyebrow-sep" aria-hidden>
-                  ·
-                </span>
+                <EyebrowSep />
                 <span className="ideas-canvas-eyebrow-id">{idea.id.slice(0, 8)}</span>
+              </>
+            )}
+            {scopeLabel && (
+              <>
+                <EyebrowSep />
+                <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
+              </>
+            )}
+            {tagCount > 0 && (
+              <>
+                <EyebrowSep />
+                <span className="ideas-canvas-eyebrow-meta">
+                  <span className="ideas-canvas-eyebrow-num">{tagCount}</span>
+                  {tagCount === 1 ? "tag" : "tags"}
+                </span>
+              </>
+            )}
+            {wordCount > 0 && (
+              <>
+                <EyebrowSep />
+                <span className="ideas-canvas-eyebrow-meta">
+                  <span className="ideas-canvas-eyebrow-num">{wordCount}</span>
+                  {wordCount === 1 ? "word" : "words"}
+                </span>
               </>
             )}
           </>
@@ -371,33 +396,40 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
       />
 
       {showDecisionBtns && (
-        <div className="ideas-canvas-decision">
-          <div className="ideas-canvas-decision-label">Skill candidate — promote or reject?</div>
-          <div className="ideas-canvas-decision-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              loading={decisionState === "saving" && !showRejectPanel}
-              onClick={handlePromote}
-            >
-              Promote
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              disabled={decisionState === "saving"}
-              onClick={() => setShowRejectPanel((v) => !v)}
-            >
-              Reject
-            </Button>
+        <div className="ideas-canvas-decision-bar">
+          <div className="ideas-canvas-decision-head">
+            <span className="ideas-canvas-decision-kind">Candidate skill</span>
+            <span className="ideas-canvas-decision-copy">
+              Promote into the agent&rsquo;s skill set or reject with rationale.
+            </span>
+            <div className="ideas-canvas-decision-actions">
+              <Button
+                variant="primary"
+                size="sm"
+                loading={decisionState === "saving" && !showRejectPanel}
+                onClick={handlePromote}
+              >
+                Promote
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={decisionState === "saving"}
+                onClick={() => setShowRejectPanel((v) => !v)}
+                aria-expanded={showRejectPanel}
+              >
+                Reject
+              </Button>
+            </div>
           </div>
           {showRejectPanel && (
             <div className="ideas-canvas-reject-panel">
               <textarea
                 className="ideas-canvas-reject-textarea"
-                placeholder="Rationale (required)"
+                placeholder="Why reject? This gets appended to the idea body."
                 value={rejectRationale}
                 onChange={(e) => setRejectRationale(e.target.value)}
+                autoFocus
               />
               <div className="ideas-canvas-decision-actions">
                 <Button
@@ -575,6 +607,14 @@ function IdeaMenu({
         </div>
       )}
     </div>
+  );
+}
+
+function EyebrowSep() {
+  return (
+    <span className="ideas-canvas-eyebrow-sep" aria-hidden>
+      ·
+    </span>
   );
 }
 

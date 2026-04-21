@@ -2469,6 +2469,48 @@
   border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
 }
+.ideas-list-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ideas-list-stat-count {
+  color: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.ideas-list-stat-label {
+  opacity: 0.85;
+}
+.ideas-list-stat-sep {
+  opacity: 0.35;
+  letter-spacing: 0;
+}
+.ideas-list-stat-clear {
+  margin-left: auto;
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-hover);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ideas-list-stat-clear:hover {
+  color: var(--text-primary);
+}
 .ideas-list-search-row {
   display: flex;
   align-items: stretch;
@@ -2520,6 +2562,38 @@
 .ideas-list-search-clear:hover {
   color: var(--text-primary);
   background: var(--state-hover);
+}
+.ideas-list-search-kbd {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.ideas-list-search:focus ~ .ideas-list-search-kbd {
+  opacity: 0;
+}
+.ideas-list-scope-count {
+  margin-left: 5px;
+  font-size: 9px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+.ideas-list-scope-btn.active .ideas-list-scope-count {
+  opacity: 0.8;
 }
 .ideas-list-scope {
   display: flex;
@@ -2674,6 +2748,90 @@
 }
 .ideas-list-clear-all:hover {
   color: var(--text-primary);
+}
+.ideas-list-empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 48px 32px 40px;
+  max-width: 460px;
+}
+.ideas-list-empty-hero.muted .ideas-list-empty-title {
+  color: var(--text-secondary);
+}
+.ideas-list-empty-title {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+.ideas-list-empty-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.ideas-list-empty-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.ideas-list-empty-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ideas-list-empty-kbd kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.ideas-list-hint {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 28px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.55;
+  border-top: 1px solid var(--border-faint);
+  user-select: none;
+}
+.ideas-list-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-right: 2px;
 }
 
 /* ------------------------------------------------------------------
@@ -2877,6 +3035,25 @@
   letter-spacing: 0.08em;
   color: var(--text-muted);
   opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+.ideas-canvas-eyebrow-scope {
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.14em;
+}
+.ideas-canvas-eyebrow-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.ideas-canvas-eyebrow-num {
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 .ideas-canvas-head {
   display: flex;
@@ -3202,30 +3379,39 @@
   color: var(--destructive, #e55);
 }
 
-/* Candidate-skill decision — left-stripe callout. Quiet by default; the
-   chips and buttons carry the accent, not the whole surface. */
-.ideas-canvas-decision {
+/* Candidate-skill decision — compact horizontal bar lifted to the top of
+   the canvas, sitting directly under the eyebrow. Reject rationale slides
+   out below when the user commits to that branch. */
+.ideas-canvas-decision-bar {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
   background: transparent;
-  border: none;
+  border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
-.ideas-canvas-decision-label {
+.ideas-canvas-decision-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.ideas-canvas-decision-kind {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
   font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--accent);
+  flex-shrink: 0;
 }
-.ideas-canvas-decision-label::before {
+.ideas-canvas-decision-kind::before {
   content: "";
   display: inline-block;
   width: 4px;
@@ -3233,10 +3419,18 @@
   border-radius: 999px;
   background: var(--accent);
 }
+.ideas-canvas-decision-copy {
+  flex: 1;
+  min-width: 160px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
 .ideas-canvas-decision-actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .ideas-canvas-reject-panel {
   display: flex;

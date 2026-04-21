@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -173,6 +173,19 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<IdeasScope>("all");
   const [tag, setTag] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const scopeCounts = useMemo(() => {
+    let mine = 0;
+    let global = 0;
+    let inherited = 0;
+    for (const idea of ideas) {
+      if (idea.agent_id == null) global++;
+      else if (idea.agent_id === agentId) mine++;
+      else inherited++;
+    }
+    return { all: ideas.length, mine, global, inherited };
+  }, [ideas, agentId]);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -220,19 +233,76 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
 
   const isFiltered = search.trim() !== "" || scope !== "all" || tag !== null;
   const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-idea"));
+  const clearAll = () => {
+    setSearch("");
+    setScope("all");
+    setTag(null);
+  };
+
+  // Shortcuts: "/" focuses search, Esc clears it when focused, "n" creates
+  // a new idea when the user isn't already typing in an input.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tgt = e.target as HTMLElement | null;
+      const inInput =
+        tgt?.tagName === "INPUT" || tgt?.tagName === "TEXTAREA" || tgt?.isContentEditable;
+      if (e.key === "/" && !inInput) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      } else if (e.key === "n" && !inInput) {
+        e.preventDefault();
+        fireNew();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   return (
     <div className="ideas-list">
       <div className="ideas-list-head">
+        <div className="ideas-list-stat">
+          <span className="ideas-list-stat-count">{ideas.length}</span>
+          <span className="ideas-list-stat-label">{ideas.length === 1 ? "idea" : "ideas"}</span>
+          {isFiltered && (
+            <>
+              <span className="ideas-list-stat-sep" aria-hidden>
+                /
+              </span>
+              <span className="ideas-list-stat-count">{filtered.length}</span>
+              <span className="ideas-list-stat-label">shown</span>
+              <button type="button" className="ideas-list-stat-clear" onClick={clearAll}>
+                reset
+              </button>
+            </>
+          )}
+        </div>
         <div className="ideas-list-search-row">
           <span className="ideas-list-search-field">
             <input
+              ref={searchRef}
               className="ideas-list-search"
               type="text"
-              placeholder="Search ideas…"
+              placeholder="Search ideas"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  if (search) {
+                    setSearch("");
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
             />
+            {!search && (
+              <kbd className="ideas-list-search-kbd" aria-hidden>
+                /
+              </kbd>
+            )}
             {search && (
               <button
                 type="button"
@@ -244,15 +314,18 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
               </button>
             )}
           </span>
-          <div className="ideas-list-scope">
+          <div className="ideas-list-scope" role="tablist">
             {(["all", "mine", "global", "inherited"] as IdeasScope[]).map((s) => (
               <button
                 key={s}
                 type="button"
+                role="tab"
+                aria-selected={scope === s}
                 className={`ideas-list-scope-btn${scope === s ? " active" : ""}`}
                 onClick={() => setScope(s)}
               >
                 {s}
+                <span className="ideas-list-scope-count">{scopeCounts[s]}</span>
               </button>
             ))}
           </div>
@@ -275,14 +348,33 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
 
       <div className="ideas-list-body">
         {filtered.length === 0 ? (
-          <button type="button" className="inline-picker-empty-cta" onClick={fireNew}>
-            <span className="inline-picker-empty-cta-label">
-              {ideas.length === 0 ? "No ideas yet" : "No matches"}
-            </span>
-            <span className="inline-picker-empty-cta-hint">
-              {ideas.length === 0 ? "New idea" : "Adjust filters"}
-            </span>
-          </button>
+          ideas.length === 0 ? (
+            <div className="ideas-list-empty-hero">
+              <div className="ideas-list-empty-title">Nothing thought yet.</div>
+              <div className="ideas-list-empty-body">
+                Ideas are the agent&rsquo;s memory — instructions, decisions, reference. Write one
+                to start.
+              </div>
+              <div className="ideas-list-empty-actions">
+                <Button variant="primary" size="sm" onClick={fireNew}>
+                  New idea
+                </Button>
+                <span className="ideas-list-empty-kbd" aria-hidden>
+                  or press <kbd>N</kbd>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="ideas-list-empty-hero muted">
+              <div className="ideas-list-empty-title">No matches.</div>
+              <div className="ideas-list-empty-body">Nothing found for the current filters.</div>
+              <div className="ideas-list-empty-actions">
+                <Button variant="ghost" size="sm" onClick={clearAll}>
+                  Reset filters
+                </Button>
+              </div>
+            </div>
+          )
         ) : (
           grouped.map(([groupTag, items]) => (
             <section key={groupTag} className="ideas-list-group">
@@ -315,22 +407,9 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
             </section>
           ))
         )}
-        {isFiltered && filtered.length > 0 && (
-          <div className="ideas-list-footer">
-            {filtered.length} of {ideas.length}
-            <button
-              type="button"
-              className="ideas-list-clear-all"
-              onClick={() => {
-                setSearch("");
-                setScope("all");
-                setTag(null);
-              }}
-            >
-              Clear
-            </button>
-          </div>
-        )}
+      </div>
+      <div className="ideas-list-hint" aria-hidden>
+        <kbd>/</kbd> search · <kbd>N</kbd> new
       </div>
     </div>
   );
