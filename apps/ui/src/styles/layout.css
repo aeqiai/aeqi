@@ -4038,3 +4038,115 @@
     transform var(--transition-normal),
     color var(--transition-normal);
 }
+
+/* ------------------------------------------------------------------ *
+ * Entities — `/agents` list of root companies. Header row with the
+ * primary CTA on the right, optional warning alert, flat row list
+ * (avatar + name + tagline + tier, checkmark when the row is the
+ * currently-scoped root).
+ * ------------------------------------------------------------------ */
+.entities {
+  padding: var(--space-6);
+  max-width: 560px;
+}
+.entities-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+.entities-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.entities-alert {
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-warning-bg);
+  border: 1px solid rgba(185, 138, 71, 0.18);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--warning);
+  line-height: 1.4;
+}
+.entities-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-10) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+.entities-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.entity-row:hover,
+.entity-row:focus-visible {
+  background: var(--state-hover);
+  outline: none;
+}
+.entity-row[aria-pressed="true"] {
+  background: var(--bg-elevated);
+}
+.entity-body {
+  flex: 1;
+  min-width: 0;
+}
+.entity-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entity-tagline {
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entity-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.entity-tier {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.entity-check {
+  color: var(--accent);
+  flex-shrink: 0;
+}
