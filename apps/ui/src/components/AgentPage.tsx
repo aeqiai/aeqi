@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
@@ -141,6 +141,7 @@ function AgentsTab({
   onSelectChild: (id: string) => void;
 }) {
   const navigate = useNavigate();
+  const allAgents = useDaemonStore((s) => s.agents);
   const goToSpawn = useCallback(
     () => navigate(`/new?parent=${encodeURIComponent(parentAgentId)}`),
     [navigate, parentAgentId],
@@ -150,11 +151,30 @@ function AgentsTab({
     return () => window.removeEventListener("aeqi:create", goToSpawn);
   }, [goToSpawn]);
 
-  return (
-    <div className="page-content" style={{ padding: 0 }}>
-      {childAgents.length > 0 ? (
-        <AgentOrgChart parentAgentId={parentAgentId} onSelect={onSelectChild} />
-      ) : (
+  // Deep descendant count across the whole subtree — lets the header
+  // distinguish "5 direct reports" from "5 direct · 23 in the tree".
+  const totalDescendants = useMemo(() => {
+    const byParent = new Map<string, string[]>();
+    for (const a of allAgents) {
+      if (!a.parent_id) continue;
+      const list = byParent.get(a.parent_id) || [];
+      list.push(a.id);
+      byParent.set(a.parent_id, list);
+    }
+    let count = 0;
+    const stack: string[] = [parentAgentId];
+    while (stack.length) {
+      const id = stack.pop() as string;
+      const kids = byParent.get(id) || [];
+      count += kids.length;
+      for (const k of kids) stack.push(k);
+    }
+    return count;
+  }, [allAgents, parentAgentId]);
+
+  if (childAgents.length === 0) {
+    return (
+      <div className="page-content" style={{ padding: 0 }}>
         <div style={{ padding: 16 }}>
           <EmptyState
             eyebrow="Agents"
@@ -167,7 +187,37 @@ function AgentsTab({
             }
           />
         </div>
-      )}
+      </div>
+    );
+  }
+
+  const deepOnly = totalDescendants > childAgents.length;
+
+  return (
+    <div className="agents-tab">
+      <div className="agents-tab-head">
+        <div className="agents-tab-stat">
+          <span className="agents-tab-stat-count">{childAgents.length}</span>
+          <span className="agents-tab-stat-label">
+            {childAgents.length === 1 ? "direct report" : "direct reports"}
+          </span>
+          {deepOnly && (
+            <>
+              <span className="agents-tab-stat-sep" aria-hidden>
+                ·
+              </span>
+              <span className="agents-tab-stat-count">{totalDescendants}</span>
+              <span className="agents-tab-stat-label">in the tree</span>
+            </>
+          )}
+        </div>
+        <Button variant="secondary" size="sm" onClick={goToSpawn}>
+          Spawn sub-agent
+        </Button>
+      </div>
+      <div className="agents-tab-body">
+        <AgentOrgChart parentAgentId={parentAgentId} onSelect={onSelectChild} />
+      </div>
     </div>
   );
 }
