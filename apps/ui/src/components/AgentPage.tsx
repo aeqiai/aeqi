@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
@@ -9,7 +9,6 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import BrandMark from "./BrandMark";
-import CreateAgentModal from "./CreateAgentModal";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
@@ -128,8 +127,9 @@ export default function AgentPage({
 
 /**
  * Agents sub-tab. Listens for the shared `aeqi:create` event (fired by the
- * right-rail "New agent" CTA) and opens CreateAgentModal pre-filled with the
- * current agent as parent, so the spawn lands as a direct child.
+ * right-rail "New agent" CTA) and navigates to the full-page spawn flow at
+ * `/new?parent=<parentAgentId>`. Creating an agent is a first-class act —
+ * it gets a page, not a modal.
  */
 function AgentsTab({
   parentAgentId,
@@ -140,12 +140,15 @@ function AgentsTab({
   childAgents: ReturnType<typeof useDaemonStore.getState>["agents"];
   onSelectChild: (id: string) => void;
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const goToSpawn = useCallback(
+    () => navigate(`/new?parent=${encodeURIComponent(parentAgentId)}`),
+    [navigate, parentAgentId],
+  );
   useEffect(() => {
-    const handler = () => setModalOpen(true);
-    window.addEventListener("aeqi:create", handler);
-    return () => window.removeEventListener("aeqi:create", handler);
-  }, []);
+    window.addEventListener("aeqi:create", goToSpawn);
+    return () => window.removeEventListener("aeqi:create", goToSpawn);
+  }, [goToSpawn]);
 
   return (
     <div className="page-content" style={{ padding: "16px" }}>
@@ -172,11 +175,6 @@ function AgentsTab({
           description="Spawn one from the right rail — it inherits this agent as its parent."
         />
       )}
-      <CreateAgentModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        defaultParentId={parentAgentId}
-      />
     </div>
   );
 }

@@ -386,3 +386,123 @@
 .welcome-link:hover {
   color: var(--text-secondary);
 }
+
+/* ── Sub-agent spawn page (/new?parent=…) ─────────────────────────── */
+
+/* Wider container than the root form — the identity grid + prompt override
+   need more breathing room than a naming ritual. */
+.new-co-page:has(.new-sub-hero) .new-co-container {
+  max-width: 560px;
+}
+
+.new-sub-hero {
+  margin: 0 0 28px;
+}
+.new-sub-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.new-sub-title {
+  font-family: var(--font-serif, var(--font-sans));
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+.new-sub-parent {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.new-sub-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.new-sub-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.new-sub-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.new-sub-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.new-sub-optional {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-weight: 400;
+}
+.new-sub-loading {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.new-sub-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-overlay, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  transition: border-color 0.1s ease;
+}
+.new-sub-textarea::placeholder {
+  color: var(--text-muted);
+}
+.new-sub-textarea:focus {
+  outline: none;
+  border-color: var(--border-hover);
+}
+
+.new-sub-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 24px;
+}
+.new-sub-actions .new-co-submit {
+  flex: 1;
+  margin-top: 0;
+}
+.new-sub-cancel {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.new-sub-cancel:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+}
+.new-sub-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

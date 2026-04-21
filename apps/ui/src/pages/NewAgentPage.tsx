@@ -1,17 +1,81 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
 import "@/styles/welcome.css";
 import "@/styles/templates.css";
+import "@/styles/modals.css";
 
+interface IdeaSearchItem {
+  name?: string;
+  tags?: string[];
+}
+
+// Always-on canonical identity templates. Fresh installs have nothing tagged
+// "identity" in the idea store, so without these the picker would collapse
+// to an empty grid. DB-seeded identities merge on top.
+const DEFAULT_IDENTITY_TEMPLATES = ["leader", "researcher", "reviewer"];
+
+/**
+ * /new — agent creation page (root or sub-agent).
+ *
+ * Query params:
+ *   - ?parent=<agentId>  → sub-agent mode: spawn under an existing agent
+ *                         using the identity-template picker.
+ *   - (no params)        → root mode: either jump to the company template
+ *                         store or create an empty root agent inline.
+ *
+ * This is a full page, not a modal. Creation of agents is a first-class
+ * act in AEQI — a modal would undersell it.
+ */
 export default function NewAgentPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const allAgents = useDaemonStore((s) => s.agents);
 
+  const parentId = (searchParams.get("parent") || "").trim();
+  const subAgentMode = parentId.length > 0;
+  const parentAgent = useMemo(
+    () => (subAgentMode ? allAgents.find((a) => a.id === parentId) : null),
+    [allAgents, parentId, subAgentMode],
+  );
+
+  return subAgentMode ? (
+    <SubAgentForm
+      navigate={navigate}
+      parentId={parentId}
+      parentLabel={parentAgent?.display_name || parentAgent?.name || "this agent"}
+      onSpawned={async (newId) => {
+        await fetchAgents();
+        navigate(`/${encodeURIComponent(newId)}`);
+      }}
+    />
+  ) : (
+    <RootForm
+      navigate={navigate}
+      onCreated={async (rootId) => {
+        setActiveRoot(rootId);
+        await fetchAgents();
+        navigate(`/${encodeURIComponent(rootId)}`);
+      }}
+    />
+  );
+}
+
+/* ── Root mode: either go to /templates or create an empty root ──────── */
+
+function RootForm({
+  navigate,
+  onCreated,
+}: {
+  navigate: (to: string) => void;
+  onCreated: (rootId: string) => Promise<void>;
+}) {
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -28,17 +92,13 @@ export default function NewAgentPage() {
         name: name.trim(),
         tagline: tagline.trim() || undefined,
       });
-      // Use the agent UUID returned by the backend; fall back to name for compat.
       const rootId =
         (resp as Record<string, unknown>).id ||
         (resp as Record<string, unknown>).root ||
         name.trim();
       if (imageUrl) localStorage.setItem("aeqi_root_avatar", imageUrl);
       if (tagline.trim()) localStorage.setItem("aeqi_root_tagline", tagline.trim());
-      setActiveRoot(rootId as string);
-      // Backend auto-creates an agent -- fetch it immediately
-      await fetchAgents();
-      navigate(`/${encodeURIComponent(rootId as string)}`);
+      await onCreated(rootId as string);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create agent");
       setCreating(false);
@@ -48,48 +108,11 @@ export default function NewAgentPage() {
   return (
     <div className="new-co-page">
       <div className="new-co-container new-co-animate">
-        <a
-          className="new-co-back"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/");
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M8.5 3L4.5 7l4 4" />
-          </svg>
-          Back
-        </a>
+        <BackLink onClick={() => navigate("/")} label="Back" />
 
-        {/* Templates — the primary path. A pre-threaded company is the
-            fastest way from goal to runtime; the empty-agent form below is
-            kept as the advanced fallback. */}
         <button type="button" className="tpl-promo-card" onClick={() => navigate("/templates")}>
           <span className="tpl-promo-icon" aria-hidden="true">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="2" width="5" height="5" rx="1" />
-              <rect x="9" y="2" width="5" height="5" rx="1" />
-              <rect x="2" y="9" width="5" height="5" rx="1" />
-              <rect x="9" y="9" width="5" height="5" rx="1" />
-            </svg>
+            <TemplateGridIcon />
           </span>
           <span className="tpl-promo-body">
             <span className="tpl-promo-title">Start from a template</span>
@@ -97,18 +120,7 @@ export default function NewAgentPage() {
               Pre-threaded companies — agents, events, ideas, and quests already alive.
             </span>
           </span>
-          <svg
-            className="tpl-promo-arrow"
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          >
-            <path d="M5 3l4 4-4 4" />
-          </svg>
+          <ArrowRight className="tpl-promo-arrow" />
         </button>
 
         <div className="tpl-divider">
@@ -116,7 +128,6 @@ export default function NewAgentPage() {
         </div>
 
         <div className="new-co-hero">
-          {/* Avatar + Name inline */}
           <input
             ref={fileRef}
             type="file"
@@ -143,17 +154,7 @@ export default function NewAgentPage() {
                 <BlockAvatar name={name || "W"} size={56} />
               )}
               <span className="new-co-avatar-overlay">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                >
-                  <path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" />
-                </svg>
+                <UploadIcon />
               </span>
             </div>
             <div className="new-co-identity-fields">
@@ -201,5 +202,254 @@ export default function NewAgentPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+/* ── Sub-agent mode: identity-template picker + optional overrides ───── */
+
+function SubAgentForm({
+  navigate,
+  parentId,
+  parentLabel,
+  onSpawned,
+}: {
+  navigate: (to: string) => void;
+  parentId: string;
+  parentLabel: string;
+  onSpawned: (newAgentId: string) => Promise<void>;
+}) {
+  const [templates, setTemplates] = useState<string[]>(DEFAULT_IDENTITY_TEMPLATES);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [template, setTemplate] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoadingTemplates(true);
+    api
+      .getIdentityTemplates()
+      .then((data) => {
+        const ideas = (data?.ideas || []) as IdeaSearchItem[];
+        const seeded = ideas
+          .map((i) => i.name)
+          .filter((n): n is string => typeof n === "string" && n.length > 0);
+        setTemplates(Array.from(new Set([...DEFAULT_IDENTITY_TEMPLATES, ...seeded])));
+      })
+      .catch(() => {
+        setTemplates(DEFAULT_IDENTITY_TEMPLATES);
+      })
+      .finally(() => setLoadingTemplates(false));
+  }, []);
+
+  const canSubmit = template.trim().length > 0 && !submitting;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const resp = await api.spawnAgent({
+        template: template.trim(),
+        parent_id: parentId,
+        ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
+        ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
+      });
+      const newId =
+        (resp as Record<string, unknown>)?.agent &&
+        ((resp as Record<string, unknown>).agent as Record<string, unknown>)?.id;
+      if (typeof newId === "string" && newId.length > 0) {
+        await onSpawned(newId);
+      } else {
+        await onSpawned(parentId);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to spawn agent.");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="new-co-page">
+      <div className="new-co-container new-co-animate">
+        <BackLink
+          onClick={() => navigate(`/${encodeURIComponent(parentId)}/agents`)}
+          label={`Back to ${parentLabel}`}
+        />
+
+        <header className="new-sub-hero">
+          <p className="new-sub-eyebrow">Spawn sub-agent</p>
+          <h1 className="new-sub-title">
+            New agent under <span className="new-sub-parent">{parentLabel}</span>
+          </h1>
+          <p className="new-sub-desc">
+            Pick an identity, give it a name, and it joins the tree as a direct child.
+          </p>
+        </header>
+
+        <section className="new-sub-section">
+          <div className="new-sub-section-head">
+            <span className="new-sub-label">Identity</span>
+            {loadingTemplates && <span className="new-sub-loading">loading…</span>}
+          </div>
+          <div className="cam-template-grid" role="radiogroup" aria-label="Identity template">
+            {templates.map((t) => {
+              const active = template === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={`cam-template-card${active ? " is-active" : ""}`}
+                  onClick={() => setTemplate(t)}
+                >
+                  <span className="cam-template-card-dot" />
+                  <span className="cam-template-card-name">{t}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="new-sub-section">
+          <label className="new-sub-label" htmlFor="new-sub-name">
+            Name
+            <span className="new-sub-optional"> · optional</span>
+          </label>
+          <input
+            id="new-sub-name"
+            className="new-co-name-input"
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder={template ? `e.g. Senior ${template}` : "Display name"}
+            autoFocus
+          />
+        </section>
+
+        <section className="new-sub-section">
+          <label className="new-sub-label" htmlFor="new-sub-prompt">
+            System prompt
+            <span className="new-sub-optional"> · override</span>
+          </label>
+          <textarea
+            id="new-sub-prompt"
+            className="new-sub-textarea"
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder="Leave blank to inherit from the identity template."
+            rows={4}
+          />
+        </section>
+
+        {error && <div className="new-co-error">{error}</div>}
+
+        <div className="new-sub-actions">
+          <button
+            type="button"
+            className="new-sub-cancel"
+            onClick={() => navigate(`/${encodeURIComponent(parentId)}/agents`)}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="new-co-submit"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+          >
+            {submitting ? (
+              "Spawning..."
+            ) : (
+              <>
+                Spawn agent <kbd className="new-co-kbd">↵</kbd>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Small shared bits ───────────────────────────────────────────────── */
+
+function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      className="new-co-back"
+      onClick={onClick}
+      style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      >
+        <path d="M8.5 3L4.5 7l4 4" />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
+function TemplateGridIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" />
+      <rect x="2" y="9" width="5" height="5" rx="1" />
+      <rect x="9" y="9" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function ArrowRight({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    >
+      <path d="M5 3l4 4-4 4" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    >
+      <path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" />
+    </svg>
   );
 }

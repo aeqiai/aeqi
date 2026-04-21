@@ -10,21 +10,20 @@ import styles from "./Sidebar.module.css";
 function Chevron({ expanded }: { expanded: boolean }) {
   return (
     <svg
-      width="12"
-      height="12"
+      width="10"
+      height="10"
       viewBox="0 0 12 12"
       fill="none"
       style={{
         transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-        transition: "transform 0.15s ease",
+        transition: "transform 0.14s ease",
         flexShrink: 0,
-        opacity: 0.5,
       }}
     >
       <path
         d="M4.5 3L7.5 6L4.5 9"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -85,24 +84,51 @@ function findRootId(agents: Agent[], id: string): string | null {
   return current?.id || null;
 }
 
+/**
+ * Rail — one vertical column per ancestor depth plus a connector at the
+ * current depth. `ancestors[i] === true` means the ancestor at column i
+ * still has siblings below it, so a continuous vertical guide is drawn
+ * in that column. `isLast` decides elbow vs tee at the current depth.
+ */
+function Rail({ ancestors, isLast }: { ancestors: boolean[]; isLast: boolean }) {
+  return (
+    <>
+      {ancestors.map((drawLine, i) => (
+        <span
+          key={i}
+          className={drawLine ? styles.guideLine : styles.guideGap}
+          aria-hidden="true"
+        />
+      ))}
+      <span
+        className={`${styles.connector} ${isLast ? styles.connectorEnd : styles.connectorMid}`}
+        aria-hidden="true"
+      />
+    </>
+  );
+}
+
 function AgentNodeView({
   node,
-  depth,
+  ancestors,
+  isLast,
   selectedId,
-  collapsed,
+  expanded,
   onSelectAgent,
   onToggle,
 }: {
   node: AgentNode;
-  depth: number;
+  ancestors: boolean[];
+  isLast: boolean;
   selectedId: string | null;
-  collapsed: Record<string, boolean>;
+  expanded: Record<string, boolean>;
   onSelectAgent: (agent: AgentRef) => void;
-  onToggle: (id: string, e: React.MouseEvent) => void;
+  onToggle: (id: string, nextExpanded: boolean, e: React.MouseEvent) => void;
 }) {
   const isActive = selectedId === node.id;
   const hasChildren = node.children.length > 0;
-  const isCollapsed = collapsed[node.id] ?? false;
+  const isExpanded = expanded[node.id] ?? true;
+  const showChildren = hasChildren && isExpanded;
   const label = node.display_name || node.name;
   const descendantCount = countDescendants(node);
 
@@ -110,7 +136,6 @@ function AgentNodeView({
     <div className={styles.node}>
       <div
         className={isActive ? styles.rowActive : styles.row}
-        style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() =>
           onSelectAgent({
             id: node.id,
@@ -120,26 +145,37 @@ function AgentNodeView({
           })
         }
       >
+        <Rail ancestors={ancestors} isLast={isLast} />
+        {hasChildren ? (
+          <button
+            type="button"
+            className={styles.collapseBtn}
+            onClick={(e) => onToggle(node.id, !isExpanded, e)}
+            aria-label={isExpanded ? "Collapse" : "Expand"}
+            aria-expanded={isExpanded}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            <Chevron expanded={isExpanded} />
+          </button>
+        ) : (
+          <span className={styles.collapseSpacer} aria-hidden="true" />
+        )}
         <span className={styles.iconSlot}>
           <BrandMark size={14} />
         </span>
         <span className={styles.rowLabel}>{label}</span>
-        {hasChildren && (
-          <span className={styles.toggle} onClick={(e) => onToggle(node.id, e)}>
-            {isCollapsed && <span className={styles.count}>{descendantCount}</span>}
-            <Chevron expanded={!isCollapsed} />
-          </span>
-        )}
+        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
       </div>
-      {hasChildren && !isCollapsed && (
+      {showChildren && (
         <div className={styles.children}>
-          {node.children.map((child) => (
+          {node.children.map((child, i) => (
             <AgentNodeView
               key={child.id}
               node={child}
-              depth={depth + 1}
+              ancestors={[...ancestors, !isLast]}
+              isLast={i === node.children.length - 1}
               selectedId={selectedId}
-              collapsed={collapsed}
+              expanded={expanded}
               onSelectAgent={onSelectAgent}
               onToggle={onToggle}
             />
@@ -151,18 +187,16 @@ function AgentNodeView({
 }
 
 /**
- * Root-row: one row per root agent. The active root (the one in the URL)
- * renders its subtree directly beneath it; non-active roots stay
- * collapsed. Clicking an inactive root navigates to it, which makes it
- * the active root and auto-expands its tree on the next render — no
- * separate expand state to manage.
+ * Root-row: one row per root agent. Roots sit flush-left with no rail.
+ * The active root (URL) auto-expands; clicking the chevron on any root
+ * overrides that default so inactive roots can also be peeked.
  */
 function RootRow({
   agent,
   isActive,
   selectedId,
   allAgents,
-  collapsed,
+  expanded,
   onSelectAgent,
   onToggle,
 }: {
@@ -170,20 +204,22 @@ function RootRow({
   isActive: boolean;
   selectedId: string | null;
   allAgents: Agent[];
-  collapsed: Record<string, boolean>;
+  expanded: Record<string, boolean>;
   onSelectAgent: (agent: AgentRef) => void;
-  onToggle: (id: string, e: React.MouseEvent) => void;
+  onToggle: (id: string, nextExpanded: boolean, e: React.MouseEvent) => void;
 }) {
   const label = agent.display_name || agent.name;
   const isSelectedRow = selectedId === agent.id;
   const subtree = useMemo(() => buildSubtree(allAgents, agent.id), [allAgents, agent.id]);
   const descendantCount = subtree ? countDescendants(subtree) : 0;
+  const hasChildren = descendantCount > 0;
+  const isExpanded = expanded[agent.id] ?? isActive;
+  const showChildren = hasChildren && isExpanded;
 
   return (
     <div className={styles.node}>
       <div
-        className={isSelectedRow ? styles.rowActive : styles.row}
-        style={{ paddingLeft: "8px" }}
+        className={`${isSelectedRow ? styles.rowActive : styles.row} ${styles.rootRow}`}
         onClick={() =>
           onSelectAgent({
             id: agent.id,
@@ -193,26 +229,36 @@ function RootRow({
           })
         }
       >
+        {hasChildren ? (
+          <button
+            type="button"
+            className={styles.collapseBtn}
+            onClick={(e) => onToggle(agent.id, !isExpanded, e)}
+            aria-label={isExpanded ? "Collapse" : "Expand"}
+            aria-expanded={isExpanded}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            <Chevron expanded={isExpanded} />
+          </button>
+        ) : (
+          <span className={styles.collapseSpacer} aria-hidden="true" />
+        )}
         <span className={styles.iconSlot}>
           <BlockAvatar name={label} size={18} />
         </span>
         <span className={styles.rowLabel}>{label}</span>
-        {descendantCount > 0 && (
-          <span className={styles.toggle}>
-            {!isActive && <span className={styles.count}>{descendantCount}</span>}
-            <Chevron expanded={isActive} />
-          </span>
-        )}
+        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
       </div>
-      {isActive &&
+      {showChildren &&
         subtree &&
-        subtree.children.map((child) => (
+        subtree.children.map((child, i) => (
           <AgentNodeView
             key={child.id}
             node={child}
-            depth={1}
+            ancestors={[]}
+            isLast={i === subtree.children.length - 1}
             selectedId={selectedId}
-            collapsed={collapsed}
+            expanded={expanded}
             onSelectAgent={onSelectAgent}
             onToggle={onToggle}
           />
@@ -231,7 +277,7 @@ export default function AgentTree() {
   const navigate = useNavigate();
   const setSelectedAgent = useChatStore((s) => s.setSelectedAgent);
   const allAgents = useDaemonStore((s) => s.agents);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const { agentId } = useParams<{ agentId?: string }>();
   const selectedId = agentId || null;
@@ -243,9 +289,9 @@ export default function AgentTree() {
 
   const roots = useMemo(() => allAgents.filter((a) => !a.parent_id), [allAgents]);
 
-  const toggleNode = (id: string, e: React.MouseEvent) => {
+  const toggleNode = (id: string, next: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpanded((prev) => ({ ...prev, [id]: next }));
   };
 
   const handleSelectAgent = (agent: AgentRef) => {
@@ -280,7 +326,7 @@ export default function AgentTree() {
             isActive={r.id === activeRootId}
             selectedId={selectedId}
             allAgents={allAgents}
-            collapsed={collapsed}
+            expanded={expanded}
             onSelectAgent={handleSelectAgent}
             onToggle={toggleNode}
           />

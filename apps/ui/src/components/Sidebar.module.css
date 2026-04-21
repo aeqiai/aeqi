@@ -56,29 +56,6 @@
   gap: 1px;
 }
 
-/* Chevron toggle + count -- pushed to the right */
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 2px 4px;
-  transition: all 0.1s ease;
-}
-.toggle:hover {
-  background: var(--bg-overlay);
-  color: var(--text-secondary);
-}
-
-.count {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .empty {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
@@ -89,31 +66,21 @@
 /* Agent row — shares --sidebar-row-h rhythm with .sidebar-nav-item */
 .row {
   min-height: var(--sidebar-row-h);
-  padding: 0 8px;
+  padding: 0 8px 0 4px;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   border-radius: var(--radius-md);
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Brandmark slot — fixed 22px footprint that matches the SVG icon column
-   in .sidebar-nav-item, so the "æ" lines up with Sessions/Quests/Events
-   icons stacked above. The glyph itself is text and sits on baseline,
-   so flex-center it inside the slot for true vertical alignment. */
-.iconSlot {
-  width: 22px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  gap: 0;
 }
 .row:hover {
   color: var(--text-primary);
@@ -126,10 +93,156 @@
   font-weight: 500;
 }
 
+/* Root rows sit flush-left and don't participate in the rail system. */
+.rootRow {
+  padding-left: 8px;
+}
+
+/* Rail columns — each ancestor depth contributes one 14px column.
+   Center line sits at x = 7px so connectors line up perfectly. */
+.guideLine,
+.guideGap,
+.connector {
+  width: 14px;
+  flex-shrink: 0;
+  position: relative;
+  align-self: stretch;
+}
+
+/* Continuous vertical guide through an ancestor column. */
+.guideLine::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+/* Middle child — tee: line runs through top-to-bottom with an outbound stub. */
+.connectorMid::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.connectorMid::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Last child — elbow: line runs top → middle, then outbound stub. */
+.connectorEnd::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  height: calc(50% + 0.5px);
+  width: 1px;
+  background: var(--border);
+  border-bottom-left-radius: 3px;
+}
+.connectorEnd::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Hairline brightens on row hover to reinforce the connection. */
+.row:hover .guideLine::before,
+.row:hover .connectorMid::before,
+.row:hover .connectorMid::after,
+.row:hover .connectorEnd::before,
+.row:hover .connectorEnd::after,
+.rowActive .guideLine::before,
+.rowActive .connectorMid::before,
+.rowActive .connectorMid::after,
+.rowActive .connectorEnd::before,
+.rowActive .connectorEnd::after {
+  background: var(--border-hover);
+}
+
+/* Collapse toggle — a proper 18×18 button. Sits to the left of the icon
+   slot; leaves a matching-sized spacer on leaves so labels align across
+   the tree regardless of expandability. */
+.collapseBtn,
+.collapseSpacer {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-self: center;
+  margin: 0 4px 0 0;
+}
+.collapseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.collapseBtn:hover {
+  background: var(--state-hover);
+  color: var(--text-primary);
+}
+.collapseBtn:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+.rowActive .collapseBtn {
+  color: var(--text-secondary);
+}
+
+/* Brandmark slot — fixed 22px footprint that matches the SVG icon column
+   in .sidebar-nav-item, so the "æ" lines up with Sessions/Quests/Events
+   icons stacked above. */
+.iconSlot {
+  width: 22px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
 .rowLabel {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  align-self: center;
+  padding-left: 6px;
+}
+
+/* Descendant count pill — only shows when collapsed. */
+.count {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--state-hover);
+  margin-left: 6px;
 }
