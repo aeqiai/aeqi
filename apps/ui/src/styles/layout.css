@@ -3965,6 +3965,7 @@
   text-overflow: ellipsis;
 }
 .home-dash-feed-summary {
+  min-width: 0;
   font-size: 14px;
   line-height: 1.35;
   color: var(--text-primary);
@@ -3979,6 +3980,9 @@
   font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-dash-feed-time {
   font-family: var(--font-mono);
