@@ -203,7 +203,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         <input
           ref={inputRef}
           className="palette-input"
-          placeholder="Where to?"
+          placeholder="Jump to an agent, quest, idea…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -228,7 +228,26 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               })}
             </div>
           ))}
-          {filtered.length === 0 && <div className="palette-empty">No results</div>}
+          {filtered.length === 0 && (
+            <div className="palette-empty">
+              {query ? `No matches for “${query}”` : "Type to search"}
+            </div>
+          )}
+        </div>
+        <div className="palette-footer" aria-hidden="true">
+          <span className="palette-footer-group">
+            <kbd>↑</kbd>
+            <kbd>↓</kbd>
+            <span>navigate</span>
+          </span>
+          <span className="palette-footer-group">
+            <kbd>↵</kbd>
+            <span>select</span>
+          </span>
+          <span className="palette-footer-group">
+            <kbd>esc</kbd>
+            <span>close</span>
+          </span>
         </div>
       </div>
     </div>
