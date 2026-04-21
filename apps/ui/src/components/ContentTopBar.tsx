@@ -7,8 +7,8 @@ import BudgetMeter from "./BudgetMeter";
 /**
  * Content top bar — agent context + secondary actions.
  *
- * Primary "New X" CTAs live in the right-rail header (ContentCTA), adjacent
- * to the list they mutate. This bar carries: breadcrumb title, view toggles
+ * Primary "New X" CTAs live inline in each tab's body (the tab's own picker
+ * owns its "+" button). This bar carries: breadcrumb title, view toggles
  * that affect the main pane (Ideas graph toggle), and the budget meter.
  */
 

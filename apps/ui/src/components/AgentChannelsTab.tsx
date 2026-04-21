@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore, type ChannelEntry } from "@/store/agentData";
-import { Button, EmptyState } from "./ui";
+import { Button } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
@@ -244,20 +244,48 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   }
 
   if (!selected) {
+    const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-channel"));
     return (
-      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <EmptyState
-          title="Select a channel"
-          description="Pick a channel from the right to view its config, or add one."
-          action={
-            <Button
-              variant="primary"
-              onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-channel"))}
-            >
-              Add channel
-            </Button>
-          }
-        />
+      <div className="asv-main channels-list" style={{ overflowY: "auto" }}>
+        {channels.length === 0 ? (
+          <button type="button" className="inline-picker-empty-cta" onClick={fireNew}>
+            <span className="inline-picker-empty-cta-label">No channels yet</span>
+            <span className="inline-picker-empty-cta-hint">Add channel</span>
+          </button>
+        ) : (
+          <>
+            <div className="inline-picker-group">
+              <span className="inline-picker-group-label">connected</span>
+              <span className="inline-picker-group-rule" />
+              <span className="inline-picker-group-count">{channels.length}</span>
+            </div>
+            {channels.map((c) => {
+              const chats = getChats(c);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="channels-list-row"
+                  onClick={() => goAgent(agentId, "channels", c.id)}
+                >
+                  <span className="channels-list-row-kind">{c.kind.toUpperCase()}</span>
+                  <span className="channels-list-row-name">channel:{c.kind}</span>
+                  <span
+                    className={`channels-list-row-dot${c.enabled ? " is-on" : ""}`}
+                    aria-hidden
+                  />
+                  <span className="channels-list-row-meta">
+                    {chats.length > 0
+                      ? `${chats.length} chat${chats.length === 1 ? "" : "s"}`
+                      : c.allowed_chats.length > 0
+                        ? `${c.allowed_chats.length} allowed`
+                        : "idle"}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
       </div>
     );
   }

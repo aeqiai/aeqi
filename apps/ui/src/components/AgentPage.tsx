@@ -205,10 +205,8 @@ function SettingsShell({
 }
 
 /**
- * Tools detail pane. The tool list lives in the global right rail —
- * this pane shows the selected tool's description and the allow/deny
- * toggle. Without a selection we show a quick overview: how many are
- * enabled and a nudge to pick one.
+ * Tools tab. No selection → inline picker grouped by category (agent
+ * tools vs. shell/files/search/web). Selection → detail with toggle.
  */
 function ToolsDetail({
   agent,
@@ -220,17 +218,52 @@ function ToolsDetail({
   showToast: (msg: string, isError?: boolean) => void;
 }) {
   const { itemId } = useParams<{ itemId?: string }>();
+  const { goAgent, agentId: scopeAgentId } = useNav();
   const selected = itemId ? TOOL_BY_ID[itemId] : null;
 
   if (!selected) {
     const denied = agent?.tool_deny || [];
     const activeCount = ALL_TOOLS.length - denied.length;
+    // Split into "agent tools" (aeqi category) and "global tools" (everything else).
+    const agentTools = ALL_TOOLS.filter((t) => t.category === "aeqi");
+    const globalTools = ALL_TOOLS.filter((t) => t.category !== "aeqi");
+    const groups: Array<{ label: string; tools: typeof ALL_TOOLS }> = [
+      { label: "agent tools", tools: agentTools },
+      { label: "global tools", tools: globalTools },
+    ];
+    const openTool = (id: string) => scopeAgentId && goAgent(scopeAgentId, "tools", id);
     return (
-      <div className="asv-main" style={{ padding: "20px 28px", overflowY: "auto" }}>
-        <EmptyState
-          title={`${activeCount}/${ALL_TOOLS.length} tools enabled`}
-          description="Pick a tool from the right to read its description and toggle access."
-        />
+      <div className="asv-main tools-list" style={{ overflowY: "auto" }}>
+        <div className="tools-list-summary">
+          <span className="tools-list-summary-n">
+            {activeCount}/{ALL_TOOLS.length}
+          </span>
+          <span className="tools-list-summary-label">tools enabled</span>
+        </div>
+        {groups.map((g) => (
+          <section key={g.label} className="tools-list-group-wrap">
+            <div className="inline-picker-group">
+              <span className="inline-picker-group-label">{g.label}</span>
+              <span className="inline-picker-group-rule" />
+              <span className="inline-picker-group-count">{g.tools.length}</span>
+            </div>
+            {g.tools.map((t) => {
+              const allowed = !denied.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`tools-list-row${allowed ? "" : " is-off"}`}
+                  onClick={() => openTool(t.id)}
+                >
+                  <span className="tools-list-row-cat">{t.category}</span>
+                  <span className="tools-list-row-name">{t.label}</span>
+                  <span className="tools-list-row-state">{allowed ? "on" : "off"}</span>
+                </button>
+              );
+            })}
+          </section>
+        ))}
       </div>
     );
   }
