@@ -10,7 +10,7 @@ const meta: Meta<typeof Textarea> = {
     docs: {
       description: {
         component:
-          "Multi-line text input with the same label/hint/error pattern as `Input`. Use for free-form prose: identity prompts, acceptance criteria, and message composition.",
+          "Multi-line text input with the same label/hint/error pattern as `Input`. Use for free-form prose: identity ideas, acceptance criteria, and message composition.",
       },
     },
   },
@@ -53,7 +53,7 @@ export const WithError: Story = {
 
 export const Disabled: Story = {
   args: {
-    label: "System prompt (inherited)",
+    label: "Identity (inherited)",
     value: "You are part of the orchestrator tree. Delegate aggressively.",
     disabled: true,
     rows: 3,
@@ -121,7 +121,7 @@ export const IdentityEditor: Story = {
 architectural proposals from subordinate agents, and delegate implementation
 to the appropriate specialist. You do not write code yourself — you orchestrate.`}
         rows={8}
-        hint="Injected into the agent's system prompt on every turn."
+        hint="Assembled into the agent's identity on every turn."
       />
     </div>
   ),
