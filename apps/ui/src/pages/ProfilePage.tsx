@@ -602,7 +602,7 @@ export default function ProfilePage() {
                   loading={phishingSaving}
                   disabled={phishingSaving}
                 >
-                  {phishingSaving ? "..." : "Save"}
+                  Save
                 </Button>
               </div>
               {phishingFeedback && (

@@ -122,7 +122,7 @@ export function BaileysPairingPanel({ channelId }: { channelId: string }) {
         <div className="baileys-pairing-ready">
           <p>This device is paired. Incoming messages will be routed to this agent.</p>
           <Button variant="danger" size="sm" onClick={handleLogout} loading={loggingOut}>
-            {loggingOut ? "Logging out…" : "Log out and reset"}
+            Log out and reset
           </Button>
         </div>
       )}

@@ -311,7 +311,7 @@ export default function LoginPage() {
               loading={loading}
               disabled={loading}
             >
-              {loading ? "Connecting..." : "Continue"}
+              Continue
             </Button>
           </form>
         </div>
@@ -410,7 +410,7 @@ export default function LoginPage() {
                 loading={loading}
                 disabled={loading || !email.trim() || !password}
               >
-                {loading ? "Signing in..." : "Sign in"}
+                Sign in
               </Button>
             </form>
             <p className="auth-switch">

@@ -227,7 +227,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         {error && <div className="channel-form-error">{error}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button variant="primary" onClick={handleAdd} loading={saving} disabled={saving}>
-            {saving ? "Connecting..." : "Connect"}
+            Connect
           </Button>
           <Button
             variant="secondary"
@@ -348,7 +348,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             // state updates.
           }}
         >
-          {deleting ? "Disconnecting..." : "Disconnect"}
+          Disconnect
         </Button>
       </div>
 

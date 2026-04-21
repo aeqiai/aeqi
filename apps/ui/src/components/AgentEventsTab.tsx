@@ -267,7 +267,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         {createError && <div className="channel-form-error">{createError}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button variant="primary" onClick={handleCreateEvent} loading={saving} disabled={saving}>
-            {saving ? "Creating…" : "Create"}
+            Create
           </Button>
           <Button
             variant="secondary"
