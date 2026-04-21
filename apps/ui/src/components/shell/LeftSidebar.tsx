@@ -54,13 +54,6 @@ const ICON_DRIVE = (
     <circle cx="6.5" cy="10" r="0.4" fill="currentColor" stroke="none" />
   </svg>
 );
-const ICON_SETTINGS = (
-  <svg {...iconProps}>
-    <circle cx="8" cy="8" r="2" />
-    <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
-  </svg>
-);
-
 const PRIMITIVES: NavItem[] = [
   { id: "agents", label: <BrandInitial word="agents" />, title: "Agents · G then A" },
   { id: "events", label: <BrandInitial word="events" />, title: "Events · G then E" },
@@ -68,10 +61,10 @@ const PRIMITIVES: NavItem[] = [
   { id: "ideas", label: <BrandInitial word="ideas" />, title: "Ideas · G then I" },
 ];
 
-const CONFIGURE: NavItem[] = [
-  { id: "drive", label: "Drive", icon: ICON_DRIVE, title: "Drive" },
-  { id: "settings", label: "Settings", icon: ICON_SETTINGS, title: "Settings" },
-];
+// Settings is no longer a rail primitive — it lives on the agent itself, via
+// a gear icon in the top bar. Drive stays here for now; it'll fold into
+// Ideas (attach-file) in a follow-up.
+const CONFIGURE: NavItem[] = [{ id: "drive", label: "Drive", icon: ICON_DRIVE, title: "Drive" }];
 
 /**
  * Application left rail: brand, agent tree, current-agent surface nav, profile.

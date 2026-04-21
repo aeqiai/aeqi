@@ -69,6 +69,29 @@ export default function ContentTopBar() {
               {agent.display_name || agent.name}
             </Link>
           ))}
+        {agent && (
+          <Link
+            to={`/${encodeURIComponent(agent.id)}/settings`}
+            className={`content-topbar-gear${section === "settings" || section === "tools" || section === "channels" ? " active" : ""}`}
+            aria-label="Agent settings"
+            title="Agent settings — model, tools, channels"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="8" r="2" />
+              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
+            </svg>
+          </Link>
+        )}
         {agent && <span className="content-topbar-sep">/</span>}
         <span className={`content-topbar-section${primitiveWord ? " is-primitive" : ""}`}>
           {primitiveWord ? (
