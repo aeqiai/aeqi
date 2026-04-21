@@ -159,7 +159,12 @@ function AgentsTab({
           <EmptyState
             eyebrow="Agents"
             title="No sub-agents yet"
-            description="Spawn one from the right rail — it joins the org chart as a direct report."
+            description="Spawn a direct report and it joins the org chart under this agent."
+            action={
+              <Button variant="primary" onClick={goToSpawn}>
+                Spawn sub-agent
+              </Button>
+            }
           />
         </div>
       )}
