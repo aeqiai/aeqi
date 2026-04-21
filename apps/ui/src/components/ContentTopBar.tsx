@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
@@ -51,7 +51,18 @@ export default function ContentTopBar() {
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
-        {agent && <span className="content-topbar-agent">{agent.display_name || agent.name}</span>}
+        {agent &&
+          (section === "sessions" ? (
+            <span className="content-topbar-agent">{agent.display_name || agent.name}</span>
+          ) : (
+            <Link
+              to={`/${encodeURIComponent(agent.id)}`}
+              className="content-topbar-agent content-topbar-agent-link"
+              title={`Back to ${agent.display_name || agent.name}'s inbox`}
+            >
+              {agent.display_name || agent.name}
+            </Link>
+          ))}
         {agent && <span className="content-topbar-sep">/</span>}
         <span className="content-topbar-section">{title}</span>
       </div>

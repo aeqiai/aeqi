@@ -1039,6 +1039,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.content-topbar-agent-link {
+  text-decoration: none;
+  border-radius: 2px;
+  transition: color 0.1s ease;
+}
+.content-topbar-agent-link:hover {
+  color: var(--text-primary);
+}
+.content-topbar-agent-link:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 2px;
+}
 .content-topbar-section {
   color: var(--text-primary);
   font-weight: 600;
