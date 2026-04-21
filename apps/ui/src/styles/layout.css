@@ -1052,6 +1052,61 @@
   justify-content: flex-end;
 }
 
+/* Search trigger — the persistent entry point for the command palette.
+   Without this, ⌘K is invisible until someone reads the ? cheatsheet.
+   Shown as a compact pill with icon + label + kbd hint so the shortcut
+   is discoverable at a glance. Label is hidden on narrow viewports. */
+.content-topbar-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 8px 0 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.content-topbar-search:hover,
+.content-topbar-search:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+.content-topbar-search-label {
+  font-size: var(--font-size-xs);
+}
+.content-topbar-search-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.content-topbar-search-kbd kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+@media (max-width: 720px) {
+  .content-topbar-search-label,
+  .content-topbar-search-kbd {
+    display: none;
+  }
+}
+
 /* ── Header action section (aligned with session sidebar) ── */
 .content-topbar-action {
   width: var(--sidebar-panel-width);

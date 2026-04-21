@@ -44,6 +44,10 @@ export default function ContentTopBar() {
     setSearchParams(next, { replace: true });
   };
 
+  const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
+  const isMac =
+    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
+
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
@@ -53,6 +57,28 @@ export default function ContentTopBar() {
       </div>
 
       <div className="content-topbar-right">
+        <button
+          type="button"
+          className="content-topbar-search"
+          onClick={openPalette}
+          aria-label="Open command palette"
+          title="Search — jump to any agent, quest, or idea"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <circle cx="5" cy="5" r="3.2" stroke="currentColor" strokeWidth="1.3" />
+            <path
+              d="M7.5 7.5L10 10"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="content-topbar-search-label">Search</span>
+          <span className="content-topbar-search-kbd" aria-hidden="true">
+            <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
+            <kbd>K</kbd>
+          </span>
+        </button>
         {section === "ideas" && (
           <Button
             variant="secondary"

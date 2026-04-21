@@ -94,6 +94,13 @@ export default function AppLayout() {
   //                 so real text entry is never hijacked).
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
+  // The top-bar "Search" button dispatches `aeqi:open-palette` so callers
+  // don't need AppLayout-scoped state threaded down — same pattern as the
+  // per-tab `+ New X` buttons in the right rail.
+  useEffect(() => {
+    window.addEventListener("aeqi:open-palette", openSearch);
+    return () => window.removeEventListener("aeqi:open-palette", openSearch);
+  }, [openSearch]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
