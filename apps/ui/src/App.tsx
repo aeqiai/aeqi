@@ -14,7 +14,7 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 // App pages -- lazy-loaded for route-level code splitting
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
-const EntitiesPage = lazy(() => import("@/pages/EntitiesPage"));
+const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
 
 const LoadingSpinner = () => (
@@ -84,7 +84,7 @@ export default function App() {
                   {/* User-level routes */}
                   <Route path="new" element={<NewAgentPage />} />
                   <Route path="templates" element={<TemplatesPage />} />
-                  <Route path="agents" element={<EntitiesPage />} />
+                  <Route path="agents" element={<AgentsPage />} />
 
                   {/* Home dashboard + profile + every agent at /:agentId/...
                       share the same shell — AppLayout decides content from

@@ -36,7 +36,7 @@ function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
   }));
 }
 
-export default function EntitiesPage() {
+export default function AgentsPage() {
   const activeRoot = useUIStore((s) => s.activeRoot);
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const agents = useDaemonStore((s) => s.agents);
