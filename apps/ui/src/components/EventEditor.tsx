@@ -234,7 +234,7 @@ export default function EventEditor({
                   border: "1px solid var(--border)",
                   borderRadius: 6,
                   background: "var(--bg-base)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  boxShadow: "var(--shadow-popover)",
                   overflow: "hidden",
                 }}
               >
