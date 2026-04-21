@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StrictMode } from "react";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import ContentCTA from "@/components/ContentCTA";
+import AgentQuestsTab from "@/components/AgentQuestsTab";
 import DashboardHome from "@/components/DashboardHome";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
@@ -47,36 +47,8 @@ function isLoopError(e: unknown): boolean {
   return /Maximum update depth|Minified React error #185|infinite loop/.test(s);
 }
 
-describe("ContentCTA smoke", () => {
-  it("renders without throwing on a non-chat route", () => {
-    expect(() =>
-      render(
-        <StrictMode>
-          <MemoryRouter initialEntries={["/root-1/events"]}>
-            <Routes>
-              <Route path=":agentId/:tab/*" element={<ContentCTA />} />
-            </Routes>
-          </MemoryRouter>
-        </StrictMode>,
-      ),
-    ).not.toThrow();
-  });
-
-  it("renders without throwing on a root-chat route", () => {
-    expect(() =>
-      render(
-        <StrictMode>
-          <MemoryRouter initialEntries={["/root-1/sessions"]}>
-            <Routes>
-              <Route path=":agentId/:tab/*" element={<ContentCTA />} />
-            </Routes>
-          </MemoryRouter>
-        </StrictMode>,
-      ),
-    ).not.toThrow();
-  });
-
-  it("shows an actionable empty-state CTA when a tab has zero items", () => {
+describe("AgentQuestsTab smoke", () => {
+  beforeEach(() => {
     useDaemonStore.setState({
       status: null,
       dashboard: null,
@@ -98,29 +70,15 @@ describe("ContentCTA smoke", () => {
       loading: false,
       initialLoaded: false,
     });
-    const { container } = render(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/quests"]}>
-          <Routes>
-            <Route path=":agentId/:tab/*" element={<ContentCTA />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    // Quest tab with zero quests — expect the dashed CTA button, not a plain div.
-    const cta = container.querySelector(".asv-sidebar-empty-cta");
-    expect(cta).not.toBeNull();
-    expect(cta?.textContent).toContain("No quests yet");
-    expect(cta?.textContent).toContain("New quest");
   });
 
-  it("renders without throwing on a child-agent chat route", () => {
+  it("renders the board view without throwing when no quest is selected", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/child-2/sessions/abc"]}>
+          <MemoryRouter initialEntries={["/root-1/quests"]}>
             <Routes>
-              <Route path=":agentId/:tab/:itemId" element={<ContentCTA />} />
+              <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -128,12 +86,27 @@ describe("ContentCTA smoke", () => {
     ).not.toThrow();
   });
 
+  it("shows the quest-board compose input on the empty board", () => {
+    const { container } = render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/root-1/quests"]}>
+          <Routes>
+            <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    // The inline composer replaces the old rail CTA: "New quest — what needs to happen?".
+    const composer = container.querySelector("[data-quest-compose-subject]");
+    expect(composer).not.toBeNull();
+  });
+
   it("does not log a React error during render", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/sessions"]}>
+        <MemoryRouter initialEntries={["/root-1/quests"]}>
           <Routes>
-            <Route path=":agentId/:tab/*" element={<ContentCTA />} />
+            <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

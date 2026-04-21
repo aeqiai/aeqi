@@ -3,7 +3,6 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
-import ContentCTA from "./ContentCTA";
 import LeftSidebar from "./shell/LeftSidebar";
 import SessionsRail from "./shell/SessionsRail";
 import ComposerRow from "./shell/ComposerRow";
@@ -263,19 +262,13 @@ export default function AppLayout() {
   // an agent in scope. Profile owns its own header and is user-scoped, so it
   // opts out. No-agent routes (pre-boot) render raw.
   const showTopBar = !!agentId && !isProfile;
-  // Profile owns its own header + tabs and is user-scoped — composer and
-  // CTA right rail are noise there.
+  // Profile owns its own header + tabs and is user-scoped — composer is
+  // noise there.
   const showComposer = !isProfile && !!agentId;
-  const showCTA = !isProfile;
-  // The rail only has content for tabs that are master/detail. Drive,
-  // settings → rail reserves its space (no twitch) but is left empty and
-  // transparent so the card reads as one clean pane.
-  const RAIL_TABS = new Set(["events", "channels", "tools", "quests", "ideas", "agents"]);
-  const hasRailContent = RAIL_TABS.has(effectiveTab);
   // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
   const sessionsMounted = !isDrive && !isProfile && effectiveTab === "sessions";
-  // Inbox gets its own left-adjacent threads rail instead of the right rail,
-  // so the master/detail pair flows with natural reading order.
+  // Inbox gets its own left-adjacent threads rail. Every other tab owns its
+  // full width and embeds its own picker in the page body.
   const showSessionsRail = effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive;
 
   return (
@@ -289,7 +282,7 @@ export default function AppLayout() {
           </aside>
         )}
 
-        <div className={`content-column${showCTA && !hasRailContent ? " no-rail" : ""}`}>
+        <div className="content-column">
           <div className="content-main-stack">
             <div className="content-card">
               {showTopBar ? (
@@ -311,11 +304,6 @@ export default function AppLayout() {
               />
             )}
           </div>
-          {showCTA && hasRailContent && (
-            <aside className="content-cta-col">
-              <ContentCTA />
-            </aside>
-          )}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
-import { Button, EmptyState } from "./ui";
+import { Button } from "./ui";
 import TestTriggerPanel from "./TestTriggerPanel";
 import EventEditor from "./EventEditor";
 import EventTraceTab from "./EventTraceTab";
 import type { AgentEvent } from "@/lib/types";
 
 const NO_EVENTS: AgentEvent[] = [];
+
+function eventLabel(ev: AgentEvent): string {
+  return ev.name.replace(/^on_/, "").replace(/_/g, " ");
+}
+function eventTransport(ev: AgentEvent): string | null {
+  const prefix = ev.pattern.split(":")[0];
+  if (prefix === "session") return null;
+  return prefix.toUpperCase();
+}
 
 const COMMON_PATTERNS = [
   "session:start",
@@ -322,21 +331,11 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             Trace
           </button>
         </div>
-        <div style={{ padding: "20px 28px", overflowY: "auto", flex: 1 }}>
-          <EmptyState
-            eyebrow="Events"
-            title="Select an event"
-            description="Events = triggers. Pick one from the right rail to view or edit its pattern + tool calls."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-event"))}
-              >
-                New event
-              </Button>
-            }
-          />
-        </div>
+        <EventsList
+          agentId={agentId}
+          events={events}
+          onSelect={(id) => goAgent(agentId, "events", id)}
+        />
       </div>
     );
   }
@@ -438,5 +437,110 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Inline picker shown when no event is selected. Dense single-row list:
+ * [transport pill] [name] [pattern preview] [meta]. Groups by local vs.
+ * inherited global so the user reads "what I own" before "what fires
+ * everywhere."
+ */
+function EventsList({
+  agentId,
+  events,
+  onSelect,
+}: {
+  agentId: string;
+  events: AgentEvent[];
+  onSelect: (id: string) => void;
+}) {
+  const { local, global } = useMemo(() => {
+    const local: AgentEvent[] = [];
+    const global: AgentEvent[] = [];
+    for (const ev of events) {
+      (ev.agent_id == null ? global : local).push(ev);
+    }
+    return { local, global };
+  }, [events]);
+
+  const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-event"));
+
+  if (events.length === 0) {
+    return (
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <button type="button" className="inline-picker-empty-cta" onClick={fireNew}>
+          <span className="inline-picker-empty-cta-label">No events yet</span>
+          <span className="inline-picker-empty-cta-hint">New event</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="events-list" style={{ flex: 1, overflowY: "auto" }}>
+      {local.length > 0 && (
+        <Section label={`events · ${agentId.slice(0, 8)}`} count={local.length}>
+          {local.map((ev) => (
+            <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+          ))}
+        </Section>
+      )}
+      {global.length > 0 && (
+        <Section label="global · inherited" count={global.length}>
+          {global.map((ev) => (
+            <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+          ))}
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="inline-picker-group">
+        <span className="inline-picker-group-label">{label}</span>
+        <span className="inline-picker-group-rule" />
+        <span className="inline-picker-group-count">{count}</span>
+      </div>
+      {children}
+    </>
+  );
+}
+
+function EventRow({ event, onSelect }: { event: AgentEvent; onSelect: (id: string) => void }) {
+  const { itemId } = useParams<{ itemId?: string }>();
+  const transport = eventTransport(event);
+  const isGlobal = event.agent_id == null;
+  const meta =
+    event.fire_count > 0
+      ? `${event.fire_count} fire${event.fire_count === 1 ? "" : "s"}`
+      : event.idea_ids.length > 0
+        ? `${event.idea_ids.length} idea${event.idea_ids.length === 1 ? "" : "s"}`
+        : "";
+  return (
+    <button
+      type="button"
+      className={`events-list-row${event.id === itemId ? " active" : ""}${
+        !event.enabled ? " is-dimmed" : ""
+      }`}
+      aria-current={event.id === itemId ? "true" : undefined}
+      onClick={() => onSelect(event.id)}
+    >
+      <span className="events-list-row-badge">{isGlobal ? "GLOBAL" : transport || "SYS"}</span>
+      <span className="events-list-row-name">{eventLabel(event)}</span>
+      <span className="events-list-row-pattern">{event.pattern}</span>
+      <span className="events-list-row-meta">{meta}</span>
+    </button>
   );
 }
