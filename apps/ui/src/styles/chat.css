@@ -1674,16 +1674,26 @@
 }
 
 .dash-agent-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   padding: 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .dash-agent-card:hover {
   border-color: var(--border-hover);
+}
+.dash-agent-card:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 2px;
 }
 
 .dash-agent-card-header {

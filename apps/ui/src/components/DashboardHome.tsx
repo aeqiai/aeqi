@@ -66,6 +66,7 @@ export default function DashboardHome() {
       display_name: agent.display_name,
       model: agent.model,
     });
+    goAgent(agent.id);
   };
 
   // Group recent events by Today / Yesterday / Earlier
@@ -171,8 +172,9 @@ export default function DashboardHome() {
             <div className="dash-home-section-title">Agents</div>
             <div className="dash-agent-grid">
               {childAgents.map((agent) => (
-                <div
+                <button
                   key={agent.id}
+                  type="button"
                   className="dash-agent-card"
                   onClick={() => handleAgentClick(agent)}
                 >
@@ -185,7 +187,7 @@ export default function DashboardHome() {
                   </div>
                   {agent.model && <span className="dash-agent-model">{agent.model}</span>}
                   <span className="dash-agent-status">{agent.status}</span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
