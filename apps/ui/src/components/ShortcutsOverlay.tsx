@@ -14,6 +14,7 @@ const SHORTCUTS: { keys: string[]; label: string; sep?: string }[] = [
   { keys: ["⌘", "K"], label: "Open command palette" },
   { keys: ["/"], label: "Open command palette" },
   { keys: ["N"], label: "Spawn a sub-agent under the current agent" },
+  { keys: ["C"], label: "Focus the composer" },
   { keys: ["G", "A"], label: "Jump to Agents", sep: "then" },
   { keys: ["G", "E"], label: "Jump to Events", sep: "then" },
   { keys: ["G", "Q"], label: "Jump to Quests", sep: "then" },

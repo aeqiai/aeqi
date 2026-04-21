@@ -123,6 +123,17 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     setStreaming(false);
   }, [agentId]);
 
+  // Keyboard shortcut `c` jumps focus into the composer without touching
+  // the current input — lets a power user start typing from anywhere in
+  // the app. Separate from set-composer-input (which replaces the text).
+  useEffect(() => {
+    const handler = () => {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    window.addEventListener("aeqi:focus-composer", handler);
+    return () => window.removeEventListener("aeqi:focus-composer", handler);
+  }, []);
+
   return (
     <div className="composer-row">
       <div className="composer-wrap">

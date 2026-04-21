@@ -115,6 +115,7 @@ export default function AppLayout() {
   //   ?           — shortcuts cheatsheet
   //   Esc         — close palette / overlay
   //   N           — spawn a sub-agent under the current agent
+  //   C           — focus the composer (write mode without a mouse)
   //   g then a/e/q/i/s — jump to Agents / Events / Quests / Ideas / inbox
   //                      for the current agent (vim-style go-to prefix;
   //                      letters match the sidebar's A-E-Q-I wordmark).
@@ -201,6 +202,11 @@ export default function AppLayout() {
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");
+        return;
+      }
+      if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("aeqi:focus-composer"));
       }
     };
     window.addEventListener("keydown", handler);
