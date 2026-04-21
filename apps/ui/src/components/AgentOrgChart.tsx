@@ -62,6 +62,28 @@ export default function AgentOrgChart({
   const agents = useDaemonStore((s) => s.agents);
   const org = useMemo(() => buildOrg(agents, parentAgentId), [agents, parentAgentId]);
 
+  // Flat nav index: for each node, remember the parent, the sibling row
+  // (in display order), and the first child. Arrow keys turn this into a
+  // 2D tree walk without re-crawling on every keypress.
+  const navIndex = useMemo(() => {
+    if (!org) return null;
+    const info = new Map<
+      string,
+      { parentId: string | null; siblings: string[]; firstChildId: string | null }
+    >();
+    const walk = (node: OrgNode, parentId: string | null, siblings: string[]) => {
+      info.set(node.id, {
+        parentId,
+        siblings,
+        firstChildId: node.children[0]?.id ?? null,
+      });
+      const childIds = node.children.map((c) => c.id);
+      for (const child of node.children) walk(child, node.id, childIds);
+    };
+    walk(org, null, [org.id]);
+    return info;
+  }, [org]);
+
   if (!org) return null;
 
   const handleSelect = (id: string) => {
@@ -69,8 +91,45 @@ export default function AgentOrgChart({
     else navigate(`/${encodeURIComponent(id)}`);
   };
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!navIndex) return;
+    if (
+      e.key !== "ArrowLeft" &&
+      e.key !== "ArrowRight" &&
+      e.key !== "ArrowUp" &&
+      e.key !== "ArrowDown"
+    )
+      return;
+    const active = (e.target as HTMLElement).closest("[data-agent-id]") as HTMLElement | null;
+    if (!active) return;
+    const id = active.dataset.agentId;
+    if (!id) return;
+    const entry = navIndex.get(id);
+    if (!entry) return;
+    let dest: string | null = null;
+    if (e.key === "ArrowRight") {
+      const idx = entry.siblings.indexOf(id);
+      if (idx >= 0 && idx < entry.siblings.length - 1) dest = entry.siblings[idx + 1];
+    } else if (e.key === "ArrowLeft") {
+      const idx = entry.siblings.indexOf(id);
+      if (idx > 0) dest = entry.siblings[idx - 1];
+    } else if (e.key === "ArrowUp") {
+      dest = entry.parentId;
+    } else if (e.key === "ArrowDown") {
+      dest = entry.firstChildId;
+    }
+    if (!dest) return;
+    const next = e.currentTarget.querySelector<HTMLElement>(
+      `[data-agent-id="${CSS.escape(dest)}"]`,
+    );
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  };
+
   return (
-    <div className="org-chart">
+    <div className="org-chart" onKeyDown={onKeyDown}>
       <div className="org-scroll">
         <OrgNodeView
           node={org}
@@ -100,6 +159,7 @@ function OrgNodeView({
       <button
         type="button"
         className={`org-card ${node.isRoot ? "is-root" : ""}`}
+        data-agent-id={node.id}
         onClick={() => onSelect(node.id)}
       >
         <span className="org-card-avatar">
