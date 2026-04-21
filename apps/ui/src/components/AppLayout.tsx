@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
@@ -87,13 +87,23 @@ export default function AppLayout() {
 
   // Global keyboard shortcuts:
   //   ⌘K / Ctrl+K — command palette
+  //   /           — command palette (vim-style)
   //   ?           — shortcuts cheatsheet
   //   Esc         — close palette / overlay
-  //   N           — spawn a sub-agent under the current agent (skip when
-  //                 typing in an input/textarea, or when modifiers are held,
-  //                 so real text entry is never hijacked).
+  //   N           — spawn a sub-agent under the current agent
+  //   g then a/e/q/i/s — jump to Agents / Events / Quests / Ideas / inbox
+  //                      for the current agent (vim-style go-to prefix;
+  //                      letters match the sidebar's A-E-Q-I wordmark).
+  //                      Skip when typing in an input/textarea, or when
+  //                      modifiers are held, so real text entry is never
+  //                      hijacked.
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
+  // Vim-style two-key prefix. When the user taps `g`, we set a deadline ~1.5s
+  // ahead; the next letter during that window is treated as the navigation
+  // target instead of whatever shortcut it would otherwise trigger. A ref
+  // keeps the deadline stable across renders without re-binding the handler.
+  const gDeadlineRef = useRef<number>(0);
   // The top-bar "Search" button dispatches `aeqi:open-palette` so callers
   // don't need AppLayout-scoped state threaded down — same pattern as the
   // per-tab `+ New X` buttons in the right rail.
@@ -118,6 +128,35 @@ export default function AppLayout() {
       const tag = target?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
       if (isEditable || searching) return;
+      // Vim go-to prefix: if the previous key was `g` within the window,
+      // this key is the target. Consume + navigate, return before any other
+      // shortcut gets a chance. s→inbox, a→agents, e→events, q→quests,
+      // i→ideas. Runs even when agentId is absent (no-op on empty scope).
+      if (gDeadlineRef.current > Date.now() && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const key = e.key.toLowerCase();
+        const tabs: Record<string, string> = {
+          s: "",
+          a: "agents",
+          e: "events",
+          q: "quests",
+          i: "ideas",
+        };
+        if (key in tabs && agentId) {
+          e.preventDefault();
+          gDeadlineRef.current = 0;
+          const seg = tabs[key];
+          const base = `/${encodeURIComponent(agentId)}`;
+          navigate(seg ? `${base}/${seg}` : base);
+          return;
+        }
+        // Any other key cancels the prefix so the next tap is normal.
+        gDeadlineRef.current = 0;
+      }
+      if (e.key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        gDeadlineRef.current = Date.now() + 1500;
+        return;
+      }
       if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         setShortcutsOpen((s) => !s);
