@@ -252,11 +252,7 @@ export default function SignupPage() {
               Join waitlist
             </Button>
           </form>
-          <p
-            style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginTop: 8 }}
-          >
-            Early supporters get 10% off their first month.
-          </p>
+          <p className="waitlist-hint">Early supporters get 10% off their first month.</p>
           <p className="auth-switch">
             Have an invite code?{" "}
             <a

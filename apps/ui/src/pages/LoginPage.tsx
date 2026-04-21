@@ -644,20 +644,12 @@ export default function LoginPage() {
               </div>
             )}
             {twoFaLoading && (
-              <p
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 13,
-                  color: "var(--text-muted)",
-                }}
-              >
+              <p className="auth-subheading auth-verifying">
                 <Spinner size="sm" />
                 Verifying…
               </p>
             )}
-            <p className="auth-switch" style={{ marginTop: 16 }}>
+            <p className="auth-switch">
               <a
                 href="#"
                 onClick={(e) => {
