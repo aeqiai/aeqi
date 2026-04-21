@@ -203,7 +203,10 @@ function RootForm({
           disabled={!name.trim() || creating}
         >
           {creating ? (
-            "Creating..."
+            <>
+              <Spinner size="sm" />
+              Creating…
+            </>
           ) : (
             <>
               Create empty agent <kbd className="new-co-kbd">↵</kbd>

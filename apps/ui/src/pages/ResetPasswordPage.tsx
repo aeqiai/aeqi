@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
               loading={loading}
               disabled={loading || !password || !confirmPassword}
             >
-              {loading ? "Resetting..." : "Reset password"}
+              Reset password
             </Button>
           </form>
         )}

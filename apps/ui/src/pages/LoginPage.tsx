@@ -691,7 +691,7 @@ export default function LoginPage() {
                   loading={forgotLoading}
                   disabled={forgotLoading || !forgotEmail.trim()}
                 >
-                  {forgotLoading ? "Sending..." : "Send reset link"}
+                  Send reset link
                 </Button>
               </form>
             ) : (
