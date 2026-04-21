@@ -84,6 +84,48 @@ function findRootId(agents: Agent[], id: string): string | null {
 }
 
 /**
+ * RailGlyph — SVG path for one rail cell. Three variants:
+ *
+ *   guide  — ancestor column still has siblings below: straight vertical
+ *            line at x=9 running the full cell height.
+ *   tee    — middle child: trunk passes through, branch exits right with
+ *            a soft quadratic curve at the junction.
+ *   elbow  — last child: trunk stops at mid, branch exits right with the
+ *            same soft curve.
+ *
+ * Using SVG (not CSS pseudo-elements) so the corner is a real curve with
+ * antialiased stroke, not a jagged `border-radius` on a rectangle.
+ * `vectorEffect="non-scaling-stroke"` keeps the line at 1px even as the
+ * cell stretches to match --sidebar-row-h.
+ */
+function RailGlyph({ variant }: { variant: "guide" | "tee" | "elbow" }) {
+  const d =
+    variant === "guide"
+      ? "M9 0 V32"
+      : variant === "tee"
+        ? "M9 0 V32 M9 9 Q9 16 16 16 H18"
+        : "M9 0 V9 Q9 16 16 16 H18";
+  return (
+    <svg
+      className={styles.railSvg}
+      viewBox="0 0 18 32"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        d={d}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/**
  * Rail — one vertical column per ancestor depth plus a connector at the
  * current depth. `ancestors[i] === true` means the ancestor at column i
  * still has siblings below it, so a continuous vertical guide is drawn
@@ -93,16 +135,16 @@ function Rail({ ancestors, isLast }: { ancestors: boolean[]; isLast: boolean }) 
   return (
     <>
       {ancestors.map((drawLine, i) => (
-        <span
-          key={i}
-          className={drawLine ? styles.guideLine : styles.guideGap}
-          aria-hidden="true"
-        />
+        <span key={i} className={drawLine ? styles.guideLine : styles.guideGap} aria-hidden="true">
+          {drawLine && <RailGlyph variant="guide" />}
+        </span>
       ))}
       <span
         className={`${styles.connector} ${isLast ? styles.connectorEnd : styles.connectorMid}`}
         aria-hidden="true"
-      />
+      >
+        <RailGlyph variant={isLast ? "elbow" : "tee"} />
+      </span>
     </>
   );
 }
