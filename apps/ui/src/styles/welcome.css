@@ -467,6 +467,9 @@
   font-weight: 400;
 }
 .new-sub-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   color: var(--text-muted);
 }

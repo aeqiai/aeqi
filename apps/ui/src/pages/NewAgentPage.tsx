@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
+import { Spinner } from "@/components/ui";
 import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
@@ -325,7 +326,12 @@ function SubAgentForm({
         <section className="new-sub-section">
           <div className="new-sub-section-head">
             <span className="new-sub-label">Identity</span>
-            {loadingTemplates && <span className="new-sub-loading">loading…</span>}
+            {loadingTemplates && (
+              <span className="new-sub-loading">
+                <Spinner size="sm" />
+                loading…
+              </span>
+            )}
           </div>
           <div className="cam-template-grid" role="radiogroup" aria-label="Identity template">
             {templates.map((t) => {
