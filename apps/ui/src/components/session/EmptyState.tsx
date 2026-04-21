@@ -1,3 +1,5 @@
+import { Spinner } from "@/components/ui";
+
 interface EmptyStateProps {
   agentName: string;
   displayName: string;
@@ -14,7 +16,13 @@ export default function EmptyState({
   if (activeSessionId) {
     return (
       <div className="asv-empty">
-        <div className="asv-empty-hint">Loading session…</div>
+        <div
+          className="asv-empty-hint"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          <Spinner size="sm" />
+          Loading session…
+        </div>
       </div>
     );
   }

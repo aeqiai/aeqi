@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
+import { Spinner } from "@/components/ui";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -36,8 +37,17 @@ export default function AuthCallbackPage() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>
-          Signing you in...
+        <p
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            color: "var(--text-muted)",
+            fontSize: 13,
+          }}
+        >
+          <Spinner size="sm" />
+          Signing you in…
         </p>
       </div>
     </div>
