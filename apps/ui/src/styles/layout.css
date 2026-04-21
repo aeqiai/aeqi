@@ -231,32 +231,32 @@
 .sidebar-nav-item.active > svg {
   color: var(--text-primary);
 }
-/* aeqi primitive nav — lowercase label with the leading letter tinted
-   in the brand accent. Read vertically, the colored initials spell
-   A-E-Q-I; read horizontally, each row is a plain, legible word. The
-   color stays constant across hover/active (identity, not state). */
+/* aeqi primitive nav — the four W-primitives (agents / events / quests /
+   ideas) render in the brand typeface, flush-left, with the leading
+   letter tinted in the accent. They ARE the wordmark spelled out — a
+   continuation of æqi above, not another row of nav chrome. */
+.sidebar-nav-item.no-icon {
+  padding-left: 8px;
+}
+.sidebar-nav-item.no-icon .sidebar-nav-label {
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  padding: 2px 0;
+}
 .sidebar-nav-initial {
   color: var(--color-accent);
-  font-weight: 600;
 }
-/* Nav items without a leading icon (the four AEQI primitives) — keep the
-   same left edge as icon rows so the label column still aligns under the
-   wordmark. 16px icon width + 8px gap = 24px reserved at the start. */
-.sidebar-nav-item.no-icon {
-  padding-left: 32px;
-}
-/* Collapsed rail: primitives have no icon to fall back on, so clip the
-   label to just the first letter. The colored initial does the work;
-   "gents" etc. overflows a 16px window and gets hidden. */
-.left-sidebar.collapsed .sidebar-nav-item.no-icon {
-  padding: 8px;
-}
+/* Collapsed rail: clip the primitive label to just the first letter so
+   the colored initial still does the work. "gents" etc. overflows the
+   16px window and gets hidden. */
 .left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
   display: inline-block;
   width: 16px;
   overflow: hidden;
   white-space: nowrap;
-  font-size: var(--font-size-xs);
 }
 .sidebar-nav-label {
   flex: 1;
