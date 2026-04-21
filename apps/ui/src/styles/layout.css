@@ -51,6 +51,12 @@
 .left-sidebar.collapsed .sidebar-nav-action {
   display: none;
 }
+/* The four W-primitives have no icon — the accent-tinted initial IS
+   their icon. Keep the label visible when collapsed so the rail spells
+   A-E-Q-I down the edge. The tail span is hidden via its own rule. */
+.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
+  display: inline;
+}
 .left-sidebar.collapsed .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
@@ -445,41 +451,19 @@
   background: transparent;
 }
 /* Header — matches the adjacent content-topbar height (56px) so the card
-   reads as one horizontal band across all three columns. Editorial:
-   lowercase label with tinted first letter (sidebar primitives treatment)
-   on the left, icon-only + button on the right. No pill chrome. */
+   reads as one horizontal band across all three columns. Holds only the
+   icon-only "+ new" button on the right; the section identity is already
+   conveyed by the accent-tinted initial in the surface nav. */
 .threads-rail-header {
   height: 56px;
   min-height: 56px;
   padding: 0 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-}
-.threads-rail-title {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  color: var(--text-primary);
-  text-transform: lowercase;
-}
-.threads-rail-title-initial {
-  color: var(--color-accent);
-}
-.threads-rail-count {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
 }
 .threads-rail-new-btn {
   width: 24px;

@@ -94,10 +94,6 @@ export default function SessionsRail() {
   return (
     <div className="threads-rail">
       <div className="threads-rail-header">
-        <div className="threads-rail-title">
-          <span className="threads-rail-title-initial">i</span>nbox
-          {items.length > 0 && <span className="threads-rail-count">{items.length}</span>}
-        </div>
         <button
           type="button"
           className="threads-rail-new-btn"
