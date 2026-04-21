@@ -12,6 +12,7 @@ use crate::server::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/templates", get(list_templates))
+        .route("/templates/identities", get(list_identity_templates))
         .route("/templates/spawn", post(spawn_template))
         .route("/templates/{slug}", get(template_detail))
 }
@@ -21,6 +22,16 @@ async fn list_templates(State(state): State<AppState>, scope: Scope) -> Response
         state,
         scope.as_ref(),
         "list_templates",
+        serde_json::json!({}),
+    )
+    .await
+}
+
+async fn list_identity_templates(State(state): State<AppState>, scope: Scope) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "list_identity_templates",
         serde_json::json!({}),
     )
     .await

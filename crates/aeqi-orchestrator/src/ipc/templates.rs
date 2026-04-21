@@ -1,20 +1,20 @@
 //! Company template IPC handlers.
 //!
 //! A "template" here is a pre-threaded starter kit for a company: one root
-//! agent plus seed agents, events, ideas, and quests. Templates live on disk
-//! under `presets/templates/*.json` and are instantiated atomically by
-//! `handle_spawn_template` — every seed references the same root so the
-//! operator picks a template and immediately has a breathing organization.
+//! agent plus seed agents, events, ideas, and quests. The shipped catalog
+//! is embedded at compile time (see [`crate::templates`]) so the runtime is
+//! self-contained regardless of the cwd it launches from. The on-disk
+//! `presets/templates/*.json` files remain the source of truth for editing
+//! — rebuilding the binary re-embeds them.
 //!
 //! The schema is intentionally flat JSON (not TOML) so Stream D's landing /
 //! dashboard can fetch the catalog and render cards without a Rust build.
 
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent_registry::AgentRegistry;
+use crate::agent_registry::{AgentRegistry, parse_agent_template};
 use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall};
 
 // ---------------------------------------------------------------------------
@@ -113,9 +113,9 @@ pub struct SeedQuestSpec {
     pub labels: Vec<String>,
 }
 
-/// Full template manifest as stored on disk.
+/// Full template manifest.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CompanyTemplate {
+pub struct Template {
     pub slug: String,
     pub name: String,
     #[serde(default)]
@@ -131,67 +131,6 @@ pub struct CompanyTemplate {
     pub seed_ideas: Vec<SeedIdeaSpec>,
     #[serde(default)]
     pub seed_quests: Vec<SeedQuestSpec>,
-}
-
-// ---------------------------------------------------------------------------
-// Disk I/O
-// ---------------------------------------------------------------------------
-
-/// Resolve the templates directory. Prefers `$AEQI_TEMPLATES_DIR` (used by
-/// tests and deploy scripts), falls back to `<cwd>/presets/templates`.
-pub fn default_templates_dir() -> PathBuf {
-    if let Ok(override_dir) = std::env::var("AEQI_TEMPLATES_DIR") {
-        return PathBuf::from(override_dir);
-    }
-    std::env::current_dir()
-        .unwrap_or_default()
-        .join("presets")
-        .join("templates")
-}
-
-/// Load every `*.json` file in `dir` as a `CompanyTemplate`. Malformed files
-/// are logged and skipped — one bad template must not take out the catalog.
-pub fn load_templates(dir: &Path) -> Vec<CompanyTemplate> {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(err) => {
-            tracing::warn!(
-                dir = %dir.display(),
-                error = %err,
-                "templates directory unreadable; returning empty catalog",
-            );
-            return Vec::new();
-        }
-    };
-
-    let mut templates = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        match std::fs::read_to_string(&path) {
-            Ok(raw) => match serde_json::from_str::<CompanyTemplate>(&raw) {
-                Ok(tpl) => templates.push(tpl),
-                Err(err) => tracing::warn!(
-                    path = %path.display(),
-                    error = %err,
-                    "template JSON parse failed; skipping",
-                ),
-            },
-            Err(err) => tracing::warn!(
-                path = %path.display(),
-                error = %err,
-                "template read failed; skipping",
-            ),
-        }
-    }
-    templates.sort_by(|a, b| a.slug.cmp(&b.slug));
-    templates
-}
-
-fn find_template(dir: &Path, slug: &str) -> Option<CompanyTemplate> {
-    load_templates(dir).into_iter().find(|t| t.slug == slug)
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +159,7 @@ pub struct SpawnedAgent {
 /// Spawn a company from a template. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
 pub async fn spawn_template(
-    template: &CompanyTemplate,
+    template: &Template,
     override_display_name: Option<&str>,
     agent_registry: &AgentRegistry,
     event_store: &EventHandlerStore,
@@ -491,8 +430,7 @@ pub async fn handle_list_templates(
     _request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let dir = default_templates_dir();
-    let templates = load_templates(&dir);
+    let templates = crate::templates::company_templates();
     let items: Vec<serde_json::Value> = templates
         .iter()
         .map(|t| {
@@ -526,8 +464,7 @@ pub async fn handle_template_detail(
     if slug.is_empty() {
         return serde_json::json!({"ok": false, "error": "slug is required"});
     }
-    let dir = default_templates_dir();
-    match find_template(&dir, slug) {
+    match crate::templates::company_template(slug) {
         Some(t) => serde_json::json!({"ok": true, "template": t}),
         None => serde_json::json!({
             "ok": false,
@@ -535,6 +472,29 @@ pub async fn handle_template_detail(
             "code": "not_found",
         }),
     }
+}
+
+pub async fn handle_list_identity_templates(
+    _ctx: &super::CommandContext,
+    _request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    // Parse each identity's frontmatter so the picker can show display_name /
+    // role / prefix without a second fetch. Failures just drop the frontmatter
+    // fields — the slug still reaches the UI.
+    let items: Vec<serde_json::Value> = crate::templates::identity_templates()
+        .iter()
+        .map(|tpl| {
+            let (fm, body) = parse_agent_template(tpl.content);
+            serde_json::json!({
+                "slug": tpl.slug,
+                "name": fm.name.unwrap_or_else(|| tpl.slug.to_string()),
+                "display_name": fm.display_name,
+                "description": body.trim().lines().next().unwrap_or("").to_string(),
+            })
+        })
+        .collect();
+    serde_json::json!({"ok": true, "identities": items})
 }
 
 pub async fn handle_spawn_template(
@@ -551,8 +511,7 @@ pub async fn handle_spawn_template(
 
     let display_name = super::request_field(request, "display_name").map(str::to_string);
 
-    let dir = default_templates_dir();
-    let template = match find_template(&dir, slug) {
+    let template = match crate::templates::company_template(slug) {
         Some(t) => t,
         None => {
             return serde_json::json!({
@@ -625,8 +584,8 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    fn fixture_template() -> CompanyTemplate {
-        CompanyTemplate {
+    fn fixture_template() -> Template {
+        Template {
             slug: "test-studio".to_string(),
             name: "Test Studio".to_string(),
             tagline: "fixture".to_string(),
@@ -725,25 +684,6 @@ mod tests {
         let db_path = dir.path().join("ideas.db");
         std::mem::forget(dir);
         Arc::new(aeqi_ideas::SqliteIdeas::open(&db_path, 30.0).unwrap())
-    }
-
-    #[tokio::test]
-    async fn load_templates_skips_non_json_and_bad_json() {
-        let dir = tempfile::tempdir().unwrap();
-        let good_path = dir.path().join("good.json");
-        let bad_path = dir.path().join("bad.json");
-        let other_path = dir.path().join("notes.txt");
-        std::fs::write(
-            &good_path,
-            serde_json::to_string(&fixture_template()).unwrap(),
-        )
-        .unwrap();
-        std::fs::write(&bad_path, "{not json}").unwrap();
-        std::fs::write(&other_path, "ignored").unwrap();
-
-        let loaded = load_templates(dir.path());
-        assert_eq!(loaded.len(), 1, "only the good json should load");
-        assert_eq!(loaded[0].slug, "test-studio");
     }
 
     #[tokio::test]
@@ -897,21 +837,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn load_shipped_canonical_templates_parse_cleanly() {
-        // Guard against accidental JSON breakage in the shipped presets.
-        let repo_templates = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("presets")
-            .join("templates");
-        if !repo_templates.exists() {
-            // Tree layout change — fail loud.
-            panic!(
-                "shipped templates dir missing at {}",
-                repo_templates.display()
-            );
-        }
-        let loaded = load_templates(&repo_templates);
+    async fn embedded_canonical_templates_parse_cleanly() {
+        // Guard against accidental JSON breakage in the shipped presets —
+        // the embed helper panics on parse failure, so reaching here proves
+        // each shipped template deserializes into a full `Template`.
+        let loaded = crate::templates::company_templates();
         let slugs: Vec<&str> = loaded.iter().map(|t| t.slug.as_str()).collect();
         for expected in ["solo-founder", "studio", "small-business"] {
             assert!(

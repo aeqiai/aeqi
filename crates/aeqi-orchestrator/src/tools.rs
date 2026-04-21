@@ -179,10 +179,20 @@ impl AgentsTool {
             .and_then(|v| v.as_str())
             .unwrap_or(&self.agent_name);
 
-        let template_path = self.templates_dir.join(template).join("agent.md");
-        let content = tokio::fs::read_to_string(&template_path)
-            .await
-            .with_context(|| format!("failed to read template: {}", template_path.display()))?;
+        // Embedded catalog first (leader/researcher/reviewer), then fall
+        // back to the on-disk templates_dir so operators can drop custom
+        // personas into `agents/<slug>/agent.md` without a Rust rebuild.
+        let content: String = match crate::templates::identity_template_content(template) {
+            Some(c) => c.to_string(),
+            None => {
+                let template_path = self.templates_dir.join(template).join("agent.md");
+                tokio::fs::read_to_string(&template_path)
+                    .await
+                    .with_context(|| {
+                        format!("failed to read template: {}", template_path.display())
+                    })?
+            }
+        };
 
         let agent = self
             .agent_registry

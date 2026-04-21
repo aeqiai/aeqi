@@ -9,15 +9,11 @@ import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
 
-interface IdeaSearchItem {
-  name?: string;
-  tags?: string[];
+interface IdentityOption {
+  slug: string;
+  name: string;
+  description?: string;
 }
-
-// Always-on canonical identity templates. Fresh installs have nothing tagged
-// "identity" in the idea store, so without these the picker would collapse
-// to an empty grid. DB-seeded identities merge on top.
-const DEFAULT_IDENTITY_TEMPLATES = ["leader", "researcher", "reviewer"];
 
 /**
  * /new — agent creation page (root or sub-agent).
@@ -241,8 +237,8 @@ function SubAgentForm({
   parentLabel: string;
   onSpawned: (newAgentId: string) => Promise<void>;
 }) {
-  const [templates, setTemplates] = useState<string[]>(DEFAULT_IDENTITY_TEMPLATES);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templates, setTemplates] = useState<IdentityOption[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [template, setTemplate] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -250,18 +246,19 @@ function SubAgentForm({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setLoadingTemplates(true);
     api
       .getIdentityTemplates()
       .then((data) => {
-        const ideas = (data?.ideas || []) as IdeaSearchItem[];
-        const seeded = ideas
-          .map((i) => i.name)
-          .filter((n): n is string => typeof n === "string" && n.length > 0);
-        setTemplates(Array.from(new Set([...DEFAULT_IDENTITY_TEMPLATES, ...seeded])));
+        setTemplates(
+          (data.identities || []).map((t) => ({
+            slug: t.slug,
+            name: t.name || t.slug,
+            description: t.description,
+          })),
+        );
       })
       .catch(() => {
-        setTemplates(DEFAULT_IDENTITY_TEMPLATES);
+        setTemplates([]);
       })
       .finally(() => setLoadingTemplates(false));
   }, []);
@@ -344,21 +341,27 @@ function SubAgentForm({
           </div>
           <div className="cam-template-grid" role="radiogroup" aria-label="Identity template">
             {templates.map((t) => {
-              const active = template === t;
+              const active = template === t.slug;
               return (
                 <button
-                  key={t}
+                  key={t.slug}
                   type="button"
                   role="radio"
                   aria-checked={active}
                   className={`cam-template-card${active ? " is-active" : ""}`}
-                  onClick={() => setTemplate(t)}
+                  onClick={() => setTemplate(t.slug)}
+                  title={t.description || t.name}
                 >
                   <span className="cam-template-card-dot" />
-                  <span className="cam-template-card-name">{t}</span>
+                  <span className="cam-template-card-name">{t.name}</span>
                 </button>
               );
             })}
+            {!loadingTemplates && templates.length === 0 && (
+              <p className="new-sub-empty">
+                No identity templates available — runtime catalog is empty.
+              </p>
+            )}
           </div>
         </section>
 

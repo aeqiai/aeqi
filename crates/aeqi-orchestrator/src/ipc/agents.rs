@@ -124,18 +124,16 @@ pub async fn handle_agent_spawn(
     if template.is_empty() {
         return serde_json::json!({"ok": false, "error": "template is required"});
     }
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let md_path = cwd.join("agents").join(template).join("agent.md");
-    let template_content = match std::fs::read_to_string(&md_path) {
-        Ok(c) => c,
-        Err(_) => {
+    let template_content = match crate::templates::identity_template_content(template) {
+        Some(c) => c,
+        None => {
             return serde_json::json!({"ok": false, "error": format!("template not found: {template}")});
         }
     };
     spawn_agent_from_content(
         &ctx.agent_registry,
         ctx.idea_store.as_ref(),
-        &template_content,
+        template_content,
         request,
     )
     .await

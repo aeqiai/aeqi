@@ -1280,6 +1280,14 @@ impl Daemon {
                     crate::ipc::templates::handle_list_templates(&ctx, &request, &allowed_roots)
                         .await
                 }
+                "list_identity_templates" => {
+                    crate::ipc::templates::handle_list_identity_templates(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
                 "template_detail" => {
                     crate::ipc::templates::handle_template_detail(&ctx, &request, &allowed_roots)
                         .await
