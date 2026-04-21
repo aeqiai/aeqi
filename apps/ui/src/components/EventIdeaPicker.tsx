@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { Spinner } from "@/components/ui";
 import type { Idea } from "@/lib/types";
 
 export default function EventIdeaPicker({
@@ -58,7 +59,10 @@ export default function EventIdeaPicker({
         Idea references ({ideaIds.length})
       </div>
       {loading ? (
-        <div className="events-detail-loading">Loading…</div>
+        <div className="events-detail-loading" style={{ display: "flex", gap: 8 }}>
+          <Spinner size="sm" />
+          Loading…
+        </div>
       ) : ideas.length === 0 ? (
         <div className="events-detail-loading">
           {readOnly ? "No ideas linked." : "No ideas linked. Search below to add one."}
