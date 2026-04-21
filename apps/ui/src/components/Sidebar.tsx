@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
-import BrandMark from "./BrandMark";
 import BlockAvatar from "./BlockAvatar";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
@@ -185,7 +184,7 @@ function AgentNodeView({
           <span className={styles.collapseSpacer} aria-hidden="true" />
         )}
         <span className={styles.iconSlot}>
-          <BrandMark size={14} />
+          <BlockAvatar name={label} size={16} />
         </span>
         <span className={styles.rowLabel}>{label}</span>
         {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}

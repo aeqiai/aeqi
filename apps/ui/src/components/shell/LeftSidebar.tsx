@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
 import BrandMark from "@/components/BrandMark";
 import Wordmark from "@/components/Wordmark";
-import RoundAvatar from "@/components/RoundAvatar";
+import BlockAvatar from "@/components/BlockAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { IconButton } from "@/components/ui";
@@ -71,7 +71,10 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
+  // Profile row should read as "you" — the user's real name if we have one,
+  // email local-part as fallback, "Local" in runtime (no-auth) mode.
+  const userName =
+    user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   const currentId = agentId || rootId;
   const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
   // Profile is a top-level user-scoped route — never namespaced under an
@@ -169,7 +172,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
           }}
         >
           <span className="sidebar-nav-avatar">
-            <RoundAvatar name={userName} size={22} src={user?.avatar_url} />
+            <BlockAvatar name={userName} size={18} />
           </span>
           <span className="sidebar-nav-label">{userName}</span>
         </a>
