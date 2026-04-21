@@ -154,9 +154,11 @@ function RootForm({
             }}
           />
           <div className="new-co-identity">
-            <div
+            <button
+              type="button"
               className="new-co-avatar"
               onClick={() => fileRef.current?.click()}
+              aria-label="Upload avatar"
               title="Upload avatar"
             >
               {imageUrl ? (
@@ -167,7 +169,7 @@ function RootForm({
               <span className="new-co-avatar-overlay">
                 <UploadIcon />
               </span>
-            </div>
+            </button>
             <div className="new-co-identity-fields">
               <input
                 className="new-co-name-input"
@@ -418,12 +420,7 @@ function SubAgentForm({
 
 function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button
-      type="button"
-      className="new-co-back"
-      onClick={onClick}
-      style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-    >
+    <button type="button" className="new-co-back" onClick={onClick}>
       <svg
         width="14"
         height="14"

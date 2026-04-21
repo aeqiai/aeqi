@@ -231,6 +231,7 @@
   animation: ws-fade-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .new-co-back {
+  font-family: inherit;
   font-size: 12px;
   color: var(--text-muted);
   text-decoration: none;
@@ -238,10 +239,19 @@
   align-items: center;
   gap: 4px;
   margin-bottom: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
   transition: color 0.1s;
 }
 .new-co-back:hover {
   color: var(--text-secondary);
+}
+.new-co-back:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Identity: avatar + name + tagline inline */
@@ -257,15 +267,21 @@
   position: relative;
   width: 56px;
   height: 56px;
+  padding: 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
+  background: transparent;
   border: 2px solid var(--border);
   transition: border-color 0.15s;
   flex-shrink: 0;
 }
 .new-co-avatar:hover {
   border-color: var(--border-hover);
+}
+.new-co-avatar:focus-visible {
+  outline: 2px solid var(--border-hover);
+  outline-offset: 2px;
 }
 .new-co-avatar-img {
   width: 100%;
