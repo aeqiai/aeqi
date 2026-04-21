@@ -671,6 +671,86 @@
   padding: 0;
 }
 
+/* ── Collapsed trail (completed assistant turns) ──
+   A single quiet row that hides the intermediate tool calls, steps, and
+   thinking text of a finished turn so the final response can hold focus.
+   Uses --bg-row (one-step-darker paper) against the white message card —
+   the token system's explicit "raised row on white" tint. One gesture:
+   chevron rotates, detail unfolds inline, no nested card chrome. */
+.asv-trail {
+  margin: 4px 0 2px;
+  background: var(--bg-row);
+  border: 1px solid var(--border-faint);
+  border-left: 2px solid var(--color-border-hover);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+}
+.asv-trail:hover {
+  border-color: var(--border);
+}
+.asv-trail--fail {
+  border-left-color: var(--accent-bar-blocked);
+}
+.asv-trail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: left;
+  border-radius: calc(var(--radius-md) - 1px);
+  transition: var(--transition-normal);
+}
+.asv-trail-toggle:hover {
+  background: var(--state-hover);
+  color: var(--text-secondary);
+}
+.asv-trail-chevron {
+  display: inline-block;
+  width: 9px;
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.5;
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+}
+.asv-trail--expanded .asv-trail-chevron {
+  transform: rotate(90deg);
+  opacity: 0.75;
+}
+.asv-trail-summary {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.01em;
+}
+.asv-trail-summary span + span::before {
+  content: "\00b7";
+  margin: 0 7px;
+  opacity: 0.4;
+}
+.asv-trail-detail {
+  padding: 2px 12px 8px;
+  border-top: 1px solid var(--border-faint);
+}
+/* Inside the expanded trail, nested tool groups lose their own border-left
+   since the parent trail already owns the vertical accent. */
+.asv-trail-detail .asv-tools-group {
+  border-left-color: var(--border-faint);
+}
+
+/* Breathing room between the collapsed trail and the final response so
+   the answer reads as its own moment, not a continuation of the trace. */
+.asv-trail + .asv-msg-content {
+  margin-top: 10px;
+}
+
 /* ── Quest events (system messages) ── */
 
 .asv-quest-event {

@@ -17,6 +17,10 @@ import {
   countStepSegments,
   toolLabel,
   shouldRenderStatus,
+  splitTrailAndFinal,
+  countTrailTools,
+  countTrailFiles,
+  trailHasFailure,
 } from "./types";
 
 // ── Sub-components ──
@@ -219,6 +223,58 @@ function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
   );
 }
 
+/**
+ * Collapsed grey row summarising an assistant turn's intermediate work.
+ * Clicking expands into the full segment trace.
+ */
+function CollapsedTrail({
+  trail,
+  stepCount,
+  toolCount,
+  fileCount,
+  failed,
+}: {
+  trail: MessageSegment[];
+  stepCount: number;
+  toolCount: number;
+  fileCount: number;
+  failed: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const parts: string[] = [];
+  if (stepCount > 0) parts.push(`${stepCount} step${stepCount === 1 ? "" : "s"}`);
+  if (toolCount > 0) parts.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+  if (fileCount > 0) parts.push(`${fileCount} file${fileCount === 1 ? "" : "s"}`);
+  if (parts.length === 0) parts.push("reasoning");
+
+  return (
+    <div
+      className={`asv-trail${failed ? " asv-trail--fail" : ""}${expanded ? " asv-trail--expanded" : ""}`}
+    >
+      <button
+        type="button"
+        className="asv-trail-toggle"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+      >
+        <span className="asv-trail-chevron" aria-hidden="true">
+          {"▸"}
+        </span>
+        <span className="asv-trail-summary">
+          {parts.map((p, i) => (
+            <span key={i}>{p}</span>
+          ))}
+        </span>
+      </button>
+      {expanded && (
+        <div className="asv-trail-detail">
+          <SegmentRenderer segments={trail} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Renders segments, grouping consecutive tool items into blocks. */
 export function SegmentRenderer({
   segments,
@@ -400,10 +456,28 @@ const MessageItem = memo(function MessageItem({
       `${msg.tokenUsage.prompt}\u2192${msg.tokenUsage.completion} tok`,
     msg.queued && "queued",
   ].filter(Boolean) as string[];
+  const splitAssistant =
+    msg.role === "assistant" && msg.segments && msg.segments.length > 0
+      ? splitTrailAndFinal(msg.segments)
+      : null;
+  const useSplit =
+    splitAssistant != null && splitAssistant.trail.length > 0 && splitAssistant.final.length > 0;
+
   return (
     <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
       <div className="asv-msg-body">
-        {msg.segments && msg.segments.length > 0 ? (
+        {useSplit && splitAssistant ? (
+          <>
+            <CollapsedTrail
+              trail={splitAssistant.trail}
+              stepCount={countStepSegments(splitAssistant.trail)}
+              toolCount={countTrailTools(splitAssistant.trail)}
+              fileCount={countTrailFiles(splitAssistant.trail)}
+              failed={trailHasFailure(splitAssistant.trail)}
+            />
+            <SegmentRenderer segments={splitAssistant.final} />
+          </>
+        ) : msg.segments && msg.segments.length > 0 ? (
           <SegmentRenderer segments={msg.segments} />
         ) : (
           <div className="asv-msg-content">

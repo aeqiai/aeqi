@@ -147,6 +147,45 @@ export function countStepSegments(segments?: MessageSegment[]): number {
   return segments?.filter((seg) => seg.kind === "step").length || 0;
 }
 
+/**
+ * Split an assistant turn's segments into the intermediate "trail" (tool
+ * calls, steps, statuses, file chips, in-between thinking text) and the
+ * trailing contiguous run of non-empty text segments that form the final
+ * response. Used by the UI to collapse the trail and give the final answer
+ * visual focus.
+ */
+export function splitTrailAndFinal(segments: MessageSegment[]): {
+  trail: MessageSegment[];
+  final: MessageSegment[];
+} {
+  let splitIdx = segments.length;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i];
+    if (seg.kind === "text" && seg.text.trim().length > 0) {
+      splitIdx = i;
+    } else {
+      break;
+    }
+  }
+  return { trail: segments.slice(0, splitIdx), final: segments.slice(splitIdx) };
+}
+
+export function countTrailTools(segments: MessageSegment[]): number {
+  let n = 0;
+  for (const s of segments) if (s.kind === "tool" && s.event.type === "complete") n++;
+  return n;
+}
+
+export function countTrailFiles(segments: MessageSegment[]): number {
+  let n = 0;
+  for (const s of segments) if (s.kind === "file_changed" || s.kind === "file_deleted") n++;
+  return n;
+}
+
+export function trailHasFailure(segments: MessageSegment[]): boolean {
+  return segments.some((s) => s.kind === "tool" && s.event.success === false);
+}
+
 export function applyAssistantMeta(message: Message, meta: Record<string, unknown>) {
   const durationMs = numberFromMeta(meta.duration_ms);
   const costUsd = numberFromMeta(meta.cost_usd);
