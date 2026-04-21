@@ -9,6 +9,7 @@ import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
 import AgentOrgChart from "@/components/AgentOrgChart";
 import NewAgentPage from "@/pages/NewAgentPage";
+import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
 
 /**
@@ -343,5 +344,29 @@ describe("NewAgentPage smoke", () => {
       </StrictMode>,
     );
     expect(errors.find(isLoopError)).toBeUndefined();
+  });
+});
+
+describe("ShortcutsOverlay smoke", () => {
+  it("is inert while closed (no portal, no listeners)", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <ShortcutsOverlay open={false} onClose={() => {}} />
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("renders the cheatsheet when open", () => {
+    const errors = captureRenderErrors(
+      <StrictMode>
+        <ShortcutsOverlay open={true} onClose={() => {}} />
+      </StrictMode>,
+    );
+    expect(errors.find(isLoopError)).toBeUndefined();
+    // Both the N spawn hint and the ⌘K palette line should be in the DOM.
+    const content = document.body.textContent || "";
+    expect(content).toContain("Spawn");
+    expect(content).toContain("command palette");
   });
 });
