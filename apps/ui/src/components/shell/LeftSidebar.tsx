@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
-import Wordmark from "@/components/Wordmark";
+import BrandMark from "@/components/BrandMark";
 import RoundAvatar from "@/components/RoundAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
@@ -106,27 +106,40 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
       <div className="sidebar-header">
         <a
           className="sidebar-brand"
-          href={rootBase || "/"}
+          href={sidebarCollapsed ? undefined : rootBase || "/"}
           onClick={(e) => {
             e.preventDefault();
-            navigate(rootBase || "/");
+            if (sidebarCollapsed) toggleSidebar();
+            else navigate(rootBase || "/");
           }}
+          title={sidebarCollapsed ? `Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)` : "Home"}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Home"}
         >
-          <Wordmark size={18} />
+          <span className="sidebar-brand-glyph">
+            <BrandMark size={20} />
+          </span>
+          <span className="sidebar-brand-expand" aria-hidden="true">
+            <svg {...iconProps}>
+              <rect x="2" y="3" width="12" height="10" rx="1.5" />
+              <path d="M6.5 3v10" />
+            </svg>
+          </span>
         </a>
-        <IconButton
-          variant="ghost"
-          size="sm"
-          className="sidebar-collapse-btn"
-          onClick={toggleSidebar}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={`${sidebarCollapsed ? "Expand" : "Collapse"} sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
-        >
-          <svg {...iconProps}>
-            <rect x="2" y="3" width="12" height="10" rx="1.5" />
-            <path d="M6.5 3v10" />
-          </svg>
-        </IconButton>
+        {!sidebarCollapsed && (
+          <IconButton
+            variant="ghost"
+            size="sm"
+            className="sidebar-collapse-btn"
+            onClick={toggleSidebar}
+            aria-label="Collapse sidebar"
+            title={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
+          >
+            <svg {...iconProps}>
+              <rect x="2" y="3" width="12" height="10" rx="1.5" />
+              <path d="M6.5 3v10" />
+            </svg>
+          </IconButton>
+        )}
       </div>
 
       <div className="left-sidebar-body">

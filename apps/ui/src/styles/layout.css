@@ -93,25 +93,64 @@
   padding: 0;
 }
 
-/* ── Collapse toggle (hamburger) — styling comes from IconButton primitive. ── */
-.left-sidebar.collapsed .sidebar-brand {
-  display: none;
-}
-
 /* ── Brand mark ──
-   Color is pinned to the canonical brand accent (heraldic gold) — identity
-   shouldn't drift if body copy is tuned. Hover dims via opacity, matching
-   the landing nav wordmark. Font/size/weight/tracking live in <Wordmark>
-   itself so the spec can't diverge. */
+   Just the Æ sigil — never the full wordmark in the rail. Pinned to the
+   canonical brand accent (heraldic gold). Expanded: click goes home.
+   Collapsed: the sigil doubles as the expand handle — hovering swaps it
+   for the panel icon and the cursor switches to an e-resize hint so the
+   affordance reads as "grab me, I'll open." */
 .sidebar-brand {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   padding: 0;
   color: var(--color-accent);
   text-decoration: none;
+  position: relative;
   transition: opacity var(--transition-fast);
 }
 .sidebar-brand:hover {
-  opacity: 0.8;
+  opacity: 0.85;
+}
+.sidebar-brand-glyph,
+.sidebar-brand-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+.sidebar-brand-expand {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--text-primary);
+}
+.sidebar-brand-expand svg {
+  width: 16px;
+  height: 16px;
+}
+/* Expanded rail: the sigil is pure identity; no hover swap, no cursor
+   trick. Click goes to the root agent. */
+.left-sidebar:not(.collapsed) .sidebar-brand-expand {
+  display: none;
+}
+/* Collapsed rail: the sigil is the expand handle. Cursor and icon swap
+   make the affordance legible before click. */
+.left-sidebar.collapsed .sidebar-brand {
+  cursor: e-resize;
+}
+.left-sidebar.collapsed .sidebar-brand:hover .sidebar-brand-glyph {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.left-sidebar.collapsed .sidebar-brand:hover .sidebar-brand-expand {
+  opacity: 1;
 }
 
 /* ── Avatar slot inside a sidebar-nav-item (same footprint as SVG icons) ── */
