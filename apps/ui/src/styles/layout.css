@@ -62,7 +62,6 @@
   padding: 8px;
 }
 .left-sidebar.collapsed .sidebar-nav-item > svg,
-.left-sidebar.collapsed .sidebar-brand-letter,
 .left-sidebar.collapsed .sidebar-nav-avatar {
   width: 16px;
 }
@@ -325,56 +324,6 @@
 .sidebar-nav-action:hover {
   color: var(--text-primary);
   background: var(--bg-base);
-}
-/* ── Shared sidebar menu (root + profile) ── */
-/* Popup (shared between dropdown + dropup) */
-/* Compat aliases */
-.co-switcher {
-  position: relative;
-  padding: 8px;
-  height: 49px;
-  min-height: 49px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  box-sizing: border-box;
-}
-.co-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.1s;
-}
-.co-trigger:hover {
-  background: var(--bg-row);
-}
-.co-brand {
-  width: 22px;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-.co-trigger-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-}
-.co-trigger-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.co-chevron-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
 }
 .left-sidebar-body {
   flex: 1;
@@ -1378,36 +1327,6 @@
   outline: 1px solid var(--border-hover);
   outline-offset: 2px;
 }
-/* Settings gear sits immediately after the agent name — "this agent's
-   config" without adding a rail primitive. Subtle until hovered; picks up
-   the accent when one of the settings sub-tabs is active. */
-.content-topbar-gear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin-left: 2px;
-  border-radius: 4px;
-  color: var(--text-muted);
-  background: transparent;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-  text-decoration: none;
-}
-.content-topbar-gear:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-}
-.content-topbar-gear.active {
-  color: var(--accent, var(--text-primary));
-  background: var(--accent-dim, var(--state-hover));
-}
-.content-topbar-gear:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: 2px;
-}
 .content-topbar-section {
   color: var(--text-primary);
   font-weight: 600;
@@ -2286,9 +2205,7 @@
 
   .sidebar-nav-label,
   .sidebar-nav-action,
-  .sidebar-footer,
-  .co-trigger-text,
-  .co-chevron-icon {
+  .sidebar-footer {
     display: none;
   }
 
@@ -2300,15 +2217,6 @@
 
   .sidebar-nav {
     padding: 8px 4px;
-  }
-
-  .co-trigger {
-    justify-content: center;
-    padding: 8px;
-  }
-
-  .co-switcher {
-    padding: 4px;
   }
 
   /* Context drawer hidden on tablet */
@@ -2343,7 +2251,6 @@
   }
 
   /* Hide everything except nav items on mobile */
-  .co-switcher,
   .left-sidebar-body,
   .sidebar-footer {
     display: none;
