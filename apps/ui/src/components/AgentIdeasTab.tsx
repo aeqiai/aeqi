@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
-import { EmptyState } from "./ui";
+import { Button, EmptyState } from "./ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "./IdeaGraph";
 import IdeaCanvas from "./IdeaCanvas";
 import type { Idea } from "@/lib/types";
@@ -85,6 +85,14 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
           <EmptyState
             title="No ideas to graph"
             description="Create ideas to see them connected here."
+            action={
+              <Button
+                variant="primary"
+                onClick={() => goAgent(agentId, "ideas", undefined, { replace: true })}
+              >
+                New idea
+              </Button>
+            }
           />
         ) : (
           <div style={{ flex: 1, minHeight: 0 }}>
