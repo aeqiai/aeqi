@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Spinner } from "@/components/ui";
 import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
 
 interface Props {
@@ -100,7 +100,18 @@ function StepDetail({ invocationId, onClose }: StepDetailProps) {
       </div>
 
       {loading && (
-        <div style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>Loading…</div>
+        <div
+          style={{
+            color: "var(--text-muted)",
+            fontSize: "var(--font-size-sm)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Spinner size="sm" />
+          Loading…
+        </div>
       )}
       {error && (
         <div style={{ color: "var(--error)", fontSize: "var(--font-size-sm)" }}>{error}</div>
@@ -273,7 +284,18 @@ export default function EventTraceTab({ sessionId }: Props) {
       </div>
 
       {loading && (
-        <div style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>Loading…</div>
+        <div
+          style={{
+            color: "var(--text-muted)",
+            fontSize: "var(--font-size-sm)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Spinner size="sm" />
+          Loading…
+        </div>
       )}
       {error && (
         <div style={{ color: "var(--error)", fontSize: "var(--font-size-sm)" }}>{error}</div>
