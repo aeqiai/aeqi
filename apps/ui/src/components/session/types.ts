@@ -150,24 +150,37 @@ export function countStepSegments(segments?: MessageSegment[]): number {
 /**
  * Split an assistant turn's segments into the intermediate "trail" (tool
  * calls, steps, statuses, file chips, in-between thinking text) and the
- * trailing contiguous run of non-empty text segments that form the final
- * response. Used by the UI to collapse the trail and give the final answer
- * visual focus.
+ * "final" response — the last run of non-empty text segments.
+ *
+ * Walks from the end backward to locate the last non-empty text segment,
+ * then extends left through any contiguous text segments. Everything
+ * outside that run (including tool/event/file segments that appear AFTER
+ * the final text, e.g. a mid-turn event_fire that landed at the tail of
+ * the message) is routed into the trail so the final response is never
+ * buried in the collapsed section.
  */
 export function splitTrailAndFinal(segments: MessageSegment[]): {
   trail: MessageSegment[];
   final: MessageSegment[];
 } {
-  let splitIdx = segments.length;
+  let lastTextIdx = -1;
   for (let i = segments.length - 1; i >= 0; i--) {
     const seg = segments[i];
     if (seg.kind === "text" && seg.text.trim().length > 0) {
-      splitIdx = i;
-    } else {
+      lastTextIdx = i;
       break;
     }
   }
-  return { trail: segments.slice(0, splitIdx), final: segments.slice(splitIdx) };
+  if (lastTextIdx < 0) {
+    return { trail: segments, final: [] };
+  }
+  let start = lastTextIdx;
+  while (start > 0 && segments[start - 1].kind === "text") {
+    start--;
+  }
+  const trail = [...segments.slice(0, start), ...segments.slice(lastTextIdx + 1)];
+  const final = segments.slice(start, lastTextIdx + 1);
+  return { trail, final };
 }
 
 export function trailHasFailure(segments: MessageSegment[]): boolean {
