@@ -50,8 +50,8 @@ export function useSessionManager({
       .catch(() => setSessions([]));
   }, [agentId]);
 
-  // Mirror the session list into chat store so the unified right rail in
-  // AppLayout (ContentCTA) can render it without a duplicate fetch.
+  // Mirror the session list into chat store so the SessionsRail (threads
+  // rail) can render it without a duplicate fetch.
   const setSessionsForAgent = useChatStore((s) => s.setSessionsForAgent);
   useEffect(() => {
     if (!agentId) return;

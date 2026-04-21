@@ -3,12 +3,11 @@ import { api } from "@/lib/api";
 import type { AgentEvent, Idea } from "@/lib/types";
 
 /**
- * Shared per-agent data for the master/detail rail pattern.
+ * Shared per-agent data for each tab's inline picker + detail view.
  *
- * Multiple components need the same list at the same time — ContentCTA
- * renders the list in the right rail, the main tab component renders the
- * detail. Keeping the data in one place avoids double-fetching and keeps
- * list/detail in sync.
+ * A tab component (events, ideas, channels, …) renders both the picker
+ * list and the detail pane against this store, so switching between rows
+ * doesn't re-fetch and the two views stay in sync.
  */
 
 export interface ChannelEntry {

@@ -44,9 +44,10 @@ function relativeTime(ts: number): string {
  * Threads rail — the left-adjacent index column for the Inbox surface.
  *
  * Mounted between the primary LeftSidebar and the main content column when
- * the current tab is Inbox (sessions). Other tabs keep their right rail via
- * ContentCTA. Dense single-line rows with a status dot, the thread label,
- * and a right-aligned relative timestamp — Bloomberg-Terminal-for-threads.
+ * the current tab is Inbox (sessions). Other tabs render their own inline
+ * picker inside the content column. Dense single-line rows with a status
+ * dot, the thread label, and a right-aligned relative timestamp —
+ * Bloomberg-Terminal-for-threads.
  */
 export default function SessionsRail() {
   const { agentId, itemId } = useParams<{ agentId?: string; itemId?: string }>();
