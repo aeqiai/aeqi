@@ -3811,3 +3811,266 @@
   border: none;
   border-top: 1px solid var(--border);
 }
+
+/* ------------------------------------------------------------------ *
+ * Home dashboard — `/` landing. Editorial monochrome: mono eyebrow,
+ * display-weight greeting, rule-lined sections, flat feed rows. No
+ * cards, no shadows, no accent fills — the typography carries the
+ * weight. Matches the tone established by the ideas list.
+ * ------------------------------------------------------------------ */
+.home-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 40px 48px 64px;
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+}
+.home-dash-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.home-dash-eyebrow-kind {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.home-dash-eyebrow-sep {
+  opacity: 0.4;
+}
+.home-dash-eyebrow-date {
+  font-variant-numeric: tabular-nums;
+}
+.home-dash-hero {
+  margin: 0;
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  color: var(--text-primary);
+}
+.home-dash-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.home-dash-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.home-dash-stat-num {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.home-dash-stat-label {
+  opacity: 0.85;
+}
+.home-dash-stats-sep {
+  opacity: 0.3;
+}
+.home-dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.home-dash-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.home-dash-section-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.home-dash-section-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border-faint);
+  align-self: center;
+}
+.home-dash-section-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.home-dash-section-action {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-hover);
+  padding: 0 0 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.home-dash-section-action:hover {
+  color: var(--text-primary);
+}
+.home-dash-feed {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-faint);
+}
+.home-dash-feed-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-faint);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.home-dash-feed-row:hover {
+  background: var(--bg-base);
+}
+.home-dash-feed-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-dash-feed-summary {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.home-dash-feed-agent {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.home-dash-feed-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 28px;
+  text-align: right;
+}
+.home-dash-quest-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  align-self: center;
+}
+.home-dash-quest-dot.status-in-progress {
+  background: var(--accent);
+}
+.home-dash-quest-dot.status-blocked {
+  background: var(--warning, #c08a4a);
+}
+.home-dash-quest-dot.status-pending {
+  background: var(--text-muted);
+}
+.home-dash-companies {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-faint);
+}
+.home-dash-company-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-faint);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.home-dash-company-row:hover {
+  background: var(--bg-base);
+}
+.home-dash-company-row:hover .home-dash-company-arrow {
+  transform: translateX(2px);
+  color: var(--text-primary);
+}
+.home-dash-company-name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.home-dash-company-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.home-dash-company-arrow {
+  font-size: 14px;
+  color: var(--text-muted);
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.18s;
+}
+.home-dash-empty {
+  padding: 14px 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-faint);
+}
+.home-dash-empty-link {
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-hover);
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.home-dash-empty-link:hover {
+  color: var(--accent);
+}

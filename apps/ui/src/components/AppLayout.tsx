@@ -19,6 +19,9 @@ import type { Agent } from "@/lib/types";
 // /:agentId/profile so it inherits the sidebar + tree chrome (Refined A).
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+// HomeDashboard is the `/` landing — user-scoped summary across every
+// company the user has.
+const HomeDashboard = lazy(() => import("./HomeDashboard"));
 
 /** Walk up parent_id to find the root ancestor. */
 function findRoot(agents: Agent[], id: string): Agent | null {
@@ -227,21 +230,23 @@ export default function AppLayout() {
 
   // URL points at an agent that no longer exists (e.g., after a data reset
   // the stale `aeqi_root` localStorage still referenced it). Drop the stale
-  // pointer and bounce to the entity picker — never to /new directly, which
-  // can create a self-sustaining loop when a placement exists without a
-  // matching runtime agent.
+  // pointer and bounce home — never to /new directly, which can create a
+  // self-sustaining loop when a placement exists without a matching runtime
+  // agent.
   if (agentId && !currentAgent) {
     localStorage.removeItem("aeqi_root");
-    const firstRoot = agents.find((a) => !a.parent_id);
-    if (firstRoot) {
-      return <Navigate to={`/${encodeURIComponent(firstRoot.id)}`} replace />;
-    }
     return <Navigate to="/" replace />;
   }
 
-  const base = `/${encodeURIComponent(agentId)}`;
+  // `/` — user-scoped home dashboard. No agent in scope, so no topbar,
+  // composer, or sessions rail. The sidebar still mounts so the user can
+  // jump into any company from here.
+  const isHome = !agentId;
+
+  const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
   // Pick what renders in the main content area.
+  //   - home (no agent)                → HomeDashboard (welcome + summary)
   //   - drive                          → dedicated page (available on every agent)
   //   - profile                        → user profile (any agent scope)
   //   - no tab                         → Inbox (agent landing — same as tab="sessions")
@@ -250,7 +255,7 @@ export default function AppLayout() {
   const isProfile = tab === "profile";
   // Inbox is the default surface. No-tab URLs are treated identically to
   // tab="sessions" so /:agentId renders the Inbox directly — no redirect,
-  // no "home" dashboard, no welcome splash.
+  // no per-agent welcome splash.
   const effectiveTab = tab || "sessions";
 
   // Profile is platform-mode only — runtime mode has nowhere to manage
@@ -260,23 +265,25 @@ export default function AppLayout() {
   }
 
   const mainContent = (() => {
+    if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isProfile) return <ProfilePage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
   // ContentTopBar is the primary per-agent nav — always mount it when there's
-  // an agent in scope. Profile owns its own header and is user-scoped, so it
-  // opts out. No-agent routes (pre-boot) render raw.
+  // an agent in scope. Profile + home own their own header and are user-scoped,
+  // so they opt out.
   const showTopBar = !!agentId && !isProfile;
-  // Profile owns its own header + tabs and is user-scoped — composer is
+  // Profile + home own their own header + are user-scoped — composer is
   // noise there.
-  const showComposer = !isProfile && !!agentId;
+  const showComposer = !isProfile && !!agentId && !isHome;
   // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
-  const sessionsMounted = !isDrive && !isProfile && effectiveTab === "sessions";
+  const sessionsMounted = !isDrive && !isProfile && !isHome && effectiveTab === "sessions";
   // Inbox gets its own left-adjacent threads rail. Every other tab owns its
   // full width and embeds its own picker in the page body.
-  const showSessionsRail = effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive;
+  const showSessionsRail =
+    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome;
 
   return (
     <>

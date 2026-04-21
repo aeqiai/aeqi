@@ -49,18 +49,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function RootRedirect() {
-  const activeRoot = localStorage.getItem("aeqi_root");
-  // Only redirect if the saved root looks like a UUID (not an old name)
-  if (activeRoot && activeRoot.includes("-") && activeRoot.length > 30) {
-    return <Navigate to={`/${encodeURIComponent(activeRoot)}`} replace />;
-  }
-  // Clear stale non-UUID values
-  if (activeRoot) {
-    localStorage.removeItem("aeqi_root");
-  }
-  return <EntitiesPage />;
-}
+// `/` always lands on the user-scoped home dashboard. We used to auto-bounce
+// to the last-visited company via localStorage; that made it impossible to
+// actually see the home view once a root was in scope, so the bounce is gone.
+// The sidebar still carries the company switcher.
 
 /**
  * Version B — flat URL architecture. Every agent (root or child) lives at
@@ -90,15 +82,20 @@ export default function App() {
               <ProtectedRoute>
                 <Routes>
                   {/* User-level routes */}
-                  <Route index element={<RootRedirect />} />
                   <Route path="new" element={<NewAgentPage />} />
                   <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="agents" element={<EntitiesPage />} />
 
-                  {/* Every agent — root or child — at /:agentId/... */}
-                  <Route path=":agentId" element={<AppLayout />}>
+                  {/* Home dashboard + every agent at /:agentId/... share the
+                      same shell — AppLayout renders the user-scoped home when
+                      agentId is absent. */}
+                  <Route element={<AppLayout />}>
                     <Route index element={null} />
-                    <Route path=":tab" element={null} />
-                    <Route path=":tab/:itemId" element={null} />
+                    <Route path=":agentId" element={null}>
+                      <Route index element={null} />
+                      <Route path=":tab" element={null} />
+                      <Route path=":tab/:itemId" element={null} />
+                    </Route>
                   </Route>
                 </Routes>
               </ProtectedRoute>
