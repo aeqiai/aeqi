@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Spinner } from "@/components/ui";
 import AppLayout from "@/components/AppLayout";
 
 // Auth pages -- loaded eagerly since they gate entry
@@ -22,10 +23,14 @@ const LoadingSpinner = () => (
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
+      gap: 8,
       minHeight: "100vh",
+      color: "var(--text-muted)",
+      fontSize: 13,
     }}
   >
-    <div style={{ color: "rgba(0,0,0,0.3)", fontSize: 13 }}>Loading...</div>
+    <Spinner size="sm" />
+    Loading…
   </div>
 );
 
