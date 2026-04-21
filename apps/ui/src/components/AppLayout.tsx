@@ -159,7 +159,9 @@ export default function AppLayout() {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
-      if (isEditable || searching) return;
+      // Palette + cheatsheet both own the keyboard while open — don't let
+      // `n` / `c` / g-prefix navigate the user out from under an overlay.
+      if (isEditable || searching || shortcutsOpen) return;
       // Vim go-to prefix: if the previous key was `g` within the window,
       // this key is the target. Consume + navigate, return before any other
       // shortcut gets a chance. s→inbox, a→agents, e→events, q→quests,
