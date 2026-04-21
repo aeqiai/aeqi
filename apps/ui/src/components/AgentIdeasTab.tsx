@@ -240,7 +240,9 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
   };
 
   // Shortcuts: "/" focuses search, Esc clears it when focused, "n" creates
-  // a new idea when the user isn't already typing in an input.
+  // a new idea when the user isn't already typing in an input. Capture
+  // phase + stopImmediatePropagation — otherwise AppLayout's global "/"
+  // (palette) and "n" (spawn sub-agent) handlers also fire and clobber.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -249,15 +251,17 @@ function IdeasPicker({ agentId, ideas }: { agentId: string; ideas: Idea[] }) {
         tgt?.tagName === "INPUT" || tgt?.tagName === "TEXTAREA" || tgt?.isContentEditable;
       if (e.key === "/" && !inInput) {
         e.preventDefault();
+        e.stopImmediatePropagation();
         searchRef.current?.focus();
         searchRef.current?.select();
       } else if (e.key === "n" && !inInput) {
         e.preventDefault();
+        e.stopImmediatePropagation();
         fireNew();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, []);
 
   return (
