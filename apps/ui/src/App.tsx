@@ -59,8 +59,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * `/:agentId/...`. There is no `/agents/` URL segment. AppLayout inspects the
  * current agent's `parent_id` to decide root-only rendering (billing, apps,
  * drive), but the URL shape is identical regardless of where the agent sits
- * in the tree. Profile lives at `/:agentId/profile` so it inherits the shell
- * (Refined A) — the agent context is ambient; the page content is user-level.
+ * in the tree. Profile lives at `/profile` (top-level, user-scoped) so it
+ * never dead-ends when no root is active; it still inherits the shell.
  */
 export default function App() {
   return (
@@ -86,11 +86,14 @@ export default function App() {
                   <Route path="templates" element={<TemplatesPage />} />
                   <Route path="agents" element={<EntitiesPage />} />
 
-                  {/* Home dashboard + every agent at /:agentId/... share the
-                      same shell — AppLayout renders the user-scoped home when
-                      agentId is absent. */}
+                  {/* Home dashboard + profile + every agent at /:agentId/...
+                      share the same shell — AppLayout decides content from
+                      path + params. Profile is a top-level user-scoped route
+                      (no agent context needed), registered before :agentId
+                      so react-router prefers the literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
+                    <Route path="profile" element={null} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />

@@ -74,7 +74,10 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const userName = user?.name || (authMode === "none" ? "Local" : "Profile");
   const currentId = agentId || rootId;
   const base = currentId ? `/${encodeURIComponent(currentId)}` : "";
-  const profileHref = `${base}/profile`;
+  // Profile is a top-level user-scoped route — never namespaced under an
+  // agent. Keeps the URL clean on home and avoids dead-ending when no root
+  // is in scope.
+  const profileHref = "/profile";
   const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
 
   const navHref = (id: string) => `${base}/${id}`;

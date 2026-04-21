@@ -15,8 +15,8 @@ import { useDaemonSocket } from "@/hooks/useDaemonSocket";
 import type { Agent } from "@/lib/types";
 
 // Out-of-flow pages rendered inside the shell — lazy to keep AppLayout light.
-// Drive is root-only. Profile is user-scoped but lives under
-// /:agentId/profile so it inherits the sidebar + tree chrome (Refined A).
+// Drive is root-only. Profile is user-scoped and lives at top-level `/profile`
+// (never namespaced under an agent) — it inherits the sidebar + tree chrome.
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 // HomeDashboard is the `/` landing — user-scoped summary across every
@@ -238,21 +238,24 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
+  // `/profile` — user-scoped profile. No agent in scope; the page is about
+  // the user, not a company. Matched via path because the route has no
+  // :agentId param (it's a top-level sibling of `/` and `/:agentId`).
+  const isProfile = path === "/profile" || tab === "profile";
   // `/` — user-scoped home dashboard. No agent in scope, so no topbar,
   // composer, or sessions rail. The sidebar still mounts so the user can
   // jump into any company from here.
-  const isHome = !agentId;
+  const isHome = !agentId && !isProfile;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
   // Pick what renders in the main content area.
-  //   - home (no agent)                → HomeDashboard (welcome + summary)
+  //   - profile                        → user profile (any scope)
+  //   - home (no agent, not profile)   → HomeDashboard (welcome + summary)
   //   - drive                          → dedicated page (available on every agent)
-  //   - profile                        → user profile (any agent scope)
   //   - no tab                         → Inbox (agent landing — same as tab="sessions")
   //   - everything else                → AgentPage with tab/itemId
   const isDrive = tab === "drive";
-  const isProfile = tab === "profile";
   // Inbox is the default surface. No-tab URLs are treated identically to
   // tab="sessions" so /:agentId renders the Inbox directly — no redirect,
   // no per-agent welcome splash.
