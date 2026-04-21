@@ -2289,6 +2289,11 @@
   /* Browser renders a ghost at full opacity; dimming the source card gives
      the tactile "this is the one moving" read. */
 }
+.quest-card[data-focused] {
+  /* j/k keyboard-navigation focus. Subtle accent ring, not a full redesign. */
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
 .quest-card-subject {
   font-family: var(--font-sans);
   font-size: 12.5px;

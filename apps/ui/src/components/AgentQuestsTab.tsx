@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -361,6 +361,10 @@ function QuestBoard({
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<QuestStatus | null>(null);
   const [optimistic, setOptimistic] = useState<Record<string, QuestStatus>>({});
+  // Keyboard-navigation focus. Separate from DOM focus so j/k can traverse
+  // cards even when the board root has programmatic focus — and so Esc can
+  // clear the outline without blurring anything visible.
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   const handleDrop = useCallback(
     async (questId: string, next: QuestStatus) => {
@@ -431,6 +435,79 @@ function QuestBoard({
   }
   // Cap Done at 10 to keep visual weight balanced.
   grouped.done = grouped.done.slice(0, 10);
+
+  // Flat traversal order used by j/k — column-major, top-to-bottom within a
+  // column, left-to-right across columns. Matches the visual reading order so
+  // j always moves "down then right" and k always moves "up then left".
+  // Memoized on the raw inputs (not on `grouped`, which is a fresh reference
+  // every render) so the effect below only re-runs when membership actually
+  // changes.
+  const flatOrderKey = useMemo(() => {
+    const order: QuestStatus[] = ["pending", "in_progress", "blocked", "done"];
+    const buckets: Record<QuestStatus, Quest[]> = {
+      pending: [],
+      in_progress: [],
+      blocked: [],
+      done: [],
+      cancelled: [],
+    };
+    for (const q of quests) {
+      const s = optimistic[q.id] ?? q.status;
+      buckets[s]?.push(q);
+    }
+    for (const s of order) {
+      buckets[s].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    }
+    buckets.done = buckets.done.slice(0, 10);
+    const ids: string[] = [];
+    for (const s of order) for (const q of buckets[s]) ids.push(q.id);
+    return ids.join("|");
+  }, [quests, optimistic]);
+  const flatOrderRef = useRef<string[]>([]);
+  flatOrderRef.current = flatOrderKey ? flatOrderKey.split("|") : [];
+
+  // If the focused card vanishes (status change, cap, refresh) drop the focus.
+  useEffect(() => {
+    if (focusId && !flatOrderRef.current.includes(focusId)) setFocusId(null);
+  }, [flatOrderKey, focusId]);
+
+  // j/k/Enter/Escape navigation. Mirrors the `?` shortcut idiom in AppLayout:
+  // skip when focus is inside an INPUT / TEXTAREA / contenteditable, and stay
+  // inert when any modifier is held so we don't collide with browser chords.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+      if (isEditable) return;
+      const order = flatOrderRef.current;
+      if (order.length === 0) return;
+
+      if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        const dir = e.key === "j" ? 1 : -1;
+        const idx = focusId ? order.indexOf(focusId) : -1;
+        let next: number;
+        if (idx === -1) next = dir === 1 ? 0 : order.length - 1;
+        else next = (idx + dir + order.length) % order.length;
+        setFocusId(order[next]);
+        return;
+      }
+      if (e.key === "Enter" && focusId) {
+        e.preventDefault();
+        onPick(focusId);
+        return;
+      }
+      if (e.key === "Escape" && focusId) {
+        e.preventDefault();
+        setFocusId(null);
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [focusId, onPick]);
 
   return (
     <div className="quest-board">
@@ -513,6 +590,7 @@ function QuestBoard({
                       className="quest-card"
                       data-priority={q.priority}
                       data-dragging={dragging === q.id || undefined}
+                      data-focused={focusId === q.id || undefined}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = "move";
