@@ -36,16 +36,9 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const ICON_INBOX = (
-  <svg {...iconProps}>
-    <path d="M2 9.5L4 3.5h8l2 6" />
-    <path d="M2 9.5v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3" />
-    <path d="M2 9.5h3.5l.75 1.5h3.5l.75-1.5H14" />
-  </svg>
-);
 // The four W-primitives (agents / events / quests / ideas) spell themselves
 // out — lowercase labels with the leading letter tinted in the brand accent
-// so the rail still reads A-E-Q-I vertically, but every nav item stays
+// so the rail reads A-E-Q-I vertically and every nav item stays
 // self-descriptive. No icon slot; the word is the icon.
 const BrandInitial = ({ word }: { word: string }) => (
   <>
@@ -69,7 +62,6 @@ const ICON_SETTINGS = (
 );
 
 const PRIMITIVES: NavItem[] = [
-  { id: "sessions", label: "Inbox", icon: ICON_INBOX, title: "Inbox · G then S" },
   { id: "agents", label: <BrandInitial word="agents" />, title: "Agents · G then A" },
   { id: "events", label: <BrandInitial word="events" />, title: "Events · G then E" },
   { id: "quests", label: <BrandInitial word="quests" />, title: "Quests · G then Q" },
@@ -105,14 +97,9 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
   const profileHref = `${base}/profile`;
   const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
 
-  // Inbox lives at the agent root (/:agentId) — no tab segment in the URL.
-  // Every other primitive/configure tab gets its normal /:agentId/:tab path.
-  const navHref = (id: string) => (id === "sessions" ? base : `${base}/${id}`);
+  const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
     if (!base) return false;
-    if (id === "sessions") {
-      return path === base || path === `${base}/` || path.startsWith(`${base}/sessions`);
-    }
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
