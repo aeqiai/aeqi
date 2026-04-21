@@ -223,7 +223,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
           loading={running}
           disabled={running}
         >
-          {running ? "Running..." : "Run"}
+          Run
         </Button>
         {error && (
           <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-error)" }}>

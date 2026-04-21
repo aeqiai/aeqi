@@ -397,7 +397,7 @@ export default function ProfilePage() {
               loading={profileSaving}
               disabled={profileSaving}
             >
-              {profileSaving ? "Saving..." : "Save"}
+              Save
             </Button>
             {profileFeedback && (
               <div

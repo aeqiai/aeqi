@@ -412,7 +412,10 @@ function SubAgentForm({
             disabled={!canSubmit}
           >
             {submitting ? (
-              "Spawning..."
+              <>
+                <Spinner size="sm" />
+                Spawning…
+              </>
             ) : (
               <>
                 Spawn agent <kbd className="new-co-kbd">↵</kbd>
