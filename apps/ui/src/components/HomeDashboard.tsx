@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "./BlockAvatar";
+import Wordmark from "./Wordmark";
+import { Button, EmptyState, HeroStats, Panel } from "./ui";
 import type { Agent, ActivityEntry, Quest } from "@/lib/types";
 
 const NO_AGENTS: Agent[] = [];
@@ -46,16 +48,10 @@ function formatDate(d: Date): string {
 }
 
 /**
- * Home dashboard — root-level landing at `/`. User-scoped, company-agnostic
- * view of what moved since they were last here. Uses the same shell as
- * per-agent pages; the sidebar's tree lets them jump into any company.
- *
- * Sections (top to bottom):
- *   1. Welcome hero — greeting + first name, editorial display weight
- *   2. Stat strip — companies, active quests, agents deployed
- *   3. Recent activity — cross-company feed, click to jump in
- *   4. Active quests — anything still moving
- *   5. Companies — entity picker, tap to enter
+ * Home — root `/` landing. Company-agnostic. Editorial paper surface: Cinzel
+ * greeting in ink, HeroStats strip, Panel sections for activity / active
+ * quests / companies. All chrome comes from `components/ui/` primitives so
+ * the page inherits tokens, row rhythm, and the one-accent rule by default.
  */
 export default function HomeDashboard() {
   const navigate = useNavigate();
@@ -122,174 +118,136 @@ export default function HomeDashboard() {
   const openCompany = (id: string) => navigate(`/${encodeURIComponent(id)}`);
 
   return (
-    <div className="home-dash">
-      <div className="home-dash-eyebrow">
-        <span className="home-dash-eyebrow-kind">Home</span>
-        <span className="home-dash-eyebrow-sep" aria-hidden>
-          ·
-        </span>
-        <span className="home-dash-eyebrow-date">{formatDate(new Date())}</span>
-      </div>
+    <div className="home">
+      <header className="home-hero">
+        <div className="home-eyebrow">
+          <span className="home-eyebrow-brand">
+            <Wordmark size={14} /> · home
+          </span>
+          <span className="home-eyebrow-date">{formatDate(new Date())}</span>
+        </div>
+        <h1 className="home-greeting">
+          {greet}
+          {name ? `, ${name}` : ""}.
+        </h1>
 
-      <h1 className="home-dash-hero">
-        {greet}
-        {name ? `, ${name}` : ""}.
-      </h1>
+        <HeroStats
+          stats={[
+            {
+              value: companies.length,
+              label: companies.length === 1 ? "company" : "companies",
+            },
+            {
+              value: activeQuests.length,
+              label: activeQuests.length === 1 ? "quest moving" : "quests moving",
+            },
+            {
+              value: agents.length,
+              label: agents.length === 1 ? "agent deployed" : "agents deployed",
+            },
+          ]}
+        />
+      </header>
 
-      <div className="home-dash-stats">
-        <HomeStat
-          value={companies.length}
-          label={companies.length === 1 ? "company" : "companies"}
-        />
-        <span className="home-dash-stats-sep" aria-hidden>
-          ·
-        </span>
-        <HomeStat
-          value={activeQuests.length}
-          label={activeQuests.length === 1 ? "quest moving" : "quests moving"}
-        />
-        <span className="home-dash-stats-sep" aria-hidden>
-          ·
-        </span>
-        <HomeStat
-          value={agents.length}
-          label={agents.length === 1 ? "agent deployed" : "agents deployed"}
-        />
-      </div>
-
-      <section className="home-dash-section">
-        <SectionHead label="Recent activity" count={recent.length} />
+      <Panel
+        title="Recent activity"
+        actions={<span className="home-panel-count">{recent.length}</span>}
+      >
         {recent.length === 0 ? (
-          <div className="home-dash-empty">Nothing moved. Quiet while you were away.</div>
+          <EmptyState
+            eyebrow="Quiet"
+            title="Nothing moved"
+            description="Your agents will report here as soon as they act."
+          />
         ) : (
-          <div className="home-dash-feed">
+          <ul className="home-rows" role="list">
             {recent.map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                className="home-dash-feed-row"
-                onClick={() => openEvent(e)}
-              >
-                <span className="home-dash-feed-kind">{e.decision_type}</span>
-                <span className="home-dash-feed-summary">{e.summary}</span>
-                {e.agent && <span className="home-dash-feed-agent">{e.agent}</span>}
-                <span className="home-dash-feed-time">
-                  {relativeTime(e.created_at || e.timestamp)}
-                </span>
-              </button>
+              <li key={e.id}>
+                <button type="button" className="home-row" onClick={() => openEvent(e)}>
+                  <span className="home-row-kind">{e.decision_type}</span>
+                  <span className="home-row-summary">{e.summary}</span>
+                  {e.agent && <span className="home-row-agent">{e.agent}</span>}
+                  <span className="home-row-time">{relativeTime(e.created_at || e.timestamp)}</span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </section>
+      </Panel>
 
       {activeQuests.length > 0 && (
-        <section className="home-dash-section">
-          <SectionHead label="Active quests" count={activeQuests.length} />
-          <div className="home-dash-feed">
+        <Panel
+          title="Active quests"
+          actions={<span className="home-panel-count">{activeQuests.length}</span>}
+        >
+          <ul className="home-rows" role="list">
             {activeQuests.slice(0, 8).map((q) => (
-              <button
-                key={q.id}
-                type="button"
-                className="home-dash-feed-row"
-                onClick={() => openQuest(q)}
-              >
-                <span
-                  className={`home-dash-quest-dot status-${q.status.replace(/_/g, "-")}`}
-                  aria-hidden
-                />
-                <span className="home-dash-feed-summary">{q.subject}</span>
-                {q.agent_id && <span className="home-dash-feed-agent">{q.agent_id}</span>}
-                <span className="home-dash-feed-kind">{q.status.replace(/_/g, " ")}</span>
-              </button>
+              <li key={q.id}>
+                <button type="button" className="home-row" onClick={() => openQuest(q)}>
+                  <span
+                    className={`home-row-dot status-${q.status.replace(/_/g, "-")}`}
+                    aria-hidden
+                  />
+                  <span className="home-row-summary">{q.subject}</span>
+                  {q.agent_id && <span className="home-row-agent">{q.agent_id}</span>}
+                  <span className="home-row-kind">{q.status.replace(/_/g, " ")}</span>
+                </button>
+              </li>
             ))}
-          </div>
-        </section>
+          </ul>
+        </Panel>
       )}
 
-      <section className="home-dash-section">
-        <SectionHead
-          label="Companies"
-          count={companies.length}
-          action={
-            <button
-              type="button"
-              className="home-dash-section-action"
-              onClick={() => navigate("/new")}
-            >
-              + New
-            </button>
-          }
-        />
+      <Panel
+        title="Companies"
+        actions={
+          <>
+            <span className="home-panel-count">{companies.length}</span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/new")}>
+              New
+            </Button>
+          </>
+        }
+      >
         {companies.length === 0 ? (
-          <div className="home-dash-empty">
-            No companies yet.{" "}
-            <button
-              type="button"
-              className="home-dash-empty-link"
-              onClick={() => navigate("/templates")}
-            >
-              Pick a template
-            </button>{" "}
-            or{" "}
-            <button type="button" className="home-dash-empty-link" onClick={() => navigate("/new")}>
-              spin one up
-            </button>
-            .
-          </div>
+          <EmptyState
+            eyebrow="Nothing spun up"
+            title="Start a company"
+            description="Pick a template to inherit a working identity, or spin up an empty root."
+            action={
+              <>
+                <Button variant="primary" size="sm" onClick={() => navigate("/templates")}>
+                  Pick a template
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/new")}>
+                  Empty root
+                </Button>
+              </>
+            }
+          />
         ) : (
-          <div className="home-dash-companies">
+          <ul className="home-companies" role="list">
             {companies.map((c) => {
               const label = c.display_name || c.name;
               const childCount = agentCountsByRoot.get(c.id) ?? 0;
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="home-dash-company-row"
-                  onClick={() => openCompany(c.id)}
-                >
-                  <BlockAvatar name={label} size={28} />
-                  <span className="home-dash-company-name">{label}</span>
-                  <span className="home-dash-company-meta">
-                    {childCount} {childCount === 1 ? "agent" : "agents"}
-                  </span>
-                  <span className="home-dash-company-arrow" aria-hidden>
-                    →
-                  </span>
-                </button>
+                <li key={c.id}>
+                  <button type="button" className="home-company" onClick={() => openCompany(c.id)}>
+                    <BlockAvatar name={label} size={28} />
+                    <span className="home-company-name">{label}</span>
+                    <span className="home-company-meta">
+                      {childCount} {childCount === 1 ? "agent" : "agents"}
+                    </span>
+                    <span className="home-company-arrow" aria-hidden>
+                      →
+                    </span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </section>
-    </div>
-  );
-}
-
-function HomeStat({ value, label }: { value: number; label: string }) {
-  return (
-    <span className="home-dash-stat">
-      <span className="home-dash-stat-num">{value}</span>
-      <span className="home-dash-stat-label">{label}</span>
-    </span>
-  );
-}
-
-function SectionHead({
-  label,
-  count,
-  action,
-}: {
-  label: string;
-  count: number;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="home-dash-section-head">
-      <span className="home-dash-section-label">{label}</span>
-      <span className="home-dash-section-rule" />
-      <span className="home-dash-section-count">{count}</span>
-      {action}
+      </Panel>
     </div>
   );
 }

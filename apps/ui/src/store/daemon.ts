@@ -72,12 +72,36 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   },
 
   fetchAgents: async () => {
-    try {
-      const data = await api.getAgents();
-      set({ agents: (data?.agents as Agent[]) || [] });
-    } catch {
-      // Keep existing agents on transient failure.
+    // `/api/roots` is user-scoped (no X-Root required) and always lists
+    // every company the user owns. `/api/agents` is scoped to the active
+    // X-Root and returns the full subtree. We always fetch roots so the
+    // sidebar tree has something to render on `/` (where no X-Root is
+    // set). When a root is in scope, the subtree response is merged on
+    // top, keyed by id.
+    const rootsPromise = api.getRoots().catch(() => null);
+    const agentsPromise = api.getAgents().catch(() => null);
+    const [rootsData, agentsData] = await Promise.all([rootsPromise, agentsPromise]);
+
+    const rootAgents: Agent[] = Array.isArray(rootsData?.roots)
+      ? (rootsData.roots as Array<Record<string, unknown>>).map((r) => ({
+          id: (r.id as string) ?? (r.name as string),
+          name: r.name as string,
+          display_name: (r.display_name as string | undefined) ?? undefined,
+          status: (r.running as boolean) ? "running" : "stopped",
+          parent_id: null,
+        }))
+      : [];
+    const scopedAgents: Agent[] = (agentsData?.agents as Agent[]) || [];
+
+    if (rootAgents.length === 0 && scopedAgents.length === 0) {
+      // Both failed — keep existing state rather than blanking the tree.
+      return;
     }
+
+    const byId = new Map<string, Agent>();
+    for (const r of rootAgents) byId.set(r.id, r);
+    for (const a of scopedAgents) byId.set(a.id, a);
+    set({ agents: Array.from(byId.values()) });
   },
 
   fetchQuests: async () => {
