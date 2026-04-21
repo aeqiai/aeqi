@@ -39,35 +39,18 @@ const ICON_INBOX = (
     <path d="M2 9.5h3.5l.75 1.5h3.5l.75-1.5H14" />
   </svg>
 );
-const ICON_AGENTS = (
-  <svg {...iconProps}>
-    <circle cx="6" cy="5.5" r="2.25" />
-    <path d="M1.75 13c0-2.25 2-3.75 4.25-3.75S10.25 10.75 10.25 13" />
-    <circle cx="11.25" cy="4.75" r="1.5" />
-    <path d="M14.25 11.5c0-1.5-1.35-2.5-3-2.5" />
-  </svg>
+// The four W-primitives (Agents / Events / Quests / Ideas) get literal
+// A/E/Q/I letters in the brand wordmark face + accent color — the sidebar
+// itself spells AEQI. Same 16×16 slot as the SVG icons so rhythm holds.
+const BrandLetter = ({ ch }: { ch: string }) => (
+  <span className="sidebar-brand-letter" aria-hidden="true">
+    {ch}
+  </span>
 );
-const ICON_EVENTS = (
-  <svg {...iconProps}>
-    <path d="M1.5 8h2.5l1.5-4.5L9 12.5l1.5-4.5h4" />
-  </svg>
-);
-const ICON_QUESTS = (
-  <svg {...iconProps}>
-    <path d="M6 3.5h7.5" />
-    <path d="M6 8h7.5" />
-    <path d="M6 12.5h7.5" />
-    <path d="M2 3.5l1 1 1.5-1.75" />
-    <path d="M2 8l1 1 1.5-1.75" />
-    <path d="M2 12.5l1 1 1.5-1.75" />
-  </svg>
-);
-const ICON_IDEAS = (
-  <svg {...iconProps}>
-    <path d="M5.5 10.75a4 4 0 1 1 5 0V12h-5v-1.25z" />
-    <path d="M6.5 14h3" />
-  </svg>
-);
+const ICON_AGENTS = <BrandLetter ch="A" />;
+const ICON_EVENTS = <BrandLetter ch="E" />;
+const ICON_QUESTS = <BrandLetter ch="Q" />;
+const ICON_IDEAS = <BrandLetter ch="I" />;
 const ICON_DRIVE = (
   <svg {...iconProps}>
     <rect x="2" y="4" width="12" height="8" rx="1" />
