@@ -16,6 +16,10 @@ interface NavItem {
   id: string;
   label: React.ReactNode;
   icon?: React.ReactNode;
+  /** Hover tooltip — also serves the collapsed rail, where the label
+   *  clips to a single initial character.  Power users discover the
+   *  `g + letter` jump shortcut here. */
+  title?: string;
 }
 
 /*
@@ -65,16 +69,16 @@ const ICON_SETTINGS = (
 );
 
 const PRIMITIVES: NavItem[] = [
-  { id: "sessions", label: "Inbox", icon: ICON_INBOX },
-  { id: "agents", label: <BrandInitial word="agents" /> },
-  { id: "events", label: <BrandInitial word="events" /> },
-  { id: "quests", label: <BrandInitial word="quests" /> },
-  { id: "ideas", label: <BrandInitial word="ideas" /> },
+  { id: "sessions", label: "Inbox", icon: ICON_INBOX, title: "Inbox · G then S" },
+  { id: "agents", label: <BrandInitial word="agents" />, title: "Agents · G then A" },
+  { id: "events", label: <BrandInitial word="events" />, title: "Events · G then E" },
+  { id: "quests", label: <BrandInitial word="quests" />, title: "Quests · G then Q" },
+  { id: "ideas", label: <BrandInitial word="ideas" />, title: "Ideas · G then I" },
 ];
 
 const CONFIGURE: NavItem[] = [
-  { id: "drive", label: "Drive", icon: ICON_DRIVE },
-  { id: "settings", label: "Settings", icon: ICON_SETTINGS },
+  { id: "drive", label: "Drive", icon: ICON_DRIVE, title: "Drive" },
+  { id: "settings", label: "Settings", icon: ICON_SETTINGS, title: "Settings" },
 ];
 
 /**
@@ -117,6 +121,7 @@ export default function LeftSidebar({ rootId, agentId, path }: LeftSidebarProps)
         item.icon ? "" : " no-icon"
       }`}
       href={navHref(item.id)}
+      title={item.title}
       onClick={(e) => {
         e.preventDefault();
         navigate(navHref(item.id));
