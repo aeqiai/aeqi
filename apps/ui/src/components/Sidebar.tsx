@@ -355,9 +355,9 @@ function RootRow({
 
 /**
  * Agent tree: one flat list of every root agent, with the URL's active
- * root expanded to show its subtree. "+ New company" at the top creates
- * a new root (routes to /new). Sub-agents are created from within an
- * agent's Agents tab — not from this sidebar.
+ * root expanded to show its subtree. Creating a root company is an
+ * exclusively home-page action (/) — this rail is pure navigation.
+ * Sub-agents are created from within an agent's Agents tab.
  */
 export default function AgentTree() {
   const navigate = useNavigate();
@@ -387,22 +387,6 @@ export default function AgentTree() {
 
   return (
     <nav className={styles.tree}>
-      <button type="button" className={styles.newCompany} onClick={() => navigate("/new")}>
-        <span className={styles.iconSlot}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M7 3v8M3 7h8" />
-          </svg>
-        </span>
-        <span className={styles.rowLabel}>New company</span>
-      </button>
       <div className={styles.list} role="tree" aria-label="Agent tree">
         {roots.length === 0 && <div className={styles.empty}>No agents</div>}
         {roots.map((r) => (

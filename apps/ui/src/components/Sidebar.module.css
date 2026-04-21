@@ -10,35 +10,6 @@
   gap: 4px;
 }
 
-/* "+ New company" row at the top. Subtle secondary treatment — the one
-   truly-primary action per tab is the CTA inside each tab's own inline
-   picker, so this stays quiet: the accent is still scarce. */
-.newCompany {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: var(--sidebar-row-h);
-  padding: 0 8px;
-  margin-bottom: 2px;
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-.newCompany:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-  border-color: var(--border-hover);
-  border-style: solid;
-}
-
 .list {
   display: flex;
   flex-direction: column;

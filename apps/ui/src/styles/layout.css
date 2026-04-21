@@ -83,7 +83,6 @@
   justify-content: space-between;
   padding: 0 12px 0 16px;
   height: 56px;
-  border-bottom: 1px solid var(--border);
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -457,23 +456,41 @@
   background: transparent;
 }
 
-/* Content card — flat structural wrapper. Holds topbar + scroll only
-   (composer is its sibling inside content-main-stack). No chrome. */
+/* Content card — tinted frame. Holds topbar + body-row (composer is
+   its sibling inside content-main-stack). The sidebar tint continues
+   through this card so the topbar + sidebar read as one continuous
+   frame. The paper body-row floats inset with a rounded top-left. */
 .content-card {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: transparent;
+  background: var(--bg-sidebar);
   border: none;
   border-radius: 0;
   box-shadow: none;
 }
 
-/* Threads rail — the Inbox's left-adjacent index column. Lives between
-   the primary LeftSidebar and the main content column, with a right-hand
-   hairline so it reads as the index pane of a master/detail pair. */
+/* Body row — the paper surface under the topbar. Rounded top-left so
+   the paper sheet reads as inset into the tinted frame above and to
+   the left. Holds the optional sessions rail + the scroll area. The
+   composer sits OUTSIDE this row (below the card) so it spans the
+   full content column width. */
+.content-body-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background: var(--color-card);
+  border-top-left-radius: var(--radius-lg);
+}
+
+/* Threads rail — the Inbox's left-side index column, now embedded
+   inside the content card (below the topbar, above the composer). The
+   right-hand hairline keeps it reading as the index pane of a
+   master/detail pair. */
 .sessions-rail-col {
   width: var(--sidebar-panel-width);
   flex-shrink: 0;
@@ -1295,9 +1312,8 @@
   padding: 0 24px;
   height: 56px;
   min-height: 56px;
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--bg-sidebar);
+  background: transparent;
   gap: 12px;
 }
 /* Title block — "{agent name} / {section}". Navigation lives in the left

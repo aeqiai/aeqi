@@ -293,20 +293,21 @@ export default function AppLayout() {
       <div className="shell">
         <LeftSidebar rootId={rootId} agentId={agentId} path={path} />
 
-        {showSessionsRail && (
-          <aside className="sessions-rail-col">
-            <SessionsRail />
-          </aside>
-        )}
-
         <div className="content-column">
           <div className="content-main-stack">
             <div className="content-card">
               {showTopBar ? (
                 <>
                   <ContentTopBar />
-                  <div className="content-scroll">
-                    <Suspense fallback={null}>{mainContent}</Suspense>
+                  <div className="content-body-row">
+                    {showSessionsRail && (
+                      <aside className="sessions-rail-col">
+                        <SessionsRail />
+                      </aside>
+                    )}
+                    <div className="content-scroll">
+                      <Suspense fallback={null}>{mainContent}</Suspense>
+                    </div>
                   </div>
                 </>
               ) : (
