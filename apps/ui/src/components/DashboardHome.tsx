@@ -39,7 +39,7 @@ const GROUP_LABELS: Record<string, string> = {
 
 export default function DashboardHome() {
   const navigate = useNavigate();
-  const { href } = useNav();
+  const { href, goAgent } = useNav();
   const quests = useDaemonStore((s) => s.quests);
   const agents = useDaemonStore((s) => s.agents);
   const cost = useDaemonStore((s) => s.cost);
@@ -198,14 +198,21 @@ export default function DashboardHome() {
           <div className="dash-home-section-title">Active Quests</div>
           <div className="dash-quest-list">
             {activeQuests.map((q: any) => (
-              <div key={q.id} className="dash-quest-row" data-status={q.status}>
+              <button
+                key={q.id}
+                type="button"
+                className="dash-quest-row"
+                data-status={q.status}
+                onClick={() => q.agent_id && goAgent(q.agent_id, "quests", q.id)}
+                disabled={!q.agent_id}
+              >
                 <span className="dash-quest-agent">{q.agent_id || "\u2014"}</span>
                 <span className="dash-quest-subject">{q.subject}</span>
                 {runtimeLabel(q.runtime) && (
                   <span className="dash-quest-phase">{runtimeLabel(q.runtime)}</span>
                 )}
                 <span className="dash-quest-time">{timeAgo(q.started_at || q.updated_at)}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>

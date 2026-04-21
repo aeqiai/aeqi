@@ -1723,9 +1723,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   padding: 7px 8px;
+  background: transparent;
+  border: none;
   border-top: 1px solid var(--border-faint, rgba(0, 0, 0, 0.04));
+  color: inherit;
+  font: inherit;
   font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
   transition: background var(--transition-fast);
   position: relative;
 }
@@ -1734,8 +1741,15 @@
   border-top: none;
 }
 
-.dash-quest-row:hover {
+.dash-quest-row:hover:not(:disabled) {
   background: var(--state-hover);
+}
+.dash-quest-row:disabled {
+  cursor: default;
+}
+.dash-quest-row:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
 }
 
 /* 2px left accent bar — in_progress quests get running color */
