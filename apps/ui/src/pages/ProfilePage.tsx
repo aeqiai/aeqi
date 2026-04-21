@@ -514,7 +514,7 @@ export default function ProfilePage() {
                         }
                       }}
                     >
-                      {totpLoading ? "..." : "Verify"}
+                      Verify
                     </Button>
                   </div>
                 </div>

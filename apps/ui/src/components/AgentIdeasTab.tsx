@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
-import { Button, EmptyState } from "./ui";
+import { Button, EmptyState, Spinner } from "./ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "./IdeaGraph";
 import IdeaCanvas from "./IdeaCanvas";
 import type { Idea } from "@/lib/types";
@@ -118,7 +118,18 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
         }}
       >
         {graphLoading ? (
-          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading graph…</div>
+          <div
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 13,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Spinner size="sm" />
+            Loading graph…
+          </div>
         ) : graphData.nodes.length === 0 ? (
           <EmptyState
             title="No ideas to graph"

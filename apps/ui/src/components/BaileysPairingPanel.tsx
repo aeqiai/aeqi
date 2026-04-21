@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { Button, Badge } from "./ui";
+import { Button, Badge, Spinner } from "./ui";
 
 type BaileysState = "spawning" | "connecting" | "awaiting_qr" | "ready" | "disconnected";
 
@@ -86,7 +86,10 @@ export function BaileysPairingPanel({ channelId }: { channelId: string }) {
   if (!status) {
     return (
       <div className="baileys-pairing" aria-busy="true">
-        <p className="baileys-pairing-hint">Loading pairing status…</p>
+        <p className="baileys-pairing-hint">
+          <Spinner size="sm" />
+          Loading pairing status…
+        </p>
       </div>
     );
   }
