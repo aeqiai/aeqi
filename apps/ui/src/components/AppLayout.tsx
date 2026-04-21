@@ -274,10 +274,10 @@ export default function AppLayout() {
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
-  // ContentTopBar is the primary per-agent nav — always mount it when there's
-  // an agent in scope. Profile + home own their own header and are user-scoped,
-  // so they opt out.
-  const showTopBar = !!agentId && !isProfile;
+  // ContentTopBar is the layout navigation row — always mounted at a
+  // fixed height so the header band reads as one strip across the shell
+  // regardless of whether an agent is in scope.
+  const showTopBar = true;
   // Profile + home own their own header + are user-scoped — composer is
   // noise there.
   const showComposer = !isProfile && !!agentId && !isHome;

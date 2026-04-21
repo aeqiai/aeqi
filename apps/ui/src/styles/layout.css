@@ -1285,10 +1285,10 @@
   white-space: nowrap;
 }
 
-/* Content top bar — the primary per-agent nav strip.
-   Left: Home icon + primitive tabs (Sessions · Agents · Events · Quests · Ideas).
-   Right: contextual actions (create, explore), budget meter, gear icon.
-   Height matches the left sidebar's header band so the two sit on one line. */
+/* Content top bar — the layout navigation row.
+   Architectural: same tint as the sidebar so the 56px header band reads
+   as one strip straight across the viewport, stitched by a single 1px
+   hairline below. Always mounted, always this height. */
 .content-topbar {
   display: flex;
   align-items: center;
@@ -1297,7 +1297,7 @@
   min-height: 56px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: transparent;
+  background: var(--bg-sidebar);
   gap: 12px;
 }
 /* Title block — "{agent name} / {section}". Navigation lives in the left

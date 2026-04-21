@@ -1,15 +1,21 @@
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
 import BudgetMeter from "./BudgetMeter";
 
 /**
- * Content top bar — agent context + secondary actions.
+ * Content top bar — the layout navigation row.
  *
- * Primary "New X" CTAs live inline in each tab's body (the tab's own picker
- * owns its "+" button). This bar carries: breadcrumb title, view toggles
- * that affect the main pane (Ideas graph toggle), and the budget meter.
+ * Always mounted, architectural, matching the sidebar tint so the header
+ * band reads as one continuous strip across the viewport. Carries:
+ * breadcrumb context (home / profile / {agent} / {section}), the global
+ * command-palette trigger, keyboard-help, agent-scoped actions (Explore
+ * / Settings), and the budget meter.
+ *
+ * Primary "New X" CTAs still live inline in each tab's body — the tab's
+ * own picker owns its "+" button. The topbar is *navigation + context*,
+ * never the primary CTA surface.
  */
 
 // Breadcrumb renders lowercase with an accent-tinted initial — the only
@@ -28,6 +34,7 @@ export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const cost = useDaemonStore((s) => s.cost);
   const agents = useDaemonStore((s) => s.agents);
   const appMode = useAuthStore((s) => s.appMode);
@@ -35,6 +42,8 @@ export default function ContentTopBar() {
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
+  const isProfile = location.pathname === "/profile" || location.pathname.startsWith("/profile/");
+  const isHome = !agentId && !isProfile;
 
   const exploreActive = section === "ideas" && searchParams.get("view") === "graph";
   const toggleExplore = () => {
@@ -55,6 +64,8 @@ export default function ContentTopBar() {
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
+        {isHome && <span className="content-topbar-section">Home</span>}
+        {isProfile && <span className="content-topbar-section">Profile</span>}
         {agent &&
           (section === "sessions" ? (
             <span className="content-topbar-agent">{agent.display_name || agent.name}</span>
