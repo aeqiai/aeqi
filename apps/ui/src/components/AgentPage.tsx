@@ -9,6 +9,7 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import AgentOrgChart from "./AgentOrgChart";
+import PageTabs from "./PageTabs";
 import { Button, EmptyState } from "./ui";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
@@ -16,7 +17,7 @@ const SETTINGS_SUB_TABS = [
   { id: "settings", label: "Settings" },
   { id: "channels", label: "Channels" },
   { id: "tools", label: "Tools" },
-] as const;
+];
 
 // Routes that AgentPage knows how to render. No-tab resolves to the Inbox
 // (id "sessions") — the agent's landing surface. ContentTopBar is the primary
@@ -106,7 +107,7 @@ export default function AgentPage({
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
       {(activeTab === "settings" || activeTab === "channels" || activeTab === "tools") && (
-        <SettingsShell activeSubTab={activeTab}>
+        <SettingsShell>
           {activeTab === "settings" && (
             <SettingsPanel
               agent={agent}
@@ -226,29 +227,14 @@ function AgentsTab({
  * Settings umbrella. Renders a hairline tab row across Settings / Channels /
  * Tools — the three "configure how this agent works" panes. Sidebar only shows
  * "Settings"; Channels + Tools are reached via this tab row (or directly by
- * URL — /channels and /tools still work as entry points).
+ * URL — /channels and /tools still work as entry points). Tab row uses the
+ * shared `PageTabs` primitive so Profile and Settings share one visual
+ * treatment (one tab language across the app).
  */
-function SettingsShell({
-  activeSubTab,
-  children,
-}: {
-  activeSubTab: string;
-  children: React.ReactNode;
-}) {
-  const { goAgent, agentId } = useNav();
+function SettingsShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="settings-shell">
-      <div className="settings-shell-tabs">
-        {SETTINGS_SUB_TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`settings-shell-tab${activeSubTab === t.id ? " active" : ""}`}
-            onClick={() => agentId && goAgent(agentId, t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs tabs={SETTINGS_SUB_TABS} mode="path" />
       <div className="settings-shell-body">{children}</div>
     </div>
   );

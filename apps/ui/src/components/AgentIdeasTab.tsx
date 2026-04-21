@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -12,15 +12,19 @@ const NO_IDEAS: Idea[] = [];
 
 type IdeasScope = "all" | "mine" | "global" | "inherited";
 
-function snippetFor(text: string, query: string, length = 120): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  if (!query) return flat.slice(0, length);
-  const words = query
+function queryTerms(query: string): string[] {
+  return query
     .trim()
     .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
     .sort((a, b) => b.length - a.length);
+}
+
+function snippetFor(text: string, query: string, length = 120): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!query) return flat.slice(0, length);
+  const words = queryTerms(query);
   const lower = flat.toLowerCase();
   let matchIdx = -1;
   for (const w of words) {
@@ -37,6 +41,26 @@ function snippetFor(text: string, query: string, length = 120): string {
   const prefix = start > 0 ? "…" : "";
   const suffix = end < flat.length ? "…" : "";
   return prefix + flat.slice(start, end) + suffix;
+}
+
+// Split `text` by every occurrence of any query term, wrapping matches
+// in <mark> so the active search token is visible at a glance. Case-
+// insensitive; runs over plain (already-flattened) snippet strings.
+function highlightMatches(text: string, query: string): ReactNode {
+  const terms = queryTerms(query);
+  if (!terms.length) return text;
+  const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const splitter = new RegExp(`(${escaped.join("|")})`, "gi");
+  const termSet = new Set(terms);
+  return text.split(splitter).map((part, i) =>
+    termSet.has(part.toLowerCase()) ? (
+      <mark key={i} className="ideas-list-row-match">
+        {part}
+      </mark>
+    ) : (
+      <Fragment key={i}>{part}</Fragment>
+    ),
+  );
 }
 
 /**
@@ -113,24 +137,20 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:new-idea", handler);
   }, [agentId, goAgent, setSearchParams]);
 
+  const fireNewIdea = () => window.dispatchEvent(new CustomEvent("aeqi:new-idea"));
+
   if (view === "graph") {
     return (
       <div className="ideas-graph">
-        <div className="ideas-graph-head">
-          <div className="ideas-graph-head-title">
-            <span className="ideas-graph-head-mark" aria-hidden>
-              ◇
-            </span>
-            {graphData.nodes.length > 0 && !graphLoading ? (
-              <span className="ideas-graph-head-copy">
-                {graphData.nodes.length} ideas · {graphData.edges.length} links
-              </span>
-            ) : (
-              <span className="ideas-graph-head-copy">Graph</span>
-            )}
-          </div>
-          <ViewToggle view="graph" onChange={setView} />
-        </div>
+        <IdeasPrimitiveHead
+          count={graphData.nodes.length}
+          countLabel={
+            graphLoading ? "…" : `${graphData.nodes.length} · ${graphData.edges.length} links`
+          }
+          view="graph"
+          onViewChange={setView}
+          onNew={fireNewIdea}
+        />
         <div className="ideas-graph-canvas">
           {graphLoading ? (
             <div className="ideas-graph-loading">
@@ -142,10 +162,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
               title="No ideas to graph"
               description="Create ideas to see them connected here."
               action={
-                <Button
-                  variant="primary"
-                  onClick={() => window.dispatchEvent(new CustomEvent("aeqi:new-idea"))}
-                >
+                <Button variant="primary" onClick={fireNewIdea}>
                   New idea
                 </Button>
               }
@@ -189,6 +206,7 @@ function ViewToggle({
         aria-selected={view === "list"}
         className={`ideas-view-toggle-btn${view === "list" ? " active" : ""}`}
         onClick={() => onChange("list")}
+        title="List view (L)"
       >
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
           <path
@@ -206,6 +224,7 @@ function ViewToggle({
         aria-selected={view === "graph"}
         className={`ideas-view-toggle-btn${view === "graph" ? " active" : ""}`}
         onClick={() => onChange("graph")}
+        title="Graph view (G)"
       >
         <svg
           width="11"
@@ -223,6 +242,57 @@ function ViewToggle({
         </svg>
         graph
       </button>
+    </div>
+  );
+}
+
+/**
+ * Shared primitive-head for the Ideas surface. Carries the "ideas" sigil
+ * (lowercase word, accent-tinted first letter) + count, and the right-
+ * aligned action cluster: view toggle and the `+ new idea` button. Lives
+ * above both the list and graph views so switching between them doesn't
+ * feel like leaving the primitive.
+ */
+function IdeasPrimitiveHead({
+  count,
+  countLabel,
+  view,
+  onViewChange,
+  onNew,
+}: {
+  count: number;
+  countLabel?: string;
+  view: "list" | "graph";
+  onViewChange: (next: "list" | "graph") => void;
+  onNew: () => void;
+}) {
+  return (
+    <div className="primitive-head">
+      <span className="primitive-head-title">
+        <span className="primitive-head-initial" aria-hidden>
+          i
+        </span>
+        deas
+        <span className="primitive-head-count">{countLabel ?? count}</span>
+      </span>
+      <div className="primitive-head-actions">
+        <ViewToggle view={view} onChange={onViewChange} />
+        <button type="button" className="primitive-head-new" onClick={onNew} title="New idea (N)">
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M6 2.5v7M2.5 6h7" />
+          </svg>
+          new idea
+        </button>
+      </div>
     </div>
   );
 }
@@ -256,22 +326,17 @@ function IdeasPicker({
     return { all: ideas.length, mine, global, inherited };
   }, [ideas, agentId]);
 
-  const tagCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const idea of ideas) {
-      for (const t of idea.tags || []) counts[t] = (counts[t] || 0) + 1;
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [ideas]);
-
-  const filtered = useMemo(() => {
+  // Ideas that survive every filter except `tag` — the universe the tag
+  // chip row is offering refinement *within*. Computing tag counts from
+  // the post-scope / post-search universe keeps the counts honest: select
+  // "mine" and the chips say "7" where the user actually has 7, not 42.
+  const scoped = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ideas.filter((idea) => {
       if (scope === "mine" && idea.agent_id !== agentId) return false;
       if (scope === "global" && idea.agent_id != null) return false;
       if (scope === "inherited" && (idea.agent_id == null || idea.agent_id === agentId))
         return false;
-      if (tag && !(idea.tags || []).includes(tag)) return false;
       if (q) {
         const inName = idea.name.toLowerCase().includes(q);
         const inContent = idea.content.toLowerCase().includes(q);
@@ -279,7 +344,20 @@ function IdeasPicker({
       }
       return true;
     });
-  }, [ideas, search, scope, tag, agentId]);
+  }, [ideas, search, scope, agentId]);
+
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const idea of scoped) {
+      for (const t of idea.tags || []) counts[t] = (counts[t] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [scoped]);
+
+  const filtered = useMemo(() => {
+    if (!tag) return scoped;
+    return scoped.filter((idea) => (idea.tags || []).includes(tag));
+  }, [scoped, tag]);
 
   // Group filtered ideas by primary tag for Notion-style section headings.
   // Ideas with no tag fall into the "untagged" bucket at the end.
@@ -309,51 +387,49 @@ function IdeasPicker({
   };
 
   // Shortcuts: "/" focuses search, Esc clears it when focused, "n" creates
-  // a new idea when the user isn't already typing in an input. Capture
-  // phase + stopImmediatePropagation — otherwise AppLayout's global "/"
-  // (palette) and "n" (spawn sub-agent) handlers also fire and clobber.
+  // a new idea, "l" / "g" flip between list and graph views — all gated so
+  // they don't fire while the user is typing in an input. Capture phase +
+  // stopImmediatePropagation — otherwise AppLayout's global "/" (palette)
+  // and "n" (spawn sub-agent) handlers also fire and clobber.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tgt = e.target as HTMLElement | null;
       const inInput =
         tgt?.tagName === "INPUT" || tgt?.tagName === "TEXTAREA" || tgt?.isContentEditable;
-      if (e.key === "/" && !inInput) {
+      if (inInput) return;
+      if (e.key === "/") {
         e.preventDefault();
         e.stopImmediatePropagation();
         searchRef.current?.focus();
         searchRef.current?.select();
-      } else if (e.key === "n" && !inInput) {
+      } else if (e.key === "n") {
         e.preventDefault();
         e.stopImmediatePropagation();
         fireNew();
+      } else if (e.key === "g" && view !== "graph") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onViewChange("graph");
+      } else if (e.key === "l" && view !== "list") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onViewChange("list");
       }
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, []);
+  }, [view, onViewChange]);
 
   return (
     <div className="ideas-list">
+      <IdeasPrimitiveHead
+        count={ideas.length}
+        view={view}
+        onViewChange={onViewChange}
+        onNew={fireNew}
+      />
       <div className="ideas-list-head">
-        <div className="ideas-list-stat">
-          <span className="ideas-list-stat-count">{ideas.length}</span>
-          <span className="ideas-list-stat-label">{ideas.length === 1 ? "idea" : "ideas"}</span>
-          {isFiltered && (
-            <>
-              <span className="ideas-list-stat-sep" aria-hidden>
-                /
-              </span>
-              <span className="ideas-list-stat-count">{filtered.length}</span>
-              <span className="ideas-list-stat-label">shown</span>
-              <button type="button" className="ideas-list-stat-clear" onClick={clearAll}>
-                reset
-              </button>
-            </>
-          )}
-          <div className="ideas-list-stat-spacer" aria-hidden />
-          <ViewToggle view={view} onChange={onViewChange} />
-        </div>
         <div className="ideas-list-search-row">
           <span className="ideas-list-search-field">
             <input
@@ -370,6 +446,9 @@ function IdeasPicker({
                   } else {
                     (e.target as HTMLInputElement).blur();
                   }
+                } else if (e.key === "Enter" && filtered.length > 0) {
+                  e.preventDefault();
+                  goAgent(agentId, "ideas", filtered[0].id);
                 }
               }}
             />
@@ -419,6 +498,19 @@ function IdeasPicker({
             ))}
           </div>
         )}
+        {isFiltered && (
+          <div className="ideas-list-filter-indicator" aria-live="polite">
+            <span>
+              <strong>{filtered.length}</strong>
+              {" of "}
+              <strong>{ideas.length}</strong>
+              {filtered.length === 1 ? " idea" : " ideas"}
+            </span>
+            <button type="button" className="ideas-list-filter-reset" onClick={clearAll}>
+              reset
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="ideas-list-body">
@@ -438,6 +530,26 @@ function IdeasPicker({
                   or press <kbd>N</kbd>
                 </span>
               </div>
+              <dl className="ideas-list-empty-syntax" aria-label="Writing syntax">
+                <div>
+                  <dt>
+                    <code>#tag</code>
+                  </dt>
+                  <dd>categorize</dd>
+                </div>
+                <div>
+                  <dt>
+                    <code>[[name]]</code>
+                  </dt>
+                  <dd>link another idea</dd>
+                </div>
+                <div>
+                  <dt>
+                    <code>![[name]]</code>
+                  </dt>
+                  <dd>embed another idea</dd>
+                </div>
+              </dl>
             </div>
           ) : (
             <div className="ideas-list-empty-hero muted">
@@ -470,7 +582,9 @@ function IdeasPicker({
                     onClick={() => goAgent(agentId, "ideas", idea.id)}
                   >
                     <div className="ideas-list-row-head">
-                      <span className="ideas-list-row-name">{idea.name}</span>
+                      <span className="ideas-list-row-name">
+                        {highlightMatches(idea.name, search)}
+                      </span>
                       {idea.agent_id == null && (
                         <span className="ideas-list-row-scope">Global</span>
                       )}
@@ -481,16 +595,17 @@ function IdeasPicker({
                         </span>
                       )}
                     </div>
-                    {snippet && <div className="ideas-list-row-snippet">{snippet}</div>}
+                    {snippet && (
+                      <div className="ideas-list-row-snippet">
+                        {highlightMatches(snippet, search)}
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </section>
           ))
         )}
-      </div>
-      <div className="ideas-list-hint" aria-hidden>
-        <kbd>/</kbd> search · <kbd>N</kbd> new
       </div>
     </div>
   );

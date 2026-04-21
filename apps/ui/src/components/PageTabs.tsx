@@ -37,9 +37,8 @@ export default function PageTabs({ tabs, defaultTab, mode = "path" }: PageTabsPr
 
   const setTab = (id: string) => {
     if (usePath) {
-      // Version B: tabs live at /:agentId/:tab. Fallback strips the tab.
-      if (id === fallback) go("/");
-      else go(`/${id}`);
+      // Version B: every tab has its own `/:agentId/:tab` route.
+      go(`/${id}`);
       return;
     }
     // Query-string sub-tabs.

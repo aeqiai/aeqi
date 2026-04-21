@@ -171,13 +171,11 @@
   position: relative;
 }
 
-/* User input — right-aligned mono bubble. The mono typography reads as
-   "command typed at the runtime" while the asymmetric corner + tinted
-   fill keep the speech-bubble convention so the operator's turn is
-   visually unmistakable. The body is a flex column with the bubble at
-   top and actions/footer rendered below it (matching the agent layout)
-   — only .asv-msg-content carries the bubble chrome, so the metadata
-   row sits clean against the canvas instead of inside the fill. */
+/* User input — right-aligned bubble. The asymmetric corner + tinted fill
+   keep the speech-bubble convention so the operator's turn is visually
+   unmistakable. Body is a flex column with the bubble at top and
+   actions/footer below; only .asv-msg-content carries the bubble chrome,
+   so the metadata row sits clean against the canvas. */
 .asv-msg-user {
   justify-content: flex-end;
 }
@@ -193,10 +191,10 @@
   background: rgba(0, 0, 0, 0.07);
   border-radius: 16px 16px 4px 16px;
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-  letter-spacing: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
@@ -254,14 +252,14 @@
   letter-spacing: -0.005em;
 }
 
-/* Agent prose — EB Garamond gives the agent's output its own
-   typographic voice, distinct from Host Grotesk (UI chrome) and
-   JetBrains Mono (operator input + tools). A quiet literary serif
-   reads as "considered output" rather than UI label copy. */
+/* Agent prose — sans-serif at 15px/1.65, same family as UI chrome so the
+   conversation reads as one continuous design system. The three-voice
+   (sans/serif/mono) experiment drifted toward noise; one voice, varied
+   by weight and size, reads cleaner. */
 .asv-msg-assistant .asv-msg-content {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  letter-spacing: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  letter-spacing: -0.005em;
 }
 
 .asv-msg-assistant .asv-msg-content p {

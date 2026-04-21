@@ -1345,11 +1345,30 @@
   white-space: nowrap;
 }
 /* Primitive breadcrumb — plain sans, subordinate to the agent name so
-   the identity stays the anchor. Matches the sidebar primitive label. */
+   the identity stays the anchor. Matches the sidebar primitive label.
+   The crumb becomes a link when the URL is one level deeper than the
+   primitive's root (e.g. /:agent/ideas/:id); on the primitive's own
+   list it stays a static span so a click isn't a no-op. */
 .content-topbar-crumb {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   white-space: nowrap;
+}
+.content-topbar-crumb-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  margin: 0 -4px;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.content-topbar-crumb-link:hover,
+.content-topbar-crumb-link:focus-visible {
+  color: var(--text-primary);
+  background: var(--state-hover);
+  outline: none;
 }
 .content-topbar-right {
   display: flex;
@@ -2734,6 +2753,7 @@
   overflow-y: auto;
 }
 .ideas-list-row {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2751,13 +2771,32 @@
     background 0.12s ease,
     color 0.12s ease;
 }
-.ideas-list-row:hover {
+/* Left-edge accent rail — anchors the active row without moving content.
+   A 2px column slides in from the left on hover/focus. Uses the token
+   already reserved for in-progress rows, so the ideas surface inherits
+   the same visual signal family as quests/events. */
+.ideas-list-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-bar-running);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.12s ease;
+}
+.ideas-list-row:hover,
+.ideas-list-row:focus-visible {
   background: var(--state-hover);
 }
 .ideas-list-row:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: -2px;
-  background: var(--state-hover);
+  outline: none;
+}
+.ideas-list-row:hover::before,
+.ideas-list-row:focus-visible::before {
+  transform: scaleY(1);
 }
 
 /* Search-match highlight — inline <mark> wrapper for the matched token
@@ -2902,39 +2941,42 @@
   border: 1px solid var(--border);
   border-radius: 3px;
 }
-.ideas-list-hint {
+/* Empty state syntax legend — teaches the three inline affordances
+   (#tag, [[link]], ![[embed]]) on the first-run "nothing thought yet"
+   screen. Reads as a dictionary: glyph → one-word meaning. Mono for
+   the glyph, sans for the gloss so the syntax is scannable. */
+.ideas-list-empty-syntax {
   display: flex;
-  justify-content: center;
-  gap: 18px;
-  padding: 10px 28px 14px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: lowercase;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px dashed var(--border-faint);
+}
+.ideas-list-empty-syntax > div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
   color: var(--text-muted);
-  opacity: 0.6;
-  border-top: 1px solid var(--border-faint);
-  user-select: none;
 }
-.ideas-list-hint span {
+.ideas-list-empty-syntax dt {
+  margin: 0;
+}
+.ideas-list-empty-syntax dd {
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.ideas-list-empty-syntax code {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-}
-.ideas-list-hint kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  font: inherit;
-  font-size: 9px;
-  letter-spacing: 0;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
   color: var(--text-secondary);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: 2px;
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
+  border-radius: var(--key-pill-radius);
 }
 
 /* Ideas tag-group label — borrows the sidebar's sigil+word treatment
@@ -3214,65 +3256,15 @@
   flex: 1 1 auto;
   min-height: 280px;
 }
+/* Scope chip strip — only ever shows the "Global" badge when viewing a
+   root-scope idea (agent_id == null). Back-navigation is not here; the
+   topbar crumb owns that (the "Ideas" crumb becomes a link on detail). */
 .ideas-canvas-eyebrow {
   display: flex;
   align-items: baseline;
   gap: 10px;
   margin-bottom: 10px;
-  font-family: var(--font-brand);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--text-muted);
   user-select: none;
-}
-.ideas-canvas-eyebrow-kind {
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-.ideas-canvas-eyebrow-initial {
-  color: var(--accent);
-}
-.ideas-canvas-eyebrow-sep {
-  opacity: 0.4;
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-.ideas-canvas-eyebrow-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  font: inherit;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: inherit;
-  transition: color 0.12s ease;
-}
-.ideas-canvas-eyebrow-back:hover,
-.ideas-canvas-eyebrow-back:focus-visible {
-  color: var(--text-primary);
-  outline: none;
-}
-.ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-kind,
-.ideas-canvas-eyebrow-back:focus-visible .ideas-canvas-eyebrow-kind {
-  color: var(--text-primary);
-}
-.ideas-canvas-eyebrow-chevron {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1;
-  transform: translateY(0);
-  opacity: 0.55;
-  transition:
-    opacity 0.12s ease,
-    transform 0.12s ease;
-}
-.ideas-canvas-eyebrow-back:hover .ideas-canvas-eyebrow-chevron {
-  opacity: 1;
-  transform: translateX(-2px);
 }
 .ideas-canvas-eyebrow-scope {
   font-family: var(--font-mono);
@@ -3570,28 +3562,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.ideas-canvas-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-}
-.ideas-canvas-hint kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font: inherit;
-  font-size: 10px;
-  color: var(--text-secondary);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: 3px;
 }
 .ideas-canvas-count {
   font-family: var(--font-mono);

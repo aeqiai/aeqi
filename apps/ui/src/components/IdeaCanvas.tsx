@@ -314,25 +314,11 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
 
   return (
     <div className="asv-main ideas-canvas">
-      <div className="ideas-canvas-eyebrow">
-        <button
-          type="button"
-          className="ideas-canvas-eyebrow-back"
-          onClick={() => goAgent(agentId, "ideas", undefined)}
-          title="Back to ideas"
-        >
-          <span className="ideas-canvas-eyebrow-chevron" aria-hidden>
-            ←
-          </span>
-          <span className="ideas-canvas-eyebrow-kind">{isEdit ? "Ideas" : "New idea"}</span>
-        </button>
-        {scopeLabel && (
-          <>
-            <EyebrowSep />
-            <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
-          </>
-        )}
-      </div>
+      {scopeLabel && (
+        <div className="ideas-canvas-eyebrow">
+          <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
+        </div>
+      )}
       <div className="ideas-canvas-head">
         <input
           ref={titleRef}
@@ -495,17 +481,12 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
             <span className="ideas-canvas-count">{formatCount(content)}</span>
           )}
           {(!isEdit || saveState === "dirty" || saveState === "saving") && (
-            <span className="ideas-canvas-hint" aria-hidden>
-              <kbd>⌘</kbd>
-              <kbd>↵</kbd>
-            </span>
-          )}
-          {(!isEdit || saveState === "dirty" || saveState === "saving") && (
             <Button
               variant="primary"
               size="sm"
               loading={saveState === "saving"}
               onClick={isEdit ? flushSave : handleCreate}
+              title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
             >
               Save
             </Button>
@@ -585,14 +566,6 @@ function IdeaMenu({
         </div>
       )}
     </div>
-  );
-}
-
-function EyebrowSep() {
-  return (
-    <span className="ideas-canvas-eyebrow-sep" aria-hidden>
-      ·
-    </span>
   );
 }
 

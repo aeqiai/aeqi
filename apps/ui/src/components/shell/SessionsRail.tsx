@@ -89,32 +89,8 @@ export default function SessionsRail() {
     goAgent(agentId, "sessions", id, { replace: true });
   };
 
-  const fireNewSession = () => window.dispatchEvent(new CustomEvent("aeqi:new-session"));
-
   return (
     <div className="threads-rail">
-      <div className="threads-rail-header">
-        <button
-          type="button"
-          className="threads-rail-new-btn"
-          onClick={fireNewSession}
-          aria-label="New message"
-          title="New message"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M7 3v8M3 7h8" />
-          </svg>
-        </button>
-      </div>
       <div className="threads-rail-list">
         {items.length === 0 && (
           <div className="threads-rail-empty">
@@ -139,7 +115,6 @@ export default function SessionsRail() {
                 aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
-                <span className="threads-rail-row-dot" aria-hidden />
                 <span className="threads-rail-row-name">{item.name}</span>
                 {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
                 <span className="threads-rail-row-time">{item.time}</span>

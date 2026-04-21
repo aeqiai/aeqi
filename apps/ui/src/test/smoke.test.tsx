@@ -201,10 +201,7 @@ describe("shell components smoke", () => {
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1"]}>
           <Routes>
-            <Route
-              path=":agentId/*"
-              element={<LeftSidebar rootId="root-1" agentId="root-1" path="/root-1" />}
-            />
+            <Route path=":agentId/*" element={<LeftSidebar agentId="root-1" path="/root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -219,7 +216,7 @@ describe("shell components smoke", () => {
           <Routes>
             <Route
               path=":agentId/*"
-              element={<LeftSidebar rootId="root-1" agentId="child-1" path="/child-1/sessions" />}
+              element={<LeftSidebar agentId="child-1" path="/child-1/sessions" />}
             />
           </Routes>
         </MemoryRouter>

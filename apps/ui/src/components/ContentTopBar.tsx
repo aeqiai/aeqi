@@ -1,8 +1,8 @@
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
-import BlockAvatar from "./BlockAvatar";
+import AgentAvatar from "./AgentAvatar";
 import BudgetMeter from "./BudgetMeter";
 
 /**
@@ -19,22 +19,20 @@ import BudgetMeter from "./BudgetMeter";
  * never the primary CTA surface.
  */
 
-// Breadcrumb renders lowercase with an accent-tinted initial — the only
-// sections that earn a breadcrumb are the four W-primitives. `sessions`
-// is the agent's default surface (no crumb), and settings/tools/channels
-// are carried by the lit Settings button + the settings-shell sub-tab
-// row below; repeating them here is just noise.
+// Only the four W-primitives earn a breadcrumb. `sessions` is the
+// agent's default surface (no crumb), and settings/tools/channels are
+// carried by the lit Settings button + the settings-shell sub-tab row
+// below; repeating them here is just noise.
 const PRIMITIVE_WORDS: Record<string, string> = {
-  agents: "agents",
-  events: "events",
-  quests: "quests",
-  ideas: "ideas",
+  agents: "Agents",
+  events: "Events",
+  quests: "Quests",
+  ideas: "Ideas",
 };
 
 export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const cost = useDaemonStore((s) => s.cost);
   const agents = useDaemonStore((s) => s.agents);
   const appMode = useAuthStore((s) => s.appMode);
@@ -42,7 +40,12 @@ export default function ContentTopBar() {
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
-  const isProfile = location.pathname === "/profile" || location.pathname.startsWith("/profile/");
+  // The crumb is always a link once a primitive + agent are resolved —
+  // from an item detail it pops back to the list, from compose mode it
+  // sheds the `?compose=1` param, from the list itself the nav is a
+  // no-op. React Router collapses identical destinations, so this is
+  // safe and the affordance stays consistent.
+  const crumbIsLink = Boolean(primitiveWord && agent);
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
@@ -57,12 +60,11 @@ export default function ContentTopBar() {
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
-        {isProfile && <span className="content-topbar-scope">Profile</span>}
         {agent &&
           (section === "sessions" ? (
             <span className="content-topbar-agent">
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={agentName} size={22} />
+                <AgentAvatar name={agentName} />
               </span>
               <span className="content-topbar-agent-name">{agentName}</span>
             </span>
@@ -73,18 +75,24 @@ export default function ContentTopBar() {
               title={`Back to ${agentName}'s inbox`}
             >
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={agentName} size={22} />
+                <AgentAvatar name={agentName} />
               </span>
               <span className="content-topbar-agent-name">{agentName}</span>
             </Link>
           ))}
         {agent && showCrumb && <span className="content-topbar-sep">/</span>}
-        {showCrumb && (
-          <span className="content-topbar-crumb">
-            <span className="sidebar-nav-initial">{primitiveWord[0]}</span>
-            {primitiveWord.slice(1)}
-          </span>
-        )}
+        {showCrumb &&
+          (crumbIsLink ? (
+            <Link
+              to={`/${encodeURIComponent(agent!.id)}/${section}`}
+              className="content-topbar-crumb content-topbar-crumb-link"
+              title={`Back to ${primitiveWord?.toLowerCase()}`}
+            >
+              {primitiveWord}
+            </Link>
+          ) : (
+            <span className="content-topbar-crumb">{primitiveWord}</span>
+          ))}
       </div>
 
       <div className="content-topbar-right">
