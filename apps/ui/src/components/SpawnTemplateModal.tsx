@@ -165,7 +165,7 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
             disabled={!displayName.trim() || submitting}
             loading={submitting}
           >
-            {submitting ? "Starting..." : "Start company"}
+            Start company
           </Button>
         </div>
       </div>

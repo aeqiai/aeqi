@@ -198,9 +198,11 @@ function RootForm({
         {error && <div className="new-co-error">{error}</div>}
 
         <button
+          type="button"
           className="new-co-submit"
           onClick={handleCreate}
           disabled={!name.trim() || creating}
+          aria-busy={creating}
         >
           {creating ? (
             <>
@@ -410,6 +412,7 @@ function SubAgentForm({
             className="new-co-submit"
             onClick={handleSubmit}
             disabled={!canSubmit}
+            aria-busy={submitting}
           >
             {submitting ? (
               <>
