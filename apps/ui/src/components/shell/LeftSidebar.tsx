@@ -12,17 +12,17 @@ interface LeftSidebarProps {
   path: string;
 }
 
-interface PrimitiveNavItem {
-  /** Lowercase slug — also the URL segment. First letter is the accent initial. */
-  id: "agents" | "events" | "quests" | "ideas";
+interface NavItem {
+  id: string;
+  label: React.ReactNode;
+  icon: React.ReactNode;
   /** Hover tooltip — hosts the `g + letter` jump shortcut hint. */
-  title: string;
+  title?: string;
 }
 
 /*
  * Lucide register — 16×16, stroke 1.5, rounded caps + joins, no fills.
- * Used by the shell's utility icons (collapse handle, brand glyph). The four
- * W-primitives render as lowercase brand-font words instead of SVG icons.
+ * Standard glyphs, one cohesive set.
  */
 const iconProps = {
   viewBox: "0 0 16 16",
@@ -33,30 +33,35 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const PRIMITIVES: PrimitiveNavItem[] = [
-  { id: "agents", title: "Agents · G then A" },
-  { id: "events", title: "Events · G then E" },
-  { id: "quests", title: "Quests · G then Q" },
-  { id: "ideas", title: "Ideas · G then I" },
+const IconAgents = () => (
+  <svg {...iconProps}>
+    <circle cx="8" cy="6" r="2.5" />
+    <path d="M3 13.5a5 5 0 0 1 10 0" />
+  </svg>
+);
+const IconEvents = () => (
+  <svg {...iconProps}>
+    <path d="M9 2 3 9h4l-1 5 7-7H9l1-5z" />
+  </svg>
+);
+const IconQuests = () => (
+  <svg {...iconProps}>
+    <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+    <path d="M5.5 8l2 2 3-4" />
+  </svg>
+);
+const IconIdeas = () => (
+  <svg {...iconProps}>
+    <path d="M8 1.75v1.5M13.5 4.5l-1 1M2.5 4.5l1 1M5.25 10.5a3.5 3.5 0 1 1 5.5 0c-.3.4-.5.8-.6 1.25H5.85c-.1-.45-.3-.85-.6-1.25z" />
+    <path d="M6.25 14h3.5" />
+  </svg>
+);
+const PRIMITIVES: NavItem[] = [
+  { id: "agents", label: "Agents", icon: <IconAgents />, title: "Agents · G then A" },
+  { id: "events", label: "Events", icon: <IconEvents />, title: "Events · G then E" },
+  { id: "quests", label: "Quests", icon: <IconQuests />, title: "Quests · G then Q" },
+  { id: "ideas", label: "Ideas", icon: <IconIdeas />, title: "Ideas · G then I" },
 ];
-
-/**
- * Lowercase brand-font label with the leading letter tinted in the accent.
- * Vertical reading of the four primitives spells A-E-Q-I down the rail; the
- * tail span is hidden in the collapsed rail so only the initial remains.
- */
-function BrandInitial({ word }: { word: string }) {
-  const head = word.charAt(0);
-  const tail = word.slice(1);
-  return (
-    <span className="sidebar-nav-label">
-      <span className="sidebar-nav-initial" aria-hidden>
-        {head}
-      </span>
-      <span className="sidebar-nav-tail">{tail}</span>
-    </span>
-  );
-}
 
 /**
  * Application left rail: brand, agent tree, current-agent surface nav, profile.
@@ -98,23 +103,24 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const renderPrimitive = (item: PrimitiveNavItem) => {
+  const renderNav = (item: NavItem) => {
     if (primitivesDisabled) {
       return (
         <span
           key={item.id}
-          className="sidebar-nav-item no-icon disabled"
+          className="sidebar-nav-item disabled"
           title="Pick a root agent to open this primitive"
           aria-disabled="true"
         >
-          <BrandInitial word={item.id} />
+          {item.icon}
+          <span className="sidebar-nav-label">{item.label}</span>
         </span>
       );
     }
     return (
       <a
         key={item.id}
-        className={`sidebar-nav-item no-icon ${isActive(item.id) ? "active" : ""}`}
+        className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
         href={navHref(item.id)}
         title={item.title}
         onClick={(e) => {
@@ -122,7 +128,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           navigate(navHref(item.id));
         }}
       >
-        <BrandInitial word={item.id} />
+        {item.icon}
+        <span className="sidebar-nav-label">{item.label}</span>
       </a>
     );
   };
@@ -179,7 +186,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           className={`sidebar-surface-nav${primitivesDisabled ? " disabled" : ""}`}
           aria-disabled={primitivesDisabled || undefined}
         >
-          {PRIMITIVES.map(renderPrimitive)}
+          {PRIMITIVES.map(renderNav)}
         </nav>
 
         <div className="sidebar-tree-slot">
