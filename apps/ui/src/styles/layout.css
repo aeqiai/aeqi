@@ -1873,6 +1873,27 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+.events-detail-badge-global {
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--state-hover);
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.events-detail-global-notice {
+  margin: 8px 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--state-hover);
+  border-left: 2px solid var(--border);
+  border-radius: 4px;
+}
 .events-detail-actions {
   display: flex;
   gap: 6px;

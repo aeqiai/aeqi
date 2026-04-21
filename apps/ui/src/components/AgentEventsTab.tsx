@@ -350,17 +350,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             {selected.name}
             {isGlobal && (
               <span
-                style={{
-                  marginLeft: 8,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  padding: "2px 6px",
-                  borderRadius: 4,
-                  background: "rgba(0,0,0,0.08)",
-                  color: "rgba(0,0,0,0.6)",
-                  letterSpacing: "0.05em",
-                  verticalAlign: "middle",
-                }}
+                className="events-detail-badge-global"
                 title="Global event — inherited by every agent"
               >
                 GLOBAL
@@ -399,17 +389,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       )}
 
       {isGlobal && (
-        <div
-          style={{
-            marginTop: 8,
-            marginBottom: 8,
-            padding: "8px 10px",
-            fontSize: 12,
-            background: "rgba(0,0,0,0.04)",
-            borderRadius: 4,
-            color: "rgba(0,0,0,0.65)",
-          }}
-        >
+        <div className="events-detail-global-notice">
           Inherited global event — fires for every agent at this lifecycle moment. Manage from
           Settings; per-agent edits are disabled.
         </div>
@@ -423,7 +403,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             {selected.total_cost_usd > 0 ? ` · $${selected.total_cost_usd.toFixed(4)} total` : ""}
           </>
         ) : (
-          <span style={{ color: "rgba(0,0,0,0.45)" }}>Never fired</span>
+          <span style={{ fontStyle: "italic" }}>Never fired</span>
         )}
       </div>
 
