@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
+import { Button, EmptyState } from "@/components/ui";
 import type { Agent } from "@/lib/types";
 
 interface Entity {
@@ -163,16 +164,15 @@ export default function EntitiesPage() {
           Loading agents...
         </div>
       ) : entities.length === 0 ? (
-        <div
-          style={{
-            color: "var(--text-muted)",
-            fontSize: 13,
-            padding: "40px 0",
-            textAlign: "center",
-          }}
-        >
-          No agents yet. Create your first agent to get started.
-        </div>
+        <EmptyState
+          title="No agents yet"
+          description="Spin up your first agent — pick a template or start from scratch."
+          action={
+            <Button variant="primary" onClick={() => navigate("/new")}>
+              New agent
+            </Button>
+          }
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {entities.map((entity) => {
