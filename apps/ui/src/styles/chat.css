@@ -64,7 +64,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .asv-messages > * {
   width: 100%;
@@ -81,19 +81,19 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 48px 56px;
   max-width: 640px;
 }
 
 .asv-empty-eyebrow {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .asv-empty-title {
@@ -106,7 +106,7 @@
 }
 
 .asv-empty-hint {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   letter-spacing: 0.01em;
   max-width: 48ch;
@@ -117,15 +117,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 20px;
+  margin-top: var(--space-5);
 }
 .asv-empty-suggestion {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 5px 10px;
   cursor: pointer;
   transition: all 0.12s;
@@ -139,7 +139,7 @@
 /* ── Message layout ── */
 .asv-msg {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   opacity: 0;
   animation: asv-enter 0.18s ease-out forwards;
 }
@@ -192,7 +192,7 @@
   border-radius: 16px 16px 4px 16px;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1.55;
   letter-spacing: -0.005em;
   white-space: pre-wrap;
@@ -221,7 +221,7 @@
 }
 .asv-msg-error .asv-msg-content {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--error);
 }
 
@@ -229,14 +229,14 @@
 .asv-msg-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .session-msg-duration,
 .asv-msg-duration {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
 }
 
@@ -273,7 +273,7 @@
 .asv-msg-assistant .asv-msg-content ul,
 .asv-msg-assistant .asv-msg-content ol {
   margin: 6px 0 10px 0;
-  padding-left: 24px;
+  padding-left: var(--space-6);
   list-style-position: outside;
 }
 .asv-msg-assistant .asv-msg-content ul {
@@ -285,7 +285,7 @@
 .asv-msg-assistant .asv-msg-content li {
   margin: 4px 0;
   line-height: 1.55;
-  padding-left: 4px;
+  padding-left: var(--space-1);
 }
 .asv-msg-assistant .asv-msg-content li::marker {
   color: var(--text-muted);
@@ -315,7 +315,7 @@
   font-size: 18px;
 }
 .asv-msg-assistant .asv-msg-content h2 {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
 }
 /* h3 matches body size; weight 600 carries the section-label role.
    Going below body size (14px) read as de-emphasized text, not a
@@ -345,7 +345,7 @@
    doesn't look like a dental filling next to flowing prose. */
 .asv-msg-assistant .asv-msg-content code {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   background: var(--color-accent-bg);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -370,14 +370,14 @@
 }
 .asv-codeblock-lang {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-secondary);
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }
 .asv-codeblock-copy {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-secondary);
   background: none;
   border: none;
@@ -437,7 +437,7 @@
 .asv-msg-assistant .asv-msg-content table {
   border-collapse: collapse;
   margin: 8px 0;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   width: 100%;
 }
 .asv-msg-assistant .asv-msg-content th,
@@ -449,7 +449,7 @@
 .asv-msg-assistant .asv-msg-content th {
   background: var(--bg-surface);
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--font-size-micro);
 }
 
 /* Links */
@@ -468,7 +468,7 @@
 .asv-msg-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0);
   margin-top: 6px;
   opacity: 0;
   transition: opacity 0.12s;
@@ -482,9 +482,9 @@
 .asv-msg-footer {
   display: flex;
   align-items: center;
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.15s;
@@ -523,7 +523,7 @@
   gap: 6px;
   width: 100%;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-muted);
   background: none;
   border: none;
@@ -565,9 +565,9 @@
 .asv-tool-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 3px 0;
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   font-family: var(--font-mono);
 }
 .asv-tool-dot {
@@ -593,18 +593,18 @@
 .asv-tool-dur {
   color: var(--text-muted);
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   opacity: 0.5;
 }
 .asv-tool-status-msg {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
   padding: 2px 0;
   font-family: var(--font-mono);
   opacity: 0.5;
 }
 .asv-status-line {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
   padding: 4px 0;
   font-family: var(--font-mono);
@@ -614,7 +614,7 @@
 .asv-step-sep {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 12px 0 8px;
   font-family: var(--font-mono);
   font-size: var(--section-label-size, 0.6875rem);
@@ -642,19 +642,19 @@
 /* Expandable output */
 .session-tool-output {
   width: 100%;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
   overflow-y: auto;
-  margin-top: 2px;
+  margin-top: var(--space-0);
 }
 .session-tool-expand {
   cursor: pointer;
   color: var(--text-secondary);
-  margin-left: 4px;
+  margin-left: var(--space-1);
   font-weight: 500;
 }
 .session-tool-expand:hover {
@@ -694,14 +694,14 @@
 .asv-trail-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   padding: 7px 12px;
   background: none;
   border: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-muted);
   text-align: left;
   border-radius: calc(var(--radius-md) - 1px);
@@ -714,7 +714,7 @@
 .asv-trail-chevron {
   display: inline-block;
   width: 9px;
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
   line-height: 1;
   opacity: 0.5;
   transition: transform 150ms ease;
@@ -811,7 +811,7 @@
 .asv-event-fire-chips {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .asv-event-fire-chip {
   background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
@@ -840,7 +840,7 @@
   align-items: center;
   gap: 5px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   margin: 2px 0;
@@ -871,7 +871,7 @@
 }
 .asv-file-chip-op {
   opacity: 0.7;
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -884,7 +884,7 @@
 }
 .asv-file-chip-size {
   opacity: 0.55;
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
 }
 
 /* ── Tool-summarized chip ── */
@@ -892,7 +892,7 @@
 .asv-tool-summarized-chip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   margin: 2px 0;
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
@@ -902,7 +902,7 @@
   align-items: center;
   gap: 5px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
   color: var(--text-muted);
@@ -928,13 +928,13 @@
 }
 .asv-tool-summarized-label {
   opacity: 0.6;
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .asv-tool-summarized-size {
   opacity: 0.5;
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
 }
 .asv-tool-summarized-chevron {
   margin-left: auto;
@@ -943,10 +943,10 @@
 }
 .asv-tool-summarized-body {
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -960,7 +960,7 @@
 .asv-thinking {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 8px 0;
   opacity: 0;
   animation: asv-enter 0.2s ease-out forwards;
@@ -986,7 +986,7 @@
 }
 .asv-thinking-text {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-muted);
   letter-spacing: 0.01em;
 }
@@ -996,14 +996,14 @@
 .asv-attach-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   margin-bottom: 6px;
 }
 .asv-attach-chip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: var(--space-1);
+  font-size: var(--font-size-micro);
   color: var(--text-secondary);
   background: var(--bg-row);
   border: 1px solid var(--border);
@@ -1013,7 +1013,7 @@
 .asv-attach-chip-x {
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   line-height: 1;
   padding: 0 2px;
   background: none;
@@ -1081,8 +1081,8 @@
   content: "";
   position: absolute;
   bottom: -1px;
-  left: 24px;
-  right: 24px;
+  left: var(--space-6);
+  right: var(--space-6);
   height: 1px;
   background: var(--color-border);
   transform-origin: left;
@@ -1132,24 +1132,24 @@
 .asv-attach-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .asv-attach-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: var(--space-1);
+  font-size: var(--font-size-micro);
   font-family: var(--font-mono);
   color: var(--text-secondary);
   background: var(--bg-surface);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .asv-attach-chip-x {
   cursor: pointer;
   color: var(--text-muted);
-  margin-left: 2px;
-  font-size: 12px;
+  margin-left: var(--space-0);
+  font-size: var(--font-size-xs);
 }
 .asv-attach-chip-x:hover {
   color: var(--text-primary);
@@ -1158,7 +1158,7 @@
 /* Attach action buttons */
 .asv-attach-row {
   display: flex;
-  gap: 2px;
+  gap: var(--space-0);
 }
 .asv-attach-btn {
   color: var(--text-muted);
@@ -1173,7 +1173,7 @@
   border: none;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 400;
   resize: none;
   min-height: 48px;
@@ -1206,7 +1206,7 @@
   margin-left: auto;
   margin-right: 0;
   padding: 8px 8px 0;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.15s;
@@ -1218,7 +1218,7 @@
 }
 .asv-composer-hint kbd {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
   padding: 0 4px;
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -1243,13 +1243,13 @@
   gap: 5px;
   height: 30px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   flex-shrink: 0;
   transition:
@@ -1284,7 +1284,7 @@
 }
 
 .asv-send-label {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 
 .asv-send-stack {
@@ -1310,7 +1310,7 @@
 }
 
 .dash-home-header {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .dash-home-title {
@@ -1332,8 +1332,8 @@
 }
 .dash-home-stats {
   display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .dash-stat {
@@ -1387,7 +1387,7 @@
 }
 
 .dash-home-budget {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .dash-home-budget-header {
@@ -1395,7 +1395,7 @@
   justify-content: space-between;
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .dash-home-budget-track {
@@ -1413,7 +1413,7 @@
 }
 
 .dash-home-section {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 /* Empty-state welcome block shown when the workspace has no child agents. */
@@ -1463,14 +1463,14 @@
 .dash-home-section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 10px 0 6px;
   font-size: var(--section-label-size, 0.6875rem);
   font-weight: 600;
   color: var(--section-label-color, rgba(0, 0, 0, 0.28));
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .dash-home-section-title::after {
@@ -1485,14 +1485,14 @@
 .dash-agent-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .dash-agent-card {
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 12px;
+  padding: var(--space-3);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1515,7 +1515,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .dash-agent-dot {
@@ -1539,7 +1539,7 @@
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-0);
 }
 
 .dash-agent-status {
@@ -1558,7 +1558,7 @@
 .dash-quest-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   padding: 7px 8px;
   background: transparent;
@@ -1667,7 +1667,7 @@
   letter-spacing: 0.07em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .dash-activity-group-label::after {
@@ -1681,7 +1681,7 @@
 .dash-activity-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 5px 8px;
   height: 32px;
   font-size: var(--font-size-2xs);
