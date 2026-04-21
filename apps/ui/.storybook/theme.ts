@@ -33,6 +33,6 @@ export default create({
   inputBorderRadius: 6,
 
   // Typography
-  fontBase: '"Host Grotesk", -apple-system, sans-serif',
+  fontBase: '"Inter", -apple-system, sans-serif',
   fontCode: '"JetBrains Mono", monospace',
 });

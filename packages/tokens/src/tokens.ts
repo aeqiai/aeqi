@@ -1,101 +1,142 @@
 /**
  * @aeqi/tokens — TypeScript constants
  *
- * Use these when you need token values in JS/TS logic
- * (e.g. charting libraries, inline styles, dynamic theming).
- * For CSS/Tailwind, use the CSS or preset exports instead.
+ * TypeScript mirror of tokens.css. Use when you need token values in JS/TS
+ * (charting libs, canvas rendering, inline styles, dynamic theming).
+ * For CSS/Tailwind, use `./css` or `./tailwind` exports.
+ *
+ * Design system: v3 "Neutral Paper + Steel Blue"
+ * Single source of truth for values is tokens.css — this file mirrors it.
  */
 
 export const color = {
   bg: {
-    base: "#ffffff",
-    surface: "rgba(0, 0, 0, 0.015)",
-    elevated: "rgba(0, 0, 0, 0.035)",
-    overlay: "rgba(0, 0, 0, 0.08)",
+    base: "#f1f1ee", // page background — one step darker than paper
+    surface: "#f7f7f4", // main surface — neutral paper
+    elevated: "#ffffff", // raised — modals, popovers, cards
+    overlay: "#ffffff", // highest — tooltips, floating menus
   },
+
+  // Semantic surface aliases used across landing + dashboard
+  paper: "#f7f7f4",
+  card: "#ffffff",
+  sectionAlt: "#ffffff",
 
   text: {
-    primary: "rgba(0, 0, 0, 0.85)",
-    secondary: "rgba(0, 0, 0, 0.50)",
-    muted: "rgba(0, 0, 0, 0.30)",
+    title: "rgba(0, 0, 0, 0.9)", // titles, mastheads
+    primary: "rgba(0, 0, 0, 0.85)", // body copy
+    secondary: "rgba(0, 0, 0, 0.45)", // lead, captions
+    muted: "rgba(0, 0, 0, 0.25)", // eyebrows, section marks
+    disabled: "rgba(0, 0, 0, 0.18)",
   },
 
+  // Ink scale — alias of text, reads more naturally in ink-on-paper context
+  ink: {
+    primary: "rgba(0, 0, 0, 0.9)",
+    text: "rgba(0, 0, 0, 0.85)",
+    secondary: "rgba(0, 0, 0, 0.45)",
+    muted: "rgba(0, 0, 0, 0.25)",
+    disabled: "rgba(0, 0, 0, 0.18)",
+  },
+
+  // Accent — steel blue. The one brand color. Used sparingly (~5%).
   accent: {
-    DEFAULT: "#000000",
-    dim: "rgba(0, 0, 0, 0.45)",
-    bg: "rgba(0, 0, 0, 0.04)",
+    DEFAULT: "#5a7398",
+    hover: "#455d80",
+    pressed: "#455d80",
+    dim: "#7b92b4",
+    bg: "rgba(90, 115, 152, 0.1)",
+    glow: "rgba(90, 115, 152, 0.2)",
   },
 
   border: {
     faint: "rgba(0, 0, 0, 0.04)",
-    DEFAULT: "rgba(0, 0, 0, 0.08)",
-    hover: "rgba(0, 0, 0, 0.15)",
+    DEFAULT: "rgba(0, 0, 0, 0.06)",
+    hover: "rgba(0, 0, 0, 0.14)",
   },
 
+  // Interaction
+  link: "#5a7398",
+  linkHover: "#455d80",
+  focusRing: "rgba(90, 115, 152, 0.4)",
+  selection: "rgba(90, 115, 152, 0.16)",
+  textOnAccent: "#ffffff",
+
+  divider: "rgba(0, 0, 0, 0.04)",
+  hover: "rgba(0, 0, 0, 0.03)",
+  disabledSurface: "rgba(0, 0, 0, 0.025)",
+
+  // Status — semantic. Jade success, oxide error, muted amber warn, steel info.
   status: {
-    success: "#22c55e",
-    error: "#ef4444",
-    warning: "#f59e0b",
-    info: "#3b82f6",
+    success: "#2e8f71",
+    error: "#b85c5c",
+    warning: "#b98a47",
+    info: "#5a7398",
   },
 
   statusBg: {
-    success: "rgba(34, 197, 94, 0.10)",
-    error: "rgba(239, 68, 68, 0.10)",
-    warning: "rgba(245, 158, 11, 0.10)",
-    info: "rgba(59, 130, 246, 0.10)",
+    success: "rgba(46, 143, 113, 0.1)",
+    error: "rgba(184, 92, 92, 0.1)",
+    warning: "rgba(185, 138, 71, 0.1)",
+    info: "rgba(90, 115, 152, 0.1)",
   },
 
-  scrim: "rgba(0, 0, 0, 0.50)",
+  scrim: "rgba(0, 0, 0, 0.35)",
 
   glass: {
-    bg: "rgba(255, 255, 255, 0.90)",
+    bg: "rgba(255, 255, 255, 0.82)",
     border: "rgba(0, 0, 0, 0.08)",
   },
 
+  // Brand — domain-specific tokens (tuned for light surfaces)
   brand: {
-    venture: "#6366f1",
-    fund: "#334155",
-    entity: "#94a3b8",
-    foundation: "#808080",
+    venture: "#6468d8",
+    fund: "#5b6c88",
+    entity: "#6b7884",
+    foundation: "#5e6864",
   },
 
   funding: {
-    angel: "#10b981",
-    seed: "#6366f1",
-    bridge: "#3b82f6",
-    series: "#94a3b8",
-    exit: "#000000",
+    angel: "#2e8f71",
+    seed: "#6468d8",
+    bridge: "#5b6c88",
+    series: "#6b7884",
+    exit: "#3a4743",
   },
 
   role: {
-    partner: "#00fff5",
-    advisor: "#10b981",
-    holder: "#000000",
-    director: "#6366f1",
-    executive: "#64748b",
-    dealflow: "#3b82f6",
+    partner: "#2e8f71",
+    advisor: "#3fae8c",
+    holder: "#3a4743",
+    director: "#6468d8",
+    executive: "#5b6c88",
+    dealflow: "#5a7398",
   },
+
+  // Supporting neutrals
+  stone: "#e8e1cf",
+  highlight: "#2e3331",
 } as const;
 
 export const font = {
   family: {
     sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     mono: '"JetBrains Mono", "SF Mono", "Fira Code", monospace',
-    serif: '"EB Garamond", "Georgia", serif',
+    display: '"Cinzel", Georgia, serif',
+    brand: '"Zen Dots", system-ui, sans-serif',
   },
 
   size: {
-    "3xs": "0.5625rem",
-    "2xs": "0.625rem",
-    xs: "0.75rem",
-    sm: "0.8125rem",
-    base: "0.875rem",
-    lg: "1rem",
-    xl: "1.25rem",
-    "2xl": "1.5rem",
-    "3xl": "1.875rem",
-    "4xl": "2.25rem",
+    "3xs": "0.5625rem", //  9px
+    "2xs": "0.625rem", // 10px
+    xs: "0.75rem", // 12px
+    sm: "0.8125rem", // 13px
+    base: "0.875rem", // 14px
+    lg: "1rem", // 16px
+    xl: "1.25rem", // 20px
+    "2xl": "1.5rem", // 24px
+    "3xl": "1.875rem", // 30px
+    "4xl": "2.25rem", // 36px
   },
 
   weight: {
@@ -114,16 +155,16 @@ export const font = {
 
 export const space = {
   0: "2px",
-  1: "0.25rem",
-  2: "0.5rem",
-  3: "0.75rem",
-  4: "1rem",
-  5: "1.25rem",
-  6: "1.5rem",
-  8: "2rem",
-  10: "2.5rem",
-  12: "3rem",
-  16: "4rem",
+  1: "0.25rem", //  4px
+  2: "0.5rem", //  8px
+  3: "0.75rem", // 12px
+  4: "1rem", // 16px
+  5: "1.25rem", // 20px
+  6: "1.5rem", // 24px
+  8: "2rem", // 32px
+  10: "2.5rem", // 40px
+  12: "3rem", // 48px
+  16: "4rem", // 64px
 } as const;
 
 export const radius = {
@@ -136,10 +177,10 @@ export const radius = {
 } as const;
 
 export const shadow = {
-  sm: "0 1px 3px rgba(0, 0, 0, 0.06)",
-  md: "0 4px 12px rgba(0, 0, 0, 0.08)",
-  lg: "0 8px 24px rgba(0, 0, 0, 0.10)",
-  xl: "0 20px 25px -5px rgba(0, 0, 0, 0.10), 0 8px 10px -6px rgba(0, 0, 0, 0.10)",
+  sm: "0 1px 2px rgba(0, 0, 0, 0.04)",
+  md: "0 4px 12px rgba(0, 0, 0, 0.06)",
+  lg: "0 8px 24px rgba(0, 0, 0, 0.08)",
+  xl: "0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06)",
 } as const;
 
 export const transition = {
@@ -169,9 +210,9 @@ export const breakpoint = {
 
 export const elevation = {
   0: "transparent",
-  1: "rgba(0, 0, 0, 0.015)",
-  2: "rgba(0, 0, 0, 0.035)",
-  3: "rgba(0, 0, 0, 0.08)",
+  1: "rgba(0, 0, 0, 0.02)",
+  2: "rgba(0, 0, 0, 0.04)",
+  3: "rgba(0, 0, 0, 0.06)",
 } as const;
 
 export const texture = {
@@ -181,17 +222,17 @@ export const texture = {
   },
   glass: {
     blur: "24px",
-    bg: "rgba(255, 255, 255, 0.9)",
-    border: "rgba(0, 0, 0, 0.06)",
+    bg: "rgba(255, 255, 255, 0.82)",
+    border: "rgba(0, 0, 0, 0.08)",
   },
 } as const;
 
 export const interaction = {
   hover: {
     lift: "-1px",
-    bg: "rgba(0, 0, 0, 0.02)",
+    bg: "rgba(0, 0, 0, 0.03)",
   },
-  focusRing: "2px solid rgba(0, 0, 0, 0.15)",
+  focusRing: "0 0 0 2px #f7f7f4, 0 0 0 4px rgba(90, 115, 152, 0.2)",
   activeScale: 0.98,
 } as const;
 
@@ -234,16 +275,16 @@ export const statusColor: Record<string, string> = {
 
 /** Map of workflow statuses to background tints. */
 export const statusBgColor: Record<string, string> = {
-  idle: "rgba(136, 136, 160, 0.10)",
-  working: "rgba(99, 102, 241, 0.10)",
-  offline: "rgba(85, 85, 106, 0.10)",
+  idle: "rgba(0, 0, 0, 0.03)",
+  working: color.accent.bg,
+  offline: "rgba(0, 0, 0, 0.03)",
   active: color.statusBg.success,
-  paused: "rgba(85, 85, 106, 0.10)",
-  pending: "rgba(136, 136, 160, 0.10)",
+  paused: "rgba(0, 0, 0, 0.03)",
+  pending: "rgba(0, 0, 0, 0.03)",
   in_progress: color.statusBg.info,
   done: color.statusBg.success,
   blocked: color.statusBg.warning,
-  cancelled: "rgba(85, 85, 106, 0.10)",
+  cancelled: "rgba(0, 0, 0, 0.03)",
   failed: color.statusBg.error,
 };
 

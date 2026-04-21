@@ -35,8 +35,8 @@
 /* Variants */
 
 .neutral {
-  color: rgba(0, 0, 0, 0.6);
-  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-text-secondary);
+  background: var(--color-border);
 }
 .neutral .dot {
   background-color: var(--color-text-secondary);
@@ -75,8 +75,8 @@
 }
 
 .muted {
-  color: rgba(0, 0, 0, 0.45);
-  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-secondary);
+  background: var(--color-border-faint);
 }
 .muted .dot {
   background-color: var(--color-text-muted);

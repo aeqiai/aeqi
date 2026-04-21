@@ -34,8 +34,8 @@
 }
 
 .secondary:hover {
-  border-color: rgba(0, 0, 0, 0.2);
-  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--color-border-hover);
+  background: var(--color-hover);
 }
 
 .primary {
@@ -60,16 +60,16 @@
    so the eye moves to the inputs that still need attention. */
 .primary:disabled,
 .primary[aria-disabled="true"] {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--color-border);
   border-color: transparent;
-  color: rgba(0, 0, 0, 0.35);
+  color: var(--color-text-muted);
   opacity: 1;
 }
 
 .ghost {
   background: transparent;
   border-color: transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--color-text-primary);
 }
 
 .ghost:hover {
