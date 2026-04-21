@@ -18,9 +18,8 @@ import {
   toolLabel,
   shouldRenderStatus,
   splitTrailAndFinal,
-  countTrailTools,
-  countTrailFiles,
   trailHasFailure,
+  trailHasMeaningfulContent,
 } from "./types";
 
 // ── Sub-components ──
@@ -229,23 +228,21 @@ function ToolSummarizedChip({ event }: { event: ToolSummarizedEvent }) {
  */
 function CollapsedTrail({
   trail,
+  duration,
   stepCount,
-  toolCount,
-  fileCount,
   failed,
 }: {
   trail: MessageSegment[];
+  duration?: string;
   stepCount: number;
-  toolCount: number;
-  fileCount: number;
   failed: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const parts: string[] = [];
-  if (stepCount > 0) parts.push(`${stepCount} step${stepCount === 1 ? "" : "s"}`);
-  if (toolCount > 0) parts.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
-  if (fileCount > 0) parts.push(`${fileCount} file${fileCount === 1 ? "" : "s"}`);
-  if (parts.length === 0) parts.push("reasoning");
+  const label = duration
+    ? `Thought for ${duration}`
+    : stepCount > 0
+      ? `Thought for ${stepCount} step${stepCount === 1 ? "" : "s"}`
+      : "Thought";
 
   return (
     <div
@@ -260,11 +257,7 @@ function CollapsedTrail({
         <span className="asv-trail-chevron" aria-hidden="true">
           {"▸"}
         </span>
-        <span className="asv-trail-summary">
-          {parts.map((p, i) => (
-            <span key={i}>{p}</span>
-          ))}
-        </span>
+        <span className="asv-trail-summary">{label}</span>
       </button>
       {expanded && (
         <div className="asv-trail-detail">
@@ -460,8 +453,11 @@ const MessageItem = memo(function MessageItem({
     msg.role === "assistant" && msg.segments && msg.segments.length > 0
       ? splitTrailAndFinal(msg.segments)
       : null;
-  const useSplit =
-    splitAssistant != null && splitAssistant.trail.length > 0 && splitAssistant.final.length > 0;
+  // Collapse the trail whenever it carries something worth inspecting.
+  // A trail with no following final text (async events fired after the
+  // last response, a turn that ended on a tool) still gets the row —
+  // the row is the whole message in that case.
+  const useSplit = splitAssistant != null && trailHasMeaningfulContent(splitAssistant.trail);
 
   return (
     <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
@@ -470,9 +466,8 @@ const MessageItem = memo(function MessageItem({
           <>
             <CollapsedTrail
               trail={splitAssistant.trail}
+              duration={msg.duration}
               stepCount={countStepSegments(splitAssistant.trail)}
-              toolCount={countTrailTools(splitAssistant.trail)}
-              fileCount={countTrailFiles(splitAssistant.trail)}
               failed={trailHasFailure(splitAssistant.trail)}
             />
             <SegmentRenderer segments={splitAssistant.final} />

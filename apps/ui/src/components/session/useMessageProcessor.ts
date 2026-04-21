@@ -3,6 +3,7 @@ import {
   type Message,
   type MessageSegment,
   type ToolEvent,
+  type EventFire,
   countStepSegments,
   numberFromMeta,
   applyAssistantMeta,
@@ -136,20 +137,18 @@ export function useMessageProcessor() {
           pattern: String(meta.pattern ?? ""),
           ideaIds,
         };
-        // Inline into the current streaming agent's segments so the pill
-        // renders at its truthful firing point (directly below the step
-        // marker that just fired). Fall back to a standalone row when
-        // there's no open agent message (session-level events at turn start).
-        if (currentAgent) {
+        // Mid-turn fires (the agent is already producing output) inline at
+        // their firing point. Between-turn fires (session:start before any
+        // user message, session:execution_start before the first segment of
+        // a turn) are emitted as standalone event_fire rows; the post-pass
+        // below folds them into the next assistant turn's trail.
+        if (currentAgent && currentAgent.segments!.length > 0) {
           if (pendingTools.length > 0) {
             currentAgent.segments!.push(...pendingTools);
             pendingTools = [];
           }
           currentAgent.segments!.push({ kind: "event_fire", fire });
         } else {
-          if (pendingTools.length > 0) {
-            pendingTools = [];
-          }
           processed.push({
             role: "event_fire",
             content: "",
@@ -192,6 +191,53 @@ export function useMessageProcessor() {
       currentAgent.segments!.push(...pendingTools);
     }
     flushAgent();
-    return processed;
+    return foldEventFiresIntoTrails(processed);
   }, []);
+}
+
+/**
+ * Single linear pass that folds standalone `event_fire` rows into the
+ * upcoming assistant turn as `event_fire` segments at the front of its trail.
+ * This is the declarative replacement for in-processor buffering: the
+ * timeline is built strictly in chronological order, then this pass moves
+ * inter-turn injections into where they belong visually — after the user
+ * input, inside the collapsible trail.
+ *
+ * Trailing fires (no following assistant — e.g. async events fired after
+ * the last response) are coalesced into a single trail-only assistant
+ * message so they render as their own collapsed grey row.
+ */
+function foldEventFiresIntoTrails(messages: Message[]): Message[] {
+  const out: Message[] = [];
+  let pending: { fire: EventFire; ts: number }[] = [];
+
+  const flushPendingAsTrail = () => {
+    if (pending.length === 0) return;
+    const trailMsg: Message = {
+      role: "assistant",
+      content: "",
+      segments: pending.map(({ fire }) => ({ kind: "event_fire" as const, fire })),
+      timestamp: pending[pending.length - 1].ts,
+    };
+    out.push(trailMsg);
+    pending = [];
+  };
+
+  for (const m of messages) {
+    if (m.role === "event_fire" && m.eventFire) {
+      pending.push({ fire: m.eventFire, ts: m.timestamp ?? Date.now() });
+      continue;
+    }
+    if (m.role === "assistant" && pending.length > 0) {
+      const fireSegs: MessageSegment[] = pending.map(({ fire }) => ({
+        kind: "event_fire" as const,
+        fire,
+      }));
+      m.segments = [...fireSegs, ...(m.segments ?? [])];
+      pending = [];
+    }
+    out.push(m);
+  }
+  flushPendingAsTrail();
+  return out;
 }

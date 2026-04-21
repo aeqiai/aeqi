@@ -220,32 +220,12 @@ export function useWebSocketChat({
                 pattern: String(event.pattern ?? ""),
                 ideaIds,
               };
-              // Render the pill inline at the truthful firing point —
-              // inside the current streaming message's segments, directly
-              // after the step marker the agent just emitted. If the stream
-              // hasn't started a step yet (e.g. session:start at turn
-              // start), emit a standalone row instead.
-              if (segments.length > 0) {
-                segments.push({ kind: "event_fire", fire });
-                setLiveSegments([...segments]);
-              } else {
-                const fireMsg: Message = {
-                  role: "event_fire",
-                  content: "",
-                  timestamp: Date.now(),
-                  eventFire: fire,
-                };
-                setMessages((prev) => {
-                  let insertAt = prev.length;
-                  for (let i = prev.length - 1; i >= 0; i--) {
-                    if (prev[i].role === "user") {
-                      insertAt = i;
-                      break;
-                    }
-                  }
-                  return [...prev.slice(0, insertAt), fireMsg, ...prev.slice(insertAt)];
-                });
-              }
+              // Always inline into the streaming agent's segments. Fires
+              // that arrive before any step/text become the first segment
+              // of the upcoming turn — they end up at the front of the
+              // collapsed trail, after the user input.
+              segments.push({ kind: "event_fire", fire });
+              setLiveSegments([...segments]);
               break;
             }
             case "DelegateStart": {

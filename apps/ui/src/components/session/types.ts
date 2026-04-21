@@ -170,20 +170,25 @@ export function splitTrailAndFinal(segments: MessageSegment[]): {
   return { trail: segments.slice(0, splitIdx), final: segments.slice(splitIdx) };
 }
 
-export function countTrailTools(segments: MessageSegment[]): number {
-  let n = 0;
-  for (const s of segments) if (s.kind === "tool" && s.event.type === "complete") n++;
-  return n;
-}
-
-export function countTrailFiles(segments: MessageSegment[]): number {
-  let n = 0;
-  for (const s of segments) if (s.kind === "file_changed" || s.kind === "file_deleted") n++;
-  return n;
-}
-
 export function trailHasFailure(segments: MessageSegment[]): boolean {
   return segments.some((s) => s.kind === "tool" && s.event.success === false);
+}
+
+/**
+ * A trail is worth collapsing only if it contains something a user would
+ * actually want to inspect — a tool call, a file write, an injected idea, a
+ * summarised tool. A solo synthesised `step` marker doesn't count (expanding
+ * would reveal nothing useful and the pill would feel like a lie).
+ */
+export function trailHasMeaningfulContent(segments: MessageSegment[]): boolean {
+  return segments.some(
+    (s) =>
+      s.kind === "tool" ||
+      s.kind === "file_changed" ||
+      s.kind === "file_deleted" ||
+      s.kind === "event_fire" ||
+      s.kind === "tool_summarized",
+  );
 }
 
 export function applyAssistantMeta(message: Message, meta: Record<string, unknown>) {
