@@ -343,17 +343,39 @@
   display: none;
 }
 
-/* ── Primitive tiles (sidebar-surface-nav) ──
-   Each W-primitive is a small paper tile on the sidebar's warm ground.
-   White fill + hairline border turns the lowercase brand-type word into
-   an obvious clickable surface instead of a loose letter. Active state
-   borrows the accent-tinted paper + inset bar from the explore toggle. */
+/* ── Primitive nav rows (sidebar-surface-nav) ──
+   Each W-primitive renders as a full lowercase brand-font word (Zen Dots)
+   with the leading letter tinted in --color-accent. Reading vertically,
+   the four initials spell A-E-Q-I — which is the canonical rail silhouette.
+   No SVG icons here: the typography IS the icon. See memory
+   `feedback_aeqi_sidebar_primitives` for the full rule-set. */
 .sidebar-surface-nav {
   gap: 4px;
 }
-/* Collapsed rail — each primitive compresses into a 36×36 square,
-   centered icon. No tile chrome; the icon alone carries the rail
-   the way Linear/Notion collapsed sidebars do. */
+.sidebar-nav-item.no-icon {
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  /* Flush left — no 32px icon-slot indent. The colored initial IS the
+     left edge, lining up with the wordmark above. */
+  padding: 0 8px;
+}
+.sidebar-nav-initial {
+  color: var(--color-accent);
+}
+.sidebar-nav-item.no-icon .sidebar-nav-label {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+}
+.sidebar-nav-item.no-icon.active .sidebar-nav-initial,
+.sidebar-nav-item.no-icon:hover .sidebar-nav-initial {
+  color: var(--color-accent);
+}
+/* Collapsed rail — tail vanishes, the accent-tinted initial stays centered
+   in a 36×36 square so the rail spells A-E-Q-I cleanly down the edge.
+   Icon rows (Inbox/Drive/Profile) continue to render their SVG icons. */
 .left-sidebar.collapsed .sidebar-surface-nav {
   padding: 8px;
   align-items: center;
@@ -365,6 +387,15 @@
   min-height: 0;
   justify-content: center;
   align-items: center;
+}
+/* Override the general collapsed rule that hides every .sidebar-nav-label —
+   no-icon rows need their label (containing the accent initial) to stay
+   visible, otherwise the collapsed rail becomes blank. */
+.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-label {
+  display: inline-flex;
+}
+.left-sidebar.collapsed .sidebar-nav-item.no-icon .sidebar-nav-tail {
+  display: none;
 }
 
 /* ── Sidebar footer — identity anchor.
