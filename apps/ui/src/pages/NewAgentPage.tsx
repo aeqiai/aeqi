@@ -45,6 +45,17 @@ export default function NewAgentPage() {
     [allAgents, parentId, subAgentMode],
   );
 
+  // Daemon store may be cold on direct URL load (/new lives outside
+  // AppLayout, which is the usual bootstrap). Fetch once so parentAgent
+  // resolves to a real label instead of the "this agent" fallback.
+  useEffect(() => {
+    if (subAgentMode && allAgents.length === 0) {
+      fetchAgents().catch(() => {
+        /* non-fatal — label falls back, spawn still works */
+      });
+    }
+  }, [subAgentMode, allAgents.length, fetchAgents]);
+
   return subAgentMode ? (
     <SubAgentForm
       navigate={navigate}
@@ -245,6 +256,27 @@ function SubAgentForm({
 
   const canSubmit = template.trim().length > 0 && !submitting;
 
+  // Keyboard shortcuts: ⌘/Ctrl-Enter submits from anywhere on the page
+  // (including the textarea), Escape cancels back to the parent's Agents
+  // tab. Plain Enter in single-line inputs also submits for symmetry
+  // with the root-form flow.
+  const handleCancel = () => navigate(`/${encodeURIComponent(parentId)}/agents`);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        handleCancel();
+        return;
+      }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
+        e.preventDefault();
+        void handleSubmit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSubmit, submitting]);
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -324,6 +356,12 @@ function SubAgentForm({
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canSubmit) {
+                e.preventDefault();
+                void handleSubmit();
+              }
+            }}
             placeholder={template ? `e.g. Senior ${template}` : "Display name"}
             autoFocus
           />
@@ -350,8 +388,9 @@ function SubAgentForm({
           <button
             type="button"
             className="new-sub-cancel"
-            onClick={() => navigate(`/${encodeURIComponent(parentId)}/agents`)}
+            onClick={handleCancel}
             disabled={submitting}
+            title="Esc"
           >
             Cancel
           </button>
