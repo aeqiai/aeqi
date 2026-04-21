@@ -13,8 +13,6 @@ import BudgetMeter from "./BudgetMeter";
  */
 
 const TITLES: Record<string, string> = {
-  "": "Inbox",
-  sessions: "Inbox",
   channels: "Channels",
   drive: "Drive",
   settings: "Settings",

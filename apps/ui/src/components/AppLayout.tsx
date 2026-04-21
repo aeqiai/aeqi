@@ -83,7 +83,7 @@ export default function AppLayout() {
   // resolves.
   useEffect(() => {
     const titles: Record<string, string> = {
-      sessions: "Inbox",
+      sessions: "inbox",
       channels: "Channels",
       drive: "Drive",
       settings: "Settings",
