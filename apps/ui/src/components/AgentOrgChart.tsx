@@ -103,7 +103,7 @@ function OrgNodeView({
         onClick={() => onSelect(node.id)}
       >
         <span className="org-card-avatar">
-          {node.isRoot ? <BlockAvatar name={node.label} size={28} /> : <BrandMark size={18} />}
+          {node.isRoot ? <BlockAvatar name={node.label} size={20} /> : <BrandMark size={14} />}
         </span>
         <span className="org-card-body">
           <span className="org-card-name">{node.label}</span>
@@ -124,12 +124,13 @@ function OrgNodeView({
                 type="button"
                 className="org-card is-add"
                 onClick={() => onAddChild(node.id)}
+                aria-label="Spawn sub-agent"
                 title="Spawn sub-agent"
               >
                 <span className="org-card-avatar">
                   <svg
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 16 16"
                     fill="none"
                     stroke="currentColor"
@@ -139,10 +140,6 @@ function OrgNodeView({
                   >
                     <path d="M8 3v10M3 8h10" />
                   </svg>
-                </span>
-                <span className="org-card-body">
-                  <span className="org-card-name">New agent</span>
-                  <span className="org-card-sub">Spawn a report</span>
                 </span>
               </button>
             </div>

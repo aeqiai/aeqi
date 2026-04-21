@@ -15,17 +15,23 @@
  */
 
 .org-chart {
-  padding: 24px 16px 32px;
+  padding: 16px 8px 24px;
   width: 100%;
   overflow: hidden;
 }
 .org-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px;
+  padding: 4px;
   display: flex;
   justify-content: center;
   min-width: 100%;
+}
+/* When the tree overflows horizontally, justify-content:center clips the
+   leftmost cards beyond reach. Fall back to flex-start on overflow so
+   scrolling starts at the root and reveals everything. */
+.org-scroll > :only-child {
+  margin: 0 auto;
 }
 
 /* Each node = card stacked above its children row. */
@@ -33,33 +39,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 4px;
   position: relative;
 }
 
-/* Parent card drops a 20px spine down toward the children bar. */
+/* Parent card drops a 14px spine down toward the children bar. */
 .org-node.has-below > .org-card::after {
   content: "";
   position: absolute;
-  bottom: -20px;
+  bottom: -14px;
   left: 50%;
   width: 1px;
-  height: 20px;
+  height: 14px;
   background: var(--border);
   transform: translateX(-0.5px);
 }
 
-/* Row of direct children sits 20px below parent. Horizontal bar is
+/* Row of direct children sits 14px below parent. Horizontal bar is
    drawn only when there are siblings — single-child rows use just the
    two vertical stubs. */
 .org-children {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 20px;
-  margin-top: 20px;
+  padding-top: 14px;
+  margin-top: 14px;
   position: relative;
-  gap: 4px;
+  gap: 2px;
 }
 .org-children::before {
   content: "";
@@ -74,26 +80,27 @@
   display: none;
 }
 
-/* Each child lifts a 20px spine to meet the horizontal bar above. */
+/* Each child lifts a 14px spine to meet the horizontal bar above. */
 .org-children > .org-node::before {
   content: "";
   position: absolute;
-  top: -20px;
+  top: -14px;
   left: 50%;
   width: 1px;
-  height: 20px;
+  height: 14px;
   background: var(--border);
   transform: translateX(-0.5px);
 }
 
-/* Node card — the clickable surface. */
+/* Node card — the clickable surface. Sized to fit on ~800px content
+   areas (standard laptop with sidebar + rail open). */
 .org-card {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: 180px;
-  max-width: 260px;
-  padding: 10px 14px;
+  gap: 8px;
+  min-width: 132px;
+  max-width: 180px;
+  padding: 8px 10px;
   background: var(--bg-surface, var(--bg-base));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -120,23 +127,36 @@
 
 /* Root gets a stronger shell — this is the agent you're currently on. */
 .org-card.is-root {
-  min-width: 220px;
-  padding: 14px 18px;
+  min-width: 160px;
+  padding: 10px 12px;
   border-color: var(--border-hover);
   background: var(--bg-base);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
 
-/* "+ New agent" add-slot — reads as empty-ish but still inviting. */
+/* "+ New agent" add-slot — compact circular tile. Cards would dwarf it
+   at full width; the plus-only treatment matches the subordinate nature
+   of the action while staying inviting. */
 .org-card.is-add {
+  min-width: 0;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  align-self: center;
   border-style: dashed;
+  border-radius: 999px;
   color: var(--text-secondary);
   background: transparent;
+  justify-content: center;
 }
 .org-card.is-add:hover {
   color: var(--text-primary);
   border-style: solid;
   background: var(--state-hover);
+}
+.org-card.is-add .org-card-avatar {
+  width: 14px;
+  height: 14px;
 }
 
 .org-card-avatar {
@@ -144,17 +164,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
 }
 .org-card-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 2px;
+  gap: 1px;
 }
 .org-card-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
@@ -162,7 +182,7 @@
   text-overflow: ellipsis;
 }
 .org-card-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
@@ -170,7 +190,7 @@
   text-overflow: ellipsis;
 }
 .org-card.is-root .org-card-name {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* Lines brighten on hover of the card so the spine reads as alive. */
