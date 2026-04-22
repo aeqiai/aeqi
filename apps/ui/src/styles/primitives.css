@@ -41,14 +41,11 @@
   --bg-row: var(--color-paper); /* #f4f4f5 */
 
   /* Well surface aliases — the recessed / inset surface used by the
-     composer and other sunken panes. In v3 light mode the well is a
-     sunken neutral one shade darker than paper — not a dark inverse
-     palette. Text inside the well uses the main ink-* scale; the
-     well's contrast comes from its surface, not bespoke text tokens.
-
-     The --ink-* alias names are kept because every sunken-surface
-     selector in the codebase uses them; they now point at --color-well-*
-     for surfaces and --color-ink-* for text. */
+     composer and other sunken panes. Now resolves to --color-slab
+     (one step darker than paper). Text inside the well uses the main
+     ink-* scale; contrast comes from the surface step, not bespoke
+     text tokens. Kept as aliases because every sunken-surface selector
+     in the codebase uses these names. */
   --ink-bg: var(--color-well-bg);
   --ink-bg-elevated: var(--color-well-elevated);
   --ink-border: var(--color-well-border);
@@ -204,6 +201,7 @@
 
 html {
   font-size: var(--font-size-lg);
+  background: var(--color-paper);
 }
 
 body {

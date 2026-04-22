@@ -21,7 +21,7 @@
   margin: 20px 0 16px;
   padding: 22px 24px;
   background: var(--bg-sidebar, var(--bg-surface));
-  border: 1px solid var(--border-faint, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
   overflow-x: auto;
   overscroll-behavior-x: contain;

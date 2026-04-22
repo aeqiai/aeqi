@@ -242,6 +242,52 @@ impl SessionExecutor for QueueExecutor {
             .unregister(&spawned.session_id)
             .await;
 
+        // Persist the final assistant message for non-web transports.
+        //
+        // `SpawnOptions::interactive()` above makes `spawn_session` skip its
+        // own persistence branch — the assumption being that a live IPC
+        // stream subscriber will drain `StepComplete` / `Complete` events
+        // into `session_messages` instead. That's true for web chat, but
+        // quest runs and other headless transports have no subscriber, so
+        // without this write the sub-agent output vanishes entirely
+        // (observable empty transcripts on the agent detail page).
+        //
+        // Scoped to `transport != Some("web")` so web chat isn't
+        // double-persisted by this path and the IPC reader in parallel.
+        if queued.transport.as_deref() != Some("web")
+            && let (Ok(Ok(result)), Some(ss)) = (&run_result, self.session_store.as_ref())
+            && !result.text.is_empty()
+        {
+            let agent_sender = ss
+                .resolve_sender(
+                    "agent",
+                    &spawned.agent_id,
+                    &spawned.agent_name,
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .ok();
+            let sender_id = agent_sender.as_ref().map(|s| s.id.as_str());
+            let transport = queued.transport.as_deref().unwrap_or("internal");
+            if let Err(e) = ss
+                .record_event_by_session_with_sender(
+                    &spawned.session_id,
+                    "message",
+                    "assistant",
+                    &result.text,
+                    Some("session"),
+                    None,
+                    sender_id,
+                    Some(transport),
+                )
+                .await
+            {
+                warn!(session = %spawned.session_id, error = %e, "failed to persist assistant message");
+            }
+        }
+
         // Quest-specific completion writes: update quest status, emit
         // `quest_completed` + `quest_result` events, re-enqueue the result
         // into the creator session so `session:quest_result` can fire there,

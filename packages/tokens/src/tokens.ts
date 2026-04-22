@@ -21,6 +21,11 @@ export const color = {
   paper: "#f4f4f5",
   card: "#ffffff",
   sectionAlt: "#ffffff",
+  slab: "oklch(0.955 0.005 260)",
+  slabElevated: "oklch(0.965 0.004 260)",
+  slabBorder: "rgba(0, 0, 0, 0.06)",
+  slabBorderHover: "rgba(0, 0, 0, 0.1)",
+  slabBorderFocus: "rgba(90, 115, 152, 0.45)",
 
   text: {
     title: "rgba(10, 10, 11, 0.92)", // titles, mastheads
@@ -30,7 +35,6 @@ export const color = {
     disabled: "rgba(10, 10, 11, 0.22)",
   },
 
-  // Ink scale — alias of text, reads more naturally in ink-on-paper context
   ink: {
     primary: "rgba(10, 10, 11, 0.92)",
     text: "rgba(10, 10, 11, 0.85)",
@@ -123,7 +127,8 @@ export const font = {
   family: {
     sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     mono: '"JetBrains Mono", "SF Mono", "Fira Code", monospace',
-    display: '"Exo 2", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+    display:
+      '"Exo 2", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     brand: '"Zen Dots", system-ui, sans-serif',
   },
 
