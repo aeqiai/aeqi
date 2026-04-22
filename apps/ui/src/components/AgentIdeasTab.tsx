@@ -189,7 +189,16 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   if (selected || composing) {
     // Keying on the id resets internal canvas state when switching ideas —
     // cheaper than threading reset logic through refs.
-    return <IdeaCanvas key={selected?.id ?? "compose"} agentId={agentId} idea={selected} />;
+    return (
+      <div className="ideas-detail-wrap">
+        <IdeasDetailBackBar
+          onBack={() => goAgent(agentId, "ideas")}
+          onNew={fireNewIdea}
+          showNew={!composing}
+        />
+        <IdeaCanvas key={selected?.id ?? "compose"} agentId={agentId} idea={selected} />
+      </div>
+    );
   }
 
   return <IdeasPicker agentId={agentId} ideas={ideas} view={view} onViewChange={setView} />;
@@ -251,11 +260,11 @@ function ViewToggle({
 }
 
 /**
- * Shared primitive-head for the Ideas surface. Carries the "ideas" sigil
- * (lowercase word, accent-tinted first letter) + count, and the right-
- * aligned action cluster: view toggle and the `+ new idea` button. Lives
- * above both the list and graph views so switching between them doesn't
- * feel like leaving the primitive.
+ * Shared primitive-head for the Ideas surface. Cinzel "Ideas" title
+ * (becomes a back-link to the list when an item is open) + scope
+ * tabs on the left; count + view toggle + `+ new idea` on the right.
+ * Lives above both list and graph views so switching between them
+ * doesn't feel like leaving the primitive.
  */
 function IdeasPrimitiveHead({
   count,
@@ -264,6 +273,7 @@ function IdeasPrimitiveHead({
   onViewChange,
   onNew,
   scopeControl,
+  onBack,
 }: {
   count: number;
   countLabel?: string;
@@ -271,11 +281,29 @@ function IdeasPrimitiveHead({
   onViewChange: (next: "list" | "graph") => void;
   onNew: () => void;
   scopeControl?: ReactNode;
+  onBack?: () => void;
 }) {
   return (
     <div className="primitive-head">
       <div className="primitive-head-lead">
-        <h2 className="primitive-head-heading">Ideas</h2>
+        {onBack ? (
+          <h2 className="primitive-head-heading">
+            <button
+              type="button"
+              className="primitive-head-heading-back"
+              onClick={onBack}
+              title="Back to ideas"
+              aria-label="Back to ideas"
+            >
+              <span className="primitive-head-heading-back-chevron" aria-hidden>
+                ←
+              </span>
+              Ideas
+            </button>
+          </h2>
+        ) : (
+          <h2 className="primitive-head-heading">Ideas</h2>
+        )}
         {scopeControl}
       </div>
       <div className="primitive-head-actions">
@@ -297,6 +325,63 @@ function IdeasPrimitiveHead({
           new idea
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Slim detail back-bar — the primitive-head's younger sibling. Mounted
+ * above IdeaCanvas so the user always has a one-click return to the
+ * list. Uses the same 52px band + Cinzel treatment so switching
+ * between list and detail feels continuous; drops the scope tabs and
+ * view toggle because they have no meaning inside a single idea.
+ */
+function IdeasDetailBackBar({
+  onBack,
+  onNew,
+  showNew,
+}: {
+  onBack: () => void;
+  onNew: () => void;
+  showNew: boolean;
+}) {
+  return (
+    <div className="primitive-head primitive-head--detail">
+      <div className="primitive-head-lead">
+        <h2 className="primitive-head-heading">
+          <button
+            type="button"
+            className="primitive-head-heading-back"
+            onClick={onBack}
+            title="Back to ideas"
+            aria-label="Back to ideas"
+          >
+            <span className="primitive-head-heading-back-chevron" aria-hidden>
+              ←
+            </span>
+            Ideas
+          </button>
+        </h2>
+      </div>
+      {showNew && (
+        <div className="primitive-head-actions">
+          <button type="button" className="primitive-head-new" onClick={onNew} title="New idea (N)">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            new idea
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1305,9 +1305,11 @@
 }
 
 /* Link panel — typography-driven related-ideas section.
-   Each relation renders as a row with a fixed-width mono label on the left
-   and label-only references on the right. No chip borders, no backgrounds;
-   the dot shape differentiates relation, underline-on-hover signals link. */
+   Each relation renders as a row with a small-caps mono label on the
+   left (same editorial micro-caps as .threads-rail-group-label) and
+   label-only references on the right. No chip borders, no backgrounds;
+   the dot shape differentiates relation, underline-on-hover signals
+   link. */
 .idea-links-panel {
   width: 100%;
   margin: 28px 0 0;
@@ -1319,27 +1321,24 @@
 }
 .idea-links-row {
   display: grid;
-  grid-template-columns: 84px 1fr;
+  grid-template-columns: 92px 1fr;
   align-items: baseline;
   gap: 14px;
   font-size: 13px;
 }
-/* Marginalia label — brand-lowercase voice echoes the list-group heading
-   so the links footer reads as the same primitive, not as an
-   administrative table. Accent-tinted first letter ties it to the
-   sidebar sigil treatment. */
+/* Marginalia label — mono micro-caps matching every other editorial
+   group divider (threads-rail-group, inline-picker-group). No brand
+   font; the æqi wordmark is the only place Zen Dots appears. No
+   accent-initial treatment — that gesture is reserved for nothing. */
 .idea-links-label {
-  font-family: var(--font-brand);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   padding-top: 3px;
   user-select: none;
-}
-.idea-links-label::first-letter {
-  color: var(--accent);
 }
 .idea-links-chips {
   display: flex;

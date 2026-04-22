@@ -221,7 +221,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  /* ── Primitive head — Cinzel title + scope tabs + view toggle ── */
+  /* ── Primitive head — Cinzel title + scope tabs + view toggle ──
+     When an event is open, the heading becomes a back-link to the
+     list so there's always a one-click return from detail. */
   const scopeControl = <EventsScopeTabs scope={scope} counts={scopeCounts} onChange={setScope} />;
   const head = (
     <EventsPrimitiveHead
@@ -235,6 +237,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       onViewChange={setActiveSubTab}
       onNew={() => setShowAddForm(true)}
       scopeControl={scopeControl}
+      onBack={
+        selectedId ? () => goAgent(agentId, "events", undefined, { replace: true }) : undefined
+      }
     />
   );
   const traceAside =
@@ -645,6 +650,7 @@ function EventsPrimitiveHead({
   onViewChange,
   onNew,
   scopeControl,
+  onBack,
 }: {
   count: number;
   countLabel?: string;
@@ -652,11 +658,29 @@ function EventsPrimitiveHead({
   onViewChange: (next: SubTab) => void;
   onNew: () => void;
   scopeControl?: ReactNode;
+  onBack?: () => void;
 }) {
   return (
     <div className="primitive-head">
       <div className="primitive-head-lead">
-        <h2 className="primitive-head-heading">Events</h2>
+        {onBack ? (
+          <h2 className="primitive-head-heading">
+            <button
+              type="button"
+              className="primitive-head-heading-back"
+              onClick={onBack}
+              title="Back to events"
+              aria-label="Back to events"
+            >
+              <span className="primitive-head-heading-back-chevron" aria-hidden>
+                ←
+              </span>
+              Events
+            </button>
+          </h2>
+        ) : (
+          <h2 className="primitive-head-heading">Events</h2>
+        )}
         {scopeControl}
       </div>
       <div className="primitive-head-actions">

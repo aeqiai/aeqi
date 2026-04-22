@@ -205,7 +205,11 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-canvas);
+  /* Match the tinted frame inside .shell so the viewport edges
+     outside the 1440px max-width don't peek as a slightly darker
+     band. (.shell itself is bounded; .content-card fills its width
+     with --bg-sidebar, so the body mirror makes the seam invisible.) */
+  background: var(--bg-sidebar);
   color: var(--text-primary);
   line-height: 1.5;
 }

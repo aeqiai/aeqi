@@ -538,10 +538,10 @@
   background: var(--color-accent-bg, rgba(90, 115, 152, 0.06));
 }
 .events-addform-transport-label {
-  font-family: var(--font-brand);
+  font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 .events-addform-transport.active .events-addform-transport-label {
