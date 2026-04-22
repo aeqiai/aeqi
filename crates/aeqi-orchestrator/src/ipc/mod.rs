@@ -12,6 +12,7 @@ pub mod ideas;
 pub mod quests;
 pub mod roots;
 pub mod seed;
+pub mod session_stream;
 pub mod sessions;
 pub mod status;
 pub mod templates;

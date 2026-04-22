@@ -1930,118 +1930,16 @@ impl Daemon {
                     }
                 }
 
-                // Passive tail of an in-flight session — lets a refreshed /
-                // reconnecting client re-attach to the live ChatStream
-                // without enqueuing a new message. No persistence here; the
-                // original `session_send` (or queue-driven) handler that
-                // started the execution still owns writes to session_store.
                 "session_subscribe" => {
-                    let session_id = request_field(&request, "session_id")
-                        .unwrap_or("")
-                        .to_string();
-                    if session_id.is_empty() {
-                        serde_json::json!({"ok": false, "error": "session_id required"})
-                    } else {
-                        let is_active = ipc_ctx.execution_registry.is_active(&session_id).await;
-                        if !is_active {
-                            let done = serde_json::json!({
-                                "done": true,
-                                "type": "Complete",
-                                "session_id": session_id,
-                                "no_active_run": true,
-                            });
-                            let mut bytes = serde_json::to_vec(&done).unwrap_or_default();
-                            bytes.push(b'\n');
-                            let _ = writer.write_all(&bytes).await;
-                        } else {
-                            // Preamble: tell the client how long the run has
-                            // been going so "Thinking for Xs" can resume
-                            // from the real start, not from reconnect time.
-                            let started_ms_ago = ipc_ctx
-                                .execution_registry
-                                .started_elapsed_ms(&session_id)
-                                .await
-                                .unwrap_or(0);
-                            let preamble = serde_json::json!({
-                                "type": "Subscribed",
-                                "session_id": session_id,
-                                "started_ms_ago": started_ms_ago,
-                            });
-                            let mut pre_bytes = serde_json::to_vec(&preamble).unwrap_or_default();
-                            pre_bytes.push(b'\n');
-                            if writer.write_all(&pre_bytes).await.is_err() {
-                                return Ok(());
-                            }
-
-                            let sender = ipc_ctx.stream_registry.get_or_create(&session_id).await;
-                            // Atomic snapshot + subscribe — the shared
-                            // backlog lock ensures no event is delivered
-                            // twice or missed between the two calls.
-                            let (backlog, mut rx) = sender.snapshot_and_subscribe();
-
-                            // Replay the current turn's backlog so the
-                            // reconnected client sees every tool call /
-                            // step / token that fired before it attached.
-                            for event in backlog {
-                                if let Ok(ev_bytes) = serde_json::to_vec(&event) {
-                                    let mut bytes = ev_bytes;
-                                    bytes.push(b'\n');
-                                    if writer.write_all(&bytes).await.is_err() {
-                                        return Ok(());
-                                    }
-                                }
-                            }
-
-                            let mut completed = false;
-                            loop {
-                                match tokio::time::timeout(
-                                    std::time::Duration::from_secs(600),
-                                    rx.recv(),
-                                )
-                                .await
-                                {
-                                    Ok(Ok(event)) => {
-                                        let is_complete = matches!(
-                                            event,
-                                            aeqi_core::ChatStreamEvent::Complete { .. }
-                                        );
-                                        if let Ok(ev_bytes) = serde_json::to_vec(&event) {
-                                            let mut bytes = ev_bytes;
-                                            bytes.push(b'\n');
-                                            if writer.write_all(&bytes).await.is_err() {
-                                                break;
-                                            }
-                                        }
-                                        if is_complete {
-                                            completed = true;
-                                            break;
-                                        }
-                                    }
-                                    Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(
-                                        n,
-                                    ))) => {
-                                        warn!(
-                                            session_id = %session_id,
-                                            lagged = n, "subscribe stream lagged"
-                                        );
-                                    }
-                                    Ok(Err(_)) => break,
-                                    Err(_) => break,
-                                }
-                            }
-                            let done = serde_json::json!({
-                                "done": true,
-                                "type": "Complete",
-                                "session_id": session_id,
-                                "subscribed": true,
-                                "completed": completed,
-                            });
-                            let mut bytes = serde_json::to_vec(&done).unwrap_or_default();
-                            bytes.push(b'\n');
-                            let _ = writer.write_all(&bytes).await;
-                        }
-                        serde_json::Value::Null
-                    }
+                    let session_id = request_field(&request, "session_id").unwrap_or("");
+                    crate::ipc::session_stream::handle_subscribe(
+                        &ipc_ctx.execution_registry,
+                        &ipc_ctx.stream_registry,
+                        session_id,
+                        &mut writer,
+                    )
+                    .await?;
+                    serde_json::Value::Null
                 }
 
                 "idea_profile" => {
