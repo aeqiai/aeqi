@@ -1,19 +1,22 @@
 //! Lightweight SMTP email sender for verification codes.
 //! Uses raw SMTP over TLS via reqwest — no heavy mail crate needed.
 //!
-//! The HTML template mirrors the canonical aeqi v4 design system
-//! (Graphite + Ink). The brand wordmark is loaded from
-//! https://aeqi.ai/wordmark.svg so this fallback path looks identical
-//! to the platform's Resend-backed templates.
+//! HTML uses fully-inline styles (Gmail truncates large <style> blocks
+//! and would strip the entire layout when the embedded font pushes the
+//! block past ~16KB). Only @font-face lives in <style>; everything else
+//! is inline so it survives any client.
 
 use aeqi_core::config::SmtpConfig;
 
 /// Exo 2 (weight 600, Latin subset) embedded as a base64 woff2.
-///
-/// Gmail strips external font links but honors data-URI `@font-face`
-/// declarations, so this is the only reliable way to render the
-/// design-system display face in transactional email.
 const EXO2_600_LATIN_B64: &str = include_str!("exo2-600-latin.b64");
+
+const FONT_BODY: &str =
+    "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const FONT_DISPLAY: &str =
+    "'Exo 2','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const FONT_MONO: &str =
+    "'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace";
 
 /// Send a verification code email.
 pub async fn send_verification_email(
@@ -25,6 +28,19 @@ pub async fn send_verification_email(
     let body_text = format!(
         "Your aeqi verification code is: {code}\n\nThis code expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email."
     );
+    let heading = format!(
+        "font-family:{FONT_DISPLAY};font-weight:600;font-size:22px;letter-spacing:-0.015em;color:rgba(10,10,11,0.92);margin:0 0 8px;line-height:1.2;"
+    );
+    let lede = format!(
+        "font-family:{FONT_BODY};font-size:14px;line-height:1.55;color:rgba(10,10,11,0.54);margin:0 0 24px;"
+    );
+    let code_box = format!(
+        "font-family:{FONT_MONO};font-size:30px;font-weight:600;letter-spacing:0.18em;text-align:center;padding:22px 16px;background:#f4f4f5;border:1px solid rgba(0,0,0,0.06);border-radius:12px;color:rgba(10,10,11,0.92);margin:0 0 14px;"
+    );
+    let meta = format!(
+        "font-family:{FONT_BODY};font-size:12.5px;line-height:1.55;color:rgba(10,10,11,0.36);margin:0;"
+    );
+
     let body_html = format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -32,40 +48,24 @@ pub async fn send_verification_email(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light only">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<style>
-  @font-face {{ font-family:'Exo 2'; font-style:normal; font-weight:600; src:url(data:font/woff2;base64,{EXO2_600_LATIN_B64}) format('woff2'); }}
-  body {{ margin:0; padding:0; background:#f4f4f5; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:rgba(10,10,11,0.85); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }}
-  .wrap {{ width:100%; background:#f4f4f5; padding:48px 16px; }}
-  .container {{ max-width:480px; margin:0 auto; }}
-  .mark-row {{ text-align:center; margin:0 0 28px; }}
-  .card {{ background:#ffffff; border:1px solid rgba(0,0,0,0.06); border-radius:16px; padding:36px 32px; }}
-  .heading {{ font-family:'Exo 2','Inter',-apple-system,BlinkMacSystemFont,sans-serif; font-weight:600; font-size:22px; letter-spacing:-0.015em; color:rgba(10,10,11,0.92); margin:0 0 8px; line-height:1.2; }}
-  .lede {{ font-size:14px; line-height:1.55; color:rgba(10,10,11,0.54); margin:0 0 24px; }}
-  .code {{ font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:30px; font-weight:600; letter-spacing:0.18em; text-align:center; padding:22px 16px; background:#f4f4f5; border:1px solid rgba(0,0,0,0.06); border-radius:12px; color:rgba(10,10,11,0.92); margin:0 0 14px; }}
-  .meta {{ font-size:12.5px; line-height:1.55; color:rgba(10,10,11,0.36); margin:0; }}
-  .footer {{ text-align:center; margin:24px 0 0; font-size:11.5px; line-height:1.7; color:rgba(10,10,11,0.36); }}
-  .footer .tag {{ color:rgba(10,10,11,0.54); font-weight:500; }}
-</style>
+<style>@font-face{{font-family:'Exo 2';font-style:normal;font-weight:600;src:url(data:font/woff2;base64,{EXO2_600_LATIN_B64}) format('woff2');}}</style>
 </head>
-<body>
-<div class="wrap">
-  <div class="container">
-    <div class="mark-row">
-      <a href="https://aeqi.ai" style="text-decoration:none; line-height:0; display:inline-block;">
-        <img src="https://aeqi.ai/wordmark.png?v=2" alt="aeqi" width="80" height="24" style="display:block; border:0; outline:none; text-decoration:none;">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:{FONT_BODY};color:rgba(10,10,11,0.85);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+<div style="width:100%;background:#f4f4f5;padding:48px 16px;">
+  <div style="max-width:480px;margin:0 auto;">
+    <div style="text-align:center;margin:0 0 28px;">
+      <a href="https://aeqi.ai" style="text-decoration:none;line-height:0;display:inline-block;">
+        <img src="https://aeqi.ai/wordmark.png?v=2" alt="aeqi" width="80" height="24" style="display:block;border:0;outline:none;text-decoration:none;">
       </a>
     </div>
-    <div class="card">
-      <h1 class="heading">Verify your email</h1>
-      <p class="lede">Enter this code in your browser to finish setting up your aeqi account.</p>
-      <div class="code">{code}</div>
-      <p class="meta">Expires in 15 minutes.</p>
+    <div style="background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;padding:36px 32px;">
+      <h1 style="{heading}">Verify your email</h1>
+      <p style="{lede}">Enter this code in your browser to finish setting up your aeqi account.</p>
+      <div style="{code_box}">{code}</div>
+      <p style="{meta}">Expires in 15 minutes.</p>
     </div>
-    <div class="footer">
-      <p style="margin:0 0 4px;"><span class="tag">aeqi</span> — autonomous companies, run by agents.</p>
+    <div style="text-align:center;margin:24px 0 0;font-family:{FONT_BODY};font-size:11.5px;line-height:1.7;color:rgba(10,10,11,0.36);">
+      <p style="margin:0 0 4px;"><span style="color:rgba(10,10,11,0.54);font-weight:500;">aeqi</span> — autonomous companies, run by agents.</p>
       <p style="margin:0;">If you didn't request this, you can safely ignore this email.</p>
     </div>
   </div>
