@@ -416,28 +416,37 @@ export default function ChatComposer({
                     <span className="asv-send-label">Stop</span>
                   </button>
                 )}
-                <button
-                  className={`asv-send ${input.trim() ? "ready" : ""}`}
-                  onClick={pushHistoryAndSend}
-                  disabled={!input.trim()}
-                  title={streaming ? "Queue message" : "Send"}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
+                {/* Send button holds the primary slot when idle; during
+                    streaming it becomes Queue and is only rendered once
+                    there's actually a draft to queue. That keeps the
+                    send-stack's reserved height at one button's worth,
+                    so the composer's footer doesn't grow the moment
+                    streaming begins — CSS floats this button above Stop
+                    when both are on-screen. */}
+                {(!streaming || input.trim()) && (
+                  <button
+                    className={`asv-send ${input.trim() ? "ready" : ""}`}
+                    onClick={pushHistoryAndSend}
+                    disabled={!input.trim()}
+                    title={streaming ? "Queue message" : "Send"}
                   >
-                    <path
-                      d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span className="asv-send-label">{streaming ? "Queue" : "Send"}</span>
-                </button>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <path
+                        d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="asv-send-label">{streaming ? "Queue" : "Send"}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -1021,14 +1021,17 @@
 
 /* Scroll-fade: a gradient mask above the floating composer so the last
    few lines of thread text dissolve into paper as they pass behind the
-   card. Sits between the scroll content (z:0) and the composer (z:2). */
+   card. Sits between the scroll content (z:0) and the composer (z:2).
+   Height tracks --composer-height (published by ComposerRow's
+   ResizeObserver) so the fade and the card expand together when the
+   draft grows into multiple lines. */
 .content-main-col:has(.composer-row)::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 160px;
+  height: calc(var(--composer-height, 140px) + 40px);
   pointer-events: none;
   background: linear-gradient(to bottom, transparent 0%, var(--color-card) 72%);
   z-index: 1;

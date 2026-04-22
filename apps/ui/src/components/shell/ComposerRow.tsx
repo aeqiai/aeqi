@@ -134,8 +134,30 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     return () => window.removeEventListener("aeqi:focus-composer", handler);
   }, []);
 
+  // Publish the composer's live height as --composer-height on the enclosing
+  // .content-main-col so the thread's bottom padding and scroll-fade grow
+  // with the card. Without this, typing a multi-line draft would push the
+  // last message underneath the expanding composer.
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const col = el.closest<HTMLElement>(".content-main-col");
+    if (!col) return;
+    const apply = () => {
+      col.style.setProperty("--composer-height", `${Math.ceil(el.offsetHeight)}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      col.style.removeProperty("--composer-height");
+    };
+  }, []);
+
   return (
-    <div className="composer-row">
+    <div className="composer-row" ref={rowRef}>
       <div className="composer-wrap">
         <div className="persistent-composer">
           <ChatComposer
