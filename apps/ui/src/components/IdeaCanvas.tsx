@@ -363,9 +363,6 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
         <div className="ideas-canvas-decision-bar">
           <div className="ideas-canvas-decision-head">
             <span className="ideas-canvas-decision-kind">Candidate skill</span>
-            <span className="ideas-canvas-decision-copy">
-              Promote into the agent&rsquo;s skill set or reject with rationale.
-            </span>
             <div className="ideas-canvas-decision-actions">
               <Button
                 variant="primary"

@@ -3184,6 +3184,11 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  /* Keep keyboard-focused rows below the sticky group header instead of
+     being pinned right under it — the ::before rail reads cleaner with a
+     visible gap to the heading rule above. */
+  scroll-margin-top: 48px;
+  scroll-margin-bottom: 16px;
   transition:
     background 0.12s ease,
     color 0.12s ease;

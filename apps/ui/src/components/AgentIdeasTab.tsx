@@ -429,6 +429,7 @@ function IdeasPicker({
   const [scope, setScope] = useState<IdeasScope>("all");
   const [tag, setTag] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const scopeCounts = useMemo(() => {
     let mine = 0;
@@ -572,6 +573,11 @@ function IdeasPicker({
                 } else if (e.key === "Enter" && filtered.length > 0) {
                   e.preventDefault();
                   goAgent(agentId, "ideas", filtered[0].id);
+                } else if (e.key === "ArrowDown" && filtered.length > 0) {
+                  // Hand off to the first row so ↓ walks the list without
+                  // the user having to reach for the mouse.
+                  e.preventDefault();
+                  rowRefs.current[0]?.focus();
                 }
               }}
             />
@@ -671,48 +677,77 @@ function IdeasPicker({
             </div>
           )
         ) : (
-          grouped.map(([groupTag, items]) => (
-            <section key={groupTag} className="ideas-list-group">
-              <div className="inline-picker-group">
-                <span className="inline-picker-group-label">{groupTag}</span>
-                <span className="inline-picker-group-rule" />
-                <span className="inline-picker-group-count">{items.length}</span>
-              </div>
-              {items.map((idea) => {
-                const snippet = snippetFor(idea.content, search);
-                const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
-                const extraTags = (idea.tags?.length ?? 0) - 1;
-                return (
-                  <button
-                    key={idea.id}
-                    type="button"
-                    className="ideas-list-row"
-                    onClick={() => goAgent(agentId, "ideas", idea.id)}
-                  >
-                    <div className="ideas-list-row-head">
-                      <span className="ideas-list-row-name">
-                        {highlightMatches(idea.name, search)}
-                      </span>
-                      {idea.agent_id == null && (
-                        <span className="ideas-list-row-scope">Global</span>
-                      )}
-                      {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
-                      {wordCount > 0 && (
-                        <span className="ideas-list-row-words" aria-hidden>
-                          {wordCount}w
+          (() => {
+            // Reset the row-ref registry for this render so ↑/↓ walk the
+            // current filtered order; row indices are assigned flat across
+            // group boundaries so keyboard traversal ignores grouping.
+            rowRefs.current = [];
+            let flatIndex = -1;
+            return grouped.map(([groupTag, items]) => (
+              <section key={groupTag} className="ideas-list-group">
+                <div className="inline-picker-group">
+                  <span className="inline-picker-group-label">{groupTag}</span>
+                  <span className="inline-picker-group-rule" />
+                  <span className="inline-picker-group-count">{items.length}</span>
+                </div>
+                {items.map((idea) => {
+                  const snippet = snippetFor(idea.content, search);
+                  const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
+                  const extraTags = (idea.tags?.length ?? 0) - 1;
+                  flatIndex += 1;
+                  const myIndex = flatIndex;
+                  return (
+                    <button
+                      key={idea.id}
+                      ref={(el) => {
+                        rowRefs.current[myIndex] = el;
+                      }}
+                      type="button"
+                      className="ideas-list-row"
+                      onClick={() => goAgent(agentId, "ideas", idea.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          const next = rowRefs.current[myIndex + 1];
+                          if (next) next.focus();
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          if (myIndex === 0) {
+                            searchRef.current?.focus();
+                          } else {
+                            rowRefs.current[myIndex - 1]?.focus();
+                          }
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          searchRef.current?.focus();
+                        }
+                      }}
+                    >
+                      <div className="ideas-list-row-head">
+                        <span className="ideas-list-row-name">
+                          {highlightMatches(idea.name, search)}
                         </span>
-                      )}
-                    </div>
-                    {snippet && (
-                      <div className="ideas-list-row-snippet">
-                        {highlightMatches(snippet, search)}
+                        {idea.agent_id == null && (
+                          <span className="ideas-list-row-scope">Global</span>
+                        )}
+                        {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
+                        {wordCount > 0 && (
+                          <span className="ideas-list-row-words" aria-hidden>
+                            {wordCount}w
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </button>
-                );
-              })}
-            </section>
-          ))
+                      {snippet && (
+                        <div className="ideas-list-row-snippet">
+                          {highlightMatches(snippet, search)}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </section>
+            ));
+          })()
         )}
       </div>
     </div>
