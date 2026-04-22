@@ -47,7 +47,7 @@ pub async fn send_verification_email(
   <div class="container">
     <div class="mark-row">
       <a href="https://aeqi.ai" style="text-decoration:none; line-height:0; display:inline-block;">
-        <img src="https://aeqi.ai/wordmark.svg" alt="aeqi" width="72" height="22" style="display:block; border:0; outline:none; text-decoration:none;">
+        <img src="https://aeqi.ai/wordmark.png?v=2" alt="aeqi" width="80" height="24" style="display:block; border:0; outline:none; text-decoration:none;">
       </a>
     </div>
     <div class="card">
