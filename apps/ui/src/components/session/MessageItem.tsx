@@ -125,7 +125,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <IconButton
       variant="ghost"
-      size="sm"
+      size="xs"
       className="asv-copy"
       onClick={handleCopy}
       aria-label={copied ? "Copied" : "Copy message"}
@@ -483,66 +483,71 @@ const MessageItem = memo(function MessageItem({
             )}
           </div>
         )}
-        {msg.role === "assistant" && msg.content.trim().length > 0 && (
-          <div className="asv-msg-actions">
-            <CopyButton text={msg.content} />
-            {msg.messageId && onFork && (
-              <IconButton
-                variant="ghost"
-                size="sm"
-                className="asv-msg-action-btn"
-                onClick={() => onFork(msg.messageId!)}
-                aria-label="Fork from here"
-                title="Fork from here"
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                >
-                  <circle cx="4" cy="4" r="1.5" />
-                  <circle cx="12" cy="4" r="1.5" />
-                  <circle cx="4" cy="12" r="1.5" />
-                  <path d="M4 5.5V10.5M5.5 4H10.5" />
-                </svg>
-              </IconButton>
+        {(metaParts.length > 0 ||
+          (msg.content.trim().length > 0 && (msg.role === "assistant" || msg.role === "user"))) && (
+          <div className="asv-msg-chrome">
+            {metaParts.length > 0 && (
+              <div className="asv-msg-chrome-meta">
+                {metaParts.map((part, idx) => (
+                  <span key={idx}>{part}</span>
+                ))}
+              </div>
             )}
-          </div>
-        )}
-        {msg.role === "user" && msg.content.trim().length > 0 && (
-          <div className="asv-msg-actions">
-            <CopyButton text={msg.content} />
-            {msg.messageId && onEdit && (
-              <IconButton
-                variant="ghost"
-                size="sm"
-                className="asv-msg-action-btn"
-                onClick={() => onEdit(msg.messageId!, msg.content)}
-                aria-label="Edit and resend"
-                title="Edit and resend (forks the session)"
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M11.5 1.8l2.7 2.7-8.5 8.5L2 14l1-3.7 8.5-8.5z" />
-                  <path d="M10.2 3.1l2.7 2.7" />
-                </svg>
-              </IconButton>
+            {msg.role === "assistant" && msg.content.trim().length > 0 && (
+              <div className="asv-msg-chrome-actions">
+                <CopyButton text={msg.content} />
+                {msg.messageId && onFork && (
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    className="asv-msg-action-btn"
+                    onClick={() => onFork(msg.messageId!)}
+                    aria-label="Fork from here"
+                    title="Fork from here"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="4" cy="4" r="1.5" />
+                      <circle cx="12" cy="4" r="1.5" />
+                      <circle cx="4" cy="12" r="1.5" />
+                      <path d="M4 5.5V10.5M5.5 4H10.5" />
+                    </svg>
+                  </IconButton>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        {metaParts.length > 0 && (
-          <div className="asv-msg-footer">
-            {metaParts.map((part, idx) => (
-              <span key={idx}>{part}</span>
-            ))}
+            {msg.role === "user" && msg.content.trim().length > 0 && (
+              <div className="asv-msg-chrome-actions">
+                <CopyButton text={msg.content} />
+                {msg.messageId && onEdit && (
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    className="asv-msg-action-btn"
+                    onClick={() => onEdit(msg.messageId!, msg.content)}
+                    aria-label="Edit and resend"
+                    title="Edit and resend (forks the session)"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M11.5 1.8l2.7 2.7-8.5 8.5L2 14l1-3.7 8.5-8.5z" />
+                      <path d="M10.2 3.1l2.7 2.7" />
+                    </svg>
+                  </IconButton>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

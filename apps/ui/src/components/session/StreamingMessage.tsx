@@ -134,10 +134,12 @@ export default function StreamingMessage({
         ) : null}
         {final.length > 0 && <SegmentRenderer segments={final} live />}
         {thinkingStart && (
-          <div className="asv-msg-footer">
-            <span>{formatTime(thinkingStart)}</span>
-            {!showTrailBox && <ThinkingTimer start={thinkingStart} />}
-            {liveStepCount > 0 && <span>{formatStepCount(liveStepCount)}</span>}
+          <div className="asv-msg-chrome">
+            <div className="asv-msg-chrome-meta">
+              <span>{formatTime(thinkingStart)}</span>
+              {!showTrailBox && <ThinkingTimer start={thinkingStart} />}
+              {liveStepCount > 0 && <span>{formatStepCount(liveStepCount)}</span>}
+            </div>
           </div>
         )}
       </div>
