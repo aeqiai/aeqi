@@ -344,15 +344,23 @@ export default function AppLayout() {
           </div>
         </div>
         <div className="shell-legal" role="contentinfo">
-          By using aeqi you agree to our{" "}
-          <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
-            privacy policy
-          </a>{" "}
-          and{" "}
-          <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
-            terms of service
-          </a>
-          .
+          <div className="shell-legal-left">
+            <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer noopener">
+              Documentation
+            </a>
+          </div>
+          <div className="shell-legal-center">
+            By using aeqi you agree to our{" "}
+            <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+              privacy policy
+            </a>{" "}
+            and{" "}
+            <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+              terms of service
+            </a>
+            .
+          </div>
+          <div className="shell-legal-right">© 2026 aeqi</div>
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

@@ -19,23 +19,38 @@
 }
 
 /* ── Legal footer strip ──
-   Single quiet line across the shell's bottom edge — TOS + privacy
-   pointers. Its height is what gives the content-card and the
-   sidebar-profile their shared lift off the viewport. Keep it whisper-
-   quiet so it never competes with the app surface above. */
+   Three-part distributed row across the shell's bottom edge: Docs
+   pointer (left) · TOS + privacy (center) · copyright (right). The
+   strip's height is what gives the content-card and the sidebar-
+   profile their shared lift off the viewport. Whisper-quiet so it
+   never competes with the app surface above — the goal is presence,
+   not attention. */
 .shell-legal {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  gap: 16px;
   padding: 10px 16px 12px;
   background: var(--bg-sidebar);
   color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 0.005em;
   line-height: 1.4;
+}
+.shell-legal-left,
+.shell-legal-right {
+  flex-shrink: 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+.shell-legal-center {
+  flex: 1;
+  min-width: 0;
   text-align: center;
+}
+.shell-legal-right {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .shell-legal a {
   color: var(--text-secondary);
@@ -2531,6 +2546,14 @@
   }
   .shell-legal {
     padding: 8px 12px 10px;
+    gap: 8px;
+  }
+  /* On narrow viewports the three-part row collapses — keep only the
+     center sentence (TOS + privacy) since that's the load-bearing
+     legal piece. Docs + copyright reappear at >=640px. */
+  .shell-legal-left,
+  .shell-legal-right {
+    display: none;
   }
 
   .left-sidebar {
