@@ -352,7 +352,6 @@ function SubAgentForm({
                   onClick={() => setTemplate(t.slug)}
                   title={t.description || t.name}
                 >
-                  <span className="cam-template-card-dot" />
                   <span className="cam-template-card-name">{t.name}</span>
                 </button>
               );

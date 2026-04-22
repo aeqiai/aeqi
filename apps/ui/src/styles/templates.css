@@ -334,9 +334,9 @@
 }
 .tpl-error {
   font-size: 12px;
-  color: var(--warning);
-  background: rgba(245, 158, 11, 0.06);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-md);
   padding: 8px 12px;
   margin-bottom: 16px;
@@ -473,7 +473,7 @@
   justify-content: center;
   border-radius: var(--radius-md);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--btn-primary-text);
   flex-shrink: 0;
 }
 .tpl-promo-body {

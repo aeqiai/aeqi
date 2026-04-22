@@ -88,13 +88,13 @@
 .new-co-avatar-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: color-mix(in oklab, var(--color-text-title) 45%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--color-card);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-fast);
 }
 .new-co-avatar:hover .new-co-avatar-overlay {
   opacity: 1;
@@ -165,10 +165,10 @@
 }
 .new-co-kbd {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-xs);
+  background: color-mix(in oklab, currentColor 18%, transparent);
   font-weight: 400;
 }
 
@@ -199,11 +199,11 @@
   margin: 0 0 8px;
 }
 .new-sub-title {
-  font-family: var(--font-serif, var(--font-sans));
-  font-size: 26px;
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: 500;
   letter-spacing: -0.01em;
-  color: var(--text-primary);
+  color: var(--color-text-title);
   margin: 0 0 8px;
   line-height: 1.2;
 }
@@ -264,15 +264,15 @@
 .new-sub-textarea {
   width: 100%;
   padding: 10px 12px;
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   line-height: 1.5;
-  color: var(--text-primary);
-  background: var(--bg-overlay, transparent);
-  border: 1px solid var(--border);
+  color: var(--color-text-primary);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   resize: vertical;
-  transition: border-color 0.1s ease;
+  transition: border-color var(--transition-fast);
 }
 .new-sub-textarea::placeholder {
   color: var(--text-muted);
@@ -294,14 +294,18 @@
 }
 .new-sub-cancel {
   flex-shrink: 0;
-  padding: 10px 16px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  height: var(--input-h);
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 .new-sub-cancel:hover {
   color: var(--text-primary);

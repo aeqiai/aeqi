@@ -190,7 +190,7 @@
 
 .cam-template-card:hover {
   border-color: var(--border-hover);
-  background: var(--bg-elevated, var(--bg-surface));
+  background: var(--bg-elevated);
 }
 
 .cam-template-card:active {
@@ -198,22 +198,9 @@
 }
 
 .cam-template-card.is-active {
-  border-color: var(--accent, var(--border-hover));
-  background: var(--bg-elevated, var(--bg-surface));
-  box-shadow: 0 0 0 1px var(--accent, var(--border-hover)) inset;
-}
-
-.cam-template-card-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex: 0 0 auto;
-  transition: background-color var(--transition-fast);
-}
-
-.cam-template-card.is-active .cam-template-card-dot {
-  background: var(--success, var(--accent));
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--accent) inset;
 }
 
 .cam-template-card-name {
@@ -235,7 +222,7 @@
   background: linear-gradient(
     90deg,
     var(--bg-surface) 0%,
-    var(--bg-elevated, var(--bg-surface)) 50%,
+    var(--bg-elevated) 50%,
     var(--bg-surface) 100%
   );
   background-size: 200% 100%;
