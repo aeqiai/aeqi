@@ -12,42 +12,40 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Three-tier surface system — neutral paper layered by value.
-       canvas  — outside the card (the "desk")        — one step off paper
-       paper   — the main content pane                — primary surface
-       card    — raised cards / rails / alternating   — elevated surface
-     Each tier lifts the next — the radiused card floats off the desk and
-     the rail reads as a separate document inside it. In v3 light mode
-     "paper" is both the semantic name and the literal neutral color. */
-  --color-canvas: var(--color-bg-base); /* #f1f1ee — the desk */
-  --bg-base: var(--color-paper); /* #f7f7f4 — panels/inputs/modals */
-  --bg-surface: var(--color-bg-surface);
-  --bg-elevated: var(--color-card); /* #ffffff — overlays (palette, modals, drawer hover) */
-  --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #f1f1ee — outside the card */
+  /* Three-tier surface system (see @aeqi/tokens for the canonical ramp):
+       card   — raised white (the "document")        — primary reading surface
+       paper  — the main off-white backdrop          — sidebar, shell, body bg
+       slab   — recessed pane INSIDE the white card  — kanban lanes, composer well
+     Every pane picks one of these three. The older tokens below
+     (--bg-canvas, --bg-sidebar, --bg-row, --ink-bg …) all resolve to
+     one of those three tiers — kept as aliases because the codebase
+     references them everywhere. New code should reach for
+     --color-card / --color-paper / --color-slab directly. */
+  --color-canvas: var(--color-slab); /* inside-card recessed slab */
+  --bg-base: var(--color-paper); /* panels/inputs/modals sit on paper */
+  --bg-surface: var(--color-paper);
+  --bg-elevated: var(--color-card); /* raised white — overlays, popovers */
+  --bg-overlay: var(--color-card);
+  --bg-canvas: var(--color-slab); /* recessed slab inside the card */
 
-  /* Sidebar tint — a single subtle value step below the white content
-     so the sidebar reads as its own surface under a hairline divider.
-     No floating, no rounding — the shell is architectural. */
-  --bg-sidebar: #f7f7f5;
+  /* Sidebar tint — paper. The sidebar sits on the same off-white as the
+     rest of the shell edge so the viewport → sidebar → content-card
+     frame reads as one continuous paper surface; the white
+     .content-paper sheet floats off it with rounded top corners. */
+  --bg-sidebar: var(--color-paper);
 
   /* In-card raised row/chip tint. The main content card is white
      (the "document"); items inside that need to stand out go subtly
      DARKER (paper tint) — the inverse of dark-mode intuition. Used
-     for zebra rows, hover surfaces, chips on the white card. Modals
-     and overlays (which sit on paper) keep using --bg-elevated for
-     their white lift. */
-  --bg-row: var(--color-paper); /* #f7f7f4 */
+     for zebra rows, hover surfaces, chips on the white card. */
+  --bg-row: var(--color-paper);
 
   /* Well surface aliases — the recessed / inset surface used by the
-     composer and other sunken panes. In v3 light mode the well is a
-     sunken neutral one shade darker than paper — not a dark inverse
-     palette. Text inside the well uses the main ink-* scale; the
-     well's contrast comes from its surface, not bespoke text tokens.
-
-     The --ink-* alias names are kept because every sunken-surface
-     selector in the codebase uses them; they now point at --color-well-*
-     for surfaces and --color-ink-* for text. */
+     composer and other sunken panes. Now resolves to --color-slab
+     (one step darker than paper). Text inside the well uses the main
+     ink-* scale; contrast comes from the surface step, not bespoke
+     text tokens. Kept as aliases because every sunken-surface selector
+     in the codebase uses these names. */
   --ink-bg: var(--color-well-bg);
   --ink-bg-elevated: var(--color-well-elevated);
   --ink-border: var(--color-well-border);
@@ -201,11 +199,12 @@
 
 html {
   font-size: var(--font-size-lg);
+  background: var(--color-paper);
 }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-canvas);
+  background: var(--color-paper);
   color: var(--text-primary);
   line-height: 1.5;
 }

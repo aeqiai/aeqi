@@ -361,7 +361,7 @@
 /* Code blocks — with header */
 .asv-codeblock {
   margin: 10px 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--texture-glass-border);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -413,7 +413,7 @@
 /* Fallback for code blocks without language class */
 .asv-msg-assistant .asv-msg-content pre {
   background: var(--elevation-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--texture-glass-border);
   padding: 14px 16px;
   border-radius: var(--radius-md);
   overflow-x: auto;
@@ -622,7 +622,7 @@
   gap: var(--space-2);
   margin: 12px 0 8px;
   font-family: var(--font-mono);
-  font-size: var(--section-label-size);
+  font-size: var(--section-label-size, 0.6875rem);
   color: var(--section-label-color);
   line-height: 1;
   letter-spacing: 0.06em;
@@ -1486,7 +1486,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 10px 0 6px;
-  font-size: var(--section-label-size);
+  font-size: var(--section-label-size, 0.6875rem);
   font-weight: 600;
   color: var(--section-label-color);
   text-transform: uppercase;
@@ -1584,7 +1584,7 @@
   padding: 7px 8px;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--border-faint);
+  border-top: 1px solid var(--border-faint, rgba(0, 0, 0, 0.04));
   color: inherit;
   font: inherit;
   font-size: var(--font-size-xs);
@@ -1626,8 +1626,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg);
-  border: 1px solid var(--key-pill-border);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;
@@ -1650,8 +1650,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg);
-  border: 1px solid var(--key-pill-border);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;
@@ -1681,7 +1681,7 @@
 
 .dash-activity-group-label {
   padding: 10px 8px 6px;
-  font-size: var(--section-label-size);
+  font-size: var(--section-label-size, 0.6875rem);
   font-weight: 600;
   color: var(--section-label-color);
   text-transform: uppercase;
@@ -1742,8 +1742,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg);
-  border: 1px solid var(--key-pill-border);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;

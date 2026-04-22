@@ -1324,22 +1324,17 @@
   gap: 14px;
   font-size: 13px;
 }
-/* Marginalia label — brand-lowercase voice echoes the list-group heading
-   so the links footer reads as the same primitive, not as an
-   administrative table. Accent-tinted first letter ties it to the
-   sidebar sigil treatment. */
+/* Marginalia label — quiet section-label treatment to match the rest
+   of the app. Sans micro-caps, reads as metadata, not as a heading. */
 .idea-links-label {
-  font-family: var(--font-brand);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--section-label-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--section-label-color, rgba(0, 0, 0, 0.42));
   padding-top: 3px;
   user-select: none;
-}
-.idea-links-label::first-letter {
-  color: var(--accent);
 }
 .idea-links-chips {
   display: flex;

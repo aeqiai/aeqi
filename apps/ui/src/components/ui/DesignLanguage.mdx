@@ -172,7 +172,11 @@ full-bleed washes:
     { status: "Error", token: "--color-error", usage: "Failed, validation errors (oxide red)" },
     { status: "Warning", token: "--color-warning", usage: "Blocked, degraded (muted amber)" },
     { status: "Info", token: "--color-info", usage: "In progress, informational (steel)" },
-    { status: "Accent", token: "--color-accent", usage: "Wordmark, primary CTA, links, focus (steel blue)" },
+    {
+      status: "Accent",
+      token: "--color-accent",
+      usage: "Wordmark, primary CTA, links, focus (steel blue)",
+    },
   ]}
 />
 
@@ -269,12 +273,12 @@ stylesheet.
 
 ## Sources of truth
 
-| Artifact                                                    | Role                                                                        |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `packages/tokens/src/tokens.css`                            | **Values**: colors, fonts, spacing, radii, shadows, motion. The one source. |
-| `packages/tokens/src/tokens.ts`                             | TypeScript mirror of tokens.css — for canvas/chart/JS consumers.            |
-| `apps/ui/src/styles/primitives.css`                         | Dashboard aliases + dashboard-only tokens (input-h, sidebar, etc).          |
-| `apps/ui/src/components/ui/`                                | The 18 primitives + Storybook stories — the component API.                  |
-| This doc                                                    | **Rules**: how to use, when to use which primitive, what not to do.         |
-| `/brand` on aeqi.ai                                         | Public brand reference — palette, typography, downloads.                    |
-| `apps/ui/.impeccable.md`                                    | AI context file — design philosophy + pointer to this doc.                  |
+| Artifact                            | Role                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| `packages/tokens/src/tokens.css`    | **Values**: colors, fonts, spacing, radii, shadows, motion. The one source. |
+| `packages/tokens/src/tokens.ts`     | TypeScript mirror of tokens.css — for canvas/chart/JS consumers.            |
+| `apps/ui/src/styles/primitives.css` | Dashboard aliases + dashboard-only tokens (input-h, sidebar, etc).          |
+| `apps/ui/src/components/ui/`        | The 18 primitives + Storybook stories — the component API.                  |
+| This doc                            | **Rules**: how to use, when to use which primitive, what not to do.         |
+| `/brand` on aeqi.ai                 | Public brand reference — palette, typography, downloads.                    |
+| `apps/ui/.impeccable.md`            | AI context file — design philosophy + pointer to this doc.                  |

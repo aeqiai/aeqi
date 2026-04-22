@@ -11,7 +11,7 @@ export default function BootLoader() {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "100vh",
-        background: "var(--bg-elevated, #f7f7f4)",
+        background: "var(--color-paper, #f5f5f7)",
       }}
     >
       <span

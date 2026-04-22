@@ -10,33 +10,44 @@
  */
 
 export const color = {
-  bg: {
-    base: "#f1f1ee", // page background — one step darker than paper
-    surface: "#f7f7f4", // main surface — neutral paper
-    elevated: "#ffffff", // raised — modals, popovers, cards
-    overlay: "#ffffff", // highest — tooltips, floating menus
-  },
-
-  // Semantic surface aliases used across landing + dashboard
-  paper: "#f7f7f4",
+  // Surface ramp — mirrors tokens.css. Tinted toward the steel accent hue
+  // (oklch chroma ~0.005 @ 260°) for subliminal brand cohesion. Canonical
+  // names are card / paper / slab / slabElevated. The `bg` block preserves
+  // legacy aliases (bg.base → slab, bg.surface → paper, bg.elevated → card).
   card: "#ffffff",
   sectionAlt: "#ffffff",
+  paper: "oklch(0.97 0.004 260)",
+  slab: "oklch(0.955 0.005 260)",
+  slabElevated: "oklch(0.965 0.004 260)",
+  slabBorder: "rgba(0, 0, 0, 0.06)",
+  slabBorderHover: "rgba(0, 0, 0, 0.1)",
+  slabBorderFocus: "rgba(90, 115, 152, 0.45)",
 
-  text: {
-    title: "rgba(0, 0, 0, 0.9)", // titles, mastheads
-    primary: "rgba(0, 0, 0, 0.85)", // body copy
-    secondary: "rgba(0, 0, 0, 0.45)", // lead, captions
-    muted: "rgba(0, 0, 0, 0.25)", // eyebrows, section marks
-    disabled: "rgba(0, 0, 0, 0.18)",
+  bg: {
+    base: "oklch(0.955 0.005 260)", // alias of slab — was standalone #f1f1ee
+    surface: "oklch(0.97 0.004 260)", // alias of paper
+    elevated: "#ffffff", // alias of card
+    overlay: "#ffffff", // tooltips, floating menus
   },
 
-  // Ink scale — alias of text, reads more naturally in ink-on-paper context
+  // Ink / text — the ink-on-paper scale. Tinted toward the steel hue
+  // (chroma 0.015 @ 260°) so near-black carries a whisper of brand.
+  // text.* and ink.* are aliases; pick the one that reads naturally.
+  text: {
+    title: "oklch(0.2 0.015 260 / 0.9)",
+    primary: "oklch(0.2 0.015 260 / 0.85)",
+    secondary: "oklch(0.2 0.015 260 / 0.45)",
+    muted: "oklch(0.2 0.015 260 / 0.25)",
+    disabled: "oklch(0.2 0.015 260 / 0.18)",
+  },
+
   ink: {
-    primary: "rgba(0, 0, 0, 0.9)",
-    text: "rgba(0, 0, 0, 0.85)",
-    secondary: "rgba(0, 0, 0, 0.45)",
-    muted: "rgba(0, 0, 0, 0.25)",
-    disabled: "rgba(0, 0, 0, 0.18)",
+    base: "oklch(0.2 0.015 260)",
+    primary: "oklch(0.2 0.015 260 / 0.9)",
+    text: "oklch(0.2 0.015 260 / 0.85)",
+    secondary: "oklch(0.2 0.015 260 / 0.45)",
+    muted: "oklch(0.2 0.015 260 / 0.25)",
+    disabled: "oklch(0.2 0.015 260 / 0.18)",
   },
 
   // Accent — steel blue. The one brand color. Used sparingly (~5%).
@@ -232,7 +243,8 @@ export const interaction = {
     lift: "-1px",
     bg: "rgba(0, 0, 0, 0.03)",
   },
-  focusRing: "0 0 0 2px #f7f7f4, 0 0 0 4px rgba(90, 115, 152, 0.2)",
+  focusRing:
+    "0 0 0 2px oklch(0.97 0.004 260), 0 0 0 4px rgba(90, 115, 152, 0.2)",
   activeScale: 0.98,
 } as const;
 
