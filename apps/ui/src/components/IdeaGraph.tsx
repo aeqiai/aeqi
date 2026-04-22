@@ -54,10 +54,10 @@ function loadPalette(): Palette {
     ink: readToken("--color-ink-text", "rgba(0,0,0,0.85)"),
     inkSoft: readToken("--color-ink-secondary", "rgba(0,0,0,0.45)"),
     inkDim: readToken("--color-ink-muted", "rgba(0,0,0,0.25)"),
-    paper: readToken("--color-paper", "#f7f7f4"),
+    paper: readToken("--color-paper", "#f4f4f5"),
     border: readToken("--color-border", "rgba(0,0,0,0.06)"),
-    accent: readToken("--color-accent", "#5a7398"),
-    accentSoft: readToken("--color-accent-dim", "#7b92b4"),
+    accent: readToken("--color-accent", "#0a0a0b"),
+    accentSoft: readToken("--color-accent-dim", "#52525b"),
   };
 }
 

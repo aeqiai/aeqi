@@ -1,23 +1,24 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  AEQI Design Language — v3 (Neutral Paper + Steel Blue)
+ *  AEQI Design Language — v4 (Graphite + Ink)
  *  ──────────────────────────────────────────────────
- *  Cool neutral paper, flat white card, near-black ink,
- *  one steel-blue accent. The interface reads as a
- *  precise workbench: institutional, calm, intelligent —
- *  Bloomberg × Palantir × protocol-layer register.
+ *  Neutral greys, flat white card, near-black ink,
+ *  black-as-accent. The interface reads as a precision
+ *  tool: Linear × Things × Vercel — trust through
+ *  restraint, not through a brand colour.
  *
  *  Ratio rule — hold these or it goes generic:
- *    ~65%  neutral paper + white card surfaces
- *    ~30%  ink body copy (black at 18–90% alpha)
- *    ~5%   steel-blue accent (CTAs, active nav, focus, selected, wordmark)
+ *    ~70%  neutral grey + white card surfaces
+ *    ~28%  ink body copy (black at 18–92% alpha)
+ *    ~2%   near-black accent (primary CTA, focus, active nav, selected)
  *
  *  Jade is reserved for the success semantic (completed quests, resolved
  *  events) so brand and status signal read visually distinct.
  *
  *  Avoid:
- *    - pure-black ink everywhere (too harsh, kills the neutral paper)
- *    - royal blue / navy / saturated cyan (too corporate-SaaS)
- *    - glossy blue gradients everywhere (fake-enterprise)
+ *    - hueish greys (warm cream, cool steel-blue tints) — keeps the
+ *      neutral clean so everything else can speak
+ *    - saturated accent colours (blues, purples, cyans)
+ *    - gradients, glass, glow effects as decoration
  *    - success = accent everywhere (muddies both)
  *
  *  @aeqi/tokens — single source of truth.
@@ -26,13 +27,13 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Surface ramp — four tiers, all tinted toward the steel-blue accent
-     hue (oklch chroma 0.004–0.005 @ 260°) so every pane inherits a
-     subliminal cohesion with the brand. No warm cream, no editorial
-     softness. The ramp, lightest to most recessed:
+  /* Surface ramp — four tiers, all PURE NEUTRAL (zero chroma). The eye
+     shouldn't read any hue off a surface; every pane is a cleaner grey
+     than the last, which gives the interface its trust-through-restraint
+     register. The ramp, lightest to most recessed:
 
        card     — raised white, the primary reading surface.
-       paper    — the main off-white backdrop. Sidebar, shell edges,
+       paper    — the main light-grey backdrop. Sidebar, shell edges,
                   body bg, secondary panes. Everything outside the
                   white card sits on paper.
        slab     — one step darker than paper. Recessed panes INSIDE
@@ -44,21 +45,21 @@
      into separate tiers even though they sat 1 RGB unit apart. Those
      back-compat aliases still resolve (to slab) so existing code works,
      but new code should reach for --color-card / --color-paper /
-     --color-slab / --color-slab-elevated.  */
+     --color-slab / --color-slab-elevated. */
 
   /* Tier 1: raised white */
   --color-card: #ffffff;
   --color-section-alt: #ffffff;
 
-  /* Tier 2: paper — main off-white surface, cool, steel-tinted */
-  --color-paper: oklch(0.97 0.004 260);
+  /* Tier 2: paper — main neutral-grey surface, no hue */
+  --color-paper: #f4f4f5;
 
   /* Tier 3: slab — recessed pane inside the white card */
-  --color-slab: oklch(0.955 0.005 260);
-  --color-slab-elevated: oklch(0.965 0.004 260); /* hover inside slab */
+  --color-slab: #efeff1;
+  --color-slab-elevated: #f2f2f4; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
-  --color-slab-border-hover: rgba(0, 0, 0, 0.1);
-  --color-slab-border-focus: rgba(90, 115, 152, 0.45);
+  --color-slab-border-hover: rgba(0, 0, 0, 0.12);
+  --color-slab-border-focus: rgba(0, 0, 0, 0.3);
 
   /* Back-compat aliases — every older selector references one of these
      names. They continue to resolve correctly; new code should prefer
@@ -73,18 +74,18 @@
   --color-well-border-hover: var(--color-slab-border-hover);
   --color-well-border-focus: var(--color-slab-border-focus);
 
-  /* Ink / Text — the ink-on-paper scale, tinted toward the steel hue
-     (chroma 0.015 @ 260°) so the near-black carries a whisper of the
-     brand without reading blue. 90/85/45/25/18 covers titles, body,
-     secondary, marginalia, and disabled.
+  /* Ink / Text — the ink-on-paper scale, PURE NEUTRAL (zero chroma).
+     The near-black reads as charcoal, not blue-black or warm-black.
+     92/85/54/36/22 covers titles, body, secondary, marginalia, and
+     disabled.
      --color-text-* are the canonical code-facing aliases; --color-ink-*
      mirror them so new code reads naturally (ink-on-paper). */
-  --color-ink: oklch(0.2 0.015 260); /* near-black reference */
-  --color-ink-primary: oklch(0.2 0.015 260 / 0.9); /* titles */
-  --color-ink-text: oklch(0.2 0.015 260 / 0.85); /* body */
-  --color-ink-secondary: oklch(0.2 0.015 260 / 0.45); /* lead, captions */
-  --color-ink-muted: oklch(0.2 0.015 260 / 0.25); /* eyebrows */
-  --color-ink-disabled: oklch(0.2 0.015 260 / 0.18); /* disabled */
+  --color-ink: #0a0a0b; /* near-black reference */
+  --color-ink-primary: rgba(10, 10, 11, 0.92); /* titles */
+  --color-ink-text: rgba(10, 10, 11, 0.85); /* body */
+  --color-ink-secondary: rgba(10, 10, 11, 0.54); /* lead, captions */
+  --color-ink-muted: rgba(10, 10, 11, 0.36); /* eyebrows */
+  --color-ink-disabled: rgba(10, 10, 11, 0.22); /* disabled */
 
   --color-text-title: var(--color-ink-primary);
   --color-text-primary: var(--color-ink-text);
@@ -92,24 +93,24 @@
   --color-text-muted: var(--color-ink-muted);
   --color-text-disabled: var(--color-ink-disabled);
 
-  /* Accent — steel blue. The one brand color. Used sparingly for CTAs,
-     active nav, focus rings, selected states, and key icons. Not a
-     surface tint. On light surfaces hover is DARKER (pressed feeling)
-     and dim is LIGHTER (marginalia). */
-  --color-accent: #5a7398; /* primary steel blue */
-  --color-accent-hover: #455d80; /* darker on hover/press */
-  --color-accent-pressed: #455d80; /* darker on active */
-  --color-accent-dim: #7b92b4; /* lighter steel for marginalia */
-  --color-accent-bg: rgba(90, 115, 152, 0.1); /* #5a73981a */
-  --color-accent-glow: rgba(90, 115, 152, 0.2); /* ambient halo */
+  /* Accent — near-black graphite. The one brand colour. Used sparingly
+     for primary CTAs, active nav, focus rings, selected states, and key
+     icons. Not a surface tint. On light surfaces hover is PURE BLACK
+     (pressed feeling) and dim is mid-grey (marginalia). */
+  --color-accent: #0a0a0b; /* near-black graphite */
+  --color-accent-hover: #000000; /* pure black on hover/press */
+  --color-accent-pressed: #000000; /* pure black on active */
+  --color-accent-dim: #52525b; /* mid-grey for marginalia */
+  --color-accent-bg: rgba(0, 0, 0, 0.06);
+  --color-accent-glow: rgba(0, 0, 0, 0.14);
 
   /* Interaction utilities — the engineering surface for links, focus,
      selection, and text-on-accent. One set of names so we don't hunt for
      "what colour is a link again" in the codebase. */
   --color-link: var(--color-accent);
   --color-link-hover: var(--color-accent-hover);
-  --color-focus-ring: rgba(90, 115, 152, 0.4);
-  --color-selection: rgba(90, 115, 152, 0.16);
+  --color-focus-ring: rgba(0, 0, 0, 0.35);
+  --color-selection: rgba(0, 0, 0, 0.1);
   --color-text-on-accent: #ffffff;
 
   /* Borders + dividers — black at low alpha so they read as hairlines
@@ -123,23 +124,26 @@
   --color-disabled-surface: rgba(0, 0, 0, 0.025);
 
   /* Status — semantic. Success is the darker jade so it doesn't wash out
-     on white. Warning is muted amber. Error is restrained oxide red. */
+     on white. Warning is muted amber. Error is restrained oxide red.
+     Info shares the accent graphite — status and brand speak the same
+     neutral, but success/warning/error still carry their own hue so the
+     signal layer reads distinct. */
   --color-success: #2e8f71;
   --color-error: #b85c5c;
   --color-warning: #b98a47;
-  --color-info: #5a7398; /* muted steel blue — secondary accent for data */
+  --color-info: var(--color-accent);
 
   /* Status — backgrounds (10-14% opacity, tuned for light surfaces) */
   --color-success-bg: rgba(46, 143, 113, 0.1);
   --color-error-bg: rgba(184, 92, 92, 0.1);
   --color-warning-bg: rgba(185, 138, 71, 0.1);
-  --color-info-bg: rgba(90, 115, 152, 0.1);
+  --color-info-bg: rgba(0, 0, 0, 0.06);
 
   /* Status — borders (22% opacity — reads as tinted hairline on paper) */
   --color-success-border: rgba(46, 143, 113, 0.22);
   --color-error-border: rgba(184, 92, 92, 0.22);
   --color-warning-border: rgba(185, 138, 71, 0.22);
-  --color-info-border: rgba(90, 115, 152, 0.22);
+  --color-info-border: rgba(0, 0, 0, 0.14);
 
   /* Ink card — the "dark instrument" floating on paper. The composer lives
      on this surface; any other floating dark card (future: inline editors,
@@ -286,8 +290,7 @@
 
   --hover-lift: -1px;
   --hover-bg: rgba(0, 0, 0, 0.03);
-  --focus-ring:
-    0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-accent-glow);
+  --focus-ring: 0 0 0 2px var(--color-card), 0 0 0 4px rgba(0, 0, 0, 0.16);
   --active-scale: 0.98;
 
   /* ── Prose / content widths ─────────────────────── */
@@ -328,7 +331,7 @@ html {
   border-radius: var(--radius-xs);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(90, 115, 152, 0.45);
+  background: rgba(0, 0, 0, 0.28);
 }
 
 * {

@@ -128,7 +128,9 @@ const preset: Config = {
         xl: shadow.xl,
       },
 
-      zIndex: Object.fromEntries(Object.entries(zIndex).map(([k, v]) => [k, String(v)])),
+      zIndex: Object.fromEntries(
+        Object.entries(zIndex).map(([k, v]) => [k, String(v)]),
+      ),
 
       transitionDuration: {
         fast: "150ms",

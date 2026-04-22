@@ -5,48 +5,48 @@
  * (charting libs, canvas rendering, inline styles, dynamic theming).
  * For CSS/Tailwind, use `./css` or `./tailwind` exports.
  *
- * Design system: v3 "Neutral Paper + Steel Blue"
+ * Design system: v4 "Graphite + Ink"
  * Single source of truth for values is tokens.css — this file mirrors it.
  */
 
 export const color = {
   bg: {
-    base: "#f1f1ee", // page background — one step darker than paper
-    surface: "#f7f7f4", // main surface — neutral paper
+    base: "#efeff1", // page background — one step darker than paper
+    surface: "#f4f4f5", // main surface — neutral grey paper
     elevated: "#ffffff", // raised — modals, popovers, cards
     overlay: "#ffffff", // highest — tooltips, floating menus
   },
 
   // Semantic surface aliases used across landing + dashboard
-  paper: "#f7f7f4",
+  paper: "#f4f4f5",
   card: "#ffffff",
   sectionAlt: "#ffffff",
 
   text: {
-    title: "rgba(0, 0, 0, 0.9)", // titles, mastheads
-    primary: "rgba(0, 0, 0, 0.85)", // body copy
-    secondary: "rgba(0, 0, 0, 0.45)", // lead, captions
-    muted: "rgba(0, 0, 0, 0.25)", // eyebrows, section marks
-    disabled: "rgba(0, 0, 0, 0.18)",
+    title: "rgba(10, 10, 11, 0.92)", // titles, mastheads
+    primary: "rgba(10, 10, 11, 0.85)", // body copy
+    secondary: "rgba(10, 10, 11, 0.54)", // lead, captions
+    muted: "rgba(10, 10, 11, 0.36)", // eyebrows, section marks
+    disabled: "rgba(10, 10, 11, 0.22)",
   },
 
   // Ink scale — alias of text, reads more naturally in ink-on-paper context
   ink: {
-    primary: "rgba(0, 0, 0, 0.9)",
-    text: "rgba(0, 0, 0, 0.85)",
-    secondary: "rgba(0, 0, 0, 0.45)",
-    muted: "rgba(0, 0, 0, 0.25)",
-    disabled: "rgba(0, 0, 0, 0.18)",
+    primary: "rgba(10, 10, 11, 0.92)",
+    text: "rgba(10, 10, 11, 0.85)",
+    secondary: "rgba(10, 10, 11, 0.54)",
+    muted: "rgba(10, 10, 11, 0.36)",
+    disabled: "rgba(10, 10, 11, 0.22)",
   },
 
-  // Accent — steel blue. The one brand color. Used sparingly (~5%).
+  // Accent — near-black graphite. The one brand colour. Used sparingly.
   accent: {
-    DEFAULT: "#5a7398",
-    hover: "#455d80",
-    pressed: "#455d80",
-    dim: "#7b92b4",
-    bg: "rgba(90, 115, 152, 0.1)",
-    glow: "rgba(90, 115, 152, 0.2)",
+    DEFAULT: "#0a0a0b",
+    hover: "#000000",
+    pressed: "#000000",
+    dim: "#52525b",
+    bg: "rgba(0, 0, 0, 0.06)",
+    glow: "rgba(0, 0, 0, 0.14)",
   },
 
   border: {
@@ -56,29 +56,30 @@ export const color = {
   },
 
   // Interaction
-  link: "#5a7398",
-  linkHover: "#455d80",
-  focusRing: "rgba(90, 115, 152, 0.4)",
-  selection: "rgba(90, 115, 152, 0.16)",
+  link: "#0a0a0b",
+  linkHover: "#000000",
+  focusRing: "rgba(0, 0, 0, 0.35)",
+  selection: "rgba(0, 0, 0, 0.1)",
   textOnAccent: "#ffffff",
 
   divider: "rgba(0, 0, 0, 0.04)",
   hover: "rgba(0, 0, 0, 0.03)",
   disabledSurface: "rgba(0, 0, 0, 0.025)",
 
-  // Status — semantic. Jade success, oxide error, muted amber warn, steel info.
+  // Status — semantic. Jade success, oxide error, muted amber warn.
+  // Info shares the accent graphite.
   status: {
     success: "#2e8f71",
     error: "#b85c5c",
     warning: "#b98a47",
-    info: "#5a7398",
+    info: "#0a0a0b",
   },
 
   statusBg: {
     success: "rgba(46, 143, 113, 0.1)",
     error: "rgba(184, 92, 92, 0.1)",
     warning: "rgba(185, 138, 71, 0.1)",
-    info: "rgba(90, 115, 152, 0.1)",
+    info: "rgba(0, 0, 0, 0.06)",
   },
 
   scrim: "rgba(0, 0, 0, 0.35)",
@@ -232,7 +233,7 @@ export const interaction = {
     lift: "-1px",
     bg: "rgba(0, 0, 0, 0.03)",
   },
-  focusRing: "0 0 0 2px #f7f7f4, 0 0 0 4px rgba(90, 115, 152, 0.2)",
+  focusRing: "0 0 0 2px #ffffff, 0 0 0 4px rgba(0, 0, 0, 0.16)",
   activeScale: 0.98,
 } as const;
 

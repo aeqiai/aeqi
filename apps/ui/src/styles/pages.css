@@ -2242,7 +2242,7 @@
     background 0.15s;
 }
 .quest-col[data-status="in_progress"] {
-  border-color: rgba(90, 115, 152, 0.35);
+  border-color: var(--border-accent);
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
@@ -2372,7 +2372,7 @@
 }
 .quest-card-priority--high {
   color: var(--color-accent);
-  border-color: rgba(90, 115, 152, 0.35);
+  border-color: var(--border-accent);
   background: var(--color-accent-bg);
 }
 .quest-card-priority--low {

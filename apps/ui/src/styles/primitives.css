@@ -28,8 +28,9 @@
 
   /* Sidebar tint — a single subtle value step below the white content
      so the sidebar reads as its own surface under a hairline divider.
-     No floating, no rounding — the shell is architectural. */
-  --bg-sidebar: #f7f7f5;
+     No floating, no rounding — the shell is architectural. Neutral
+     grey (zero chroma) to match the v4 graphite-and-ink register. */
+  --bg-sidebar: #f4f4f5;
 
   /* In-card raised row/chip tint. The main content card is white
      (the "document"); items inside that need to stand out go subtly
@@ -75,8 +76,8 @@
      variants. Use for hover / selected / pressed — NOT for
      base surface elevations (that's what --bg-* is for). */
   --state-hover: rgba(0, 0, 0, 0.03);
-  --state-selected: rgba(90, 115, 152, 0.12);
-  --state-pressed: rgba(90, 115, 152, 0.2);
+  --state-selected: rgba(0, 0, 0, 0.07);
+  --state-pressed: rgba(0, 0, 0, 0.12);
 
   /* Text */
   --text-primary: var(--color-text-primary);
@@ -106,12 +107,12 @@
   /* ── Dashboard-specific tokens (not in shared package) ─── */
 
   --accent-glow: var(--color-accent-glow);
-  --accent-glow-strong: rgba(90, 115, 152, 0.28);
+  --accent-glow-strong: rgba(0, 0, 0, 0.22);
   --success-glow: rgba(46, 143, 113, 0.14);
-  --border-accent: rgba(90, 115, 152, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(90, 115, 152, 0.2);
-  --shadow-glow-strong: 0 0 24px rgba(90, 115, 152, 0.18);
-  --shadow-popover: 0 4px 12px rgba(30, 40, 56, 0.1);
+  --border-accent: rgba(0, 0, 0, 0.28);
+  --shadow-glow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  --shadow-glow-strong: 0 0 24px rgba(0, 0, 0, 0.12);
+  --shadow-popover: 0 4px 12px rgba(0, 0, 0, 0.1);
 
   /* Focus rings — 3px halo used by inputs, code digits, etc. */
   --ring-muted: 0 0 0 3px rgba(0, 0, 0, 0.06);
@@ -150,9 +151,10 @@
      marquee moments. Rendered in --text-primary, never in accent. */
   --font-display: "Cinzel", Georgia, serif;
 
-  /* CTA button tokens — steel-blue primary, outlined secondary.
-     Primary is white text on steel blue (inverse of light UI — the steel
-     pill has enough value density for white to hold) tuned against paper. */
+  /* CTA button tokens — graphite primary, outlined secondary.
+     Primary is white text on near-black (inverse of light UI — the
+     graphite pill has enough value density for white to hold) tuned
+     against the paper bg. Hover pushes to pure black. */
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
   --btn-primary-text: #ffffff;
