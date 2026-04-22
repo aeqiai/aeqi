@@ -76,8 +76,15 @@ pub fn identity_template_content(slug: &str) -> Option<&'static str> {
 const SOLO_FOUNDER_JSON: &str = include_str!("../../../../presets/templates/solo-founder.json");
 const STUDIO_JSON: &str = include_str!("../../../../presets/templates/studio.json");
 const SMALL_BUSINESS_JSON: &str = include_str!("../../../../presets/templates/small-business.json");
+const INDIE_CONSULTANCY_JSON: &str =
+    include_str!("../../../../presets/templates/indie-consultancy.json");
 
-const COMPANY_TEMPLATE_JSON: &[&str] = &[SOLO_FOUNDER_JSON, STUDIO_JSON, SMALL_BUSINESS_JSON];
+const COMPANY_TEMPLATE_JSON: &[&str] = &[
+    SOLO_FOUNDER_JSON,
+    STUDIO_JSON,
+    SMALL_BUSINESS_JSON,
+    INDIE_CONSULTANCY_JSON,
+];
 
 /// All shipped company templates, sorted by slug so the catalog is stable.
 /// Parses the embedded JSON on every call — cheap (three small docs) and

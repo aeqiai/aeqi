@@ -85,6 +85,24 @@
       "name": "Website update workflow",
       "content": "Before editing the live site: (1) confirm the fact in a `web-fact` idea or ask the Owner, (2) draft the change, (3) show a preview, (4) publish only after explicit approval. Afterward store a `web-changelog` idea with the date and summary of the change.",
       "tags": ["web-changelog", "procedure", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "How to create an event",
+      "content": "Events = WHEN. They fire on a pattern (schedule:0 9 * * 1 for cron, session:start, session:quest_end, or a custom pattern emitted by middleware) and either pull ideas into the next session or fire tool_calls. Use an event when a business rhythm should run without being asked — Monday check-in, end-of-month invoice sweep. To add one: pick a pattern, name it, optionally set a cooldown, and either list query_tag_filter ideas to inject or tool_calls to fire.",
+      "tags": ["skill", "system", "meta", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "How to create an idea",
+      "content": "Ideas = HOW. Durable knowledge: business decisions, facts about hours/prices/services, correspondence tone, procedures. Store anything the business would lose if this session ended. A good idea has a precise name (the Assistant and Web Publisher will search for it), a self-contained body (readable without context), and 1-3 tags. Tag `evergreen` for content that should survive indefinitely. Reach for an idea before writing the same instruction twice.",
+      "tags": ["skill", "system", "meta", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Skills available to this agent",
+      "content": "The Owner can: create and assign quests (to the Assistant for documents/correspondence, to the Web Publisher for site updates), store and search ideas (durable business memory), create events (weekly check-ins, scheduled reminders), and spawn additional child agents when a role clearly needs its own persona. Keep the org small — the Assistant covers most admin, the Web Publisher covers the site; reach for a new agent only if the workload won't fit either.",
+      "tags": ["skill", "system", "meta", "evergreen"]
     }
   ],
   "seed_quests": [

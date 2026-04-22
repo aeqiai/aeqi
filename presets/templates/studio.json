@@ -85,6 +85,24 @@
       "name": "Channel mix policy",
       "content": "Primary: the studio's own site/newsletter. Secondary: long-form on LinkedIn + short-form on X. Tertiary: community-specific forums. Never schedule the same copy across more than two channels.",
       "tags": ["distribution", "cadence", "procedure"]
+    },
+    {
+      "owner": "root",
+      "name": "How to create an event",
+      "content": "Events = WHEN. They fire on a pattern (schedule:0 10 * * 1 for cron, session:start, session:quest_end, or a custom pattern emitted by middleware) and either pull ideas into the next session or fire tool_calls. Use an event when a studio rhythm should run without anyone asking — Monday editorial review, Wednesday publish sweep. To add one: pick a pattern, name it, optionally set a cooldown, and either list query_tag_filter ideas to inject or tool_calls to fire.",
+      "tags": ["skill", "system", "meta", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "How to create an idea",
+      "content": "Ideas = HOW. Durable knowledge: editorial decisions, voice notes, distribution playbooks, persona. Store anything the studio would lose if this session ended. A good idea has a precise name (the team searches for it), a self-contained body (readable without context), and 1-3 tags that group it with related ideas. Tag `evergreen` for content that should survive indefinitely. Reach for an idea before writing the same instruction into two prompts.",
+      "tags": ["skill", "system", "meta", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Skills available to this agent",
+      "content": "The Creative Director can: create and assign quests (hand briefs to the Editor or Distribution), store and search ideas (durable studio memory), create events (editorial cadence, publish triggers), and spawn additional child agents if a role clearly needs its own persona. The Editor drafts; the Distribution lead repurposes and schedules; the Director decides. Keep the org shape small — only spawn a new agent when the work is ongoing, not one-off.",
+      "tags": ["skill", "system", "meta", "evergreen"]
     }
   ],
   "seed_quests": [
