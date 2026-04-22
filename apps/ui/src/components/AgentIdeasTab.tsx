@@ -203,12 +203,12 @@ function ViewToggle({
   onChange: (next: "list" | "graph") => void;
 }) {
   return (
-    <div className="ideas-view-toggle" role="tablist" aria-label="View mode">
+    <div className="primitive-view-toggle" role="tablist" aria-label="View mode">
       <button
         type="button"
         role="tab"
         aria-selected={view === "list"}
-        className={`ideas-view-toggle-btn${view === "list" ? " active" : ""}`}
+        className={`primitive-view-toggle-btn${view === "list" ? " active" : ""}`}
         onClick={() => onChange("list")}
         title="List view (L)"
       >
@@ -226,7 +226,7 @@ function ViewToggle({
         type="button"
         role="tab"
         aria-selected={view === "graph"}
-        className={`ideas-view-toggle-btn${view === "graph" ? " active" : ""}`}
+        className={`primitive-view-toggle-btn${view === "graph" ? " active" : ""}`}
         onClick={() => onChange("graph")}
         title="Graph view (G)"
       >
@@ -313,18 +313,18 @@ function IdeasScopeTabs({
   onChange: (next: IdeasScope) => void;
 }) {
   return (
-    <div className="ideas-scope-tabs" role="tablist" aria-label="Scope">
+    <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
       {scopes.map((s) => (
         <button
           key={s}
           type="button"
           role="tab"
           aria-selected={scope === s}
-          className={`ideas-scope-tab${scope === s ? " active" : ""}`}
+          className={`primitive-scope-tab${scope === s ? " active" : ""}`}
           onClick={() => onChange(s)}
         >
           {s}
-          <span className="ideas-scope-tab-count">{counts[s]}</span>
+          <span className="primitive-scope-tab-count">{counts[s]}</span>
         </button>
       ))}
     </div>

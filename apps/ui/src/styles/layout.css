@@ -2625,11 +2625,12 @@
   flex-shrink: 0;
 }
 
-/* List ↔ graph — a restrained segmented control that now lives inside
-   the primitive-head, right-aligned with `+ new idea`. Sigil-tinted
-   active tab echoes the "word with accent initial" language from the
-   sidebar. */
-.ideas-view-toggle {
+/* Segmented view toggle — a restrained control that lives inside the
+   primitive-head, right-aligned with the `+ new` CTA. Shared across
+   every primitive (ideas: list/graph; events: list/canvas/trace; etc).
+   Active tab picks up the accent so switching views feels like
+   switching *lenses on the same primitive*, not leaving the page. */
+.primitive-view-toggle {
   display: inline-flex;
   align-items: stretch;
   gap: 0;
@@ -2638,7 +2639,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
-.ideas-view-toggle-btn {
+.primitive-view-toggle-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2656,24 +2657,24 @@
     color 0.12s ease,
     background 0.12s ease;
 }
-.ideas-view-toggle-btn svg {
+.primitive-view-toggle-btn svg {
   opacity: 0.55;
   transition: opacity 0.12s ease;
 }
-.ideas-view-toggle-btn:hover {
+.primitive-view-toggle-btn:hover {
   color: var(--text-primary);
 }
-.ideas-view-toggle-btn:hover svg {
+.primitive-view-toggle-btn:hover svg {
   opacity: 0.85;
 }
-.ideas-view-toggle-btn.active {
+.primitive-view-toggle-btn.active {
   color: var(--accent);
   background: var(--color-card);
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.02),
     0 0 0 1px var(--accent-dim);
 }
-.ideas-view-toggle-btn.active svg {
+.primitive-view-toggle-btn.active svg {
   opacity: 1;
 }
 
@@ -2683,6 +2684,45 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Trace session input row — sits directly below the events primitive-
+   head when the Trace view is active. Kept as a thin sub-band so the
+   head itself stays uniform with the other primitives (ideas, quests). */
+.events-trace-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border-faint, rgba(0, 0, 0, 0.05));
+  flex-shrink: 0;
+}
+.events-trace-aside-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.events-trace-aside-input {
+  flex: 1;
+  max-width: 380px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.events-trace-aside-input:focus {
+  border-color: var(--border-hover);
+  box-shadow: var(--ring-muted);
 }
 
 /* Filter indicator — a thin line under the filter controls that only
@@ -2797,8 +2837,9 @@
    Small sans micro-caps (10.5px, +0.07em tracking) keeps them quiet so
    they read as secondary to the page title while still being the first
    filter the user meets. Active state: text darkens + tabular count
-   brightens; an accent underline anchors the current scope. */
-.ideas-scope-tabs {
+   brightens; an accent underline anchors the current scope. Shared
+   across every primitive (ideas, events, quests, …). */
+.primitive-scope-tabs {
   display: flex;
   gap: 14px;
   align-items: baseline;
@@ -2806,7 +2847,7 @@
   margin-left: 2px;
   border-left: 1px solid var(--border-faint, rgba(0, 0, 0, 0.06));
 }
-.ideas-scope-tab {
+.primitive-scope-tab {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
@@ -2825,14 +2866,14 @@
     color 0.15s,
     border-color 0.15s;
 }
-.ideas-scope-tab:hover {
+.primitive-scope-tab:hover {
   color: var(--text-primary);
 }
-.ideas-scope-tab.active {
+.primitive-scope-tab.active {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
 }
-.ideas-scope-tab-count {
+.primitive-scope-tab-count {
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-weight: 500;
@@ -2840,7 +2881,7 @@
   opacity: 0.55;
   font-variant-numeric: tabular-nums;
 }
-.ideas-scope-tab.active .ideas-scope-tab-count {
+.primitive-scope-tab.active .primitive-scope-tab-count {
   opacity: 0.8;
 }
 .ideas-list-tags {

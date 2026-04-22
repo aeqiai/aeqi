@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -14,22 +14,39 @@ import type { AgentEvent } from "@/lib/types";
 /**
  * AgentEventsTab — the per-agent events surface.
  *
- * Three views, switched via a sub-tab bar that styles itself like the
- * primitive-head pattern (lowercase brand-tinted labels):
+ * Wears the same primitive-head as Ideas: Cinzel "Events" title on the
+ * left, scope tabs (all / mine / global / inherited) inline beside it;
+ * right cluster holds count, the view toggle (list · canvas · trace),
+ * and the `+ new event` CTA.
  *
- *   list    — dense row picker grouped local/global
+ *   list    — dense row picker grouped by scope
  *   canvas  — workflow view:
  *               • no selection → EventsOverview (every event as a
  *                 mini trigger→tools sparkline, grouped by transport)
  *               • selection    → EventCanvas (full per-event pipeline)
  *                                plus the EventEditor form beneath
- *   trace   — existing per-session fire inspector (unchanged surface)
+ *   trace   — per-session fire inspector with a session-id aside row
  *
- * Events are AEQI's workflow primitive — a pattern + an ordered tool
- * chain. The canvas is what makes that readable.
+ * Events are AEQI's WHEN primitive — a pattern + an ordered tool chain.
+ * The canvas is what makes that readable.
  */
 
 const NO_EVENTS: AgentEvent[] = [];
+
+type EventsScope = "all" | "mine" | "global" | "inherited";
+
+/**
+ * Scope classification for an event relative to the current agent.
+ *   mine      — event.agent_id === agentId (authored here)
+ *   global    — event.agent_id === null (seed / every-agent)
+ *   inherited — scoped to an ancestor (not yet surfaced by the API;
+ *               falls through to `global` in today's data).
+ */
+function eventScope(ev: AgentEvent, agentId: string): Exclude<EventsScope, "all"> {
+  if (ev.agent_id == null) return "global";
+  if (ev.agent_id === agentId) return "mine";
+  return "inherited";
+}
 
 function eventLabel(ev: AgentEvent): string {
   return ev.name.replace(/^on_/, "").replace(/_/g, " ");
@@ -113,6 +130,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const selectedId = itemId || null;
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("canvas");
+  const [scope, setScope] = useState<EventsScope>("all");
   const [traceSessionId, setTraceSessionId] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showTriggerPanel, setShowTriggerPanel] = useState(false);
@@ -137,6 +155,21 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   }, []);
 
   const selected = events.find((e) => e.id === selectedId) ?? null;
+
+  /* ── Scope counts + filtered list ─────────────────────────────── */
+  const scopeCounts = useMemo<Record<EventsScope, number>>(() => {
+    const counts: Record<EventsScope, number> = { all: 0, mine: 0, global: 0, inherited: 0 };
+    for (const ev of events) {
+      counts.all += 1;
+      counts[eventScope(ev, agentId)] += 1;
+    }
+    return counts;
+  }, [events, agentId]);
+
+  const filteredEvents = useMemo(() => {
+    if (scope === "all") return events;
+    return events.filter((ev) => eventScope(ev, agentId) === scope);
+  }, [events, scope, agentId]);
 
   /* ── Add form state ────────────────────────────────────────────── */
   const [newName, setNewName] = useState("");
@@ -188,49 +221,45 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  /* ── Sub-tabs header — standard tabs, no brand flourish ──────── */
-  const SUB_TAB_LABELS: Record<SubTab, string> = {
-    list: "List",
-    canvas: "Canvas",
-    trace: "Trace",
-  };
-  const subTabBar = (
-    <div className="events-subtabs" role="tablist" aria-label="Events view">
-      {(["list", "canvas", "trace"] as SubTab[]).map((id) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === id}
-          className={`events-subtab${activeSubTab === id ? " active" : ""}`}
-          onClick={() => setActiveSubTab(id)}
-        >
-          {SUB_TAB_LABELS[id]}
-        </button>
-      ))}
-      {activeSubTab === "trace" && (
-        <div className="events-subtabs-aside">
-          <label className="events-subtabs-aside-label" htmlFor="trace-session-id">
-            session
-          </label>
-          <input
-            id="trace-session-id"
-            className="events-subtabs-aside-input"
-            type="text"
-            value={traceSessionId}
-            onChange={(e) => setTraceSessionId(e.target.value)}
-            placeholder="paste session id"
-          />
-        </div>
-      )}
-    </div>
+  /* ── Primitive head — Cinzel title + scope tabs + view toggle ── */
+  const scopeControl = <EventsScopeTabs scope={scope} counts={scopeCounts} onChange={setScope} />;
+  const head = (
+    <EventsPrimitiveHead
+      count={filteredEvents.length}
+      countLabel={
+        filteredEvents.length === events.length
+          ? `${events.length}`
+          : `${filteredEvents.length} of ${events.length}`
+      }
+      view={activeSubTab}
+      onViewChange={setActiveSubTab}
+      onNew={() => setShowAddForm(true)}
+      scopeControl={scopeControl}
+    />
   );
+  const traceAside =
+    activeSubTab === "trace" ? (
+      <div className="events-trace-aside">
+        <label className="events-trace-aside-label" htmlFor="trace-session-id">
+          session
+        </label>
+        <input
+          id="trace-session-id"
+          className="events-trace-aside-input"
+          type="text"
+          value={traceSessionId}
+          onChange={(e) => setTraceSessionId(e.target.value)}
+          placeholder="paste session id"
+        />
+      </div>
+    ) : null;
 
   /* ── Trace view (unchanged surface, just wrapped) ─────────────── */
   if (activeSubTab === "trace") {
     return (
       <div className="asv-main events-surface">
-        {subTabBar}
+        {head}
+        {traceAside}
         <EventTraceTab sessionId={traceSessionId} />
       </div>
     );
@@ -362,17 +391,18 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   if (!selected) {
     return (
       <div className="asv-main events-surface events-surface--scroll">
-        {subTabBar}
+        {head}
         {activeSubTab === "canvas" ? (
           <EventsOverview
-            events={events}
+            events={filteredEvents}
             onSelect={(id) => goAgent(agentId, "events", id)}
             onNew={() => setShowAddForm(true)}
           />
         ) : (
           <EventsList
             agentId={agentId}
-            events={events}
+            events={filteredEvents}
+            scope={scope}
             onSelect={(id) => goAgent(agentId, "events", id)}
             onNew={() => setShowAddForm(true)}
           />
@@ -386,7 +416,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main events-surface events-surface--scroll">
-      {subTabBar}
+      {head}
 
       <div className="events-detail">
         <div className="events-detail-header">
@@ -479,49 +509,74 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 function EventsList({
   agentId,
   events,
+  scope,
   onSelect,
   onNew,
 }: {
   agentId: string;
   events: AgentEvent[];
+  scope: EventsScope;
   onSelect: (id: string) => void;
   onNew: () => void;
 }) {
-  const { local, global } = useMemo(() => {
-    const local: AgentEvent[] = [];
+  const { mine, global, inherited } = useMemo(() => {
+    const mine: AgentEvent[] = [];
     const global: AgentEvent[] = [];
+    const inherited: AgentEvent[] = [];
     for (const ev of events) {
-      (ev.agent_id == null ? global : local).push(ev);
+      const s = eventScope(ev, agentId);
+      if (s === "mine") mine.push(ev);
+      else if (s === "global") global.push(ev);
+      else inherited.push(ev);
     }
-    return { local, global };
-  }, [events]);
+    return { mine, global, inherited };
+  }, [events, agentId]);
 
   if (events.length === 0) {
     return (
       <div className="events-list events-list--empty">
         <button type="button" className="inline-picker-empty-cta" onClick={onNew}>
-          <span className="inline-picker-empty-cta-label">No events yet</span>
+          <span className="inline-picker-empty-cta-label">
+            {scope === "all" ? "No events yet" : `No ${scope} events`}
+          </span>
           <span className="inline-picker-empty-cta-hint">New event</span>
         </button>
       </div>
     );
   }
 
+  // When the user has narrowed the scope to one bucket, the page title
+  // already communicates it — don't duplicate with a group header.
+  const showSections = scope === "all";
+
   return (
     <div className="events-list">
-      {local.length > 0 && (
-        <Section label={`events · ${agentId.slice(0, 8)}`} count={local.length}>
-          {local.map((ev) => (
-            <EventRow key={ev.id} event={ev} onSelect={onSelect} />
-          ))}
-        </Section>
-      )}
-      {global.length > 0 && (
-        <Section label="global · inherited" count={global.length}>
-          {global.map((ev) => (
-            <EventRow key={ev.id} event={ev} onSelect={onSelect} />
-          ))}
-        </Section>
+      {showSections ? (
+        <>
+          {mine.length > 0 && (
+            <Section label={`mine · ${agentId.slice(0, 8)}`} count={mine.length}>
+              {mine.map((ev) => (
+                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+          {global.length > 0 && (
+            <Section label="global · every agent" count={global.length}>
+              {global.map((ev) => (
+                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+          {inherited.length > 0 && (
+            <Section label="inherited · ancestors" count={inherited.length}>
+              {inherited.map((ev) => (
+                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+        </>
+      ) : (
+        events.map((ev) => <EventRow key={ev.id} event={ev} onSelect={onSelect} />)
       )}
     </div>
   );
@@ -572,5 +627,163 @@ function EventRow({ event, onSelect }: { event: AgentEvent; onSelect: (id: strin
       <span className="events-list-row-pattern">{event.pattern}</span>
       <span className="events-list-row-meta">{meta}</span>
     </button>
+  );
+}
+
+/* ── Primitive head + scope tabs + view toggle ─────────────────── */
+
+const VIEW_LABELS: Record<SubTab, string> = {
+  list: "list",
+  canvas: "canvas",
+  trace: "trace",
+};
+
+function EventsPrimitiveHead({
+  count,
+  countLabel,
+  view,
+  onViewChange,
+  onNew,
+  scopeControl,
+}: {
+  count: number;
+  countLabel?: string;
+  view: SubTab;
+  onViewChange: (next: SubTab) => void;
+  onNew: () => void;
+  scopeControl?: ReactNode;
+}) {
+  return (
+    <div className="primitive-head">
+      <div className="primitive-head-lead">
+        <h2 className="primitive-head-heading">Events</h2>
+        {scopeControl}
+      </div>
+      <div className="primitive-head-actions">
+        <span className="primitive-head-meta">{countLabel ?? count}</span>
+        <EventsViewToggle view={view} onChange={onViewChange} />
+        <button type="button" className="primitive-head-new" onClick={onNew} title="New event">
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M6 2.5v7M2.5 6h7" />
+          </svg>
+          new event
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventsViewToggle({ view, onChange }: { view: SubTab; onChange: (next: SubTab) => void }) {
+  return (
+    <div className="primitive-view-toggle" role="tablist" aria-label="View mode">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "list"}
+        className={`primitive-view-toggle-btn${view === "list" ? " active" : ""}`}
+        onClick={() => onChange("list")}
+        title="List view"
+      >
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path
+            d="M2 3h8M2 6h8M2 9h8"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+        </svg>
+        {VIEW_LABELS.list}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "canvas"}
+        className={`primitive-view-toggle-btn${view === "canvas" ? " active" : ""}`}
+        onClick={() => onChange("canvas")}
+        title="Canvas view"
+      >
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          aria-hidden
+        >
+          <rect x="1.7" y="2.2" width="3.1" height="2.6" rx="0.4" />
+          <rect x="7.2" y="2.2" width="3.1" height="2.6" rx="0.4" />
+          <rect x="4.45" y="7.2" width="3.1" height="2.6" rx="0.4" />
+          <path d="M4.8 3.5H7.2 M3.25 4.8V6.5H6 M8.75 4.8V6.5H6" strokeLinecap="round" />
+        </svg>
+        {VIEW_LABELS.canvas}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "trace"}
+        className={`primitive-view-toggle-btn${view === "trace" ? " active" : ""}`}
+        onClick={() => onChange("trace")}
+        title="Trace view"
+      >
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          aria-hidden
+        >
+          <path
+            d="M2 2.5 L4.5 6 L3 9.5 L6.5 7 L9.5 10"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx="2" cy="2.5" r="0.8" fill="currentColor" />
+          <circle cx="9.5" cy="10" r="0.8" fill="currentColor" />
+        </svg>
+        {VIEW_LABELS.trace}
+      </button>
+    </div>
+  );
+}
+
+const EVENTS_SCOPES: EventsScope[] = ["all", "mine", "global", "inherited"];
+
+function EventsScopeTabs({
+  scope,
+  counts,
+  onChange,
+}: {
+  scope: EventsScope;
+  counts: Record<EventsScope, number>;
+  onChange: (next: EventsScope) => void;
+}) {
+  return (
+    <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
+      {EVENTS_SCOPES.map((s) => (
+        <button
+          key={s}
+          type="button"
+          role="tab"
+          aria-selected={scope === s}
+          className={`primitive-scope-tab${scope === s ? " active" : ""}`}
+          onClick={() => onChange(s)}
+        >
+          {s}
+          <span className="primitive-scope-tab-count">{counts[s]}</span>
+        </button>
+      ))}
+    </div>
   );
 }
