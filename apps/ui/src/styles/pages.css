@@ -2228,7 +2228,8 @@
   font-size: 12px;
   color: var(--text-primary);
 }
-.idea-link-picker-item:hover {
+.idea-link-picker-item:hover,
+.idea-link-picker-item.active {
   background: var(--state-hover);
   color: var(--accent);
 }

@@ -3015,7 +3015,7 @@
 .ideas-list-search {
   flex: 1;
   min-width: 0;
-  padding: 7px 28px 7px 12px;
+  padding: 7px 28px 7px 30px;
   font-family: inherit;
   font-size: 13px;
   color: var(--text-primary);
@@ -3030,6 +3030,22 @@
 .ideas-list-search:focus {
   border-color: var(--input-border-focus, var(--border-hover));
   box-shadow: var(--input-ring-focus, var(--ring-muted));
+}
+/* Leading magnifier — quiet 12px glyph anchors the search field so the
+   row has an identity even before the user types. Sits inside the
+   relative .ideas-list-search-field wrapper; input padding-left gives
+   it clearance. */
+.ideas-list-search-glyph {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.15s;
+}
+.ideas-list-search-field:focus-within .ideas-list-search-glyph {
+  color: var(--text-secondary);
 }
 .ideas-list-search-clear {
   position: absolute;
@@ -3116,6 +3132,15 @@
 .primitive-scope-tab.active {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
+}
+/* Zero-count scopes stay clickable (so "nothing here" is a valid view)
+   but read as passive — 60% opacity dims both label + count without
+   reshuffling any other tab's weight. */
+.primitive-scope-tab.empty {
+  opacity: 0.5;
+}
+.primitive-scope-tab.empty:hover {
+  opacity: 0.85;
 }
 .primitive-scope-tab-count {
   font-family: var(--font-mono);

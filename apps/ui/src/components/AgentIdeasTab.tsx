@@ -596,19 +596,23 @@ function IdeasScopeTabs({
 }) {
   return (
     <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
-      {scopes.map((s) => (
-        <button
-          key={s}
-          type="button"
-          role="tab"
-          aria-selected={scope === s}
-          className={`primitive-scope-tab${scope === s ? " active" : ""}`}
-          onClick={() => onChange(s)}
-        >
-          {s}
-          <span className="primitive-scope-tab-count">{counts[s]}</span>
-        </button>
-      ))}
+      {scopes.map((s) => {
+        const isActive = scope === s;
+        const isEmpty = counts[s] === 0;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={`primitive-scope-tab${isActive ? " active" : ""}${isEmpty && !isActive ? " empty" : ""}`}
+            onClick={() => onChange(s)}
+          >
+            {s}
+            <span className="primitive-scope-tab-count">{counts[s]}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -735,6 +739,20 @@ function IdeasPicker({
       <div className="ideas-list-head">
         <div className="ideas-list-search-row">
           <span className="ideas-list-search-field">
+            <svg
+              className="ideas-list-search-glyph"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="5.2" cy="5.2" r="3.2" />
+              <path d="M7.6 7.6 L10 10" />
+            </svg>
             <input
               ref={searchRef}
               className="ideas-list-search"
@@ -907,6 +925,9 @@ function IdeasPicker({
                     !tags.includes("promoted") &&
                     !tags.includes("rejected");
                   const extraTags = Math.max(0, tags.length - 1);
+                  // Row-level "Global" pill is redundant when the scope tab is
+                  // already "global" — every row is global in that view.
+                  const showGlobalBadge = idea.agent_id == null && filter.scope !== "global";
                   flatIndex += 1;
                   const myIndex = flatIndex;
                   return (
@@ -948,9 +969,7 @@ function IdeasPicker({
                             needs review
                           </span>
                         )}
-                        {idea.agent_id == null && (
-                          <span className="ideas-list-row-scope">Global</span>
-                        )}
+                        {showGlobalBadge && <span className="ideas-list-row-scope">Global</span>}
                         {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
                         {wordCount > 0 && (
                           <span className="ideas-list-row-words" aria-hidden>

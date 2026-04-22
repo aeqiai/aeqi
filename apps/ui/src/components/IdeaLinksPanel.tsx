@@ -37,6 +37,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   const [loading, setLoading] = useState(false);
   const [picking, setPicking] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerActive, setPickerActive] = useState(0);
   const pickerInputRef = useRef<HTMLInputElement>(null);
 
   const loadEdges = useMemo(
@@ -60,6 +61,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   useEffect(() => {
     if (picking) requestAnimationFrame(() => pickerInputRef.current?.focus());
+    if (!picking) setPickerActive(0);
   }, [picking]);
 
   const linkedIds = useMemo(
@@ -79,6 +81,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
       await api.addIdeaEdge(ideaId, targetId, "adjacent");
       setPicking(false);
       setPickerQuery("");
+      setPickerActive(0);
       await loadEdges();
     } catch {
       /* user retries via picker */
@@ -167,11 +170,26 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
                   type="text"
                   placeholder="Search ideas…"
                   value={pickerQuery}
-                  onChange={(e) => setPickerQuery(e.target.value)}
+                  onChange={(e) => {
+                    setPickerQuery(e.target.value);
+                    setPickerActive(0);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
+                      e.preventDefault();
                       setPicking(false);
                       setPickerQuery("");
+                    } else if (e.key === "ArrowDown" && pickerResults.length > 0) {
+                      e.preventDefault();
+                      setPickerActive((i) => Math.min(i + 1, pickerResults.length - 1));
+                    } else if (e.key === "ArrowUp" && pickerResults.length > 0) {
+                      e.preventDefault();
+                      setPickerActive((i) => Math.max(i - 1, 0));
+                    } else if (e.key === "Enter" && pickerResults.length > 0) {
+                      e.preventDefault();
+                      const target =
+                        pickerResults[Math.min(pickerActive, pickerResults.length - 1)];
+                      if (target) addLink(target.id);
                     }
                   }}
                 />
@@ -179,11 +197,12 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
                   {pickerResults.length === 0 ? (
                     <div className="idea-link-picker-empty">No matches</div>
                   ) : (
-                    pickerResults.map((r) => (
+                    pickerResults.map((r, i) => (
                       <button
                         type="button"
                         key={r.id}
-                        className="idea-link-picker-item"
+                        className={`idea-link-picker-item${i === pickerActive ? " active" : ""}`}
+                        onMouseEnter={() => setPickerActive(i)}
                         onClick={() => addLink(r.id)}
                       >
                         {r.name}
