@@ -368,14 +368,12 @@
 }
 
 /* ── Sidebar footer — identity anchor.
-   Pinned at the bottom of the rail (Linear pattern). Hairline top
-   border separates it from the scrollable tree above. */
+   Pinned at the bottom of the rail (Linear pattern). */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   padding: 8px;
-  border-top: 1px solid var(--border);
 }
 .left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
   justify-content: center;
@@ -412,7 +410,15 @@
    the body row (optional sessions rail + main scroll) and, on the
    inbox surface, the composer as its last child. Both top corners are
    rounded so the sheet reads as a tab tucked below the topbar and
-   inside the tinted frame. */
+   inside the tinted frame.
+
+   Lift comes from two restrained gestures: a 6%-ink hairline traces
+   the top edge (making the rounded corners crisp against the tint) and
+   a soft upward shadow emanates into the topbar strip so the paper
+   reads as a physical document pinned underneath, not painted on. The
+   sides and bottom are flush with .content-card; .content-card's
+   overflow:hidden clips everything else, so the lift is visible only
+   where it belongs — the two top corners. */
 .content-paper {
   flex: 1;
   min-height: 0;
@@ -420,8 +426,12 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--color-card);
+  border-top: 1px solid var(--color-border);
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
+  box-shadow:
+    0 -1px 2px rgba(0, 0, 0, 0.03),
+    0 -6px 18px rgba(0, 0, 0, 0.04);
 }
 
 /* Body row — rail + scroll, full width inside the paper sheet. The
@@ -4042,8 +4052,9 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Home — `/` landing. Paper canvas, ink greeting in Cinzel, HeroStats
- * strip, primitive <Panel> sections with flat row grids inside.
+ * Home — `/` landing. One Cinzel hero line, one steel-blue CTA slab,
+ * one <Panel> of flat company rows. The sidebar already carries the
+ * wordmark; the page carries the decision.
  * ------------------------------------------------------------------ */
 .home {
   display: flex;
@@ -4054,31 +4065,15 @@
   margin: 0 auto;
   width: 100%;
 }
-/* Hero — three stacked rows: wordmark, greeting, name. No metrics,
-   no eyebrow, no chrome. The visual weight of the page sits in the
-   CTA that follows. */
-.home-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
 .home-greeting {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(36px, 5vw, 56px);
-  font-weight: 400;
+  font-weight: var(--font-weight-normal);
   letter-spacing: -0.01em;
   line-height: 1.05;
   color: var(--text-primary);
   text-transform: lowercase;
-}
-.home-name {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 400;
-  letter-spacing: -0.005em;
-  color: var(--text-secondary);
 }
 
 /* Primary CTA — the one decision this page exists to capture. Hero-sized
@@ -4127,7 +4122,7 @@
 }
 .home-company {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--space-4);
   width: 100%;
@@ -4146,14 +4141,9 @@
   background: var(--state-hover);
   outline: none;
 }
-.home-company:hover .home-company-arrow,
-.home-company:focus-visible .home-company-arrow {
-  transform: translateX(2px);
-  color: var(--accent);
-}
 .home-company-name {
   font-size: var(--font-size-base);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   letter-spacing: -0.005em;
   color: var(--text-primary);
 }
@@ -4164,13 +4154,6 @@
   text-transform: uppercase;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-}
-.home-company-arrow {
-  font-size: var(--font-size-base);
-  color: var(--text-muted);
-  transition:
-    transform var(--transition-normal),
-    color var(--transition-normal);
 }
 
 /* ------------------------------------------------------------------ *

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import AgentAvatar from "./AgentAvatar";
-import Wordmark from "./Wordmark";
 import { Button, EmptyState, Panel } from "./ui";
 import type { Agent } from "@/lib/types";
 
@@ -43,6 +42,7 @@ export default function HomeDashboard() {
 
   const name = firstName(user?.name, user?.email);
   const greet = greeting();
+  const heading = name ? `${greet}, ${name}` : greet;
 
   const companies = useMemo(() => agents.filter((a) => !a.parent_id), [agents]);
   const agentCountsByRoot = useMemo(() => {
@@ -60,11 +60,7 @@ export default function HomeDashboard() {
 
   return (
     <div className="home">
-      <header className="home-hero">
-        <Wordmark size={16} />
-        <h1 className="home-greeting">{greet}</h1>
-        {name && <p className="home-name">{name}</p>}
-      </header>
+      <h1 className="home-greeting">{heading}</h1>
 
       <Button
         variant="primary"
@@ -101,9 +97,6 @@ export default function HomeDashboard() {
                     <span className="home-company-name">{label}</span>
                     <span className="home-company-meta">
                       {childCount} {childCount === 1 ? "agent" : "agents"}
-                    </span>
-                    <span className="home-company-arrow" aria-hidden>
-                      →
                     </span>
                   </button>
                 </li>
