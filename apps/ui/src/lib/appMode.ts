@@ -1,3 +1,5 @@
+import { useDaemonStore } from "@/store/daemon";
+
 export type AppMode = "runtime" | "platform";
 
 export function getStoredAppMode(): AppMode | null {
@@ -10,22 +12,38 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
 }
 
 /**
- * Get the active root agent ID (UUID). Reads from the URL path first (/:root/...),
- * falls back to localStorage for contexts outside the router (WebSocket, etc).
+ * Resolve the routing key (`X-Root` header / WS `?root=`) for the current
+ * URL. Every agent is addressable at `/:agentId/...`, but the platform
+ * proxies to a runtime by the tree's root — hosting topology lives at the
+ * root, not at every node. So the URL segment identifies the *target*
+ * agent (passed separately as `agent_id` in payloads) and this function
+ * produces the *routing key* by walking that segment up the parent chain.
+ *
+ * Falls back to the cached `aeqi_root` (kept in sync by AppLayout) when
+ * the agent store hasn't loaded yet, and finally to the raw URL segment
+ * for cold-start with nothing cached.
  */
 export function getScopedRoot(): string {
-  // In the browser, extract from URL: /uuid/agents → UUID
   const path = window.location.pathname;
   const segments = path.split("/").filter(Boolean);
-  // Skip known root-level routes that are NOT root agent names. Anything
-  // the App.tsx router matches as a literal top-level path must be listed
-  // here; otherwise the segment is mis-read as a root agent ID, poisoning
-  // the X-Root header and the `aeqi_root` cache on every /:non-agent visit.
-  if (segments.length > 0 && !NON_AGENT_ROUTES.has(segments[0])) {
-    return decodeURIComponent(segments[0]);
+  const urlSegment =
+    segments.length > 0 && !NON_AGENT_ROUTES.has(segments[0])
+      ? decodeURIComponent(segments[0])
+      : "";
+
+  if (urlSegment) {
+    const { agents } = useDaemonStore.getState();
+    if (agents.length > 0) {
+      const byId = new Map(agents.map((a) => [a.id, a] as const));
+      const byName = new Map(agents.map((a) => [a.name, a] as const));
+      let current = byId.get(urlSegment) || byName.get(urlSegment);
+      for (let i = 0; i < 20 && current; i++) {
+        if (!current.parent_id) return current.id;
+        current = byId.get(current.parent_id);
+      }
+    }
   }
-  // Fallback for pre-navigation contexts.
-  // Migration: read old key if new key doesn't exist.
+
   let stored = localStorage.getItem("aeqi_root");
   if (!stored) {
     const legacy = localStorage.getItem("aeqi_company");
@@ -34,13 +52,13 @@ export function getScopedRoot(): string {
       stored = legacy;
     }
   }
-  // If a prior bug wrote a non-agent segment (e.g. "profile") into the
-  // cache, discard it so we don't keep shipping garbage in X-Root.
   if (stored && NON_AGENT_ROUTES.has(stored)) {
     localStorage.removeItem("aeqi_root");
     stored = null;
   }
-  return stored || "";
+  if (stored) return stored;
+
+  return urlSegment;
 }
 
 const NON_AGENT_ROUTES = new Set([
