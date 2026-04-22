@@ -111,7 +111,7 @@ export const color = {
     holder: "#3a4743",
     director: "#6468d8",
     executive: "#5b6c88",
-    dealflow: "#5a7398",
+    dealflow: "#64748b",
   },
 
   // Supporting neutrals

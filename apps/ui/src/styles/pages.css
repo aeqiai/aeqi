@@ -272,7 +272,7 @@
   background: var(--bg-base);
 }
 
-/* Signup pitch side — steel-blue panel, white text. Echoes the
+/* Signup pitch side — graphite panel, white text. Echoes the
    landing's FinalCTA register so users crossing from aeqi.ai land
    on a familiar surface and the "autonomous companies" promise
    carries through to the signup moment. */
@@ -2162,7 +2162,7 @@
    full list; this view exists to give the user a state-grouped bird's-eye
    view + a real inline create flow without a modal. Linear/Jira spirit:
    dense rows, column counts, priority tags, no color for decoration's
-   sake — priority uses steel accent, nothing else. */
+   sake — priority uses the graphite accent, nothing else. */
 .quest-board {
   display: flex;
   flex-direction: column;

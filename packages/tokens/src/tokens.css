@@ -182,7 +182,7 @@
   --color-role-holder: #3a4743;
   --color-role-director: #6468d8;
   --color-role-executive: #5b6c88;
-  --color-role-dealflow: #5a7398;
+  --color-role-dealflow: #64748b;
 
   /* Supporting neutrals — stone, highlight. (Divider is defined above
      in the borders block so the structural + section-break tokens live

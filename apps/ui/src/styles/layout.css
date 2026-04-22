@@ -642,7 +642,7 @@
   cursor: pointer;
   transition: background 0.1s;
 }
-/* Left-edge accent rail — 2px steel-blue column slides in on hover and
+/* Left-edge accent rail — 2px graphite column slides in on hover and
    holds the active row. Matches the ideas/quests list convention so the
    threads rail reads as a member of the same primitive-list family. */
 .threads-rail-row::before {

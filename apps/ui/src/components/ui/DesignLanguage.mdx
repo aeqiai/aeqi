@@ -5,7 +5,7 @@ import { TokenTable, StatusTokenTable } from "./TokenTable";
 
 # aeqi design language
 
-> **v3 — Neutral Paper + Steel Blue.** The aeqi design system is built on restraint.
+> **v4 — Graphite + Ink.** The aeqi design system is built on restraint.
 > Every element earns its place through function, not decoration. The interface
 > recedes so the four primitives — Agents, Events, Quests, Ideas — can speak clearly.
 
@@ -19,15 +19,15 @@ import { TokenTable, StatusTokenTable } from "./TokenTable";
 
 ### Restraint, with one accent
 
-Cool neutral paper, ink at opacity, one steel-blue accent. The accent earns its
-weight by scarcity: wordmark, primary CTA, links, focus, active state. Titles
-stay ink. The system is restrained, not monochrome.
+Pure neutral paper, ink at opacity, one near-black graphite accent. The accent
+earns its weight by scarcity: wordmark, primary CTA, links, focus, active state.
+Titles stay ink. The system is restrained, not monochrome.
 
 **Ratio rule — hold these or it goes generic:**
 
-- ~65% neutral paper + white card surfaces
-- ~30% ink body copy (black at 18–90% alpha)
-- ~5% steel-blue accent (CTAs, active nav, focus, selected, wordmark)
+- ~70% neutral grey paper + white card surfaces
+- ~28% ink body copy (black at 22–92% alpha)
+- ~2% near-black graphite accent (CTAs, active nav, focus, selected, wordmark)
 
 Jade is reserved for the **success** semantic (completed quests, resolved
 events) so brand and status signal read visually distinct.
@@ -49,12 +49,12 @@ A single black at varying opacities carries hierarchy inside the ink system:
 
 ### Surfaces — paper and card
 
-The canvas is cool neutral paper; raised surfaces read as "same material, lifted":
+The canvas is pure neutral grey; raised surfaces read as "same material, lifted":
 
 <TokenTable
   rows={[
-    { token: "--color-bg-base", usage: "Desk — one step darker than paper (#f1f1ee)" },
-    { token: "--color-paper", usage: "Page base — the default canvas (#f7f7f4)" },
+    { token: "--color-bg-base", usage: "Desk — one step darker than paper (#efeff1)" },
+    { token: "--color-paper", usage: "Page base — the default canvas (#f4f4f5)" },
     { token: "--color-card", usage: "Raised card / panel (#ffffff)" },
     { token: "--bg-elevated", usage: "Dashboard overlay — aliases --color-card" },
   ]}
@@ -79,7 +79,7 @@ Everything in aeqi maps to one of four primitives:
 
 ## The æqi wordmark
 
-The **æqi** wordmark, set in Zen Dots and rendered in steel blue
+The **æqi** wordmark, set in Zen Dots and rendered in graphite
 (`var(--color-accent)`), is the brand mark. It appears as the product name and
 never as decoration. Brand primitives (`<Wordmark>`, `<BrandMark>`) default to
 the accent — never pass a `color` override unless the surface demands it.
@@ -171,8 +171,8 @@ full-bleed washes:
     { status: "Success", token: "--color-success", usage: "Done, active, healthy (jade)" },
     { status: "Error", token: "--color-error", usage: "Failed, validation errors (oxide red)" },
     { status: "Warning", token: "--color-warning", usage: "Blocked, degraded (muted amber)" },
-    { status: "Info", token: "--color-info", usage: "In progress, informational (steel)" },
-    { status: "Accent", token: "--color-accent", usage: "Wordmark, primary CTA, links, focus (steel blue)" },
+    { status: "Info", token: "--color-info", usage: "In progress, informational (graphite — inherits accent)" },
+    { status: "Accent", token: "--color-accent", usage: "Wordmark, primary CTA, links, focus (near-black graphite)" },
   ]}
 />
 

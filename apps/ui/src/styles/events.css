@@ -108,7 +108,7 @@
 
 /* Tone stripes — one per transport */
 .event-canvas-node--tone-session::before {
-  background: var(--color-accent); /* steel blue */
+  background: var(--color-accent); /* graphite */
 }
 .event-canvas-node--tone-context::before {
   background: #d9a64d; /* warm amber — budget / compaction */

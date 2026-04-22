@@ -29,7 +29,7 @@ interface Props {
 /**
  * Runtime palette — read once from CSS custom properties so the graph
  * follows the design system instead of carrying its own rainbow. A
- * neutral ink base with steel-blue accent mirrors the rest of the app;
+ * neutral ink base with graphite accent mirrors the rest of the app;
  * differentiation between tag/relation kinds is carried by shape and
  * weight, not by raw hue.
  */
