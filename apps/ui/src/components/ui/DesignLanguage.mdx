@@ -212,6 +212,26 @@ No bouncy easing. Motion conveys continuity, not delight.
 
 ---
 
+## Elevation
+
+A single canonical treatment for "lifted" white cards. Composes a 1px
+hairline ring (inset via box-shadow — no layout cost) with a whisper of
+ambient shadow and a long-range soft shadow. The sheet separates from
+the tinted frame without any of the drop-shadow heaviness that reads as
+"AI wrapper":
+
+<TokenTable
+  rows={[
+    { token: "--card-elevation", usage: "Raised white cards — content sheet, modals, popovers" },
+  ]}
+/>
+
+Apply via `box-shadow: var(--card-elevation)`. Pair with `--radius-lg`
+and `background: var(--color-card)`. Do not combine with `--shadow-md/lg`
+— the token already carries its own depth.
+
+---
+
 ## Using the primitives
 
 **Rule: reach for `components/ui/` first.** A new ad-hoc class is the last

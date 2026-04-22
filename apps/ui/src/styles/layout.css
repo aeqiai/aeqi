@@ -394,7 +394,9 @@
 
 /* Content card — the tinted frame. Holds the topbar and the paper
    sheet. The sidebar tint flows through here so the topbar + sidebar
-   read as one continuous frame; the paper sheet floats inset below. */
+   read as one continuous frame; the paper sheet floats inset below.
+   A small bottom padding lifts the paper off the viewport edge so
+   its rounded corners read as a real card, not a flush-to-chrome pane. */
 .content-card {
   flex: 1;
   min-height: 0;
@@ -405,13 +407,19 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
+  padding-bottom: 8px;
 }
 
 /* Paper sheet — sits inside the tinted frame, below the topbar. Holds
    the body row (optional sessions rail + main scroll) and, on the
-   inbox surface, the composer as its last child. Both top corners are
-   rounded so the sheet reads as a tab tucked below the topbar and
-   inside the tinted frame. */
+   inbox surface, the composer as its last child. All four corners
+   round: the top two tuck under the topbar, the bottom two lift off
+   the tinted frame so the sheet reads as a floating card.
+
+   --card-elevation layers a hairline ring + whisper shadow so the
+   white sheet separates from the tinted frame without begging for
+   attention. Canonical elevation token — use on any raised white
+   surface. */
 .content-paper {
   flex: 1;
   min-height: 0;
@@ -419,8 +427,8 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--color-card);
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-elevation);
 }
 
 /* Body row — rail + scroll, full width inside the paper sheet. The

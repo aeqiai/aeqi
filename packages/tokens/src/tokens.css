@@ -250,6 +250,19 @@
   --shadow-xl:
     0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
 
+  /* ── Card elevation ──────────────────────────────
+     Canonical treatment for any white card that needs to read as
+     "lifted off the paper". Composes three layers:
+       1. 1px hairline border (via inset ring — no layout cost)
+       2. whisper of ambient shadow
+       3. long-range soft shadow for depth
+     Use on the content sheet, modals, popovers, any raised white
+     surface. Keeps the v4 restraint — no visible border color, the
+     sheet just "arrives" against the paper. */
+  --card-elevation:
+    0 0 0 1px var(--color-border), 0 1px 2px rgba(0, 0, 0, 0.03),
+    0 8px 24px -12px rgba(0, 0, 0, 0.08);
+
   /* ── Transitions ────────────────────────────────── */
 
   --transition-fast: 150ms ease;
