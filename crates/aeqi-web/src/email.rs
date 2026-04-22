@@ -1,5 +1,10 @@
 //! Lightweight SMTP email sender for verification codes.
 //! Uses raw SMTP over TLS via reqwest — no heavy mail crate needed.
+//!
+//! The HTML template mirrors the canonical aeqi v4 design system
+//! (Graphite + Ink). The brand wordmark is loaded from
+//! https://aeqi.ai/wordmark.svg so this fallback path looks identical
+//! to the platform's Resend-backed templates.
 
 use aeqi_core::config::SmtpConfig;
 
@@ -9,21 +14,56 @@ pub async fn send_verification_email(
     to: &str,
     code: &str,
 ) -> anyhow::Result<()> {
-    let subject = format!("Your AEQI verification code: {}", code);
+    let subject = "Verify your email".to_string();
     let body_text = format!(
-        "Your verification code is: {}\n\nThis code expires in 15 minutes.\n\nIf you didn't request this, you can ignore this email.",
-        code
+        "Your aeqi verification code is: {code}\n\nThis code expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email."
     );
     let body_html = format!(
-        r#"<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 400px; margin: 0 auto; padding: 40px 0;">
-<h2 style="font-size: 18px; font-weight: 600; color: #1a1a1a; margin: 0 0 8px;">Verify your email</h2>
-<p style="font-size: 13px; color: #666; margin: 0 0 24px;">Enter this code to verify your AEQI account:</p>
-<div style="background: #f5f5f5; border-radius: 8px; padding: 20px; text-align: center; margin: 0 0 24px;">
-<span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a;">{}</span>
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body {{ margin:0; padding:0; background:#f4f4f5; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:rgba(10,10,11,0.85); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }}
+  .wrap {{ width:100%; background:#f4f4f5; padding:48px 16px; }}
+  .container {{ max-width:480px; margin:0 auto; }}
+  .mark-row {{ text-align:center; margin:0 0 28px; }}
+  .card {{ background:#ffffff; border:1px solid rgba(0,0,0,0.06); border-radius:16px; padding:36px 32px; }}
+  .heading {{ font-family:'Exo 2','Inter',-apple-system,BlinkMacSystemFont,sans-serif; font-weight:600; font-size:22px; letter-spacing:-0.015em; color:rgba(10,10,11,0.92); margin:0 0 8px; line-height:1.2; }}
+  .lede {{ font-size:14px; line-height:1.55; color:rgba(10,10,11,0.54); margin:0 0 24px; }}
+  .code {{ font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:30px; font-weight:600; letter-spacing:0.18em; text-align:center; padding:22px 16px; background:#f4f4f5; border:1px solid rgba(0,0,0,0.06); border-radius:12px; color:rgba(10,10,11,0.92); margin:0 0 14px; }}
+  .meta {{ font-size:12.5px; line-height:1.55; color:rgba(10,10,11,0.36); margin:0; }}
+  .footer {{ text-align:center; margin:24px 0 0; font-size:11.5px; line-height:1.7; color:rgba(10,10,11,0.36); }}
+  .footer .tag {{ color:rgba(10,10,11,0.54); font-weight:500; }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="container">
+    <div class="mark-row">
+      <a href="https://aeqi.ai" style="text-decoration:none; line-height:0; display:inline-block;">
+        <img src="https://aeqi.ai/wordmark.svg" alt="aeqi" width="72" height="22" style="display:block; border:0; outline:none; text-decoration:none;">
+      </a>
+    </div>
+    <div class="card">
+      <h1 class="heading">Verify your email</h1>
+      <p class="lede">Enter this code in your browser to finish setting up your aeqi account.</p>
+      <div class="code">{code}</div>
+      <p class="meta">Expires in 15 minutes.</p>
+    </div>
+    <div class="footer">
+      <p style="margin:0 0 4px;"><span class="tag">aeqi</span> — autonomous companies, run by agents.</p>
+      <p style="margin:0;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+  </div>
 </div>
-<p style="font-size: 12px; color: #999;">This code expires in 15 minutes. If you didn't request this, you can ignore this email.</p>
-</div>"#,
-        code
+</body>
+</html>"#
     );
 
     send_smtp(smtp, to, &subject, &body_text, &body_html).await
@@ -96,7 +136,7 @@ async fn send_smtp(
 
     let boundary = "aeqi-boundary-001";
     let message = format!(
-        "From: AEQI <{}>\r\nTo: {}\r\nSubject: {}\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"{}\"\r\n\r\n--{}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}\r\n--{}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n{}\r\n--{}--\r\n.\r\n",
+        "From: aeqi <{}>\r\nTo: {}\r\nSubject: {}\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"{}\"\r\n\r\n--{}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}\r\n--{}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n{}\r\n--{}--\r\n.\r\n",
         smtp.from, to, subject, boundary, boundary, body_text, boundary, body_html, boundary
     );
 
