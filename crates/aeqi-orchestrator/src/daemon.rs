@@ -1570,10 +1570,19 @@ impl Daemon {
                                     }
                                 };
                                 if let Some(ref uuid) = agent_uuid {
-                                    match cs.list_sessions(Some(uuid), 1).await {
+                                    // Widen the lookup past the first row — sub-agents accumulate
+                                    // `task` sessions from quest runs, and latching onto one of
+                                    // those landed every web chat into a quest queue that was
+                                    // either already running or never drained. Only reuse
+                                    // `interactive` sessions for web chat; otherwise mint a fresh
+                                    // one.
+                                    match cs.list_sessions(Some(uuid), 20).await {
                                         Ok(sessions) => sessions
-                                            .first()
-                                            .filter(|s| s.status == "active")
+                                            .iter()
+                                            .find(|s| {
+                                                s.status == "active"
+                                                    && s.session_type == "interactive"
+                                            })
                                             .map(|s| s.id.clone())
                                             .or_else(|| Some(::uuid::Uuid::new_v4().to_string())),
                                         Err(_) => Some(::uuid::Uuid::new_v4().to_string()),
