@@ -244,13 +244,20 @@ pub enum GraphAction {
 pub enum AgentAction {
     /// List all discovered agents (from disk + TOML).
     List,
-    /// Spawn a new persistent agent from a template file.
+    /// Spawn a new persistent agent. For pre-threaded companies (root +
+    /// seed agents/events/ideas/quests), use `aeqi template spawn <slug>`.
     Spawn {
-        /// Path to the agent template file (frontmatter + system prompt).
-        template: String,
-        /// Override root agent scope from template.
-        #[arg(short = 'r', long = "root")]
-        root: Option<String>,
+        /// Canonical name of the new agent.
+        name: String,
+        /// Optional display name shown in the UI.
+        #[arg(short = 'd', long = "display-name")]
+        display_name: Option<String>,
+        /// Parent agent id — attach the new agent under an existing one.
+        #[arg(short = 'p', long = "parent")]
+        parent: Option<String>,
+        /// Optional model override (e.g. `anthropic/claude-sonnet-4.6`).
+        #[arg(short = 'm', long = "model")]
+        model: Option<String>,
     },
     /// Show details of a persistent agent.
     Show {

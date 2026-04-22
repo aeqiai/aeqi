@@ -168,49 +168,6 @@ fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Frontmatter parsed from a template file.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct AgentTemplateFrontmatter {
-    pub name: Option<String>,
-    pub display_name: Option<String>,
-    pub model: Option<String>,
-    /// Parent agent name — resolved to parent_id at spawn time.
-    pub parent: Option<String>,
-    #[serde(default)]
-    pub triggers: Vec<TemplateTrigger>,
-    // --- Visual identity ---
-    pub color: Option<String>,
-    pub avatar: Option<String>,
-    #[serde(default)]
-    pub faces: std::collections::HashMap<String, String>,
-}
-
-/// A trigger definition within an agent template.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemplateTrigger {
-    pub name: String,
-    pub schedule: Option<String>,
-    pub at: Option<String>,
-    pub event: Option<String>,
-    pub event_project: Option<String>,
-    pub event_tool: Option<String>,
-    pub event_from: Option<String>,
-    pub event_to: Option<String>,
-    pub event_kind: Option<String>,
-    pub event_channel: Option<String>,
-    pub cooldown_secs: Option<u64>,
-    pub skill: String,
-    pub max_budget_usd: Option<f64>,
-}
-
-/// Parse a template with YAML frontmatter into (frontmatter, system_prompt body).
-pub fn parse_agent_template(content: &str) -> (AgentTemplateFrontmatter, String) {
-    match aeqi_core::frontmatter::load_frontmatter::<AgentTemplateFrontmatter>(content) {
-        Ok((fm, body)) => (fm, body),
-        Err(_) => (AgentTemplateFrontmatter::default(), content.to_string()),
-    }
-}
-
 /// Lifecycle status of an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -572,90 +529,6 @@ impl AgentRegistry {
     // -----------------------------------------------------------------------
     // Core CRUD
     // -----------------------------------------------------------------------
-
-    /// Spawn a new agent from a template string (frontmatter + prompt body).
-    pub async fn spawn_from_template(
-        &self,
-        template_content: &str,
-        parent_id: Option<&str>,
-    ) -> Result<Agent> {
-        let (fm, _system_prompt) = parse_agent_template(template_content);
-        let name = fm
-            .name
-            .unwrap_or_else(|| format!("agent-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-        let triggers = fm.triggers.clone();
-
-        // Resolve parent: explicit parent_id > frontmatter parent name > None (root).
-        let resolved_parent = if parent_id.is_some() {
-            parent_id.map(|s| s.to_string())
-        } else if let Some(ref parent_name) = fm.parent {
-            self.get_active_by_name(parent_name).await?.map(|a| a.id)
-        } else {
-            None
-        };
-
-        let mut agent = self
-            .spawn(
-                &name,
-                fm.display_name.as_deref(),
-                resolved_parent.as_deref(),
-                fm.model.as_deref(),
-            )
-            .await?;
-
-        // Apply visual identity from template.
-        if fm.color.is_some() || fm.avatar.is_some() || !fm.faces.is_empty() {
-            agent.color = fm.color;
-            agent.avatar = fm.avatar;
-            agent.faces = if fm.faces.is_empty() {
-                None
-            } else {
-                Some(fm.faces)
-            };
-            let db = self.db.lock().await;
-            let faces_json = agent
-                .faces
-                .as_ref()
-                .map(|f| serde_json::to_string(f).unwrap_or_default());
-            let _ = db.execute(
-                "UPDATE agents SET color = ?1, avatar = ?2, faces = ?3 WHERE id = ?4",
-                rusqlite::params![agent.color, agent.avatar, faces_json, agent.id],
-            );
-        }
-
-        // Create events from template triggers.
-        if !triggers.is_empty() {
-            let event_store = crate::event_handler::EventHandlerStore::new(self.db.clone());
-            for t in &triggers {
-                let pattern = if let Some(ref schedule) = t.schedule {
-                    format!("schedule:{schedule}")
-                } else if let Some(ref at) = t.at {
-                    format!("once:{at}")
-                } else if let Some(ref event) = t.event {
-                    format!("session:{event}")
-                } else {
-                    continue;
-                };
-                let _ = event_store
-                    .create(&crate::event_handler::NewEvent {
-                        agent_id: Some(agent.id.clone()),
-                        name: t.name.clone(),
-                        pattern,
-                        cooldown_secs: t.cooldown_secs.unwrap_or(300),
-                        ..Default::default()
-                    })
-                    .await;
-                info!(
-                    agent = %agent.name,
-                    event = %t.name,
-                    skill = %t.skill,
-                    "event created from template"
-                );
-            }
-        }
-
-        Ok(agent)
-    }
 
     /// Spawn a new agent directly.
     pub async fn spawn(
@@ -2687,42 +2560,6 @@ mod tests {
         let updated = reg.get(&agent.id).await.unwrap().unwrap();
         assert_eq!(updated.session_count, 2);
         assert_eq!(updated.total_tokens, 8000);
-    }
-
-    #[tokio::test]
-    async fn spawn_from_template_parses_frontmatter() {
-        let reg = test_registry().await;
-        let template = r#"---
-name: shadow
-display_name: "Shadow — Your Dark Butler"
-model: anthropic/claude-sonnet-4.6
----
-
-You are Shadow, the user's personal assistant."#;
-        let agent = reg.spawn_from_template(template, None).await.unwrap();
-        assert_eq!(agent.name, "shadow");
-        assert_eq!(
-            agent.display_name.as_deref(),
-            Some("Shadow — Your Dark Butler")
-        );
-        assert!(agent.parent_id.is_none()); // Root
-    }
-
-    #[tokio::test]
-    async fn spawn_from_template_with_parent() {
-        let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let template = r#"---
-name: worker
-model: anthropic/claude-sonnet-4.6
----
-
-You are a worker agent."#;
-        let agent = reg
-            .spawn_from_template(template, Some(&root.id))
-            .await
-            .unwrap();
-        assert_eq!(agent.parent_id.as_deref(), Some(root.id.as_str()));
     }
 
     #[tokio::test]

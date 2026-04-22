@@ -1283,14 +1283,6 @@ impl Daemon {
                     crate::ipc::templates::handle_list_templates(&ctx, &request, &allowed_roots)
                         .await
                 }
-                "list_identity_templates" => {
-                    crate::ipc::templates::handle_list_identity_templates(
-                        &ctx,
-                        &request,
-                        &allowed_roots,
-                    )
-                    .await
-                }
                 "template_detail" => {
                     crate::ipc::templates::handle_template_detail(&ctx, &request, &allowed_roots)
                         .await
@@ -1557,42 +1549,42 @@ impl Daemon {
                         // spawn_session so `session_is_new=true` on a brand-new session
                         // and `session:start` fires. They also ensure the event_fired
                         // rows sort BEFORE the user-message row in the timeline.
-                        let store_session_id: Option<String> =
-                            if let Some(ref sid) = session_id_hint {
-                                Some(sid.clone())
-                            } else if let Some(ref cs) = session_store {
-                                let agent_uuid = if let Some(ref aid) = agent_id_direct {
-                                    Some(aid.clone())
-                                } else {
-                                    match agent_registry.resolve_by_hint(&agent_hint).await {
-                                        Ok(Some(agent)) => Some(agent.id),
-                                        _ => None,
-                                    }
-                                };
-                                if let Some(ref uuid) = agent_uuid {
-                                    // Widen the lookup past the first row — sub-agents accumulate
-                                    // `task` sessions from quest runs, and latching onto one of
-                                    // those landed every web chat into a quest queue that was
-                                    // either already running or never drained. Only reuse
-                                    // `interactive` sessions for web chat; otherwise mint a fresh
-                                    // one.
-                                    match cs.list_sessions(Some(uuid), 20).await {
-                                        Ok(sessions) => sessions
-                                            .iter()
-                                            .find(|s| {
-                                                s.status == "active"
-                                                    && s.session_type == "interactive"
-                                            })
-                                            .map(|s| s.id.clone())
-                                            .or_else(|| Some(::uuid::Uuid::new_v4().to_string())),
-                                        Err(_) => Some(::uuid::Uuid::new_v4().to_string()),
-                                    }
-                                } else {
-                                    None
+                        let store_session_id: Option<String> = if let Some(ref sid) =
+                            session_id_hint
+                        {
+                            Some(sid.clone())
+                        } else if let Some(ref cs) = session_store {
+                            let agent_uuid = if let Some(ref aid) = agent_id_direct {
+                                Some(aid.clone())
+                            } else {
+                                match agent_registry.resolve_by_hint(&agent_hint).await {
+                                    Ok(Some(agent)) => Some(agent.id),
+                                    _ => None,
+                                }
+                            };
+                            if let Some(ref uuid) = agent_uuid {
+                                // Widen the lookup past the first row — sub-agents accumulate
+                                // `task` sessions from quest runs, and latching onto one of
+                                // those landed every web chat into a quest queue that was
+                                // either already running or never drained. Only reuse
+                                // `interactive` sessions for web chat; otherwise mint a fresh
+                                // one.
+                                match cs.list_sessions(Some(uuid), 20).await {
+                                    Ok(sessions) => sessions
+                                        .iter()
+                                        .find(|s| {
+                                            s.status == "active" && s.session_type == "interactive"
+                                        })
+                                        .map(|s| s.id.clone())
+                                        .or_else(|| Some(::uuid::Uuid::new_v4().to_string())),
+                                    Err(_) => Some(::uuid::Uuid::new_v4().to_string()),
                                 }
                             } else {
                                 None
-                            };
+                            }
+                        } else {
+                            None
+                        };
 
                         // Legacy chat_id for backward-compatible JSON responses.
                         let chat_id = named_channel_chat_id(

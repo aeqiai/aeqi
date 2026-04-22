@@ -11,6 +11,8 @@ use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use aeqi_core::traits::{IdeaQuery, IdeaStore};
 
+const PERSONA_IDEA_TAGS: &[&str] = &["identity", "evergreen"];
+
 // ---------------------------------------------------------------------------
 // Helper: format quest detail
 // ---------------------------------------------------------------------------
@@ -147,7 +149,7 @@ pub fn usage_log_path() -> PathBuf {
 pub struct AgentsTool {
     agent_name: String,
     agent_registry: Arc<AgentRegistry>,
-    templates_dir: PathBuf,
+    idea_store: Option<Arc<dyn IdeaStore>>,
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
     activity_log: Arc<ActivityLog>,
 }
@@ -156,55 +158,76 @@ impl AgentsTool {
     pub fn new(
         agent_name: String,
         agent_registry: Arc<AgentRegistry>,
-        templates_dir: PathBuf,
+        idea_store: Option<Arc<dyn IdeaStore>>,
         event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
         activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
             agent_name,
             agent_registry,
-            templates_dir,
+            idea_store,
             event_handler_store,
             activity_log,
         }
     }
 
     async fn action_hire(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let template = args
-            .get("template")
+        let name = args
+            .get("name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'template'"))?;
-        let parent_id = args
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("missing required parameter 'name'"))?;
+        let display_name = args
+            .get("display_name")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let model = args
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let system_prompt = args
+            .get("system_prompt")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+
+        // `parent_id` can be an explicit agent id, or defaults to the calling
+        // agent so hiring from inside a session always attaches a child.
+        let parent_hint = args
             .get("parent_id")
             .and_then(|v| v.as_str())
             .unwrap_or(&self.agent_name);
-
-        // Embedded catalog first (leader/researcher/reviewer), then fall
-        // back to the on-disk templates_dir so operators can drop custom
-        // personas into `agents/<slug>/agent.md` without a Rust rebuild.
-        let content: String = match crate::templates::identity_template_content(template) {
-            Some(c) => c.to_string(),
+        let parent_id = match self.agent_registry.resolve_by_hint(parent_hint).await? {
+            Some(parent) => parent.id,
             None => {
-                let template_path = self.templates_dir.join(template).join("agent.md");
-                tokio::fs::read_to_string(&template_path)
-                    .await
-                    .with_context(|| {
-                        format!("failed to read template: {}", template_path.display())
-                    })?
+                return Ok(ToolResult::error(format!(
+                    "parent agent not found: {parent_hint}"
+                )));
             }
         };
 
         let agent = self
             .agent_registry
-            .spawn_from_template(&content, Some(parent_id))
+            .spawn(name, display_name, Some(&parent_id), model)
             .await?;
 
-        // Emit child_added for the parent.
+        if let (Some(store), Some(prompt)) = (self.idea_store.as_ref(), system_prompt) {
+            let label = agent.display_name.as_deref().unwrap_or(&agent.name);
+            let idea_name = format!("Persona — {label}");
+            let tags: Vec<String> = PERSONA_IDEA_TAGS.iter().map(|s| s.to_string()).collect();
+            let _ = store
+                .store(&idea_name, prompt, &tags, Some(&agent.id))
+                .await;
+        }
+
         let _ = self
             .activity_log
             .emit(
                 "child_added",
-                Some(parent_id),
+                Some(&parent_id),
                 None,
                 None,
                 &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
@@ -212,8 +235,8 @@ impl AgentsTool {
             .await;
 
         Ok(ToolResult::success(format!(
-            "Agent hired: {} (id: {}, template: {})",
-            agent.name, agent.id, template
+            "Agent hired: {} (id: {})",
+            agent.name, agent.id
         )))
     }
 
@@ -437,7 +460,7 @@ impl Tool for AgentsTool {
         ToolSpec {
             name: "agents".to_string(),
             description: "Manage agents in the agent tree. \
-                Actions: hire (spawn from template), retire (deactivate), \
+                Actions: hire (spawn a child agent), retire (deactivate), \
                 list (show agents), self (introspect). \
                 To delegate work, use quests(action='create')."
                 .to_string(),
@@ -447,11 +470,23 @@ impl Tool for AgentsTool {
                     "action": {
                         "type": "string",
                         "enum": ["hire", "retire", "list", "self"],
-                        "description": "hire: spawn agent from template. retire: deactivate agent. list: show agents. self: introspect."
+                        "description": "hire: spawn a child agent under the caller. retire: deactivate agent. list: show agents. self: introspect."
                     },
-                    "template": {
+                    "name": {
                         "type": "string",
-                        "description": "Template directory name, e.g. 'shadow', 'analyst' (for hire)"
+                        "description": "New agent's canonical name (for hire)"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "Optional display name shown in the UI (for hire)"
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model override, e.g. 'anthropic/claude-sonnet-4.6' (for hire)"
+                    },
+                    "system_prompt": {
+                        "type": "string",
+                        "description": "Optional persona. Stored as an identity idea on the new agent (for hire)"
                     },
                     "parent_id": {
                         "type": "string",
@@ -470,18 +505,6 @@ impl Tool for AgentsTool {
                         "type": "string",
                         "enum": ["identity", "tree", "quests", "events", "all"],
                         "description": "Which section to return (for self, default: all)"
-                    },
-                    "to": {
-                        "type": "string",
-                        "description": "Target for delegation: 'subagent' for ephemeral child session, or an agent name to create a quest (for delegate)"
-                    },
-                    "prompt": {
-                        "type": "string",
-                        "description": "The task or message to delegate (for delegate)"
-                    },
-                    "skill": {
-                        "type": "string",
-                        "description": "Optional skill hint for the delegated agent (for delegate)"
                     }
                 },
                 "required": ["action"]
@@ -1823,7 +1846,6 @@ pub fn build_orchestration_tools(
     session_store: Option<Arc<crate::SessionStore>>,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
 ) -> Vec<Arc<dyn Tool>> {
-    let templates_dir = std::env::current_dir().unwrap_or_default().join("agents");
     let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(
         agent_registry.db(),
     ));
@@ -1832,7 +1854,7 @@ pub fn build_orchestration_tools(
     let agents_tool = AgentsTool::new(
         agent_name.clone(),
         agent_registry.clone(),
-        templates_dir,
+        idea_store.clone(),
         Some(event_handler_store.clone()),
         activity_log.clone(),
     );

@@ -45,13 +45,22 @@ pub(crate) async fn cmd_agent(
             }
             Ok(())
         }
-        crate::cli::AgentAction::Spawn { template, root } => {
+        crate::cli::AgentAction::Spawn {
+            name,
+            display_name,
+            parent,
+            model,
+        } => {
             let (config, _) = load_config(config_path)?;
             let registry =
                 aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir())?;
-            let content = std::fs::read_to_string(&template)?;
             let agent = registry
-                .spawn_from_template(&content, root.as_deref())
+                .spawn(
+                    &name,
+                    display_name.as_deref(),
+                    parent.as_deref(),
+                    model.as_deref(),
+                )
                 .await?;
             println!("Spawned persistent agent:");
             println!("  ID:      {}", agent.id);

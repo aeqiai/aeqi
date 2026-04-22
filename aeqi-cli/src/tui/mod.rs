@@ -472,77 +472,46 @@ pub async fn run(
         }
     };
 
-    // No agents exist → prompt to spawn one.
+    // No agents exist → prompt for a name and spawn a bare persistent agent.
+    // Persona content (identity, instructions, memories) is added afterwards
+    // as ideas tagged `identity`/`evergreen`. For a pre-threaded multi-agent
+    // company, use `aeqi template spawn <slug>` instead.
     if agent.is_none() {
         eprintln!();
         eprintln!("  \x1b[1mNo agent found.\x1b[0m");
         eprintln!();
         eprintln!("  AEQI uses persistent agents — they remember you across sessions.");
-        eprintln!("  You need to spawn one before chatting.");
+        eprintln!("  Spawn one to get started, or run `aeqi template spawn <slug>` for");
+        eprintln!("  a pre-threaded company.");
         eprintln!();
 
-        // List available templates.
-        let templates = list_agent_templates();
-        if templates.is_empty() {
-            eprintln!("  No agent templates found. Create one in agents/ directory.");
-            eprintln!("  See: https://github.com/aeqiai/aeqi#agents");
-            return Ok(());
-        }
-
-        eprintln!("  \x1b[1mAvailable agent templates:\x1b[0m");
-        for (i, (name, _path)) in templates.iter().enumerate() {
-            let marker = if name == "shadow" {
-                " \x1b[33m(recommended)\x1b[0m"
-            } else {
-                ""
-            };
-            eprintln!("    \x1b[36m{}\x1b[0m. {name}{marker}", i + 1);
-        }
-        eprintln!();
-        eprint!("  Spawn which agent? [1=shadow]: ");
+        eprint!("  Name for the new agent: ");
         io::stderr().flush()?;
 
-        let mut choice = String::new();
-        io::stdin().read_line(&mut choice)?;
-        let choice = choice.trim();
-
-        let selected = if choice.is_empty() || choice == "1" {
-            templates.first()
-        } else if let Ok(n) = choice.parse::<usize>() {
-            templates.get(n.saturating_sub(1))
-        } else {
-            templates.iter().find(|(name, _)| name == choice)
-        };
-
-        let Some((name, path)) = selected else {
-            eprintln!("  Invalid choice. Run `aeqi agent spawn <template>` manually.");
+        let mut name = String::new();
+        io::stdin().read_line(&mut name)?;
+        let name = name.trim();
+        if name.is_empty() {
+            eprintln!("  No name given. Run `aeqi agent spawn <name>` manually.");
             return Ok(());
-        };
+        }
 
-        if let Ok(content) = std::fs::read_to_string(path) {
-            match registry.spawn_from_template(&content, project).await {
-                Ok(spawned) => {
-                    let display = spawned.display_name.as_deref().unwrap_or(&spawned.name);
-                    eprintln!();
-                    eprintln!(
-                        "  \x1b[32m✓ Spawned {display}\x1b[0m (id: {})",
-                        &spawned.id[..8]
-                    );
-                    eprintln!("  Entity memory will accumulate across sessions.");
-                    eprintln!();
-                    agent = Some(spawned);
-                }
-                Err(e) => {
-                    eprintln!("  \x1b[31m✗ Failed to spawn {name}: {e}\x1b[0m");
-                    return Ok(());
-                }
+        match registry.spawn(name, None, project, None).await {
+            Ok(spawned) => {
+                let display = spawned.display_name.as_deref().unwrap_or(&spawned.name);
+                eprintln!();
+                eprintln!(
+                    "  \x1b[32m✓ Spawned {display}\x1b[0m (id: {})",
+                    &spawned.id[..8]
+                );
+                eprintln!("  Entity memory will accumulate across sessions.");
+                eprintln!();
+                agent = Some(spawned);
             }
-        } else {
-            eprintln!(
-                "  \x1b[31m✗ Could not read template: {}\x1b[0m",
-                path.display()
-            );
-            return Ok(());
+            Err(e) => {
+                eprintln!("  \x1b[31m✗ Failed to spawn {name}: {e}\x1b[0m");
+                return Ok(());
+            }
         }
     }
 
@@ -877,63 +846,4 @@ fn spawn_direct_agent(
     });
 
     Ok((input_tx, join))
-}
-
-// ---------------------------------------------------------------------------
-// Agent template discovery
-// ---------------------------------------------------------------------------
-
-/// Find all agent templates in the agents/ directory.
-/// Returns Vec of (name, path) sorted with "shadow" first.
-fn list_agent_templates() -> Vec<(String, PathBuf)> {
-    let mut templates = Vec::new();
-
-    // Check relative to cwd and common locations.
-    let search_dirs = vec![
-        PathBuf::from("agents"),
-        dirs::home_dir()
-            .unwrap_or_default()
-            .join(".aeqi")
-            .join("agents"),
-    ];
-
-    for dir in search_dirs {
-        if !dir.exists() {
-            continue;
-        }
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                let name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_string();
-                if name == "shared" || name.starts_with('.') {
-                    continue;
-                }
-                // Look for agent.md inside.
-                let template = path.join("agent.md");
-                if template.exists() {
-                    templates.push((name, template));
-                }
-            }
-        }
-    }
-
-    // Deduplicate by name, sort with "shadow" first.
-    templates.sort_by(|a, b| {
-        if a.0 == "shadow" {
-            std::cmp::Ordering::Less
-        } else if b.0 == "shadow" {
-            std::cmp::Ordering::Greater
-        } else {
-            a.0.cmp(&b.0)
-        }
-    });
-    templates.dedup_by(|a, b| a.0 == b.0);
-    templates
 }

@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent_registry::{AgentRegistry, parse_agent_template};
+use crate::agent_registry::AgentRegistry;
 use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall};
 
 // ---------------------------------------------------------------------------
@@ -472,29 +472,6 @@ pub async fn handle_template_detail(
             "code": "not_found",
         }),
     }
-}
-
-pub async fn handle_list_identity_templates(
-    _ctx: &super::CommandContext,
-    _request: &serde_json::Value,
-    _allowed: &Option<Vec<String>>,
-) -> serde_json::Value {
-    // Parse each identity's frontmatter so the picker can show display_name /
-    // role / prefix without a second fetch. Failures just drop the frontmatter
-    // fields — the slug still reaches the UI.
-    let items: Vec<serde_json::Value> = crate::templates::identity_templates()
-        .iter()
-        .map(|tpl| {
-            let (fm, body) = parse_agent_template(tpl.content);
-            serde_json::json!({
-                "slug": tpl.slug,
-                "name": fm.name.unwrap_or_else(|| tpl.slug.to_string()),
-                "display_name": fm.display_name,
-                "description": body.trim().lines().next().unwrap_or("").to_string(),
-            })
-        })
-        .collect();
-    serde_json::json!({"ok": true, "identities": items})
 }
 
 pub async fn handle_spawn_template(
