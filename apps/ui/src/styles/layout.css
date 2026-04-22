@@ -1,47 +1,37 @@
-/* ── Shell — column so the app body sits above a shared legal footer
-   strip. The body row (sidebar + content) takes all but the footer;
-   --legal bar sits on the paper surface so both the sidebar and the
-   content card "float" above a continuous baseline. */
+/* ── Shell — viewport row: sidebar + content-column side by side.
+   The legal strip lives inside content-column (below the card), so
+   nothing sits under the left sidebar — the sidebar column runs
+   uninterrupted from top to bottom. */
 .shell {
   display: flex;
-  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: var(--color-card);
   max-width: 1440px;
   margin: 0 auto;
 }
-.shell-main {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
-/* ── Legal footer strip ──
-   Two-part row: Docs link on the left (sits in a sidebar-width slot
-   so its icon lands at the exact x-coordinate as the profile
-   avatar above); TOS sentence + copyright clustered on the right
-   (aligns with the content card's right edge). */
+/* ── Legal strip — compact inline row pinned to the bottom of the
+   content column, directly below the card. Not a footer for the
+   whole app — only spans the content column's width, leaving the
+   left sidebar flush from top to bottom. Status on the left, legal
+   prose + version + copyright clustered on the right. Narrow metric
+   (11px, 4px vertical padding) so it reads as a thin baseline strip,
+   not a band. */
 .shell-legal {
   flex-shrink: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 8px;
   background: var(--bg-sidebar);
   color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 0.005em;
   line-height: 1.4;
 }
-/* Left slot = sidebar column geometry (224px wide, 8px horizontal
-   inset, 8/12px vertical padding — a mirror of .sidebar-footer).
-   The Docs nav-item inside occupies the full 208px interior so its
-   avatar slot aligns pixel-perfect with the profile avatar. */
 .shell-legal-left {
   flex-shrink: 0;
-  width: 224px;
-  padding: 8px 8px 12px;
-  box-sizing: border-box;
   display: flex;
   align-items: center;
 }
@@ -52,7 +42,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 8px 16px 12px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -78,11 +67,31 @@
   color: var(--text-muted);
   flex-shrink: 0;
 }
-/* Status dot — neutral by default so the indicator reads as
-   "present, reassuring" rather than "look at me." Stays in the same
-   muted ink as the surrounding footer text; only escalates (to a
-   warning/error tint) if the system state changes. Under-opacity so
-   two adjacent glyphs (dot + label) read as one object. */
+
+/* Status link — quiet inline anchor. Dot + label read as one object;
+   underline-on-hover mirrors the rest of the legal prose so the
+   whole strip has a single interaction language. */
+.shell-legal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+.shell-legal-status:hover,
+.shell-legal-status:focus-visible {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-hover);
+  outline: none;
+}
+/* Status dot — neutral by default (currentColor @ 0.55) so the
+   indicator reads as "present, reassuring" rather than "look at me."
+   Only escalates to a warning/error tint if the system state
+   changes; green-by-default would burn attention for no reason. */
 .shell-legal-status-dot {
   display: inline-block;
   width: 6px;
@@ -92,10 +101,8 @@
   opacity: 0.55;
 }
 
-/* Link treatment inside the right cluster — underline-on-hover, no
-   background shift. The left-side Docs link uses the nav-item hover
-   (background pill) because it IS a nav-item; the right cluster is
-   inline legal prose and keeps the quieter underline pattern. */
+/* Inline legal links — same underline-on-hover pattern as the status
+   anchor so the whole strip has one interaction language. */
 .shell-legal-right a {
   color: var(--text-secondary);
   text-decoration: none;
@@ -109,27 +116,6 @@
   color: var(--text-primary);
   border-bottom-color: var(--border-hover);
   outline: none;
-}
-
-/* Docs row = sidebar-nav-item in the legal strip. Width 100% so it
-   spans the sidebar-column slot the same way the profile row spans
-   its container; min-height matches --sidebar-row-h so the row
-   metric is identical to the row above. */
-.shell-legal-status.sidebar-nav-item {
-  width: 100%;
-  min-height: var(--sidebar-row-h);
-}
-/* Collapsed sidebar: Docs row collapses identically — icon-only,
-   centered — so it stays aligned with the collapsed profile row. */
-.shell:has(.left-sidebar.collapsed) .shell-legal-left {
-  width: 52px;
-}
-.shell:has(.left-sidebar.collapsed) .shell-legal-status.sidebar-nav-item {
-  justify-content: center;
-  padding: 8px;
-}
-.shell:has(.left-sidebar.collapsed) .shell-legal-status .sidebar-nav-label {
-  display: none;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
@@ -661,13 +647,14 @@
   display: none;
 }
 
-/* ── Content column — holds main stack and (optional) rail as a row.
-   Transparent; the paper surface is painted by the shell. */
+/* ── Content column — stacks the content card above the compact
+   legal strip. Transparent; the tinted frame is painted by the card
+   and legal strip themselves so they read as one continuous surface. */
 .content-column {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
   background: transparent;
 }
@@ -2578,18 +2565,6 @@
   .sidebar-footer {
     display: none;
   }
-  /* Mirror the sidebar collapse — legal-left slot shrinks to 52px
-     and its Docs row becomes icon-only. */
-  .shell-legal-left {
-    width: 52px;
-  }
-  .shell-legal-status.sidebar-nav-item {
-    justify-content: center;
-    padding: 8px;
-  }
-  .shell-legal-status .sidebar-nav-label {
-    display: none;
-  }
 
   .sidebar-nav-item {
     justify-content: center;
@@ -2618,18 +2593,13 @@
     border-left: none;
     border-right: none;
   }
-  .shell-main {
-    flex-direction: column;
-  }
   .shell-legal {
-    padding: 8px 12px 10px;
+    padding: 4px 12px 8px;
     gap: 8px;
   }
-  /* On narrow viewports the three-part row collapses — keep only the
-     center sentence (TOS + privacy) since that's the load-bearing
-     legal piece. Docs + copyright reappear at >=640px. */
-  .shell-legal-left,
-  .shell-legal-right {
+  /* On narrow viewports the strip collapses to the load-bearing
+     legal prose only; status + version + copyright reappear ≥640px. */
+  .shell-legal-left {
     display: none;
   }
 

@@ -307,77 +307,73 @@ export default function AppLayout() {
   return (
     <>
       <div className="shell">
-        <div className="shell-main">
-          <LeftSidebar agentId={agentId} path={path} />
+        <LeftSidebar agentId={agentId} path={path} />
 
-          <div className="content-column">
-            <div className="content-card">
-              {showTopBar ? (
-                <>
-                  <ContentTopBar />
-                  <div className="content-paper">
-                    <div className="content-body-row">
-                      {showSessionsRail && (
-                        <aside className="sessions-rail-col">
-                          <SessionsRail />
-                        </aside>
-                      )}
-                      <div className="content-main-col">
-                        <div className="content-scroll">
-                          <Suspense fallback={null}>{mainContent}</Suspense>
-                        </div>
-                        {showComposer && (
-                          <ComposerRow
-                            agentId={agentId || null}
-                            base={base}
-                            sessionsMounted={sessionsMounted}
-                          />
-                        )}
+        <div className="content-column">
+          <div className="content-card">
+            {showTopBar ? (
+              <>
+                <ContentTopBar />
+                <div className="content-paper">
+                  <div className="content-body-row">
+                    {showSessionsRail && (
+                      <aside className="sessions-rail-col">
+                        <SessionsRail />
+                      </aside>
+                    )}
+                    <div className="content-main-col">
+                      <div className="content-scroll">
+                        <Suspense fallback={null}>{mainContent}</Suspense>
                       </div>
+                      {showComposer && (
+                        <ComposerRow
+                          agentId={agentId || null}
+                          base={base}
+                          sessionsMounted={sessionsMounted}
+                        />
+                      )}
                     </div>
                   </div>
-                </>
-              ) : (
-                <Suspense fallback={null}>{mainContent}</Suspense>
-              )}
-            </div>
+                </div>
+              </>
+            ) : (
+              <Suspense fallback={null}>{mainContent}</Suspense>
+            )}
           </div>
-        </div>
-        <div className="shell-legal" role="contentinfo">
-          <div className="shell-legal-left">
-            <a
-              href="https://status.aeqi.ai"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="sidebar-nav-item shell-legal-status"
-              title="System status"
-            >
-              <span className="sidebar-nav-avatar" aria-hidden="true">
-                <span className="shell-legal-status-dot" />
-              </span>
-              <span className="sidebar-nav-label">Operational</span>
-            </a>
-          </div>
-          <div className="shell-legal-right">
-            <span className="shell-legal-terms">
-              By using aeqi you agree to our{" "}
-              <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
-                privacy policy
-              </a>{" "}
-              and{" "}
-              <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
-                terms of service
+          <div className="shell-legal" role="contentinfo">
+            <div className="shell-legal-left">
+              <a
+                href="https://status.aeqi.ai"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="shell-legal-status"
+                title="System status"
+              >
+                <span className="shell-legal-status-dot" aria-hidden="true" />
+                <span>Operational</span>
               </a>
-              .
-            </span>
-            <span className="shell-legal-sep" aria-hidden="true">
-              ·
-            </span>
-            <span className="shell-legal-version">v0.7.0</span>
-            <span className="shell-legal-sep" aria-hidden="true">
-              ·
-            </span>
-            <span className="shell-legal-copyright">© 2026 aeqi</span>
+            </div>
+            <div className="shell-legal-right">
+              <span className="shell-legal-terms">
+                By using aeqi you agree to our{" "}
+                <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+                  privacy policy
+                </a>{" "}
+                and{" "}
+                <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+                  terms of service
+                </a>
+                .
+              </span>
+              <span className="shell-legal-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="shell-legal-version">v0.7.0</span>
+              <span className="shell-legal-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="shell-legal-copyright">© 2026 aeqi</span>
+            </div>
           </div>
         </div>
       </div>
