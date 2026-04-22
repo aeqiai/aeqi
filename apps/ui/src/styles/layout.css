@@ -768,12 +768,16 @@
 .composer-wrap .asv-send {
   color: var(--composer-text-muted);
 }
+/* On dark, the primary send pill inverts: paper-white surface with near-
+   black text. Mirror of the light-mode "ink on paper" pill — same visual
+   idea, opposite surface, maximum value contrast. Steel-blue-on-ink
+   didn't have the value distance to read as a live CTA. */
 .composer-wrap .asv-send.ready {
-  background: var(--color-accent);
-  color: #ffffff;
+  background: #ffffff;
+  color: #121418;
 }
 .composer-wrap .asv-send.ready:hover {
-  background: var(--color-accent-hover);
+  background: rgba(255, 255, 255, 0.88);
 }
 .composer-wrap .asv-composer-hint {
   color: var(--composer-text-muted);
