@@ -321,17 +321,19 @@ export default function AppLayout() {
                         <SessionsRail />
                       </aside>
                     )}
-                    <div className="content-scroll">
-                      <Suspense fallback={null}>{mainContent}</Suspense>
+                    <div className="content-main-col">
+                      <div className="content-scroll">
+                        <Suspense fallback={null}>{mainContent}</Suspense>
+                      </div>
+                      {showComposer && (
+                        <ComposerRow
+                          agentId={agentId || null}
+                          base={base}
+                          sessionsMounted={sessionsMounted}
+                        />
+                      )}
                     </div>
                   </div>
-                  {showComposer && (
-                    <ComposerRow
-                      agentId={agentId || null}
-                      base={base}
-                      sessionsMounted={sessionsMounted}
-                    />
-                  )}
                 </div>
               </>
             ) : (

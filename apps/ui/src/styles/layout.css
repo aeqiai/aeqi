@@ -668,40 +668,136 @@
   color: var(--text-muted);
 }
 
-/* Composer band — the precision instrument at the bottom of the main
-   column. Flat, hairline top border, generous horizontal padding. The
-   composer itself spans the column edge-to-edge; no pill, no shadow. */
-/* Composer row — the live action surface.
-   A steel-blue accent line replaces the neutral hairline so the speak-
-   to-your-agent surface reads as alive at rest (uses --accent-bar-running,
-   the same token as active quest rows — consistent vocabulary). On focus
-   the bar thickens and picks up a soft glow. */
+/* Main content column inside the body row — holds the scroll surface
+   and, on chat, the floating composer. Sits alongside the sessions rail
+   so the composer hovers over the chat content only, not across both
+   columns. */
+.content-main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Composer row — padding frame for the floating dark card. Stays
+   transparent; all the visual weight lives on .composer-wrap below so
+   the card reads as lifted off the paper with room to breathe. */
 .composer-row {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  padding: 0;
+  padding: var(--space-3) var(--space-5) var(--space-4);
   background: transparent;
-  border-top: 1.5px solid var(--accent-bar-running);
-  border-radius: 0;
-  box-shadow: 0 -1px 0 0 var(--color-accent-bg);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  border: none;
+  box-shadow: none;
 }
-.composer-row:has(.asv-composer-inner:focus-within) {
-  border-top-color: var(--color-accent);
-  box-shadow:
-    0 -1px 0 0 var(--color-accent-bg),
-    0 -6px 16px -6px var(--color-accent-glow);
-}
+
+/* The floating dark card — focus of attention. Ink-black surface on
+   cool paper creates a deliberate contrast the eye lands on; rounded
+   corners + soft lift shadow make it feel like a stand-alone instrument
+   inside the page rather than a strip at the bottom. Scoped dark palette
+   tokens cascade to every child so chips, buttons, hint kbds all flip
+   without individual overrides. */
 .composer-wrap {
   flex: 1;
   min-width: 0;
   display: flex;
+
+  --composer-bg: #1b1f26;
+  --composer-bg-elevated: #262b35;
+  --composer-text: rgba(255, 255, 255, 0.94);
+  --composer-text-muted: rgba(255, 255, 255, 0.5);
+  --composer-border: rgba(255, 255, 255, 0.08);
+  --composer-chip-bg: rgba(255, 255, 255, 0.07);
+
+  background: var(--composer-bg);
+  border-radius: var(--radius-lg);
+  padding: 4px 8px;
+  box-shadow:
+    0 1px 2px rgba(20, 24, 32, 0.16),
+    0 14px 28px -12px rgba(20, 24, 32, 0.3);
+  transition: box-shadow 0.18s ease;
+}
+.composer-wrap:has(.asv-textarea:focus) {
+  box-shadow:
+    0 1px 2px rgba(20, 24, 32, 0.2),
+    0 18px 34px -10px rgba(20, 24, 32, 0.36),
+    0 0 0 1px rgba(90, 115, 152, 0.4);
 }
 .composer-spacer {
   display: none;
+}
+
+/* Dark-card overrides for the shared composer primitives. Scoped to
+   .composer-wrap so the same components stay light-palette anywhere
+   else they're used (future inline composers, templates preview, etc). */
+.composer-wrap .asv-composer,
+.composer-wrap .asv-composer-inner,
+.composer-wrap .asv-composer-inner:hover,
+.composer-wrap .asv-composer-inner:focus-within {
+  background: transparent;
+}
+.composer-wrap .asv-composer-inner {
+  max-width: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+}
+.composer-wrap .asv-textarea {
+  color: var(--composer-text);
+}
+.composer-wrap .asv-textarea::placeholder {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-attach-chip {
+  background: var(--composer-chip-bg);
+  color: var(--composer-text);
+}
+.composer-wrap .asv-attach-chip-x {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-attach-chip-x:hover {
+  color: var(--composer-text);
+}
+.composer-wrap .asv-attach-btn {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-attach-btn:hover {
+  color: var(--composer-text);
+}
+.composer-wrap .asv-send {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-send.ready {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+.composer-wrap .asv-send.ready:hover {
+  background: var(--color-accent-hover);
+}
+.composer-wrap .asv-composer-hint {
+  color: var(--composer-text-muted);
+}
+.composer-wrap .asv-composer-hint kbd {
+  background: var(--composer-chip-bg);
+  border-color: var(--composer-border);
+  color: var(--composer-text);
+}
+.composer-wrap .asv-send-stack .asv-send.busy {
+  background: var(--composer-chip-bg);
+  border-color: var(--composer-border);
+  color: var(--composer-text);
+}
+.composer-wrap .asv-send-stack .asv-send.busy:hover {
+  background: var(--composer-bg-elevated);
+}
+/* Streaming scan line anchored to the card's bottom edge — tuck it
+   inside the rounded surface instead of dangling off a hairline. */
+.composer-wrap .asv-composer-busy::after {
+  bottom: 4px;
+  left: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Legacy: AgentPage and others still reference .content-area. Keep it as a
