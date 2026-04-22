@@ -147,7 +147,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     return (
       <div className="ideas-graph">
         <IdeasPrimitiveHead
-          count={graphData.nodes.length}
           countLabel={
             graphLoading ? "…" : `${graphData.nodes.length} · ${graphData.edges.length} links`
           }
@@ -267,7 +266,6 @@ function ViewToggle({
  * doesn't feel like leaving the primitive.
  */
 function IdeasPrimitiveHead({
-  count,
   countLabel,
   view,
   onViewChange,
@@ -275,7 +273,6 @@ function IdeasPrimitiveHead({
   scopeControl,
   onBack,
 }: {
-  count: number;
   countLabel?: string;
   view: "list" | "graph";
   onViewChange: (next: "list" | "graph") => void;
@@ -307,7 +304,7 @@ function IdeasPrimitiveHead({
         {scopeControl}
       </div>
       <div className="primitive-head-actions">
-        <span className="primitive-head-meta">{countLabel ?? count}</span>
+        {countLabel && <span className="primitive-head-meta">{countLabel}</span>}
         <ViewToggle view={view} onChange={onViewChange} />
         <button type="button" className="primitive-head-new" onClick={onNew} title="New idea (N)">
           <svg
@@ -543,7 +540,6 @@ function IdeasPicker({
   return (
     <div className="ideas-list">
       <IdeasPrimitiveHead
-        count={filtered.length}
         view={view}
         onViewChange={onViewChange}
         onNew={fireNew}

@@ -227,10 +227,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const scopeControl = <EventsScopeTabs scope={scope} counts={scopeCounts} onChange={setScope} />;
   const head = (
     <EventsPrimitiveHead
-      count={filteredEvents.length}
       countLabel={
         filteredEvents.length === events.length
-          ? `${events.length}`
+          ? undefined
           : `${filteredEvents.length} of ${events.length}`
       }
       view={activeSubTab}
@@ -644,7 +643,6 @@ const VIEW_LABELS: Record<SubTab, string> = {
 };
 
 function EventsPrimitiveHead({
-  count,
   countLabel,
   view,
   onViewChange,
@@ -652,7 +650,6 @@ function EventsPrimitiveHead({
   scopeControl,
   onBack,
 }: {
-  count: number;
   countLabel?: string;
   view: SubTab;
   onViewChange: (next: SubTab) => void;
@@ -684,7 +681,7 @@ function EventsPrimitiveHead({
         {scopeControl}
       </div>
       <div className="primitive-head-actions">
-        <span className="primitive-head-meta">{countLabel ?? count}</span>
+        {countLabel && <span className="primitive-head-meta">{countLabel}</span>}
         <EventsViewToggle view={view} onChange={onViewChange} />
         <button type="button" className="primitive-head-new" onClick={onNew} title="New event">
           <svg
