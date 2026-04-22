@@ -51,7 +51,15 @@ function mergeTags(body: string, typed: string[]): string[] {
  *   Cmd+Enter persists. Navigating away with unsaved changes flushes to
  *   avoid silent data loss.
  */
-export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: Idea }) {
+export default function IdeaCanvas({
+  agentId,
+  idea,
+  initialName,
+}: {
+  agentId: string;
+  idea?: Idea;
+  initialName?: string;
+}) {
   const { goAgent } = useNav();
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
   const removeIdea = useAgentDataStore((s) => s.removeIdea);
@@ -71,7 +79,7 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
   }, [ideas]);
 
   const isEdit = !!idea;
-  const [name, setName] = useState(idea?.name ?? "");
+  const [name, setName] = useState(idea?.name ?? initialName ?? "");
   const [content, setContent] = useState(idea?.content ?? "");
   const [typedTags, setTypedTags] = useState<string[]>(idea?.tags ?? []);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -129,12 +137,17 @@ export default function IdeaCanvas({ agentId, idea }: { agentId: string; idea?: 
     }
   }, [bodyMode, isEdit]);
 
-  // Focus the title when this mount shows the compose canvas.
+  // Focus the title when this mount shows the compose canvas — unless
+  // the title arrived pre-filled from a create-from-query flow, in which
+  // case the body is the interesting surface to land on.
   useEffect(() => {
     if (!isEdit) {
-      requestAnimationFrame(() => titleRef.current?.focus());
+      requestAnimationFrame(() => {
+        if (initialName && initialName.length > 0) bodyRef.current?.focus();
+        else titleRef.current?.focus();
+      });
     }
-  }, [isEdit]);
+  }, [isEdit, initialName]);
 
   const flushSave = useCallback(async () => {
     if (!idea || inflightRef.current) return;

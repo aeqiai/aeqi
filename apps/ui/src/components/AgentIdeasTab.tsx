@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
@@ -9,8 +9,14 @@ import IdeaCanvas from "./IdeaCanvas";
 import type { Idea } from "@/lib/types";
 
 const NO_IDEAS: Idea[] = [];
+const SCOPE_VALUES: IdeasScope[] = ["all", "mine", "global", "inherited"];
 
 type IdeasScope = "all" | "mine" | "global" | "inherited";
+type FilterState = {
+  scope: IdeasScope;
+  search: string;
+  tag: string | null;
+};
 
 function queryTerms(query: string): string[] {
   return query
@@ -63,12 +69,36 @@ function highlightMatches(text: string, query: string): ReactNode {
   );
 }
 
+// Match rank — lower = more relevant. Hoists exact-name matches to the
+// top so "Thinking → Enter" always opens the most obvious target, then
+// name-prefix, then name-contains, then content-only. When nothing is
+// typed every idea is equal and the caller's grouping order takes over.
+function matchRank(idea: Idea, query: string): number {
+  if (!query) return 3;
+  const q = query.trim().toLowerCase();
+  if (!q) return 3;
+  const name = idea.name.toLowerCase();
+  if (name === q) return 0;
+  if (name.startsWith(q)) return 1;
+  if (name.includes(q)) return 2;
+  if (idea.content.toLowerCase().includes(q)) return 3;
+  return 4;
+}
+
+function parseScope(raw: string | null): IdeasScope {
+  return SCOPE_VALUES.includes(raw as IdeasScope) ? (raw as IdeasScope) : "all";
+}
+
 /**
  * Ideas tab. Routes to:
  *   - graph view (?view=graph)
  *   - compose canvas (?compose=1 — triggered by New idea)
  *   - detail canvas (`:itemId` selected)
  *   - dense inline picker grouped by tag (default — no itemId, no compose)
+ *
+ * Filter state (scope / q / tag) lives in URL search params so switching
+ * between list and graph keeps the frame; the graph view applies the same
+ * filters to its nodes so the two views stay coherent.
  */
 export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
@@ -78,12 +108,50 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const view: "list" | "graph" = searchParams.get("view") === "graph" ? "graph" : "list";
   const composing = searchParams.get("compose") === "1";
 
-  const setView = (next: "list" | "graph") => {
-    const params = new URLSearchParams(searchParams);
-    if (next === "graph") params.set("view", "graph");
-    else params.delete("view");
-    setSearchParams(params, { replace: true });
+  const filter: FilterState = {
+    scope: parseScope(searchParams.get("scope")),
+    search: searchParams.get("q") ?? "",
+    tag: searchParams.get("tag"),
   };
+
+  const patchParams = useCallback(
+    (mut: (p: URLSearchParams) => void) => {
+      const params = new URLSearchParams(searchParams);
+      mut(params);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const setView = useCallback(
+    (next: "list" | "graph") => {
+      patchParams((p) => {
+        if (next === "graph") p.set("view", "graph");
+        else p.delete("view");
+      });
+    },
+    [patchParams],
+  );
+
+  const setFilter = useCallback(
+    (patch: Partial<FilterState>) => {
+      patchParams((p) => {
+        if ("scope" in patch) {
+          if (patch.scope && patch.scope !== "all") p.set("scope", patch.scope);
+          else p.delete("scope");
+        }
+        if ("search" in patch) {
+          if (patch.search) p.set("q", patch.search);
+          else p.delete("q");
+        }
+        if ("tag" in patch) {
+          if (patch.tag) p.set("tag", patch.tag);
+          else p.delete("tag");
+        }
+      });
+    },
+    [patchParams],
+  );
 
   const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
   const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
@@ -91,6 +159,50 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   useEffect(() => {
     loadIdeas(agentId);
   }, [agentId, loadIdeas]);
+
+  // Apply scope + search + tag to the agent's ideas. The graph view
+  // filters its own nodes against this same universe so the two views
+  // answer the same question through different lenses.
+  const scoped = useMemo(() => {
+    const q = filter.search.trim().toLowerCase();
+    return ideas.filter((idea) => {
+      if (filter.scope === "mine" && idea.agent_id !== agentId) return false;
+      if (filter.scope === "global" && idea.agent_id != null) return false;
+      if (filter.scope === "inherited" && (idea.agent_id == null || idea.agent_id === agentId))
+        return false;
+      if (q) {
+        const inName = idea.name.toLowerCase().includes(q);
+        const inContent = idea.content.toLowerCase().includes(q);
+        if (!inName && !inContent) return false;
+      }
+      return true;
+    });
+  }, [ideas, filter.search, filter.scope, agentId]);
+
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const idea of scoped) {
+      for (const t of idea.tags || []) counts[t] = (counts[t] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [scoped]);
+
+  const filtered = useMemo(() => {
+    if (!filter.tag) return scoped;
+    return scoped.filter((idea) => (idea.tags || []).includes(filter.tag!));
+  }, [scoped, filter.tag]);
+
+  const scopeCounts = useMemo(() => {
+    let mine = 0;
+    let global = 0;
+    let inherited = 0;
+    for (const idea of ideas) {
+      if (idea.agent_id == null) global++;
+      else if (idea.agent_id === agentId) mine++;
+      else inherited++;
+    }
+    return { all: ideas.length, mine, global, inherited };
+  }, [ideas, agentId]);
 
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
     nodes: [],
@@ -116,6 +228,21 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       .finally(() => setGraphLoading(false));
   }, [view, agentId]);
 
+  // Cross-view filter projection — the list already honors scope + tag +
+  // search against the full `ideas` store; the graph view receives the
+  // same predicate as an id-set, then prunes its nodes and edges so the
+  // dots on screen match the rows the user just filtered.
+  const filteredGraph = useMemo(() => {
+    if (filter.scope === "all" && !filter.tag && !filter.search.trim()) return graphData;
+    const allowed = new Set(filtered.map((i) => i.id));
+    const nodes = graphData.nodes.filter((n) => allowed.has(n.id));
+    const allowedNodeIds = new Set(nodes.map((n) => n.id));
+    const edges = graphData.edges.filter(
+      (e) => allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target),
+    );
+    return { nodes, edges };
+  }, [graphData, filtered, filter.scope, filter.tag, filter.search]);
+
   // Graph → detail: push a new history entry so browser-back returns to
   // the graph view. Using `replace: true` here stranded the user on the
   // list view after drilling into a node — hitting back wiped the graph
@@ -126,14 +253,17 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   };
 
   // "+ New idea" — compose mode is an explicit search param so the default
-  // no-itemId state stays on the inline picker.
+  // no-itemId state stays on the inline picker. Optional `name` survives
+  // the navigate so a create-from-query click lands on a pre-filled canvas.
   useEffect(() => {
-    const handler = () => {
+    const handler = (e: Event) => {
+      const name = (e as CustomEvent<{ name?: string }>).detail?.name;
       goAgent(agentId, "ideas", undefined, { replace: true });
-      // Give the navigate a tick, then flip compose on via the search param.
       requestAnimationFrame(() => {
         const next = new URLSearchParams(window.location.search);
         next.set("compose", "1");
+        if (name) next.set("name", name);
+        else next.delete("name");
         setSearchParams(next, { replace: true });
       });
     };
@@ -141,18 +271,56 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:new-idea", handler);
   }, [agentId, goAgent, setSearchParams]);
 
-  const fireNewIdea = () => window.dispatchEvent(new CustomEvent("aeqi:new-idea"));
+  const fireNewIdea = (name?: string) =>
+    window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
+
+  // Graph-mode keyboard: `n` / `l` while the canvas is focused so the user
+  // never has to grab the mouse to flip back. Gated so it never fires
+  // from inside any editable surface.
+  useEffect(() => {
+    if (view !== "graph") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tgt = e.target as HTMLElement | null;
+      const inInput =
+        tgt?.tagName === "INPUT" || tgt?.tagName === "TEXTAREA" || tgt?.isContentEditable;
+      if (inInput) return;
+      if (e.key === "n") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        fireNewIdea();
+      } else if (e.key === "l") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setView("list");
+      }
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [view, setView]);
 
   if (view === "graph") {
+    const hasFilter = filter.scope !== "all" || filter.tag !== null || filter.search.trim() !== "";
+    const nodeCount = filteredGraph.nodes.length;
+    const edgeCount = filteredGraph.edges.length;
+    const countLabel = graphLoading
+      ? "…"
+      : `${nodeCount}${hasFilter && nodeCount !== graphData.nodes.length ? `/${graphData.nodes.length}` : ""} · ${edgeCount} links`;
     return (
       <div className="ideas-graph">
         <IdeasPrimitiveHead
-          countLabel={
-            graphLoading ? "…" : `${graphData.nodes.length} · ${graphData.edges.length} links`
-          }
+          countLabel={countLabel}
           view="graph"
           onViewChange={setView}
-          onNew={fireNewIdea}
+          onNew={() => fireNewIdea()}
+          scopeControl={
+            <IdeasScopeTabs
+              scope={filter.scope}
+              scopes={SCOPE_VALUES}
+              counts={scopeCounts}
+              onChange={(next) => setFilter({ scope: next })}
+            />
+          }
         />
         <div className="ideas-graph-canvas">
           {graphLoading ? (
@@ -160,20 +328,33 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
               <Spinner size="sm" />
               <span>Loading graph…</span>
             </div>
-          ) : graphData.nodes.length === 0 ? (
+          ) : filteredGraph.nodes.length === 0 ? (
             <EmptyState
-              title="No ideas to graph"
-              description="Create ideas to see them connected here."
+              title={hasFilter ? "Nothing in scope" : "No ideas to graph"}
+              description={
+                hasFilter
+                  ? "Widen scope or drop the tag to see more nodes."
+                  : "Create ideas to see them connected here."
+              }
               action={
-                <Button variant="primary" onClick={fireNewIdea}>
-                  New idea
-                </Button>
+                hasFilter ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setFilter({ scope: "all", tag: null, search: "" })}
+                  >
+                    Reset filters
+                  </Button>
+                ) : (
+                  <Button variant="primary" onClick={() => fireNewIdea()}>
+                    New idea
+                  </Button>
+                )
               }
             />
           ) : (
             <IdeaGraph
-              nodes={graphData.nodes}
-              edges={graphData.edges}
+              nodes={filteredGraph.nodes}
+              edges={filteredGraph.edges}
               onSelect={handleGraphSelect}
               selectedId={selectedId}
             />
@@ -186,21 +367,40 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const selected = selectedId ? ideas.find((i) => i.id === selectedId) : undefined;
 
   if (selected || composing) {
+    const presetName = composing ? (searchParams.get("name") ?? "") : "";
     // Keying on the id resets internal canvas state when switching ideas —
     // cheaper than threading reset logic through refs.
     return (
       <div className="ideas-detail-wrap">
         <IdeasDetailBackBar
           onBack={() => goAgent(agentId, "ideas")}
-          onNew={fireNewIdea}
+          onNew={() => fireNewIdea()}
           showNew={!composing}
         />
-        <IdeaCanvas key={selected?.id ?? "compose"} agentId={agentId} idea={selected} />
+        <IdeaCanvas
+          key={selected?.id ?? "compose"}
+          agentId={agentId}
+          idea={selected}
+          initialName={presetName}
+        />
       </div>
     );
   }
 
-  return <IdeasPicker agentId={agentId} ideas={ideas} view={view} onViewChange={setView} />;
+  return (
+    <IdeasPicker
+      agentId={agentId}
+      ideas={ideas}
+      scoped={scoped}
+      filtered={filtered}
+      tagCounts={tagCounts}
+      scopeCounts={scopeCounts}
+      filter={filter}
+      onFilter={setFilter}
+      view={view}
+      onViewChange={setView}
+    />
+  );
 }
 
 function ViewToggle({
@@ -416,92 +616,68 @@ function IdeasScopeTabs({
 function IdeasPicker({
   agentId,
   ideas,
+  scoped,
+  filtered,
+  tagCounts,
+  scopeCounts,
+  filter,
+  onFilter,
   view,
   onViewChange,
 }: {
   agentId: string;
   ideas: Idea[];
+  scoped: Idea[];
+  filtered: Idea[];
+  tagCounts: [string, number][];
+  scopeCounts: Record<IdeasScope, number>;
+  filter: FilterState;
+  onFilter: (patch: Partial<FilterState>) => void;
   view: "list" | "graph";
   onViewChange: (next: "list" | "graph") => void;
 }) {
   const { goAgent } = useNav();
-  const [search, setSearch] = useState("");
-  const [scope, setScope] = useState<IdeasScope>("all");
-  const [tag, setTag] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const searchActive = filter.search.trim() !== "";
 
-  const scopeCounts = useMemo(() => {
-    let mine = 0;
-    let global = 0;
-    let inherited = 0;
-    for (const idea of ideas) {
-      if (idea.agent_id == null) global++;
-      else if (idea.agent_id === agentId) mine++;
-      else inherited++;
-    }
-    return { all: ideas.length, mine, global, inherited };
-  }, [ideas, agentId]);
+  // Ranked order. Without a query this is a stable pass-through (every
+  // row scores 3 and preserves input order). With a query, rows land in
+  // rank buckets 0..4 — exact name first, then name-prefix, then name-
+  // contains, then content-only — so ↓-then-Enter always lands on the
+  // most obvious hit.
+  const ranked = useMemo(() => {
+    if (!searchActive) return filtered;
+    return filtered
+      .map((idea, i) => ({ idea, i, rank: matchRank(idea, filter.search) }))
+      .sort((a, b) => a.rank - b.rank || a.i - b.i)
+      .map((r) => r.idea);
+  }, [filtered, filter.search, searchActive]);
 
-  // Ideas that survive every filter except `tag` — the universe the tag
-  // chip row is offering refinement *within*. Computing tag counts from
-  // the post-scope / post-search universe keeps the counts honest: select
-  // "mine" and the chips say "7" where the user actually has 7, not 42.
-  const scoped = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return ideas.filter((idea) => {
-      if (scope === "mine" && idea.agent_id !== agentId) return false;
-      if (scope === "global" && idea.agent_id != null) return false;
-      if (scope === "inherited" && (idea.agent_id == null || idea.agent_id === agentId))
-        return false;
-      if (q) {
-        const inName = idea.name.toLowerCase().includes(q);
-        const inContent = idea.content.toLowerCase().includes(q);
-        if (!inName && !inContent) return false;
-      }
-      return true;
-    });
-  }, [ideas, search, scope, agentId]);
-
-  const tagCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const idea of scoped) {
-      for (const t of idea.tags || []) counts[t] = (counts[t] || 0) + 1;
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [scoped]);
-
-  const filtered = useMemo(() => {
-    if (!tag) return scoped;
-    return scoped.filter((idea) => (idea.tags || []).includes(tag));
-  }, [scoped, tag]);
-
-  // Group filtered ideas by primary tag for Notion-style section headings.
-  // Ideas with no tag fall into the "untagged" bucket at the end.
+  // Group ideas by primary tag for Notion-style section headings when
+  // the user is browsing. Flatten to a single ranked list under search
+  // so relevance isn't hidden behind category dividers.
   const grouped = useMemo(() => {
+    if (searchActive) return [["results", ranked] as [string, Idea[]]];
     const byTag = new Map<string, Idea[]>();
-    for (const idea of filtered) {
+    for (const idea of ranked) {
       const primary = idea.tags?.[0] ?? "untagged";
       const list = byTag.get(primary) ?? [];
       list.push(idea);
       byTag.set(primary, list);
     }
-    // Stable order: sort by count desc, untagged last.
     const entries = Array.from(byTag.entries()).sort((a, b) => {
       if (a[0] === "untagged") return 1;
       if (b[0] === "untagged") return -1;
       return b[1].length - a[1].length;
     });
     return entries;
-  }, [filtered]);
+  }, [ranked, searchActive]);
 
-  const isFiltered = search.trim() !== "" || scope !== "all" || tag !== null;
-  const fireNew = () => window.dispatchEvent(new CustomEvent("aeqi:new-idea"));
-  const clearAll = () => {
-    setSearch("");
-    setScope("all");
-    setTag(null);
-  };
+  const isFiltered = searchActive || filter.scope !== "all" || filter.tag !== null;
+  const fireNew = (name?: string) =>
+    window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
+  const clearAll = () => onFilter({ search: "", scope: "all", tag: null });
 
   // Shortcuts: "/" focuses search, Esc clears it when focused, "n" creates
   // a new idea, "l" / "g" flip between list and graph views — all gated so
@@ -538,18 +714,21 @@ function IdeasPicker({
     return () => window.removeEventListener("keydown", handler, true);
   }, [view, onViewChange]);
 
+  const noMatchTrimmed = filter.search.trim();
+  const totalInScope = scoped.length;
+
   return (
     <div className="ideas-list">
       <IdeasPrimitiveHead
         view={view}
         onViewChange={onViewChange}
-        onNew={fireNew}
+        onNew={() => fireNew()}
         scopeControl={
           <IdeasScopeTabs
-            scope={scope}
-            scopes={["all", "mine", "global", "inherited"]}
+            scope={filter.scope}
+            scopes={SCOPE_VALUES}
             counts={scopeCounts}
-            onChange={setScope}
+            onChange={(next) => onFilter({ scope: next })}
           />
         }
       />
@@ -561,36 +740,40 @@ function IdeasPicker({
               className="ideas-list-search"
               type="text"
               placeholder="Search ideas"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filter.search}
+              onChange={(e) => onFilter({ search: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
-                  if (search) {
-                    setSearch("");
+                  if (filter.search) {
+                    onFilter({ search: "" });
                   } else {
                     (e.target as HTMLInputElement).blur();
                   }
-                } else if (e.key === "Enter" && filtered.length > 0) {
+                } else if (e.key === "Enter") {
                   e.preventDefault();
-                  goAgent(agentId, "ideas", filtered[0].id);
+                  if (filtered.length > 0) {
+                    goAgent(agentId, "ideas", ranked[0].id);
+                  } else if (noMatchTrimmed) {
+                    // Enter-to-create when the query matches nothing —
+                    // zero-cost capture for the most obvious next move.
+                    fireNew(noMatchTrimmed);
+                  }
                 } else if (e.key === "ArrowDown" && filtered.length > 0) {
-                  // Hand off to the first row so ↓ walks the list without
-                  // the user having to reach for the mouse.
                   e.preventDefault();
                   rowRefs.current[0]?.focus();
                 }
               }}
             />
-            {!search && (
+            {!filter.search && (
               <kbd className="ideas-list-search-kbd" aria-hidden>
                 /
               </kbd>
             )}
-            {search && (
+            {filter.search && (
               <button
                 type="button"
                 className="ideas-list-search-clear"
-                onClick={() => setSearch("")}
+                onClick={() => onFilter({ search: "" })}
                 aria-label="Clear search"
               >
                 ×
@@ -604,8 +787,8 @@ function IdeasPicker({
               <button
                 key={t}
                 type="button"
-                className={`ideas-list-tag${tag === t ? " active" : ""}`}
-                onClick={() => setTag(tag === t ? null : t)}
+                className={`ideas-list-tag${filter.tag === t ? " active" : ""}`}
+                onClick={() => onFilter({ tag: filter.tag === t ? null : t })}
               >
                 {t} <span className="ideas-list-tag-count">{n}</span>
               </button>
@@ -637,7 +820,7 @@ function IdeasPicker({
                 to start.
               </div>
               <div className="ideas-list-empty-actions">
-                <Button variant="primary" size="sm" onClick={fireNew}>
+                <Button variant="primary" size="sm" onClick={() => fireNew()}>
                   New idea
                 </Button>
                 <span className="ideas-list-empty-kbd" aria-hidden>
@@ -667,12 +850,34 @@ function IdeasPicker({
             </div>
           ) : (
             <div className="ideas-list-empty-hero muted">
-              <div className="ideas-list-empty-title">No matches.</div>
-              <div className="ideas-list-empty-body">Nothing found for the current filters.</div>
+              <div className="ideas-list-empty-title">
+                {noMatchTrimmed ? (
+                  <>
+                    No match for <span className="ideas-list-empty-query">{noMatchTrimmed}</span>.
+                  </>
+                ) : (
+                  <>No matches.</>
+                )}
+              </div>
+              <div className="ideas-list-empty-body">
+                {noMatchTrimmed
+                  ? `Capture it as a new idea, or widen the filter — ${totalInScope} in scope.`
+                  : "Nothing found for the current filters."}
+              </div>
               <div className="ideas-list-empty-actions">
+                {noMatchTrimmed && (
+                  <Button variant="primary" size="sm" onClick={() => fireNew(noMatchTrimmed)}>
+                    Create &ldquo;{noMatchTrimmed}&rdquo;
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={clearAll}>
                   Reset filters
                 </Button>
+                {noMatchTrimmed && (
+                  <span className="ideas-list-empty-kbd" aria-hidden>
+                    or press <kbd>↵</kbd>
+                  </span>
+                )}
               </div>
             </div>
           )
@@ -685,15 +890,23 @@ function IdeasPicker({
             let flatIndex = -1;
             return grouped.map(([groupTag, items]) => (
               <section key={groupTag} className="ideas-list-group">
-                <div className="inline-picker-group">
-                  <span className="inline-picker-group-label">{groupTag}</span>
-                  <span className="inline-picker-group-rule" />
-                  <span className="inline-picker-group-count">{items.length}</span>
-                </div>
+                {!searchActive && (
+                  <div className="inline-picker-group">
+                    <span className="inline-picker-group-label">{groupTag}</span>
+                    <span className="inline-picker-group-rule" />
+                    <span className="inline-picker-group-count">{items.length}</span>
+                  </div>
+                )}
                 {items.map((idea) => {
-                  const snippet = snippetFor(idea.content, search);
+                  const snippet = snippetFor(idea.content, filter.search);
                   const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
-                  const extraTags = (idea.tags?.length ?? 0) - 1;
+                  const tags = idea.tags ?? [];
+                  const isCandidate =
+                    tags.includes("skill") &&
+                    tags.includes("candidate") &&
+                    !tags.includes("promoted") &&
+                    !tags.includes("rejected");
+                  const extraTags = Math.max(0, tags.length - 1);
                   flatIndex += 1;
                   const myIndex = flatIndex;
                   return (
@@ -725,8 +938,16 @@ function IdeasPicker({
                     >
                       <div className="ideas-list-row-head">
                         <span className="ideas-list-row-name">
-                          {highlightMatches(idea.name, search)}
+                          {highlightMatches(idea.name, filter.search)}
                         </span>
+                        {isCandidate && (
+                          <span
+                            className="ideas-list-row-candidate"
+                            title="Candidate skill — needs review"
+                          >
+                            needs review
+                          </span>
+                        )}
                         {idea.agent_id == null && (
                           <span className="ideas-list-row-scope">Global</span>
                         )}
@@ -739,7 +960,7 @@ function IdeasPicker({
                       </div>
                       {snippet && (
                         <div className="ideas-list-row-snippet">
-                          {highlightMatches(snippet, search)}
+                          {highlightMatches(snippet, filter.search)}
                         </div>
                       )}
                     </button>

@@ -3256,6 +3256,29 @@
   color: var(--accent);
   flex-shrink: 0;
 }
+/* Candidate-skill indicator — small inline pill so the user can spot
+   ideas still waiting for promote/reject from the row. Kept quiet on
+   rest and lifting slightly on hover, so it reads as metadata, not a
+   primary affordance. */
+.ideas-list-row-candidate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-bg, color-mix(in oklch, var(--accent) 6%, transparent));
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+  opacity: 0.82;
+  transition: opacity 0.12s ease;
+}
+.ideas-list-row:hover .ideas-list-row-candidate,
+.ideas-list-row:focus-visible .ideas-list-row-candidate {
+  opacity: 1;
+}
 .ideas-list-row-more {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -3332,8 +3355,29 @@
 .ideas-list-empty-actions {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 4px;
+}
+/* Echo the user's typed query inline in the no-match title so the
+   create-from-query path is obvious at a glance. Mono keeps it aligned
+   with the rest of the primitive's quiet metadata voice. */
+.ideas-list-empty-query {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--accent);
+  background: var(--accent-bg, color-mix(in oklch, var(--accent) 7%, transparent));
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
 }
 .ideas-list-empty-kbd {
   font-family: var(--font-mono);
