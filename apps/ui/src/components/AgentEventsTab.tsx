@@ -9,7 +9,7 @@ import EventEditor from "./EventEditor";
 import EventCanvas from "./EventCanvas";
 import EventsOverview from "./EventsOverview";
 import EventTraceTab from "./EventTraceTab";
-import type { AgentEvent } from "@/lib/types";
+import type { AgentEvent, ScopeValue } from "@/lib/types";
 
 /**
  * AgentEventsTab — the per-agent events surface.
@@ -33,19 +33,38 @@ import type { AgentEvent } from "@/lib/types";
 
 const NO_EVENTS: AgentEvent[] = [];
 
-type EventsScope = "all" | "mine" | "global" | "inherited";
+const SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
+type EventsFilter = "all" | ScopeValue | "inherited";
+const EVENTS_FILTERS: EventsFilter[] = [
+  "all",
+  "self",
+  "siblings",
+  "children",
+  "branch",
+  "global",
+  "inherited",
+];
 
 /**
- * Scope classification for an event relative to the current agent.
- *   mine      — event.agent_id === agentId (authored here)
- *   global    — event.agent_id === null (seed / every-agent)
- *   inherited — scoped to an ancestor (not yet surfaced by the API;
- *               falls through to `global` in today's data).
+ * Whether an event is "inherited" — visible to this agent but anchored
+ * on a different agent. Cross-cuts scope tabs.
  */
-function eventScope(ev: AgentEvent, agentId: string): Exclude<EventsScope, "all"> {
-  if (ev.agent_id == null) return "global";
-  if (ev.agent_id === agentId) return "mine";
-  return "inherited";
+function isInherited(ev: AgentEvent, agentId: string): boolean {
+  return ev.agent_id != null && ev.agent_id !== agentId;
+}
+
+/**
+ * Match an event against the active filter.
+ */
+function matchesFilter(ev: AgentEvent, filter: EventsFilter, agentId: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "inherited") return isInherited(ev, agentId);
+  // scope-based: match ev.scope if present, else fall back to heuristic
+  if (ev.scope != null) return ev.scope === filter;
+  // Fallback heuristics when scope is not yet on the wire
+  if (filter === "self") return ev.agent_id === agentId;
+  if (filter === "global") return ev.agent_id == null;
+  return false;
 }
 
 function eventLabel(ev: AgentEvent): string {
@@ -130,7 +149,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const selectedId = itemId || null;
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("canvas");
-  const [scope, setScope] = useState<EventsScope>("all");
+  const [scope, setScope] = useState<EventsFilter>("all");
   const [traceSessionId, setTraceSessionId] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showTriggerPanel, setShowTriggerPanel] = useState(false);
@@ -157,18 +176,30 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const selected = events.find((e) => e.id === selectedId) ?? null;
 
   /* ── Scope counts + filtered list ─────────────────────────────── */
-  const scopeCounts = useMemo<Record<EventsScope, number>>(() => {
-    const counts: Record<EventsScope, number> = { all: 0, mine: 0, global: 0, inherited: 0 };
+  const scopeCounts = useMemo<Record<EventsFilter, number>>(() => {
+    const counts = Object.fromEntries(EVENTS_FILTERS.map((f) => [f, 0])) as Record<
+      EventsFilter,
+      number
+    >;
     for (const ev of events) {
       counts.all += 1;
-      counts[eventScope(ev, agentId)] += 1;
+      if (isInherited(ev, agentId)) {
+        counts.inherited += 1;
+      }
+      if (ev.scope != null && SCOPE_VALUES.includes(ev.scope)) {
+        counts[ev.scope] += 1;
+      } else if (ev.agent_id === agentId) {
+        counts.self += 1;
+      } else if (ev.agent_id == null) {
+        counts.global += 1;
+      }
     }
     return counts;
   }, [events, agentId]);
 
   const filteredEvents = useMemo(() => {
     if (scope === "all") return events;
-    return events.filter((ev) => eventScope(ev, agentId) === scope);
+    return events.filter((ev) => matchesFilter(ev, scope, agentId));
   }, [events, scope, agentId]);
 
   /* ── Add form state ────────────────────────────────────────────── */
@@ -176,6 +207,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const [newPattern, setNewPattern] = useState("session:start");
   const [newTransport, setNewTransport] = useState<string>("session");
   const [newCooldown, setNewCooldown] = useState("");
+  const [newScope, setNewScope] = useState<ScopeValue>("self");
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -184,6 +216,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     setNewTransport("session");
     setNewPattern("session:start");
     setNewCooldown("");
+    setNewScope("self");
     setCreateError(null);
   };
 
@@ -203,6 +236,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         agent_id: agentId,
         name: newName.trim(),
         pattern: newPattern.trim(),
+        scope: newScope,
         idea_ids: [],
         enabled: true,
         tool_calls: [],
@@ -359,6 +393,20 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
               />
             </div>
             <div className="events-addform-section">
+              <div className="events-addform-label">Scope</div>
+              <select
+                className="scope-select"
+                value={newScope}
+                onChange={(e) => setNewScope(e.target.value as ScopeValue)}
+              >
+                {SCOPE_VALUES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="events-addform-section">
               <div className="events-addform-label">Cooldown (s)</div>
               <input
                 className="events-addform-input"
@@ -508,7 +556,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   );
 }
 
-/* ── List view (existing dense row picker, class-only, no inline styles) ── */
+/* ── List view (dense row picker grouped by scope bucket) ── */
 
 function EventsList({
   agentId,
@@ -519,21 +567,29 @@ function EventsList({
 }: {
   agentId: string;
   events: AgentEvent[];
-  scope: EventsScope;
+  scope: EventsFilter;
   onSelect: (id: string) => void;
   onNew: () => void;
 }) {
-  const { mine, global, inherited } = useMemo(() => {
-    const mine: AgentEvent[] = [];
+  // Group into buckets for the "all" view.
+  const buckets = useMemo(() => {
+    const self: AgentEvent[] = [];
+    const siblings: AgentEvent[] = [];
+    const children: AgentEvent[] = [];
+    const branch: AgentEvent[] = [];
     const global: AgentEvent[] = [];
     const inherited: AgentEvent[] = [];
     for (const ev of events) {
-      const s = eventScope(ev, agentId);
-      if (s === "mine") mine.push(ev);
-      else if (s === "global") global.push(ev);
-      else inherited.push(ev);
+      if (isInherited(ev, agentId)) inherited.push(ev);
+      const sc =
+        ev.scope ?? (ev.agent_id == null ? "global" : ev.agent_id === agentId ? "self" : null);
+      if (sc === "self") self.push(ev);
+      else if (sc === "siblings") siblings.push(ev);
+      else if (sc === "children") children.push(ev);
+      else if (sc === "branch") branch.push(ev);
+      else if (sc === "global" || ev.agent_id == null) global.push(ev);
     }
-    return { mine, global, inherited };
+    return { self, siblings, children, branch, global, inherited };
   }, [events, agentId]);
 
   if (events.length === 0) {
@@ -557,30 +613,53 @@ function EventsList({
     <div className="events-list">
       {showSections ? (
         <>
-          {mine.length > 0 && (
-            <Section label={`mine · ${agentId.slice(0, 8)}`} count={mine.length}>
-              {mine.map((ev) => (
-                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+          {buckets.self.length > 0 && (
+            <Section label={`self · ${agentId.slice(0, 8)}`} count={buckets.self.length}>
+              {buckets.self.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
               ))}
             </Section>
           )}
-          {global.length > 0 && (
-            <Section label="global · every agent" count={global.length}>
-              {global.map((ev) => (
-                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+          {buckets.siblings.length > 0 && (
+            <Section label="siblings" count={buckets.siblings.length}>
+              {buckets.siblings.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
               ))}
             </Section>
           )}
-          {inherited.length > 0 && (
-            <Section label="inherited · ancestors" count={inherited.length}>
-              {inherited.map((ev) => (
-                <EventRow key={ev.id} event={ev} onSelect={onSelect} />
+          {buckets.children.length > 0 && (
+            <Section label="children" count={buckets.children.length}>
+              {buckets.children.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+          {buckets.branch.length > 0 && (
+            <Section label="branch" count={buckets.branch.length}>
+              {buckets.branch.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+          {buckets.global.length > 0 && (
+            <Section label="global · every agent" count={buckets.global.length}>
+              {buckets.global.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
+              ))}
+            </Section>
+          )}
+          {buckets.inherited.length > 0 && (
+            <Section label="inherited · other agents" count={buckets.inherited.length}>
+              {buckets.inherited.map((ev) => (
+                <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
               ))}
             </Section>
           )}
         </>
       ) : (
-        events.map((ev) => <EventRow key={ev.id} event={ev} onSelect={onSelect} />)
+        events.map((ev) => (
+          <EventRow key={ev.id} event={ev} agentId={agentId} onSelect={onSelect} />
+        ))
       )}
     </div>
   );
@@ -607,16 +686,33 @@ function Section({
   );
 }
 
-function EventRow({ event, onSelect }: { event: AgentEvent; onSelect: (id: string) => void }) {
+function ScopeChip({ scope }: { scope: ScopeValue }) {
+  if (scope === "self") return null;
+  return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
+
+function EventRow({
+  event,
+  agentId,
+  onSelect,
+}: {
+  event: AgentEvent;
+  agentId: string;
+  onSelect: (id: string) => void;
+}) {
   const { itemId } = useParams<{ itemId?: string }>();
   const transport = eventTransport(event);
   const isGlobal = event.agent_id == null;
+  const inherited = isInherited(event, agentId);
   const meta =
     event.fire_count > 0
       ? `${event.fire_count} fire${event.fire_count === 1 ? "" : "s"}`
       : event.idea_ids.length > 0
         ? `${event.idea_ids.length} idea${event.idea_ids.length === 1 ? "" : "s"}`
         : "";
+  // Resolve display scope for chip — prefer explicit field, fallback heuristic.
+  const displayScope: ScopeValue | null =
+    event.scope ?? (isGlobal ? "global" : event.agent_id === agentId ? "self" : null);
   return (
     <button
       type="button"
@@ -627,7 +723,13 @@ function EventRow({ event, onSelect }: { event: AgentEvent; onSelect: (id: strin
       onClick={() => onSelect(event.id)}
     >
       <span className="events-list-row-badge">{isGlobal ? "GLOBAL" : transport || "SYS"}</span>
-      <span className="events-list-row-name">{eventLabel(event)}</span>
+      <span className="events-list-row-name">
+        {inherited && event.agent_id && (
+          <span className="scope-inherited-prefix">from @{event.agent_id.slice(0, 8)}</span>
+        )}
+        {eventLabel(event)}
+      </span>
+      {displayScope && displayScope !== "self" && <ScopeChip scope={displayScope} />}
       <span className="events-list-row-pattern">{event.pattern}</span>
       <span className="events-list-row-meta">{meta}</span>
     </button>
@@ -779,32 +881,33 @@ function EventsViewToggle({ view, onChange }: { view: SubTab; onChange: (next: S
   );
 }
 
-const EVENTS_SCOPES: EventsScope[] = ["all", "mine", "global", "inherited"];
-
 function EventsScopeTabs({
   scope,
   counts,
   onChange,
 }: {
-  scope: EventsScope;
-  counts: Record<EventsScope, number>;
-  onChange: (next: EventsScope) => void;
+  scope: EventsFilter;
+  counts: Record<EventsFilter, number>;
+  onChange: (next: EventsFilter) => void;
 }) {
   return (
     <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
-      {EVENTS_SCOPES.map((s) => (
-        <button
-          key={s}
-          type="button"
-          role="tab"
-          aria-selected={scope === s}
-          className={`primitive-scope-tab${scope === s ? " active" : ""}`}
-          onClick={() => onChange(s)}
-        >
-          {s}
-          <span className="primitive-scope-tab-count">{counts[s]}</span>
-        </button>
-      ))}
+      {EVENTS_FILTERS.map((s) => {
+        const isEmpty = counts[s] === 0;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={scope === s}
+            className={`primitive-scope-tab${scope === s ? " active" : ""}${isEmpty && scope !== s ? " empty" : ""}`}
+            onClick={() => onChange(s)}
+          >
+            {s}
+            <span className="primitive-scope-tab-count">{counts[s]}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

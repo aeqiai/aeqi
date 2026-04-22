@@ -532,6 +532,8 @@ impl Tool for AgentsTool {
 pub struct IdeasTool {
     idea_store: Arc<dyn IdeaStore>,
     activity_log: Arc<ActivityLog>,
+    agent_registry: Option<Arc<AgentRegistry>>,
+    agent_id: Option<String>,
 }
 
 impl IdeasTool {
@@ -539,7 +541,16 @@ impl IdeasTool {
         Self {
             idea_store,
             activity_log,
+            agent_registry: None,
+            agent_id: None,
         }
+    }
+
+    /// Attach an agent registry and calling agent ID for scope-aware operations.
+    pub fn with_agent_context(mut self, registry: Arc<AgentRegistry>, agent_id: String) -> Self {
+        self.agent_registry = Some(registry);
+        self.agent_id = Some(agent_id);
+        self
     }
 
     fn parse_tags(args: &serde_json::Value) -> Option<Vec<String>> {
@@ -560,17 +571,81 @@ impl IdeasTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing content"))?;
         let tags = Self::parse_tags(args).unwrap_or_else(|| vec!["fact".to_string()]);
-        let agent_id = args.get("agent_id").and_then(|v| v.as_str());
 
-        match self.idea_store.store(key, content, &tags, agent_id).await {
+        // Resolve scope.
+        let scope_str = args.get("scope").and_then(|v| v.as_str()).unwrap_or("self");
+        let scope = match scope_str.parse::<aeqi_core::Scope>() {
+            Ok(s) => s,
+            Err(_) => {
+                return Ok(ToolResult::error(format!(
+                    "invalid scope {scope_str:?}; use: self, siblings, children, branch, global"
+                )));
+            }
+        };
+
+        // Resolve agent_id with permission check.
+        let raw_agent_id = args.get("agent_id").and_then(|v| v.as_str());
+        // Resolve calling agent UUID so permission checks and DB writes use stable IDs.
+        let calling_uuid: Option<String> = if let Some(registry) = &self.agent_registry {
+            if let Some(ref aid) = self.agent_id {
+                registry
+                    .resolve_by_hint(aid)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|a| a.id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let agent_id: Option<String> = if scope == aeqi_core::Scope::Global {
+            None
+        } else {
+            match raw_agent_id {
+                None => calling_uuid.clone().or_else(|| self.agent_id.clone()),
+                Some(tid) => {
+                    let caller_id = calling_uuid.as_deref().unwrap_or_default();
+                    let is_self = caller_id == tid || self.agent_id.as_deref() == Some(tid);
+                    if is_self {
+                        calling_uuid.or_else(|| self.agent_id.clone())
+                    } else if let Some(registry) = &self.agent_registry {
+                        match registry.list_descendants(caller_id).await {
+                            Ok(descendants) if descendants.iter().any(|d| d == tid) => {
+                                Some(tid.to_string())
+                            }
+                            Ok(_) => {
+                                return Ok(ToolResult::error(format!(
+                                    "agent_id {tid:?} is not a descendant of the calling agent"
+                                )));
+                            }
+                            Err(e) => {
+                                return Ok(ToolResult::error(format!(
+                                    "failed to verify agent_id: {e}"
+                                )));
+                            }
+                        }
+                    } else {
+                        Some(tid.to_string())
+                    }
+                }
+            }
+        };
+
+        match self
+            .idea_store
+            .store_with_scope(key, content, &tags, agent_id.as_deref(), scope)
+            .await
+        {
             Ok(id) => {
                 // Emit idea_received so lifecycle events can fire.
-                if let Some(aid) = agent_id {
+                if let Some(ref aid) = agent_id {
                     let _ = self
                         .activity_log
                         .emit(
                             "idea_received",
-                            Some(aid),
+                            Some(aid.as_str()),
                             None,
                             None,
                             &serde_json::json!({"name": key, "idea_id": id}),
@@ -592,8 +667,33 @@ impl IdeasTool {
 
         let mut query = IdeaQuery::new(query_text, top_k);
 
+        // If the caller requests a specific agent_id, scope to that agent.
+        // Otherwise use the full visibility clause so the LLM sees all ideas visible to it.
         if let Some(agent_id) = args.get("agent_id").and_then(|v| v.as_str()) {
             query = query.with_agent(agent_id);
+        } else if let (Some(registry), Some(viewer_id)) = (&self.agent_registry, &self.agent_id) {
+            // Resolve UUID for visibility clause.
+            let viewer_uuid = registry
+                .resolve_by_hint(viewer_id)
+                .await
+                .ok()
+                .flatten()
+                .map(|a| a.id);
+            let viewer_uuid_ref = viewer_uuid.as_deref().unwrap_or(viewer_id.as_str());
+            if let Ok((_, bind_params)) =
+                crate::scope_visibility::visibility_sql_clause(registry, viewer_uuid_ref).await
+            {
+                // bind_params from visibility_sql_clause is the flat list of anchor IDs
+                // (some IDs appear multiple times across scope levels — deduplicate).
+                let unique_ids: Vec<String> = {
+                    let mut seen = std::collections::HashSet::new();
+                    bind_params
+                        .into_iter()
+                        .filter(|id| seen.insert(id.clone()))
+                        .collect()
+                };
+                query = query.with_visible_anchors(unique_ids);
+            }
         }
 
         match self.idea_store.search(&query).await {
@@ -693,7 +793,7 @@ impl Tool for IdeasTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "ideas".to_string(),
-            description: "Store, search, update, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering.".to_string(),
+            description: "Store, search, update, or delete ideas (semantic memories). Use for facts, preferences, patterns, and context worth remembering. search returns all ideas visible to this agent by default.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -706,7 +806,12 @@ impl Tool for IdeasTool {
                     "name": { "type": "string", "description": "Short label for the memory, e.g. 'jwt-auth-preference' (for store, update)" },
                     "content": { "type": "string", "description": "The memory content to store or replace (for store, update)" },
                     "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags to store or replace on an idea (for store, update)" },
-                    "agent_id": { "type": "string", "description": "Agent ID to scope memories (for store, search)" },
+                    "agent_id": { "type": "string", "description": "Anchor agent for this idea (for store, search). Defaults to calling agent. Must be a descendant of the calling agent." },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["self", "siblings", "children", "branch", "global"],
+                        "description": "Visibility scope (for store). Defaults to 'self'. 'global' clears the agent_id anchor."
+                    },
                     "query": { "type": "string", "description": "Natural language search query (for search)" },
                     "top_k": { "type": "integer", "description": "Max results to return (for search, default: 5)" }
                 },
@@ -752,6 +857,16 @@ impl QuestsTool {
         }
     }
 
+    /// Resolve the calling agent UUID from the agent_name hint.
+    async fn calling_uuid(&self) -> Option<String> {
+        self.agent_registry
+            .resolve_by_hint(&self.agent_name)
+            .await
+            .ok()
+            .flatten()
+            .map(|a| a.id)
+    }
+
     /// Set the session ID of the calling session. Used to propagate
     /// creator_session_id in quest_created events.
     pub fn with_session_id(mut self, id: Option<String>) -> Self {
@@ -771,10 +886,6 @@ impl QuestsTool {
     }
 
     async fn action_create(&self, args: &serde_json::Value) -> Result<ToolResult> {
-        let agent_hint = args
-            .get("agent")
-            .and_then(|v| v.as_str())
-            .unwrap_or(&self.agent_name);
         let subject = args
             .get("subject")
             .and_then(|v| v.as_str())
@@ -788,6 +899,27 @@ impl QuestsTool {
             .and_then(|v| v.as_str())
             .unwrap_or("normal");
 
+        // Resolve scope.
+        let scope_str = args.get("scope").and_then(|v| v.as_str()).unwrap_or("self");
+        let scope = match scope_str.parse::<aeqi_core::Scope>() {
+            Ok(s) => s,
+            Err(_) => {
+                return Ok(ToolResult::error(format!(
+                    "invalid scope {scope_str:?}; use: self, siblings, children, branch, global"
+                )));
+            }
+        };
+
+        // Resolve calling agent UUID for permission checks.
+        let calling_uuid = self.calling_uuid().await;
+
+        // Resolve target agent: prefer agent_id, then agent (name hint), then self.
+        let agent_hint = args
+            .get("agent_id")
+            .or_else(|| args.get("agent"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(&self.agent_name);
+
         let agent = match self.agent_registry.resolve_by_hint(agent_hint).await {
             Ok(Some(a)) => a,
             Ok(None) => {
@@ -797,6 +929,25 @@ impl QuestsTool {
                 return Ok(ToolResult::error(format!("Failed to resolve agent: {e}")));
             }
         };
+
+        // Permission check: if target != calling agent, it must be a descendant.
+        let is_self =
+            calling_uuid.as_deref() == Some(agent.id.as_str()) || agent_hint == self.agent_name;
+        if !is_self {
+            let caller = calling_uuid.as_deref().unwrap_or(&self.agent_name);
+            match self.agent_registry.list_descendants(caller).await {
+                Ok(descendants) if descendants.iter().any(|d| d == &agent.id) => {}
+                Ok(_) => {
+                    return Ok(ToolResult::error(format!(
+                        "agent {} is not a descendant of the calling agent",
+                        agent.name
+                    )));
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!("failed to verify agent: {e}")));
+                }
+            }
+        }
 
         // Parse optional idea_ids from the request.
         let idea_ids: Vec<String> = args
@@ -821,6 +972,18 @@ impl QuestsTool {
         };
 
         let quest_id = quest.id.0.clone();
+
+        // Persist non-default scope.
+        if scope != aeqi_core::Scope::SelfScope
+            && let Err(e) = self
+                .agent_registry
+                .update_task_scope(&quest_id, scope)
+                .await
+        {
+            return Ok(ToolResult::error(format!(
+                "Quest created ({quest_id}) but failed to set scope: {e}"
+            )));
+        }
 
         // Broadcast quest_created so the scheduler wakes up immediately.
         // Include creator_session_id so the scheduler can route completion
@@ -869,27 +1032,63 @@ impl QuestsTool {
         let status = args.get("status").and_then(|v| v.as_str());
         let agent_hint = args.get("agent").and_then(|v| v.as_str());
 
-        let agent_id = match agent_hint {
-            Some(hint) => match self.agent_registry.resolve_by_hint(hint).await {
-                Ok(Some(a)) => Some(a.id),
+        let quests = if let Some(hint) = agent_hint {
+            // Caller requested a specific agent — use exact filter.
+            let agent_id = match self.agent_registry.resolve_by_hint(hint).await {
+                Ok(Some(a)) => a.id,
                 Ok(None) => {
                     return Ok(ToolResult::error(format!("Agent not found: {hint}")));
                 }
                 Err(e) => {
                     return Ok(ToolResult::error(format!("Failed to resolve agent: {e}")));
                 }
-            },
-            None => None,
-        };
-
-        let quests = match self
-            .agent_registry
-            .list_tasks(status, agent_id.as_deref())
-            .await
-        {
-            Ok(q) => q,
-            Err(e) => {
-                return Ok(ToolResult::error(format!("Failed to list quests: {e}")));
+            };
+            match self
+                .agent_registry
+                .list_tasks(status, Some(agent_id.as_str()))
+                .await
+            {
+                Ok(q) => q,
+                Err(e) => {
+                    return Ok(ToolResult::error(format!("Failed to list quests: {e}")));
+                }
+            }
+        } else {
+            // No specific agent — use visibility clause so the LLM sees all quests visible to it.
+            let viewer_uuid = self.calling_uuid().await;
+            match viewer_uuid.as_deref() {
+                Some(uuid) => {
+                    match crate::scope_visibility::visibility_sql_clause(&self.agent_registry, uuid)
+                        .await
+                    {
+                        Ok((clause, bind_params)) => match self
+                            .agent_registry
+                            .list_tasks_visible(&clause, &bind_params, status)
+                            .await
+                        {
+                            Ok(q) => q,
+                            Err(e) => {
+                                return Ok(ToolResult::error(format!(
+                                    "Failed to list quests: {e}"
+                                )));
+                            }
+                        },
+                        Err(_) => match self.agent_registry.list_tasks(status, None).await {
+                            Ok(q) => q,
+                            Err(e) => {
+                                return Ok(ToolResult::error(format!(
+                                    "Failed to list quests: {e}"
+                                )));
+                            }
+                        },
+                    }
+                }
+                None => match self.agent_registry.list_tasks(status, None).await {
+                    Ok(q) => q,
+                    Err(e) => {
+                        return Ok(ToolResult::error(format!("Failed to list quests: {e}")));
+                    }
+                },
             }
         };
 
@@ -1147,7 +1346,7 @@ impl Tool for QuestsTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "quests".to_string(),
-            description: "Manage quests: create, list, show details, update status/priority, close with result, or cancel.".to_string(),
+            description: "Manage quests: create, list, show details, update status/priority, close with result, or cancel. list returns all quests visible to this agent.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -1160,6 +1359,12 @@ impl Tool for QuestsTool {
                     "subject": { "type": "string", "description": "Quest subject (for create)" },
                     "description": { "type": "string", "description": "Quest description (for create)" },
                     "agent": { "type": "string", "description": "Target agent name (for create, list)" },
+                    "agent_id": { "type": "string", "description": "Target agent UUID (for create). Defaults to calling agent. Must be a descendant." },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["self", "siblings", "children", "branch", "global"],
+                        "description": "Visibility scope (for create). Defaults to 'self'."
+                    },
                     "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)" },
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)" },
                     "result": { "type": "string", "description": "Completion result (for close)" },
@@ -1184,16 +1389,19 @@ impl Tool for QuestsTool {
 pub struct EventsTool {
     event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
     agent_id: String,
+    agent_registry: Arc<AgentRegistry>,
 }
 
 impl EventsTool {
     pub fn new(
         event_handler_store: Arc<crate::event_handler::EventHandlerStore>,
         agent_id: String,
+        agent_registry: Arc<AgentRegistry>,
     ) -> Self {
         Self {
             event_handler_store,
             agent_id,
+            agent_registry,
         }
     }
 }
@@ -1232,6 +1440,67 @@ impl Tool for EventsTool {
                     });
                 };
 
+                // Resolve agent_id and scope for the new event.
+                let scope_str = args.get("scope").and_then(|v| v.as_str()).unwrap_or("self");
+                let scope = match scope_str.parse::<aeqi_core::Scope>() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return Ok(ToolResult::error(format!(
+                            "invalid scope {scope_str:?}; use: self, siblings, children, branch, global"
+                        )));
+                    }
+                };
+
+                let target_agent_id = args.get("agent_id").and_then(|v| v.as_str());
+                // Resolve calling agent UUID for permission checks.
+                let calling_uuid = self
+                    .agent_registry
+                    .resolve_by_hint(&self.agent_id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|a| a.id);
+                let resolved_agent_id = match target_agent_id {
+                    None => calling_uuid
+                        .as_deref()
+                        .map(str::to_string)
+                        .or(Some(self.agent_id.clone())),
+                    Some(tid) => {
+                        let is_self = calling_uuid.as_deref() == Some(tid) || tid == self.agent_id;
+                        if is_self {
+                            calling_uuid
+                                .as_deref()
+                                .map(str::to_string)
+                                .or(Some(self.agent_id.clone()))
+                        } else {
+                            // Permission check: target must be a descendant of the calling agent.
+                            let caller = calling_uuid.as_deref().unwrap_or(&self.agent_id);
+                            match self.agent_registry.list_descendants(caller).await {
+                                Ok(descendants) if descendants.iter().any(|d| d == tid) => {
+                                    Some(tid.to_string())
+                                }
+                                Ok(_) => {
+                                    return Ok(ToolResult::error(format!(
+                                        "agent_id {tid:?} is not a descendant of the calling agent"
+                                    )));
+                                }
+                                Err(e) => {
+                                    return Ok(ToolResult::error(format!(
+                                        "failed to verify agent_id: {e}"
+                                    )));
+                                }
+                            }
+                        }
+                    }
+                };
+
+                // Global scope: no anchor agent.
+                let event_agent_id = if scope == aeqi_core::Scope::Global {
+                    None
+                } else {
+                    resolved_agent_id
+                };
+
                 let idea_ids: Vec<String> = args
                     .get("idea_ids")
                     .and_then(|v| v.as_array())
@@ -1245,7 +1514,8 @@ impl Tool for EventsTool {
                 match self
                     .event_handler_store
                     .create(&crate::event_handler::NewEvent {
-                        agent_id: Some(self.agent_id.clone()),
+                        agent_id: event_agent_id,
+                        scope,
                         name: name.to_string(),
                         pattern: pattern.clone(),
                         idea_ids,
@@ -1273,11 +1543,40 @@ impl Tool for EventsTool {
             }
 
             "list" => {
-                let events = self
-                    .event_handler_store
-                    .list_for_agent(&self.agent_id)
+                // Resolve UUID for visibility clause (agent_id field may be a human name).
+                let viewer_uuid = self
+                    .agent_registry
+                    .resolve_by_hint(&self.agent_id)
                     .await
-                    .unwrap_or_default();
+                    .ok()
+                    .flatten()
+                    .map(|a| a.id);
+                let events = match viewer_uuid.as_deref() {
+                    Some(uuid) => {
+                        match crate::scope_visibility::visibility_sql_clause(
+                            &self.agent_registry,
+                            uuid,
+                        )
+                        .await
+                        {
+                            Ok((clause, bind_params)) => self
+                                .event_handler_store
+                                .list_visible_to(&clause, &bind_params)
+                                .await
+                                .unwrap_or_default(),
+                            Err(_) => self
+                                .event_handler_store
+                                .list_for_agent(&self.agent_id)
+                                .await
+                                .unwrap_or_default(),
+                        }
+                    }
+                    None => self
+                        .event_handler_store
+                        .list_for_agent(&self.agent_id)
+                        .await
+                        .unwrap_or_default(),
+                };
                 let items: Vec<String> = events
                     .iter()
                     .map(|e| {
@@ -1366,7 +1665,7 @@ impl Tool for EventsTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "events".to_string(),
-            description: "Create, list, enable, disable, or delete event handlers for this agent. Events automate recurring quests on a schedule or in response to lifecycle events.".to_string(),
+            description: "Create, list, enable, disable, or delete event handlers. Events automate recurring quests on a schedule or in response to lifecycle events. list returns all events visible to this agent (own + scoped).".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -1406,6 +1705,15 @@ impl Tool for EventsTool {
                     "event_id": {
                         "type": "string",
                         "description": "Event handler ID (for enable/disable/delete)"
+                    },
+                    "agent_id": {
+                        "type": "string",
+                        "description": "Anchor agent for the event (for create). Defaults to calling agent. Must be a descendant of the calling agent."
+                    },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["self", "siblings", "children", "branch", "global"],
+                        "description": "Visibility scope (for create). Defaults to 'self'. 'global' clears agent_id anchor."
                     }
                 },
                 "required": ["action"]
@@ -1868,7 +2176,11 @@ pub fn build_orchestration_tools(
     .with_event_assembly(idea_store.clone(), event_handler_store.clone());
 
     // 3. Events tool (create/list/enable/disable/delete)
-    let events_tool = EventsTool::new(event_handler_store, agent_name);
+    let events_tool = EventsTool::new(
+        event_handler_store,
+        agent_name.clone(),
+        agent_registry.clone(),
+    );
 
     // 4. Code tool (search/graph/transcript/usage)
     let code_tool = CodeTool::new(graph_db_path, session_store, api_key);
@@ -1882,7 +2194,9 @@ pub fn build_orchestration_tools(
 
     // 5. Ideas tool (store/search/update/delete)
     if let Some(mem) = idea_store {
-        tools.push(Arc::new(IdeasTool::new(mem, activity_log)));
+        let ideas_tool = IdeasTool::new(mem, activity_log)
+            .with_agent_context(agent_registry.clone(), agent_name.clone());
+        tools.push(Arc::new(ideas_tool));
     } else {
         tracing::warn!("ideas tool unavailable: no idea store configured");
     }

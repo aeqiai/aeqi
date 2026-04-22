@@ -6,14 +6,29 @@ import { useAgentDataStore } from "@/store/agentData";
 import { Button, EmptyState, Spinner } from "./ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "./IdeaGraph";
 import IdeaCanvas from "./IdeaCanvas";
-import type { Idea } from "@/lib/types";
+import type { Idea, ScopeValue } from "@/lib/types";
+
+function ScopeChip({ scope }: { scope: ScopeValue }) {
+  if (scope === "self") return null;
+  return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
 
 const NO_IDEAS: Idea[] = [];
-const SCOPE_VALUES: IdeasScope[] = ["all", "mine", "global", "inherited"];
 
-type IdeasScope = "all" | "mine" | "global" | "inherited";
+const IDEA_SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
+type IdeasFilter = "all" | ScopeValue | "inherited";
+const IDEA_FILTER_VALUES: IdeasFilter[] = [
+  "all",
+  "self",
+  "siblings",
+  "children",
+  "branch",
+  "global",
+  "inherited",
+];
+
 type FilterState = {
-  scope: IdeasScope;
+  scope: IdeasFilter;
   search: string;
   tag: string | null;
 };
@@ -85,8 +100,8 @@ function matchRank(idea: Idea, query: string): number {
   return 4;
 }
 
-function parseScope(raw: string | null): IdeasScope {
-  return SCOPE_VALUES.includes(raw as IdeasScope) ? (raw as IdeasScope) : "all";
+function parseScope(raw: string | null): IdeasFilter {
+  return IDEA_FILTER_VALUES.includes(raw as IdeasFilter) ? (raw as IdeasFilter) : "all";
 }
 
 /**
@@ -166,10 +181,26 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const scoped = useMemo(() => {
     const q = filter.search.trim().toLowerCase();
     return ideas.filter((idea) => {
-      if (filter.scope === "mine" && idea.agent_id !== agentId) return false;
-      if (filter.scope === "global" && idea.agent_id != null) return false;
-      if (filter.scope === "inherited" && (idea.agent_id == null || idea.agent_id === agentId))
-        return false;
+      // scope filtering
+      const sc = filter.scope;
+      if (sc !== "all") {
+        if (sc === "inherited") {
+          // cross-cut: visible but anchored on another agent
+          if (idea.agent_id == null || idea.agent_id === agentId) return false;
+        } else {
+          // match idea.scope if present, else fallback heuristics
+          if (idea.scope != null) {
+            if (idea.scope !== sc) return false;
+          } else if (sc === "self" && idea.agent_id !== agentId) {
+            return false;
+          } else if (sc === "global" && idea.agent_id != null) {
+            return false;
+          } else if (sc !== "self" && sc !== "global") {
+            // siblings/children/branch — no scope field, can't match
+            return false;
+          }
+        }
+      }
       if (q) {
         const inName = idea.name.toLowerCase().includes(q);
         const inContent = idea.content.toLowerCase().includes(q);
@@ -193,15 +224,24 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   }, [scoped, filter.tag]);
 
   const scopeCounts = useMemo(() => {
-    let mine = 0;
-    let global = 0;
-    let inherited = 0;
+    const counts = Object.fromEntries(IDEA_FILTER_VALUES.map((f) => [f, 0])) as Record<
+      IdeasFilter,
+      number
+    >;
     for (const idea of ideas) {
-      if (idea.agent_id == null) global++;
-      else if (idea.agent_id === agentId) mine++;
-      else inherited++;
+      counts.all += 1;
+      // inherited cross-cut
+      if (idea.agent_id != null && idea.agent_id !== agentId) counts.inherited += 1;
+      // scope-based
+      if (idea.scope != null && IDEA_SCOPE_VALUES.includes(idea.scope)) {
+        counts[idea.scope] += 1;
+      } else if (idea.agent_id === agentId) {
+        counts.self += 1;
+      } else if (idea.agent_id == null) {
+        counts.global += 1;
+      }
     }
-    return { all: ideas.length, mine, global, inherited };
+    return counts;
   }, [ideas, agentId]);
 
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
@@ -316,7 +356,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
           scopeControl={
             <IdeasScopeTabs
               scope={filter.scope}
-              scopes={SCOPE_VALUES}
+              scopes={IDEA_FILTER_VALUES}
               counts={scopeCounts}
               onChange={(next) => setFilter({ scope: next })}
             />
@@ -589,10 +629,10 @@ function IdeasScopeTabs({
   counts,
   onChange,
 }: {
-  scope: IdeasScope;
-  scopes: IdeasScope[];
-  counts: Record<IdeasScope, number>;
-  onChange: (next: IdeasScope) => void;
+  scope: IdeasFilter;
+  scopes: IdeasFilter[];
+  counts: Record<IdeasFilter, number>;
+  onChange: (next: IdeasFilter) => void;
 }) {
   return (
     <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
@@ -634,7 +674,7 @@ function IdeasPicker({
   scoped: Idea[];
   filtered: Idea[];
   tagCounts: [string, number][];
-  scopeCounts: Record<IdeasScope, number>;
+  scopeCounts: Record<IdeasFilter, number>;
   filter: FilterState;
   onFilter: (patch: Partial<FilterState>) => void;
   view: "list" | "graph";
@@ -730,7 +770,7 @@ function IdeasPicker({
         scopeControl={
           <IdeasScopeTabs
             scope={filter.scope}
-            scopes={SCOPE_VALUES}
+            scopes={IDEA_FILTER_VALUES}
             counts={scopeCounts}
             onChange={(next) => onFilter({ scope: next })}
           />
@@ -925,9 +965,16 @@ function IdeasPicker({
                     !tags.includes("promoted") &&
                     !tags.includes("rejected");
                   const extraTags = Math.max(0, tags.length - 1);
-                  // Row-level "Global" pill is redundant when the scope tab is
-                  // already "global" — every row is global in that view.
-                  const showGlobalBadge = idea.agent_id == null && filter.scope !== "global";
+                  // Show scope chip when the scope isn't the default "self".
+                  // Suppress the chip when the filter tab already communicates it.
+                  const resolvedScope: ScopeValue | null =
+                    idea.scope ??
+                    (idea.agent_id == null ? "global" : idea.agent_id === agentId ? "self" : null);
+                  const showScopeChip =
+                    resolvedScope != null &&
+                    resolvedScope !== "self" &&
+                    filter.scope !== resolvedScope;
+                  const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
                   flatIndex += 1;
                   const myIndex = flatIndex;
                   return (
@@ -959,6 +1006,11 @@ function IdeasPicker({
                     >
                       <div className="ideas-list-row-head">
                         <span className="ideas-list-row-name">
+                          {isInheritedRow && idea.agent_id && (
+                            <span className="scope-inherited-prefix">
+                              from @{idea.agent_id.slice(0, 8)}
+                            </span>
+                          )}
                           {highlightMatches(idea.name, filter.search)}
                         </span>
                         {isCandidate && (
@@ -969,7 +1021,7 @@ function IdeasPicker({
                             needs review
                           </span>
                         )}
-                        {showGlobalBadge && <span className="ideas-list-row-scope">Global</span>}
+                        {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
                         {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
                         {wordCount > 0 && (
                           <span className="ideas-list-row-words" aria-hidden>

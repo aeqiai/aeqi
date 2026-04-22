@@ -16,6 +16,7 @@
 //! 2. Registry metadata → survives daemon restarts
 //! 3. Tree position → parent_id chain for memory scoping and delegation
 
+use aeqi_core::Scope;
 use aeqi_ideas::SqliteIdeas;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -165,6 +166,75 @@ fn ensure_event_columns(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
 
+    Ok(())
+}
+
+/// Idempotent scope-model migration for aeqi.db (events + ideas tables).
+///
+/// - Adds `scope` column to `events` if absent (already present in current schema,
+///   but older on-disk DBs may lack it).
+/// - Normalises legacy `events.scope` values that are not in the new enum:
+///   rows with `agent_id IS NULL` → `scope='global'`; others → `scope='self'`.
+/// - Same treatment for `ideas.scope` which previously defaulted to `'domain'`.
+fn ensure_aeqi_db_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
+    // ── events ──────────────────────────────────────────────────────────────
+    // `scope` is present in the current CREATE TABLE but may be absent on old DBs.
+    let event_cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(events)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !event_cols.iter().any(|c| c == "scope") {
+        conn.execute_batch("ALTER TABLE events ADD COLUMN scope TEXT NOT NULL DEFAULT 'self'")?;
+    }
+
+    // Migrate events: NULL agent_id rows → 'global'; non-'self'/non-'global' → 'self'.
+    conn.execute_batch(
+        "UPDATE events SET scope = 'global'
+         WHERE agent_id IS NULL AND scope NOT IN ('self','siblings','children','branch','global');
+         UPDATE events SET scope = 'self'
+         WHERE agent_id IS NOT NULL AND scope NOT IN ('self','siblings','children','branch','global');",
+    )?;
+    // Existing events with agent_id IS NULL and scope='self' (old default) → 'global'.
+    conn.execute_batch(
+        "UPDATE events SET scope = 'global' WHERE agent_id IS NULL AND scope = 'self';",
+    )?;
+
+    // ── ideas ────────────────────────────────────────────────────────────────
+    // `scope` column already exists (DEFAULT 'domain'). Normalise the value.
+    conn.execute_batch(
+        "UPDATE ideas SET scope = 'global'
+         WHERE agent_id IS NULL AND scope NOT IN ('self','siblings','children','branch','global');
+         UPDATE ideas SET scope = 'self'
+         WHERE agent_id IS NOT NULL AND scope NOT IN ('self','siblings','children','branch','global');",
+    )?;
+    Ok(())
+}
+
+/// Idempotent scope-model migration for sessions.db (quests table).
+///
+/// - Adds `scope` column if absent.
+/// - Migrates NULL-agent_id rows to `scope='global'` and normalises any other
+///   non-enum values to `scope='self'`.
+fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let quest_cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(quests)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !quest_cols.iter().any(|c| c == "scope") {
+        conn.execute_batch("ALTER TABLE quests ADD COLUMN scope TEXT NOT NULL DEFAULT 'self'")?;
+    }
+
+    // Migrate quests: NULL agent_id → 'global'; non-enum values → 'self'.
+    conn.execute_batch(
+        "UPDATE quests SET scope = 'global'
+         WHERE agent_id IS NULL AND scope NOT IN ('self','siblings','children','branch','global');
+         UPDATE quests SET scope = 'self'
+         WHERE agent_id IS NOT NULL AND scope NOT IN ('self','siblings','children','branch','global');",
+    )?;
     Ok(())
 }
 
@@ -422,6 +492,10 @@ impl AgentRegistry {
                  ON ideas(COALESCE(agent_id, ''), name);",
         )?;
 
+        // ── Scope-model migration for aeqi.db (idempotent) ──────────────────
+        // Normalises legacy scope values in events and ideas to the new enum.
+        ensure_aeqi_db_scope_columns(&conn)?;
+
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
         info!(path = %db_path.display(), pool_size = 4, "aeqi.db opened");
@@ -444,6 +518,7 @@ impl AgentRegistry {
                  status TEXT NOT NULL DEFAULT 'pending',
                  priority TEXT NOT NULL DEFAULT 'normal',
                  agent_id TEXT,
+                 scope TEXT NOT NULL DEFAULT 'self',
                  idea_ids TEXT NOT NULL DEFAULT '[]',
                  labels TEXT NOT NULL DEFAULT '[]',
                  retry_count INTEGER NOT NULL DEFAULT 0,
@@ -464,6 +539,12 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
              CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);",
         )?;
+
+        // ── Scope-model migration (idempotent) ──────────────────────────────
+        // ADD COLUMN is guarded by PRAGMA table_info; UPDATE is guarded by
+        // the sentinel "WHERE scope = 'self' AND agent_id IS NULL" so it only
+        // touches rows that haven't been migrated yet.
+        ensure_scope_columns(&sconn)?;
 
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
@@ -792,6 +873,53 @@ impl AgentRegistry {
         Ok(ids)
     }
 
+    /// Get all descendant IDs of an agent (excludes self).
+    ///
+    /// Uses the `agent_ancestry` closure table for O(1) lookup.
+    /// Returns an empty vec when the agent has no descendants.
+    pub async fn list_descendants(&self, agent_id: &str) -> Result<Vec<String>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT descendant_id FROM agent_ancestry
+             WHERE ancestor_id = ?1 AND depth > 0",
+        )?;
+        let ids = stmt
+            .query_map(params![agent_id], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(ids)
+    }
+
+    /// Get sibling agent IDs — agents that share the same `parent_id` as
+    /// `agent_id`, excluding `agent_id` itself.
+    ///
+    /// Returns an empty vec for root agents (parent_id IS NULL) or agents
+    /// with no siblings.
+    pub async fn list_siblings(&self, agent_id: &str) -> Result<Vec<String>> {
+        let db = self.db.lock().await;
+        let parent_id: Option<String> = db
+            .query_row(
+                "SELECT parent_id FROM agents WHERE id = ?1",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten();
+
+        let Some(pid) = parent_id else {
+            return Ok(Vec::new());
+        };
+
+        let mut stmt = db.prepare(
+            "SELECT id FROM agents WHERE parent_id = ?1 AND id != ?2 AND status = 'active'",
+        )?;
+        let ids = stmt
+            .query_map(params![pid, agent_id], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(ids)
+    }
+
     /// Get the full subtree rooted at an agent (recursive CTE).
     pub async fn get_subtree(&self, agent_id: &str) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
@@ -819,8 +947,8 @@ impl AgentRegistry {
         agent_id: &str,
     ) -> Result<Vec<aeqi_core::traits::Idea>> {
         // Tuple of (id, name, content, agent_id, session_id, created_at,
-        // inheritance, tool_allow, tool_deny). Local to this method so the
-        // complex row shape doesn't leak into the module.
+        // inheritance, tool_allow, tool_deny, scope). Local to this method so
+        // the complex row shape doesn't leak into the module.
         type IdeaRow = (
             String,
             String,
@@ -831,13 +959,14 @@ impl AgentRegistry {
             String,
             Option<String>,
             Option<String>,
+            String,
         );
 
         let db = self.db.lock().await;
         let rows: Vec<IdeaRow> = {
             let mut stmt = db.prepare(
                 "SELECT id, name, content, agent_id, session_id, created_at,
-                        inheritance, tool_allow, tool_deny
+                        inheritance, tool_allow, tool_deny, scope
                  FROM ideas
                  WHERE agent_id IS NULL
                     OR agent_id IN (
@@ -856,6 +985,8 @@ impl AgentRegistry {
                     row.get::<_, String>(6)?,
                     row.get::<_, Option<String>>(7)?,
                     row.get::<_, Option<String>>(8)?,
+                    row.get::<_, String>(9)
+                        .unwrap_or_else(|_| "self".to_string()),
                 ))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?
@@ -863,8 +994,18 @@ impl AgentRegistry {
 
         // Hydrate tags per idea (secondary query; tag set tends to be tiny).
         let mut out = Vec::with_capacity(rows.len());
-        for (id, name, content, aid, session_id, created_at, inheritance, tool_allow, tool_deny) in
-            rows
+        for (
+            id,
+            name,
+            content,
+            aid,
+            session_id,
+            created_at,
+            inheritance,
+            tool_allow,
+            tool_deny,
+            scope_str,
+        ) in rows
         {
             let tags: Vec<String> = {
                 let mut tag_stmt =
@@ -877,6 +1018,13 @@ impl AgentRegistry {
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at)
                 .map(|d| d.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now());
+            let scope = scope_str.parse().unwrap_or_else(|_| {
+                if aid.is_none() {
+                    Scope::Global
+                } else {
+                    Scope::SelfScope
+                }
+            });
             out.push(aeqi_core::traits::Idea {
                 id,
                 name,
@@ -886,6 +1034,7 @@ impl AgentRegistry {
                 session_id,
                 created_at,
                 score: 1.0,
+                scope,
                 inheritance,
                 tool_allow: tool_allow
                     .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
@@ -1441,6 +1590,7 @@ impl AgentRegistry {
             status: aeqi_quests::QuestStatus::Pending,
             priority: aeqi_quests::quest::Priority::Normal,
             agent_id: Some(agent_id.to_string()),
+            scope: Scope::SelfScope,
             depends_on: Vec::new(),
             idea_ids: idea_ids.to_vec(),
             labels: labels.to_vec(),
@@ -1812,6 +1962,48 @@ impl AgentRegistry {
         )?;
 
         Ok(quest)
+    }
+
+    /// Update the scope of an existing quest.
+    pub async fn update_task_scope(&self, quest_id: &str, scope: Scope) -> Result<()> {
+        let db = self.sessions_db.lock().await;
+        db.execute(
+            "UPDATE quests SET scope = ?1, updated_at = ?2 WHERE id = ?3",
+            params![scope.as_str(), chrono::Utc::now().to_rfc3339(), quest_id],
+        )?;
+        Ok(())
+    }
+
+    /// List tasks visible to a viewer agent, using a precomputed
+    /// `(visibility_clause, bind_params)` from `scope_visibility::visibility_sql_clause`.
+    /// Optionally filtered by status.
+    pub async fn list_tasks_visible(
+        &self,
+        visibility_clause: &str,
+        bind_params: &[String],
+        status: Option<&str>,
+    ) -> Result<Vec<aeqi_quests::Quest>> {
+        let db = self.sessions_db.lock().await;
+        let mut sql = format!("SELECT * FROM quests WHERE {visibility_clause}");
+        let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = bind_params
+            .iter()
+            .map(|s| Box::new(s.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+
+        if let Some(s) = status {
+            sql.push_str(" AND status = ?");
+            all_params.push(Box::new(s.to_string()));
+        }
+        sql.push_str(" ORDER BY created_at DESC");
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            all_params.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = db.prepare(&sql)?;
+        let tasks = stmt
+            .query_map(param_refs.as_slice(), |row| Ok(row_to_task(row)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(tasks)
     }
 
     /// List all tasks, optionally filtered by status and/or agent.
@@ -2318,6 +2510,12 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
             })
     };
 
+    let quest_scope: Scope = row
+        .get::<_, String>("scope")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(Scope::SelfScope);
+
     aeqi_quests::Quest {
         id: aeqi_quests::QuestId(row.get("id").unwrap_or_default()),
         name: row.get("subject").unwrap_or_default(),
@@ -2325,6 +2523,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         status,
         priority,
         agent_id: row.get("agent_id").ok(),
+        scope: quest_scope,
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
         idea_ids: serde_json::from_str(&idea_ids_str).unwrap_or_default(),
         labels: serde_json::from_str(&labels_str).unwrap_or_default(),

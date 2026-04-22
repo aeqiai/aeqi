@@ -346,6 +346,7 @@ mod tests {
         let event = crate::event_handler::Event {
             id: "e1".into(),
             agent_id: Some("a1".into()),
+            scope: aeqi_core::Scope::SelfScope,
             name: "test".into(),
             pattern: "schedule:every 60s".into(),
             idea_ids: vec!["a".into(), "b".into(), "a".into(), "".into()],

@@ -390,6 +390,7 @@ export const api = {
     content: string;
     tags?: string[];
     agent_id?: string;
+    scope?: string;
     links?: string[];
   }) =>
     request<{ ok: boolean; id: string }>("/ideas", {
@@ -438,6 +439,7 @@ export const api = {
     subject: string;
     description?: string;
     priority?: string;
+    scope?: string;
     acceptance_criteria?: string;
     agent_id?: string;
     agent?: string;

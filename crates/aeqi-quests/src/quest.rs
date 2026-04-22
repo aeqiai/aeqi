@@ -1,3 +1,4 @@
+use aeqi_core::Scope;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -165,9 +166,12 @@ pub struct Quest {
     pub status: QuestStatus,
     #[serde(default)]
     pub priority: Priority,
-    /// Persistent agent UUID that owns this quest. None = legacy/unbound.
+    /// Anchor agent for visibility. `None` only valid when `scope = Global`.
     #[serde(default)]
     pub agent_id: Option<String>,
+    /// Visibility scope for this quest.
+    #[serde(default)]
+    pub scope: Scope,
     /// Quest IDs that must be completed before this one can start.
     #[serde(default)]
     pub depends_on: Vec<QuestId>,
@@ -216,6 +220,11 @@ impl Quest {
 
     /// Create a new quest bound to a specific agent.
     pub fn with_agent(id: QuestId, name: impl Into<String>, agent_id: Option<&str>) -> Self {
+        let scope = if agent_id.is_none() {
+            Scope::Global
+        } else {
+            Scope::SelfScope
+        };
         Self {
             id,
             name: name.into(),
@@ -223,6 +232,7 @@ impl Quest {
             status: QuestStatus::Pending,
             priority: Priority::Normal,
             agent_id: agent_id.map(|s| s.to_string()),
+            scope,
             depends_on: Vec::new(),
             idea_ids: Vec::new(),
             labels: Vec::new(),

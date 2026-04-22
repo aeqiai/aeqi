@@ -8,6 +8,7 @@ description = "Quest DAG management, missions, and dependency inference"
 tempfile = { workspace = true }
 
 [dependencies]
+aeqi-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

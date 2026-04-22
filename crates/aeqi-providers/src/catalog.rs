@@ -409,9 +409,7 @@ mod tests {
     fn at_least_one_recommended_per_major_tier() {
         for tier in [Tier::Free, Tier::Cheap, Tier::Balanced, Tier::Premium] {
             assert!(
-                all()
-                    .iter()
-                    .any(|e| e.tier == tier && e.recommended),
+                all().iter().any(|e| e.tier == tier && e.recommended),
                 "tier {tier:?} has no recommended model — picker loses its hero",
             );
         }

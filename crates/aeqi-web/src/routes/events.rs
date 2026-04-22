@@ -15,7 +15,7 @@ pub fn routes() -> Router<AppState> {
         .route("/events", get(list_events).post(create_event))
         .route(
             "/events/{id}",
-            axum::routing::put(update_event).delete(delete_event),
+            get(get_event).put(update_event).delete(delete_event),
         )
         .route("/events/trigger", post(trigger_event))
         .route("/events/trace", get(list_trace).post(get_trace_detail))
@@ -49,6 +49,15 @@ async fn create_event(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "create_event", body).await
+}
+
+async fn get_event(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    let params = serde_json::json!({"id": id});
+    ipc_proxy(state, scope.as_ref(), "get_event", params).await
 }
 
 async fn update_event(

@@ -15,6 +15,7 @@ pub mod frontmatter;
 pub mod hooks;
 pub mod prompt;
 pub mod sanitize;
+pub mod scope;
 pub mod security;
 pub mod shell_hooks;
 pub mod streaming_executor;
@@ -37,6 +38,7 @@ pub use hooks::{
     HookAction, HookRule, HookTrigger, HooksObserver, load_hooks_from_dir, match_hooks,
 };
 pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
+pub use scope::Scope;
 pub use security::SecretStore;
 pub use tool_registry::{CallerKind, ExecutionContext, PatternDispatcher, ToolRegistry};
 pub use traits::provider::{Message, MessageContent, Role};

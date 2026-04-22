@@ -53,6 +53,7 @@ export interface Quest {
   description: string;
   status: QuestStatus;
   priority: QuestPriority;
+  scope?: ScopeValue;
   agent_id?: string;
   idea_ids?: string[];
   labels: string[];
@@ -81,12 +82,14 @@ export interface ActivityEvent {
   content?: Record<string, unknown>;
 }
 
+export type ScopeValue = "self" | "siblings" | "children" | "branch" | "global";
+
 export interface Idea {
   id: string;
   name: string;
   content: string;
   tags?: string[];
-  scope?: string;
+  scope?: ScopeValue;
   agent_id?: string;
   created_at?: string;
   score?: number;
@@ -187,6 +190,7 @@ export interface ToolCall {
 export interface AgentEvent {
   id: string;
   agent_id?: string | null;
+  scope?: ScopeValue;
   name: string;
   pattern: string;
   idea_ids: string[];

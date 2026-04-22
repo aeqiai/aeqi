@@ -181,6 +181,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score,
+            scope: aeqi_core::Scope::Global,
             inheritance: "self".to_string(),
             tool_allow: vec![],
             tool_deny: vec![],

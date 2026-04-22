@@ -1,11 +1,12 @@
+use crate::scope::Scope;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// An idea entry owned by an agent in the tree.
-/// Scoping is positional — determined by which agent_id owns the idea,
-/// not by an enum. Idea walks up the parent_id chain. `agent_id = None`
-/// means the idea is global.
+///
+/// Visibility is determined by the `scope` field and the `agent_id` anchor.
+/// `agent_id = None` is only valid when `scope = Scope::Global`.
 ///
 /// Everything is an idea. Activation is event-driven: events reference
 /// ideas by id; assembling an agent's context walks matching events and
@@ -18,11 +19,14 @@ pub struct Idea {
     /// Tags classify the idea. Free-form strings. No "primary" concept.
     #[serde(default)]
     pub tags: Vec<String>,
-    /// The agent that owns this idea. `None` = global.
+    /// Anchor agent for visibility. `None` only valid when `scope = Global`.
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub session_id: Option<String>,
     pub score: f64,
+    /// Visibility scope for this idea.
+    #[serde(default)]
+    pub scope: Scope,
     /// Inheritance scope: "self" (only this agent) or "descendants" (all children).
     #[serde(default = "default_inheritance")]
     pub inheritance: String,
@@ -71,6 +75,11 @@ impl Idea {
         session_id: Option<String>,
         score: f64,
     ) -> Self {
+        let scope = if agent_id.is_none() {
+            Scope::Global
+        } else {
+            Scope::SelfScope
+        };
         Self {
             id,
             name,
@@ -80,6 +89,7 @@ impl Idea {
             created_at,
             session_id,
             score,
+            scope,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -98,6 +108,10 @@ pub struct IdeaQuery {
     pub agent_id: Option<String>,
     /// Also include shared ideas from sibling agents (same parent).
     pub sibling_agent_ids: Vec<String>,
+    /// When set, the search filters to ideas whose `agent_id` is in this list
+    /// OR whose `scope = 'global'`. Computed by `scope_visibility` and passed
+    /// down to avoid re-querying the agent tree inside aeqi-ideas.
+    pub visible_anchor_ids: Option<Vec<String>>,
 }
 
 impl IdeaQuery {
@@ -109,6 +123,7 @@ impl IdeaQuery {
             session_id: None,
             agent_id: None,
             sibling_agent_ids: Vec::new(),
+            visible_anchor_ids: None,
         }
     }
 
@@ -120,6 +135,13 @@ impl IdeaQuery {
     /// Include shared ideas from sibling agents.
     pub fn with_siblings(mut self, sibling_ids: Vec<String>) -> Self {
         self.sibling_agent_ids = sibling_ids;
+        self
+    }
+
+    /// Restrict results to ideas visible to the viewer, using a precomputed
+    /// anchor-id list from `scope_visibility::visibility_sql_clause`.
+    pub fn with_visible_anchors(mut self, ids: Vec<String>) -> Self {
+        self.visible_anchor_ids = Some(ids);
         self
     }
 }
@@ -203,6 +225,19 @@ pub trait IdeaStore: Send + Sync {
         tags: &[String],
         agent_id: Option<&str>,
         _ttl_secs: Option<u64>,
+    ) -> anyhow::Result<String> {
+        self.store(name, content, tags, agent_id).await
+    }
+
+    /// Store with an explicit visibility scope. Default delegates to store() and ignores scope.
+    /// Backends that persist scope should override this.
+    async fn store_with_scope(
+        &self,
+        name: &str,
+        content: &str,
+        tags: &[String],
+        agent_id: Option<&str>,
+        _scope: crate::scope::Scope,
     ) -> anyhow::Result<String> {
         self.store(name, content, tags, agent_id).await
     }

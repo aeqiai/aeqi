@@ -83,8 +83,19 @@ pub async fn handle_create_event(
         return serde_json::json!({"ok": false, "error": error});
     }
 
+    let scope: aeqi_core::Scope = request_field(request, "scope")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| {
+            if agent_id_opt.is_none() {
+                aeqi_core::Scope::Global
+            } else {
+                aeqi_core::Scope::SelfScope
+            }
+        });
+
     let new_event = NewEvent {
         agent_id: agent_id_opt,
+        scope,
         name: name.to_string(),
         pattern: pattern.to_string(),
         idea_ids,
@@ -198,6 +209,30 @@ pub async fn handle_update_event(
     }
 }
 
+/// Fetch a single event by ID.
+///
+/// Returns `{"ok": true, "event": {...}}` or `{"ok": false, "error": "..."}`.
+pub async fn handle_get_event(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref store) = ctx.event_handler_store else {
+        return serde_json::json!({"ok": false, "error": "event handler store not available"});
+    };
+
+    let id = request_field(request, "id").unwrap_or("");
+    if id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id is required"});
+    }
+
+    match store.get(id).await {
+        Ok(Some(event)) => serde_json::json!({"ok": true, "event": event_to_json(&event)}),
+        Ok(None) => serde_json::json!({"ok": false, "error": "event not found"}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 pub async fn handle_delete_event(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -280,8 +315,19 @@ pub async fn handle_trigger_event(
 
     let system_prompt = assembled.system;
 
-    // Also return the matched events for visibility.
-    let matched_events = event_store.get_events_for_pattern(&agent_id, pattern).await;
+    // Also return the matched events for visibility — use scope-aware lookup so
+    // the preview matches what the runtime would actually fire.
+    let (trigger_clause, trigger_params) =
+        crate::scope_visibility::visibility_sql_clause(&ctx.agent_registry, &agent_id)
+            .await
+            .unwrap_or_else(|_| (String::new(), Vec::new()));
+    let matched_events = if trigger_clause.is_empty() {
+        Vec::new()
+    } else {
+        event_store
+            .get_events_for_pattern_visible(&trigger_clause, &trigger_params, pattern)
+            .await
+    };
     let event_items: Vec<serde_json::Value> = matched_events.iter().map(event_to_json).collect();
 
     serde_json::json!({

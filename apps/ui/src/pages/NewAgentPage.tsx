@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { wireIdentityForNewAgent } from "@/components/IdentitySetup";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
@@ -91,7 +92,9 @@ function RootForm({
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [identityText, setIdentityText] = useState("");
   const [creating, setCreating] = useState(false);
+  const [identityStatus, setIdentityStatus] = useState<string | null>(null);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +102,7 @@ function RootForm({
     if (!name.trim() || creating) return;
     setCreating(true);
     setError("");
+    setIdentityStatus(null);
     try {
       const resp = await api.createRoot({
         name: name.trim(),
@@ -110,6 +114,20 @@ function RootForm({
         name.trim();
       if (imageUrl) localStorage.setItem("aeqi_root_avatar", imageUrl);
       if (tagline.trim()) localStorage.setItem("aeqi_root_tagline", tagline.trim());
+
+      // Wire identity if provided — best-effort, failures are surfaced as a
+      // gentle note but do not block navigation to the new agent page.
+      if (identityText.trim()) {
+        try {
+          await wireIdentityForNewAgent(rootId as string, name.trim(), identityText.trim());
+          setIdentityStatus("Identity wired — session:start will inject this.");
+        } catch {
+          setIdentityStatus(
+            "Agent created, but identity wiring failed — configure it from the agent page.",
+          );
+        }
+      }
+
       await onCreated(rootId as string);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create agent");
@@ -194,6 +212,22 @@ function RootForm({
             </div>
           </div>
         </div>
+
+        <div className="new-co-identity-section">
+          <label className="new-sub-label" htmlFor="new-co-identity">
+            Identity (optional)
+          </label>
+          <textarea
+            id="new-co-identity"
+            className="new-sub-textarea"
+            value={identityText}
+            onChange={(e) => setIdentityText(e.target.value)}
+            placeholder="Give this agent an identity — we'll inject it on every session:start."
+            rows={3}
+          />
+        </div>
+
+        {identityStatus && !error && <div className="new-co-identity-status">{identityStatus}</div>}
 
         {error && <div className="new-co-error">{error}</div>}
 

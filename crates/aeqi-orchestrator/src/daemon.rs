@@ -13,6 +13,7 @@ use crate::gateway_manager::GatewayManager;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
 use crate::progress_tracker::ProgressTracker;
+use crate::scope_visibility;
 use crate::session_manager::SessionManager;
 use crate::session_store::{SessionStore, agency_chat_id, named_channel_chat_id, project_chat_id};
 
@@ -1313,6 +1314,9 @@ impl Daemon {
                 "list_events" => {
                     crate::ipc::events::handle_list_events(&ctx, &request, &allowed_roots).await
                 }
+                "get_event" => {
+                    crate::ipc::events::handle_get_event(&ctx, &request, &allowed_roots).await
+                }
                 "create_event" => {
                     crate::ipc::events::handle_create_event(&ctx, &request, &allowed_roots).await
                 }
@@ -1438,9 +1442,23 @@ impl Daemon {
                             ) && let Ok(Some(session)) = ss.get_session(session_id).await
                                 && let Some(agent_id) = session.agent_id.as_deref()
                             {
-                                let events = ehs
-                                    .get_events_for_pattern(agent_id, "session:stopped")
-                                    .await;
+                                let (stopped_clause, stopped_params) =
+                                    scope_visibility::visibility_sql_clause(
+                                        &agent_registry,
+                                        agent_id,
+                                    )
+                                    .await
+                                    .unwrap_or_else(|_| (String::new(), Vec::new()));
+                                let events = if stopped_clause.is_empty() {
+                                    Vec::new()
+                                } else {
+                                    ehs.get_events_for_pattern_visible(
+                                        &stopped_clause,
+                                        &stopped_params,
+                                        "session:stopped",
+                                    )
+                                    .await
+                                };
                                 for event in events {
                                     let metadata = serde_json::json!({
                                         "event_id": event.id,

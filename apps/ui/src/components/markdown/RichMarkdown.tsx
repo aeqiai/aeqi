@@ -2,9 +2,13 @@ import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import type { Idea } from "@/lib/types";
 import { IdeaMention, IdeaEmbed } from "./IdeaRef";
+import { PrimitivePreview } from "./PrimitivePreview";
+import type { PrimitiveKind } from "@/hooks/usePrimitiveResolver";
 import rehypeIdeaMentions from "./mentionsPlugin";
 
 export type RichMarkdownVariant = "session" | "idea";
+
+const VALID_KINDS = new Set(["agent", "event", "idea", "quest"]);
 
 function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
@@ -58,6 +62,10 @@ function buildComponents(
     },
     "idea-embed"({ name }: any) {
       return <IdeaEmbed name={String(name ?? "")} ideasByName={ideasByName} agentId={agentId} />;
+    },
+    "aeqi-ref"({ kind, id }: any) {
+      const k = (VALID_KINDS.has(kind) ? kind : null) as PrimitiveKind | null;
+      return <PrimitivePreview kind={k} id={String(id ?? "")} />;
     },
   } as any;
 }

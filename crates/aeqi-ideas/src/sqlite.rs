@@ -460,7 +460,25 @@ impl SqliteIdeas {
         params.push(Box::new(now));
         idx += 1;
 
-        if let Some(ref agent_id) = query.agent_id {
+        if let Some(ref anchors) = query.visible_anchor_ids {
+            // Visibility clause: global OR anchor in allowed set.
+            if anchors.is_empty() {
+                // No anchors visible at any non-global scope — only global rows.
+                conditions.push("(m.scope = 'global' OR m.agent_id IS NULL)".to_string());
+            } else {
+                let placeholders = (0..anchors.len())
+                    .map(|i| format!("?{}", idx + i))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                conditions.push(format!(
+                    "(m.scope = 'global' OR m.agent_id IS NULL OR m.agent_id IN ({placeholders}))"
+                ));
+                for a in anchors {
+                    params.push(Box::new(a.clone()));
+                    idx += 1;
+                }
+            }
+        } else if let Some(ref agent_id) = query.agent_id {
             conditions.push(format!("m.agent_id = ?{idx}"));
             params.push(Box::new(agent_id.clone()));
             idx += 1;
@@ -523,7 +541,23 @@ impl SqliteIdeas {
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![];
         let mut idx = 1usize;
 
-        if let Some(ref agent_id) = query.agent_id {
+        if let Some(ref anchors) = query.visible_anchor_ids {
+            if anchors.is_empty() {
+                conditions.push("(m.scope = 'global' OR m.agent_id IS NULL)".to_string());
+            } else {
+                let placeholders = (0..anchors.len())
+                    .map(|i| format!("?{}", idx + i))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                conditions.push(format!(
+                    "(m.scope = 'global' OR m.agent_id IS NULL OR m.agent_id IN ({placeholders}))"
+                ));
+                for a in anchors {
+                    params.push(Box::new(a.clone()));
+                    idx += 1;
+                }
+            }
+        } else if let Some(ref agent_id) = query.agent_id {
             conditions.push(format!("m.agent_id = ?{idx}"));
             params.push(Box::new(agent_id.clone()));
             idx += 1;
@@ -1427,6 +1461,31 @@ impl IdeaStore for SqliteIdeas {
         Ok(id)
     }
 
+    async fn store_with_scope(
+        &self,
+        key: &str,
+        content: &str,
+        tags: &[String],
+        agent_id: Option<&str>,
+        scope: aeqi_core::Scope,
+    ) -> Result<String> {
+        let id = self.store(key, content, tags, agent_id).await?;
+        if id.is_empty() || scope == aeqi_core::Scope::SelfScope {
+            return Ok(id);
+        }
+        let id_c = id.clone();
+        let scope_str = scope.as_str().to_string();
+        self.blocking(move |conn| {
+            conn.execute(
+                "UPDATE ideas SET scope = ?1 WHERE id = ?2",
+                rusqlite::params![scope_str, id_c],
+            )?;
+            Ok(())
+        })
+        .await?;
+        Ok(id)
+    }
+
     fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<Idea>> {
         // Delegate to inherent method.
         SqliteIdeas::search_by_prefix(self, prefix, limit)
@@ -1553,7 +1612,7 @@ impl IdeaStore for SqliteIdeas {
                 (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
-                        i.inheritance, i.tool_allow, i.tool_deny \
+                        i.inheritance, i.tool_allow, i.tool_deny, i.scope \
                  FROM ideas i \
                  JOIN idea_tags t ON t.idea_id = i.id \
                  WHERE LOWER(t.tag) IN ({}) \
@@ -1580,15 +1639,28 @@ impl IdeaStore for SqliteIdeas {
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now());
+                    let agent_id: Option<String> = row.get(3)?;
+                    let scope = row
+                        .get::<_, String>(9)
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or_else(|| {
+                            if agent_id.is_none() {
+                                aeqi_core::Scope::Global
+                            } else {
+                                aeqi_core::Scope::SelfScope
+                            }
+                        });
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
                         content: row.get(2)?,
                         tags: Vec::new(),
-                        agent_id: row.get(3)?,
+                        agent_id,
                         session_id: row.get(4)?,
                         created_at,
                         score: 0.0,
+                        scope,
                         inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
@@ -1609,7 +1681,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, name, content, agent_id, session_id, created_at, \
-                        inheritance, tool_allow, tool_deny \
+                        inheritance, tool_allow, tool_deny, scope \
                  FROM ideas \
                  WHERE agent_id IS NULL \
                  ORDER BY created_at DESC \
@@ -1625,15 +1697,19 @@ impl IdeaStore for SqliteIdeas {
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now());
+                    let agent_id: Option<String> = row.get(3)?;
+                    // These rows are always NULL agent_id by the WHERE clause.
+                    let scope = aeqi_core::Scope::Global;
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
                         content: row.get(2)?,
                         tags: Vec::new(),
-                        agent_id: row.get(3)?,
+                        agent_id,
                         session_id: row.get(4)?,
                         created_at,
                         score: 0.0,
+                        scope,
                         inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
@@ -1689,7 +1765,7 @@ impl IdeaStore for SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -1700,18 +1776,31 @@ impl IdeaStore for SqliteIdeas {
                 .query_map(params.as_slice(), |row| {
                     let tool_allow_str: String = row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
                     let tool_deny_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                    let agent_id: Option<String> = row.get(3)?;
+                    let scope = row
+                        .get::<_, String>(9)
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or_else(|| {
+                            if agent_id.is_none() {
+                                aeqi_core::Scope::Global
+                            } else {
+                                aeqi_core::Scope::SelfScope
+                            }
+                        });
                     Ok(Idea {
                         id: row.get(0)?,
                         name: row.get(1)?,
                         content: row.get(2)?,
                         tags: Vec::new(),
-                        agent_id: row.get(3)?,
+                        agent_id,
                         created_at: {
                             let s: String = row.get(4)?;
                             DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
                         },
                         session_id: row.get(5)?,
                         score: 1.0,
+                        scope,
                         inheritance: row.get::<_, String>(6).unwrap_or_else(|_| "self".to_string()),
                         tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                         tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
@@ -1730,28 +1819,41 @@ impl IdeaStore for SqliteIdeas {
         let agent_id = agent_id.map(|s| s.to_string());
         self.blocking(move |conn| {
             let sql = if agent_id.is_some() {
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
                  FROM ideas WHERE name = ?1 AND agent_id = ?2 LIMIT 1"
             } else {
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny
+                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
                  FROM ideas WHERE name = ?1 AND agent_id IS NULL LIMIT 1"
             };
             let mut stmt = conn.prepare(sql)?;
             let mapper = |row: &rusqlite::Row<'_>| -> rusqlite::Result<Idea> {
                 let tool_allow_str: String = row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
                 let tool_deny_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
+                let agent_id: Option<String> = row.get(3)?;
+                let scope = row
+                    .get::<_, String>(9)
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or_else(|| {
+                        if agent_id.is_none() {
+                            aeqi_core::Scope::Global
+                        } else {
+                            aeqi_core::Scope::SelfScope
+                        }
+                    });
                 Ok(Idea {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     content: row.get(2)?,
                     tags: Vec::new(),
-                    agent_id: row.get(3)?,
+                    agent_id,
                     created_at: {
                         let s: String = row.get(4)?;
                         DateTime::parse_from_rfc3339(&s).map(|d| d.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now())
                     },
                     session_id: row.get(5)?,
                     score: 1.0,
+                    scope,
                     inheritance: row.get::<_, String>(6).unwrap_or_else(|_| "self".to_string()),
                     tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
                     tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),

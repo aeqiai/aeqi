@@ -177,6 +177,7 @@ mod tests {
             status: QuestStatus::Pending,
             priority: Priority::Normal,
             agent_id: None,
+            scope: aeqi_core::Scope::Global,
             depends_on: vec![],
             idea_ids: vec![],
             labels: vec![],

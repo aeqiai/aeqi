@@ -4,8 +4,90 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { Button } from "./ui";
-import type { Quest, QuestStatus, QuestPriority } from "@/lib/types";
+import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
+
+const QUEST_SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
+type QuestFilter = "all" | ScopeValue | "inherited";
+const QUEST_FILTER_VALUES: QuestFilter[] = [
+  "all",
+  "self",
+  "siblings",
+  "children",
+  "branch",
+  "global",
+  "inherited",
+];
+
+function isQuestInherited(q: Quest, agentId: string): boolean {
+  return q.agent_id != null && q.agent_id !== agentId;
+}
+
+function matchesQuestFilter(q: Quest, filter: QuestFilter, agentId: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "inherited") return isQuestInherited(q, agentId);
+  if (q.scope != null) return q.scope === filter;
+  if (filter === "self") return q.agent_id === agentId;
+  if (filter === "global") return q.agent_id == null;
+  return false;
+}
+
+function QuestScopeChip({ scope }: { scope: ScopeValue }) {
+  if (scope === "self") return null;
+  return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
+
+function QuestScopeFilterBar({
+  agentId,
+  quests,
+  filter,
+  onChange,
+}: {
+  agentId: string;
+  quests: Quest[];
+  filter: QuestFilter;
+  onChange: (next: QuestFilter) => void;
+}) {
+  const counts = useMemo(() => {
+    const c = Object.fromEntries(QUEST_FILTER_VALUES.map((f) => [f, 0])) as Record<
+      QuestFilter,
+      number
+    >;
+    for (const q of quests) {
+      c.all += 1;
+      if (isQuestInherited(q, agentId)) c.inherited += 1;
+      if (q.scope != null && QUEST_SCOPE_VALUES.includes(q.scope)) {
+        c[q.scope] += 1;
+      } else if (q.agent_id === agentId) {
+        c.self += 1;
+      } else if (q.agent_id == null) {
+        c.global += 1;
+      }
+    }
+    return c;
+  }, [quests, agentId]);
+
+  return (
+    <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
+      {QUEST_FILTER_VALUES.map((s) => {
+        const isEmpty = counts[s] === 0;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={filter === s}
+            className={`primitive-scope-tab${filter === s ? " active" : ""}${isEmpty && filter !== s ? " empty" : ""}`}
+            onClick={() => onChange(s)}
+          >
+            {s}
+            <span className="primitive-scope-tab-count">{counts[s]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -60,6 +142,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
+  const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
 
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
@@ -150,14 +233,22 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [agentId, goAgent]);
 
-  // No quest selected → show the board: inline composer + kanban columns.
+  // No quest selected → show the board: scope filter + inline composer + kanban columns.
   if (!quest) {
-    const agentQuests = quests.filter((q) => q.agent_id === agent?.id);
+    // All quests visible to this agent (agent's own + any cross-agent ones surfaced by API).
+    const visibleQuests = quests.filter((q) => q.agent_id === agent?.id || q.agent_id == null);
+    const filteredQuests =
+      questFilter === "all"
+        ? visibleQuests
+        : visibleQuests.filter((q) => matchesQuestFilter(q, questFilter, agent?.id ?? agentId));
     return (
       <QuestBoard
         agentId={agentId}
         resolvedAgentId={agent?.id || agentId}
-        quests={agentQuests}
+        quests={filteredQuests}
+        allQuests={visibleQuests}
+        scopeFilter={questFilter}
+        onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
         onPick={(id) => goAgent(agentId, "quests", id)}
       />
@@ -339,17 +430,24 @@ function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
   quests,
+  allQuests,
+  scopeFilter,
+  onScopeChange,
   onCreated,
   onPick,
 }: {
   agentId: string;
   resolvedAgentId: string;
   quests: Quest[];
+  allQuests: Quest[];
+  scopeFilter: QuestFilter;
+  onScopeChange: (next: QuestFilter) => void;
   onCreated: () => void;
   onPick: (id: string) => void;
 }) {
   const [subject, setSubject] = useState("");
   const [priority, setPriority] = useState<QuestPriority>("normal");
+  const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -399,17 +497,19 @@ function QuestBoard({
         project: resolvedAgentId,
         subject: s,
         priority,
+        scope: composeScope,
         agent_id: resolvedAgentId,
       });
       setSubject("");
       setPriority("normal");
+      setComposeScope("self");
       onCreated();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create quest");
     } finally {
       setBusy(false);
     }
-  }, [subject, priority, busy, resolvedAgentId, onCreated]);
+  }, [subject, priority, composeScope, busy, resolvedAgentId, onCreated]);
 
   const columns: Array<{ status: QuestStatus; label: string }> = [
     { status: "pending", label: "Todo" },
@@ -511,6 +611,14 @@ function QuestBoard({
 
   return (
     <div className="quest-board">
+      <div className="quest-board-head">
+        <QuestScopeFilterBar
+          agentId={resolvedAgentId}
+          quests={allQuests}
+          filter={scopeFilter}
+          onChange={onScopeChange}
+        />
+      </div>
       <div className="quest-board-compose">
         <input
           data-quest-compose-subject
@@ -535,6 +643,20 @@ function QuestBoard({
           {(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => (
             <option key={p} value={p}>
               {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+        <select
+          className="scope-select"
+          value={composeScope}
+          onChange={(e) => setComposeScope(e.target.value as ScopeValue)}
+          disabled={busy}
+          aria-label="Scope"
+          title="Scope"
+        >
+          {QUEST_SCOPE_VALUES.map((s) => (
+            <option key={s} value={s}>
+              {s}
             </option>
           ))}
         </select>
@@ -612,6 +734,7 @@ function QuestBoard({
                             {PRIORITY_LABELS[q.priority]}
                           </span>
                         )}
+                        {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
                         {q.updated_at && (
                           <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
                         )}

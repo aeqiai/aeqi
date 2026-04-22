@@ -108,6 +108,11 @@ impl IdeaBuilder {
     }
 
     pub fn build(self) -> Idea {
+        let scope = if self.agent_id.is_none() {
+            aeqi_core::Scope::Global
+        } else {
+            aeqi_core::Scope::SelfScope
+        };
         Idea {
             id: self.id,
             name: self.name,
@@ -117,6 +122,7 @@ impl IdeaBuilder {
             created_at: self.created_at,
             session_id: self.session_id,
             score: self.score,
+            scope,
             inheritance: self.inheritance,
             tool_allow: self.tool_allow,
             tool_deny: self.tool_deny,

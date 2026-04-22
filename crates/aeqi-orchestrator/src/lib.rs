@@ -44,6 +44,7 @@ pub mod runtime;
 pub mod runtime_tools;
 pub mod sandbox;
 pub mod schedule_timer;
+pub mod scope_visibility;
 pub mod session_manager;
 pub mod session_queue;
 pub mod session_store;

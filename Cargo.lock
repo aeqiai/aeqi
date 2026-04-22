@@ -206,6 +206,7 @@ dependencies = [
 name = "aeqi-quests"
 version = "0.7.0"
 dependencies = [
+ "aeqi-core",
  "anyhow",
  "chrono",
  "serde",

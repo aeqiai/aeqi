@@ -36,6 +36,7 @@ use aeqi_core::traits::{Idea, IdeaStore};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::scope_visibility;
 use crate::session_store::SessionStore;
 
 /// Combined tool registry + execution context for event-fired tool dispatch.
@@ -184,9 +185,16 @@ pub async fn assemble_step_ideas_for_worker(
 
     // Root-first walk so parent step ideas precede self's.
     for agent in ancestors.iter().rev() {
-        let events = event_store
-            .get_events_for_pattern(&agent.id, "session:step_start")
-            .await;
+        let (clause, params) = scope_visibility::visibility_sql_clause(registry, &agent.id)
+            .await
+            .unwrap_or_else(|_| (String::new(), Vec::new()));
+        let events = if clause.is_empty() {
+            Vec::new()
+        } else {
+            event_store
+                .get_events_for_pattern_visible(&clause, &params, "session:step_start")
+                .await
+        };
 
         let mut event_idea_ids: Vec<String> = Vec::new();
         let mut event_owner: std::collections::HashMap<String, String> =
@@ -302,12 +310,21 @@ pub async fn assemble_ideas_for_patterns(
     for (depth, agent) in ancestors.iter().rev().enumerate() {
         let is_self = depth == ancestors.len() - 1;
 
+        let (clause, vis_params) = scope_visibility::visibility_sql_clause(registry, &agent.id)
+            .await
+            .unwrap_or_else(|_| (String::new(), Vec::new()));
+
         let mut events_for_agent: Vec<crate::event_handler::Event> = Vec::new();
         let mut seen_event_ids: HashSet<String> = HashSet::new();
-        for pattern in event_patterns {
-            for event in event_store.get_events_for_pattern(&agent.id, pattern).await {
-                if seen_event_ids.insert(event.id.clone()) {
-                    events_for_agent.push(event);
+        if !clause.is_empty() {
+            for pattern in event_patterns {
+                for event in event_store
+                    .get_events_for_pattern_visible(&clause, &vis_params, pattern)
+                    .await
+                {
+                    if seen_event_ids.insert(event.id.clone()) {
+                        events_for_agent.push(event);
+                    }
                 }
             }
         }
@@ -920,6 +937,8 @@ fn append_idea(
 pub struct EventPatternDispatcher {
     pub event_store: Arc<EventHandlerStore>,
     pub registry: Arc<ToolRegistry>,
+    /// Agent registry for visibility-aware event lookup.
+    pub agent_registry: Arc<AgentRegistry>,
     /// When set, invocation traces are written to `event_invocations` /
     /// `event_invocation_steps` for every dispatch.
     pub session_store: Option<Arc<SessionStore>>,
@@ -933,11 +952,19 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
         trigger_args: &'a serde_json::Value,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
         Box::pin(async move {
-            // Query the event store for enabled events matching this exact pattern.
-            let events = self
-                .event_store
-                .get_events_for_exact_pattern(&ctx.agent_id, pattern)
-                .await;
+            // Query the event store for enabled events matching this exact pattern,
+            // using scope-aware visibility so parent-scoped events reach child agents.
+            let (clause, vis_params) =
+                scope_visibility::visibility_sql_clause(&self.agent_registry, &ctx.agent_id)
+                    .await
+                    .unwrap_or_else(|_| (String::new(), Vec::new()));
+            let events = if clause.is_empty() {
+                Vec::new()
+            } else {
+                self.event_store
+                    .get_events_for_exact_pattern_visible(&clause, &vis_params, pattern)
+                    .await
+            };
 
             if events.is_empty() {
                 return false;
@@ -1097,6 +1124,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -1179,6 +1207,7 @@ mod tests {
                 created_at: Utc::now(),
                 session_id: None,
                 score: 0.0,
+                scope: aeqi_core::Scope::SelfScope,
                 inheritance: "self".into(),
                 tool_allow: Vec::new(),
                 tool_deny: Vec::new(),
@@ -1228,6 +1257,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -1303,6 +1333,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -1370,6 +1401,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score: 0.0,
+            scope: aeqi_core::Scope::Global,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),
@@ -1548,6 +1580,7 @@ mod tests {
             created_at: Utc::now(),
             session_id: None,
             score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
             inheritance: "self".to_string(),
             tool_allow: Vec::new(),
             tool_deny: Vec::new(),

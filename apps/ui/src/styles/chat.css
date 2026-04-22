@@ -1907,3 +1907,169 @@
 .dash-activity-row:hover .dash-activity-summary {
   color: var(--text-primary);
 }
+
+/* ── Primitive preview chips (aeqi-ref) ──
+   Slim inline cards rendered when [[aeqi:kind:uuid]] tokens appear in
+   markdown. Sit inline in text flow; dark graphite card, single line. */
+
+.aeqi-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 6px;
+  background: var(--color-ink-card, #0a0a0b);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  vertical-align: middle;
+  line-height: 1.5;
+  max-width: 280px;
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.aeqi-ref:hover {
+  background: var(--color-ink-card-elevated, #1c1c1f);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.aeqi-ref:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Dot — color-coded per kind */
+.aeqi-ref-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.aeqi-ref-dot--graphite {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.aeqi-ref-dot--jade {
+  background: var(--color-success, #2e8f71);
+}
+
+.aeqi-ref-dot--amber {
+  background: var(--color-warning, #b98a47);
+}
+
+.aeqi-ref-dot--neutral {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Kind label — tiny uppercase eyebrow */
+.aeqi-ref-kind {
+  font-size: var(--font-size-3xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  flex-shrink: 0;
+}
+
+/* Primary name — truncated */
+.aeqi-ref-name {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Secondary line (event pattern, quest status) */
+.aeqi-ref-sub {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: var(--font-size-3xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Status pill for quests */
+.aeqi-ref-pill {
+  font-size: var(--font-size-3xs);
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.aeqi-ref-pill--done {
+  background: rgba(46, 143, 113, 0.25);
+  color: #7ecdb5;
+  border-color: rgba(46, 143, 113, 0.3);
+}
+
+.aeqi-ref-pill--blocked {
+  background: rgba(185, 138, 71, 0.25);
+  color: #d4a86a;
+  border-color: rgba(185, 138, 71, 0.3);
+}
+
+/* Tag pills for ideas */
+.aeqi-ref-tags {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.aeqi-ref-tag {
+  font-size: var(--font-size-3xs);
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Loading skeleton — matches card shape, pulses softly */
+.aeqi-ref--skeleton {
+  width: 88px;
+  height: 20px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.07) 25%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.07) 75%
+  );
+  background-size: 200% 100%;
+  animation: aeqi-ref-shimmer 1.4s ease-in-out infinite;
+  cursor: default;
+}
+
+@keyframes aeqi-ref-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Not-found state — subtle grey chip, not alarming */
+.aeqi-ref--notfound {
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
+  border-color: var(--border, rgba(0, 0, 0, 0.06));
+  color: var(--text-muted);
+  cursor: default;
+  font-style: italic;
+}
+
+.aeqi-ref--notfound:hover {
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
+  border-color: var(--border, rgba(0, 0, 0, 0.06));
+}

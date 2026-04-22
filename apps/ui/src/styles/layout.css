@@ -4749,3 +4749,250 @@
   color: var(--accent);
   flex-shrink: 0;
 }
+
+/* ── Identity Card ────────────────────────────────────────────────────── */
+
+.identity-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 13px;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.identity-card--loading {
+  justify-content: flex-start;
+}
+
+.identity-card--wired {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.identity-card--empty {
+  gap: 8px;
+}
+
+.identity-card--editing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.identity-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.identity-card-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.identity-card-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-card-edit-btn {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.1s;
+  flex-shrink: 0;
+}
+.identity-card-edit-btn:hover {
+  color: var(--text-primary);
+}
+
+.identity-card-empty-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.identity-card-configure-btn {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  padding: 3px 10px;
+  font-family: inherit;
+  transition:
+    color 0.1s,
+    border-color 0.1s;
+  flex-shrink: 0;
+}
+.identity-card-configure-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.identity-card-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+.identity-card-textarea:focus {
+  outline: none;
+  border-color: var(--border-hover);
+}
+
+.identity-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.identity-card-cancel {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.1s;
+}
+.identity-card-cancel:hover {
+  color: var(--text-primary);
+}
+.identity-card-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Identity Dialog ──────────────────────────────────────────────────── */
+
+.identity-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.identity-dialog {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--shadow-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.identity-dialog-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.identity-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.identity-dialog-agent {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--key-pill-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  border-radius: var(--key-pill-radius, 4px);
+  padding: 1px 6px;
+}
+
+.identity-dialog-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.identity-dialog-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+.identity-dialog-textarea:focus {
+  outline: none;
+  border-color: var(--border-hover);
+}
+
+.identity-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── new-agent page: identity section + status ─────────────────────── */
+
+.new-co-identity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.new-co-identity-status {
+  font-size: 12px;
+  color: var(--success);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}

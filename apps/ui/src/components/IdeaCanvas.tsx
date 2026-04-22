@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
-import type { Idea } from "@/lib/types";
+import type { Idea, ScopeValue } from "@/lib/types";
+
+const SCOPE_OPTIONS: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
 import { Button, IconButton } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
@@ -82,6 +84,7 @@ export default function IdeaCanvas({
   const [name, setName] = useState(idea?.name ?? initialName ?? "");
   const [content, setContent] = useState(idea?.content ?? "");
   const [typedTags, setTypedTags] = useState<string[]>(idea?.tags ?? []);
+  const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -127,6 +130,7 @@ export default function IdeaCanvas({
     setShowRejectPanel(false);
     setRejectRationale("");
     setBodyMode(idea?.id ? "view" : "edit");
+    setComposeScope("self");
     dirtyRef.current = false;
   }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
 
@@ -224,12 +228,14 @@ export default function IdeaCanvas({
         content: snapshot.content,
         tags,
         agent_id: agentId,
+        scope: composeScope,
       });
       const created: Idea = {
         id: res.id,
         name: effectiveName,
         content: snapshot.content,
         tags,
+        scope: composeScope,
         agent_id: agentId,
       };
       addIdea(agentId, created);
@@ -239,7 +245,7 @@ export default function IdeaCanvas({
       setSaveState("error");
       setError(e instanceof Error ? e.message : "Save failed");
     }
-  }, [isEdit, agentId, addIdea, goAgent]);
+  }, [isEdit, agentId, addIdea, goAgent, composeScope]);
 
   // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
   // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
@@ -489,6 +495,21 @@ export default function IdeaCanvas({
         <div className="ideas-canvas-actions">
           {(bodyMode === "edit" || !isEdit) && content.length > 0 && (
             <span className="ideas-canvas-count">{formatCount(content)}</span>
+          )}
+          {!isEdit && (
+            <select
+              className="scope-select"
+              value={composeScope}
+              onChange={(e) => setComposeScope(e.target.value as ScopeValue)}
+              title="Scope"
+              aria-label="Scope"
+            >
+              {SCOPE_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           )}
           {(!isEdit || saveState === "dirty" || saveState === "saving") && (
             <Button

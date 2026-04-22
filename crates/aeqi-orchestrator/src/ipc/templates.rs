@@ -321,6 +321,7 @@ pub async fn spawn_template(
             .collect();
         let new_event = NewEvent {
             agent_id: Some(owner_id.to_string()),
+            scope: aeqi_core::Scope::SelfScope,
             name: ev.name.clone(),
             pattern: ev.pattern.clone(),
             idea_ids: Vec::new(),

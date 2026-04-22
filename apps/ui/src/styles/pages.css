@@ -2918,6 +2918,12 @@
   overflow: hidden;
 }
 
+.quest-board-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .quest-board-compose {
   display: flex;
   gap: 8px;

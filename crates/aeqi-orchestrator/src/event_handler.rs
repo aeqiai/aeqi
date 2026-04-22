@@ -3,6 +3,7 @@
 //! An event is a reaction rule: when pattern X fires on agent Y,
 //! run idea Z. Events replace triggers and express the entire agent lifecycle.
 
+use aeqi_core::Scope;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, params};
@@ -31,6 +32,9 @@ pub struct ToolCall {
 pub struct Event {
     pub id: String,
     pub agent_id: Option<String>,
+    /// Anchor agent visibility scope. `global` rows are visible to all agents
+    /// regardless of `agent_id`.
+    pub scope: Scope,
     pub name: String,
     /// Pattern: "session:start", "session:quest_start", "schedule:0 9 * * *", "webhook:abc123"
     pub pattern: String,
@@ -70,6 +74,8 @@ pub struct Event {
 #[derive(Default)]
 pub struct NewEvent {
     pub agent_id: Option<String>,
+    /// Visibility scope for this event. Defaults to `Scope::SelfScope`.
+    pub scope: Scope,
     pub name: String,
     pub pattern: String,
     /// References to ideas to inject when this event fires.
@@ -124,9 +130,9 @@ impl EventHandlerStore {
             let db = self.db.lock().await;
             db.execute(
                 "INSERT OR IGNORE INTO events (id, agent_id, name, pattern, scope, idea_ids, query_template, query_top_k, query_tag_filter, tool_calls, enabled, cooldown_secs, system, created_at)
-                 VALUES (?1, ?2, ?3, ?4, 'self', ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?12)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?13)",
                 params![
-                    id, e.agent_id, e.name, e.pattern,
+                    id, e.agent_id, e.name, e.pattern, e.scope.as_str(),
                     idea_ids_json, e.query_template, query_top_k_i64, query_tag_filter_json,
                     tool_calls_json,
                     e.cooldown_secs as i64,
@@ -178,6 +184,27 @@ impl EventHandlerStore {
         )?;
         let events = stmt
             .query_map(params![agent_id], |row| Ok(row_to_event(row)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(events)
+    }
+
+    /// List events visible to `viewer_agent_id` using a precomputed
+    /// `(visibility_clause, bind_params)` from `scope_visibility::visibility_sql_clause`.
+    pub async fn list_visible_to(
+        &self,
+        visibility_clause: &str,
+        bind_params: &[String],
+    ) -> Result<Vec<Event>> {
+        let db = self.db.lock().await;
+        let sql = format!("SELECT * FROM events WHERE {visibility_clause} ORDER BY name");
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = bind_params
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+        let mut stmt = db.prepare(&sql)?;
+        let events = stmt
+            .query_map(param_refs.as_slice(), |row| Ok(row_to_event(row)))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(events)
@@ -319,6 +346,7 @@ impl EventHandlerStore {
             // Create the event.
             self.create(&NewEvent {
                 agent_id: Some(agent_id.to_string()),
+                scope: Scope::SelfScope,
                 name: "on_session_start".to_string(),
                 pattern: "session:start".to_string(),
                 idea_ids: idea_ids.to_vec(),
@@ -427,6 +455,45 @@ impl EventHandlerStore {
         result.unwrap_or_default()
     }
 
+    /// Visibility-aware variant of `get_events_for_pattern`.
+    ///
+    /// Accepts a precomputed `(visibility_clause, bind_params)` from
+    /// `scope_visibility::visibility_sql_clause` so the WHERE fragment covers
+    /// all scope levels (self/siblings/children/branch/global) rather than just
+    /// `agent_id = X OR agent_id IS NULL`.
+    pub async fn get_events_for_pattern_visible(
+        &self,
+        visibility_clause: &str,
+        bind_params: &[String],
+        pattern: &str,
+    ) -> Vec<Event> {
+        let db = self.db.lock().await;
+        let like_pattern = format!("{pattern}%");
+        let sql = format!(
+            "SELECT * FROM events
+             WHERE {visibility_clause}
+               AND enabled = 1
+               AND pattern LIKE ?
+             ORDER BY name"
+        );
+        let result: Result<Vec<Event>> = (|| {
+            let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = bind_params
+                .iter()
+                .map(|s| Box::new(s.clone()) as Box<dyn rusqlite::types::ToSql>)
+                .collect();
+            all_params.push(Box::new(like_pattern));
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                all_params.iter().map(|p| p.as_ref()).collect();
+            let mut stmt = db.prepare(&sql)?;
+            let events = stmt
+                .query_map(param_refs.as_slice(), |row| Ok(row_to_event(row)))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(events)
+        })();
+        result.unwrap_or_default()
+    }
+
     /// Get enabled events matching an exact pattern for an agent: its own + globals.
     ///
     /// Unlike `get_events_for_pattern` (which uses LIKE for prefix matching),
@@ -444,6 +511,42 @@ impl EventHandlerStore {
             )?;
             let events = stmt
                 .query_map(params![agent_id, pattern], |row| Ok(row_to_event(row)))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(events)
+        })();
+        result.unwrap_or_default()
+    }
+
+    /// Visibility-aware variant of `get_events_for_exact_pattern`.
+    ///
+    /// Accepts a precomputed `(visibility_clause, bind_params)` from
+    /// `scope_visibility::visibility_sql_clause`.
+    pub async fn get_events_for_exact_pattern_visible(
+        &self,
+        visibility_clause: &str,
+        bind_params: &[String],
+        pattern: &str,
+    ) -> Vec<Event> {
+        let db = self.db.lock().await;
+        let sql = format!(
+            "SELECT * FROM events
+             WHERE {visibility_clause}
+               AND enabled = 1
+               AND pattern = ?
+             ORDER BY name"
+        );
+        let result: Result<Vec<Event>> = (|| {
+            let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = bind_params
+                .iter()
+                .map(|s| Box::new(s.clone()) as Box<dyn rusqlite::types::ToSql>)
+                .collect();
+            all_params.push(Box::new(pattern.to_string()));
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                all_params.iter().map(|p| p.as_ref()).collect();
+            let mut stmt = db.prepare(&sql)?;
+            let events = stmt
+                .query_map(param_refs.as_slice(), |row| Ok(row_to_event(row)))?
                 .filter_map(|r| r.ok())
                 .collect();
             Ok(events)
@@ -604,6 +707,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         store
             .create(&NewEvent {
                 agent_id: None,
+                scope: Scope::Global,
                 name: seed.name.to_string(),
                 pattern: seed.pattern.to_string(),
                 idea_ids: Vec::new(),
@@ -909,6 +1013,7 @@ pub async fn create_default_lifecycle_events(store: &EventHandlerStore) -> anyho
         store
             .create(&NewEvent {
                 agent_id: None,
+                scope: Scope::Global,
                 name: name.to_string(),
                 pattern: pattern.to_string(),
                 idea_ids: idea_ids_for_event,
@@ -1030,9 +1135,16 @@ fn row_to_event(row: &rusqlite::Row) -> Event {
         .and_then(|s| serde_json::from_str::<Vec<ToolCall>>(&s).ok())
         .unwrap_or_default();
 
+    let scope: Scope = row
+        .get::<_, String>("scope")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(Scope::SelfScope);
+
     Event {
         id: row.get("id").unwrap_or_default(),
         agent_id: row.get("agent_id").ok().flatten(),
+        scope,
         name: row.get("name").unwrap_or_default(),
         pattern: row.get("pattern").unwrap_or_default(),
         idea_ids,

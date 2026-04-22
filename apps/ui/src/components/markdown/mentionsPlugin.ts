@@ -1,6 +1,58 @@
 import type { Root, Element, Text, ElementContent, Parent } from "hast";
 
+// UUID-loose pattern — lowercase hex groups separated by hyphens.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const VALID_KINDS = new Set(["agent", "event", "idea", "quest"]);
+
+/**
+ * Token forms:
+ *   [[aeqi:idea:<uuid>]]    → aeqi-ref  (kind=idea, id=<uuid>)
+ *   [[aeqi:event:<uuid>]]   → aeqi-ref  (kind=event, id=<uuid>)
+ *   [[aeqi:agent:<uuid>]]   → aeqi-ref  (kind=agent, id=<uuid>)
+ *   [[aeqi:quest:<uuid>]]   → aeqi-ref  (kind=quest, id=<uuid>)
+ *   [[aeqi:<uuid>]]         → aeqi-ref  (kind=null, id=<uuid>)
+ *   ![[name]]               → idea-embed
+ *   [[name]]                → idea-mention
+ */
 const LINK_RE = /(!?)\[\[([^[\]\n]+)\]\]/g;
+
+function parseToken(isEmbed: boolean, inner: string): Element {
+  const trimmed = inner.trim();
+
+  // Check for aeqi-typed refs: [[aeqi:kind:uuid]] or [[aeqi:uuid]]
+  if (trimmed.startsWith("aeqi:")) {
+    const rest = trimmed.slice(5); // strip "aeqi:"
+    const parts = rest.split(":");
+    if (parts.length === 2 && VALID_KINDS.has(parts[0]) && UUID_RE.test(parts[1])) {
+      // [[aeqi:kind:uuid]]
+      return {
+        type: "element",
+        tagName: "aeqi-ref",
+        properties: { kind: parts[0], id: parts[1] },
+        children: [{ type: "text", value: trimmed }],
+      };
+    }
+    if (parts.length === 1 && UUID_RE.test(parts[0])) {
+      // [[aeqi:uuid]]
+      return {
+        type: "element",
+        tagName: "aeqi-ref",
+        properties: { kind: null, id: parts[0] },
+        children: [{ type: "text", value: trimmed }],
+      };
+    }
+  }
+
+  // Legacy idea mention / embed
+  const tag = isEmbed ? "idea-embed" : "idea-mention";
+  return {
+    type: "element",
+    tagName: tag,
+    properties: { name: trimmed },
+    children: [{ type: "text", value: trimmed }],
+  };
+}
 
 function splitTextNode(node: Text): ElementContent[] {
   const text = node.value;
@@ -14,15 +66,8 @@ function splitTextNode(node: Text): ElementContent[] {
       out.push({ type: "text", value: text.slice(last, m.index) });
     }
     const isEmbed = m[1] === "!";
-    const name = m[2].trim();
-    const tag = isEmbed ? "idea-embed" : "idea-mention";
-    const el: Element = {
-      type: "element",
-      tagName: tag,
-      properties: { name },
-      children: [{ type: "text", value: name }],
-    };
-    out.push(el);
+    const inner = m[2];
+    out.push(parseToken(isEmbed, inner));
     last = m.index + m[0].length;
   }
   if (last < text.length) {
@@ -65,13 +110,13 @@ function walk(node: Parent): void {
 }
 
 /**
- * Rehype plugin that turns `[[X]]` in idea content into an `idea-mention`
- * element and `![[X]]` into an `idea-embed` element. The parent
- * `RichMarkdown` renders those tags as chips and inline cards.
+ * Rehype plugin that turns inline `[[...]]` tokens into typed hast elements:
  *
- * Names are resolved to idea IDs at render time; the body keeps names
- * so agents can write references that make sense in prose even when the
- * target doesn't yet exist.
+ *  - `[[aeqi:kind:uuid]]` / `[[aeqi:uuid]]` → `<aeqi-ref kind="…" id="…">`
+ *  - `[[name]]`   → `<idea-mention name="…">`
+ *  - `![[name]]`  → `<idea-embed name="…">`
+ *
+ * The parent `RichMarkdown` maps each tag name to its React component.
  */
 export default function rehypeIdeaMentions() {
   return (tree: Root) => {

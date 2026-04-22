@@ -26,6 +26,7 @@ use crate::event_handler::EventHandlerStore;
 use crate::idea_assembly::ToolDispatch;
 use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn};
 use crate::sandbox::{QuestSandbox, SandboxConfig};
+use crate::scope_visibility;
 use crate::session_store::SessionStore;
 use crate::skill_loader::SkillLoader;
 
@@ -862,9 +863,22 @@ impl SessionManager {
         // the pill flows through. That keeps the fire count truthful.
         let mut step_event_metas: Vec<aeqi_core::StepEventMeta> = Vec::new();
         if let Some(idea_store) = &self.idea_store {
-            let step_events = event_store
-                .get_events_for_pattern(agent_uuid.as_deref().unwrap_or(""), "session:step_start")
-                .await;
+            let viewer_id = agent_uuid.as_deref().unwrap_or("");
+            let (step_clause, step_params) =
+                scope_visibility::visibility_sql_clause(agent_registry, viewer_id)
+                    .await
+                    .unwrap_or_else(|_| (String::new(), Vec::new()));
+            let step_events = if step_clause.is_empty() {
+                Vec::new()
+            } else {
+                event_store
+                    .get_events_for_pattern_visible(
+                        &step_clause,
+                        &step_params,
+                        "session:step_start",
+                    )
+                    .await
+            };
             let mut step_idea_ids: Vec<String> = Vec::new();
             for ev in &step_events {
                 step_idea_ids.extend(ev.idea_ids.iter().filter(|id| !id.is_empty()).cloned());
@@ -964,6 +978,7 @@ impl SessionManager {
             let dispatcher = std::sync::Arc::new(crate::idea_assembly::EventPatternDispatcher {
                 event_store: ehs.clone(),
                 registry: std::sync::Arc::new(runtime_reg_for_dispatcher),
+                agent_registry: agent_registry.clone(),
                 session_store: self.session_store.clone(),
             });
             agent = agent.with_pattern_dispatcher(dispatcher);
@@ -1074,12 +1089,29 @@ impl SessionManager {
         // Helper: pre-persist `event_fired` rows for a given pattern and
         // build EventFired stream events. Returns the list of stream events
         // so the caller can flush them to subscribers in the desired order.
+        //
+        // Visibility clause is precomputed for the session's agent so parent-scoped
+        // events (e.g. scope=children set by a parent) fire correctly for this agent.
+        let (fire_clause, fire_params) = if let Some(aid) = agent_uuid.as_deref() {
+            scope_visibility::visibility_sql_clause(agent_registry, aid)
+                .await
+                .unwrap_or_else(|_| (String::new(), Vec::new()))
+        } else {
+            (String::new(), Vec::new())
+        };
         let fire_pattern = async |pattern: &str,
-                                  aid: &str,
+                                  _aid: &str,
                                   seen: &mut std::collections::HashSet<String>|
                -> Vec<ChatStreamEvent> {
+            let events = if fire_clause.is_empty() {
+                Vec::new()
+            } else {
+                event_store
+                    .get_events_for_pattern_visible(&fire_clause, &fire_params, pattern)
+                    .await
+            };
             let mut out: Vec<ChatStreamEvent> = Vec::new();
-            for event in event_store.get_events_for_pattern(aid, pattern).await {
+            for event in events {
                 if !seen.insert(event.id.clone()) {
                     continue;
                 }
