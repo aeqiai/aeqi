@@ -148,38 +148,38 @@ export function countStepSegments(segments?: MessageSegment[]): number {
 }
 
 /**
- * Split an assistant turn's segments into the intermediate "trail" (tool
- * calls, steps, statuses, file chips, in-between thinking text) and the
- * "final" response — the last run of non-empty text segments.
+ * Split an assistant turn's segments into the intermediate "trail" and
+ * the "final" response. Only a contiguous run of text at the very end
+ * of the turn qualifies as final — intermediate narrations like "Let
+ * me check X:" that sit before another tool/step belong in the trail,
+ * not below the thinking panel.
  *
- * Walks from the end backward to locate the last non-empty text segment,
- * then extends left through any contiguous text segments. Everything
- * outside that run (including tool/event/file segments that appear AFTER
- * the final text, e.g. a mid-turn event_fire that landed at the tail of
- * the message) is routed into the trail so the final response is never
- * buried in the collapsed section.
+ * We allow trailing `event_fire` segments to sit after the final text
+ * (post-turn async events still route into the trail), but any tool,
+ * step, status, file chip, or summarised-tool segment appearing after
+ * a text block disqualifies that text as final.
  */
 export function splitTrailAndFinal(segments: MessageSegment[]): {
   trail: MessageSegment[];
   final: MessageSegment[];
 } {
-  let lastTextIdx = -1;
-  for (let i = segments.length - 1; i >= 0; i--) {
-    const seg = segments[i];
-    if (seg.kind === "text" && seg.text.trim().length > 0) {
-      lastTextIdx = i;
-      break;
-    }
+  let end = segments.length;
+  while (end > 0 && segments[end - 1].kind === "event_fire") {
+    end--;
   }
-  if (lastTextIdx < 0) {
-    return { trail: segments, final: [] };
-  }
-  let start = lastTextIdx;
-  while (start > 0 && segments[start - 1].kind === "text") {
+  let start = end;
+  while (
+    start > 0 &&
+    segments[start - 1].kind === "text" &&
+    (segments[start - 1] as { kind: "text"; text: string }).text.trim().length > 0
+  ) {
     start--;
   }
-  const trail = [...segments.slice(0, start), ...segments.slice(lastTextIdx + 1)];
-  const final = segments.slice(start, lastTextIdx + 1);
+  if (start === end) {
+    return { trail: segments, final: [] };
+  }
+  const trail = [...segments.slice(0, start), ...segments.slice(end)];
+  const final = segments.slice(start, end);
   return { trail, final };
 }
 
