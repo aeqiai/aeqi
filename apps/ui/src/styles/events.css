@@ -17,50 +17,49 @@
 }
 
 /* ── Sub-tab bar (list · canvas · trace) ───────────────────────────── */
-/* Echoes the .primitive-head / .sidebar-nav-item.no-icon treatment:
-   lowercase brand-font labels with the first letter tinted in the
-   accent when inactive, and full-ink on the active tab. */
 .events-subtabs {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 14px 28px 0;
-  border-bottom: 1px solid var(--border-faint, rgba(0, 0, 0, 0.05));
+  gap: 0;
+  padding: var(--space-3) var(--space-6) 0;
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 .events-subtab {
+  position: relative;
   display: inline-flex;
-  align-items: baseline;
-  padding: 6px 10px 10px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   margin-bottom: -1px;
-  font-family: var(--font-brand);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
   background: transparent;
   border: 0;
-  border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
 }
 .events-subtab:hover {
-  color: var(--text-secondary);
+  color: var(--color-text-primary);
 }
 .events-subtab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
 }
-.events-subtab-initial {
-  color: var(--color-accent);
+.events-subtab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: var(--space-4);
+  right: var(--space-4);
+  height: 2px;
+  background: var(--color-text-primary);
 }
-.events-subtab.active .events-subtab-initial {
-  color: var(--color-accent);
-}
-.events-subtab-tail {
-  margin-left: 0;
+.events-subtab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .events-subtabs-aside {
   margin-left: auto;

@@ -188,7 +188,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  /* ── Sub-tabs header — design-system aligned ──────────────────── */
+  /* ── Sub-tabs header — standard tabs, no brand flourish ──────── */
+  const SUB_TAB_LABELS: Record<SubTab, string> = {
+    list: "List",
+    canvas: "Canvas",
+    trace: "Trace",
+  };
   const subTabBar = (
     <div className="events-subtabs" role="tablist" aria-label="Events view">
       {(["list", "canvas", "trace"] as SubTab[]).map((id) => (
@@ -200,10 +205,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           className={`events-subtab${activeSubTab === id ? " active" : ""}`}
           onClick={() => setActiveSubTab(id)}
         >
-          <span className="events-subtab-initial" aria-hidden>
-            {id.charAt(0)}
-          </span>
-          <span className="events-subtab-tail">{id.slice(1)}</span>
+          {SUB_TAB_LABELS[id]}
         </button>
       ))}
       {activeSubTab === "trace" && (
