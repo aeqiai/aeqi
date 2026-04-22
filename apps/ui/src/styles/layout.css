@@ -3248,10 +3248,9 @@
 /* ------------------------------------------------------------------
    Ideas compose canvas — clean borderless editor when no idea is selected
    ------------------------------------------------------------------ */
-/* ── Editorial document surface ──
-   The idea page is a document, not a form. A measure-constrained column
-   centers the work; metadata lives in a quiet top strip; the footer is a
-   hairline status rail. Typography does the hierarchy.                     */
+/* Idea page — fills the content pane like every other page. No editorial
+   column cap; the surrounding chrome (topbar + sidebar) already centers
+   the work in the layout. */
 .ideas-canvas {
   display: flex;
   flex-direction: column;
@@ -3261,9 +3260,6 @@
 }
 .ideas-canvas > * {
   width: 100%;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
   flex: 0 0 auto;
 }
 .ideas-canvas > .ideas-canvas-body {
