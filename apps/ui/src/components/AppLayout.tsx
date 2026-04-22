@@ -346,28 +346,16 @@ export default function AppLayout() {
         <div className="shell-legal" role="contentinfo">
           <div className="shell-legal-left">
             <a
-              href="https://aeqi.ai/docs"
+              href="https://status.aeqi.ai"
               target="_blank"
               rel="noreferrer noopener"
-              className="sidebar-nav-item shell-legal-docs"
-              title="Documentation"
+              className="sidebar-nav-item shell-legal-status"
+              title="System status"
             >
               <span className="sidebar-nav-avatar" aria-hidden="true">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2v-9z" />
-                  <path d="M3 11.5a2 2 0 0 1 2-2h7" />
-                </svg>
+                <span className="shell-legal-status-dot" />
               </span>
-              <span className="sidebar-nav-label">Docs</span>
+              <span className="sidebar-nav-label">Operational</span>
             </a>
           </div>
           <div className="shell-legal-right">
@@ -382,6 +370,10 @@ export default function AppLayout() {
               </a>
               .
             </span>
+            <span className="shell-legal-sep" aria-hidden="true">
+              ·
+            </span>
+            <span className="shell-legal-version">v0.7.0</span>
             <span className="shell-legal-sep" aria-hidden="true">
               ·
             </span>

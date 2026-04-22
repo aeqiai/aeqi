@@ -58,6 +58,44 @@ export default function ShortcutsOverlay({
           </div>
         ))}
       </dl>
+      <div className="shortcuts-footer">
+        <a
+          className="shortcuts-footer-link"
+          href="https://aeqi.ai/docs"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2v-9z" />
+            <path d="M3 11.5a2 2 0 0 1 2-2h7" />
+          </svg>
+          Open documentation
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="shortcuts-footer-ext"
+          >
+            <path d="M6 3h7v7M13 3 5 11" />
+          </svg>
+        </a>
+      </div>
     </Modal>
   );
 }

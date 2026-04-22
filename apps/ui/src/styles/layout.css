@@ -19,26 +19,31 @@
 }
 
 /* ── Legal footer strip ──
-   Two-part row: Docs link on the left (sidebar-nav-item treatment
-   so it reads as the direct continuation of the profile row above),
-   TOS sentence + copyright clustered on the right. The strip's
-   height is what gives the content-card and the sidebar-profile
-   their shared lift off the viewport. */
+   Two-part row: Docs link on the left (sits in a sidebar-width slot
+   so its icon lands at the exact x-coordinate as the profile
+   avatar above); TOS sentence + copyright clustered on the right
+   (aligns with the content card's right edge). */
 .shell-legal {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 4px 12px 8px;
+  align-items: stretch;
   background: var(--bg-sidebar);
   color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 0.005em;
   line-height: 1.4;
 }
+/* Left slot = sidebar column geometry (224px wide, 8px horizontal
+   inset, 8/12px vertical padding — a mirror of .sidebar-footer).
+   The Docs nav-item inside occupies the full 208px interior so its
+   avatar slot aligns pixel-perfect with the profile avatar. */
 .shell-legal-left {
   flex-shrink: 0;
-  min-width: 0;
+  width: 224px;
+  padding: 8px 8px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
 }
 .shell-legal-right {
   flex: 1;
@@ -47,6 +52,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  padding: 8px 16px 12px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -64,6 +70,26 @@
 .shell-legal-copyright {
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+.shell-legal-version {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+/* Status dot — neutral by default so the indicator reads as
+   "present, reassuring" rather than "look at me." Stays in the same
+   muted ink as the surrounding footer text; only escalates (to a
+   warning/error tint) if the system state changes. Under-opacity so
+   two adjacent glyphs (dot + label) read as one object. */
+.shell-legal-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
 }
 
 /* Link treatment inside the right cluster — underline-on-hover, no
@@ -85,13 +111,25 @@
   outline: none;
 }
 
-/* Docs link = sidebar-nav-item applied in the legal strip. Inherits
-   the full nav-item treatment (hover bg, radius, padding, font
-   scale, icon slot) so the row reads as a seamless continuation of
-   the profile row above. We only override the min-height here so
-   the legal strip doesn't balloon. */
-.shell-legal-docs.sidebar-nav-item {
-  min-height: 28px;
+/* Docs row = sidebar-nav-item in the legal strip. Width 100% so it
+   spans the sidebar-column slot the same way the profile row spans
+   its container; min-height matches --sidebar-row-h so the row
+   metric is identical to the row above. */
+.shell-legal-status.sidebar-nav-item {
+  width: 100%;
+  min-height: var(--sidebar-row-h);
+}
+/* Collapsed sidebar: Docs row collapses identically — icon-only,
+   centered — so it stays aligned with the collapsed profile row. */
+.shell:has(.left-sidebar.collapsed) .shell-legal-left {
+  width: 52px;
+}
+.shell:has(.left-sidebar.collapsed) .shell-legal-status.sidebar-nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+.shell:has(.left-sidebar.collapsed) .shell-legal-status .sidebar-nav-label {
+  display: none;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
@@ -2538,6 +2576,18 @@
   .sidebar-nav-label,
   .sidebar-nav-action,
   .sidebar-footer {
+    display: none;
+  }
+  /* Mirror the sidebar collapse — legal-left slot shrinks to 52px
+     and its Docs row becomes icon-only. */
+  .shell-legal-left {
+    width: 52px;
+  }
+  .shell-legal-status.sidebar-nav-item {
+    justify-content: center;
+    padding: 8px;
+  }
+  .shell-legal-status .sidebar-nav-label {
     display: none;
   }
 

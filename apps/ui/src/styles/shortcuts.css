@@ -75,3 +75,47 @@
   color: var(--text-secondary);
   line-height: 1.4;
 }
+
+/* Footer — "escape hatch" row at the bottom of the shortcuts card.
+   Docs is a destination, not a shortcut, so it gets a distinct treatment:
+   left-aligned link with an external-link chevron, separated from the
+   keyboard-shortcut list by a divider. Same hover pattern as the shell
+   legal strip (underline-on-hover, muted ink → primary). */
+.shortcuts-footer {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+}
+.shortcuts-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+.shortcuts-footer-link:hover,
+.shortcuts-footer-link:focus-visible {
+  color: var(--text-primary);
+  outline: none;
+}
+.shortcuts-footer-link > svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.12s ease;
+}
+.shortcuts-footer-link:hover > svg,
+.shortcuts-footer-link:focus-visible > svg {
+  color: var(--text-primary);
+}
+.shortcuts-footer-ext {
+  opacity: 0.6;
+  margin-left: auto;
+  padding-left: 8px;
+}
