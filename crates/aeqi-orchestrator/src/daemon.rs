@@ -1483,6 +1483,16 @@ impl Daemon {
                     }
                 }
 
+                "session_is_active" => {
+                    let session_id = request_field(&request, "session_id").unwrap_or("");
+                    let active = if session_id.is_empty() {
+                        false
+                    } else {
+                        ipc_ctx.execution_registry.is_active(session_id).await
+                    };
+                    serde_json::json!({"ok": true, "active": active})
+                }
+
                 // session_send stays inline — it writes directly to `writer` for streaming.
                 "session_send" => {
                     let message = request_field(&request, "message").unwrap_or("");
@@ -1917,6 +1927,88 @@ impl Daemon {
                                 }
                             }
                         }
+                    }
+                }
+
+                // Passive tail of an in-flight session — lets a refreshed /
+                // reconnecting client re-attach to the live ChatStream
+                // without enqueuing a new message. No persistence here; the
+                // original `session_send` (or queue-driven) handler that
+                // started the execution still owns writes to session_store.
+                "session_subscribe" => {
+                    let session_id = request_field(&request, "session_id")
+                        .unwrap_or("")
+                        .to_string();
+                    if session_id.is_empty() {
+                        serde_json::json!({"ok": false, "error": "session_id required"})
+                    } else {
+                        let is_active =
+                            ipc_ctx.execution_registry.is_active(&session_id).await;
+                        if !is_active {
+                            let done = serde_json::json!({
+                                "done": true,
+                                "type": "Complete",
+                                "session_id": session_id,
+                                "no_active_run": true,
+                            });
+                            let mut bytes = serde_json::to_vec(&done).unwrap_or_default();
+                            bytes.push(b'\n');
+                            let _ = writer.write_all(&bytes).await;
+                        } else {
+                            let sender = ipc_ctx
+                                .stream_registry
+                                .get_or_create(&session_id)
+                                .await;
+                            let mut rx = sender.subscribe();
+                            let mut completed = false;
+                            loop {
+                                match tokio::time::timeout(
+                                    std::time::Duration::from_secs(600),
+                                    rx.recv(),
+                                )
+                                .await
+                                {
+                                    Ok(Ok(event)) => {
+                                        let is_complete = matches!(
+                                            event,
+                                            aeqi_core::ChatStreamEvent::Complete { .. }
+                                        );
+                                        if let Ok(ev_bytes) = serde_json::to_vec(&event) {
+                                            let mut bytes = ev_bytes;
+                                            bytes.push(b'\n');
+                                            if writer.write_all(&bytes).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                        if is_complete {
+                                            completed = true;
+                                            break;
+                                        }
+                                    }
+                                    Ok(Err(
+                                        tokio::sync::broadcast::error::RecvError::Lagged(n),
+                                    )) => {
+                                        warn!(
+                                            session_id = %session_id,
+                                            lagged = n, "subscribe stream lagged"
+                                        );
+                                    }
+                                    Ok(Err(_)) => break,
+                                    Err(_) => break,
+                                }
+                            }
+                            let done = serde_json::json!({
+                                "done": true,
+                                "type": "Complete",
+                                "session_id": session_id,
+                                "subscribed": true,
+                                "completed": completed,
+                            });
+                            let mut bytes = serde_json::to_vec(&done).unwrap_or_default();
+                            bytes.push(b'\n');
+                            let _ = writer.write_all(&bytes).await;
+                        }
+                        serde_json::Value::Null
                     }
                 }
 

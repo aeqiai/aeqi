@@ -5,6 +5,10 @@
 //!
 //! Protocol:
 //! - Client sends: `{"message": "...", "agent": "...", "agent_id": "...", "session_id": "..."}`
+//!   to dispatch a new user turn (queues + streams the response).
+//! - Client sends: `{"subscribe": true, "session_id": "..."}` to passively
+//!   tail an already-running session (e.g. after a hard refresh). Routes to
+//!   daemon's `session_subscribe` instead of `session_send`.
 //! - Server streams: `{"type": "TextDelta", "text": "..."}` per token
 //! - Server streams: `{"type": "ToolStart", ...}`, `{"type": "ToolComplete", ...}`
 //! - Server sends final: `{"type": "Complete", "done": true, ...}`
@@ -100,25 +104,10 @@ async fn handle_session_socket(
             _ => continue,
         };
 
-        let message = request
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        if message.is_empty() {
-            let _ = socket
-                .send(Message::Text(
-                    serde_json::json!({"type": "Error", "message": "empty message", "recoverable": true}).to_string().into(),
-                ))
-                .await;
-            continue;
-        }
-
-        let agent = request.get("agent").and_then(|v| v.as_str()).unwrap_or("");
-
-        let agent_id = request
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let subscribe_mode = request
+            .get("subscribe")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         let req_session_id = request
             .get("session_id")
@@ -126,21 +115,65 @@ async fn handle_session_socket(
             .map(|s| s.to_string())
             .or_else(|| session_id.clone());
 
-        let mut session_req = serde_json::json!({
-            "cmd": "session_send",
-            "message": message,
-            "agent": agent,
-            "stream": true,
-        });
-        if !agent_id.is_empty() {
-            session_req["agent_id"] = serde_json::json!(agent_id);
-        }
-        if let Some(ref sid) = req_session_id {
-            session_req["session_id"] = serde_json::json!(sid);
-        }
-        if let Some(ref roots) = user_roots {
-            session_req["allowed_roots"] = serde_json::json!(roots);
-        }
+        let session_req = if subscribe_mode {
+            let sid = match req_session_id.clone() {
+                Some(s) if !s.is_empty() => s,
+                _ => {
+                    let _ = socket
+                        .send(Message::Text(
+                            serde_json::json!({"type": "Error", "message": "session_id required for subscribe", "recoverable": true}).to_string().into(),
+                        ))
+                        .await;
+                    continue;
+                }
+            };
+            session_id = Some(sid.clone());
+            let mut req = serde_json::json!({
+                "cmd": "session_subscribe",
+                "session_id": sid,
+            });
+            if let Some(ref roots) = user_roots {
+                req["allowed_roots"] = serde_json::json!(roots);
+            }
+            req
+        } else {
+            let message = request
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if message.is_empty() {
+                let _ = socket
+                    .send(Message::Text(
+                        serde_json::json!({"type": "Error", "message": "empty message", "recoverable": true}).to_string().into(),
+                    ))
+                    .await;
+                continue;
+            }
+
+            let agent = request.get("agent").and_then(|v| v.as_str()).unwrap_or("");
+
+            let agent_id = request
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            let mut req = serde_json::json!({
+                "cmd": "session_send",
+                "message": message,
+                "agent": agent,
+                "stream": true,
+            });
+            if !agent_id.is_empty() {
+                req["agent_id"] = serde_json::json!(agent_id);
+            }
+            if let Some(ref sid) = req_session_id {
+                req["session_id"] = serde_json::json!(sid);
+            }
+            if let Some(ref roots) = user_roots {
+                req["allowed_roots"] = serde_json::json!(roots);
+            }
+            req
+        };
 
         // Open a raw IPC connection and stream events directly to WebSocket.
         match stream_ipc_to_ws(

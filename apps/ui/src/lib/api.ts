@@ -536,6 +536,8 @@ export const api = {
     request<{ ok: boolean; cancelled: boolean }>(`/sessions/${sessionId}/cancel`, {
       method: "POST",
     }),
+  isSessionActive: (sessionId: string) =>
+    request<{ ok: boolean; active: boolean }>(`/sessions/${sessionId}/active`),
   forkSession: (sessionId: string, messageId: number) =>
     request<{ ok: boolean; session_id: string }>(`/sessions/${sessionId}/fork`, {
       method: "POST",

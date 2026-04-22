@@ -56,6 +56,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     token,
     agentId,
     agentName,
+    activeSessionId: sessionManager.activeSessionId,
     sessionIdRef: sessionManager.sessionIdRef,
     prevSessionRef: sessionManager.prevSessionRef,
     setSession: sessionManager.setSession,

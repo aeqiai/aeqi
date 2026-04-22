@@ -18,6 +18,7 @@ interface UseWebSocketChatOptions {
   token: string | null;
   agentId: string;
   agentName: string;
+  activeSessionId: string | null;
   sessionIdRef: React.MutableRefObject<string | null>;
   prevSessionRef: React.MutableRefObject<string | null>;
   setSession: (sid: string | null) => void;
@@ -35,6 +36,7 @@ export function useWebSocketChat({
   token,
   agentId,
   agentName,
+  activeSessionId,
   sessionIdRef,
   prevSessionRef,
   setSession,
@@ -50,90 +52,10 @@ export function useWebSocketChat({
   const wsRef = useRef<WebSocket | null>(null);
   const messageQueueRef = useRef<string[]>([]);
 
-  // Core dispatch -- opens WebSocket and sends a message
-  const dispatchMessage = useCallback(
-    async (messageText: string) => {
-      const startTime = Date.now();
-
-      setMessages((prev) => {
-        let found = false;
-        return prev.map((m) => {
-          if (!found && m.queued && m.content === messageText) {
-            found = true;
-            return { ...m, queued: false };
-          }
-          return m;
-        });
-      });
-
-      setStreaming(true);
-      setLiveSegments([]);
-      setThinkingStart(startTime);
-
-      let sessionId = sessionIdRef.current;
-      const isNewConversation = !sessionId;
-      if (!sessionId) {
-        try {
-          const d = await api.createSession(agentId);
-          if (d.session_id) {
-            sessionId = d.session_id as string;
-            sessionIdRef.current = sessionId;
-            prevSessionRef.current = sessionId;
-            setSession(sessionId);
-            setSessions((prev) => [
-              {
-                id: d.session_id as string,
-                agent_id: agentId,
-                agent_name: agentName,
-                status: "active",
-                created_at: new Date().toISOString(),
-                first_message: messageText.slice(0, 60),
-              },
-              ...prev,
-            ]);
-          }
-        } catch {
-          // If session creation fails, still try to send
-        }
-      }
-
-      if (wsRef.current) {
-        wsRef.current.onmessage = null;
-        wsRef.current.onerror = null;
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-      }
-
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const root = getScopedRoot();
-      const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(root)}`,
-      );
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        const payload: Record<string, unknown> = {
-          message: messageText,
-          agent_id: agentId || undefined,
-          session_id: sessionId || undefined,
-        };
-        if (isNewConversation) {
-          if (sessionPrompts.length > 0) {
-            payload.session_prompts = sessionPrompts;
-          }
-          if (sessionTask) {
-            payload.quest_id = sessionTask.id;
-          }
-          if (attachedFiles.length > 0) {
-            payload.files = attachedFiles.map((f) => ({
-              name: f.name,
-              content: f.content,
-            }));
-          }
-        }
-        ws.send(JSON.stringify(payload));
-      };
-
+  // Wire the shared event parser onto a WebSocket. Both fresh sends and
+  // passive subscribe-reattach drain the same ChatStreamEvent protocol.
+  const attachEventHandlers = useCallback(
+    (ws: WebSocket, startTime: number) => {
       let fullText = "";
       let done = false;
       const segments: MessageSegment[] = [];
@@ -220,10 +142,6 @@ export function useWebSocketChat({
                 pattern: String(event.pattern ?? ""),
                 ideaIds,
               };
-              // Always inline into the streaming agent's segments. Fires
-              // that arrive before any step/text become the first segment
-              // of the upcoming turn — they end up at the front of the
-              // collapsed trail, after the user input.
               segments.push({ kind: "event_fire", fire });
               setLiveSegments([...segments]);
               break;
@@ -398,6 +316,95 @@ export function useWebSocketChat({
         setThinkingStart(null);
       };
     },
+    [setMessages],
+  );
+
+  // Core dispatch -- opens WebSocket and sends a message
+  const dispatchMessage = useCallback(
+    async (messageText: string) => {
+      const startTime = Date.now();
+
+      setMessages((prev) => {
+        let found = false;
+        return prev.map((m) => {
+          if (!found && m.queued && m.content === messageText) {
+            found = true;
+            return { ...m, queued: false };
+          }
+          return m;
+        });
+      });
+
+      setStreaming(true);
+      setLiveSegments([]);
+      setThinkingStart(startTime);
+
+      let sessionId = sessionIdRef.current;
+      const isNewConversation = !sessionId;
+      if (!sessionId) {
+        try {
+          const d = await api.createSession(agentId);
+          if (d.session_id) {
+            sessionId = d.session_id as string;
+            sessionIdRef.current = sessionId;
+            prevSessionRef.current = sessionId;
+            setSession(sessionId);
+            setSessions((prev) => [
+              {
+                id: d.session_id as string,
+                agent_id: agentId,
+                agent_name: agentName,
+                status: "active",
+                created_at: new Date().toISOString(),
+                first_message: messageText.slice(0, 60),
+              },
+              ...prev,
+            ]);
+          }
+        } catch {
+          // If session creation fails, still try to send
+        }
+      }
+
+      if (wsRef.current) {
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
+
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const root = getScopedRoot();
+      const ws = new WebSocket(
+        `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(root)}`,
+      );
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        const payload: Record<string, unknown> = {
+          message: messageText,
+          agent_id: agentId || undefined,
+          session_id: sessionId || undefined,
+        };
+        if (isNewConversation) {
+          if (sessionPrompts.length > 0) {
+            payload.session_prompts = sessionPrompts;
+          }
+          if (sessionTask) {
+            payload.quest_id = sessionTask.id;
+          }
+          if (attachedFiles.length > 0) {
+            payload.files = attachedFiles.map((f) => ({
+              name: f.name,
+              content: f.content,
+            }));
+          }
+        }
+        ws.send(JSON.stringify(payload));
+      };
+
+      attachEventHandlers(ws, startTime);
+    },
     [
       token,
       agentId,
@@ -410,7 +417,42 @@ export function useWebSocketChat({
       sessionPrompts,
       sessionTask,
       attachedFiles,
+      attachEventHandlers,
     ],
+  );
+
+  // Passive subscribe: hook into an already-running session's broadcast
+  // stream (e.g. after a hard refresh). The daemon fans out the same
+  // ChatStreamEvents so we reuse the full parser.
+  const attachToLiveStream = useCallback(
+    (sessionId: string) => {
+      if (!token || !sessionId) return;
+      const startTime = Date.now();
+      setStreaming(true);
+      setLiveSegments([]);
+      setThinkingStart(startTime);
+
+      if (wsRef.current) {
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
+
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const root = getScopedRoot();
+      const ws = new WebSocket(
+        `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(root)}`,
+      );
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
+      };
+
+      attachEventHandlers(ws, startTime);
+    },
+    [token, attachEventHandlers],
   );
 
   // Ref to latest dispatchMessage for queue processing
@@ -439,6 +481,26 @@ export function useWebSocketChat({
     return () => clearTimeout(timer);
   }, [streaming]);
 
+  // Auto-reattach to a running session on mount / session switch. If the
+  // executor is still active (e.g. user hard-refreshed mid-turn), subscribe
+  // so the stream continues flowing into the UI and Stop stays wired up.
+  useEffect(() => {
+    if (!token || !activeSessionId) return;
+    if (streaming) return;
+    let cancelled = false;
+    api
+      .isSessionActive(activeSessionId)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.active) attachToLiveStream(activeSessionId);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-check on session change
+  }, [activeSessionId, token]);
+
   // Reset live segments when session changes
   const resetLiveSegments = useCallback(() => {
     setLiveSegments([]);
@@ -457,6 +519,7 @@ export function useWebSocketChat({
     thinkingStart,
     messageQueueRef,
     dispatchMessage,
+    attachToLiveStream,
     resetLiveSegments,
     handleStop,
   };
