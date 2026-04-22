@@ -1217,35 +1217,125 @@
   letter-spacing: 0;
 }
 
-/* Keyboard hint — fades in on focus */
-.asv-composer-hint {
+/* ── Slash palette — rises from the composer edge on "/"
+   Flat paper card, hairline border, listbox semantics. Keyboard-first;
+   the active row tints one surface step and accents the slug. ── */
+.asv-slash {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: calc(100% + 6px);
+  background: var(--bg-paper, var(--bg-canvas));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 0;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 2;
+}
+.asv-slash-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px 4px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.asv-slash-marker {
+  color: var(--accent);
+}
+.asv-slash-query {
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.asv-slash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asv-slash-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.asv-slash-item.active {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+.asv-slash-slug {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  letter-spacing: -0.01em;
+}
+.asv-slash-item.active .asv-slash-slug {
+  color: var(--accent);
+}
+.asv-slash-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  letter-spacing: -0.005em;
+}
+.asv-slash-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Keybind ribbon — fades in on focus, replaces the older hint strip.
+   Horizontal row of kbd pills sitting just below the composer edge. */
+.asv-composer-ribbon {
   display: flex;
   justify-content: flex-end;
+  gap: 14px;
   width: 100%;
   max-width: 720px;
-  /* Right-aligned with the composer + thread column. */
   margin-left: auto;
   margin-right: 0;
-  padding: 8px 8px 0;
-  font-size: var(--font-size-2xs);
+  padding: 6px 24px 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-3xs);
   color: var(--text-muted);
+  letter-spacing: 0.02em;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.18s ease-out;
   pointer-events: none;
   user-select: none;
 }
-.asv-composer:has(.asv-composer-inner:focus-within) .asv-composer-hint {
+.asv-composer:has(.asv-composer-inner:focus-within) .asv-composer-ribbon {
   opacity: 1;
 }
-.asv-composer-hint kbd {
+.asv-composer-ribbon span {
+  display: inline-flex;
+  align-items: center;
+}
+.asv-composer-ribbon kbd {
   font-family: var(--font-mono);
   font-size: var(--font-size-3xs);
-  padding: 0 4px;
+  padding: 1px 5px;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--bg-surface);
-  margin: 0 1px;
-  line-height: 1.6;
+  margin-right: 4px;
+  line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 /* Composer footer — attach left, send right */
