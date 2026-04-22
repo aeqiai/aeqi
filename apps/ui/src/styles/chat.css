@@ -61,7 +61,10 @@
 .asv-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  /* Bottom padding clears the floating composer so the last message ends
+     well above the card's top edge even when scrolled to the bottom.
+     The scroll-fade in layout.css masks text that passes under the card. */
+  padding: 20px 24px 180px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1329,43 +1332,48 @@
   letter-spacing: 0.04em;
 }
 
-/* Keybind ribbon — fades in on focus, replaces the older hint strip.
-   Horizontal row of kbd pills sitting just below the composer edge. */
+/* Keybind ribbon — a quiet caption that fades in on focus, sitting
+   inside the dark card just below the composer body. Intentionally
+   borderless: the eye lands on the input, and the shortcut key reads
+   as a small mono glyph against a whisper-backing, not a pill. */
 .asv-composer-ribbon {
   display: flex;
-  justify-content: flex-end;
-  gap: 14px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0 16px;
   width: 100%;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: 0;
-  padding: 6px 24px 0;
+  padding: 8px 14px 4px;
   font-family: var(--font-mono);
   font-size: var(--font-size-3xs);
   color: var(--text-muted);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   opacity: 0;
-  transition: opacity 0.18s ease-out;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.22s ease-out,
+    transform 0.22s ease-out;
   pointer-events: none;
   user-select: none;
 }
 .asv-composer:has(.asv-composer-inner:focus-within) .asv-composer-ribbon {
   opacity: 1;
+  transform: translateY(0);
 }
 .asv-composer-ribbon span {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
 }
 .asv-composer-ribbon kbd {
   font-family: var(--font-mono);
   font-size: var(--font-size-3xs);
   padding: 1px 5px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 3px;
   background: var(--bg-surface);
-  margin-right: 4px;
   line-height: 1.4;
   color: var(--text-secondary);
+  letter-spacing: 0.02em;
 }
 
 /* Composer footer — attach left, send right */

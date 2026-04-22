@@ -1016,13 +1016,34 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
-/* Composer row — padding frame for the floating dark card. Stays
-   transparent; all the visual weight lives on .composer-wrap below so
-   the card reads as lifted off the paper with room to breathe. */
+/* Scroll-fade: a gradient mask above the floating composer so the last
+   few lines of thread text dissolve into paper as they pass behind the
+   card. Sits between the scroll content (z:0) and the composer (z:2). */
+.content-main-col:has(.composer-row)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 160px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0%, var(--color-card) 72%);
+  z-index: 1;
+}
+
+/* Composer row — now floats over the scroll surface. Transparent side
+   padding acts as a bleed so the dark card doesn't touch the paper's
+   inner edge. pointer-events: none on the frame lets the user wheel
+   through the bleed into the scroll; the card itself re-enables them. */
 .composer-row {
-  flex-shrink: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -1030,6 +1051,10 @@
   background: transparent;
   border: none;
   box-shadow: none;
+  pointer-events: none;
+}
+.composer-row > * {
+  pointer-events: auto;
 }
 
 /* The floating dark card — focus of attention. Ink-black surface on
@@ -1043,6 +1068,8 @@
   min-width: 0;
   max-width: 820px;
   display: flex;
+  flex-direction: column;
+  position: relative;
 
   --composer-bg: var(--color-ink-card);
   --composer-bg-elevated: var(--color-ink-card-elevated);
@@ -1054,16 +1081,42 @@
   background: var(--composer-bg);
   border-radius: var(--radius-lg);
   padding: 4px 8px;
+  /* Lift + glass: outer shadow places the card over the paper; the
+     inset top-hairline fakes a lit top edge so the surface reads as
+     dimensional instead of a flat black rectangle. */
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.18),
-    0 14px 28px -12px rgba(0, 0, 0, 0.32);
-  transition: box-shadow 0.18s ease;
+    0 14px 28px -12px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+/* Top-edge accent hairline — appears only when the composer is active.
+   A 1px line along the very top of the card, centered, fading in as the
+   caret lands. Communicates "armed" without a halo or color shift. */
+.composer-wrap::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.22), transparent);
+  opacity: 0;
+  transition: opacity 0.28s ease-out;
+  pointer-events: none;
+  border-radius: 1px;
 }
 .composer-wrap:has(.asv-textarea:focus) {
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.22),
-    0 18px 34px -10px rgba(0, 0, 0, 0.38),
-    0 0 0 1px var(--color-focus-ring);
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 20px 40px -10px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px var(--color-focus-ring, rgba(255, 255, 255, 0.18));
+}
+.composer-wrap:has(.asv-textarea:focus)::before {
+  opacity: 1;
 }
 .composer-spacer {
   display: none;
@@ -1085,6 +1138,9 @@
 }
 .composer-wrap .asv-textarea {
   color: var(--composer-text);
+  /* Paper-white caret reads as a single confident mark on the dark
+     surface — like chalk on slate. */
+  caret-color: var(--color-card);
 }
 .composer-wrap .asv-textarea::placeholder {
   color: var(--composer-text-muted);
@@ -1101,29 +1157,40 @@
 }
 .composer-wrap .asv-attach-btn {
   color: var(--composer-text-muted);
+  position: relative;
+  transition:
+    color 0.14s ease,
+    background 0.14s ease,
+    transform 0.14s ease;
 }
 .composer-wrap .asv-attach-btn:hover {
   color: var(--composer-text);
+  background: var(--composer-chip-bg);
 }
 .composer-wrap .asv-send {
   color: var(--composer-text-muted);
 }
 /* On dark, the primary send pill inverts: paper-white surface with near-
    black text. Mirror of the light-mode "ink on paper" pill — same visual
-   idea, opposite surface, maximum value contrast. */
+   idea, opposite surface, maximum value contrast. A soft glow beneath
+   the pill makes the armed state feel loaded, not just styled. */
 .composer-wrap .asv-send.ready {
   background: var(--color-card);
   color: var(--color-ink);
+  box-shadow: 0 0 24px -4px rgba(255, 255, 255, 0.22);
 }
 .composer-wrap .asv-send.ready:hover {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 28px -2px rgba(255, 255, 255, 0.3);
 }
-.composer-wrap .asv-composer-hint {
+.composer-wrap .asv-send.ready:active {
+  box-shadow: 0 0 14px -6px rgba(255, 255, 255, 0.2);
+}
+.composer-wrap .asv-composer-ribbon {
   color: var(--composer-text-muted);
 }
-.composer-wrap .asv-composer-hint kbd {
+.composer-wrap .asv-composer-ribbon kbd {
   background: var(--composer-chip-bg);
-  border-color: var(--composer-border);
   color: var(--composer-text);
 }
 .composer-wrap .asv-send-stack .asv-send.busy {
