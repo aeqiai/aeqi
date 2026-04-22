@@ -530,6 +530,14 @@ export const api = {
   }) =>
     request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
+  // Delete Agent — cascade wipes the subtree; reparent (default) promotes
+  // children to the grandparent. Returns { ok, deleted, cascade } on success.
+  deleteAgent: (agentId: string, opts?: { cascade?: boolean }) =>
+    request<{ ok: boolean; deleted?: number; cascade?: boolean; error?: string }>(
+      `/agents/${encodeURIComponent(agentId)}?cascade=${opts?.cascade ? "true" : "false"}`,
+      { method: "DELETE" },
+    ),
+
   closeSession: (sessionId: string) =>
     request<{ ok: boolean }>(`/sessions/${sessionId}/close`, { method: "POST" }),
   cancelSession: (sessionId: string) =>

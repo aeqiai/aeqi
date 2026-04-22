@@ -884,6 +884,141 @@
   font-size: var(--font-size-sm);
 }
 
+/* Agent-settings danger zone — shares the ProfilePage palette but has its
+ * own structure: a mode selector (reparent/cascade) + type-to-confirm. */
+.agent-danger {
+  margin-top: var(--space-8);
+  padding: var(--space-5);
+  border: 1px solid rgba(184, 92, 92, 0.22);
+  border-radius: var(--radius-md);
+  background: var(--color-error-bg);
+}
+
+.agent-danger-heading {
+  margin: 0 0 var(--space-1) 0;
+  color: var(--color-error);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.agent-danger-copy {
+  margin: 0 0 var(--space-4) 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.agent-danger-modes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.agent-danger-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.agent-danger-mode:hover {
+  border-color: var(--color-error);
+}
+
+.agent-danger-mode input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--color-error);
+}
+
+.agent-danger-mode--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.agent-danger-mode--disabled:hover {
+  border-color: var(--border);
+}
+
+.agent-danger-mode-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.agent-danger-mode-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.agent-danger-mode-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agent-danger-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.agent-danger-confirm-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.agent-danger-confirm-name {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 2px 6px;
+  background: var(--bg-row);
+  border-radius: var(--radius-xs);
+}
+
+.agent-danger-confirm-input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+.agent-danger-confirm-input:focus {
+  outline: none;
+  border-color: var(--color-error);
+}
+
+.agent-danger-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.agent-danger-btn {
+  color: var(--color-error);
+  border-color: rgba(184, 92, 92, 0.35);
+}
+
+.agent-danger-btn:not(:disabled):hover {
+  background: rgba(184, 92, 92, 0.08);
+  border-color: var(--color-error);
+}
+
 .account-activity-section {
   margin-top: var(--space-8);
 }

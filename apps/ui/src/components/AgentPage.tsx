@@ -364,6 +364,11 @@ function SettingsPanel({
   resolvedAgentId: string;
   showToast: (msg: string, isError?: boolean) => void;
 }) {
+  const agents = useDaemonStore((s) => s.agents);
+  const childAgents = useMemo(
+    () => agents.filter((a) => a.parent_id === resolvedAgentId),
+    [agents, resolvedAgentId],
+  );
   return (
     <div className="page-content">
       <div className="agent-settings-section">
@@ -430,6 +435,155 @@ function SettingsPanel({
               </span>
             </div>
           )}
+        </div>
+      </div>
+
+      <DangerZone
+        agent={agent}
+        resolvedAgentId={resolvedAgentId}
+        directChildren={childAgents.length}
+        showToast={showToast}
+      />
+    </div>
+  );
+}
+
+/**
+ * Delete-agent danger zone. Defaults to reparent (children survive, promoted
+ * to the grandparent) because that's the non-destructive choice. Cascade is
+ * behind a radio + type-to-confirm gate so it can't be triggered casually.
+ * On success: refetches the agent list and navigates to the parent (or home
+ * if this was a root). AppLayout's stale-agentId guard will bounce us home
+ * anyway, but navigating explicitly avoids a flash of 404-ish state.
+ */
+function DangerZone({
+  agent,
+  resolvedAgentId,
+  directChildren,
+  showToast,
+}: {
+  agent: ReturnType<typeof useDaemonStore.getState>["agents"][0] | undefined;
+  resolvedAgentId: string;
+  directChildren: number;
+  showToast: (msg: string, isError?: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const [cascade, setCascade] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const agentName = agent?.name || agent?.display_name || resolvedAgentId;
+  const isRoot = !agent?.parent_id;
+  const canConfirm = confirmText.trim() === agentName && !deleting;
+
+  const handleDelete = async () => {
+    if (!canConfirm) return;
+    setDeleting(true);
+    try {
+      const res = await api.deleteAgent(resolvedAgentId, { cascade });
+      if (!res.ok) {
+        showToast(res.error || "Delete failed", true);
+        setDeleting(false);
+        return;
+      }
+      const count = res.deleted ?? 1;
+      showToast(`Deleted ${count} agent${count === 1 ? "" : "s"}`);
+      await fetchAgents();
+      if (agent?.parent_id) {
+        navigate(`/${agent.parent_id}`);
+      } else {
+        navigate("/");
+      }
+    } catch (err) {
+      showToast(`Error: ${err instanceof Error ? err.message : "Delete failed"}`, true);
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="agent-danger">
+      <h3 className="agent-danger-heading">Danger zone</h3>
+      <p className="agent-danger-copy">
+        Deleting this agent removes its quests, ideas, events, and session history. This cannot be
+        undone.
+      </p>
+
+      <div className="agent-danger-modes">
+        <label
+          className={`agent-danger-mode${directChildren === 0 ? " agent-danger-mode--disabled" : ""}`}
+        >
+          <input
+            type="radio"
+            name="delete-mode"
+            checked={!cascade}
+            disabled={directChildren === 0}
+            onChange={() => setCascade(false)}
+          />
+          <span className="agent-danger-mode-body">
+            <span className="agent-danger-mode-label">
+              Promote children
+              {directChildren > 0 && (
+                <>
+                  {" · "}
+                  {directChildren} {directChildren === 1 ? "agent" : "agents"}
+                </>
+              )}
+            </span>
+            <span className="agent-danger-mode-hint">
+              {directChildren === 0
+                ? "No direct children — cascade is the only option."
+                : isRoot
+                  ? "Children become roots of their own workspaces."
+                  : "Children move up to this agent's parent."}
+            </span>
+          </span>
+        </label>
+
+        <label className="agent-danger-mode">
+          <input
+            type="radio"
+            name="delete-mode"
+            checked={cascade || directChildren === 0}
+            onChange={() => setCascade(true)}
+          />
+          <span className="agent-danger-mode-body">
+            <span className="agent-danger-mode-label">Cascade — wipe the subtree</span>
+            <span className="agent-danger-mode-hint">
+              Deletes this agent and every descendant. Everything they own goes with them.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div className="agent-danger-confirm">
+        <label className="agent-danger-confirm-label" htmlFor="agent-danger-confirm-input">
+          Type <span className="agent-danger-confirm-name">{agentName}</span> to confirm
+        </label>
+        <input
+          id="agent-danger-confirm-input"
+          className="agent-danger-confirm-input"
+          type="text"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder={agentName}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <div className="agent-danger-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDelete}
+            disabled={!canConfirm}
+            className="agent-danger-btn"
+          >
+            {deleting
+              ? "Deleting…"
+              : cascade || directChildren === 0
+                ? "Delete agent and subtree"
+                : "Delete agent"}
+          </Button>
         </div>
       </div>
     </div>
