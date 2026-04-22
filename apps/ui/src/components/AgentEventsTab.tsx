@@ -14,7 +14,7 @@ import type { AgentEvent } from "@/lib/types";
 /**
  * AgentEventsTab — the per-agent events surface.
  *
- * Wears the same primitive-head as Ideas: Cinzel "Events" title on the
+ * Wears the same primitive-head as Ideas: Exo 2 "Events" title on the
  * left, scope tabs (all / mine / global / inherited) inline beside it;
  * right cluster holds count, the view toggle (list · canvas · trace),
  * and the `+ new event` CTA.
@@ -221,7 +221,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     }
   };
 
-  /* ── Primitive head — Cinzel title + scope tabs + view toggle ──
+  /* ── Primitive head — Exo 2 title + scope tabs + view toggle ──
      When an event is open, the heading becomes a back-link to the
      list so there's always a one-click return from detail. */
   const scopeControl = <EventsScopeTabs scope={scope} counts={scopeCounts} onChange={setScope} />;

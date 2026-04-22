@@ -490,10 +490,10 @@
 }
 .primitive-head-heading {
   margin: 0;
-  font-family: var(--font-display, "Cinzel", serif);
+  font-family: var(--font-display, "Exo 2", sans-serif);
   font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   line-height: 1;
   color: var(--text-primary);
   white-space: nowrap;
@@ -2878,7 +2878,7 @@
 .ideas-list-search:focus ~ .ideas-list-search-kbd {
   opacity: 0;
 }
-/* Scope tabs — sit next to the Cinzel heading in the primitive-head.
+/* Scope tabs — sit next to the Exo 2 heading in the primitive-head.
    Small sans micro-caps (10.5px, +0.07em tracking) keeps them quiet so
    they read as secondary to the page title while still being the first
    filter the user meets. Active state: text darkens + tabular count
@@ -3517,7 +3517,7 @@
   flex: 1;
   min-width: 0;
 }
-/* Editorial title — display face (Cinzel) mirrors the home hero. Subtle
+/* Editorial title — display face (Exo 2) mirrors the home hero. Subtle
    optical letterspacing because small-caps-esque serifs tighten naturally
    when kerned flat. */
 .ideas-canvas-title {
@@ -4139,7 +4139,7 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Home — `/` landing. Paper canvas, ink greeting in Cinzel, HeroStats
+ * Home — `/` landing. Paper canvas, ink greeting in Exo 2, HeroStats
  * strip, primitive <Panel> sections with flat row grids inside.
  * ------------------------------------------------------------------ */
 .home {

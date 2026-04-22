@@ -19,18 +19,18 @@
      Each tier lifts the next — the radiused card floats off the desk and
      the rail reads as a separate document inside it. In v3 light mode
      "paper" is both the semantic name and the literal neutral color. */
-  --color-canvas: var(--color-bg-base); /* #f1f1ee — the desk */
-  --bg-base: var(--color-paper); /* #f7f7f4 — panels/inputs/modals */
+  --color-canvas: var(--color-bg-base); /* #efeff1 — the desk */
+  --bg-base: var(--color-paper); /* #f4f4f5 — panels/inputs/modals */
   --bg-surface: var(--color-bg-surface);
   --bg-elevated: var(--color-card); /* #ffffff — overlays (palette, modals, drawer hover) */
   --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #f1f1ee — outside the card */
+  --bg-canvas: var(--color-bg-base); /* #efeff1 — outside the card */
 
   /* Sidebar tint — a single subtle value step below the white content
      so the sidebar reads as its own surface under a hairline divider.
      No floating, no rounding — the shell is architectural. Neutral
      grey (zero chroma) to match the v4 graphite-and-ink register. */
-  --bg-sidebar: #f4f4f5;
+  --bg-sidebar: var(--color-paper);
 
   /* In-card raised row/chip tint. The main content card is white
      (the "document"); items inside that need to stand out go subtly
@@ -38,7 +38,7 @@
      for zebra rows, hover surfaces, chips on the white card. Modals
      and overlays (which sit on paper) keep using --bg-elevated for
      their white lift. */
-  --bg-row: var(--color-paper); /* #f7f7f4 */
+  --bg-row: var(--color-paper); /* #f4f4f5 */
 
   /* Well surface aliases — the recessed / inset surface used by the
      composer and other sunken panes. In v3 light mode the well is a
@@ -147,9 +147,10 @@
   /* Brand font — Zen Dots, used ONLY on the æqi wordmark. */
   --font-brand: "Zen Dots", system-ui, sans-serif;
 
-  /* Display font — Cinzel, used on page titles, hero headings, and
-     marquee moments. Rendered in --text-primary, never in accent. */
-  --font-display: "Cinzel", Georgia, serif;
+  /* Display font — Exo 2, used on page titles, hero headings, and
+     marquee moments. Geometric sans with sci-fi gravity; rendered in
+     --text-primary at weight 500/600, never in accent. */
+  --font-display: "Exo 2", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* CTA button tokens — graphite primary, outlined secondary.
      Primary is white text on near-black (inverse of light UI — the

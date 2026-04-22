@@ -195,7 +195,8 @@
   --font-sans:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
-  --font-display: "Cinzel", Georgia, serif;
+  --font-display:
+    "Exo 2", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-brand: "Zen Dots", system-ui, sans-serif;
 
   --font-size-3xs: 0.5625rem; /*  9px */

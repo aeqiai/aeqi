@@ -46,14 +46,14 @@
   user-select: none;
 }
 
-/* Cinzel masthead — the periodical-style title that anchors the card.
+/* Exo 2 masthead — sci-fi geometric sans anchors the card.
    Optically larger than body — auth is a moment, not a utility. */
 .auth-heading {
   font-family: var(--font-display);
   font-size: var(--font-size-2xl);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.005em;
   margin: 0 0 var(--space-2);
   line-height: 1.15;
 }

@@ -259,7 +259,7 @@ function ViewToggle({
 }
 
 /**
- * Shared primitive-head for the Ideas surface. Cinzel "Ideas" title
+ * Shared primitive-head for the Ideas surface. Exo 2 "Ideas" title
  * (becomes a back-link to the list when an item is open) + scope
  * tabs on the left; count + view toggle + `+ new idea` on the right.
  * Lives above both list and graph views so switching between them
@@ -329,7 +329,7 @@ function IdeasPrimitiveHead({
 /**
  * Slim detail back-bar — the primitive-head's younger sibling. Mounted
  * above IdeaCanvas so the user always has a one-click return to the
- * list. Uses the same 52px band + Cinzel treatment so switching
+ * list. Uses the same 52px band + Exo 2 treatment so switching
  * between list and detail feels continuous; drops the scope tabs and
  * view toggle because they have no meaning inside a single idea.
  */
