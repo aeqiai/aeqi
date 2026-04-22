@@ -26,52 +26,65 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Backgrounds — cool neutral paper + flat white card, layered by
-     value not by tint. The "canvas" is the desk behind everything,
-     slightly darker than paper so the main card floats off it.
+  /* Surface ramp — four tiers, all tinted toward the steel-blue accent
+     hue (oklch chroma 0.004–0.005 @ 260°) so every pane inherits a
+     subliminal cohesion with the brand. No warm cream, no editorial
+     softness. The ramp, lightest to most recessed:
 
-     Paper is #f7f7f4 — cool, software-neutral, nearly white with a
-     whisper of warmth. No cream, no editorial softness. Pairs with
-     pure-white card to form a tight value hierarchy. */
-  --color-bg-base: #f1f1ee; /* page background — one step darker than paper */
-  --color-bg-surface: #f7f7f4; /* main surface — neutral paper */
-  --color-bg-elevated: #ffffff; /* raised — modals, popovers, cards */
-  --color-bg-overlay: #ffffff; /* highest — tooltips, floating menus */
+       card     — raised white, the primary reading surface.
+       paper    — the main off-white backdrop. Sidebar, shell edges,
+                  body bg, secondary panes. Everything outside the
+                  white card sits on paper.
+       slab     — one step darker than paper. Recessed panes INSIDE
+                  the white card: kanban lanes, template gallery,
+                  chat background stripes, composer well, code blocks.
+       slab+1   — hover / raised row INSIDE a slab pane.
 
-  /* Surfaces — semantic aliases used across landing + dashboard.
-     --color-paper        page base / main content surface
-     --color-card         raised panel / alternating section
-     --color-section-alt  same white as card, used when a section needs to
-                          break paper with a clean white pane (signup right
-                          column, feature rows). Kept distinct so we can
-                          retune alternating sections without touching
-                          raised cards. */
-  --color-paper: #f7f7f4;
+     Prior versions split "desk" (--color-bg-base), "well", and "canvas"
+     into separate tiers even though they sat 1 RGB unit apart. Those
+     back-compat aliases still resolve (to slab) so existing code works,
+     but new code should reach for --color-card / --color-paper /
+     --color-slab / --color-slab-elevated.  */
+
+  /* Tier 1: raised white */
   --color-card: #ffffff;
   --color-section-alt: #ffffff;
 
-  /* Well — a gently-recessed inset surface on paper. Cool off-paper,
-     darker than paper so the composer and code blocks read as sunken.
-     "Well" is a recessed surface, not a dark palette. Retuned to track
-     the new #f7f7f4 paper: well should be ~5 RGB units darker.
-     Text inside the well uses the main --color-ink-* scale below. */
-  --color-well-bg: #f0f0ed;
-  --color-well-elevated: #f4f4f1;
-  --color-well-border: rgba(0, 0, 0, 0.06);
-  --color-well-border-hover: rgba(0, 0, 0, 0.1);
-  --color-well-border-focus: rgba(90, 115, 152, 0.45);
+  /* Tier 2: paper — main off-white surface, cool, steel-tinted */
+  --color-paper: oklch(0.97 0.004 260);
 
-  /* Ink / Text — the ink-on-paper scale. 90/85/45/25/18 covers titles,
-     body, secondary, marginalia, and disabled. Slight warmth from the
-     alpha-on-paper blend; no hard black anywhere.
-     --color-text-* names are the canonical code-facing aliases used
-     everywhere in the dashboard; the --color-ink-* names mirror them
-     so new code reads naturally (ink-on-paper). */
-  --color-ink-primary: rgba(0, 0, 0, 0.9); /* titles, mastheads */
-  --color-ink-text: rgba(0, 0, 0, 0.85); /* body copy */
-  --color-ink-secondary: rgba(0, 0, 0, 0.45); /* lead, captions */
-  --color-ink-muted: rgba(0, 0, 0, 0.25); /* eyebrows, section marks */
-  --color-ink-disabled: rgba(0, 0, 0, 0.18); /* disabled text */
+  /* Tier 3: slab — recessed pane inside the white card */
+  --color-slab: oklch(0.955 0.005 260);
+  --color-slab-elevated: oklch(0.965 0.004 260); /* hover inside slab */
+  --color-slab-border: rgba(0, 0, 0, 0.06);
+  --color-slab-border-hover: rgba(0, 0, 0, 0.1);
+  --color-slab-border-focus: rgba(90, 115, 152, 0.45);
+
+  /* Back-compat aliases — every older selector references one of these
+     names. They continue to resolve correctly; new code should prefer
+     the canonical --color-card / --color-paper / --color-slab set. */
+  --color-bg-base: var(--color-slab); /* was "desk / canvas" */
+  --color-bg-surface: var(--color-paper);
+  --color-bg-elevated: var(--color-card);
+  --color-bg-overlay: var(--color-card);
+  --color-well-bg: var(--color-slab);
+  --color-well-elevated: var(--color-slab-elevated);
+  --color-well-border: var(--color-slab-border);
+  --color-well-border-hover: var(--color-slab-border-hover);
+  --color-well-border-focus: var(--color-slab-border-focus);
+
+  /* Ink / Text — the ink-on-paper scale, tinted toward the steel hue
+     (chroma 0.015 @ 260°) so the near-black carries a whisper of the
+     brand without reading blue. 90/85/45/25/18 covers titles, body,
+     secondary, marginalia, and disabled.
+     --color-text-* are the canonical code-facing aliases; --color-ink-*
+     mirror them so new code reads naturally (ink-on-paper). */
+  --color-ink: oklch(0.2 0.015 260); /* near-black reference */
+  --color-ink-primary: oklch(0.2 0.015 260 / 0.9); /* titles */
+  --color-ink-text: oklch(0.2 0.015 260 / 0.85); /* body */
+  --color-ink-secondary: oklch(0.2 0.015 260 / 0.45); /* lead, captions */
+  --color-ink-muted: oklch(0.2 0.015 260 / 0.25); /* eyebrows */
+  --color-ink-disabled: oklch(0.2 0.015 260 / 0.18); /* disabled */
 
   --color-text-title: var(--color-ink-primary);
   --color-text-primary: var(--color-ink-text);
@@ -121,6 +134,22 @@
   --color-error-bg: rgba(184, 92, 92, 0.1);
   --color-warning-bg: rgba(185, 138, 71, 0.1);
   --color-info-bg: rgba(90, 115, 152, 0.1);
+
+  /* Status — borders (22% opacity — reads as tinted hairline on paper) */
+  --color-success-border: rgba(46, 143, 113, 0.22);
+  --color-error-border: rgba(184, 92, 92, 0.22);
+  --color-warning-border: rgba(185, 138, 71, 0.22);
+  --color-info-border: rgba(90, 115, 152, 0.22);
+
+  /* Ink card — the "dark instrument" floating on paper. The composer lives
+     on this surface; any other floating dark card (future: inline editors,
+     playgrounds) picks up the same palette via these tokens. */
+  --color-ink-card: #1b1f26;
+  --color-ink-card-elevated: #262b35;
+  --color-ink-card-text: rgba(255, 255, 255, 0.94);
+  --color-ink-card-text-muted: rgba(255, 255, 255, 0.5);
+  --color-ink-card-border: rgba(255, 255, 255, 0.08);
+  --color-ink-card-chip: rgba(255, 255, 255, 0.07);
 
   /* Scrim — modal/overlay backdrop */
   --color-scrim: rgba(0, 0, 0, 0.35);

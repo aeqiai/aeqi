@@ -410,9 +410,9 @@
 
 /* Paper sheet — sits inside the tinted frame, below the topbar. Holds
    the body row (optional sessions rail + main scroll) and, on the
-   inbox surface, the composer as its last child. Rounded top-left
-   is the defining gesture: the sheet reads as inset into the frame
-   above and to the left. */
+   inbox surface, the composer as its last child. Both top corners are
+   rounded so the sheet reads as a tab tucked below the topbar and
+   inside the tinted frame. */
 .content-paper {
   flex: 1;
   min-height: 0;
@@ -421,6 +421,7 @@
   overflow: hidden;
   background: var(--color-card);
   border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
 }
 
 /* Body row — rail + scroll, full width inside the paper sheet. The
@@ -480,27 +481,31 @@
   flex-shrink: 0;
   border-bottom: 1px solid var(--border-faint, rgba(0, 0, 0, 0.05));
 }
-.primitive-head-title {
-  font-family: var(--font-brand);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+.primitive-head-lead {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  min-width: 0;
+  flex: 1;
+}
+.primitive-head-heading {
+  margin: 0;
+  font-family: var(--font-display, "Cinzel", serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   line-height: 1;
   color: var(--text-primary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.primitive-head-initial {
-  color: var(--color-accent);
-}
-.primitive-head-count {
-  margin-left: 8px;
+.primitive-head-meta {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
-  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .primitive-head-new {
   display: inline-flex;
@@ -592,25 +597,35 @@
   cursor: pointer;
   transition: background 0.1s;
 }
-.threads-rail-row:hover {
-  background: var(--state-hover);
-}
-.threads-rail-row:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: -2px;
-  background: var(--state-hover);
-}
-.threads-rail-row.active {
-  background: var(--state-selected);
-}
-.threads-rail-row.active::before {
+/* Left-edge accent rail — 2px steel-blue column slides in on hover and
+   holds the active row. Matches the ideas/quests list convention so the
+   threads rail reads as a member of the same primitive-list family. */
+.threads-rail-row::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--text-primary);
+  background: var(--accent-bar-running);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.12s ease;
+}
+.threads-rail-row:hover,
+.threads-rail-row:focus-visible {
+  background: var(--state-hover);
+}
+.threads-rail-row:focus-visible {
+  outline: none;
+}
+.threads-rail-row:hover::before,
+.threads-rail-row:focus-visible::before,
+.threads-rail-row.active::before {
+  transform: scaleY(1);
+}
+.threads-rail-row.active {
+  background: var(--state-selected);
 }
 .threads-rail-row-name {
   font-family: var(--font-sans);
@@ -704,12 +719,12 @@
   min-width: 0;
   display: flex;
 
-  --composer-bg: #1b1f26;
-  --composer-bg-elevated: #262b35;
-  --composer-text: rgba(255, 255, 255, 0.94);
-  --composer-text-muted: rgba(255, 255, 255, 0.5);
-  --composer-border: rgba(255, 255, 255, 0.08);
-  --composer-chip-bg: rgba(255, 255, 255, 0.07);
+  --composer-bg: var(--color-ink-card);
+  --composer-bg-elevated: var(--color-ink-card-elevated);
+  --composer-text: var(--color-ink-card-text);
+  --composer-text-muted: var(--color-ink-card-text-muted);
+  --composer-border: var(--color-ink-card-border);
+  --composer-chip-bg: var(--color-ink-card-chip);
 
   background: var(--composer-bg);
   border-radius: var(--radius-lg);
@@ -723,7 +738,7 @@
   box-shadow:
     0 1px 2px rgba(20, 24, 32, 0.2),
     0 18px 34px -10px rgba(20, 24, 32, 0.36),
-    0 0 0 1px rgba(90, 115, 152, 0.4);
+    0 0 0 1px var(--color-focus-ring);
 }
 .composer-spacer {
   display: none;
@@ -773,8 +788,8 @@
    idea, opposite surface, maximum value contrast. Steel-blue-on-ink
    didn't have the value distance to read as a live CTA. */
 .composer-wrap .asv-send.ready {
-  background: #ffffff;
-  color: #121418;
+  background: var(--color-card);
+  color: var(--color-ink);
 }
 .composer-wrap .asv-send.ready:hover {
   background: rgba(255, 255, 255, 0.88);
@@ -2628,9 +2643,9 @@
   align-items: center;
   gap: 5px;
   padding: 3px 9px;
-  font-family: var(--font-brand);
-  font-size: 10.5px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.01em;
   color: var(--text-muted);
   background: transparent;
@@ -2778,26 +2793,29 @@
 .ideas-list-search:focus ~ .ideas-list-search-kbd {
   opacity: 0;
 }
-.ideas-list-scope-count {
-  margin-left: 5px;
-  font-size: 9px;
-  opacity: 0.65;
-  font-variant-numeric: tabular-nums;
-}
-.ideas-list-scope-btn.active .ideas-list-scope-count {
-  opacity: 0.8;
-}
-.ideas-list-scope {
+/* Scope tabs — sit next to the Cinzel heading in the primitive-head.
+   Small sans micro-caps (10.5px, +0.07em tracking) keeps them quiet so
+   they read as secondary to the page title while still being the first
+   filter the user meets. Active state: text darkens + tabular count
+   brightens; an accent underline anchors the current scope. */
+.ideas-scope-tabs {
   display: flex;
   gap: 14px;
-  align-items: center;
+  align-items: baseline;
+  padding-left: 18px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border-faint, rgba(0, 0, 0, 0.06));
 }
-.ideas-list-scope-btn {
+.ideas-scope-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
   padding: 2px 0;
-  font-size: 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
   background: transparent;
   border: none;
@@ -2807,12 +2825,23 @@
     color 0.15s,
     border-color 0.15s;
 }
-.ideas-list-scope-btn:hover {
+.ideas-scope-tab:hover {
   color: var(--text-primary);
 }
-.ideas-list-scope-btn.active {
+.ideas-scope-tab.active {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
+}
+.ideas-scope-tab-count {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.ideas-scope-tab.active .ideas-scope-tab-count {
+  opacity: 0.8;
 }
 .ideas-list-tags {
   display: flex;
@@ -3079,31 +3108,27 @@
   border-radius: var(--key-pill-radius);
 }
 
-/* Ideas tag-group label — borrows the sidebar's sigil+word treatment
-   so grouping headers read as named categories in the brand voice,
-   not administrative mono-caps metadata. Scoped to ideas so the event
-   / channel / tool pickers keep their admin-caps label language. */
+/* Ideas tag-group label — section-label treatment: small sans micro
+   caps as a quiet divider. Uses the same section-label tokens as the
+   rest of the app so groups read like any other section heading. */
 .ideas-list-group .inline-picker-group-label {
-  font-family: var(--font-brand);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--text-secondary);
-}
-.ideas-list-group .inline-picker-group-label::first-letter {
-  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: var(--section-label-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--section-label-color, rgba(0, 0, 0, 0.42));
 }
 /* Sticky group heads — long lists stay oriented while scanning.
-   Paper background locks the row so list content scrolls underneath
-   instead of bleeding through. */
+   Matches the content paper (white) so the row locks against the
+   surface it sits on, not the sidebar. */
 .ideas-list-group .inline-picker-group {
   position: sticky;
   top: 0;
   z-index: 1;
   padding-top: 16px;
   padding-bottom: 6px;
-  background: var(--color-paper);
+  background: var(--color-card);
 }
 .ideas-list-group:first-child .inline-picker-group {
   padding-top: 14px;

@@ -193,8 +193,8 @@
 }
 .asv-msg-user .asv-msg-content {
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.07);
-  border-radius: 16px 16px 4px 16px;
+  background: var(--color-slab);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
@@ -519,7 +519,7 @@
   border-radius: 0;
 }
 .asv-tools-group--fail {
-  border-left-color: rgba(239, 68, 68, 0.35);
+  border-left-color: var(--color-error-border);
 }
 
 .asv-tools-toggle {
@@ -870,17 +870,17 @@
 .asv-file-chip--created {
   color: var(--color-success);
   background: var(--color-success-bg);
-  border-color: rgba(46, 143, 113, 0.18);
+  border-color: var(--color-success-border);
 }
 .asv-file-chip--modified {
   color: var(--color-warning);
   background: var(--color-warning-bg);
-  border-color: rgba(185, 138, 71, 0.18);
+  border-color: var(--color-warning-border);
 }
 .asv-file-chip--deleted {
   color: var(--color-error);
   background: var(--color-error-bg);
-  border-color: rgba(184, 92, 92, 0.18);
+  border-color: var(--color-error-border);
 }
 .asv-file-chip-dot {
   width: 5px;
