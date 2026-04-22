@@ -34,6 +34,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  gap: 14px;
 }
 .shell-legal-right {
   flex: 1;
@@ -41,7 +42,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 14px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -51,10 +52,6 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.shell-legal-sep {
-  color: var(--text-muted);
-  opacity: 0.6;
 }
 .shell-legal-copyright {
   font-variant-numeric: tabular-nums;

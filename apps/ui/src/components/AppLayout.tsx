@@ -350,8 +350,9 @@ export default function AppLayout() {
                 title="System status"
               >
                 <span className="shell-legal-status-dot" aria-hidden="true" />
-                <span>Operational</span>
+                <span>Nominal</span>
               </a>
+              <span className="shell-legal-version">v0.7.0</span>
             </div>
             <div className="shell-legal-right">
               <span className="shell-legal-terms">
@@ -364,13 +365,6 @@ export default function AppLayout() {
                   terms of service
                 </a>
                 .
-              </span>
-              <span className="shell-legal-sep" aria-hidden="true">
-                ·
-              </span>
-              <span className="shell-legal-version">v0.7.0</span>
-              <span className="shell-legal-sep" aria-hidden="true">
-                ·
               </span>
               <span className="shell-legal-copyright">© 2026 aeqi</span>
             </div>
