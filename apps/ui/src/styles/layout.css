@@ -67,12 +67,17 @@
   outline: none;
 }
 
-/* Icon-led link variant (Docs). Icon + label read as one object; the
-   hover-underline tracks the label only, not the glyph. */
+/* Icon-led link variant (Docs). Promoted to the sidebar-nav-item
+   typographic scale (font-size-xs = 12px, 8px icon/label gap) so it
+   reads at the same weight as the profile row directly above it —
+   the left edge of the shell now has one consistent voice top to
+   bottom. Icon + label read as one object; the hover-underline
+   tracks the label only, not the glyph. */
 .shell-legal-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-size: var(--font-size-xs);
   border-bottom: none !important;
 }
 .shell-legal-link > svg {

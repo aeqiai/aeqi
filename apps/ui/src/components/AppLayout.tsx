@@ -352,8 +352,8 @@ export default function AppLayout() {
               className="shell-legal-link shell-legal-docs"
             >
               <svg
-                width="12"
-                height="12"
+                width="14"
+                height="14"
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
