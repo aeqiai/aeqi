@@ -67,6 +67,32 @@
   outline: none;
 }
 
+/* Icon-led link variant (Docs). Icon + label read as one object; the
+   hover-underline tracks the label only, not the glyph. */
+.shell-legal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: none !important;
+}
+.shell-legal-link > svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.12s ease;
+}
+.shell-legal-link > span {
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.12s ease;
+}
+.shell-legal-link:hover > svg,
+.shell-legal-link:focus-visible > svg {
+  color: var(--text-primary);
+}
+.shell-legal-link:hover > span,
+.shell-legal-link:focus-visible > span {
+  border-bottom-color: var(--border-hover);
+}
+
 /* ── Left Sidebar — tinted surface flush to the viewport.
    The sidebar tint continues into the content card's tinted frame
    (both --bg-sidebar), so no internal hairline is needed; the paper

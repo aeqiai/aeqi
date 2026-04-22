@@ -345,8 +345,27 @@ export default function AppLayout() {
         </div>
         <div className="shell-legal" role="contentinfo">
           <div className="shell-legal-left">
-            <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer noopener">
-              Documentation
+            <a
+              href="https://aeqi.ai/docs"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="shell-legal-link shell-legal-docs"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2v-9z" />
+                <path d="M3 11.5a2 2 0 0 1 2-2h7" />
+              </svg>
+              <span>Docs</span>
             </a>
           </div>
           <div className="shell-legal-center">
