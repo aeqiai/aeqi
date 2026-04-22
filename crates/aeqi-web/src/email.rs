@@ -8,6 +8,13 @@
 
 use aeqi_core::config::SmtpConfig;
 
+/// Exo 2 (weight 600, Latin subset) embedded as a base64 woff2.
+///
+/// Gmail strips external font links but honors data-URI `@font-face`
+/// declarations, so this is the only reliable way to render the
+/// design-system display face in transactional email.
+const EXO2_600_LATIN_B64: &str = include_str!("exo2-600-latin.b64");
+
 /// Send a verification code email.
 pub async fn send_verification_email(
     smtp: &SmtpConfig,
@@ -27,8 +34,9 @@ pub async fn send_verification_email(
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
+  @font-face {{ font-family:'Exo 2'; font-style:normal; font-weight:600; src:url(data:font/woff2;base64,{EXO2_600_LATIN_B64}) format('woff2'); }}
   body {{ margin:0; padding:0; background:#f4f4f5; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:rgba(10,10,11,0.85); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }}
   .wrap {{ width:100%; background:#f4f4f5; padding:48px 16px; }}
   .container {{ max-width:480px; margin:0 auto; }}
