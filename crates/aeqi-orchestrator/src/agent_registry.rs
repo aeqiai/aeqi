@@ -1109,6 +1109,66 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Hard-delete an agent.
+    ///
+    /// - `cascade = false` — reparent the agent's direct children to its
+    ///   own parent (grandparent) so the subtree stays connected, then
+    ///   delete the row. Returns the count of rows removed (always 1).
+    /// - `cascade = true` — delete the agent plus every descendant in one
+    ///   shot via the `agent_ancestry` closure table. Returns the count.
+    ///
+    /// Ideas and quests are unaffected — their `agent_id` columns have no
+    /// FK, so references are left in place as historical pointers. Events,
+    /// channels, and files are per-agent resources with `ON DELETE CASCADE`
+    /// and are wiped alongside each deleted agent.
+    pub async fn delete_agent(&self, id: &str, cascade: bool) -> Result<usize> {
+        let db = self.db.lock().await;
+
+        let current_parent: Option<String> = db
+            .query_row(
+                "SELECT parent_id FROM agents WHERE id = ?1",
+                params![id],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten();
+
+        if !cascade {
+            db.execute(
+                "UPDATE agents SET parent_id = ?1 WHERE parent_id = ?2",
+                params![current_parent, id],
+            )?;
+            let deleted = db.execute("DELETE FROM agents WHERE id = ?1", params![id])?;
+            if deleted == 0 {
+                anyhow::bail!("agent '{id}' not found");
+            }
+            info!(id = %id, "agent deleted (children promoted)");
+            return Ok(deleted);
+        }
+
+        let mut stmt =
+            db.prepare("SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1")?;
+        let subtree: Vec<String> = stmt
+            .query_map(params![id], |r| r.get::<_, String>(0))?
+            .filter_map(std::result::Result::ok)
+            .collect();
+        drop(stmt);
+
+        if subtree.is_empty() {
+            anyhow::bail!("agent '{id}' not found");
+        }
+
+        let placeholders = std::iter::repeat_n("?", subtree.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!("DELETE FROM agents WHERE id IN ({placeholders})");
+        let params_vec: Vec<&dyn rusqlite::ToSql> =
+            subtree.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let deleted = db.execute(&sql, params_vec.as_slice())?;
+        info!(id = %id, count = deleted, "agent subtree deleted");
+        Ok(deleted)
+    }
+
     /// Update the model for an agent.
     pub async fn update_model(&self, id: &str, model: &str) -> Result<()> {
         let db = self.db.lock().await;
@@ -2772,6 +2832,75 @@ You are a worker agent."#;
         // Paused != deleted — still retrievable via get().
         let found = reg.get(&a.id).await.unwrap();
         assert!(found.is_some());
+    }
+
+    #[tokio::test]
+    async fn delete_agent_reparent_promotes_children_to_grandparent() {
+        let reg = test_registry().await;
+        let root = reg.spawn("root", None, None, None).await.unwrap();
+        let middle = reg
+            .spawn("middle", None, Some(&root.id), None)
+            .await
+            .unwrap();
+        let leaf_a = reg
+            .spawn("leaf_a", None, Some(&middle.id), None)
+            .await
+            .unwrap();
+        let leaf_b = reg
+            .spawn("leaf_b", None, Some(&middle.id), None)
+            .await
+            .unwrap();
+
+        let deleted = reg.delete_agent(&middle.id, false).await.unwrap();
+        assert_eq!(deleted, 1);
+
+        assert!(reg.get(&middle.id).await.unwrap().is_none());
+        let a = reg.get(&leaf_a.id).await.unwrap().unwrap();
+        let b = reg.get(&leaf_b.id).await.unwrap().unwrap();
+        assert_eq!(a.parent_id.as_deref(), Some(root.id.as_str()));
+        assert_eq!(b.parent_id.as_deref(), Some(root.id.as_str()));
+    }
+
+    #[tokio::test]
+    async fn delete_agent_cascade_removes_subtree() {
+        let reg = test_registry().await;
+        let root = reg.spawn("root", None, None, None).await.unwrap();
+        let branch = reg
+            .spawn("branch", None, Some(&root.id), None)
+            .await
+            .unwrap();
+        let leaf = reg
+            .spawn("leaf", None, Some(&branch.id), None)
+            .await
+            .unwrap();
+        let sibling = reg
+            .spawn("sibling", None, Some(&root.id), None)
+            .await
+            .unwrap();
+
+        let deleted = reg.delete_agent(&branch.id, true).await.unwrap();
+        assert_eq!(deleted, 2);
+
+        assert!(reg.get(&branch.id).await.unwrap().is_none());
+        assert!(reg.get(&leaf.id).await.unwrap().is_none());
+        // Siblings outside the subtree survive.
+        assert!(reg.get(&sibling.id).await.unwrap().is_some());
+        assert!(reg.get(&root.id).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn delete_agent_reparent_root_orphans_children() {
+        let reg = test_registry().await;
+        let root = reg.spawn("root", None, None, None).await.unwrap();
+        let child = reg
+            .spawn("child", None, Some(&root.id), None)
+            .await
+            .unwrap();
+
+        reg.delete_agent(&root.id, false).await.unwrap();
+
+        let orphan = reg.get(&child.id).await.unwrap().unwrap();
+        assert!(orphan.parent_id.is_none());
     }
 
     #[tokio::test]

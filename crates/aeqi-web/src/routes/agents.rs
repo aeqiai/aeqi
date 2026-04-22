@@ -20,12 +20,33 @@ pub fn routes() -> Router<AppState> {
         .route("/agents/{id}/tools", axum::routing::put(agent_set_tools))
         .route("/agents/{id}/identity", get(agent_identity))
         .route("/agents/{id}/files", post(save_agent_file))
+        .route("/agents/{id}", axum::routing::delete(agent_delete))
 }
 
 #[derive(Deserialize, Serialize, Default)]
 struct AgentsQuery {
     status: Option<String>,
     root: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Default)]
+struct AgentDeleteQuery {
+    cascade: Option<bool>,
+}
+
+async fn agent_delete(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Query(q): Query<AgentDeleteQuery>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "agent_delete",
+        serde_json::json!({ "id": id, "cascade": q.cascade.unwrap_or(false) }),
+    )
+    .await
 }
 
 async fn agents(

@@ -1216,6 +1216,9 @@ impl Daemon {
                     crate::ipc::agents::handle_agent_set_status(&ctx, &request, &allowed_roots)
                         .await
                 }
+                "agent_delete" => {
+                    crate::ipc::agents::handle_agent_delete(&ctx, &request, &allowed_roots).await
+                }
                 "agent_set_model" => {
                     let id = request_field(&request, "id").unwrap_or("");
                     let model = request_field(&request, "model").unwrap_or("");

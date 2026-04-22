@@ -218,6 +218,28 @@ pub(crate) async fn spawn_agent_from_content(
     })
 }
 
+pub async fn handle_agent_delete(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let id = request.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    if id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "id required"});
+    }
+    let cascade = request
+        .get("cascade")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !check_agent_access(&ctx.agent_registry, allowed, id).await {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+    match ctx.agent_registry.delete_agent(id, cascade).await {
+        Ok(n) => serde_json::json!({"ok": true, "deleted": n, "cascade": cascade}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 pub async fn handle_agent_set_status(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
