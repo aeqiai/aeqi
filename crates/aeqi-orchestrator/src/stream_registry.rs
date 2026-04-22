@@ -7,8 +7,14 @@
 //! [`ChatStreamSender`] per `session_id`, lazily created on first
 //! subscribe-or-publish, kept in memory as long as there are subscribers
 //! or recent writes. Subscribers call [`StreamRegistry::get_or_create`]
-//! and `.subscribe()` on the returned sender. Executors do the same and
-//! publish events with `.send()`.
+//! and `.subscribe()` (or `.snapshot_and_subscribe()` for reconnect) on
+//! the returned sender. Executors do the same and publish events with
+//! `.send()`.
+//!
+//! Each sender carries a ring-buffer backlog of the current turn's
+//! events so a late subscriber (hard-refresh mid-run) can replay what
+//! happened before they attached. The backlog is cleared automatically
+//! when the sender publishes `Complete` or `Error`.
 //!
 //! Cleanup is deliberately lazy: broadcast channels with zero subscribers
 //! cost ~one `Arc` + a small buffer. Call [`StreamRegistry::reap_idle`]
@@ -21,8 +27,11 @@ use aeqi_core::chat_stream::ChatStreamSender;
 use tokio::sync::Mutex;
 
 const DEFAULT_CAPACITY: usize = 1024;
+const DEFAULT_BACKLOG: usize = 512;
 
-/// Thread-safe map from `session_id` to its broadcast sender.
+/// Thread-safe map from `session_id` to its broadcast sender. The sender
+/// owns the backlog internally — reconnecting clients call
+/// `sender.snapshot_and_subscribe()` for atomic replay + live attach.
 #[derive(Default)]
 pub struct StreamRegistry {
     inner: Mutex<HashMap<String, ChatStreamSender>>,
@@ -43,7 +52,8 @@ impl StreamRegistry {
         if let Some(sender) = map.get(session_id) {
             return sender.clone();
         }
-        let (sender, _rx_seed) = ChatStreamSender::new(DEFAULT_CAPACITY);
+        let (sender, _rx_seed, _backlog) =
+            ChatStreamSender::new_with_backlog(DEFAULT_CAPACITY, DEFAULT_BACKLOG);
         map.insert(session_id.to_string(), sender.clone());
         sender
     }

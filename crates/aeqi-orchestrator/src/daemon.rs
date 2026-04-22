@@ -1942,8 +1942,7 @@ impl Daemon {
                     if session_id.is_empty() {
                         serde_json::json!({"ok": false, "error": "session_id required"})
                     } else {
-                        let is_active =
-                            ipc_ctx.execution_registry.is_active(&session_id).await;
+                        let is_active = ipc_ctx.execution_registry.is_active(&session_id).await;
                         if !is_active {
                             let done = serde_json::json!({
                                 "done": true,
@@ -1955,11 +1954,44 @@ impl Daemon {
                             bytes.push(b'\n');
                             let _ = writer.write_all(&bytes).await;
                         } else {
-                            let sender = ipc_ctx
-                                .stream_registry
-                                .get_or_create(&session_id)
-                                .await;
-                            let mut rx = sender.subscribe();
+                            // Preamble: tell the client how long the run has
+                            // been going so "Thinking for Xs" can resume
+                            // from the real start, not from reconnect time.
+                            let started_ms_ago = ipc_ctx
+                                .execution_registry
+                                .started_elapsed_ms(&session_id)
+                                .await
+                                .unwrap_or(0);
+                            let preamble = serde_json::json!({
+                                "type": "Subscribed",
+                                "session_id": session_id,
+                                "started_ms_ago": started_ms_ago,
+                            });
+                            let mut pre_bytes = serde_json::to_vec(&preamble).unwrap_or_default();
+                            pre_bytes.push(b'\n');
+                            if writer.write_all(&pre_bytes).await.is_err() {
+                                return Ok(());
+                            }
+
+                            let sender = ipc_ctx.stream_registry.get_or_create(&session_id).await;
+                            // Atomic snapshot + subscribe — the shared
+                            // backlog lock ensures no event is delivered
+                            // twice or missed between the two calls.
+                            let (backlog, mut rx) = sender.snapshot_and_subscribe();
+
+                            // Replay the current turn's backlog so the
+                            // reconnected client sees every tool call /
+                            // step / token that fired before it attached.
+                            for event in backlog {
+                                if let Ok(ev_bytes) = serde_json::to_vec(&event) {
+                                    let mut bytes = ev_bytes;
+                                    bytes.push(b'\n');
+                                    if writer.write_all(&bytes).await.is_err() {
+                                        return Ok(());
+                                    }
+                                }
+                            }
+
                             let mut completed = false;
                             loop {
                                 match tokio::time::timeout(
@@ -1985,9 +2017,9 @@ impl Daemon {
                                             break;
                                         }
                                     }
-                                    Ok(Err(
-                                        tokio::sync::broadcast::error::RecvError::Lagged(n),
-                                    )) => {
+                                    Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(
+                                        n,
+                                    ))) => {
                                         warn!(
                                             session_id = %session_id,
                                             lagged = n, "subscribe stream lagged"

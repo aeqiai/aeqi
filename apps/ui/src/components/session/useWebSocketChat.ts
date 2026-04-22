@@ -74,6 +74,16 @@ export function useWebSocketChat({
         try {
           const event = JSON.parse(e.data);
           switch (event.type) {
+            case "Subscribed": {
+              // Daemon preamble for subscribe-reattach: tells us how long
+              // the run has been going so the "Thinking for Xs" timer
+              // resumes from the real start, not from reconnect time.
+              const msAgo = Number(event.started_ms_ago);
+              if (Number.isFinite(msAgo) && msAgo > 0) {
+                setThinkingStart(Date.now() - msAgo);
+              }
+              break;
+            }
             case "TextDelta": {
               appendText(event.text || event.delta || "");
               setLiveSegments([...segments]);

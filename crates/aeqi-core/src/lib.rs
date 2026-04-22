@@ -26,7 +26,7 @@ pub use agent::{
     NotificationReceiver, NotificationSender, SessionInput, SessionState, SessionType,
     StepEventMeta, StepIdeaSpec,
 };
-pub use chat_stream::{ChatStreamEvent, ChatStreamSender};
+pub use chat_stream::{ChatStreamEvent, ChatStreamSender, EventBacklog};
 pub use config::{
     AEQIConfig, AgentPromptConfig, AgentSpawnConfig, AgentTriggerConfig, ContextBudgetConfig,
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,

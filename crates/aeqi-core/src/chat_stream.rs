@@ -165,27 +165,107 @@ pub enum ChatStreamEvent {
     Error { message: String, recoverable: bool },
 }
 
+/// Ring buffer of events retained for late subscribers (e.g. hard refresh
+/// mid-turn). Shared between the sender and the session registry so a new
+/// subscriber can replay the current turn before hooking up to live fanout.
+pub type EventBacklog =
+    std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<ChatStreamEvent>>>;
+
 /// A chat stream sender that observers/middleware can use to emit events.
 ///
 /// Wraps a tokio broadcast sender. Sending is non-blocking — if no
 /// subscribers are connected, events are silently dropped.
+///
+/// When a backlog is attached (via [`Self::new_with_backlog`]), every
+/// published event is also appended to the ring so late subscribers can
+/// replay the current turn. The backlog is cleared when `Complete` or
+/// `Error` is published — backlogs scope to ONE in-flight turn.
 #[derive(Clone)]
 pub struct ChatStreamSender {
     tx: tokio::sync::broadcast::Sender<ChatStreamEvent>,
+    backlog: Option<(EventBacklog, usize)>,
 }
 
 impl ChatStreamSender {
     pub fn new(capacity: usize) -> (Self, tokio::sync::broadcast::Receiver<ChatStreamEvent>) {
         let (tx, rx) = tokio::sync::broadcast::channel(capacity);
-        (Self { tx }, rx)
+        (Self { tx, backlog: None }, rx)
+    }
+
+    /// Like [`Self::new`] but also returns a handle to a shared backlog ring
+    /// that retains the last `backlog_size` events of the current turn.
+    pub fn new_with_backlog(
+        capacity: usize,
+        backlog_size: usize,
+    ) -> (
+        Self,
+        tokio::sync::broadcast::Receiver<ChatStreamEvent>,
+        EventBacklog,
+    ) {
+        let (tx, rx) = tokio::sync::broadcast::channel(capacity);
+        let backlog: EventBacklog = std::sync::Arc::new(std::sync::Mutex::new(
+            std::collections::VecDeque::with_capacity(backlog_size),
+        ));
+        (
+            Self {
+                tx,
+                backlog: Some((backlog.clone(), backlog_size)),
+            },
+            rx,
+            backlog,
+        )
     }
 
     pub fn send(&self, event: ChatStreamEvent) {
+        if let Some((backlog, cap)) = &self.backlog
+            && let Ok(mut q) = backlog.lock()
+        {
+            let terminal = matches!(
+                event,
+                ChatStreamEvent::Complete { .. } | ChatStreamEvent::Error { .. }
+            );
+            if terminal {
+                q.clear();
+            } else {
+                while q.len() >= *cap {
+                    q.pop_front();
+                }
+                q.push_back(event.clone());
+            }
+            // Broadcast WHILE holding the backlog lock so a concurrent
+            // `snapshot_and_subscribe` can't interleave between append
+            // and broadcast. Either a subscriber sees the event in the
+            // snapshot (ours runs first) or via the live channel (theirs
+            // runs first) — never both.
+            let _ = self.tx.send(event);
+            return;
+        }
         let _ = self.tx.send(event);
     }
 
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<ChatStreamEvent> {
         self.tx.subscribe()
+    }
+
+    /// Atomically snapshot the backlog and subscribe to the live stream.
+    /// Holding the backlog lock across both operations guarantees no
+    /// event is delivered twice: any concurrent `send` blocks on the
+    /// backlog mutex, so it either lands in our snapshot or is
+    /// broadcast strictly after our `rx` was created.
+    pub fn snapshot_and_subscribe(
+        &self,
+    ) -> (
+        Vec<ChatStreamEvent>,
+        tokio::sync::broadcast::Receiver<ChatStreamEvent>,
+    ) {
+        if let Some((backlog, _cap)) = &self.backlog
+            && let Ok(q) = backlog.lock()
+        {
+            let snapshot: Vec<_> = q.iter().cloned().collect();
+            let rx = self.tx.subscribe();
+            return (snapshot, rx);
+        }
+        (Vec::new(), self.tx.subscribe())
     }
 
     pub fn subscriber_count(&self) -> usize {
@@ -387,6 +467,60 @@ mod tests {
             _ => panic!("expected MicroCompacted"),
         }
         assert_json_type(&event, "MicroCompacted");
+    }
+
+    #[test]
+    fn backlog_replays_to_late_subscriber_and_clears_on_complete() {
+        let (sender, _seed_rx, _backlog) = ChatStreamSender::new_with_backlog(16, 8);
+
+        sender.send(ChatStreamEvent::StepStart {
+            step: 1,
+            model: "m".into(),
+        });
+        sender.send(ChatStreamEvent::TextDelta { text: "a".into() });
+        sender.send(ChatStreamEvent::TextDelta { text: "b".into() });
+
+        // Late subscriber gets everything replayed.
+        let (snapshot, mut rx) = sender.snapshot_and_subscribe();
+        assert_eq!(snapshot.len(), 3);
+        assert!(matches!(snapshot[0], ChatStreamEvent::StepStart { .. }));
+
+        // Live events after attach flow through rx.
+        sender.send(ChatStreamEvent::TextDelta { text: "c".into() });
+        match rx.try_recv() {
+            Ok(ChatStreamEvent::TextDelta { text }) => assert_eq!(text, "c"),
+            other => panic!("expected TextDelta(c), got {other:?}"),
+        }
+
+        // Complete clears the backlog — a subsequent reconnect starts fresh.
+        sender.send(ChatStreamEvent::Complete {
+            stop_reason: "end_turn".into(),
+            total_prompt_tokens: 0,
+            total_completion_tokens: 0,
+            iterations: 1,
+            cost_usd: 0.0,
+        });
+        let (post_complete, _rx2) = sender.snapshot_and_subscribe();
+        assert!(
+            post_complete.is_empty(),
+            "backlog must clear on Complete — got {post_complete:?}"
+        );
+    }
+
+    #[test]
+    fn backlog_drops_oldest_when_ring_is_full() {
+        let (sender, _seed_rx, _backlog) = ChatStreamSender::new_with_backlog(16, 3);
+        for i in 0..5 {
+            sender.send(ChatStreamEvent::TextDelta {
+                text: i.to_string(),
+            });
+        }
+        let (snapshot, _rx) = sender.snapshot_and_subscribe();
+        assert_eq!(snapshot.len(), 3);
+        match &snapshot[0] {
+            ChatStreamEvent::TextDelta { text } => assert_eq!(text, "2"),
+            other => panic!("expected TextDelta(2), got {other:?}"),
+        }
     }
 
     #[test]

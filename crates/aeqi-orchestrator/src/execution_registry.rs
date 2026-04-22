@@ -143,6 +143,17 @@ impl ExecutionRegistry {
         }
     }
 
+    /// How long the live execution has been running. Returns `None` when
+    /// the session has no live execution. Used by the subscribe preamble
+    /// so a reconnected client can seed `thinking_started_at` honestly.
+    pub async fn started_elapsed_ms(&self, session_id: &str) -> Option<u64> {
+        self.inner
+            .lock()
+            .await
+            .get(session_id)
+            .map(|h| h.started_at.elapsed().as_millis() as u64)
+    }
+
     /// Lightweight metadata snapshot. Returns None if no live execution.
     pub async fn info(&self, session_id: &str) -> Option<ExecutionInfo> {
         self.inner
