@@ -696,6 +696,22 @@
 .asv-trail--fail {
   border-left-color: var(--accent-bar-blocked);
 }
+/* Live variant — the trail is actively streaming content. The left bar
+   pulses in the accent colour so the user reads it as "still working"
+   without any extra chrome. */
+.asv-trail--live {
+  border-left-color: var(--accent);
+  animation: asv-trail-pulse 1.6s ease-in-out infinite;
+}
+@keyframes asv-trail-pulse {
+  0%,
+  100% {
+    border-left-color: var(--accent);
+  }
+  50% {
+    border-left-color: var(--color-border-hover);
+  }
+}
 .asv-trail-toggle {
   display: flex;
   align-items: center;
