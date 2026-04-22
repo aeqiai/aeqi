@@ -361,7 +361,7 @@
 /* Code blocks — with header */
 .asv-codeblock {
   margin: 10px 0;
-  border: 1px solid var(--texture-glass-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -413,7 +413,7 @@
 /* Fallback for code blocks without language class */
 .asv-msg-assistant .asv-msg-content pre {
   background: var(--elevation-2);
-  border: 1px solid var(--texture-glass-border);
+  border: 1px solid var(--border);
   padding: 14px 16px;
   border-radius: var(--radius-md);
   overflow-x: auto;
@@ -622,8 +622,8 @@
   gap: var(--space-2);
   margin: 12px 0 8px;
   font-family: var(--font-mono);
-  font-size: var(--section-label-size, 0.6875rem);
-  color: var(--section-label-color, rgba(0, 0, 0, 0.28));
+  font-size: var(--section-label-size);
+  color: var(--section-label-color);
   line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -835,8 +835,8 @@
   gap: var(--space-1);
 }
 .asv-event-fire-chip {
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1px 8px;
   font: inherit;
@@ -846,7 +846,7 @@
 }
 .asv-event-fire-chip:hover {
   color: var(--text-primary);
-  border-color: var(--border-strong, rgba(0, 0, 0, 0.16));
+  border-color: var(--border-hover);
 }
 .asv-event-fire-time {
   margin-left: auto;
@@ -924,8 +924,8 @@
   gap: 5px;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
   font: inherit;
@@ -933,7 +933,7 @@
 }
 .asv-tool-summarized-header:hover {
   color: var(--text-secondary);
-  border-color: var(--border-hover, rgba(0, 0, 0, 0.15));
+  border-color: var(--border-hover);
 }
 .asv-tool-summarized-dot {
   width: 5px;
@@ -965,7 +965,7 @@
 .asv-tool-summarized-body {
   padding: 4px 8px;
   border-radius: var(--radius-xs);
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  background: var(--bg-subtle);
   color: var(--text-muted);
   font-size: var(--font-size-2xs);
   line-height: 1.5;
@@ -973,7 +973,7 @@
   word-break: break-word;
   max-height: 160px;
   overflow-y: auto;
-  border-left: 2px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-left: 2px solid var(--border);
 }
 
 /* ── Thinking indicator ── */
@@ -1486,9 +1486,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: 10px 0 6px;
-  font-size: var(--section-label-size, 0.6875rem);
+  font-size: var(--section-label-size);
   font-weight: 600;
-  color: var(--section-label-color, rgba(0, 0, 0, 0.28));
+  color: var(--section-label-color);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-bottom: var(--space-1);
@@ -1584,7 +1584,7 @@
   padding: 7px 8px;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--border-faint, rgba(0, 0, 0, 0.04));
+  border-top: 1px solid var(--border-faint);
   color: inherit;
   font: inherit;
   font-size: var(--font-size-xs);
@@ -1626,8 +1626,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
-  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;
@@ -1650,8 +1650,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
-  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;
@@ -1681,9 +1681,9 @@
 
 .dash-activity-group-label {
   padding: 10px 8px 6px;
-  font-size: var(--section-label-size, 0.6875rem);
+  font-size: var(--section-label-size);
   font-weight: 600;
-  color: var(--section-label-color, rgba(0, 0, 0, 0.28));
+  color: var(--section-label-color);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   display: flex;
@@ -1742,8 +1742,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
-  border: 1px solid var(--key-pill-border, rgba(0, 0, 0, 0.07));
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
   border-radius: var(--key-pill-radius, 4px);
   padding: 1px 5px;
   flex-shrink: 0;
