@@ -573,6 +573,8 @@ export const api = {
         price_in: number;
         price_out: number;
         notes: string;
+        recommended: boolean;
+        tags: string[];
       }>;
     }>("/models"),
 
