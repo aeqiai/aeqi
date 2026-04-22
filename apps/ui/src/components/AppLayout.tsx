@@ -349,37 +349,44 @@ export default function AppLayout() {
               href="https://aeqi.ai/docs"
               target="_blank"
               rel="noreferrer noopener"
-              className="shell-legal-link shell-legal-docs"
+              className="sidebar-nav-item shell-legal-docs"
+              title="Documentation"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2v-9z" />
-                <path d="M3 11.5a2 2 0 0 1 2-2h7" />
-              </svg>
-              <span>Docs</span>
+              <span className="sidebar-nav-avatar" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2v-9z" />
+                  <path d="M3 11.5a2 2 0 0 1 2-2h7" />
+                </svg>
+              </span>
+              <span className="sidebar-nav-label">Docs</span>
             </a>
           </div>
-          <div className="shell-legal-center">
-            By using aeqi you agree to our{" "}
-            <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
-              privacy policy
-            </a>{" "}
-            and{" "}
-            <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
-              terms of service
-            </a>
-            .
+          <div className="shell-legal-right">
+            <span className="shell-legal-terms">
+              By using aeqi you agree to our{" "}
+              <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+                privacy policy
+              </a>{" "}
+              and{" "}
+              <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+                terms of service
+              </a>
+              .
+            </span>
+            <span className="shell-legal-sep" aria-hidden="true">
+              ·
+            </span>
+            <span className="shell-legal-copyright">© 2026 aeqi</span>
           </div>
-          <div className="shell-legal-right">© 2026 aeqi</div>
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

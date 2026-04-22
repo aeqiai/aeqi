@@ -19,40 +19,58 @@
 }
 
 /* ── Legal footer strip ──
-   Three-part distributed row across the shell's bottom edge: Docs
-   pointer (left) · TOS + privacy (center) · copyright (right). The
-   strip's height is what gives the content-card and the sidebar-
-   profile their shared lift off the viewport. Whisper-quiet so it
-   never competes with the app surface above — the goal is presence,
-   not attention. */
+   Two-part row: Docs link on the left (sidebar-nav-item treatment
+   so it reads as the direct continuation of the profile row above),
+   TOS sentence + copyright clustered on the right. The strip's
+   height is what gives the content-card and the sidebar-profile
+   their shared lift off the viewport. */
 .shell-legal {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 16px 12px;
+  padding: 4px 12px 8px;
   background: var(--bg-sidebar);
   color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 0.005em;
   line-height: 1.4;
 }
-.shell-legal-left,
-.shell-legal-right {
+.shell-legal-left {
   flex-shrink: 0;
   min-width: 0;
-  white-space: nowrap;
-}
-.shell-legal-center {
-  flex: 1;
-  min-width: 0;
-  text-align: center;
 }
 .shell-legal-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.shell-legal a {
+.shell-legal-terms {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shell-legal-sep {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.shell-legal-copyright {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Link treatment inside the right cluster — underline-on-hover, no
+   background shift. The left-side Docs link uses the nav-item hover
+   (background pill) because it IS a nav-item; the right cluster is
+   inline legal prose and keeps the quieter underline pattern. */
+.shell-legal-right a {
   color: var(--text-secondary);
   text-decoration: none;
   border-bottom: 1px solid transparent;
@@ -60,42 +78,20 @@
     color 0.12s ease,
     border-color 0.12s ease;
 }
-.shell-legal a:hover,
-.shell-legal a:focus-visible {
+.shell-legal-right a:hover,
+.shell-legal-right a:focus-visible {
   color: var(--text-primary);
   border-bottom-color: var(--border-hover);
   outline: none;
 }
 
-/* Icon-led link variant (Docs). Promoted to the sidebar-nav-item
-   typographic scale (font-size-xs = 12px, 8px icon/label gap) so it
-   reads at the same weight as the profile row directly above it —
-   the left edge of the shell now has one consistent voice top to
-   bottom. Icon + label read as one object; the hover-underline
-   tracks the label only, not the glyph. */
-.shell-legal-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-xs);
-  border-bottom: none !important;
-}
-.shell-legal-link > svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transition: color 0.12s ease;
-}
-.shell-legal-link > span {
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.12s ease;
-}
-.shell-legal-link:hover > svg,
-.shell-legal-link:focus-visible > svg {
-  color: var(--text-primary);
-}
-.shell-legal-link:hover > span,
-.shell-legal-link:focus-visible > span {
-  border-bottom-color: var(--border-hover);
+/* Docs link = sidebar-nav-item applied in the legal strip. Inherits
+   the full nav-item treatment (hover bg, radius, padding, font
+   scale, icon slot) so the row reads as a seamless continuation of
+   the profile row above. We only override the min-height here so
+   the legal strip doesn't balloon. */
+.shell-legal-docs.sidebar-nav-item {
+  min-height: 28px;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
