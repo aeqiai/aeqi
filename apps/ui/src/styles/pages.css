@@ -884,6 +884,279 @@
   font-size: var(--font-size-sm);
 }
 
+/* =========================================================================
+ * ModelPicker — tiered catalog for agent model selection.
+ * ========================================================================= */
+
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.model-picker-loading,
+.model-picker-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: var(--space-3) 0;
+}
+
+.model-picker-error {
+  flex-direction: column;
+  align-items: stretch;
+  color: var(--color-error);
+}
+
+.model-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model-picker-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0 2px;
+  margin-bottom: var(--space-1);
+}
+
+.model-picker-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+}
+
+.model-picker-group-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.model-picker-group--free .model-picker-group-label {
+  color: var(--color-success, #2f8a63);
+}
+
+.model-picker-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-picker-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.model-picker-row:hover {
+  border-color: var(--text-primary);
+  background: var(--bg-row);
+}
+
+.model-picker-row.is-checked {
+  border-color: var(--text-primary);
+  background: var(--bg-row);
+  box-shadow: inset 0 0 0 1px var(--text-primary);
+}
+
+.model-picker-row input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.model-picker-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.model-picker-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.model-picker-row-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.model-picker-row-slug {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+.model-picker-row-bottom {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.model-picker-row-notes {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.model-picker-row-stats {
+  display: flex;
+  gap: var(--space-2);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.model-picker-group--custom {
+  border-top: 1px dashed var(--border);
+  padding-top: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.model-picker-custom-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: var(--space-2) 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.model-picker-custom-toggle:hover {
+  color: var(--text-primary);
+}
+
+.model-picker-custom-toggle-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.model-picker-custom-toggle-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.model-picker-custom-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.model-picker-custom-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  width: 100%;
+}
+
+.model-picker-custom-input:focus {
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
+}
+
+.model-picker-custom-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.model-picker-custom-note code {
+  font-family: var(--font-mono);
+  padding: 1px 4px;
+  background: var(--bg-row);
+  border-radius: var(--radius-xs);
+}
+
+/* Inline save pill — sits next to the "Model" heading. Replaces the top-
+ * banner toast for silent per-field saves so the confirmation lands where
+ * the user's eye already is. */
+
+.agent-settings-heading-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0 0 16px 0;
+}
+
+.agent-settings-heading-row .agent-settings-heading {
+  margin: 0;
+}
+
+.agent-settings-save-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-success, #2f8a63);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  pointer-events: none;
+}
+
+.agent-settings-save-pill--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.agent-settings-save-pill--error {
+  color: var(--color-error);
+}
+
+.agent-settings-save-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 /* Agent-settings danger zone — shares the ProfilePage palette but has its
  * own structure: a mode selector (reparent/cascade) + type-to-confirm. */
 .agent-danger {

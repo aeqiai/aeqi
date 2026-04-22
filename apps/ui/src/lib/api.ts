@@ -559,6 +559,23 @@ export const api = {
       body: JSON.stringify({ model }),
     }),
 
+  // Model catalog — provider-agnostic list for the agent model picker. Slugs
+  // follow `{family}/{model-id}` (anthropic, google, deepseek, ollama, …).
+  getModels: () =>
+    request<{
+      ok: boolean;
+      models: Array<{
+        id: string;
+        display_name: string;
+        family: string;
+        tier: "free" | "cheap" | "balanced" | "premium";
+        context_window: number;
+        price_in: number;
+        price_out: number;
+        notes: string;
+      }>;
+    }>("/models"),
+
   setAgentTools: (agentId: string, toolDeny: string[]) =>
     request<{ ok: boolean }>(`/agents/${agentId}/tools`, {
       method: "PUT",

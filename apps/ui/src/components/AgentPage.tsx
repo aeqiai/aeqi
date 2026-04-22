@@ -11,6 +11,7 @@ import AgentQuestsTab from "./AgentQuestsTab";
 import AgentOrgChart from "./AgentOrgChart";
 import PageTabs from "./PageTabs";
 import { Button, EmptyState } from "./ui";
+import ModelPicker from "./ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
 const SETTINGS_SUB_TABS = [
@@ -365,32 +366,65 @@ function SettingsPanel({
   showToast: (msg: string, isError?: boolean) => void;
 }) {
   const agents = useDaemonStore((s) => s.agents);
+  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const childAgents = useMemo(
     () => agents.filter((a) => a.parent_id === resolvedAgentId),
     [agents, resolvedAgentId],
   );
+
+  // Optimistic local model state so the picker reflects the selection the
+  // moment the radio flips, not when the refetch round-trips back.
+  const [localModel, setLocalModel] = useState(agent?.model || "");
+  useEffect(() => {
+    setLocalModel(agent?.model || "");
+  }, [agent?.model]);
+
+  const [modelSave, setModelSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [modelError, setModelError] = useState<string | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveModel = useCallback(
+    async (slug: string) => {
+      const trimmed = slug.trim();
+      if (!trimmed || trimmed === agent?.model) return;
+      setLocalModel(trimmed);
+      setModelSave("saving");
+      setModelError(null);
+      try {
+        await api.setAgentModel(resolvedAgentId, trimmed);
+        await fetchAgents();
+        setModelSave("saved");
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => setModelSave("idle"), 1800);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save";
+        setModelError(msg);
+        setModelSave("error");
+        showToast(`Error: ${msg}`, true);
+      }
+    },
+    [agent?.model, fetchAgents, resolvedAgentId, showToast],
+  );
+
   return (
     <div className="page-content">
       <div className="agent-settings-section">
-        <h3 className="agent-settings-heading">Model</h3>
-        <input
-          className="agent-settings-input"
-          type="text"
-          defaultValue={agent?.model || ""}
-          placeholder="e.g. anthropic/claude-sonnet-4"
-          onBlur={async (e) => {
-            const val = e.target.value.trim();
-            try {
-              await api.setAgentModel(resolvedAgentId, val);
-              showToast("Model saved");
-            } catch (err) {
-              showToast(`Error: ${err instanceof Error ? err.message : "Failed to save"}`, true);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-        />
+        <div className="agent-settings-heading-row">
+          <h3 className="agent-settings-heading">Model</h3>
+          <span
+            className={`agent-settings-save-pill${
+              modelSave === "saved" || modelSave === "error"
+                ? " agent-settings-save-pill--visible"
+                : ""
+            }${modelSave === "error" ? " agent-settings-save-pill--error" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="agent-settings-save-pill-dot" aria-hidden="true" />
+            {modelSave === "saved" ? "Saved" : modelSave === "error" ? modelError : ""}
+          </span>
+        </div>
+        <ModelPicker value={localModel} onChange={saveModel} disabled={modelSave === "saving"} />
       </div>
 
       <div className="agent-settings-section">

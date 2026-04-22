@@ -8,6 +8,7 @@ mod files;
 mod helpers;
 mod hosting;
 mod ideas;
+mod models;
 mod quests;
 mod roots;
 mod sessions;
@@ -38,5 +39,6 @@ pub fn api_routes() -> Router<AppState> {
         .merge(channels::routes())
         .merge(vfs::routes())
         .merge(hosting::routes())
+        .merge(models::routes())
         .merge(templates::routes())
 }

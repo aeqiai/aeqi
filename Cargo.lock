@@ -250,6 +250,7 @@ version = "0.7.0"
 dependencies = [
  "aeqi-core",
  "aeqi-hosting",
+ "aeqi-providers",
  "aeqi-quests",
  "anyhow",
  "axum",

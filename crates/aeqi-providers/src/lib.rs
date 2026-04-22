@@ -6,6 +6,7 @@
 //! per-model cost estimation ([`estimate_cost`]), and a retry wrapper ([`ReliableProvider`]).
 
 pub mod anthropic;
+pub mod catalog;
 pub mod credential_pool;
 pub mod embedder;
 pub mod fallback;
