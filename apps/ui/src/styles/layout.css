@@ -1040,6 +1040,7 @@
 .composer-wrap {
   flex: 1;
   min-width: 0;
+  max-width: 820px;
   display: flex;
 
   --composer-bg: var(--color-ink-card);
