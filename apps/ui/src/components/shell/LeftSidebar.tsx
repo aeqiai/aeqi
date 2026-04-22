@@ -21,8 +21,9 @@ interface NavItem {
 }
 
 /*
- * Lucide register — 16×16, stroke 1.5, rounded caps + joins, no fills.
- * Standard glyphs, one cohesive set.
+ * SVG props for the brand glyph + chrome icons (search, help, collapse).
+ * Primitive nav items use Zen Dots letter-as-icon instead — see
+ * PrimitiveLetter below.
  */
 const iconProps = {
   viewBox: "0 0 16 16",
@@ -33,34 +34,23 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const IconAgents = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="6" r="2.5" />
-    <path d="M3 13.5a5 5 0 0 1 10 0" />
-  </svg>
+/**
+ * Primitive letter-as-icon — the first letter of the primitive's name
+ * rendered in the brand typeface (Zen Dots), pinned into the same 16×16
+ * slot a Lucide glyph would occupy. Threads the wordmark's dotted
+ * geometry through the navigation rail.
+ */
+const PrimitiveLetter = ({ ch }: { ch: string }) => (
+  <span className="sidebar-nav-letter" aria-hidden="true">
+    {ch}
+  </span>
 );
-const IconEvents = () => (
-  <svg {...iconProps}>
-    <path d="M9 2 3 9h4l-1 5 7-7H9l1-5z" />
-  </svg>
-);
-const IconQuests = () => (
-  <svg {...iconProps}>
-    <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
-    <path d="M5.5 8l2 2 3-4" />
-  </svg>
-);
-const IconIdeas = () => (
-  <svg {...iconProps}>
-    <path d="M8 1.75v1.5M13.5 4.5l-1 1M2.5 4.5l1 1M5.25 10.5a3.5 3.5 0 1 1 5.5 0c-.3.4-.5.8-.6 1.25H5.85c-.1-.45-.3-.85-.6-1.25z" />
-    <path d="M6.25 14h3.5" />
-  </svg>
-);
+
 const PRIMITIVES: NavItem[] = [
-  { id: "agents", label: "Agents", icon: <IconAgents />, title: "Agents · G then A" },
-  { id: "events", label: "Events", icon: <IconEvents />, title: "Events · G then E" },
-  { id: "quests", label: "Quests", icon: <IconQuests />, title: "Quests · G then Q" },
-  { id: "ideas", label: "Ideas", icon: <IconIdeas />, title: "Ideas · G then I" },
+  { id: "agents", label: "Agents", icon: <PrimitiveLetter ch="a" />, title: "Agents · G then A" },
+  { id: "events", label: "Events", icon: <PrimitiveLetter ch="e" />, title: "Events · G then E" },
+  { id: "quests", label: "Quests", icon: <PrimitiveLetter ch="q" />, title: "Quests · G then Q" },
+  { id: "ideas", label: "Ideas", icon: <PrimitiveLetter ch="i" />, title: "Ideas · G then I" },
 ];
 
 /**
@@ -79,6 +69,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  // Chrome-level affordances that used to live in the content topbar.
+  // Dispatched as window events because AppLayout owns the actual
+  // overlay state — same channel the content topbar was using.
+  const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
+  const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
 
   // Profile row should read as "you" — the user's real name if we have one,
   // email local-part as fallback, "Local" in runtime (no-auth) mode.
@@ -181,6 +177,31 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         )}
       </div>
 
+      <div className="sidebar-search-row">
+        <button
+          type="button"
+          className="sidebar-search-pill"
+          onClick={openPalette}
+          aria-label="Open command palette"
+          title="Search — jump to any agent, quest, or idea"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <circle cx="5" cy="5" r="3.2" stroke="currentColor" strokeWidth="1.3" />
+            <path
+              d="M7.5 7.5L10 10"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="sidebar-search-label">Search</span>
+          <span className="sidebar-search-kbd" aria-hidden="true">
+            <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
+            <kbd>K</kbd>
+          </span>
+        </button>
+      </div>
+
       <div className="left-sidebar-body">
         <nav
           className={`sidebar-surface-nav${primitivesDisabled ? " disabled" : ""}`}
@@ -195,19 +216,30 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="sidebar-footer">
-        <a
-          className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
-          href={profileHref}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(profileHref);
-          }}
-        >
-          <span className="sidebar-nav-avatar">
-            <BlockAvatar name={userName} size={18} />
-          </span>
-          <span className="sidebar-nav-label">{userName}</span>
-        </a>
+        <div className="sidebar-footer-row">
+          <a
+            className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
+            href={profileHref}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(profileHref);
+            }}
+          >
+            <span className="sidebar-nav-avatar">
+              <BlockAvatar name={userName} size={18} />
+            </span>
+            <span className="sidebar-nav-label">{userName}</span>
+          </a>
+          <button
+            type="button"
+            className="sidebar-help-btn"
+            onClick={openShortcuts}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
+        </div>
       </div>
     </div>
   );

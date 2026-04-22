@@ -307,39 +307,52 @@ export default function AppLayout() {
   return (
     <>
       <div className="shell">
-        <LeftSidebar agentId={agentId} path={path} />
+        <div className="shell-main">
+          <LeftSidebar agentId={agentId} path={path} />
 
-        <div className="content-column">
-          <div className="content-card">
-            {showTopBar ? (
-              <>
-                <ContentTopBar />
-                <div className="content-paper">
-                  <div className="content-body-row">
-                    {showSessionsRail && (
-                      <aside className="sessions-rail-col">
-                        <SessionsRail />
-                      </aside>
-                    )}
-                    <div className="content-main-col">
-                      <div className="content-scroll">
-                        <Suspense fallback={null}>{mainContent}</Suspense>
-                      </div>
-                      {showComposer && (
-                        <ComposerRow
-                          agentId={agentId || null}
-                          base={base}
-                          sessionsMounted={sessionsMounted}
-                        />
+          <div className="content-column">
+            <div className="content-card">
+              {showTopBar ? (
+                <>
+                  <ContentTopBar />
+                  <div className="content-paper">
+                    <div className="content-body-row">
+                      {showSessionsRail && (
+                        <aside className="sessions-rail-col">
+                          <SessionsRail />
+                        </aside>
                       )}
+                      <div className="content-main-col">
+                        <div className="content-scroll">
+                          <Suspense fallback={null}>{mainContent}</Suspense>
+                        </div>
+                        {showComposer && (
+                          <ComposerRow
+                            agentId={agentId || null}
+                            base={base}
+                            sessionsMounted={sessionsMounted}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            ) : (
-              <Suspense fallback={null}>{mainContent}</Suspense>
-            )}
+                </>
+              ) : (
+                <Suspense fallback={null}>{mainContent}</Suspense>
+              )}
+            </div>
           </div>
+        </div>
+        <div className="shell-legal" role="contentinfo">
+          By using aeqi you agree to our{" "}
+          <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+            privacy policy
+          </a>{" "}
+          and{" "}
+          <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+            terms of service
+          </a>
+          .
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

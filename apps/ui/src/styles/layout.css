@@ -1,13 +1,55 @@
-/* ── Shell — flush, flat, architectural. Linear / Vercel / Stripe.
-   No gaps, no floating panels, no rounded outer corners. Structure
-   comes from flush panels separated by hairline dividers at 6% ink. */
+/* ── Shell — column so the app body sits above a shared legal footer
+   strip. The body row (sidebar + content) takes all but the footer;
+   --legal bar sits on the paper surface so both the sidebar and the
+   content card "float" above a continuous baseline. */
 .shell {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: var(--color-card);
   max-width: 1440px;
   margin: 0 auto;
+}
+.shell-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Legal footer strip ──
+   Single quiet line across the shell's bottom edge — TOS + privacy
+   pointers. Its height is what gives the content-card and the
+   sidebar-profile their shared lift off the viewport. Keep it whisper-
+   quiet so it never competes with the app surface above. */
+.shell-legal {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 16px 12px;
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.005em;
+  line-height: 1.4;
+  text-align: center;
+}
+.shell-legal a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+.shell-legal a:hover,
+.shell-legal a:focus-visible {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-hover);
+  outline: none;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
@@ -184,6 +226,118 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Sidebar search pill ──
+   The ⌘K entry point used to sit in the content-topbar's right cluster.
+   Moved into the sidebar so the topbar only carries navigation context;
+   this keeps global-access affordances grouped with the agent tree +
+   profile instead of scattered across the chrome.
+
+   Styled as a quiet pill, full-width inside the rail padding. The ⌘K
+   hint sits on the trailing edge, separated by a thin rule in the same
+   6%-ink border token so it reads as one object. */
+.sidebar-search-row {
+  padding: 4px 8px 8px;
+  flex-shrink: 0;
+}
+.sidebar-search-pill {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sidebar-search-pill:hover,
+.sidebar-search-pill:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+.sidebar-search-pill > svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.sidebar-search-pill:hover > svg,
+.sidebar-search-pill:focus-visible > svg {
+  color: var(--text-primary);
+}
+.sidebar-search-label {
+  flex: 1;
+  text-align: left;
+  font-size: var(--font-size-xs);
+}
+.sidebar-search-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.sidebar-search-kbd kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+/* Collapsed rail: pill shrinks to just the magnifier icon. */
+.left-sidebar.collapsed .sidebar-search-row {
+  padding: 4px 8px;
+}
+.left-sidebar.collapsed .sidebar-search-pill {
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+}
+.left-sidebar.collapsed .sidebar-search-label,
+.left-sidebar.collapsed .sidebar-search-kbd {
+  display: none;
+}
+
+/* ── Primitive letter-as-icon ──
+   The four W-primitives (Agents / Events / Quests / Ideas) use their
+   initial letter in the brand typeface (Zen Dots) in the icon slot —
+   not a generic SVG glyph. This threads the wordmark's dotted
+   geometry through the navigation so the rail reads as an extension
+   of the brand. Single colour (inherits currentColor); the rejected
+   "two-tone accent-initial" pattern is a different treatment that
+   splits the label itself — this one replaces the icon entirely. */
+.sidebar-nav-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  font-family: var(--font-brand);
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+  user-select: none;
+}
+.sidebar-nav-item:hover .sidebar-nav-letter,
+.sidebar-nav-item.active .sidebar-nav-letter {
+  color: var(--color-accent);
 }
 
 /* ── Back button ── */
@@ -369,16 +523,62 @@
 
 /* ── Sidebar footer — identity anchor.
    Pinned at the bottom of the rail (Linear pattern). No top border —
-   the row reads as the tail of the tree, not a separate module. */
+   the row reads as the tail of the tree, not a separate module.
+   Bottom padding matches .content-card's so both rails share a
+   baseline above the shell-legal strip. */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  padding: 8px;
+  padding: 8px 8px 12px;
 }
 .left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
+}
+/* Footer row — profile link on the left, tiny `?` help affordance on
+   the right. The `?` used to live in the content topbar; moving it
+   down here lets the topbar carry only navigation context, and groups
+   the two "you / about the app" affordances together. */
+.sidebar-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-footer-row > .sidebar-nav-item {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-help-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sidebar-help-btn:hover,
+.sidebar-help-btn:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+.left-sidebar.collapsed .sidebar-help-btn {
+  display: none;
 }
 
 /* ── Content column — holds main stack and (optional) rail as a row.
@@ -395,8 +595,9 @@
 /* Content card — the tinted frame. Holds the topbar and the paper
    sheet. The sidebar tint flows through here so the topbar + sidebar
    read as one continuous frame; the paper sheet floats inset below.
-   A small bottom padding lifts the paper off the viewport edge so
-   its rounded corners read as a real card, not a flush-to-chrome pane. */
+   A generous bottom padding lifts the paper off the legal footer
+   strip so its rounded corners read as a real card. Matches the
+   sidebar-footer's own bottom inset so both rails share a baseline. */
 .content-card {
   flex: 1;
   min-height: 0;
@@ -407,7 +608,7 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
 }
 
 /* Paper sheet — sits inside the tinted frame, below the topbar. Holds
@@ -782,14 +983,14 @@
   border-radius: var(--radius-lg);
   padding: 4px 8px;
   box-shadow:
-    0 1px 2px rgba(20, 24, 32, 0.16),
-    0 14px 28px -12px rgba(20, 24, 32, 0.3);
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 14px 28px -12px rgba(0, 0, 0, 0.32);
   transition: box-shadow 0.18s ease;
 }
 .composer-wrap:has(.asv-textarea:focus) {
   box-shadow:
-    0 1px 2px rgba(20, 24, 32, 0.2),
-    0 18px 34px -10px rgba(20, 24, 32, 0.36),
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 18px 34px -10px rgba(0, 0, 0, 0.38),
     0 0 0 1px var(--color-focus-ring);
 }
 .composer-spacer {
@@ -837,8 +1038,7 @@
 }
 /* On dark, the primary send pill inverts: paper-white surface with near-
    black text. Mirror of the light-mode "ink on paper" pill — same visual
-   idea, opposite surface, maximum value contrast. Steel-blue-on-ink
-   didn't have the value distance to read as a live CTA. */
+   idea, opposite surface, maximum value contrast. */
 .composer-wrap .asv-send.ready {
   background: var(--color-card);
   color: var(--color-ink);
@@ -1543,92 +1743,6 @@
   gap: var(--space-3, 8px);
   min-width: 0;
   justify-content: flex-end;
-}
-
-/* Search trigger — the persistent entry point for the command palette.
-   Without this, ⌘K is invisible until someone reads the ? cheatsheet.
-   Shown as a compact pill with icon + label + kbd hint so the shortcut
-   is discoverable at a glance. Label is hidden on narrow viewports. */
-.content-topbar-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 26px;
-  padding: 0 8px 0 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-.content-topbar-search:hover,
-.content-topbar-search:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--state-hover);
-  outline: none;
-}
-.content-topbar-search-label {
-  font-size: var(--font-size-xs);
-}
-.content-topbar-search-kbd {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding-left: 6px;
-  border-left: 1px solid var(--border);
-}
-.content-topbar-search-kbd kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  padding: 0;
-}
-@media (max-width: 720px) {
-  .content-topbar-search-label,
-  .content-topbar-search-kbd {
-    display: none;
-  }
-}
-
-/* Help pill — discreet `?` that opens the shortcuts cheatsheet.
-   Matches the search pill's height + shape so the right cluster reads
-   as one group; stripped down to just the glyph to stay quiet. */
-.content-topbar-help {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-.content-topbar-help:hover,
-.content-topbar-help:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--state-hover);
-  outline: none;
 }
 
 /* ── Header action section (aligned with session sidebar) ── */
@@ -2408,10 +2522,15 @@
 /* Stack layout vertically, full-width content */
 @media (max-width: 768px) {
   .shell {
-    flex-direction: column;
     max-width: 100%;
     border-left: none;
     border-right: none;
+  }
+  .shell-main {
+    flex-direction: column;
+  }
+  .shell-legal {
+    padding: 8px 12px 10px;
   }
 
   .left-sidebar {

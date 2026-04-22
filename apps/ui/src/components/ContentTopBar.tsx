@@ -10,10 +10,11 @@ import BudgetMeter from "./BudgetMeter";
  *
  * Always mounted, architectural, matching the sidebar tint so the header
  * band reads as one continuous strip across the viewport. Carries:
- * breadcrumb context (home / profile / {agent} / {section}), the global
- * command-palette trigger, keyboard-help, agent-scoped actions (Explore
- * / Settings), and the budget meter.
+ * breadcrumb context (home / profile / {agent} / {section}), agent-scoped
+ * actions (Settings), and the budget meter.
  *
+ * Global chrome affordances (search pill, shortcuts `?`) live in the
+ * left sidebar — the topbar stays purely about in-scope navigation.
  * Primary "New X" CTAs still live inline in each tab's body — the tab's
  * own picker owns its "+" button. The topbar is *navigation + context*,
  * never the primary CTA surface.
@@ -46,11 +47,6 @@ export default function ContentTopBar() {
   // no-op. React Router collapses identical destinations, so this is
   // safe and the affordance stays consistent.
   const crumbIsLink = Boolean(primitiveWord && agent);
-
-  const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
-  const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
-  const isMac =
-    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const settingsActive = section === "settings" || section === "tools" || section === "channels";
   const showCrumb = Boolean(primitiveWord);
@@ -96,37 +92,6 @@ export default function ContentTopBar() {
       </div>
 
       <div className="content-topbar-right">
-        <button
-          type="button"
-          className="content-topbar-search"
-          onClick={openPalette}
-          aria-label="Open command palette"
-          title="Search — jump to any agent, quest, or idea"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <circle cx="5" cy="5" r="3.2" stroke="currentColor" strokeWidth="1.3" />
-            <path
-              d="M7.5 7.5L10 10"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
-          </svg>
-          <span className="content-topbar-search-label">Search</span>
-          <span className="content-topbar-search-kbd" aria-hidden="true">
-            <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
-            <kbd>K</kbd>
-          </span>
-        </button>
-        <button
-          type="button"
-          className="content-topbar-help"
-          onClick={openShortcuts}
-          aria-label="Keyboard shortcuts"
-          title="Keyboard shortcuts (?)"
-        >
-          ?
-        </button>
         {agent && (
           <Button
             variant="secondary"

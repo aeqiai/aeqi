@@ -147,9 +147,15 @@
 
   /* Ink card — the "dark instrument" floating on paper. The composer lives
      on this surface; any other floating dark card (future: inline editors,
-     playgrounds) picks up the same palette via these tokens. */
-  --color-ink-card: #1b1f26;
-  --color-ink-card-elevated: #262b35;
+     playgrounds) picks up the same palette via these tokens.
+
+     v4 values: pure neutral graphite (zero chroma) that matches the brand
+     accent so the composer reads as "the brand asking for input" rather
+     than a foreign-hue widget. Replaces the v3 navy-tinted #1b1f26 /
+     #262b35 pair. Elevated tier steps one value up for chip / busy
+     surfaces so lifts still read inside the dark card. */
+  --color-ink-card: var(--color-accent); /* #0a0a0b */
+  --color-ink-card-elevated: #1c1c1f;
   --color-ink-card-text: rgba(255, 255, 255, 0.94);
   --color-ink-card-text-muted: rgba(255, 255, 255, 0.5);
   --color-ink-card-border: rgba(255, 255, 255, 0.08);
