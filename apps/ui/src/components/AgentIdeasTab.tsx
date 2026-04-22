@@ -263,23 +263,23 @@ function IdeasPrimitiveHead({
   view,
   onViewChange,
   onNew,
+  scopeControl,
 }: {
   count: number;
   countLabel?: string;
   view: "list" | "graph";
   onViewChange: (next: "list" | "graph") => void;
   onNew: () => void;
+  scopeControl?: ReactNode;
 }) {
   return (
     <div className="primitive-head">
-      <span className="primitive-head-title">
-        <span className="primitive-head-initial" aria-hidden>
-          i
-        </span>
-        deas
-        <span className="primitive-head-count">{countLabel ?? count}</span>
-      </span>
+      <div className="primitive-head-lead">
+        <h2 className="primitive-head-heading">Ideas</h2>
+        {scopeControl}
+      </div>
       <div className="primitive-head-actions">
+        <span className="primitive-head-meta">{countLabel ?? count}</span>
         <ViewToggle view={view} onChange={onViewChange} />
         <button type="button" className="primitive-head-new" onClick={onNew} title="New idea (N)">
           <svg
@@ -297,6 +297,36 @@ function IdeasPrimitiveHead({
           new idea
         </button>
       </div>
+    </div>
+  );
+}
+
+function IdeasScopeTabs({
+  scope,
+  scopes,
+  counts,
+  onChange,
+}: {
+  scope: IdeasScope;
+  scopes: IdeasScope[];
+  counts: Record<IdeasScope, number>;
+  onChange: (next: IdeasScope) => void;
+}) {
+  return (
+    <div className="ideas-scope-tabs" role="tablist" aria-label="Scope">
+      {scopes.map((s) => (
+        <button
+          key={s}
+          type="button"
+          role="tab"
+          aria-selected={scope === s}
+          className={`ideas-scope-tab${scope === s ? " active" : ""}`}
+          onClick={() => onChange(s)}
+        >
+          {s}
+          <span className="ideas-scope-tab-count">{counts[s]}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -428,10 +458,18 @@ function IdeasPicker({
   return (
     <div className="ideas-list">
       <IdeasPrimitiveHead
-        count={ideas.length}
+        count={filtered.length}
         view={view}
         onViewChange={onViewChange}
         onNew={fireNew}
+        scopeControl={
+          <IdeasScopeTabs
+            scope={scope}
+            scopes={["all", "mine", "global", "inherited"]}
+            counts={scopeCounts}
+            onChange={setScope}
+          />
+        }
       />
       <div className="ideas-list-head">
         <div className="ideas-list-search-row">
@@ -472,21 +510,6 @@ function IdeasPicker({
               </button>
             )}
           </span>
-          <div className="ideas-list-scope" role="tablist">
-            {(["all", "mine", "global", "inherited"] as IdeasScope[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={scope === s}
-                className={`ideas-list-scope-btn${scope === s ? " active" : ""}`}
-                onClick={() => setScope(s)}
-              >
-                {s}
-                <span className="ideas-list-scope-count">{scopeCounts[s]}</span>
-              </button>
-            ))}
-          </div>
         </div>
         {tagCounts.length > 0 && (
           <div className="ideas-list-tags">
