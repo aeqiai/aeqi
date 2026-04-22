@@ -73,7 +73,7 @@ describe("TemplatesPage", () => {
     });
   });
 
-  it("opens the detail view with seed sections when a card is clicked", async () => {
+  it("opens the preview drawer with primitive monograms when a card is clicked", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
@@ -92,15 +92,13 @@ describe("TemplatesPage", () => {
 
     await user.click(await screen.findByText("Solo Founder"));
 
-    // Detail view shows the four primitive section labels
-    expect(screen.getByText("Agents")).toBeInTheDocument();
-    expect(screen.getByText("Events")).toBeInTheDocument();
-    expect(screen.getByText("Ideas")).toBeInTheDocument();
-    expect(screen.getByText("Quests")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Solo Founder" });
+    expect(dialog).toBeInTheDocument();
     expect(screen.getByText("Start this company")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("seed counts").length).toBeGreaterThan(0);
   });
 
-  it("auto-opens the spawn modal when ?start= matches a template", async () => {
+  it("auto-opens the preview drawer when ?start= matches a template", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
@@ -116,16 +114,9 @@ describe("TemplatesPage", () => {
       </StrictMode>,
     );
 
-    // Modal confirm button is present; the eyebrow + button both carry
-    // the label so we assert on the button role specifically.
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /start company/i })).toBeInTheDocument();
-    });
-    // The template name shows in the modal title
-    expect(screen.getByRole("dialog")).toHaveAttribute(
-      "aria-label",
-      expect.stringContaining("Solo Founder"),
-    );
+    const dialog = await screen.findByRole("dialog", { name: "Solo Founder" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText("Start this company")).toBeInTheDocument();
   });
 });
 
