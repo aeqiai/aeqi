@@ -220,6 +220,7 @@ name = "aeqi-tools"
 version = "0.7.0"
 dependencies = [
  "aeqi-core",
+ "aeqi-gates",
  "anyhow",
  "async-trait",
  "reqwest",

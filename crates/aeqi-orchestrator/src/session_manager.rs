@@ -66,6 +66,10 @@ pub struct SpawnOptions {
     /// this value. Left `None` for non-quest sessions (chat/interactive) —
     /// they don't run the middleware chain.
     pub task_budget_usd: Option<f64>,
+    /// Channel-specific tools to inject into this session's tool registry.
+    /// Used by channel gateway spawners to make reply/react tools available
+    /// only to sessions bound to a particular channel (e.g. WhatsApp or Telegram).
+    pub extra_tools: Vec<Arc<dyn aeqi_core::traits::Tool>>,
 }
 
 impl Default for SpawnOptions {
@@ -83,6 +87,7 @@ impl Default for SpawnOptions {
             transport: None,
             stream_sender: None,
             task_budget_usd: None,
+            extra_tools: Vec::new(),
         }
     }
 }
@@ -156,6 +161,14 @@ impl SpawnOptions {
 
     pub fn with_budget(mut self, usd: f64) -> Self {
         self.task_budget_usd = Some(usd);
+        self
+    }
+
+    /// Append channel-specific tools (e.g. whatsapp_reply, telegram_react) to
+    /// this session's tool registry. Called by channel gateway spawners so only
+    /// sessions bound to a given channel receive its messaging tools.
+    pub fn with_extra_tools(mut self, tools: Vec<Arc<dyn aeqi_core::traits::Tool>>) -> Self {
+        self.extra_tools.extend(tools);
         self
     }
 
@@ -736,6 +749,20 @@ impl SessionManager {
             && !agent.tool_deny.is_empty()
         {
             tools.retain(|t| !agent.tool_deny.contains(&t.spec().name));
+        }
+
+        // Inject caller-supplied channel-specific tools (e.g. whatsapp_reply,
+        // telegram_react). These are appended after the deny-list filter so
+        // they are subject to tool_deny like any other tool.
+        for t in opts.extra_tools.iter() {
+            if agent_opt
+                .as_ref()
+                .map(|a| a.tool_deny.contains(&t.spec().name))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            tools.push(t.clone());
         }
 
         // 5b. Discover all available prompts via unified SkillLoader.
