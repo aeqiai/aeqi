@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconButton } from "@/components/ui";
 import SlashPalette, { type SlashCommand } from "./SlashPalette";
 
@@ -24,6 +24,13 @@ interface ChatComposerProps {
   onStop: () => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  /**
+   * Prior user-message texts for the current session, oldest→newest. Used to
+   * seed the ArrowUp scrollback so prior turns (including ones typed in a
+   * different browser tab / before reload) are reachable from the composer.
+   * Re-seeded when it changes (keyed on session switch by the parent).
+   */
+  historySeed?: string[];
 }
 
 const HISTORY_LIMIT = 50;
@@ -48,6 +55,7 @@ export default function ChatComposer({
   onStop,
   inputRef,
   fileInputRef,
+  historySeed,
 }: ChatComposerProps) {
   // Slash-command palette state. `open` gates rendering; `query` is the
   // fragment typed after the leading "/" (lowercased, used to filter).
@@ -60,6 +68,17 @@ export default function ChatComposer({
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef<number | null>(null);
   const draftRef = useRef<string>("");
+
+  // Seed the scrollback whenever the parent hands us a new history (usually
+  // on session switch). We take a fresh tail-cap copy so subsequent sends
+  // can push on top without mutating the parent's data.
+  useEffect(() => {
+    if (!historySeed) return;
+    const capped = historySeed.slice(-HISTORY_LIMIT);
+    historyRef.current = capped;
+    historyIdxRef.current = null;
+    draftRef.current = "";
+  }, [historySeed]);
 
   const commands = useMemo<SlashCommand[]>(
     () => [

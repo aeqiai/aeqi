@@ -25,6 +25,9 @@ export type { TooltipProps } from "./Tooltip";
 export { Spinner } from "./Spinner";
 export type { SpinnerProps } from "./Spinner";
 
+export { ThinkingDot } from "./ThinkingDot";
+export type { ThinkingDotProps } from "./ThinkingDot";
+
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useNav } from "@/hooks/useNav";
+import { ThinkingDot } from "@/components/ui";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 
 const NO_SESSIONS: SessionInfo[] = [];
@@ -56,6 +57,7 @@ export default function SessionsRail() {
   const sessions = useChatStore((s) =>
     agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
   );
+  const streamingSessions = useChatStore((s) => s.streamingSessions);
 
   const items = useMemo<ThreadRow[]>(() => {
     return sessions
@@ -115,11 +117,15 @@ export default function SessionsRail() {
                 aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
-                <span
-                  className={`threads-rail-row-status${
-                    item.status === "active" ? "" : " threads-rail-row-status--idle"
-                  }`}
-                />
+                {streamingSessions[item.id] ? (
+                  <ThinkingDot size="md" className="threads-rail-row-thinking" />
+                ) : (
+                  <span
+                    className={`threads-rail-row-status${
+                      item.status === "active" ? "" : " threads-rail-row-status--idle"
+                    }`}
+                  />
+                )}
                 <span className="threads-rail-row-name">{item.name}</span>
                 {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
                 <span className="threads-rail-row-time">{item.time}</span>

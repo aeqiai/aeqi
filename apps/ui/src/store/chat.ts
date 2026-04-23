@@ -49,6 +49,14 @@ interface ChatState {
    */
   sessionsByAgent: Record<string, SessionInfo[]>;
   setSessionsForAgent: (agentId: string, sessions: SessionInfo[]) => void;
+  /**
+   * Session IDs currently streaming (agent is producing a turn). Written by
+   * `useWebSocketChat` on dispatch/attach/end; read by `SessionsRail` to
+   * pulse the row. Multiple sessions can be executing concurrently if the
+   * agent handles parallel work.
+   */
+  streamingSessions: Record<string, true>;
+  setSessionStreaming: (sessionId: string, streaming: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -122,6 +130,16 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       sessionsByAgent: { ...state.sessionsByAgent, [agentId]: sessions },
     })),
+  streamingSessions: {},
+  setSessionStreaming: (sessionId, streaming) =>
+    set((state) => {
+      const hasIt = !!state.streamingSessions[sessionId];
+      if (streaming === hasIt) return {};
+      const next = { ...state.streamingSessions };
+      if (streaming) next[sessionId] = true;
+      else delete next[sessionId];
+      return { streamingSessions: next };
+    }),
 }));
 
 export function createDraftId(): string {

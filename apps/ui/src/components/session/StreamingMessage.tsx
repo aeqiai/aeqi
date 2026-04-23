@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ThinkingDot } from "@/components/ui";
 import { SegmentRenderer } from "./MessageItem";
 import {
   type MessageSegment,
@@ -14,7 +15,7 @@ import {
 export function ThinkingStatus({ toolName }: { toolName?: string }) {
   return (
     <div className="asv-thinking">
-      <span className="asv-thinking-dot" />
+      <ThinkingDot size="sm" />
       <span className="asv-thinking-text">{toolName ? `${toolName}...` : "thinking..."}</span>
     </div>
   );

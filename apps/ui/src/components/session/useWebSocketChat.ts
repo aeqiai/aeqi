@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { getScopedRoot } from "@/lib/appMode";
+import { useChatStore } from "@/store/chat";
 import { type Message, type MessageSegment, type SessionInfo, formatDuration } from "./types";
 import {
   initialStreamState,
@@ -52,12 +53,14 @@ export function useWebSocketChat({
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const wsSessionRef = useRef<string | null>(null);
+  const setSessionStreaming = useChatStore((s) => s.setSessionStreaming);
 
   const clearLiveState = useCallback(() => {
     setStreaming(false);
     setLiveSegments([]);
     setThinkingStart(null);
-  }, []);
+    if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
+  }, [setSessionStreaming]);
 
   const commitMessage = useCallback(
     (state: StreamState, append: boolean) => {
@@ -91,6 +94,7 @@ export function useWebSocketChat({
             setStreaming(false);
             setLiveSegments([]);
             setThinkingStart(null);
+            if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
             return;
           }
           ws.close();
@@ -138,6 +142,7 @@ export function useWebSocketChat({
       setStreaming(true);
       setLiveSegments([]);
       setThinkingStart(startTime);
+      setSessionStreaming(sessionId, true);
 
       const liveAttached = wsSessionRef.current === activeSessionId;
       if (liveAttached) {
@@ -192,6 +197,7 @@ export function useWebSocketChat({
       sessionIdeas,
       sessionTask,
       attachedFiles,
+      setSessionStreaming,
     ],
   );
 
@@ -202,13 +208,14 @@ export function useWebSocketChat({
       setStreaming(true);
       setLiveSegments([]);
       setThinkingStart(startTime);
+      setSessionStreaming(sessionId, true);
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
       attachEventHandlers(ws, startTime, true);
     },
-    [token, attachEventHandlers, replaceSocket],
+    [token, attachEventHandlers, replaceSocket, setSessionStreaming],
   );
 
   useEffect(() => {

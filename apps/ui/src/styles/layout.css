@@ -875,7 +875,9 @@
 .threads-rail-row {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  /* Fixed 14px gutter for the lifecycle/thinking dot so the column doesn't
+     reflow when the 4px idle dot is swapped for the 7px+glow ThinkingDot. */
+  grid-template-columns: 14px 1fr auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -929,21 +931,22 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* Lifecycle indicator — small quiet dot marking an open (non-closed) session.
+   Deliberately unobtrusive: the loud accent + pulse is reserved for the
+   `<ThinkingDot>` that replaces this dot while a turn is streaming. */
 .threads-rail-row-status {
-  width: 7px;
-  height: 7px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  background: var(--border-hover);
   flex-shrink: 0;
+  justify-self: center;
 }
 .threads-rail-row-status--idle {
   background: transparent;
-  box-shadow: none;
-  animation: none;
 }
-.threads-rail-row-status--pulsing {
-  animation: c-pulse 1.8s ease-in-out infinite;
+.threads-rail-row-thinking {
+  justify-self: center;
 }
 .threads-rail-row.active .threads-rail-row-name {
   font-weight: 500;

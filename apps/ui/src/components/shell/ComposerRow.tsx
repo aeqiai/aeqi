@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ChatComposer from "@/components/session/ChatComposer";
+import { api } from "@/lib/api";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
@@ -129,6 +130,36 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     setStreaming(false);
   }, [agentId, currentSessionId]);
 
+  // Seed the composer's arrow-up scrollback with every prior user message
+  // from this session — so reloads and cross-tab navigation don't lose the
+  // scrollback, and new visitors to an old session can step back through
+  // what was asked before.
+  const [historySeed, setHistorySeed] = useState<string[]>([]);
+  useEffect(() => {
+    if (!currentSessionId) {
+      setHistorySeed([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getSessionMessages(currentSessionId, 500)
+      .then((d: Record<string, unknown>) => {
+        if (cancelled) return;
+        const raw = (d.messages as Array<Record<string, unknown>>) || [];
+        const userTexts = raw
+          .filter((m) => m.role === "user" || m.role === "User")
+          .map((m) => String(m.content || "").trim())
+          .filter((t) => t.length > 0);
+        setHistorySeed(userTexts);
+      })
+      .catch(() => {
+        if (!cancelled) setHistorySeed([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSessionId]);
+
   // Keyboard shortcut `c` jumps focus into the composer without touching
   // the current input — lets a power user start typing from anywhere in
   // the app. Separate from set-composer-input (which replaces the text).
@@ -222,6 +253,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
             onStop={handleStop}
             inputRef={inputRef}
             fileInputRef={fileInputRef}
+            historySeed={historySeed}
           />
         </div>
       </div>
