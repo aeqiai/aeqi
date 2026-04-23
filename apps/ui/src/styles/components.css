@@ -851,28 +851,3 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-
-/* Scope select in create forms — matches existing .events-addform-input */
-.scope-select {
-  padding: 6px 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.12s ease;
-}
-.scope-select:focus {
-  border-color: var(--color-accent);
-}
-.scope-select-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}

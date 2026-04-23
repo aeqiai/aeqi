@@ -5,7 +5,7 @@ import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
 
 const SCOPE_OPTIONS: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
-import { Button, IconButton } from "./ui";
+import { Button, IconButton, Select } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
@@ -502,19 +502,14 @@ export default function IdeaCanvas({
             <span className="ideas-canvas-count">{formatCount(content)}</span>
           )}
           {!isEdit && (
-            <select
-              className="scope-select"
+            <Select
+              size="sm"
               value={composeScope}
-              onChange={(e) => setComposeScope(e.target.value as ScopeValue)}
+              onChange={(v) => setComposeScope(v as ScopeValue)}
+              options={SCOPE_OPTIONS.map((s) => ({ value: s, label: s }))}
               title="Scope"
               aria-label="Scope"
-            >
-              {SCOPE_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            />
           )}
           {(!isEdit || saveState === "dirty" || saveState === "saving") && (
             <Button

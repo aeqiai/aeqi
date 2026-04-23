@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button } from "./ui";
+import { Button, Select } from "./ui";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
@@ -647,20 +647,15 @@ function QuestBoard({
             </option>
           ))}
         </select>
-        <select
-          className="scope-select"
+        <Select
+          size="sm"
           value={composeScope}
-          onChange={(e) => setComposeScope(e.target.value as ScopeValue)}
+          onChange={(v) => setComposeScope(v as ScopeValue)}
+          options={QUEST_SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
           disabled={busy}
           aria-label="Scope"
           title="Scope"
-        >
-          {QUEST_SCOPE_VALUES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        />
         <Button variant="primary" size="sm" onClick={submit} disabled={!subject.trim() || busy}>
           {busy ? "Creating…" : "Create"}
         </Button>
