@@ -51,6 +51,52 @@ impl TelegramChannel {
             .await;
         Ok(())
     }
+
+    /// Send a reply quoting an existing message.
+    pub async fn send_reply(&self, chat_id: i64, text: String, reply_to: i64) -> Result<()> {
+        let msg = SendMessageWithReply {
+            chat_id,
+            text: text.clone(),
+            parse_mode: Some("Markdown".to_string()),
+            reply_to_message_id: Some(reply_to),
+        };
+
+        let response = self
+            .client
+            .post(self.api_url("sendMessage"))
+            .json(&msg)
+            .send()
+            .await
+            .context("failed to send Telegram reply")?;
+
+        let body: TelegramResponse<serde_json::Value> = response.json().await?;
+        if !body.ok {
+            // Markdown parse failed — retry as plain text.
+            debug!(error = ?body.description, "Markdown reply failed, retrying as plain text");
+            let plain = SendMessageWithReply {
+                chat_id,
+                text,
+                parse_mode: None,
+                reply_to_message_id: Some(reply_to),
+            };
+            let response = self
+                .client
+                .post(self.api_url("sendMessage"))
+                .json(&plain)
+                .send()
+                .await
+                .context("failed to send Telegram reply (plain)")?;
+            let body: TelegramResponse<serde_json::Value> = response.json().await?;
+            if !body.ok {
+                anyhow::bail!(
+                    "Telegram sendMessage (reply) failed: {}",
+                    body.description.unwrap_or_default()
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Deserialize)]
@@ -94,6 +140,16 @@ struct SendMessage {
     text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     parse_mode: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SendMessageWithReply {
+    chat_id: i64,
+    text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parse_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reply_to_message_id: Option<i64>,
 }
 
 #[async_trait]

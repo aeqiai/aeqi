@@ -188,6 +188,51 @@ impl WhatsAppBaileysChannel {
         self.status.clone()
     }
 
+    /// Send a quoted reply to an existing message in a conversation.
+    pub async fn send_reply(
+        &self,
+        jid: &str,
+        text: &str,
+        quoted_id: &str,
+        quoted_from_me: bool,
+        participant: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let mut params = json!({
+            "jid": jid,
+            "text": text,
+            "quoted_id": quoted_id,
+            "quoted_remote_jid": jid,
+            "quoted_from_me": quoted_from_me,
+        });
+        if let Some(p) = participant {
+            params["participant"] = serde_json::Value::String(p.to_string());
+        }
+        debug!(jid = %jid, "whatsapp-baileys sending reply");
+        self.bridge.call("send_reply", params).await
+    }
+
+    /// Send an emoji reaction to an existing message.
+    pub async fn send_reaction(
+        &self,
+        jid: &str,
+        message_id: &str,
+        emoji: &str,
+        from_me: bool,
+        participant: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        let mut params = json!({
+            "jid": jid,
+            "message_id": message_id,
+            "emoji": emoji,
+            "from_me": from_me,
+        });
+        if let Some(p) = participant {
+            params["participant"] = serde_json::Value::String(p.to_string());
+        }
+        debug!(jid = %jid, message_id = %message_id, "whatsapp-baileys sending reaction");
+        self.bridge.call("send_reaction", params).await
+    }
+
     /// Wipe credentials and disconnect. The user will need to re-scan.
     pub async fn logout(&self) -> Result<()> {
         self.bridge.call("logout", serde_json::Value::Null).await?;
