@@ -60,3 +60,6 @@ export type { SelectProps, SelectOption } from "./Select";
 
 export { Popover } from "./Popover";
 export type { PopoverProps, PopoverPlacement } from "./Popover";
+
+export { Combobox } from "./Combobox";
+export type { ComboboxProps, ComboboxOption } from "./Combobox";
