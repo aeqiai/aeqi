@@ -128,21 +128,6 @@ const MAX_MESSAGES_HARD_CAP: usize = 5_000;
 // Configuration
 // ---------------------------------------------------------------------------
 
-/// Session type — determines what the agent loop is allowed to do.
-#[derive(Debug, Clone, Copy, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum SessionType {
-    /// Perpetual session (Telegram/Discord channel). Never ends.
-    /// Can self-delegate async sessions. The only session type that
-    /// can spawn background work on itself.
-    Perpetual,
-    /// Async session (CLI chat, task, cron). Runs to completion.
-    /// Cannot spawn async sessions on itself. Can delegate to
-    /// ephemeral subagents (different identity) but they also
-    /// cannot delegate (no recursion).
-    #[default]
-    Async,
-}
-
 /// Configuration for an agent loop.
 #[derive(Debug, Clone)]
 pub struct AgentConfig {
@@ -195,8 +180,6 @@ pub struct AgentConfig {
     /// conversation state after each compaction. On restart, if the file exists,
     /// the agent resumes from the saved state instead of starting fresh.
     pub session_file: Option<PathBuf>,
-    /// Session type — Perpetual (never ends, can self-delegate) or Async (runs to completion).
-    pub session_type: SessionType,
     /// Optional token budget for auto-continuation. When set, the agent continues
     /// automatically after end-step if total output tokens < budget * 0.9.
     /// Parsed from "+500k" or "use 2m tokens" syntax in the user prompt.
@@ -246,7 +229,6 @@ impl Default for AgentConfig {
             fallback_model: None,
             persist_dir: None,
             session_file: None,
-            session_type: SessionType::Async,
             token_budget: None,
             routing_model: None,
             compact_instructions: None,
@@ -578,6 +560,37 @@ const SYNTHETIC_TOOL_RESULT: &str = "[Tool result unavailable — context was co
 // Agent
 // ---------------------------------------------------------------------------
 
+/// A step-level idea injected before each API call.
+///
+/// Content is snapshotted at session start to prevent mid-flight drift.
+/// Shell expansion (`allow_shell`) runs once at snapshot time.
+#[derive(Debug, Clone)]
+pub struct StepIdeaSpec {
+    /// Path to the source `.md` file (retained for diagnostics only).
+    pub path: PathBuf,
+    /// Whether to expand `!`backtick`` shell commands.
+    pub allow_shell: bool,
+    /// Name for logging.
+    pub name: String,
+    /// Snapshotted content. When set, `build_step_context` uses this
+    /// instead of re-reading from disk.
+    pub content: Option<String>,
+}
+
+/// Metadata for an event that fires every LLM step (e.g. `session:step_start`).
+///
+/// The agent emits a [`ChatStreamEvent::EventFired`] for each entry at the
+/// moment it emits `StepStart` — so the UI renders the event_fired pill at
+/// its truthful firing location, directly below each step marker, instead of
+/// being batched once upfront by the orchestrator.
+#[derive(Debug, Clone)]
+pub struct StepEventMeta {
+    pub event_id: String,
+    pub event_name: String,
+    pub pattern: String,
+    pub idea_ids: Vec<String>,
+}
+
 /// Autonomous agent loop — the core execution engine of AEQI's native runtime.
 ///
 /// ## Layer Responsibilities
@@ -617,63 +630,6 @@ const SYNTHETIC_TOOL_RESULT: &str = "[Tool result unavailable — context was co
 ///
 /// - **after_step hook**: Enables AEQI's verification pipeline to validate the
 ///   agent's work before accepting a "done" signal.
-///
-/// A message sent into a session — content plus optional prompt/task attachments.
-///
-/// The same struct handles the first message (which can bootstrap the session with
-/// prompts and tasks) and subsequent messages (which can amend them). One codepath.
-#[derive(Debug, Clone, Default)]
-pub struct SessionInput {
-    /// The user's message text.
-    pub content: String,
-    /// Session ideas to add (loaded once from files, appended to system prompt).
-    pub session_ideas: Vec<String>,
-    /// Step ideas to add (re-read from disk each step).
-    pub step_ideas: Vec<StepIdeaSpec>,
-    /// Quest ID to attach to this session.
-    pub quest_id: Option<String>,
-}
-
-impl SessionInput {
-    pub fn text(content: impl Into<String>) -> Self {
-        Self {
-            content: content.into(),
-            ..Default::default()
-        }
-    }
-}
-
-/// A step-level idea injected before each API call.
-///
-/// Content is snapshotted at session start to prevent mid-flight drift.
-/// Shell expansion (`allow_shell`) runs once at snapshot time.
-#[derive(Debug, Clone)]
-pub struct StepIdeaSpec {
-    /// Path to the source `.md` file (retained for diagnostics only).
-    pub path: PathBuf,
-    /// Whether to expand `!`backtick`` shell commands.
-    pub allow_shell: bool,
-    /// Name for logging.
-    pub name: String,
-    /// Snapshotted content. When set, `build_step_context` uses this
-    /// instead of re-reading from disk.
-    pub content: Option<String>,
-}
-
-/// Metadata for an event that fires every LLM step (e.g. `session:step_start`).
-///
-/// The agent emits a [`ChatStreamEvent::EventFired`] for each entry at the
-/// moment it emits `StepStart` — so the UI renders the event_fired pill at
-/// its truthful firing location, directly below each step marker, instead of
-/// being batched once upfront by the orchestrator.
-#[derive(Debug, Clone)]
-pub struct StepEventMeta {
-    pub event_id: String,
-    pub event_name: String,
-    pub pattern: String,
-    pub idea_ids: Vec<String>,
-}
-
 pub struct Agent {
     config: AgentConfig,
     provider: Arc<dyn Provider>,
@@ -690,9 +646,6 @@ pub struct Agent {
     chat_stream: Option<crate::chat_stream::ChatStreamSender>,
     /// Receiver for notifications from background agents. Drained between steps.
     notification_rx: Option<Arc<Mutex<NotificationReceiver>>>,
-    /// Receiver for user input in perpetual session mode. The agent loop waits
-    /// on this channel after each EndTurn instead of exiting.
-    input_rx: Option<Arc<Mutex<mpsc::UnboundedReceiver<SessionInput>>>>,
     /// Cancellation signal. When set to true, the agent loop exits at the next
     /// iteration boundary. Used for interrupt propagation from parent agents.
     cancel_token: Arc<std::sync::atomic::AtomicBool>,
@@ -740,7 +693,6 @@ impl Agent {
             idea_store: None,
             chat_stream: None,
             notification_rx: None,
-            input_rx: None,
             history: Vec::new(),
             cancel_token: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pattern_dispatcher: None,
@@ -829,15 +781,6 @@ impl Agent {
     pub fn with_step_events(mut self, events: Vec<StepEventMeta>) -> Self {
         self.step_events = Mutex::new(events);
         self
-    }
-
-    /// Attach an input receiver for perpetual session mode.
-    /// The agent loop waits on this channel after each EndTurn instead of exiting.
-    /// Returns the sender half for the caller to push messages into.
-    pub fn with_perpetual_input(mut self) -> (Self, mpsc::UnboundedSender<SessionInput>) {
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.input_rx = Some(Arc::new(Mutex::new(rx)));
-        (self, tx)
     }
 
     /// Emit a chat stream event if a sender is attached.
@@ -1011,9 +954,7 @@ impl Agent {
             }
 
             iterations += 1;
-            if iterations > self.config.max_iterations
-                && self.config.session_type != SessionType::Perpetual
-            {
+            if iterations > self.config.max_iterations {
                 warn!(
                     agent = %self.config.name,
                     max = self.config.max_iterations,
@@ -1499,70 +1440,6 @@ impl Agent {
                             continue;
                         }
 
-                        // Accept the stop — or wait for next message in perpetual mode.
-                        if self.config.session_type == SessionType::Perpetual
-                            && let Some(ref rx) = self.input_rx
-                        {
-                            // Add assistant response to history.
-                            if let Some(ref text) = response.content {
-                                messages.push(Message {
-                                    role: Role::Assistant,
-                                    content: MessageContent::text(text),
-                                });
-                            }
-
-                            self.emit(crate::chat_stream::ChatStreamEvent::Complete {
-                                stop_reason: "awaiting_input".to_string(),
-                                total_prompt_tokens: tracker.total_prompt_tokens,
-                                total_completion_tokens: tracker.total_completion_tokens,
-                                iterations,
-                                cost_usd: 0.0,
-                            });
-
-                            // Wait for next user message.
-                            debug!(agent = %self.config.name, "perpetual: waiting for input");
-                            let mut rx_guard = rx.lock().await;
-                            match rx_guard.recv().await {
-                                Some(input) => {
-                                    // Apply idea amendments from the message.
-                                    if !input.session_ideas.is_empty() {
-                                        // TODO: resolve idea names to files and append to system prompt
-                                        debug!(
-                                            agent = %self.config.name,
-                                            count = input.session_ideas.len(),
-                                            "session idea amendments received"
-                                        );
-                                    }
-                                    if !input.step_ideas.is_empty() {
-                                        self.step_ideas
-                                            .lock()
-                                            .await
-                                            .extend(input.step_ideas.clone());
-                                    }
-
-                                    messages.push(Message {
-                                        role: Role::User,
-                                        content: MessageContent::text(&input.content),
-                                    });
-                                    // Reset ALL per-step state for clean slate.
-                                    output_recovery_count = 0;
-                                    consecutive_low_output = 0;
-                                    consecutive_errors = 0;
-                                    has_attempted_reactive_compact = false;
-                                    transition = LoopTransition::Initial;
-                                    debug!(
-                                        agent = %self.config.name,
-                                        "perpetual: received input, continuing"
-                                    );
-                                    continue;
-                                }
-                                None => {
-                                    // Channel closed — exit gracefully.
-                                    debug!(agent = %self.config.name, "perpetual: input channel closed");
-                                    break;
-                                }
-                            }
-                        }
                         break;
                     }
                 }
