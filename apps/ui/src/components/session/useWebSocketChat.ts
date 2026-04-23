@@ -72,8 +72,13 @@ export function useWebSocketChat({
   );
 
   const attachEventHandlers = useCallback(
-    (ws: WebSocket, startTime: number, persistent: boolean) => {
+    (ws: WebSocket, startTime: number, persistent: boolean, lazyStreaming: boolean) => {
       let state = initialStreamState(startTime);
+      // When `lazyStreaming`, we deferred flipping the streaming flag at
+      // attach time — wait for the first real production event so we don't
+      // render a ghost thinking panel when subscribing to a session that is
+      // just awaiting-input (alive in ExecutionRegistry but not producing).
+      let hasFlippedStreaming = !lazyStreaming;
 
       ws.onmessage = (e) => {
         const raw = parseEvent(e.data);
@@ -87,10 +92,16 @@ export function useWebSocketChat({
         }
         setLiveSegments(state.segments);
         if (state.thinkingStart !== prevStart) setThinkingStart(state.thinkingStart);
+        if (!hasFlippedStreaming && (hasContent(state) || state.thinkingStart > 0)) {
+          hasFlippedStreaming = true;
+          setStreaming(true);
+          if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, true);
+        }
         if (state.status.kind === "complete") {
           commitMessage(state, false);
           if (persistent && isAwaitingInputComplete(raw)) {
             state = initialStreamState(0);
+            hasFlippedStreaming = false;
             setStreaming(false);
             setLiveSegments([]);
             setThinkingStart(null);
@@ -111,7 +122,7 @@ export function useWebSocketChat({
         clearLiveState();
       };
     },
-    [commitMessage, clearLiveState],
+    [commitMessage, clearLiveState, setSessionStreaming],
   );
 
   const replaceSocket = useCallback((ws: WebSocket, sessionId: string | null) => {
@@ -179,7 +190,7 @@ export function useWebSocketChat({
             }),
           ),
         );
-      attachEventHandlers(ws, startTime, false);
+      attachEventHandlers(ws, startTime, false, false);
     },
     [
       token,
@@ -204,18 +215,17 @@ export function useWebSocketChat({
   const attachToLiveStream = useCallback(
     (sessionId: string) => {
       if (!token || !sessionId) return;
-      const startTime = Date.now();
-      setStreaming(true);
+      // Don't flip streaming / thinkingStart eagerly: the session may be in
+      // `awaiting_input` (alive but no turn in progress). `attachEventHandlers`
+      // will turn the panel on lazily once an actual production event arrives.
       setLiveSegments([]);
-      setThinkingStart(startTime);
-      setSessionStreaming(sessionId, true);
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
-      attachEventHandlers(ws, startTime, true);
+      attachEventHandlers(ws, 0, true, true);
     },
-    [token, attachEventHandlers, replaceSocket, setSessionStreaming],
+    [token, attachEventHandlers, replaceSocket],
   );
 
   useEffect(() => {
