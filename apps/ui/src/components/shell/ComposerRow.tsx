@@ -145,22 +145,58 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   // with the card. Without this, typing a multi-line draft would push the
   // last message underneath the expanding composer.
   const rowRef = useRef<HTMLDivElement>(null);
+  const lastHeightRef = useRef<number>(0);
+
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
     const col = el.closest<HTMLElement>(".content-main-col");
     if (!col) return;
+
     const apply = () => {
-      col.style.setProperty("--composer-height", `${Math.ceil(el.offsetHeight)}px`);
+      const newHeight = Math.ceil(el.offsetHeight);
+      // Only update if height actually changed (helps prevent unnecessary reflows)
+      if (newHeight !== lastHeightRef.current) {
+        lastHeightRef.current = newHeight;
+        col.style.setProperty("--composer-height", `${newHeight}px`);
+      }
     };
+
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
+
+    // Also observe child elements that might affect height
+    const composerInner = el.querySelector(".asv-composer-inner");
+    if (composerInner) {
+      ro.observe(composerInner);
+    }
+
     return () => {
       ro.disconnect();
       col.style.removeProperty("--composer-height");
     };
   }, []);
+
+  // Force height recalculation when input changes significantly
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+
+    // Debounced height recalculation for input changes
+    const timeoutId = setTimeout(() => {
+      const col = el.closest<HTMLElement>(".content-main-col");
+      if (col) {
+        const newHeight = Math.ceil(el.offsetHeight);
+        if (newHeight !== lastHeightRef.current) {
+          lastHeightRef.current = newHeight;
+          col.style.setProperty("--composer-height", `${newHeight}px`);
+        }
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [input, ideas.length, task, files.length]);
 
   return (
     <div className="composer-row" ref={rowRef}>

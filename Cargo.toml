@@ -99,8 +99,8 @@ similar = "2"
 rust-embed = { version = "8", features = ["compression"] }
 mime_guess = "2"
 
-# URL encoding
-urlencoding = "2"
+# Validation
+validator = { version = "0.18", features = ["derive"] }
 
 # Test
 tempfile = "3"

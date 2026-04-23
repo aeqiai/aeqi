@@ -16,28 +16,10 @@ impl FileReadTool {
     }
 
     fn validate_path(&self, path: &str) -> Result<PathBuf> {
-        let resolved = if Path::new(path).is_absolute() {
-            PathBuf::from(path)
-        } else {
-            self.workspace.join(path)
-        };
-
-        let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
-
-        let workspace_canonical = self
-            .workspace
-            .canonicalize()
-            .unwrap_or_else(|_| self.workspace.clone());
-
-        if !canonical.starts_with(&workspace_canonical) {
-            anyhow::bail!(
-                "path {} is outside workspace {}",
-                path,
-                self.workspace.display()
-            );
-        }
-
-        Ok(canonical)
+        use aeqi_core::secure_path::secure_path;
+        
+        secure_path(&self.workspace, path)
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
 
@@ -152,33 +134,10 @@ impl FileWriteTool {
     }
 
     fn validate_path(&self, path: &str) -> Result<PathBuf> {
-        let resolved = if Path::new(path).is_absolute() {
-            PathBuf::from(path)
-        } else {
-            self.workspace.join(path)
-        };
-
-        // For writes, the file may not exist yet; check parent directory.
-        let parent = resolved.parent().unwrap_or(&resolved);
-
-        let parent_canonical = parent
-            .canonicalize()
-            .unwrap_or_else(|_| parent.to_path_buf());
-
-        let workspace_canonical = self
-            .workspace
-            .canonicalize()
-            .unwrap_or_else(|_| self.workspace.clone());
-
-        if !parent_canonical.starts_with(&workspace_canonical) {
-            anyhow::bail!(
-                "path {} is outside workspace {}",
-                path,
-                self.workspace.display()
-            );
-        }
-
-        Ok(resolved)
+        use aeqi_core::secure_path::secure_path_for_write;
+        
+        secure_path_for_write(&self.workspace, path)
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
 
@@ -285,25 +244,10 @@ impl aeqi_core::traits::Tool for ListDirTool {
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
         let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
-        let resolved = if Path::new(path).is_absolute() {
-            PathBuf::from(path)
-        } else {
-            self.workspace.join(path)
-        };
-
-        // Workspace boundary check (consistent with FileReadTool/FileWriteTool).
-        let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
-        let workspace_canonical = self
-            .workspace
-            .canonicalize()
-            .unwrap_or_else(|_| self.workspace.clone());
-        if !canonical.starts_with(&workspace_canonical) {
-            return Ok(ToolResult::error(format!(
-                "path {} is outside workspace {}",
-                path,
-                self.workspace.display()
-            )));
-        }
+        use aeqi_core::secure_path::secure_path;
+        
+        let resolved = secure_path(&self.workspace, path)
+            .map_err(|e| ToolResult::error(e.to_string()))?;
 
         debug!(path = %resolved.display(), "listing directory");
 

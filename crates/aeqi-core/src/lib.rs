@@ -16,6 +16,7 @@ pub mod hooks;
 pub mod prompt;
 pub mod sanitize;
 pub mod scope;
+pub mod secure_path;
 pub mod security;
 pub mod shell_hooks;
 pub mod streaming_executor;

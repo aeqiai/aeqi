@@ -1,0 +1,75 @@
+# Cargo-deny configuration for dependency analysis
+# See: https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# Check for security vulnerabilities
+vulnerability = "deny"
+# Check for unmaintained crates
+unmaintained = "warn"
+# Check for unsound crates
+unsound = "deny"
+# Check for yanked crates
+yanked = "deny"
+# Ignore advisories for specific crates
+ignore = [
+    # Add specific advisory IDs to ignore here
+]
+
+# Advisory database configuration
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+update-interval = "1 day"
+
+[licenses]
+# Default license policy
+default = "deny"
+# Allow these licenses
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-3-Clause",
+    "BSL-1.1",  # Our project license
+    "ISC",
+    "Unlicense",
+    "Zlib",
+]
+# Copyleft licenses that are allowed
+copyleft = "deny"
+# Ignore licenses for specific crates
+ignore = [
+    # Add specific crate names to ignore here
+]
+# Clarify license expressions for ambiguous crates
+clarify = [
+    # Example: { name = "some-crate", expression = "MIT OR Apache-2.0" }
+]
+
+[bans]
+# Multiple versions of the same crate
+multiple-versions = "warn"
+# Allow at most 3 versions of the same crate
+max-versions = 3
+# Skip specific crates from duplicate detection
+skip = [
+    # Add crates to skip here
+]
+# Skip specific versions of crates
+skip-tree = [
+    # Example: { name = "some-crate", version = "=1.2.3" }
+]
+
+[sources]
+# Allow only crates from crates.io
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+allow-path = []
+# Deny unknown sources
+unknown-registry = "deny"
+unknown-git = "deny"
+unknown-path = "deny"
+
+[metadata]
+# Minimum severity level to display
+severity-threshold = "low"
+# Output format for CI
+output-format = "json"

@@ -200,9 +200,28 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     };
   }, [handleNewConversation]);
 
-  // Auto-scroll
+  // Auto-scroll - improved version that doesn't cause twitching
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
-    messagesEnd.current?.scrollIntoView({ behavior, block: "end" });
+    const scrollEl = messagesScrollRef.current;
+    const endEl = messagesEnd.current;
+    if (!scrollEl || !endEl) return;
+
+    // Calculate the exact position to scroll to
+    const targetScrollTop = scrollEl.scrollHeight - scrollEl.clientHeight;
+
+    // Only scroll if we're not already at the bottom (within a small threshold)
+    const currentDistance = Math.abs(scrollEl.scrollTop - targetScrollTop);
+    if (currentDistance > 2) {
+      // 2px threshold to prevent micro-adjustments
+      if (behavior === "smooth") {
+        scrollEl.scrollTo({
+          top: targetScrollTop,
+          behavior: "smooth",
+        });
+      } else {
+        scrollEl.scrollTop = targetScrollTop;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -218,8 +237,18 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const handleMessagesScroll = useCallback(() => {
     const el = messagesScrollRef.current;
     if (!el) return;
+
+    // Calculate distance to bottom with a more generous threshold
+    // that accounts for composer height changes
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    setAtBottom(distance < 48);
+
+    // Use a dynamic threshold based on composer height if available
+    const composerHeight = parseInt(
+      getComputedStyle(el).getPropertyValue("--composer-height") || "140",
+    );
+    const threshold = Math.max(48, composerHeight * 0.3); // At least 48px or 30% of composer height
+
+    setAtBottom(distance < threshold);
   }, []);
 
   // Internal send handler — used by both local calls and the event bridge

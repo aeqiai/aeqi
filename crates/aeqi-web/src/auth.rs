@@ -72,10 +72,10 @@ fn extract_bearer(req: &Request) -> Option<&str> {
         .strip_prefix("Bearer ")
 }
 
-pub fn signing_secret(state: &AppState) -> &str {
+pub fn signing_secret(state: &AppState) -> Result<&str, &'static str> {
     match state.auth_secret.as_deref() {
-        Some(s) if !s.is_empty() => s,
-        _ => "aeqi-ephemeral-fallback",
+        Some(s) if !s.is_empty() => Ok(s),
+        _ => Err("JWT signing secret not configured. Set AEQI_AUTH_SECRET environment variable."),
     }
 }
 
@@ -125,7 +125,19 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             next.run(req).await
         }
         AuthMode::Secret | AuthMode::Accounts => {
-            let secret = signing_secret(&state);
+            let secret = match signing_secret(&state) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("auth: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        axum::Json(
+                            serde_json::json!({"ok": false, "error": "server configuration error"}),
+                        ),
+                    )
+                        .into_response();
+                }
+            };
             let Some(token) = extract_bearer(&req) else {
                 tracing::warn!("auth: missing authorization header");
                 return (
@@ -252,19 +264,19 @@ mod tests {
     #[test]
     fn signing_secret_returns_configured_value() {
         let state = test_state(Some("my-secret".to_string()));
-        assert_eq!(signing_secret(&state), "my-secret");
+        assert_eq!(signing_secret(&state).unwrap(), "my-secret");
     }
 
     #[test]
-    fn signing_secret_falls_back_to_default() {
+    fn signing_secret_errors_when_not_configured() {
         let state = test_state(None);
-        assert_eq!(signing_secret(&state), "aeqi-ephemeral-fallback");
+        assert!(signing_secret(&state).is_err());
     }
 
     #[test]
-    fn signing_secret_empty_string_falls_back() {
+    fn signing_secret_errors_when_empty_string() {
         let state = test_state(Some("".to_string()));
-        assert_eq!(signing_secret(&state), "aeqi-ephemeral-fallback");
+        assert!(signing_secret(&state).is_err());
     }
 
     #[test]

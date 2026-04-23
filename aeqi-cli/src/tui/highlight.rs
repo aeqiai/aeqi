@@ -7,10 +7,10 @@ use syntect::parsing::SyntaxSet;
 use super::markdown::{StyledLine, StyledSpan};
 
 static SYNTAX_SET: std::sync::LazyLock<SyntaxSet> =
-    std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+    std::sync::LazyLock::new(SyntaxSet::default);
 
 static THEME: std::sync::LazyLock<syntect::highlighting::Theme> = std::sync::LazyLock::new(|| {
-    let ts = ThemeSet::load_defaults();
+    let ts = ThemeSet::default();
     ts.themes["base16-ocean.dark"].clone()
 });
 

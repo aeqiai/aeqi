@@ -22,6 +22,9 @@ use crate::auth;
 use crate::ipc::IpcClient;
 use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
 use crate::ws;
+use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
+use crate::rate_limit::{RateLimiter, RateLimiterConfig, rate_limit_middleware};
+use crate::validation::{request_size_limit_middleware, validate_content_type_middleware};
 use aeqi_core::config::SmtpConfig;
 
 /// Shared application state.
@@ -164,18 +167,19 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         .merge(public)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .layer(axum::middleware::from_fn(
-            |req: Request, next: middleware::Next| async move {
-                let mut resp = next.run(req).await;
-                let hdrs = resp.headers_mut();
-                hdrs.insert("x-content-type-options", "nosniff".parse().unwrap());
-                hdrs.insert("x-frame-options", "DENY".parse().unwrap());
-                hdrs.insert(
-                    "referrer-policy",
-                    "strict-origin-when-cross-origin".parse().unwrap(),
-                );
-                resp
-            },
+        // Add request size limiting middleware
+        .layer(axum::middleware::from_fn(request_size_limit_middleware))
+        // Add content-type validation middleware
+        .layer(axum::middleware::from_fn(validate_content_type_middleware))
+        // Add security headers middleware
+        .layer(axum::middleware::from_fn_with_state(
+            SecurityHeadersConfig::default(),
+            security_headers_middleware,
+        ))
+        // Add rate limiting middleware
+        .layer(axum::middleware::from_fn_with_state(
+            std::sync::Arc::new(RateLimiter::new(RateLimiterConfig::default())),
+            rate_limit_middleware,
         ));
 
     if serve_ui {
