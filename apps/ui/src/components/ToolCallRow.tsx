@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { ToolCall } from "@/lib/types";
 import { KNOWN_TOOLS } from "./EventEditorConstants";
+import { Popover } from "./ui";
 
 export default function ToolCallRow({
   tc,
@@ -68,61 +69,52 @@ export default function ToolCallRow({
         >
           {index + 1}
         </span>
-        <div style={{ flex: 1, position: "relative" }}>
-          <input
-            ref={inputRef}
-            className="agent-settings-input"
-            type="text"
-            placeholder="tool name"
-            value={tc.tool}
-            readOnly={readOnly}
-            disabled={readOnly}
-            style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
-            onChange={(e) => handleToolChange(e.target.value)}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          />
-          {!readOnly && showSuggestions && filtered.length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                zIndex: 20,
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                background: "var(--bg-base)",
-                boxShadow: "var(--shadow-popover)",
-                overflow: "hidden",
-              }}
-            >
-              {filtered.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "6px 10px",
-                    fontSize: 12,
-                    fontFamily: "var(--font-mono)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--text-primary)",
-                  }}
-                  onMouseDown={() => {
-                    onChange(index, { ...tc, tool: t });
-                    setShowSuggestions(false);
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          )}
+        <div style={{ flex: 1 }}>
+          <Popover
+            open={!readOnly && showSuggestions && filtered.length > 0}
+            onOpenChange={setShowSuggestions}
+            placement="bottom-start"
+            trigger={
+              <input
+                ref={inputRef}
+                className="agent-settings-input"
+                type="text"
+                placeholder="tool name"
+                value={tc.tool}
+                readOnly={readOnly}
+                disabled={readOnly}
+                style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
+                onChange={(e) => handleToolChange(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              />
+            }
+          >
+            {filtered.map((t) => (
+              <button
+                key={t}
+                type="button"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  fontFamily: "var(--font-mono)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-primary)",
+                }}
+                onMouseDown={() => {
+                  onChange(index, { ...tc, tool: t });
+                  setShowSuggestions(false);
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </Popover>
         </div>
         {!readOnly && (
           <div style={{ display: "flex", gap: 2 }}>
