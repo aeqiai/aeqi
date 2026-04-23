@@ -14,24 +14,28 @@ export interface ComboboxProps {
   options: ComboboxOption[];
   value: string | null;
   onChange: (value: string) => void;
-  placeholder?: string;
+  /** Trigger text (or node) when nothing is selected. */
+  placeholder?: ReactNode;
   searchPlaceholder?: string;
   emptyLabel?: string;
   size?: "sm" | "md";
   disabled?: boolean;
   className?: string;
+  /** Optional content rendered at the bottom of the floating panel (e.g. custom entry forms). */
+  footer?: ReactNode;
 }
 
 export function Combobox({
   options,
   value,
   onChange,
-  placeholder = "Select…",
+  placeholder = "Select…" as ReactNode,
   searchPlaceholder = "Search…",
   emptyLabel = "No matches",
   size = "md",
   disabled,
   className,
+  footer,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -186,7 +190,7 @@ export function Combobox({
             />
           </div>
 
-          <div className={styles.list}>
+          <div className={styles.list} role="presentation">
             {filtered.length === 0 && <div className={styles.empty}>{emptyLabel}</div>}
             {filtered.map((opt, idx) => {
               const isActive = idx === cursor;
@@ -232,6 +236,7 @@ export function Combobox({
               );
             })}
           </div>
+          {footer != null && <div className={styles.footer}>{footer}</div>}
         </div>
       </Popover>
     </div>
