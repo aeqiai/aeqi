@@ -22,7 +22,7 @@ export default function ShellFooter() {
         className="shell-footer-meta"
         title="System status"
       >
-        v0.7.0
+        {`v${__APP_VERSION__}`}
       </a>
     </footer>
   );

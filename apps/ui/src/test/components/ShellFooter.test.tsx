@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ShellFooter from "@/components/shell/ShellFooter";
+import pkg from "../../../package.json";
 
 describe("ShellFooter", () => {
   it("renders the centered legal clause, wordmark, and right-aligned version", () => {
@@ -21,7 +22,7 @@ describe("ShellFooter", () => {
       "href",
       "https://aeqi.ai/terms",
     );
-    expect(screen.getByText("v0.7.0")).toBeInTheDocument();
+    expect(screen.getByText(`v${pkg.version}`)).toBeInTheDocument();
   });
 
   it("does not render the status indicator", () => {
