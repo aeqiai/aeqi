@@ -11,6 +11,10 @@
   margin: 0 auto;
 }
 
+.shell.shell-home {
+  --shell-legal-h: 186px;
+}
+
 /* ── Legal strip — compact inline row pinned to the bottom of the
    content column, directly below the card. Not a footer for the
    whole app — only spans the content column's width, leaving the
@@ -29,6 +33,144 @@
   font-size: 11px;
   letter-spacing: 0.005em;
   line-height: 1.4;
+}
+
+.shell-home-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 20px 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.025)), var(--bg-sidebar);
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+.shell-home-footer-top {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.shell-home-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.shell-home-footer-wordmark {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+}
+.shell-home-footer-copy {
+  margin: 0;
+  max-width: 44rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.shell-home-footer-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.shell-home-footer-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.38);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.shell-home-footer-signal-status {
+  text-decoration: none;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.shell-home-footer-signal-status:hover,
+.shell-home-footer-signal-status:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.55);
+  outline: none;
+}
+.shell-home-footer-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+.shell-home-footer-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.shell-home-footer-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.shell-home-footer-column h2 {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--section-label-color);
+}
+.shell-home-footer-column a,
+.shell-home-footer-column span {
+  width: fit-content;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.45;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+.shell-home-footer-column a:hover,
+.shell-home-footer-column a:focus-visible {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-hover);
+  outline: none;
+}
+.shell-home-footer-muted {
+  color: var(--text-muted);
+}
+.shell-home-footer-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.shell-home-footer-bottom-copy {
+  min-width: 0;
+  color: var(--text-muted);
+}
+.shell-home-footer-copyright {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 .shell-legal-left {
   flex-shrink: 0;
@@ -2672,6 +2814,9 @@
   .drawer-toggle-collapsed {
     display: none;
   }
+  .shell.shell-home {
+    --shell-legal-h: 168px;
+  }
 }
 
 /* ── Responsive: Mobile (max-width: 768px) ── */
@@ -2686,10 +2831,34 @@
     padding: 4px 12px 8px;
     gap: 8px;
   }
+  .shell-home-footer {
+    padding: 16px 14px 14px;
+    gap: 14px;
+  }
+  .shell-home-footer-top {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .shell-home-footer-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .shell-home-footer-copy {
+    max-width: none;
+    font-size: 12.5px;
+  }
+  .shell-home-footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
   /* On narrow viewports the strip collapses to the load-bearing
      legal prose only; status + version + copyright reappear ≥640px. */
   .shell-legal-left {
     display: none;
+  }
+  .shell.shell-home {
+    --shell-legal-h: 154px;
   }
 
   .left-sidebar {
@@ -2756,6 +2925,18 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell-home-footer-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .shell-home-footer-columns {
+    grid-template-columns: 1fr;
   }
 }
 

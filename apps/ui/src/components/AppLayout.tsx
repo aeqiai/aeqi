@@ -4,6 +4,7 @@ import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import ContentTopBar from "./ContentTopBar";
 import LeftSidebar from "./shell/LeftSidebar";
+import HomeFooter from "./shell/HomeFooter";
 import SessionsRail from "./shell/SessionsRail";
 import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
@@ -306,7 +307,7 @@ export default function AppLayout() {
 
   return (
     <>
-      <div className="shell">
+      <div className={`shell${isHome ? " shell-home" : ""}`}>
         <LeftSidebar agentId={agentId} path={path} />
 
         <div className="content-column">
@@ -340,35 +341,39 @@ export default function AppLayout() {
               <Suspense fallback={null}>{mainContent}</Suspense>
             )}
           </div>
-          <div className="shell-legal" role="contentinfo">
-            <div className="shell-legal-left">
-              <a
-                href="https://status.aeqi.ai"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="shell-legal-status"
-                title="System status"
-              >
-                <span className="shell-legal-status-dot" aria-hidden="true" />
-                <span>Nominal</span>
-              </a>
-              <span className="shell-legal-version">v0.7.0</span>
-            </div>
-            <div className="shell-legal-right">
-              <span className="shell-legal-terms">
-                By using aeqi you agree to our{" "}
-                <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
-                  privacy policy
-                </a>{" "}
-                and{" "}
-                <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
-                  terms of service
+          {isHome ? (
+            <HomeFooter />
+          ) : (
+            <footer className="shell-legal" role="contentinfo">
+              <div className="shell-legal-left">
+                <a
+                  href="https://status.aeqi.ai"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="shell-legal-status"
+                  title="System status"
+                >
+                  <span className="shell-legal-status-dot" aria-hidden="true" />
+                  <span>Nominal</span>
                 </a>
-                .
-              </span>
-              <span className="shell-legal-copyright">© 2026 aeqi</span>
-            </div>
-          </div>
+                <span className="shell-legal-version">v0.7.0</span>
+              </div>
+              <div className="shell-legal-right">
+                <span className="shell-legal-terms">
+                  By using aeqi you agree to our{" "}
+                  <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+                    privacy policy
+                  </a>{" "}
+                  and{" "}
+                  <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+                    terms of service
+                  </a>
+                  .
+                </span>
+                <span className="shell-legal-copyright">© 2026 aeqi</span>
+              </div>
+            </footer>
+          )}
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />
