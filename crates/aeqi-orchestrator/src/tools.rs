@@ -1699,6 +1699,52 @@ impl SandboxedShellTool {
         self.timeout_secs = timeout_secs;
         self
     }
+
+    /// Basic validation of shell commands to prevent obvious injection attempts.
+    /// This is not comprehensive but catches the most dangerous patterns.
+    fn validate_command(&self, command: &str) -> Result<()> {
+        // Check for dangerous patterns that could indicate injection attempts
+        let dangerous_patterns = [
+            "rm -rf /",             // Dangerous deletion
+            "rm -rf /*",            // Dangerous deletion
+            ":(){ :|:& };:",        // Fork bomb
+            "mkfs",                 // Filesystem formatting
+            "dd if=/dev/zero",      // Disk wiping
+            "> /dev/sda",           // Disk writing
+            "chmod -R 777 /",       // Permission changes
+            "chown -R root:root /", // Ownership changes
+        ];
+
+        let lower_command = command.to_lowercase();
+
+        for pattern in dangerous_patterns {
+            if lower_command.contains(pattern) {
+                return Err(anyhow::anyhow!(
+                    "Command contains dangerous pattern: {}",
+                    pattern
+                ));
+            }
+        }
+
+        // Check for multiple command separators in a row (could indicate injection)
+        let separators = [";", "&&", "||", "|"];
+        let mut separator_count = 0;
+
+        for ch in command.chars() {
+            if separators.iter().any(|s| s.contains(ch)) {
+                separator_count += 1;
+                if separator_count > 5 {
+                    return Err(anyhow::anyhow!(
+                        "Command contains too many command separators"
+                    ));
+                }
+            } else if !separators.iter().any(|s| s.contains(ch)) {
+                separator_count = 0;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -1708,6 +1754,9 @@ impl Tool for SandboxedShellTool {
             .get("command")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing 'command' argument"))?;
+
+        // Validate command for safety
+        self.validate_command(command)?;
 
         let timeout_ms = args
             .get("timeout")

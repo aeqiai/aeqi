@@ -6,6 +6,8 @@
 //! Protocol:
 //! - Client sends: `{"message": "...", "agent": "...", "agent_id": "...", "session_id": "..."}`
 //!   to dispatch a new user turn (queues + streams the response).
+//! - Optional `session_ideas`, `quest_id`, and `files` fields are forwarded
+//!   through to the daemon so turn-specific context survives the round trip.
 //! - Client sends: `{"subscribe": true, "session_id": "..."}` to passively
 //!   tail an already-running session (e.g. after a hard refresh). Routes to
 //!   daemon's `session_subscribe` instead of `session_send`.
@@ -168,6 +170,19 @@ async fn handle_session_socket(
             }
             if let Some(ref sid) = req_session_id {
                 req["session_id"] = serde_json::json!(sid);
+            }
+            if let Some(ideas) = request.get("session_ideas").and_then(|v| v.as_array()) {
+                req["session_ideas"] = serde_json::json!(ideas);
+            }
+            if let Some(quest_id) = request.get("quest_id").and_then(|v| v.as_str())
+                && !quest_id.is_empty()
+            {
+                req["quest_id"] = serde_json::json!(quest_id);
+            }
+            if let Some(files) = request.get("files").and_then(|v| v.as_array())
+                && !files.is_empty()
+            {
+                req["files"] = serde_json::json!(files);
             }
             if let Some(ref roots) = user_roots {
                 req["allowed_roots"] = serde_json::json!(roots);

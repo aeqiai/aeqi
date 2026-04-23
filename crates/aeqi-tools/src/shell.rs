@@ -1,3 +1,25 @@
+//! Shell command execution tool for AEQI.
+//!
+//! This module provides a [`Tool`] implementation for executing shell commands
+//! in a controlled environment. It includes basic command validation to prevent
+//! obvious injection attempts and supports timeouts, background execution,
+//! and configurable working directories.
+//!
+//! # Security Notes
+//! - Commands are executed via `bash -c` which is inherently vulnerable to injection
+//! - Basic validation is performed to catch dangerous patterns (rm -rf /, fork bombs, etc.)
+//! - For production use, consider using the sandboxed version in `aeqi-orchestrator`
+//! - Commands run with the same permissions as the AEQI process
+//!
+//! # Example
+//! ```no_run
+//! use aeqi_tools::ShellTool;
+//! use aeqi_core::traits::Tool;
+//!
+//! let tool = ShellTool::new("/tmp".into());
+//! // tool.execute(serde_json::json!({"command": "echo hello"}))
+//! ```
+
 use aeqi_core::traits::{ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -26,6 +48,52 @@ impl ShellTool {
         self.timeout_secs = timeout_secs;
         self
     }
+
+    /// Basic validation of shell commands to prevent obvious injection attempts.
+    /// This is not comprehensive but catches the most dangerous patterns.
+    fn validate_command(&self, command: &str) -> Result<()> {
+        // Check for dangerous patterns that could indicate injection attempts
+        let dangerous_patterns = [
+            "rm -rf /",             // Dangerous deletion
+            "rm -rf /*",            // Dangerous deletion
+            ":(){ :|:& };:",        // Fork bomb
+            "mkfs",                 // Filesystem formatting
+            "dd if=/dev/zero",      // Disk wiping
+            "> /dev/sda",           // Disk writing
+            "chmod -R 777 /",       // Permission changes
+            "chown -R root:root /", // Ownership changes
+        ];
+
+        let lower_command = command.to_lowercase();
+
+        for pattern in dangerous_patterns {
+            if lower_command.contains(pattern) {
+                return Err(anyhow::anyhow!(
+                    "Command contains dangerous pattern: {}",
+                    pattern
+                ));
+            }
+        }
+
+        // Check for multiple command separators in a row (could indicate injection)
+        let separators = [";", "&&", "||", "|"];
+        let mut separator_count = 0;
+
+        for ch in command.chars() {
+            if separators.iter().any(|s| s.contains(ch)) {
+                separator_count += 1;
+                if separator_count > 5 {
+                    return Err(anyhow::anyhow!(
+                        "Command contains too many command separators"
+                    ));
+                }
+            } else if !separators.iter().any(|s| s.contains(ch)) {
+                separator_count = 0;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -35,6 +103,9 @@ impl aeqi_core::traits::Tool for ShellTool {
             .get("command")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing 'command' argument"))?;
+
+        // Validate command for safety
+        self.validate_command(command)?;
 
         let workdir = args
             .get("workdir")

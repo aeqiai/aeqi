@@ -1,6 +1,6 @@
 # Context Injection Model
 
-How an agent's input context is assembled when it wakes on a quest.
+How a session's execution context is assembled when the agent wakes on a quest or receives new input.
 
 ---
 
@@ -8,17 +8,17 @@ How an agent's input context is assembled when it wakes on a quest.
 
 An agent sees context through exactly two paths:
 
-**System prompt** (static for the session lifetime):
+**Persistent context** (static for the session lifetime):
 - Assembled from the agent ancestor chain by walking events that match the target pattern (e.g. `session:start`) and pulling their referenced ideas
 - Walk order: root ancestor → ... → parent → self → task ideas; each idea's `scope` (`self` vs `descendants`) controls whether an ancestor's idea reaches the target agent
 - Tool allow/deny lists on activated ideas merge into the session's tool restrictions (intersection of allows, union of denies)
 - This is the agent's identity, inherited instructions, and role definition
 
-**User message** (the first message in the conversation — the "quest context"):
+**Input** (the message that starts or resumes an execution):
 - Built by `AgentWorker::execute()` at spawn time
 - This is where all dynamic, quest-specific context lives
 
-Everything in this document concerns the **user message** — the quest context payload that tells the agent what to do, what's happened, and what it needs to know.
+Everything in this document concerns the **input payload** — the execution context that tells the agent what to do, what's happened, and what it needs to know.
 
 ---
 

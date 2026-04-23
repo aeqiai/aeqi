@@ -1,3 +1,24 @@
+//! OpenRouter API provider implementation for AEQI.
+//!
+//! This module provides a [`Provider`] implementation for the OpenRouter API,
+//! which acts as a proxy to multiple LLM providers (OpenAI, Anthropic, Google, etc.).
+//! It supports tool use, streaming, image generation, and configurable base URLs.
+//!
+//! # Features
+//! - Multi-provider routing through OpenRouter
+//! - Image generation support via modalities
+//! - Configurable base URL for self-hosted proxies
+//! - Cost estimation via OpenRouter's pricing API
+//!
+//! # Example
+//! ```no_run
+//! use aeqi_providers::OpenRouterProvider;
+//! use aeqi_core::traits::Provider;
+//!
+//! let provider = OpenRouterProvider::new("api-key".to_string(), "openai/gpt-4o".to_string()).unwrap();
+//! // Can be configured with custom base URL: provider.with_base_url("http://localhost:8080")
+//! ```
+
 use aeqi_core::traits::{
     ChatRequest, ChatResponse, Provider, StopReason, ToolCall, ToolSpec, Usage,
 };
@@ -19,18 +40,18 @@ pub struct OpenRouterProvider {
 }
 
 impl OpenRouterProvider {
-    pub fn new(api_key: String, default_model: String) -> Self {
+    pub fn new(api_key: String, default_model: String) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("failed to build HTTP client");
+            .context("failed to build HTTP client")?;
 
-        Self {
+        Ok(Self {
             client,
             api_key,
             default_model,
             base_url: None,
-        }
+        })
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {

@@ -1,3 +1,24 @@
+//! OpenRouter embedding provider implementation for AEQI.
+//!
+//! This module provides an [`Embedder`] implementation for the OpenRouter API,
+//! which can generate vector embeddings for text using various embedding models.
+//! Embeddings are used for semantic search in the idea store.
+//!
+//! # Supported Models
+//! - OpenAI text-embedding-3-small/large
+//! - Other OpenRouter-compatible embedding models
+//!
+//! # Example
+//! ```no_run
+//! use aeqi_providers::OpenRouterEmbedder;
+//! use aeqi_core::traits::Embedder;
+//!
+//! # tokio_test::block_on(async {
+//! let embedder = OpenRouterEmbedder::new("api-key".to_string(), "openai/text-embedding-3-small", 1536);
+//! let embedding = embedder.embed("Hello, world!").await.unwrap();
+//! # })
+//! ```
+
 use aeqi_core::traits::Embedder;
 use anyhow::{Context, Result};
 use async_trait::async_trait;

@@ -19,7 +19,7 @@ interface ComposerRowProps {
  * store via a `pendingMessage` slot for the "type-anywhere, navigate, and
  * send on mount" flow.
  *
- * The composer owns all of its own local state (input, attachments, prompt
+ * The composer owns all of its own local state (input, attachments, idea
  * picker, drag overlay). The send flow is:
  *   1. If AgentSessionView is mounted, fire `aeqi:send-message` — the
  *      active view picks it up and dispatches it through its websocket.
@@ -43,7 +43,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<{ name: string; content: string; size: number }[]>([]);
-  const [prompts, setPrompts] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<string[]>([]);
   const [task, setTask] = useState<{ id: string; name: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
@@ -70,7 +70,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
       id: createDraftId(),
       text,
       files: files.length > 0 ? files : undefined,
-      prompts: prompts.length > 0 ? prompts : undefined,
+      ideas: ideas.length > 0 ? ideas : undefined,
       task: task || undefined,
     };
     if (sessionsMounted) {
@@ -81,10 +81,10 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     }
     setInput("");
     setFiles([]);
-    setPrompts([]);
+    setIdeas([]);
     setTask(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [input, files, prompts, task, sessionsMounted, setPendingMessage, navigate, base, agentId]);
+  }, [input, files, ideas, task, sessionsMounted, setPendingMessage, navigate, base, agentId]);
 
   const handleStop = useCallback(() => {
     window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));
@@ -171,8 +171,8 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
             setInput={setInput}
             streaming={streaming}
             displayName={agentDisplayName || "agent"}
-            sessionPrompts={prompts}
-            setSessionPrompts={setPrompts}
+            sessionIdeas={ideas}
+            setSessionIdeas={setIdeas}
             sessionTask={task}
             setSessionTask={setTask}
             attachedFiles={files}

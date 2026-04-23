@@ -144,6 +144,7 @@ impl ScheduleTimer {
                         agent_name: spawned.agent_name.clone(),
                         correlation_id: spawned.correlation_id.clone(),
                         cancel_token: spawned.cancel_token.clone(),
+                        input_sender: spawned.input_sender.clone(),
                         sandbox: sandbox.clone(),
                         quest_id: None,
                         started_at: std::time::Instant::now(),

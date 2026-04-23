@@ -69,14 +69,18 @@ impl Channel for DiscordChannel {
 
                 let mut had_error = false;
                 for channel_id in &channel_ids {
-                    let url = format!("{}/channels/{}/messages?limit=10", DISCORD_API, channel_id);
-                    let mut req = client
-                        .get(&url)
-                        .header("Authorization", format!("Bot {}", token));
-
+                    let mut url = reqwest::Url::parse(&format!(
+                        "{}/channels/{}/messages",
+                        DISCORD_API, channel_id
+                    ))
+                    .expect("valid Discord API URL");
+                    url.query_pairs_mut().append_pair("limit", "10");
                     if let Some(after) = last_message_ids.get(channel_id) {
-                        req = req.query(&[("after", after.as_str())]);
+                        url.query_pairs_mut().append_pair("after", after.as_str());
                     }
+                    let mut req = client
+                        .get(url)
+                        .header("Authorization", format!("Bot {}", token));
 
                     match req.send().await {
                         Ok(response) => {

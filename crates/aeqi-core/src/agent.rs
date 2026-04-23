@@ -628,8 +628,8 @@ const SYNTHETIC_TOOL_RESULT: &str = "[Tool result unavailable — context was co
 pub struct SessionInput {
     /// The user's message text.
     pub content: String,
-    /// Session prompts to add (loaded once from files, appended to system prompt).
-    pub session_prompts: Vec<String>,
+    /// Session ideas to add (loaded once from files, appended to system prompt).
+    pub session_ideas: Vec<String>,
     /// Step ideas to add (re-read from disk each step).
     pub step_ideas: Vec<StepIdeaSpec>,
     /// Quest ID to attach to this session.
@@ -1528,13 +1528,13 @@ impl Agent {
                             let mut rx_guard = rx.lock().await;
                             match rx_guard.recv().await {
                                 Some(input) => {
-                                    // Apply prompt amendments from the message.
-                                    if !input.session_prompts.is_empty() {
-                                        // TODO: resolve prompt names to files and append to system prompt
+                                    // Apply idea amendments from the message.
+                                    if !input.session_ideas.is_empty() {
+                                        // TODO: resolve idea names to files and append to system prompt
                                         debug!(
                                             agent = %self.config.name,
-                                            count = input.session_prompts.len(),
-                                            "session prompt amendments received"
+                                            count = input.session_ideas.len(),
+                                            "session idea amendments received"
                                         );
                                     }
                                     if !input.step_ideas.is_empty() {

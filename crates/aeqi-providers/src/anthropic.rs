@@ -1,3 +1,17 @@
+//! Anthropic API provider implementation for AEQI.
+//!
+//! This module provides a [`Provider`] implementation for the Anthropic Messages API.
+//! It supports Claude models with tool use, streaming, and proper error handling.
+//!
+//! # Example
+//! ```no_run
+//! use aeqi_providers::AnthropicProvider;
+//! use aeqi_core::traits::Provider;
+//!
+//! let provider = AnthropicProvider::new("api-key".to_string(), "claude-3-5-sonnet-20241022".to_string());
+//! // Use provider.chat() or provider.chat_stream() to interact with Claude
+//! ```
+
 use aeqi_core::traits::{
     ChatRequest, ChatResponse, ContentPart, Message, MessageContent, Provider, Role, StopReason,
     StreamEvent, ToolCall, ToolSpec, Usage,
@@ -22,17 +36,17 @@ pub struct AnthropicProvider {
 }
 
 impl AnthropicProvider {
-    pub fn new(api_key: String, default_model: String) -> Self {
+    pub fn new(api_key: String, default_model: String) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("failed to build HTTP client");
+            .context("failed to build HTTP client")?;
 
-        Self {
+        Ok(Self {
             client,
             api_key,
             default_model,
-        }
+        })
     }
 }
 

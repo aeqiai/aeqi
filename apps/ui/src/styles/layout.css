@@ -899,14 +899,14 @@
   background: var(--border);
   opacity: 0.5;
 }
-/* Row — single-line dense: [name, flex] [badge?] [time]. 36px min-height
-   creates a calmer cadence than the old 48px + pill layout. Selection is
-   carried by the .active state alone (background tint + 2px left bar);
-   status dots were removed as redundant noise. */
+/* Row — single-line dense: [live dot] [name, flex] [badge?] [time].
+   36px min-height creates a calmer cadence than the old 48px + pill
+   layout. Selection is carried by the .active state alone (background
+   tint + 2px left bar); the live dot marks sessions that are still active. */
 .threads-rail-row {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -959,6 +959,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+.threads-rail-row-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: c-pulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.threads-rail-row-status--idle {
+  background: transparent;
+  box-shadow: none;
+  animation: none;
 }
 .threads-rail-row.active .threads-rail-row-name {
   font-weight: 500;

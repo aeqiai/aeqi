@@ -72,26 +72,33 @@ impl Channel for SlackChannel {
                 let mut had_error = false;
 
                 for channel_id in &channel_ids {
-                    let mut params = vec![("channel", channel_id.as_str()), ("limit", "10")];
-
-                    let oldest_binding;
-                    if let Some(ts) = last_ts.get(channel_id) {
-                        oldest_binding = ts.clone();
-                        params.push(("oldest", &oldest_binding));
+                    let mut url =
+                        reqwest::Url::parse(&format!("{}/conversations.history", SLACK_API))
+                            .expect("valid Slack API URL");
+                    {
+                        let mut pairs = url.query_pairs_mut();
+                        pairs.append_pair("channel", channel_id);
+                        pairs.append_pair("limit", "10");
+                        if let Some(ts) = last_ts.get(channel_id) {
+                            pairs.append_pair("oldest", ts);
+                        }
                     }
-
-                    let url = format!("{}/conversations.history", SLACK_API);
                     match client
-                        .get(&url)
+                        .get(url)
                         .header("Authorization", format!("Bearer {}", token))
-                        .query(&params)
                         .send()
                         .await
                     {
                         Ok(response) => {
-                            if let Ok(slack_resp) = response.json::<SlackResponse>().await
-                                && slack_resp.ok
-                            {
+                            let slack_resp: SlackResponse = match response.json().await {
+                                Ok(resp) => resp,
+                                Err(e) => {
+                                    error!(error = %e, channel = %channel_id, "Slack response parse error");
+                                    had_error = true;
+                                    continue;
+                                }
+                            };
+                            if slack_resp.ok {
                                 for msg in slack_resp.messages.unwrap_or_default().iter().rev() {
                                     if msg.bot_id.is_some() {
                                         continue;

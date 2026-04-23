@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
@@ -179,6 +180,7 @@ pub struct SpawnedSession {
     pub agent_name: String,
     pub correlation_id: String,
     pub stream_sender: ChatStreamSender,
+    pub input_sender: Option<mpsc::UnboundedSender<aeqi_core::SessionInput>>,
     pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
     pub sandbox: Option<Arc<QuestSandbox>>,
     /// The agent task's join handle. Caller must `.await` it.
@@ -986,6 +988,13 @@ impl SessionManager {
             agent = agent.with_pattern_dispatcher(dispatcher);
         }
 
+        let (mut agent, input_sender) = if is_interactive {
+            let (agent, input_sender) = agent.with_perpetual_input();
+            (agent, Some(input_sender))
+        } else {
+            (agent, None)
+        };
+
         // 7.5. Load forked session history if the session already has messages.
         let mut session_resumed = false;
         if let Some(ref sid) = opts.session_id
@@ -1276,6 +1285,7 @@ impl SessionManager {
             agent_name,
             correlation_id,
             stream_sender,
+            input_sender,
             cancel_token,
             sandbox,
             join_handle,

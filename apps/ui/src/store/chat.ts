@@ -27,7 +27,7 @@ export interface PendingMessage {
   id: string;
   text: string;
   files?: { name: string; content: string; size: number }[];
-  prompts?: string[];
+  ideas?: string[];
   task?: { id: string; name: string };
 }
 
@@ -40,6 +40,7 @@ interface ChatState {
   queuedDraftsBySession: Record<string, PendingMessage[]>;
   queueDraft: (sessionId: string, draft: PendingMessage) => void;
   consumeQueuedDraft: (sessionId: string) => PendingMessage | null;
+  drainQueuedDrafts: (sessionId: string) => PendingMessage[];
   clearQueuedDrafts: (sessionId: string) => void;
   /**
    * Per-agent session list, populated by the active AgentSessionView so the
@@ -96,6 +97,18 @@ export const useChatStore = create<ChatState>((set) => ({
       return { queuedDraftsBySession };
     });
     return draft;
+  },
+  drainQueuedDrafts: (sessionId) => {
+    let drafts: PendingMessage[] = [];
+    set((state) => {
+      const next = state.queuedDraftsBySession[sessionId] || [];
+      if (next.length === 0) return {};
+      drafts = next;
+      const queuedDraftsBySession = { ...state.queuedDraftsBySession };
+      delete queuedDraftsBySession[sessionId];
+      return { queuedDraftsBySession };
+    });
+    return drafts;
   },
   clearQueuedDrafts: (sessionId) =>
     set((state) => {

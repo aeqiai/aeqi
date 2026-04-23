@@ -38,7 +38,7 @@ serde_urlencoded = "0.7"
 toml = "0.8"
 
 # HTTP
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "form"] }
 axum = { version = "0.8", features = ["ws"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
@@ -88,11 +88,11 @@ tokio-stream = "0.1"
 futures = "0.3"
 
 # TUI
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }
-tungstenite = "0.26"
+tungstenite = "0.29"
 pulldown-cmark = "0.12"
-syntect = "5.2"
+syntect = "5.3"
 similar = "2"
 
 # Embedded assets

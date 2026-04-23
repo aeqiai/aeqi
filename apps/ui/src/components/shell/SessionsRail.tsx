@@ -115,6 +115,11 @@ export default function SessionsRail() {
                 aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
+                <span
+                  className={`threads-rail-row-status${
+                    item.status === "active" ? "" : " threads-rail-row-status--idle"
+                  }`}
+                />
                 <span className="threads-rail-row-name">{item.name}</span>
                 {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
                 <span className="threads-rail-row-time">{item.time}</span>

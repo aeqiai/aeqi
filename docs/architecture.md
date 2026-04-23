@@ -17,22 +17,23 @@ Plus **Activity** as infrastructure (audit log, costs -- not a primitive) in `ae
 
 ```
 Quest = WHAT needs to be done (persistent, trackable, assignable)
-Session = HOW it's being done (execution transcript, agent loop, tools)
+Session = the persistent runtime context
+Execution = HOW it's being done right now (agent loop, tools, steps)
 ```
 
 - Quest can exist without a session (queued, unstarted)
 - Quest can have multiple sessions (retries, handoffs)
 - Session can exist without a quest (ad-hoc chat, exploration)
 
-## Sessions -- The Universal Execution Model
+## Sessions -- The Universal Runtime Model
 
-Every execution is a session. `SessionManager.spawn_session()` is the single entry point.
+Every live run is an execution inside a session. `SessionManager.spawn_session()` is the single entry point.
 
 | Context | Type | Behavior |
 |---------|------|----------|
 | `parent_id` set | delegation | Child of another session |
 | `quest_id` set | quest | Executing tracked work |
-| `auto_close: false` | perpetual | Accepts follow-up messages |
+| `auto_close: false` | perpetual | Accepts follow-up input mid-execution |
 | Default | session | Runs to completion |
 
 ## Agent Identity

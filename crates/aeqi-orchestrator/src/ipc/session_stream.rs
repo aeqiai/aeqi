@@ -54,7 +54,12 @@ async fn forward_live_events(
     loop {
         match tokio::time::timeout(SUBSCRIBE_IDLE_TIMEOUT, rx.recv()).await {
             Ok(Ok(event)) => {
-                let terminal = matches!(event, ChatStreamEvent::Complete { .. });
+                let terminal = match &event {
+                    ChatStreamEvent::Complete { stop_reason, .. } => {
+                        stop_reason != "awaiting_input"
+                    }
+                    _ => false,
+                };
                 write_event(writer, &event).await?;
                 if terminal {
                     return Ok(true);

@@ -7,15 +7,15 @@ interface ChatComposerProps {
   setInput: (val: string) => void;
   streaming: boolean;
   displayName: string;
-  sessionPrompts: string[];
-  setSessionPrompts: React.Dispatch<React.SetStateAction<string[]>>;
+  sessionIdeas: string[];
+  setSessionIdeas: React.Dispatch<React.SetStateAction<string[]>>;
   sessionTask: { id: string; name: string } | null;
   setSessionTask: (val: { id: string; name: string } | null) => void;
   attachedFiles: { name: string; content: string; size: number }[];
   setAttachedFiles: React.Dispatch<
     React.SetStateAction<{ name: string; content: string; size: number }[]>
   >;
-  setShowAttachPicker: (val: "prompt" | "quest" | null) => void;
+  setShowAttachPicker: (val: "idea" | "quest" | null) => void;
   readFiles: (files: FileList | File[]) => void;
   dragOver: boolean;
   setDragOver: (val: boolean) => void;
@@ -33,8 +33,8 @@ export default function ChatComposer({
   setInput,
   streaming,
   displayName,
-  sessionPrompts,
-  setSessionPrompts,
+  sessionIdeas,
+  setSessionIdeas,
   sessionTask,
   setSessionTask,
   attachedFiles,
@@ -67,7 +67,7 @@ export default function ChatComposer({
         slug: "idea",
         label: "Attach an idea to this message",
         shortcut: "⌘P",
-        run: () => setShowAttachPicker("prompt"),
+        run: () => setShowAttachPicker("idea"),
       },
       {
         slug: "quest",
@@ -297,15 +297,15 @@ export default function ChatComposer({
           />
           <div className="asv-composer-body">
             {/* Attached chips — always visible */}
-            {(sessionPrompts.length > 0 || sessionTask || attachedFiles.length > 0) && (
+            {(sessionIdeas.length > 0 || sessionTask || attachedFiles.length > 0) && (
               <div className="asv-attach-chips">
-                {sessionPrompts.map((p, i) => (
+                {sessionIdeas.map((p, i) => (
                   <span key={`p-${i}`} className="asv-attach-chip">
                     {p}
                     <button
                       type="button"
                       className="asv-attach-chip-x"
-                      onClick={() => setSessionPrompts((prev) => prev.filter((_, j) => j !== i))}
+                      onClick={() => setSessionIdeas((prev) => prev.filter((_, j) => j !== i))}
                       aria-label={`Remove ${p}`}
                     >
                       ×
@@ -365,7 +365,7 @@ export default function ChatComposer({
                   variant="ghost"
                   size="sm"
                   className="asv-attach-btn"
-                  onClick={() => setShowAttachPicker("prompt")}
+                  onClick={() => setShowAttachPicker("idea")}
                   aria-label="Attach idea"
                   title="Attach idea (Cmd+P)"
                 >

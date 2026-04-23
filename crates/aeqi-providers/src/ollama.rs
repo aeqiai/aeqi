@@ -1,3 +1,24 @@
+//! Ollama local model provider implementation for AEQI.
+//!
+//! This module provides a [`Provider`] implementation for Ollama, a local LLM server
+//! that runs models on your own hardware. It uses an OpenAI-compatible API interface.
+//!
+//! # Features
+//! - Local model inference with Ollama
+//! - OpenAI-compatible API interface
+//! - Tool use support for local models
+//! - Longer timeouts for local inference (300 seconds)
+//!
+//! # Example
+//! ```no_run
+//! use aeqi_providers::OllamaProvider;
+//! use aeqi_core::traits::Provider;
+//!
+//! // Connect to local Ollama instance
+//! let provider = OllamaProvider::new("http://localhost:11434".to_string(), "llama2".to_string()).unwrap();
+//! // Or use convenience method: OllamaProvider::localhost("llama2".to_string())
+//! ```
+
 use aeqi_core::traits::{
     ChatRequest, ChatResponse, ContentPart, Message, MessageContent, Provider, Role, StopReason,
     ToolCall, ToolSpec, Usage,
@@ -16,22 +37,23 @@ pub struct OllamaProvider {
 }
 
 impl OllamaProvider {
-    pub fn new(base_url: String, default_model: String) -> Self {
+    pub fn new(base_url: String, default_model: String) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(300)) // Local models can be slow.
             .build()
-            .expect("failed to build HTTP client");
+            .context("failed to build HTTP client")?;
 
-        Self {
+        Ok(Self {
             client,
             base_url,
             default_model,
-        }
+        })
     }
 
     /// Default localhost URL.
     pub fn localhost(model: String) -> Self {
         Self::new("http://localhost:11434".to_string(), model)
+            .expect("failed to create localhost Ollama provider")
     }
 }
 

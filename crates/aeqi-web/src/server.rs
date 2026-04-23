@@ -85,7 +85,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     // This prevents the insecure "aeqi-dev" fallback from ever being used.
     let auth_secret = web.auth_secret.clone().or_else(|| {
         use rand::Rng;
-        let secret: String = rand::rng()
+        let secret: String = rand::thread_rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(48)
             .map(char::from)

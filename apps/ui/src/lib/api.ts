@@ -517,6 +517,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ agent_id: agentId }),
     }),
+  sendSessionMessage: (data: {
+    message: string;
+    agent?: string;
+    agent_id?: string;
+    session_id?: string;
+    session_ideas?: string[];
+    quest_id?: string;
+    files?: Array<{ name: string; content: string }>;
+  }) =>
+    request<Record<string, unknown>>("/sessions/send", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // Company templates — pre-threaded bundles. Catalog comes from Stream C's
   // `/api/templates`; spawn creates a root agent + seeds agents/events/ideas/

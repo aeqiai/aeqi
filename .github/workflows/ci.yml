@@ -8,23 +8,72 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        run: rustup show # reads rust-toolchain.toml
+
+      # 1. Enhanced Rust toolchain verification
+      - name: Verify and install Rust toolchain
+        id: rust_toolchain
+        run: |
+          if [ -f rust-toolchain.toml ]; then
+            EXPECTED_CHANNEL=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
+            echo "Installing Rust $EXPECTED_CHANNEL"
+            rustup toolchain install $EXPECTED_CHANNEL --profile minimal --components clippy,rustfmt,rust-src
+            rustup default $EXPECTED_CHANNEL
+            echo "toolchain=$EXPECTED_CHANNEL" >> $GITHUB_OUTPUT
+          else
+            echo "No rust-toolchain.toml found, using stable"
+            rustup default stable
+            echo "toolchain=stable" >> $GITHUB_OUTPUT
+          fi
+          rustup show
+          echo "Rust version: $(rustc --version)"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/ui/package-lock.json
-      - uses: Swatinem/rust-cache@v2
 
-      - name: Install ripgrep
-        run: sudo apt-get install -y ripgrep
+      # 2. Enhanced Rust caching with workspace optimization
+      - name: Rust cache (workspace optimized)
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-${{ runner.os }}-${{ steps.rust_toolchain.outputs.toolchain }}"
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install ripgrep and jq
+        run: sudo apt-get install -y ripgrep jq
+
+      # 3. Security scanning
+      - name: Install security tools
+        run: |
+          # Install cargo-audit for Rust security
+          cargo install cargo-audit --locked 2>/dev/null || echo "cargo-audit installation failed, continuing..."
+
+      - name: Run cargo-audit (security scan)
+        run: |
+          if command -v cargo-audit &> /dev/null; then
+            echo "Running cargo audit for Rust dependencies..."
+            cargo audit || echo "cargo audit completed with findings"
+          else
+            echo "cargo-audit not available, skipping security audit"
+          fi
+        continue-on-error: true
+
+      - name: NPM security audit
+        run: |
+          echo "Running npm audit for UI..."
+          cd apps/ui && npm audit --audit-level=moderate || echo "npm audit completed with findings"
+          echo "Running npm audit for Baileys bridge..."
+          cd ../../bridges/baileys && npm audit --audit-level=moderate || echo "npm audit completed with findings"
+        continue-on-error: true
 
       # ── Frontend ──────────────────────────────────
       - name: UI install
@@ -38,6 +87,19 @@ jobs:
 
       - name: UI test (vitest — smoke + unit)
         run: npm --prefix apps/ui test
+
+      # 6. Code coverage for frontend
+      - name: UI test with coverage
+        run: |
+          cd apps/ui
+          # Check if vitest coverage is configured
+          if grep -q "coverage" vite.config.ts 2>/dev/null || grep -q "coverage" package.json 2>/dev/null; then
+            echo "Running tests with coverage..."
+            npx vitest run --coverage
+          else
+            echo "Vitest coverage not configured, running tests without coverage"
+            npm test
+          fi
 
       - name: UI build
         run: npm --prefix apps/ui run build
@@ -58,5 +120,109 @@ jobs:
       - name: Rust build
         run: cargo build --workspace
 
-      - name: Rust tests
-        run: cargo test --workspace
+      # 6. Code coverage for Rust
+      - name: Install coverage tools
+        run: |
+          cargo install cargo-llvm-cov --locked 2>/dev/null || echo "cargo-llvm-cov installation failed, running tests without coverage"
+
+      - name: Run Rust tests with coverage
+        run: |
+          if command -v cargo-llvm-cov &> /dev/null; then
+            echo "Running Rust tests with coverage..."
+            cargo llvm-cov --workspace --lcov --output-path rust-coverage.lcov
+            echo "Coverage report generated: rust-coverage.lcov"
+            # Also run tests normally to ensure they pass
+            cargo test --workspace
+          else
+            echo "Running Rust tests without coverage (cargo-llvm-cov not available)"
+            cargo test --workspace
+          fi
+
+      # 7. Performance regression checks
+      - name: Performance checks
+        run: |
+          echo "=== Performance Regression Testing ==="
+
+          # Create scripts directory if it doesn't exist
+          mkdir -p scripts
+
+          # Run performance tests if script exists
+          if [ -f "scripts/performance-test.sh" ]; then
+            echo "Running performance test suite..."
+            chmod +x scripts/performance-test.sh
+            ./scripts/performance-test.sh || echo "Performance tests completed with warnings"
+
+            # Check if report was generated
+            if [ -f "performance-report.json" ]; then
+              echo "Performance report generated:"
+              cat performance-report.json | jq . 2>/dev/null || cat performance-report.json
+            fi
+          else
+            echo "Performance test script not found, running basic checks..."
+            echo "Binary size:"
+            find target/debug -maxdepth 1 -name "aeqi*" -type f -exec ls -lh {} \;
+            echo ""
+            echo "Build cache size:"
+            du -sh target/debug/ 2>/dev/null | head -1 || echo "Could not calculate debug build size"
+          fi
+
+          echo ""
+          echo "Note: For detailed performance regression tracking, add criterion benchmarks to the codebase"
+
+      # 4. Automated documentation generation
+      - name: Generate documentation
+        run: |
+          echo "=== Documentation Generation ==="
+          # Rust docs
+          echo "Generating Rust documentation..."
+          cargo doc --workspace --no-deps 2>&1 | tail -20 || echo "Rust documentation generation had warnings"
+
+          # Check if docs were generated
+          if [ -d "target/doc" ]; then
+            echo "✓ Rust documentation generated in target/doc/"
+            ls -la target/doc/ | head -5
+          fi
+
+          # Frontend docs (Storybook) - check if configured
+          if [ -f "apps/ui/package.json" ] && grep -q '"build-storybook"' apps/ui/package.json; then
+            echo "Building Storybook documentation..."
+            cd apps/ui
+            npm run build-storybook 2>&1 | tail -20 || echo "Storybook build had warnings"
+            if [ -d "storybook-static" ]; then
+              echo "✓ Storybook documentation generated"
+            fi
+          else
+            echo "Storybook not configured in package.json"
+          fi
+
+      # Upload artifacts
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            rust-coverage.lcov
+            apps/ui/coverage/
+          retention-days: 7
+
+      - name: Upload documentation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: |
+            target/doc/
+            apps/ui/storybook-static/
+          retention-days: 7
+
+      - name: Upload performance metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-metrics
+          path: |
+            performance-report.json
+            target/debug/aeqi
+            target/debug/aeqi-cli
+          retention-days: 7

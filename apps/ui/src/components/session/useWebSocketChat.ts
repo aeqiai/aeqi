@@ -22,13 +22,13 @@ interface UseWebSocketChatOptions {
   setSession: (sid: string | null) => void;
   setSessions: React.Dispatch<React.SetStateAction<SessionInfo[]>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  sessionPrompts: string[];
+  sessionIdeas: string[];
   sessionTask: { id: string; name: string } | null;
   attachedFiles: AttachedFile[];
 }
 
 interface DispatchMessageOptions {
-  sessionPrompts?: string[];
+  sessionIdeas?: string[];
   sessionTask?: { id: string; name: string } | null;
   attachedFiles?: AttachedFile[];
 }
@@ -43,7 +43,7 @@ export function useWebSocketChat({
   setSession,
   setSessions,
   setMessages,
-  sessionPrompts,
+  sessionIdeas,
   sessionTask,
   attachedFiles,
 }: UseWebSocketChatOptions) {
@@ -69,7 +69,7 @@ export function useWebSocketChat({
   );
 
   const attachEventHandlers = useCallback(
-    (ws: WebSocket, startTime: number) => {
+    (ws: WebSocket, startTime: number, persistent: boolean) => {
       let state = initialStreamState(startTime);
 
       ws.onmessage = (e) => {
@@ -79,10 +79,20 @@ export function useWebSocketChat({
         if (next === state) return;
         const prevStart = state.thinkingStart;
         state = next;
+        if (persistent && String(raw.type ?? "") === "StepStart" && state.thinkingStart === 0) {
+          state = { ...state, thinkingStart: Date.now() };
+        }
         setLiveSegments(state.segments);
         if (state.thinkingStart !== prevStart) setThinkingStart(state.thinkingStart);
         if (state.status.kind === "complete") {
           commitMessage(state, false);
+          if (persistent && isAwaitingInputComplete(raw)) {
+            state = initialStreamState(0);
+            setStreaming(false);
+            setLiveSegments([]);
+            setThinkingStart(null);
+            return;
+          }
           ws.close();
         } else if (state.status.kind === "error") {
           commitMessage(state, true);
@@ -108,17 +118,10 @@ export function useWebSocketChat({
 
   const dispatchMessage = useCallback(
     async (messageText: string, options?: DispatchMessageOptions) => {
-      const turnPrompts = options?.sessionPrompts ?? sessionPrompts;
+      const turnIdeas = options?.sessionIdeas ?? sessionIdeas;
       const turnTask = options?.sessionTask ?? sessionTask;
       const turnFiles = options?.attachedFiles ?? attachedFiles;
-      if (!token) return;
-      const startTime = Date.now();
-      unmarkQueued(setMessages, messageText);
-      setStreaming(true);
-      setLiveSegments([]);
-      setThinkingStart(startTime);
-
-      const { sessionId, isNew } = await ensureSession({
+      const { sessionId } = await ensureSession({
         sessionIdRef,
         prevSessionRef,
         setSession,
@@ -127,6 +130,34 @@ export function useWebSocketChat({
         agentName,
         messageText,
       });
+
+      if (!token || !sessionId) return;
+
+      const startTime = Date.now();
+      unmarkQueued(setMessages, messageText);
+      setStreaming(true);
+      setLiveSegments([]);
+      setThinkingStart(startTime);
+
+      const liveAttached = wsSessionRef.current === activeSessionId;
+      if (liveAttached) {
+        try {
+          await api.sendSessionMessage({
+            message: messageText,
+            agent_id: agentId || undefined,
+            session_id: sessionId,
+            session_ideas: turnIdeas.length > 0 ? turnIdeas : undefined,
+            quest_id: turnTask?.id,
+            files:
+              turnFiles.length > 0
+                ? turnFiles.map((f) => ({ name: f.name, content: f.content }))
+                : undefined,
+          });
+        } catch {
+          clearLiveState();
+        }
+        return;
+      }
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
@@ -137,27 +168,28 @@ export function useWebSocketChat({
               messageText,
               agentId,
               sessionId,
-              isNew,
-              sessionPrompts: turnPrompts,
+              sessionIdeas: turnIdeas,
               sessionTask: turnTask,
               attachedFiles: turnFiles,
             }),
           ),
         );
-      attachEventHandlers(ws, startTime);
+      attachEventHandlers(ws, startTime, false);
     },
     [
       token,
       agentId,
       agentName,
+      activeSessionId,
       sessionIdRef,
       prevSessionRef,
       setSession,
       setSessions,
       setMessages,
+      clearLiveState,
       attachEventHandlers,
       replaceSocket,
-      sessionPrompts,
+      sessionIdeas,
       sessionTask,
       attachedFiles,
     ],
@@ -174,7 +206,7 @@ export function useWebSocketChat({
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
-      attachEventHandlers(ws, startTime);
+      attachEventHandlers(ws, startTime, true);
     },
     [token, attachEventHandlers, replaceSocket],
   );
@@ -228,6 +260,12 @@ function parseEvent(data: string): RawEvent | null {
   } catch {
     return null;
   }
+}
+
+function isAwaitingInputComplete(event: RawEvent): boolean {
+  return (
+    String(event.type ?? "") === "Complete" && String(event.stop_reason ?? "") === "awaiting_input"
+  );
 }
 
 function openChatSocket(token: string): WebSocket {
@@ -344,8 +382,7 @@ interface SendPayloadArgs {
   messageText: string;
   agentId: string;
   sessionId: string | null;
-  isNew: boolean;
-  sessionPrompts: string[];
+  sessionIdeas: string[];
   sessionTask: { id: string; name: string } | null;
   attachedFiles: AttachedFile[];
 }
@@ -354,8 +391,7 @@ function sendPayload({
   messageText,
   agentId,
   sessionId,
-  isNew,
-  sessionPrompts,
+  sessionIdeas,
   sessionTask,
   attachedFiles,
 }: SendPayloadArgs): Record<string, unknown> {
@@ -364,8 +400,7 @@ function sendPayload({
     agent_id: agentId || undefined,
     session_id: sessionId || undefined,
   };
-  if (!isNew) return payload;
-  if (sessionPrompts.length > 0) payload.session_prompts = sessionPrompts;
+  if (sessionIdeas.length > 0) payload.session_ideas = sessionIdeas;
   if (sessionTask) payload.quest_id = sessionTask.id;
   if (attachedFiles.length > 0) {
     payload.files = attachedFiles.map((f) => ({ name: f.name, content: f.content }));

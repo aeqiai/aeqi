@@ -15,6 +15,34 @@ import EmptyState from "./session/EmptyState";
 
 const EMPTY_QUEUED_DRAFTS: PendingMessage[] = [];
 
+function mergeQueuedDrafts(drafts: PendingMessage[]): PendingMessage {
+  const text = drafts
+    .map((draft) => draft.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const filesByName = new Map<string, { name: string; content: string; size: number }>();
+  const ideas = new Set<string>();
+  let task: { id: string; name: string } | undefined;
+  for (const draft of drafts) {
+    for (const file of draft.files || []) {
+      filesByName.set(file.name, file);
+    }
+    for (const idea of draft.ideas || []) {
+      ideas.add(idea);
+    }
+    if (draft.task) {
+      task = draft.task;
+    }
+  }
+  return {
+    id: createDraftId(),
+    text,
+    files: filesByName.size > 0 ? [...filesByName.values()] : undefined,
+    ideas: ideas.size > 0 ? [...ideas] : undefined,
+    task,
+  };
+}
+
 interface AgentSessionProps {
   agentId: string;
   sessionId: string | null;
@@ -30,10 +58,10 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const displayName = agentName;
 
   // Attachment state
-  const [sessionPrompts, setSessionPrompts] = useState<string[]>([]);
+  const [sessionIdeas, setSessionIdeas] = useState<string[]>([]);
   const [sessionTask, setSessionTask] = useState<{ id: string; name: string } | null>(null);
-  const [showAttachPicker, setShowAttachPicker] = useState<"prompt" | "quest" | null>(null);
-  const [availablePrompts, setAvailablePrompts] = useState<
+  const [showAttachPicker, setShowAttachPicker] = useState<"idea" | "quest" | null>(null);
+  const [availableIdeas, setAvailableIdeas] = useState<
     { name: string; description: string; tags: string[] }[]
   >([]);
   const [availableTasks, setAvailableTasks] = useState<
@@ -41,6 +69,8 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   >([]);
 
   const messagesEnd = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
 
   // ── Hooks ──
 
@@ -64,7 +94,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     setSession: sessionManager.setSession,
     setSessions: sessionManager.setSessions,
     setMessages: sessionManager.setMessages,
-    sessionPrompts,
+    sessionIdeas,
     sessionTask,
     attachedFiles: fileAttachments.attachedFiles,
   });
@@ -109,16 +139,16 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     [messages, handleFork, handleNewConversation],
   );
 
-  // Fetch available prompts and quests when picker opens
+  // Fetch available ideas and quests when picker opens
   useEffect(() => {
-    if (showAttachPicker === "prompt" && availablePrompts.length === 0) {
+    if (showAttachPicker === "idea" && availableIdeas.length === 0) {
       api
         .getSkills()
         .then((data: Record<string, unknown>) => {
           const items = (data?.ideas || data?.skills || data?.prompts || []) as Array<
             Record<string, unknown>
           >;
-          setAvailablePrompts(
+          setAvailableIdeas(
             items.map((s) => ({
               name: (s.name as string) || "",
               description: (s.description as string) || "",
@@ -155,7 +185,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         handleNewConversation();
       } else if (e.key === "p") {
         e.preventDefault();
-        setShowAttachPicker((prev) => (prev === "prompt" ? null : "prompt"));
+        setShowAttachPicker((prev) => (prev === "idea" ? null : "idea"));
       } else if (e.key === "q") {
         e.preventDefault();
         setShowAttachPicker((prev) => (prev === "quest" ? null : "quest"));
@@ -171,9 +201,26 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   }, [handleNewConversation]);
 
   // Auto-scroll
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    messagesEnd.current?.scrollIntoView({ behavior, block: "end" });
+  }, []);
+
   useEffect(() => {
-    messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, liveSegments]);
+    scrollToBottom("auto");
+    setAtBottom(true);
+  }, [activeSessionId, scrollToBottom]);
+
+  useEffect(() => {
+    if (!atBottom) return;
+    scrollToBottom("auto");
+  }, [messages, liveSegments, atBottom, scrollToBottom]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAtBottom(distance < 48);
+  }, []);
 
   // Internal send handler — used by both local calls and the event bridge
   const sendDraft = useCallback(
@@ -197,7 +244,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       ]);
 
       void dispatchMessage(draft.text, {
-        sessionPrompts: draft.prompts,
+        sessionIdeas: draft.ideas,
         sessionTask: draft.task || null,
         attachedFiles: draft.files || [],
       });
@@ -222,15 +269,15 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   useEffect(() => {
     const onSend = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      const { text, files, prompts, task } = detail;
-      if (prompts?.length) setSessionPrompts(prompts);
+      const { text, files, ideas, task } = detail;
+      if (ideas?.length) setSessionIdeas(ideas);
       if (task) setSessionTask(task);
       if (files?.length) fileAttachments.setAttachedFiles(files);
       sendDraft({
         id: detail.id || createDraftId(),
         text,
         files,
-        prompts,
+        ideas,
         task,
       });
     };
@@ -241,7 +288,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       window.removeEventListener("aeqi:send-message", onSend);
       window.removeEventListener("aeqi:stop-streaming", onStop);
     };
-  }, [sendDraft, handleStop, fileAttachments, setSessionPrompts, setSessionTask]);
+  }, [sendDraft, handleStop, fileAttachments, setSessionIdeas, setSessionTask]);
 
   // Broadcast streaming state so the composer in AppLayout can reflect it
   useEffect(() => {
@@ -255,6 +302,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   // Consume any pending message stashed by AppLayout's composer when there
   // was no chat mounted (type-anywhere flow). Fire once on mount/agent change.
   const consumePendingMessage = useChatStore((s) => s.consumePendingMessage);
+  const drainQueuedDrafts = useChatStore((s) => s.drainQueuedDrafts);
   useEffect(() => {
     if (activeSessionId) return;
     const pendingMessage = consumePendingMessage(agentId);
@@ -269,14 +317,13 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       ? s.queuedDraftsBySession[activeSessionId] || EMPTY_QUEUED_DRAFTS
       : EMPTY_QUEUED_DRAFTS,
   );
-  const consumeQueuedDraft = useChatStore((s) => s.consumeQueuedDraft);
   useEffect(() => {
     if (!activeSessionId || streaming) return;
-    if (!queuedDrafts[0]) return;
-    const draft = consumeQueuedDraft(activeSessionId);
-    if (!draft) return;
-    sendDraft(draft);
-  }, [activeSessionId, streaming, queuedDrafts, consumeQueuedDraft, sendDraft]);
+    if (queuedDrafts.length === 0) return;
+    const drafts = drainQueuedDrafts(activeSessionId);
+    if (drafts.length === 0) return;
+    sendDraft(mergeQueuedDrafts(drafts));
+  }, [activeSessionId, streaming, queuedDrafts, drainQueuedDrafts, sendDraft]);
 
   if (!agentId) return null;
 
@@ -289,7 +336,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       onDragLeave={fileAttachments.handleDragLeave}
     >
       <div className="asv-main">
-        <div className="asv-messages">
+        <div className="asv-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
           {messages.length === 0 && queuedDrafts.length === 0 && !streaming && (
             <EmptyState
               agentName={agentName}
@@ -327,6 +374,18 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
           <div ref={messagesEnd} />
         </div>
+        {!atBottom && (
+          <button
+            type="button"
+            className="asv-jump-bottom"
+            onClick={() => {
+              scrollToBottom("auto");
+              setAtBottom(true);
+            }}
+          >
+            Jump to latest
+          </button>
+        )}
       </div>
     </div>
   );

@@ -165,7 +165,7 @@ pub(crate) fn build_provider_for_runtime(
     match provider_kind {
         ProviderKind::OpenRouter => {
             let api_key = get_api_key(config)?;
-            let mut provider = OpenRouterProvider::new(api_key, model);
+            let mut provider = OpenRouterProvider::new(api_key, model)?;
             if let Some(ref or_cfg) = config.providers.openrouter
                 && let Some(ref url) = or_cfg.base_url
             {
@@ -175,14 +175,14 @@ pub(crate) fn build_provider_for_runtime(
         }
         ProviderKind::Anthropic => {
             let api_key = get_anthropic_api_key(config)?;
-            Ok(Arc::new(AnthropicProvider::new(api_key, model)))
+            Ok(Arc::new(AnthropicProvider::new(api_key, model)?))
         }
         ProviderKind::Ollama => {
             let ollama = config.providers.ollama.as_ref();
             let url = ollama
                 .map(|cfg| cfg.url.clone())
                 .unwrap_or_else(|| "http://localhost:11434".to_string());
-            Ok(Arc::new(OllamaProvider::new(url, model)))
+            Ok(Arc::new(OllamaProvider::new(url, model)?))
         }
     }
 }
@@ -330,7 +330,7 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
             key,
             model,
             config.ideas.embedding_dimensions,
-        ));
+        )?);
         mem.with_embedder(
             embedder,
             config.ideas.embedding_dimensions,

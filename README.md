@@ -4,7 +4,7 @@
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-2024-black)](Cargo.toml)
 
-**An agent runtime built on four primitives.** A tree of agents that grows from conversation, remembers everything, acts autonomously, and reshapes itself from within.
+**An agent runtime built on four primitives.** A tree of agents that grows from context, remembers everything, acts autonomously, and reshapes itself from within.
 
 ```
 aeqi start    # daemon + dashboard on :8400
@@ -39,7 +39,7 @@ An idea is a piece of knowledge attached to an agent. Ideas replace what were pr
 | **Event-activated** | An event references the idea by id; assembling context walks matching events and pulls their ideas in | Identity, instructions, expertise, per-lifecycle-phase guidance |
 | **Recalled** | Semantic search over the idea store | Retrieved on demand via hybrid search (BM25 + vector + graph) |
 
-A "skill" is an idea an event activates. A "memory" is an idea no event references. A "system prompt" is the concatenation of every idea activated by `session:start`. Same primitive, different usage.
+A "skill" is an idea an event activates. A "memory" is an idea no event references. The session's persistent context is the concatenation of every idea activated by `session:start` plus whatever execution-scoped context is injected later. Same primitive, different usage.
 
 ### Quest -- unit of work
 
@@ -75,9 +75,9 @@ Activity is the audit log and cost ledger. Not a primitive -- infrastructure for
 ## Architecture
 
 ```
-CHAT SESSION (CLI / Web / Telegram / Discord / Slack)
-    User message --> Agent session (ideas + tools + inherited context)
-    --> Agent loop: LLM --> tool calls --> LLM --> ... --> response
+SESSION / EXECUTION
+    User input --> Agent session (ideas + tools + inherited context)
+    --> Execution: LLM --> tool calls --> step --> LLM --> ... --> response
     --> Transcript persisted (FTS5 searchable by agent and quest)
 
 ASYNC QUEST (event / delegation / webhook)
@@ -238,6 +238,7 @@ Pre-push hook runs all three automatically.
 - [Agent Loop Parity](docs/agent-loop-parity.md) -- comparison with Claude Code's agent loop
 - [UI Design](docs/ui-design.md) -- operator UI principles
 - [Vision](docs/vision.md) -- product north star and design principles
+- [Product Contract](docs/product-contract.md) -- shared runtime vocabulary and UX rules
 - [Roadmap](docs/roadmap.md) -- phases from current state to long-term product
 
 ## License
