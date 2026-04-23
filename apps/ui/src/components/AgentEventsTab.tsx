@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
-import { Button } from "./ui";
+import { Button, Select } from "./ui";
 import TestTriggerPanel from "./TestTriggerPanel";
 import EventEditor from "./EventEditor";
 import EventCanvas from "./EventCanvas";
@@ -394,17 +394,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             </div>
             <div className="events-addform-section">
               <div className="events-addform-label">Scope</div>
-              <select
-                className="scope-select"
+              <Select
+                size="sm"
                 value={newScope}
-                onChange={(e) => setNewScope(e.target.value as ScopeValue)}
-              >
-                {SCOPE_VALUES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setNewScope(v as ScopeValue)}
+                options={SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
+              />
             </div>
             <div className="events-addform-section">
               <div className="events-addform-label">Cooldown (s)</div>

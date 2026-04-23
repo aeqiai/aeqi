@@ -1,0 +1,76 @@
+/* Select primitive
+   Native <select> wrapped in a positioned container so we can paint our
+   own chevron. Appearance-none removes the browser default arrow; our SVG
+   chevron lives in the absolutely-positioned ::after slot.
+   Tokens are shared with Input so selects and text fields look like kin. */
+
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  padding-right: 28px; /* room for chevron */
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--input-border-focus);
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Size variants */
+
+.sm .select {
+  height: 28px;
+  padding: 0 10px;
+  padding-right: 26px;
+  font-size: var(--font-size-xs);
+}
+
+.sm .chevron {
+  right: 8px;
+}
+
+.md .select {
+  height: var(--input-h);
+}
+
+/* Chevron icon */
+
+.chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
