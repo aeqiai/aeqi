@@ -17,6 +17,7 @@ use std::sync::Arc;
 use aeqi_core::traits::{Channel as ChannelTrait, OutgoingMessage, SessionGateway};
 use aeqi_gates::{WhatsAppBaileysChannel, WhatsappBaileysGateway, whatsapp_baileys};
 use aeqi_orchestrator::WhatsappBaileysConfig;
+use aeqi_tools::{WhatsAppReactTool, WhatsAppReplyTool};
 use tracing::{info, warn};
 
 use super::SpawnContext;
@@ -185,6 +186,23 @@ async fn run_gateway(
                     .ok();
 
                 if let Some(ref s) = sender {
+                    let message_id = msg
+                        .metadata
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let from_me = msg
+                        .metadata
+                        .get("from_me")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let participant = msg
+                        .metadata
+                        .get("participant")
+                        .and_then(|v| v.as_str())
+                        .map(|s| serde_json::Value::String(s.to_string()))
+                        .unwrap_or(serde_json::Value::Null);
                     let _ = ss
                         .record_message(
                             &session_id,
@@ -192,7 +210,12 @@ async fn run_gateway(
                             "whatsapp-baileys",
                             "user",
                             &user_text,
-                            Some(&serde_json::json!({"jid": jid})),
+                            Some(&serde_json::json!({
+                                "jid": jid,
+                                "message_id": message_id,
+                                "from_me": from_me,
+                                "participant": participant,
+                            })),
                         )
                         .await;
                 }
@@ -234,6 +257,14 @@ async fn run_gateway(
             gm.activate_persistent(&session_id, &sender).await;
             gm.ensure_dispatcher(&session_id, &sender).await;
 
+            let wa_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = vec![
+                Arc::new(WhatsAppReplyTool {
+                    channel: ch_clone.clone(),
+                }),
+                Arc::new(WhatsAppReactTool {
+                    channel: ch_clone.clone(),
+                }),
+            ];
             let executor: Arc<dyn aeqi_orchestrator::session_queue::SessionExecutor> =
                 Arc::new(aeqi_orchestrator::queue_executor::QueueExecutor {
                     session_manager: sm.clone(),
@@ -246,6 +277,7 @@ async fn run_gateway(
                     idea_store: None,
                     adaptive_retry: false,
                     failure_analysis_model: String::new(),
+                    extra_tools: wa_tools,
                 });
 
             let queued = aeqi_orchestrator::queue_executor::QueuedMessage::chat(

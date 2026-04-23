@@ -445,6 +445,7 @@ impl Daemon {
                     idea_store: self.idea_store.clone(),
                     adaptive_retry: self.dispatcher.config.adaptive_retry,
                     failure_analysis_model: self.dispatcher.config.failure_analysis_model.clone(),
+                    extra_tools: Vec::new(),
                 });
             if let Err(e) = crate::session_queue::recover_on_boot(ss, executor).await {
                 warn!(error = %e, "session_queue::recover_on_boot failed");
@@ -494,6 +495,7 @@ impl Daemon {
                     idea_store: self.idea_store.clone(),
                     adaptive_retry: self.dispatcher.config.adaptive_retry,
                     failure_analysis_model: self.dispatcher.config.failure_analysis_model.clone(),
+                    extra_tools: Vec::new(),
                 });
             let config = crate::dispatch::DispatchConfig {
                 max_workers: self.dispatcher.config.max_workers,
@@ -1756,6 +1758,7 @@ impl Daemon {
                                                 .config
                                                 .failure_analysis_model
                                                 .clone(),
+                                            extra_tools: Vec::new(),
                                         });
                                     let queued = crate::queue_executor::QueuedMessage::chat(
                                         agent_id_direct

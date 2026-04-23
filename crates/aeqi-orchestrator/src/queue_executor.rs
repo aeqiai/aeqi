@@ -160,6 +160,10 @@ pub struct QueueExecutor {
     /// Model used for failure classification. Empty disables the classifier
     /// even when `adaptive_retry` is true.
     pub failure_analysis_model: String,
+    /// Channel-specific tools injected by gateway spawners (e.g. whatsapp_reply,
+    /// telegram_react). These are forwarded into `SpawnOptions::extra_tools` so
+    /// only sessions driven by this executor's channel receive them.
+    pub extra_tools: Vec<Arc<dyn aeqi_core::traits::Tool>>,
 }
 
 #[async_trait]
@@ -177,7 +181,8 @@ impl SessionExecutor for QueueExecutor {
         // BEFORE the user message in the timeline.
         let mut opts = SpawnOptions::interactive()
             .with_session_id(session_id.to_string())
-            .with_stream_sender(stream_sender);
+            .with_stream_sender(stream_sender)
+            .with_extra_tools(self.extra_tools.clone());
         if let Some(ref s) = queued.sender_id {
             opts = opts.with_sender_id(s.clone());
         }
@@ -433,6 +438,7 @@ impl SessionExecutor for QueueExecutor {
                             idea_store: self.idea_store.clone(),
                             adaptive_retry: self.adaptive_retry,
                             failure_analysis_model: self.failure_analysis_model.clone(),
+                            extra_tools: Vec::new(),
                         });
                         if let Err(e) =
                             crate::session_queue::enqueue(ss.clone(), self_executor, creator, &p)

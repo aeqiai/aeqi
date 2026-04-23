@@ -10,6 +10,7 @@ use std::sync::Arc;
 use aeqi_core::traits::Channel as ChannelTrait;
 use aeqi_gates::{TelegramChannel, TelegramGateway};
 use aeqi_orchestrator::TelegramConfig;
+use aeqi_tools::{TelegramReactTool, TelegramReplyTool};
 use tracing::{info, warn};
 
 use super::SpawnContext;
@@ -254,6 +255,14 @@ async fn run_telegram_gateway(
 
             // Telegram sessions are chat-only; the adaptive_retry path only
             // fires on quest runs, so leave the classifier knobs at defaults.
+            let tg_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = vec![
+                Arc::new(TelegramReplyTool {
+                    channel: tg.clone(),
+                }),
+                Arc::new(TelegramReactTool {
+                    channel: tg.clone(),
+                }),
+            ];
             let executor: Arc<dyn aeqi_orchestrator::session_queue::SessionExecutor> =
                 Arc::new(aeqi_orchestrator::queue_executor::QueueExecutor {
                     session_manager: sm.clone(),
@@ -266,6 +275,7 @@ async fn run_telegram_gateway(
                     idea_store: None,
                     adaptive_retry: false,
                     failure_analysis_model: String::new(),
+                    extra_tools: tg_tools,
                 });
             let queued = aeqi_orchestrator::queue_executor::QueuedMessage::chat(
                 aid.clone(),

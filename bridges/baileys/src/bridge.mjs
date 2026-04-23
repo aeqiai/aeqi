@@ -10,11 +10,13 @@
 // it to `tracing` so Baileys warnings surface in gateway logs.
 //
 // Methods:
-//   ping                       — smoke test
-//   start({session_dir})       — open auth state, connect; emits qr/connecting/ready/disconnected
-//   send_text({jid, text})     — send plain text message
-//   logout                     — sign out and wipe credentials (user will need to re-scan QR)
-//   shutdown                   — close socket, exit 0
+//   ping                                              — smoke test
+//   start({session_dir})                              — open auth state, connect; emits qr/connecting/ready/disconnected
+//   send_text({jid, text})                            — send plain text message
+//   send_reply({jid, text, quoted_id, quoted_remote_jid?, quoted_from_me?, participant?}) — send quoted reply
+//   send_reaction({jid, message_id, emoji, from_me?, participant?}) — send emoji reaction
+//   logout                                            — sign out and wipe credentials (user will need to re-scan QR)
+//   shutdown                                          — close socket, exit 0
 //
 // Events:
 //   ready        {jid, name?}
@@ -197,6 +199,48 @@ async function handle(method, params) {
       const res = await sock.sendMessage(jid, { text });
       rememberSent(res?.key?.id);
       return { id: res?.key?.id ?? null, jid };
+    }
+
+    case "send_reply": {
+      if (!sock) throw new Error("send_reply: socket not started");
+      const { jid, text, quoted_id, quoted_remote_jid, quoted_from_me, participant } = params ?? {};
+      if (!jid || typeof jid !== "string") throw new Error("send_reply: jid required");
+      if (typeof text !== "string") throw new Error("send_reply: text required");
+      if (!quoted_id || typeof quoted_id !== "string") throw new Error("send_reply: quoted_id required");
+      // Baileys needs a minimal proto message with key to thread the reply.
+      const quoted = {
+        key: {
+          id: quoted_id,
+          remoteJid: quoted_remote_jid ?? jid,
+          fromMe: !!quoted_from_me,
+          ...(participant ? { participant } : {}),
+        },
+        message: { conversation: "" }, // content doesn't matter for quoting
+      };
+      const res = await sock.sendMessage(jid, { text }, { quoted });
+      rememberSent(res?.key?.id);
+      return { id: res?.key?.id ?? null, jid };
+    }
+
+    case "send_reaction": {
+      if (!sock) throw new Error("send_reaction: socket not started");
+      const { jid, message_id, emoji, from_me, participant } = params ?? {};
+      if (!jid || typeof jid !== "string") throw new Error("send_reaction: jid required");
+      if (!message_id || typeof message_id !== "string") throw new Error("send_reaction: message_id required");
+      if (!emoji || typeof emoji !== "string") throw new Error("send_reaction: emoji required");
+      const res = await sock.sendMessage(jid, {
+        react: {
+          text: emoji,
+          key: {
+            id: message_id,
+            remoteJid: jid,
+            fromMe: !!from_me,
+            ...(participant ? { participant } : {}),
+          },
+        },
+      });
+      rememberSent(res?.key?.id);
+      return { reacted: true, jid, message_id };
     }
 
     case "logout": {
