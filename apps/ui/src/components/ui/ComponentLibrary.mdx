@@ -1,0 +1,84 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Library/Component Library" />
+
+# aeqi component library
+
+This Storybook is the public reference for the primitives exported from
+`@/components/ui`.
+
+Every primitive in the library should satisfy three conditions:
+
+- it is exported from `src/components/ui/index.ts`
+- it has at least one Storybook story
+- it consumes shared tokens instead of ad hoc local styling
+
+## Import surface
+
+```ts
+import {
+  Badge,
+  Button,
+  Card,
+  DataState,
+  DetailField,
+  EmptyState,
+  ErrorBoundary,
+  HeroStats,
+  IconButton,
+  Input,
+  Modal,
+  Panel,
+  ProgressBar,
+  Spinner,
+  Tabs,
+  TagList,
+  Textarea,
+  Tooltip,
+} from "@/components/ui";
+```
+
+## Current primitives
+
+The current public library exposes 18 primitives.
+
+### Actions and input
+
+| Primitive | Purpose |
+| --- | --- |
+| `Button` | Primary, secondary, ghost, and destructive actions |
+| `IconButton` | Dense icon-only actions for toolbars and rows |
+| `Input` | Single-line text input with label, hint, and error support |
+| `Textarea` | Multi-line prose input using the same field language |
+
+### Structure and data display
+
+| Primitive | Purpose |
+| --- | --- |
+| `Card` | Generic grouped container with optional header/footer |
+| `Panel` | Opinionated section container with title/actions chrome |
+| `Tabs` | Accessible tablist with counts and panel content |
+| `DetailField` | Label/value pair for settings and detail views |
+| `HeroStats` | Compact stats row for dashboards and summaries |
+| `ProgressBar` | Determinate progress and workload indicators |
+| `TagList` | Tag/chip list with optional empty fallback |
+
+### Feedback, status, and overlays
+
+| Primitive | Purpose |
+| --- | --- |
+| `Badge` | Status and metadata chips |
+| `EmptyState` | No-data and zero-result placeholders |
+| `DataState` | Loading / empty / content tri-state wrapper |
+| `Spinner` | Loading indicator |
+| `Tooltip` | Hover/focus explanation for dense controls |
+| `Modal` | Dialog shell for confirmations and forms |
+| `ErrorBoundary` | Render fallback UI when a subtree throws |
+
+## How to read this Storybook
+
+- `Foundations` documents tokens, surfaces, typography, motion, and rules.
+- `Components` holds reusable UI primitives.
+- `Feedback` holds status, loading, empty, and overlay primitives that are still part of the component library.
+
+If a new primitive lands in code but not in Storybook, the library docs are incomplete.

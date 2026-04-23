@@ -6,12 +6,19 @@ const preview: Preview = {
   parameters: {
     controls: { matchers: { color: /(background|color)$/i, date: /Date$/i } },
     backgrounds: {
-      default: "light",
+      default: "shell",
       values: [
-        { name: "light", value: "#ffffff" },
-        { name: "surface", value: "rgba(0, 0, 0, 0.015)" },
-        { name: "elevated", value: "rgba(0, 0, 0, 0.035)" },
+        { name: "shell", value: "#f4f4f5" },
+        { name: "card", value: "#ffffff" },
+        { name: "inset-subtle", value: "#f2f2f4" },
+        { name: "inset-strong", value: "#efeff1" },
+        { name: "inverse", value: "#0a0a0b" },
       ],
+    },
+    options: {
+      storySort: {
+        order: ["Library", "Foundations", "Components", "Feedback"],
+      },
     },
     docs: { theme },
   },

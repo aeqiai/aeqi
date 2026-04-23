@@ -12,33 +12,30 @@
 :root {
   /* ── Color aliases (old unprefixed → new --color-* tokens) ── */
 
-  /* Three-tier surface system — neutral paper layered by value.
-       canvas  — outside the card (the "desk")        — one step off paper
-       paper   — the main content pane                — primary surface
-       card    — raised cards / rails / alternating   — elevated surface
-     Each tier lifts the next — the radiused card floats off the desk and
-     the rail reads as a separate document inside it. In v3 light mode
-     "paper" is both the semantic name and the literal neutral color. */
-  --color-canvas: var(--color-bg-base); /* #efeff1 — the desk */
-  --bg-base: var(--color-paper); /* #f4f4f5 — panels/inputs/modals */
-  --bg-surface: var(--color-bg-surface);
-  --bg-elevated: var(--color-card); /* #ffffff — overlays (palette, modals, drawer hover) */
-  --bg-overlay: var(--color-bg-overlay);
-  --bg-canvas: var(--color-bg-base); /* #efeff1 — outside the card */
+  /* Authenticated app surface model:
+       shell        — the outer app world / sidebar frame
+       card         — the white reading surface inside the shell
+       card-subtle  — lighter grouped controls inside the white card
+       card-muted   — stronger recessed panes inside the white card */
+  --color-canvas: var(--color-card-muted);
+  --bg-base: var(--color-card-muted);
+  --bg-surface: var(--color-card-subtle);
+  --bg-elevated: var(--color-card);
+  --bg-overlay: var(--color-card);
+  --bg-canvas: var(--color-card-muted);
+  --bg-paper: var(--color-card);
 
   /* Sidebar tint — a single subtle value step below the white content
      so the sidebar reads as its own surface under a hairline divider.
      No floating, no rounding — the shell is architectural. Neutral
      grey (zero chroma) to match the v4 graphite-and-ink register. */
-  --bg-sidebar: var(--color-paper);
+  --bg-sidebar: var(--color-shell);
 
   /* In-card raised row/chip tint. The main content card is white
-     (the "document"); items inside that need to stand out go subtly
-     DARKER (paper tint) — the inverse of dark-mode intuition. Used
-     for zebra rows, hover surfaces, chips on the white card. Modals
-     and overlays (which sit on paper) keep using --bg-elevated for
-     their white lift. */
-  --bg-row: var(--color-paper); /* #f4f4f5 */
+     (the "document"); items inside that need to stand out resolve to the
+     stronger inset family, never back to shell-paper. Used for zebra rows,
+     compact trays, grouped chips, and recessed controls. */
+  --bg-row: var(--color-card-muted);
 
   /* Well surface aliases — the recessed / inset surface used by the
      composer and other sunken panes. Now resolves to --color-slab
@@ -56,9 +53,9 @@
   --ink-text-dim: var(--color-ink-muted);
   --ink-ring-focus: 0 0 0 3px var(--color-focus-ring);
 
-  /* Legacy background aliases */
-  --bg-secondary: var(--color-bg-surface);
-  --bg-primary: var(--color-bg-base);
+  /* Compatibility bridge for existing dashboard selectors. Internal only. */
+  --bg-secondary: var(--color-card-subtle);
+  --bg-primary: var(--color-card-muted);
   --bg-subtle: rgba(0, 0, 0, 0.03);
 
   /* Destructive — legacy alias used by confirm buttons, delete actions.
@@ -136,7 +133,7 @@
   --input-h: 32px;
   --input-px: 12px;
   --input-radius: var(--radius-md);
-  --input-bg: var(--bg-base);
+  --input-bg: var(--color-card-subtle);
   --input-border: var(--border);
   --input-border-focus: var(--border-hover);
   --input-ring-focus: var(--ring-muted);
@@ -193,7 +190,7 @@
   --section-label-size: var(--font-size-micro);
 
   /* Stat card accent — top border on settings/quests stats */
-  --stat-card-bg: var(--bg-base);
+  --stat-card-bg: var(--color-card-muted);
   --stat-card-border: var(--border);
 }
 

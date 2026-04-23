@@ -11,18 +11,21 @@
 
 export const color = {
   bg: {
-    base: "#efeff1", // page background — one step darker than paper
-    surface: "#f4f4f5", // main surface — neutral grey paper
+    base: "#efeff1", // inset strong inside the primary card
+    surface: "#f2f2f4", // inset subtle inside the primary card
     elevated: "#ffffff", // raised — modals, popovers, cards
     overlay: "#ffffff", // highest — tooltips, floating menus
   },
 
   // Semantic surface aliases used across landing + dashboard
+  shell: "#f4f4f5",
   paper: "#f4f4f5",
   card: "#ffffff",
+  cardSubtle: "#f2f2f4",
+  cardMuted: "#efeff1",
   sectionAlt: "#ffffff",
-  slab: "oklch(0.955 0.005 260)",
-  slabElevated: "oklch(0.965 0.004 260)",
+  slab: "#efeff1",
+  slabElevated: "#f2f2f4",
   slabBorder: "rgba(0, 0, 0, 0.06)",
   slabBorderHover: "rgba(0, 0, 0, 0.1)",
   slabBorderFocus: "rgba(90, 115, 152, 0.45)",

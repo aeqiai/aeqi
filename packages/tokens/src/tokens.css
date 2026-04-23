@@ -27,25 +27,24 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Surface ramp — four tiers, all PURE NEUTRAL (zero chroma). The eye
+  /* Surface model — four tiers, all PURE NEUTRAL (zero chroma). The eye
      shouldn't read any hue off a surface; every pane is a cleaner grey
      than the last, which gives the interface its trust-through-restraint
      register. The ramp, lightest to most recessed:
 
        card     — raised white, the primary reading surface.
-       paper    — the main light-grey backdrop. Sidebar, shell edges,
-                  body bg, secondary panes. Everything outside the
-                  white card sits on paper.
-       slab     — one step darker than paper. Recessed panes INSIDE
-                  the white card: kanban lanes, template gallery,
-                  chat background stripes, composer well, code blocks.
-       slab+1   — hover / raised row INSIDE a slab pane.
+       paper    — the shell / outer app world. Sidebar, frame, body bg.
+       subtle   — the lighter inset family INSIDE the white card.
+       muted    — the stronger inset family INSIDE the white card.
 
-     Prior versions split "desk" (--color-bg-base), "well", and "canvas"
-     into separate tiers even though they sat 1 RGB unit apart. Those
-     back-compat aliases still resolve (to slab) so existing code works,
-     but new code should reach for --color-card / --color-paper /
-     --color-slab / --color-slab-elevated. */
+     Canonical semantic roles:
+
+       --color-shell        → outer frame / authenticated app environment
+       --color-card         → primary paper / main working surface
+       --color-card-subtle  → gentle inset inside the card
+       --color-card-muted   → stronger inset inside the card
+
+     Canonical terminology is the semantic role set above. */
 
   /* Tier 1: raised white */
   --color-card: #ffffff;
@@ -54,18 +53,22 @@
   /* Tier 2: paper — main neutral-grey surface, no hue */
   --color-paper: #f4f4f5;
 
-  /* Tier 3: slab — recessed pane inside the white card */
+  /* Tier 3/4: inset family inside the white card */
   --color-slab: #efeff1;
   --color-slab-elevated: #f2f2f4; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
   --color-slab-border-hover: rgba(0, 0, 0, 0.12);
   --color-slab-border-focus: rgba(0, 0, 0, 0.3);
 
-  /* Back-compat aliases — every older selector references one of these
-     names. They continue to resolve correctly; new code should prefer
-     the canonical --color-card / --color-paper / --color-slab set. */
-  --color-bg-base: var(--color-slab); /* was "desk / canvas" */
-  --color-bg-surface: var(--color-paper);
+  /* Semantic surface roles */
+  --color-shell: var(--color-paper);
+  --color-card-subtle: var(--color-slab-elevated);
+  --color-card-muted: var(--color-slab);
+
+  /* Compatibility bridge for existing selectors. Internal only — not part
+     of the public design-system terminology. */
+  --color-bg-base: var(--color-card-muted);
+  --color-bg-surface: var(--color-card-subtle);
   --color-bg-elevated: var(--color-card);
   --color-bg-overlay: var(--color-card);
   --color-well-bg: var(--color-slab);

@@ -2,7 +2,7 @@ import { create } from "@storybook/theming/create";
 
 export default create({
   base: "light",
-  brandTitle: "aeqi design system",
+  brandTitle: "aeqi component library",
   brandUrl: "https://aeqi.ai",
   brandTarget: "_blank",
 
@@ -11,9 +11,9 @@ export default create({
   colorSecondary: "#000000",
 
   // UI
-  appBg: "#fafafa",
+  appBg: "#f4f4f5",
   appContentBg: "#ffffff",
-  appBorderColor: "rgba(0, 0, 0, 0.08)",
+  appBorderColor: "rgba(0, 0, 0, 0.06)",
   appBorderRadius: 8,
 
   // Text
@@ -24,11 +24,11 @@ export default create({
   // Toolbar
   barTextColor: "rgba(0, 0, 0, 0.5)",
   barSelectedColor: "#000000",
-  barBg: "#ffffff",
+  barBg: "#f4f4f5",
 
   // Form
   inputBg: "#ffffff",
-  inputBorder: "rgba(0, 0, 0, 0.08)",
+  inputBorder: "rgba(0, 0, 0, 0.06)",
   inputTextColor: "rgba(0, 0, 0, 0.85)",
   inputBorderRadius: 6,
 
