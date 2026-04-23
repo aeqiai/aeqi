@@ -18,40 +18,41 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px 10px;
+  gap: 10px;
+  padding: 4px 14px 5px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.025)), var(--bg-sidebar);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.015)), var(--bg-sidebar);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.005em;
-  line-height: 1.4;
+  line-height: 1.2;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
 .shell-footer-brand {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   flex: 0 0 auto;
 }
-.shell-footer-wordmark {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
+.shell-footer-brandmark {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  flex-shrink: 0;
 }
 .shell-footer-copy {
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  font-size: 10px;
   white-space: nowrap;
 }
 .shell-footer-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
   color: var(--text-secondary);
   text-decoration: none;
@@ -69,8 +70,8 @@
 }
 .shell-footer-status-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.55;
@@ -79,9 +80,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 4px 10px;
   min-width: 0;
-  flex: 1 1 420px;
+  flex: 1 1 320px;
 }
 .shell-footer-nav a {
   color: var(--text-secondary);
@@ -102,7 +103,6 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   white-space: nowrap;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -126,7 +126,7 @@
      runs all the way to the viewport and the profile anchor dips below
      the card's baseline, breaking the horizontal baseline the shell
      relies on. */
-  padding-bottom: var(--shell-legal-h, 28px);
+  padding-bottom: var(--shell-footer-h, 28px);
 }
 .left-sidebar.collapsed {
   width: 52px;
@@ -2676,7 +2676,7 @@
     border-right: none;
   }
   .shell-footer {
-    padding: 8px 12px 10px;
+    padding: 4px 12px 6px;
     gap: 8px;
   }
 
