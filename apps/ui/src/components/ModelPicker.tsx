@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { Spinner } from "./ui";
+import { Popover, Spinner } from "./ui";
 
 type Tier = "free" | "cheap" | "balanced" | "premium";
 
@@ -64,7 +64,6 @@ export default function ModelPicker({
   const [cursor, setCursor] = useState(0);
   const [customDraft, setCustomDraft] = useState("");
 
-  const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -145,17 +144,6 @@ export default function ModelPicker({
     [closePicker, onChange, value],
   );
 
-  // Outside click closes the popover.
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) closePicker();
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open, closePicker]);
-
   // Scroll highlighted row into view.
   useEffect(() => {
     if (!open) return;
@@ -213,50 +201,62 @@ export default function ModelPicker({
   }
 
   return (
-    <div ref={rootRef} className={`mp${open ? " mp--open" : ""}${disabled ? " mp--disabled" : ""}`}>
-      <button
-        type="button"
-        className="mp-trigger"
-        onClick={() => (open ? closePicker() : openPicker())}
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
+    <div className={`mp${open ? " mp--open" : ""}${disabled ? " mp--disabled" : ""}`}>
+      <Popover
+        open={open}
+        onOpenChange={closePicker}
+        placement="bottom-start"
+        className="mp-popover-panel"
+        trigger={
+          <button
+            type="button"
+            className="mp-trigger"
+            onClick={() => (open ? closePicker() : openPicker())}
+            disabled={disabled}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            <span className="mp-trigger-main">
+              <span className="mp-trigger-name">
+                {current?.display_name ?? (isCustom ? "Custom slug" : "Choose a model")}
+              </span>
+              <span className="mp-trigger-slug">{value || "—"}</span>
+            </span>
+            <span className="mp-trigger-meta">
+              {current && (
+                <>
+                  <span className="mp-tier-pill" data-tier={current.tier}>
+                    {TIER_LABELS[current.tier].label}
+                  </span>
+                  <span className="mp-trigger-stats">
+                    {formatContext(current.context_window)} · {priceLabel(current)}
+                  </span>
+                </>
+              )}
+              {!current && isCustom && (
+                <span className="mp-tier-pill mp-tier-pill--custom">Custom</span>
+              )}
+              <svg
+                className="mp-chevron"
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 4.5 L6 7.5 L9 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </button>
+        }
       >
-        <span className="mp-trigger-main">
-          <span className="mp-trigger-name">
-            {current?.display_name ?? (isCustom ? "Custom slug" : "Choose a model")}
-          </span>
-          <span className="mp-trigger-slug">{value || "—"}</span>
-        </span>
-        <span className="mp-trigger-meta">
-          {current && (
-            <>
-              <span className="mp-tier-pill" data-tier={current.tier}>
-                {TIER_LABELS[current.tier].label}
-              </span>
-              <span className="mp-trigger-stats">
-                {formatContext(current.context_window)} · {priceLabel(current)}
-              </span>
-            </>
-          )}
-          {!current && isCustom && (
-            <span className="mp-tier-pill mp-tier-pill--custom">Custom</span>
-          )}
-          <svg className="mp-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M3 4.5 L6 7.5 L9 4.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-      </button>
-
-      {open && (
-        <div className="mp-popover" role="listbox" aria-label="Model catalog" onKeyDown={onKeyDown}>
+        <div role="listbox" aria-label="Model catalog" onKeyDown={onKeyDown}>
           <div className="mp-search">
             <svg
               className="mp-search-icon"
@@ -409,7 +409,7 @@ export default function ModelPicker({
             </div>
           </div>
         </div>
-      )}
+      </Popover>
     </div>
   );
 }

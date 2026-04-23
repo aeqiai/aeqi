@@ -1067,34 +1067,15 @@
   border-style: dashed;
 }
 
-/* -------- Popover -------- */
+/* -------- Popover panel (overrides Popover primitive defaults) -------- */
 
-.mp-popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+.mp-popover-panel {
   right: 0;
   z-index: 50;
   display: flex;
   flex-direction: column;
   max-height: min(560px, 70vh);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popover);
-  overflow: hidden;
-  animation: mp-pop-in 140ms ease-out;
-}
-
-@keyframes mp-pop-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  border-color: var(--border-hover);
 }
 
 /* -------- Search -------- */
