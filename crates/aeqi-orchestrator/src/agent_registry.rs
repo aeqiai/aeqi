@@ -77,6 +77,12 @@ pub struct Agent {
     /// Tools denied for this agent (JSON array of tool names). Empty = all tools allowed.
     #[serde(default)]
     pub tool_deny: Vec<String>,
+    /// Whether this agent is allowed to spawn a child session of itself via
+    /// `session.spawn`. Defaults to `false`. Set `true` for transport-bound
+    /// agents (Telegram / WhatsApp / Discord owners) that rely on self-delegation
+    /// for interactive continuation.
+    #[serde(default)]
+    pub can_self_delegate: bool,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -233,6 +239,34 @@ fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
          UPDATE quests SET scope = 'self'
          WHERE agent_id IS NOT NULL AND scope NOT IN ('self','siblings','children','branch','global');",
     )?;
+    Ok(())
+}
+
+/// Idempotent migration: adds the `can_self_delegate` column to the `agents`
+/// table (older on-disk DBs won't have it) and backfills transport-bound agents.
+///
+/// Transport-bound agents are those that own at least one row in `channels`.
+/// Their `can_self_delegate` is set to 1 because they previously inherited this
+/// capability via `SessionType::Perpetual` and their interactive behaviour depends
+/// on it. All other agents keep the default of 0.
+fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "can_self_delegate") {
+        conn.execute_batch(
+            "ALTER TABLE agents ADD COLUMN can_self_delegate INTEGER NOT NULL DEFAULT 0;",
+        )?;
+        // Backfill: any agent that owns a channel row is transport-bound and
+        // inherits the old Perpetual / self-delegate behaviour.
+        conn.execute_batch(
+            "UPDATE agents SET can_self_delegate = 1
+             WHERE id IN (SELECT DISTINCT agent_id FROM channels);",
+        )?;
+    }
     Ok(())
 }
 
@@ -503,6 +537,10 @@ impl AgentRegistry {
                  ON ideas(COALESCE(agent_id, ''), name);",
         )?;
 
+        // ── Agent-column migration (idempotent) ─────────────────────────────
+        // Must run after channels table exists (backfill JOINs on it).
+        ensure_agent_columns(&conn)?;
+
         // ── Scope-model migration for aeqi.db (idempotent) ──────────────────
         // Normalises legacy scope values in events and ideas to the new enum.
         ensure_aeqi_db_scope_columns(&conn)?;
@@ -655,6 +693,7 @@ impl AgentRegistry {
             quest_prefix: None,
             worker_timeout_secs: None,
             tool_deny: Vec::new(),
+            can_self_delegate: false,
         };
 
         let db = self.db.lock().await;
@@ -1256,6 +1295,19 @@ impl AgentRegistry {
             "UPDATE agents SET tool_deny = ?1 WHERE id = ?2",
             params![json, id],
         )?;
+        Ok(())
+    }
+
+    /// Set `can_self_delegate` for an agent.
+    pub async fn set_can_self_delegate(&self, id: &str, value: bool) -> Result<()> {
+        let db = self.db.lock().await;
+        let updated = db.execute(
+            "UPDATE agents SET can_self_delegate = ?1 WHERE id = ?2",
+            params![value as i64, id],
+        )?;
+        if updated == 0 {
+            anyhow::bail!("agent '{id}' not found");
+        }
         Ok(())
     }
 
@@ -2663,6 +2715,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),
+        can_self_delegate: row.get::<_, i64>("can_self_delegate").unwrap_or(0) != 0,
     }
 }
 

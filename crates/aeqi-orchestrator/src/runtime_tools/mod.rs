@@ -52,13 +52,28 @@ pub fn build_runtime_registry(
 /// Like `build_runtime_registry` but with an explicit `SpawnFn` for `session.spawn`.
 /// Called by `SessionManager::spawn_session` which injects a closure that captures
 /// a `Weak<SessionManager>` to break the ownership cycle.
+///
+/// `can_self_delegate` mirrors the per-agent DB flag: when `false`, `session.spawn`
+/// rejects the call with a capability error. Defaults to `false`; transport-bound
+/// agents pass `true`.
 pub fn build_runtime_registry_with_spawn(
     idea_store: Option<Arc<dyn IdeaStore>>,
     session_store: Option<Arc<SessionStore>>,
     spawn_fn: Option<SpawnFn>,
 ) -> ToolRegistry {
+    build_runtime_registry_with_spawn_and_caps(idea_store, session_store, spawn_fn, false)
+}
+
+/// Full constructor — same as `build_runtime_registry_with_spawn` but
+/// accepts the `can_self_delegate` capability flag.
+pub fn build_runtime_registry_with_spawn_and_caps(
+    idea_store: Option<Arc<dyn IdeaStore>>,
+    session_store: Option<Arc<SessionStore>>,
+    spawn_fn: Option<SpawnFn>,
+    can_self_delegate: bool,
+) -> ToolRegistry {
     let spawn_tool: Arc<dyn Tool> = match spawn_fn {
-        Some(f) => Arc::new(SessionSpawnTool::new(f)),
+        Some(f) => Arc::new(SessionSpawnTool::new(f, can_self_delegate)),
         None => Arc::new(SessionSpawnTool::stub()),
     };
     let tools: Vec<Arc<dyn Tool>> = vec![

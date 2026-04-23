@@ -205,6 +205,11 @@ pub struct AgentConfig {
     /// (e.g. graph guardrails look up a per-project code graph DB).
     /// Empty string when running outside a project context.
     pub project_name: String,
+    /// Whether this agent is permitted to spawn a child session of itself via
+    /// `session.spawn` (self-delegation). Defaults to `false`.
+    /// Transport-bound agents (Telegram / WhatsApp / Discord owners) set this
+    /// to `true` because their interactive continuation model depends on it.
+    pub can_self_delegate: bool,
 }
 
 impl Default for AgentConfig {
@@ -235,6 +240,7 @@ impl Default for AgentConfig {
             compact_prompt_template: None,
             session_id: String::new(),
             project_name: String::new(),
+            can_self_delegate: false,
         }
     }
 }

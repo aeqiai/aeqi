@@ -146,13 +146,24 @@ pub async fn handle_agent_spawn(
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
+    let can_self_delegate = request.get("can_self_delegate").and_then(|v| v.as_bool());
 
     let agent = match ctx.agent_registry.spawn(name, parent_id, model).await {
         Ok(a) => a,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 
+    // Apply optional capability flags set at hire time.
     let mut warnings: Vec<String> = Vec::new();
+    if let Some(csd) = can_self_delegate
+        && let Err(e) = ctx
+            .agent_registry
+            .set_can_self_delegate(&agent.id, csd)
+            .await
+    {
+        warnings.push(format!("can_self_delegate update failed: {e}"));
+    }
+
     if let Some(prompt) = system_prompt {
         match ctx.idea_store.as_ref() {
             Some(store) => {

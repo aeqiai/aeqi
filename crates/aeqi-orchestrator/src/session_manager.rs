@@ -24,7 +24,7 @@ use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
 use crate::idea_assembly::ToolDispatch;
-use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn};
+use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn_and_caps};
 use crate::sandbox::{QuestSandbox, SandboxConfig};
 use crate::scope_visibility;
 use crate::session_store::SessionStore;
@@ -410,6 +410,12 @@ impl SessionManager {
             Some(ref agent) => (agent.name.clone(), Some(agent.id.clone())),
             None => (agent_id_or_hint.to_string(), None),
         };
+        // Resolve self-delegation capability from the agent record.
+        // Agents without a DB record (e.g. bare-CLI runs) default to false.
+        let agent_can_self_delegate = agent_opt
+            .as_ref()
+            .map(|a| a.can_self_delegate)
+            .unwrap_or(false);
 
         // Pre-generate the session_id so it can be:
         //   (a) used as the key for the per-session execution lock
@@ -510,10 +516,11 @@ impl SessionManager {
                     Ok(result.text)
                 })
             });
-            let runtime_reg: ToolRegistry = build_runtime_registry_with_spawn(
+            let runtime_reg: ToolRegistry = build_runtime_registry_with_spawn_and_caps(
                 self.idea_store.clone(),
                 session_store_for_reg,
                 Some(spawn_fn),
+                agent_can_self_delegate,
             );
             let exec_ctx = ExecutionContext {
                 session_id: String::new(), // filled in after DB create
@@ -848,6 +855,7 @@ impl SessionManager {
             ancestor_ids: ancestor_ids.clone(),
             compact_prompt_template,
             session_id: pregenerated_session_id.clone(),
+            can_self_delegate: agent_can_self_delegate,
             ..Default::default()
         };
 
@@ -1015,10 +1023,11 @@ impl SessionManager {
                     Ok(result.text)
                 })
             });
-            let runtime_reg_for_dispatcher = build_runtime_registry_with_spawn(
+            let runtime_reg_for_dispatcher = build_runtime_registry_with_spawn_and_caps(
                 self.idea_store.clone(),
                 self.session_store.clone(),
                 Some(dispatcher_spawn_fn),
+                agent_can_self_delegate,
             );
             let dispatcher = std::sync::Arc::new(crate::idea_assembly::EventPatternDispatcher {
                 event_store: ehs.clone(),

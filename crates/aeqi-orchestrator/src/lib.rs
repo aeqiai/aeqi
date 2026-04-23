@@ -83,7 +83,7 @@ pub use runtime::{
     Artifact, ArtifactKind, Run, RunStatus, RuntimeExecution, RuntimeOutcome, RuntimeOutcomeStatus,
     RuntimePhase, RuntimeSession, RuntimeSessionStatus,
 };
-pub use runtime_tools::build_runtime_registry;
+pub use runtime_tools::{build_runtime_registry, build_runtime_registry_with_spawn_and_caps};
 pub use sandbox::{FinalizeAction, QuestDiff, QuestSandbox, SandboxConfig, prune_stale_worktrees};
 pub use schedule_timer::ScheduleTimer;
 pub use session_manager::SessionManager;
