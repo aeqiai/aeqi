@@ -51,7 +51,6 @@ pub async fn handle_roots(
         result.push(serde_json::json!({
             "id": agent.id,
             "name": agent.name,
-            "display_name": agent.display_name,
             "prefix": agent.quest_prefix,
             "open_tasks": task_counts.1,
             "total_tasks": task_counts.0,
@@ -89,7 +88,7 @@ pub async fn handle_create_root(
         .unwrap_or_else(|| name.chars().take(2).collect::<String>().to_lowercase());
 
     // Spawn a root agent (parent_id = None).
-    let agent = ctx.agent_registry.spawn(name, None, None, None).await;
+    let agent = ctx.agent_registry.spawn(name, None, None).await;
     match agent {
         Ok(a) => {
             if let Ok(cwd) = std::env::current_dir() {
@@ -113,19 +112,19 @@ pub async fn handle_update_root(
     } else if allowed.is_some() && !is_allowed(allowed, name) {
         serde_json::json!({"ok": false, "error": "access denied"})
     } else {
-        let display_name = request
-            .get("display_name")
+        let new_name = request
+            .get("new_name")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
         // Find the root agent by name or ID and update it.
         match ctx.agent_registry.list_root_agents().await {
             Ok(agents) => {
                 if let Some(agent) = agents.iter().find(|a| a.name == name || a.id == name) {
-                    match ctx
-                        .agent_registry
-                        .update_display_name(&agent.id, display_name.as_deref())
-                        .await
-                    {
+                    let Some(new_name) = new_name else {
+                        return serde_json::json!({"ok": false, "error": "new_name is required"});
+                    };
+                    match ctx.agent_registry.update_name(&agent.id, new_name).await {
                         Ok(()) => serde_json::json!({"ok": true}),
                         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                     }

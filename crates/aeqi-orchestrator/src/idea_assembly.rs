@@ -1098,7 +1098,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -1179,7 +1179,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -1244,7 +1244,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -1320,7 +1320,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -1386,7 +1386,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
@@ -1567,7 +1567,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = AgentRegistry::open(dir.path()).unwrap();
         let agent = registry
-            .spawn("assistant", None, None, Some("claude-sonnet-4.6"))
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 

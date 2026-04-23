@@ -124,7 +124,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         const rawAgents = (agentsData.agents || []) as Array<Record<string, unknown>>;
         const agentItems: PaletteItem[] = rawAgents.map((a) => ({
           id: `agent-${a.name}`,
-          label: (a.display_name || a.name) as string,
+          label: a.name as string,
           hint: ((a.model || a.status) as string) || "",
           section: "Agents",
           action: () => go(`/${a.name}`),

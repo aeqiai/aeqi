@@ -26,8 +26,6 @@ use crate::event_handler::{EventHandlerStore, NewEvent, ToolCall};
 pub struct RootAgentSpec {
     pub name: String,
     #[serde(default)]
-    pub display_name: Option<String>,
-    #[serde(default)]
     pub model: Option<String>,
     #[serde(default)]
     pub color: Option<String>,
@@ -48,8 +46,6 @@ pub struct SeedAgentSpec {
     #[serde(default = "default_owner_root")]
     pub owner: String,
     pub name: String,
-    #[serde(default)]
-    pub display_name: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
     #[serde(default)]
@@ -160,7 +156,7 @@ pub struct SpawnedAgent {
 /// injected so tests can drive this without the full daemon context.
 pub async fn spawn_template(
     template: &Template,
-    override_display_name: Option<&str>,
+    override_name: Option<&str>,
     agent_registry: &AgentRegistry,
     event_store: &EventHandlerStore,
     idea_store: Option<&Arc<dyn aeqi_core::traits::IdeaStore>>,
@@ -168,13 +164,9 @@ pub async fn spawn_template(
     let mut warnings: Vec<String> = Vec::new();
 
     // ---- root agent ----
-    let root_display = override_display_name
-        .or(template.root.display_name.as_deref())
-        .map(str::to_string);
     let root = agent_registry
         .spawn(
-            &template.root.name,
-            root_display.as_deref(),
+            override_name.unwrap_or(&template.root.name),
             None,
             template.root.model.as_deref(),
         )
@@ -190,15 +182,7 @@ pub async fn spawn_template(
     // Persist persona as an identity idea so assemble_ideas picks it up on
     // session:start. No separate persona table needed.
     if let (Some(store), Some(prompt)) = (idea_store, template.root.system_prompt.as_ref()) {
-        store_identity_idea(
-            store.as_ref(),
-            &root.id,
-            &template.root.name,
-            &template.root.display_name,
-            prompt,
-            &mut warnings,
-        )
-        .await;
+        store_identity_idea(store.as_ref(), &root.id, &root.name, prompt, &mut warnings).await;
     }
 
     // ---- seed agents ----
@@ -220,12 +204,7 @@ pub async fn spawn_template(
             ));
         }
         let child = match agent_registry
-            .spawn(
-                &seed.name,
-                seed.display_name.as_deref(),
-                Some(&root.id),
-                seed.model.as_deref(),
-            )
+            .spawn(&seed.name, Some(&root.id), seed.model.as_deref())
             .await
         {
             Ok(a) => a,
@@ -242,15 +221,7 @@ pub async fn spawn_template(
         )
         .await;
         if let (Some(store), Some(prompt)) = (idea_store, seed.system_prompt.as_ref()) {
-            store_identity_idea(
-                store.as_ref(),
-                &child.id,
-                &seed.name,
-                &seed.display_name,
-                prompt,
-                &mut warnings,
-            )
-            .await;
+            store_identity_idea(store.as_ref(), &child.id, &seed.name, prompt, &mut warnings).await;
         }
         owner_to_agent_id.insert(seed.name.clone(), child.id.clone());
         spawned_agents.push(SpawnedAgent {
@@ -407,12 +378,10 @@ async fn store_identity_idea(
     idea_store: &dyn aeqi_core::traits::IdeaStore,
     agent_id: &str,
     name: &str,
-    display_name: &Option<String>,
     system_prompt: &str,
     warnings: &mut Vec<String>,
 ) {
-    let display = display_name.as_deref().unwrap_or(name);
-    let idea_name = format!("Persona — {display}");
+    let idea_name = format!("Persona — {name}");
     let tags = vec!["identity".to_string(), "evergreen".to_string()];
     if let Err(err) = idea_store
         .store(&idea_name, system_prompt, &tags, Some(agent_id))
@@ -442,7 +411,6 @@ pub async fn handle_list_templates(
                 "description": t.description,
                 "root": {
                     "name": t.root.name,
-                    "display_name": t.root.display_name,
                     "model": t.root.model,
                     "color": t.root.color,
                 },
@@ -487,9 +455,7 @@ pub async fn handle_spawn_template(
         return serde_json::json!({"ok": false, "error": "template is required"});
     }
 
-    let display_name = super::request_field(request, "name")
-        .or_else(|| super::request_field(request, "display_name"))
-        .map(str::to_string);
+    let root_name = super::request_field(request, "name").map(str::to_string);
 
     let template = match crate::templates::company_template(slug) {
         Some(t) => t,
@@ -502,10 +468,7 @@ pub async fn handle_spawn_template(
         }
     };
 
-    let requested_root_name = display_name
-        .as_deref()
-        .or(template.root.display_name.as_deref())
-        .unwrap_or(&template.root.name);
+    let requested_root_name = root_name.as_deref().unwrap_or(&template.root.name);
 
     // Reject if a root agent with this name already exists — template spawns
     // are meant to be the beginning of a fresh company, not a silent merge
@@ -535,7 +498,7 @@ pub async fn handle_spawn_template(
 
     match spawn_template(
         &template,
-        display_name.as_deref(),
+        root_name.as_deref(),
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -576,8 +539,7 @@ mod tests {
             tagline: "fixture".to_string(),
             description: "fixture template".to_string(),
             root: RootAgentSpec {
-                name: "director".to_string(),
-                display_name: Some("Director".to_string()),
+                name: "Director".to_string(),
                 model: Some("anthropic/claude-sonnet-4.6".to_string()),
                 color: Some("#3fae8c".to_string()),
                 avatar: None,
@@ -586,8 +548,7 @@ mod tests {
             seed_agents: vec![
                 SeedAgentSpec {
                     owner: "root".to_string(),
-                    name: "editor".to_string(),
-                    display_name: Some("Editor".to_string()),
+                    name: "Editor".to_string(),
                     model: Some("anthropic/claude-sonnet-4.6".to_string()),
                     color: None,
                     avatar: None,
@@ -595,8 +556,7 @@ mod tests {
                 },
                 SeedAgentSpec {
                     owner: "root".to_string(),
-                    name: "dist".to_string(),
-                    display_name: None,
+                    name: "Distribution".to_string(),
                     model: None,
                     color: None,
                     avatar: None,
@@ -615,7 +575,7 @@ mod tests {
                     tool_calls: Vec::new(),
                 },
                 SeedEventSpec {
-                    owner: "editor".to_string(),
+                    owner: "Editor".to_string(),
                     name: "on_draft".to_string(),
                     pattern: "session:quest_start".to_string(),
                     cooldown_secs: 60,
@@ -633,7 +593,7 @@ mod tests {
                     tags: vec!["editorial".to_string()],
                 },
                 SeedIdeaSpec {
-                    owner: "editor".to_string(),
+                    owner: "Editor".to_string(),
                     name: "Rubric".to_string(),
                     content: "Thesis, three moves, example, memorable line.".to_string(),
                     tags: vec!["voice".to_string()],
@@ -647,7 +607,7 @@ mod tests {
                     labels: vec!["editorial".to_string()],
                 },
                 SeedQuestSpec {
-                    owner: "editor".to_string(),
+                    owner: "Editor".to_string(),
                     subject: "Draft first piece".to_string(),
                     description: "Produce first long-form draft.".to_string(),
                     labels: Vec::new(),
@@ -697,16 +657,20 @@ mod tests {
 
         // Verify children actually point at root.
         let root = registry
-            .get_active_by_name("director")
+            .get_active_by_name("Director")
             .await
             .unwrap()
             .unwrap();
         let editor = registry
-            .get_active_by_name("editor")
+            .get_active_by_name("Editor")
             .await
             .unwrap()
             .unwrap();
-        let dist = registry.get_active_by_name("dist").await.unwrap().unwrap();
+        let dist = registry
+            .get_active_by_name("Distribution")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(editor.parent_id.as_deref(), Some(root.id.as_str()));
         assert_eq!(dist.parent_id.as_deref(), Some(root.id.as_str()));
 
@@ -796,7 +760,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_template_applies_override_display_name() {
+    async fn spawn_template_applies_override_name() {
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
         let idea_store = test_idea_store();
@@ -819,7 +783,6 @@ mod tests {
             .unwrap();
         assert_eq!(root.id, outcome.root_agent_id);
         assert_eq!(root.name, "My Cool Studio");
-        assert!(root.display_name.is_none());
     }
 
     #[tokio::test]

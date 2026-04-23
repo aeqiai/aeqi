@@ -345,7 +345,7 @@ fn handle_slash_command(
             let _ = writeln!(
                 stdout,
                 "\n  {face} {} | {} | {} tokens | {} steps | {} | {}\n",
-                state.agent.display_name,
+                state.agent.name,
                 state.model,
                 render::format_number(state.tokens),
                 state.steps,
@@ -421,7 +421,7 @@ pub async fn run(
                 eprintln!();
                 eprintln!("  \x1b[1mYour agents:\x1b[0m");
                 for (i, a) in active.iter().enumerate() {
-                    let display = a.display_name.as_deref().unwrap_or(&a.name);
+                    let display = &a.name;
                     let avatar = a.avatar.as_deref().unwrap_or("●");
                     let last = a
                         .last_active
@@ -443,7 +443,7 @@ pub async fn run(
                     );
                 }
                 eprintln!();
-                let default_name = active[0].display_name.as_deref().unwrap_or(&active[0].name);
+                let default_name = &active[0].name;
                 eprint!("  Chat with? [1={default_name}]: ");
                 io::stderr().flush()?;
 
@@ -457,15 +457,7 @@ pub async fn run(
                     n.saturating_sub(1).min(active.len() - 1)
                 } else {
                     // Try name match.
-                    active
-                        .iter()
-                        .position(|a| {
-                            a.name == choice
-                                || a.display_name
-                                    .as_deref()
-                                    .is_some_and(|d| d.eq_ignore_ascii_case(choice))
-                        })
-                        .unwrap_or(0)
+                    active.iter().position(|a| a.name == choice).unwrap_or(0)
                 };
                 Some(active.into_iter().nth(idx).unwrap())
             }
@@ -496,9 +488,9 @@ pub async fn run(
             return Ok(());
         }
 
-        match registry.spawn(name, None, project, None).await {
+        match registry.spawn(name, project, None).await {
             Ok(spawned) => {
-                let display = spawned.display_name.as_deref().unwrap_or(&spawned.name);
+                let display = &spawned.name;
                 eprintln!();
                 eprintln!(
                     "  \x1b[32m✓ Spawned {display}\x1b[0m (id: {})",
@@ -527,7 +519,7 @@ pub async fn run(
                 faces = f.clone();
             }
             AgentVisual {
-                display_name: a.display_name.as_deref().unwrap_or(&a.name).to_string(),
+                name: a.name.clone(),
                 color,
                 avatar: a.avatar.clone().unwrap_or_else(|| "⚕".into()),
                 faces,
@@ -605,7 +597,7 @@ pub async fn run(
     let _ = writeln!(
         stdout,
         "\r  \x1b[38;2;{r};{g};{b};1m{face} {}\x1b[0m",
-        visual.display_name,
+        visual.name,
     );
     let _ = writeln!(
         stdout,

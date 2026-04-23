@@ -155,7 +155,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     Ok(Some(existing)) => existing,
                     _ => {
                         match agent_reg
-                            .spawn(&project_cfg.name, None, None, project_cfg.model.as_deref())
+                            .spawn(&project_cfg.name, None, project_cfg.model.as_deref())
                             .await
                         {
                             Ok(a) => a,
@@ -211,7 +211,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     Ok(Some(existing)) => existing,
                     _ => {
                         match agent_reg
-                            .spawn(&agent_cfg.name, None, None, agent_cfg.model.as_deref())
+                            .spawn(&agent_cfg.name, None, agent_cfg.model.as_deref())
                             .await
                         {
                             Ok(a) => a,

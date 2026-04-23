@@ -15,8 +15,7 @@
 ///       "tags": ["evergreen"], "tool_allow": [], "tool_deny": [] }
 ///   ],
 ///   "agents": [
-///     { "name": "shadow", "template": "shadow-identity",
-///       "display_name": "Shadow", "model": "..." }
+///     { "name": "Shadow", "template": "shadow-identity", "model": "..." }
 ///   ]
 /// }
 /// ```
@@ -88,7 +87,6 @@ pub async fn handle_seed_ideas(
     if let Some(agents) = agents {
         for agent_val in agents {
             let name = agent_val["name"].as_str().unwrap_or("");
-            let display_name = agent_val["display_name"].as_str();
             let model = agent_val["model"].as_str();
 
             let _template = agent_val["template"].as_str().unwrap_or("seeded");
@@ -104,11 +102,7 @@ pub async fn handle_seed_ideas(
                 continue;
             }
 
-            match ctx
-                .agent_registry
-                .spawn(name, display_name, None, model)
-                .await
-            {
+            match ctx.agent_registry.spawn(name, None, model).await {
                 Ok(agent) => {
                     // Reassign ideas that reference this agent by name to use UUID.
                     let _ = idea_store.reassign_agent(name, &agent.id).await;

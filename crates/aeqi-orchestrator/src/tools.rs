@@ -147,7 +147,7 @@ pub fn usage_log_path() -> PathBuf {
 
 /// Unified agents tool combining hire, retire, list, and self-introspection.
 pub struct AgentsTool {
-    agent_name: String,
+    agent_id: String,
     agent_registry: Arc<AgentRegistry>,
     idea_store: Option<Arc<dyn IdeaStore>>,
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
@@ -156,14 +156,14 @@ pub struct AgentsTool {
 
 impl AgentsTool {
     pub fn new(
-        agent_name: String,
+        agent_id: String,
         agent_registry: Arc<AgentRegistry>,
         idea_store: Option<Arc<dyn IdeaStore>>,
         event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
         activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
-            agent_name,
+            agent_id,
             agent_registry,
             idea_store,
             event_handler_store,
@@ -174,7 +174,6 @@ impl AgentsTool {
     async fn action_hire(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let name = args
             .get("name")
-            .or_else(|| args.get("display_name"))
             .and_then(|v| v.as_str())
             .map(str::trim)
             .filter(|s| !s.is_empty())
@@ -195,7 +194,7 @@ impl AgentsTool {
         let parent_hint = args
             .get("parent_id")
             .and_then(|v| v.as_str())
-            .unwrap_or(&self.agent_name);
+            .unwrap_or(&self.agent_id);
         let parent_id = match self.agent_registry.resolve_by_hint(parent_hint).await? {
             Some(parent) => parent.id,
             None => {
@@ -207,7 +206,7 @@ impl AgentsTool {
 
         let agent = self
             .agent_registry
-            .spawn(name, None, Some(&parent_id), model)
+            .spawn(name, Some(&parent_id), model)
             .await?;
 
         if let (Some(store), Some(prompt)) = (self.idea_store.as_ref(), system_prompt) {
@@ -296,11 +295,8 @@ impl AgentsTool {
         let mut output = String::new();
         for agent in &agents {
             output.push_str(&format!(
-                "- {} (id: {}, display: {}, status: {})\n",
-                agent.name,
-                agent.id,
-                agent.display_name.as_deref().unwrap_or("-"),
-                agent.status,
+                "- {} (id: {}, status: {})\n",
+                agent.name, agent.id, agent.status,
             ));
         }
         Ok(ToolResult::success(output))
@@ -309,16 +305,12 @@ impl AgentsTool {
     async fn action_self(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let detail = args.get("detail").and_then(|v| v.as_str()).unwrap_or("all");
 
-        let agent = match self
-            .agent_registry
-            .get_active_by_name(&self.agent_name)
-            .await?
-        {
+        let agent = match self.agent_registry.get(&self.agent_id).await? {
             Some(a) => a,
             None => {
                 return Ok(ToolResult::error(format!(
-                    "Could not find active agent with name: {}",
-                    self.agent_name
+                    "Could not find active agent with id: {}",
+                    self.agent_id
                 )));
             }
         };
@@ -331,7 +323,6 @@ impl AgentsTool {
                 serde_json::json!({
                     "id": agent.id,
                     "name": agent.name,
-                    "display_name": agent.display_name,
                     "model": agent.model,
                     "status": format!("{}", agent.status),
                     "created_at": agent.created_at.to_rfc3339(),
@@ -352,7 +343,6 @@ impl AgentsTool {
                     serde_json::json!({
                         "id": a.id,
                         "name": a.name,
-                        "display_name": a.display_name,
                     })
                 })
                 .collect();
@@ -368,7 +358,6 @@ impl AgentsTool {
                     serde_json::json!({
                         "id": a.id,
                         "name": a.name,
-                        "display_name": a.display_name,
                         "status": format!("{}", a.status),
                     })
                 })
@@ -469,11 +458,7 @@ impl Tool for AgentsTool {
                     },
                     "name": {
                         "type": "string",
-                        "description": "New agent's canonical name (for hire)"
-                    },
-                    "display_name": {
-                        "type": "string",
-                        "description": "Optional display name shown in the UI (for hire)"
+                        "description": "New agent's visible name (for hire)"
                     },
                     "model": {
                         "type": "string",
@@ -827,7 +812,7 @@ impl Tool for IdeasTool {
 /// Unified quests tool combining create, list, show, update, close, cancel.
 pub struct QuestsTool {
     agent_registry: Arc<AgentRegistry>,
-    agent_name: String,
+    agent_id: String,
     activity_log: Arc<ActivityLog>,
     /// Session ID of the calling agent, propagated as creator_session_id.
     session_id: Option<String>,
@@ -839,12 +824,12 @@ pub struct QuestsTool {
 impl QuestsTool {
     pub fn new(
         agent_registry: Arc<AgentRegistry>,
-        agent_name: String,
+        agent_id: String,
         activity_log: Arc<ActivityLog>,
     ) -> Self {
         Self {
             agent_registry,
-            agent_name,
+            agent_id,
             activity_log,
             session_id: None,
             idea_store: None,
@@ -852,14 +837,9 @@ impl QuestsTool {
         }
     }
 
-    /// Resolve the calling agent UUID from the agent_name hint.
+    /// Resolve the calling agent UUID from the bound session context.
     async fn calling_uuid(&self) -> Option<String> {
-        self.agent_registry
-            .resolve_by_hint(&self.agent_name)
-            .await
-            .ok()
-            .flatten()
-            .map(|a| a.id)
+        Some(self.agent_id.clone())
     }
 
     /// Set the session ID of the calling session. Used to propagate
@@ -913,7 +893,7 @@ impl QuestsTool {
             .get("agent_id")
             .or_else(|| args.get("agent"))
             .and_then(|v| v.as_str())
-            .unwrap_or(&self.agent_name);
+            .unwrap_or(&self.agent_id);
 
         let agent = match self.agent_registry.resolve_by_hint(agent_hint).await {
             Ok(Some(a)) => a,
@@ -926,10 +906,9 @@ impl QuestsTool {
         };
 
         // Permission check: if target != calling agent, it must be a descendant.
-        let is_self =
-            calling_uuid.as_deref() == Some(agent.id.as_str()) || agent_hint == self.agent_name;
+        let is_self = calling_uuid.as_deref() == Some(agent.id.as_str());
         if !is_self {
-            let caller = calling_uuid.as_deref().unwrap_or(&self.agent_name);
+            let caller = calling_uuid.as_deref().unwrap_or(&self.agent_id);
             match self.agent_registry.list_descendants(caller).await {
                 Ok(descendants) if descendants.iter().any(|d| d == &agent.id) => {}
                 Ok(_) => {
@@ -1237,11 +1216,7 @@ impl QuestsTool {
     async fn assemble_quest_end(&self, quest_id: &str, result: &str, base: &str) -> String {
         let (Some(event_store), Some(agent)) = (
             self.event_handler_store.as_ref(),
-            self.agent_registry
-                .resolve_by_hint(&self.agent_name)
-                .await
-                .ok()
-                .flatten(),
+            self.agent_registry.get(&self.agent_id).await.ok().flatten(),
         ) else {
             return base.to_string();
         };
@@ -1435,21 +1410,15 @@ impl Tool for EventsTool {
                 };
 
                 let target_agent_id = args.get("agent_id").and_then(|v| v.as_str());
-                // Resolve calling agent UUID for permission checks.
-                let calling_uuid = self
-                    .agent_registry
-                    .resolve_by_hint(&self.agent_id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .map(|a| a.id);
+                // The calling agent is bound to this tool instance by UUID.
+                let calling_uuid = Some(self.agent_id.clone());
                 let resolved_agent_id = match target_agent_id {
                     None => calling_uuid
                         .as_deref()
                         .map(str::to_string)
                         .or(Some(self.agent_id.clone())),
                     Some(tid) => {
-                        let is_self = calling_uuid.as_deref() == Some(tid) || tid == self.agent_id;
+                        let is_self = calling_uuid.as_deref() == Some(tid);
                         if is_self {
                             calling_uuid
                                 .as_deref()
@@ -1526,15 +1495,7 @@ impl Tool for EventsTool {
             }
 
             "list" => {
-                // Resolve UUID for visibility clause (agent_id field may be a human name).
-                let viewer_uuid = self
-                    .agent_registry
-                    .resolve_by_hint(&self.agent_id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .map(|a| a.id);
-                let events = match viewer_uuid.as_deref() {
+                let events = match Some(self.agent_id.as_str()) {
                     Some(uuid) => {
                         match crate::scope_visibility::visibility_sql_clause(
                             &self.agent_registry,
@@ -1549,7 +1510,7 @@ impl Tool for EventsTool {
                                 .unwrap_or_default(),
                             Err(_) => self
                                 .event_handler_store
-                                .list_for_agent(&self.agent_id)
+                                .list_for_agent(uuid)
                                 .await
                                 .unwrap_or_default(),
                         }
@@ -2129,7 +2090,7 @@ impl Tool for CodeTool {
 // ===================================================================
 
 pub fn build_orchestration_tools(
-    agent_name: String,
+    agent_id: String,
     activity_log: Arc<ActivityLog>,
     api_key: Option<String>,
     idea_store: Option<Arc<dyn IdeaStore>>,
@@ -2143,7 +2104,7 @@ pub fn build_orchestration_tools(
 
     // 1. Agents tool (hire/retire/list/self)
     let agents_tool = AgentsTool::new(
-        agent_name.clone(),
+        agent_id.clone(),
         agent_registry.clone(),
         idea_store.clone(),
         Some(event_handler_store.clone()),
@@ -2153,7 +2114,7 @@ pub fn build_orchestration_tools(
     // 2. Quests tool (create/list/show/update/close/cancel)
     let quests_tool = QuestsTool::new(
         agent_registry.clone(),
-        agent_name.clone(),
+        agent_id.clone(),
         activity_log.clone(),
     )
     .with_event_assembly(idea_store.clone(), event_handler_store.clone());
@@ -2161,7 +2122,7 @@ pub fn build_orchestration_tools(
     // 3. Events tool (create/list/enable/disable/delete)
     let events_tool = EventsTool::new(
         event_handler_store,
-        agent_name.clone(),
+        agent_id.clone(),
         agent_registry.clone(),
     );
 
@@ -2178,7 +2139,7 @@ pub fn build_orchestration_tools(
     // 5. Ideas tool (store/search/update/delete)
     if let Some(mem) = idea_store {
         let ideas_tool = IdeasTool::new(mem, activity_log)
-            .with_agent_context(agent_registry.clone(), agent_name.clone());
+            .with_agent_context(agent_registry.clone(), agent_id.clone());
         tools.push(Arc::new(ideas_tool));
     } else {
         tracing::warn!("ideas tool unavailable: no idea store configured");

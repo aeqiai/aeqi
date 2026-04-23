@@ -4,8 +4,7 @@
   "tagline": "One consultant, one operations hand, billable by Friday.",
   "description": "A lean consulting shop for independents who bill by the engagement. A Principal (root) runs client work and owns the relationship; an Operations agent tracks engagements, time, and invoices. Ships with a weekly pipeline event, engagement-hygiene ideas, foundational how-to ideas, and two seed quests so the first engagement is already scaffolded.",
   "root": {
-    "name": "principal",
-    "display_name": "Principal",
+    "name": "Principal",
     "model": "anthropic/claude-sonnet-4.6",
     "color": "#3fae8c",
     "avatar": "/avatars/principal.svg",
@@ -14,8 +13,7 @@
   "seed_agents": [
     {
       "owner": "root",
-      "name": "operations",
-      "display_name": "Operations",
+      "name": "Operations",
       "model": "anthropic/claude-haiku-4.5",
       "color": "#6a7a8c",
       "system_prompt": "You are Operations for a one-person consultancy. You do not do client work — that is the Principal's job. Your job is the back-office: track open engagements, log time against each one, prepare invoices, and surface anything slipping. When the Principal marks an engagement delivered, you: (1) draft the invoice line items from the time log, (2) store a `billing` idea with the engagement summary, (3) remind the Principal to send. Never send anything to a client on your own — always hand drafts back for approval."
@@ -33,7 +31,7 @@
       "tool_calls": []
     },
     {
-      "owner": "operations",
+      "owner": "Operations",
       "name": "billing_sweep",
       "pattern": "schedule:0 14 * * 5",
       "cooldown_secs": 3600,
@@ -57,7 +55,7 @@
       "tags": ["engagement", "cadence", "procedure", "evergreen"]
     },
     {
-      "owner": "operations",
+      "owner": "Operations",
       "name": "Time log policy",
       "content": "Log time in 15-minute blocks against a named engagement. Never log time to 'admin' or 'general' — if it isn't billable to a client, it's overhead and stays unlogged. End of each day: confirm the day's blocks with the Principal. End of each week: produce a per-engagement time summary tagged `billing`.",
       "tags": ["billing", "procedure", "evergreen"]
@@ -89,7 +87,7 @@
       "labels": ["engagement", "setup"]
     },
     {
-      "owner": "operations",
+      "owner": "Operations",
       "subject": "Stand up the time log and invoice template",
       "description": "Create a per-engagement time log format (date, duration in 15-min blocks, one-line description) and a matching invoice template (engagement name, line items, total, payment terms). Document both as ideas tagged `billing` so every future engagement reuses the same shape.",
       "labels": ["billing", "setup"]

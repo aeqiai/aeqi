@@ -10,7 +10,6 @@ import type { Agent } from "@/lib/types";
 interface Entity {
   id: string;
   name: string;
-  display_name?: string;
   tagline?: string;
   tier?: string;
   agentCount?: number;
@@ -20,7 +19,6 @@ interface RootApiItem {
   id?: string;
   name?: string;
   root?: string;
-  display_name?: string;
   tagline?: string;
   tier?: string;
   agent_count?: number;
@@ -31,7 +29,6 @@ function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
   return roots.map((a) => ({
     id: a.id,
     name: a.name,
-    display_name: a.display_name,
     agentCount: agents.filter((child) => child.name === a.name).length,
   }));
 }
@@ -64,7 +61,6 @@ export default function AgentsPage() {
               .map((c) => ({
                 id: c.id || c.name || c.root || "",
                 name: c.name || c.root || "",
-                display_name: c.display_name,
                 tagline: c.tagline,
                 tier: c.tier || "Free",
                 agentCount: c.agent_count,
@@ -80,7 +76,6 @@ export default function AgentsPage() {
                 roots.map((a) => ({
                   id: (a.id as string) || "",
                   name: (a.name as string) || "",
-                  display_name: a.display_name as string | undefined,
                   agentCount: agentList.filter((c) => c.parent_id === a.id).length,
                 })),
               );
@@ -141,7 +136,7 @@ export default function AgentsPage() {
       ) : (
         <ul className="entities-list" role="list">
           {entities.map((entity) => {
-            const label = entity.display_name || entity.name;
+            const label = entity.name;
             const selected = entity.id === activeRoot;
             return (
               <li key={entity.id}>

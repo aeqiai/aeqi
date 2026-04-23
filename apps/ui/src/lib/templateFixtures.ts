@@ -20,26 +20,22 @@ export const FALLBACK_TEMPLATES: CompanyTemplate[] = [
     tags: ["founder", "startup", "product"],
     seed_agents: [
       {
-        name: "operator",
-        display_name: "Operator",
+        name: "Operator",
         tagline: "The founder's right hand.",
         role: "Company root. Delegates to specialists, keeps the roadmap honest.",
       },
       {
-        name: "product",
-        display_name: "Product",
+        name: "Product",
         tagline: "User-obsessed.",
         role: "Turns signal into spec. Owns the what.",
       },
       {
-        name: "engineer",
-        display_name: "Engineer",
+        name: "Engineer",
         tagline: "Ships.",
         role: "Implements. Owns the how.",
       },
       {
-        name: "growth",
-        display_name: "Growth",
+        name: "Growth",
         tagline: "Distribution is product.",
         role: "Content, outreach, and measurement.",
       },
@@ -75,26 +71,22 @@ export const FALLBACK_TEMPLATES: CompanyTemplate[] = [
     tags: ["creator", "content", "media"],
     seed_agents: [
       {
-        name: "studio",
-        display_name: "Studio",
+        name: "Studio",
         tagline: "The desk.",
         role: "Root of the creative operation.",
       },
       {
-        name: "editor",
-        display_name: "Editor",
+        name: "Editor",
         tagline: "Sharpens.",
         role: "Structural edits, line edits, tone. Keeps the voice.",
       },
       {
-        name: "producer",
-        display_name: "Producer",
+        name: "Producer",
         tagline: "Gets it made.",
         role: "Captures research, sources quotes, builds outlines.",
       },
       {
-        name: "distribution",
-        display_name: "Distribution",
+        name: "Distribution",
         tagline: "Where it lands.",
         role: "Cross-posts, schedules, measures reach.",
       },
@@ -125,20 +117,17 @@ export const FALLBACK_TEMPLATES: CompanyTemplate[] = [
     tags: ["smb", "operations", "support"],
     seed_agents: [
       {
-        name: "owner",
-        display_name: "Owner",
+        name: "Owner",
         tagline: "Minds the shop.",
         role: "The business root. Weekly review, priorities, approvals.",
       },
       {
-        name: "frontdesk",
-        display_name: "Front Desk",
+        name: "Front Desk",
         tagline: "Answers first.",
         role: "Website chat, WhatsApp, email triage.",
       },
       {
-        name: "office",
-        display_name: "Office",
+        name: "Office",
         tagline: "Keeps the books.",
         role: "Docs, receipts, light bookkeeping.",
       },

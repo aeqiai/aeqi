@@ -3,7 +3,6 @@ import type { QuestRuntime } from "./runtime";
 export interface Agent {
   id: string;
   name: string;
-  display_name?: string;
   parent_id?: string | null;
   status: string;
   model?: string;
@@ -25,7 +24,6 @@ export interface Agent {
 export interface AgentRef {
   id: string;
   name: string;
-  display_name?: string;
   model?: string;
 }
 
@@ -251,7 +249,6 @@ export interface WorkerEvent {
 // (no seed quests, no seed events) still renders cleanly.
 export interface TemplateSeedAgent {
   name: string;
-  display_name?: string;
   tagline?: string;
   role?: string;
   identity?: string;

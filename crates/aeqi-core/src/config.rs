@@ -324,8 +324,6 @@ fn default_model_cheapest() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerAgentConfig {
     pub name: String,
-    #[serde(default)]
-    pub display_name: Option<String>,
     #[serde(default = "default_agent_prefix")]
     pub prefix: String,
     #[serde(default)]

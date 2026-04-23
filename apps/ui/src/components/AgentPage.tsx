@@ -89,11 +89,7 @@ export default function AgentPage({
 
       {/* Identity card — compact strip visible on sessions + settings tabs */}
       {(activeTab === "sessions" || activeTab === "settings") && agent && (
-        <IdentityCard
-          agentId={resolvedAgentId}
-          agentName={agent.display_name || agent.name}
-          onToast={showToast}
-        />
+        <IdentityCard agentId={resolvedAgentId} agentName={agent.name} onToast={showToast} />
       )}
 
       {/* Tab content */}
@@ -517,7 +513,7 @@ function DangerZone({
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  const agentName = agent?.name || agent?.display_name || resolvedAgentId;
+  const agentName = agent?.name || resolvedAgentId;
   const isRoot = !agent?.parent_id;
   const canConfirm = confirmText.trim() === agentName && !deleting;
 

@@ -200,7 +200,7 @@ export default function HomeDashboard() {
         ) : (
           <ul className="home-companies" role="list">
             {companies.map((c) => {
-              const label = c.display_name || c.name;
+              const label = c.name;
               const childCount = agentCountsByRoot.get(c.id) ?? 0;
               return (
                 <li key={c.id}>

@@ -34,7 +34,6 @@ function Chevron({ expanded }: { expanded: boolean }) {
 interface AgentNode {
   id: string;
   name: string;
-  display_name?: string;
   status: string;
   model?: string;
   children: AgentNode[];
@@ -58,7 +57,6 @@ function buildSubtree(agents: Agent[], rootId: string): AgentNode | null {
     return {
       id: agent.id,
       name: agent.name,
-      display_name: agent.display_name,
       status: agent.status,
       model: agent.model,
       children: kids.map(toNode),
@@ -175,14 +173,13 @@ function AgentNodeView({
   const hasChildren = node.children.length > 0;
   const isExpanded = expanded[node.id] ?? true;
   const showChildren = hasChildren && isExpanded;
-  const label = node.display_name || node.name;
+  const label = node.name;
   const descendantCount = countDescendants(node);
 
   const select = () =>
     onSelectAgent({
       id: node.id,
       name: node.name,
-      display_name: node.display_name,
       model: node.model,
     });
   // Treeview-ish: Enter/Space selects the row, ArrowRight expands or moves into
@@ -278,7 +275,7 @@ function RootRow({
   onSelectAgent: (agent: AgentRef) => void;
   onToggle: (id: string, nextExpanded: boolean, e: React.MouseEvent) => void;
 }) {
-  const label = agent.display_name || agent.name;
+  const label = agent.name;
   const isSelectedRow = selectedId === agent.id;
   const subtree = useMemo(() => buildSubtree(allAgents, agent.id), [allAgents, agent.id]);
   const descendantCount = subtree ? countDescendants(subtree) : 0;
@@ -290,7 +287,6 @@ function RootRow({
     onSelectAgent({
       id: agent.id,
       name: agent.name,
-      display_name: agent.display_name,
       model: agent.model,
     });
   const onKeyDown = (e: React.KeyboardEvent) => {

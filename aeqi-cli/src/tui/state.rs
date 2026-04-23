@@ -6,7 +6,7 @@ use std::time::Instant;
 /// Visual identity for the active agent.
 #[derive(Debug, Clone)]
 pub struct AgentVisual {
-    pub display_name: String,
+    pub name: String,
     pub color: (u8, u8, u8), // RGB
     pub avatar: String,
     pub faces: HashMap<String, String>,
@@ -23,7 +23,7 @@ impl AgentVisual {
         faces.insert("idle".into(), "(￣ω￣)".into());
 
         Self {
-            display_name: "Assistant".into(),
+            name: "Assistant".into(),
             color: (255, 215, 0), // Gold
             avatar: "⚕".into(),
             faces,

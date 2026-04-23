@@ -30,7 +30,7 @@ pub fn print_message(stdout: &mut impl Write, msg: &ChatMessage, state: &AppStat
         MessageKind::ResponseBoxOpen => {
             let (r, g, b) = state.agent.color;
             let face = state.agent.face("greeting");
-            let name = &state.agent.display_name;
+            let name = &state.agent.name;
             let border = "─".repeat((width as usize).saturating_sub(name.len() + 8));
             let _ = writeln!(
                 stdout,
@@ -182,7 +182,7 @@ fn draw_status_bar(frame: &mut Frame, area: Rect, state: &AppState) {
 
     let line = Line::from(vec![
         Span::styled(
-            format!(" {face} {} ", state.agent.display_name),
+            format!(" {face} {} ", state.agent.name),
             Style::default()
                 .fg(agent_color)
                 .add_modifier(Modifier::BOLD),

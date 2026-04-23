@@ -25,7 +25,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   // Resolve agent info from the store
   const agentInfo = agents.find((a) => a.id === agentId || a.name === agentId);
   const agentName = agentInfo?.name || agentId;
-  const displayName = agentInfo?.display_name || agentName;
+  const displayName = agentName;
 
   // Attachment state
   const [sessionPrompts, setSessionPrompts] = useState<string[]>([]);

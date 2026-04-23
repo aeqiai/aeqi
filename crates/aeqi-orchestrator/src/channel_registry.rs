@@ -476,8 +476,8 @@ mod tests {
     #[tokio::test]
     async fn get_by_id_returns_true_owner() {
         let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
-        let bob = reg.spawn("bob", None, None, None).await.unwrap();
+        let alice = reg.spawn("alice", None, None).await.unwrap();
+        let bob = reg.spawn("bob", None, None).await.unwrap();
         let store = ChannelStore::new(reg.db());
 
         let alice_ch = store
@@ -502,7 +502,7 @@ mod tests {
     #[tokio::test]
     async fn list_enabled_skips_malformed_rows() {
         let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
+        let alice = reg.spawn("alice", None, None).await.unwrap();
         let store = ChannelStore::new(reg.db());
 
         // Insert a valid row...
@@ -539,8 +539,8 @@ mod tests {
     #[tokio::test]
     async fn create_cannot_clobber_other_agents_channel() {
         let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
-        let bob = reg.spawn("bob", None, None, None).await.unwrap();
+        let alice = reg.spawn("alice", None, None).await.unwrap();
+        let bob = reg.spawn("bob", None, None).await.unwrap();
         let store = ChannelStore::new(reg.db());
 
         let alice_before = store
@@ -574,7 +574,7 @@ mod tests {
     #[tokio::test]
     async fn create_rejects_duplicate_kind_with_conflict() {
         let reg = test_registry().await;
-        let alice = reg.spawn("alice", None, None, None).await.unwrap();
+        let alice = reg.spawn("alice", None, None).await.unwrap();
         let store = ChannelStore::new(reg.db());
 
         store

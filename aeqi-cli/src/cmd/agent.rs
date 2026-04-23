@@ -47,7 +47,6 @@ pub(crate) async fn cmd_agent(
         }
         crate::cli::AgentAction::Spawn {
             name,
-            display_name,
             parent,
             model,
         } => {
@@ -55,20 +54,11 @@ pub(crate) async fn cmd_agent(
             let registry =
                 aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir())?;
             let agent = registry
-                .spawn(
-                    &name,
-                    display_name.as_deref(),
-                    parent.as_deref(),
-                    model.as_deref(),
-                )
+                .spawn(&name, parent.as_deref(), model.as_deref())
                 .await?;
             println!("Spawned persistent agent:");
             println!("  ID:      {}", agent.id);
             println!("  Name:    {}", agent.name);
-            println!(
-                "  Display: {}",
-                agent.display_name.as_deref().unwrap_or("-")
-            );
             println!(
                 "  Parent:  {}",
                 agent.parent_id.as_deref().unwrap_or("(root)")
@@ -89,9 +79,6 @@ pub(crate) async fn cmd_agent(
             }
             for a in &agents {
                 println!("Agent: {} ({})", a.name, a.id);
-                if let Some(d) = &a.display_name {
-                    println!("  Display:  {d}");
-                }
                 println!("  Status:   {}", a.status);
                 println!("  Parent:   {}", a.parent_id.as_deref().unwrap_or("(root)"));
                 println!("  Model:    {}", a.model.as_deref().unwrap_or("(default)"));

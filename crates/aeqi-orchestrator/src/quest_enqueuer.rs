@@ -370,7 +370,7 @@ mod tests {
         let session_store = Arc::new(SessionStore::new(reg.sessions_db()));
         let activity_log = Arc::new(ActivityLog::new(reg.sessions_db()));
 
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
         let quest = reg
             .create_task(&agent.id, "subj", "desc", &[], &[])
             .await
@@ -411,7 +411,7 @@ mod tests {
         let session_store = Arc::new(SessionStore::new(reg.sessions_db()));
         let activity_log = Arc::new(ActivityLog::new(reg.sessions_db()));
 
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
         let quest = reg
             .create_task(&agent.id, "subj", "desc", &[], &[])
             .await
@@ -463,7 +463,7 @@ mod tests {
         let session_store = Arc::new(SessionStore::new(reg.sessions_db()));
         let activity_log = Arc::new(ActivityLog::new(reg.sessions_db()));
 
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
         reg.create_task(&agent.id, "s", "d", &[], &[])
             .await
             .unwrap();

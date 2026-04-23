@@ -55,8 +55,7 @@ describe("AgentQuestsTab smoke", () => {
       agents: [
         {
           id: "root-1",
-          name: "root-1",
-          display_name: "Root",
+          name: "Root",
           model: "opus",
           status: "active",
           parent_id: null,
@@ -209,10 +208,10 @@ describe("AgentOrgChart smoke", () => {
   it("renders a 3-level hierarchy without loop errors", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "Root Co", display_name: "Root", status: "active", parent_id: null },
-        { id: "ceo", name: "ceo", display_name: "CEO", status: "active", parent_id: "root" },
-        { id: "cto", name: "cto", display_name: "CTO", status: "active", parent_id: "root" },
-        { id: "eng", name: "eng", display_name: "Engineer", status: "idle", parent_id: "cto" },
+        { id: "root", name: "Root", status: "active", parent_id: null },
+        { id: "ceo", name: "CEO", status: "active", parent_id: "root" },
+        { id: "cto", name: "CTO", status: "active", parent_id: "root" },
+        { id: "eng", name: "Engineer", status: "idle", parent_id: "cto" },
       ] as never,
     });
     const errors = captureRenderErrors(
@@ -228,8 +227,8 @@ describe("AgentOrgChart smoke", () => {
   it("single-child rows carry the is-single modifier on the child row", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "root", display_name: "Root", status: "active", parent_id: null },
-        { id: "only", name: "only", display_name: "Only", status: "active", parent_id: "root" },
+        { id: "root", name: "Root", status: "active", parent_id: null },
+        { id: "only", name: "Only", status: "active", parent_id: "root" },
       ] as never,
     });
     const { container } = render(
@@ -250,9 +249,7 @@ describe("AgentOrgChart smoke", () => {
 describe("NewAgentPage smoke", () => {
   beforeEach(() => {
     useDaemonStore.setState({
-      agents: [
-        { id: "root", name: "root", display_name: "Root", status: "active", parent_id: null },
-      ] as never,
+      agents: [{ id: "root", name: "Root", status: "active", parent_id: null }] as never,
     });
   });
 

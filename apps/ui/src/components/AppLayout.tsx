@@ -114,7 +114,7 @@ export default function AppLayout() {
     };
     const section = tab || "sessions";
     const sectionTitle = titles[section] || section;
-    const agentLabel = currentAgent?.display_name || currentAgent?.name;
+    const agentLabel = currentAgent?.name;
     document.title = agentLabel ? `${sectionTitle} — ${agentLabel} · æqi` : "æqi";
   }, [tab, currentAgent]);
 

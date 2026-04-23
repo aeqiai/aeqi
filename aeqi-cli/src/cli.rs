@@ -247,11 +247,8 @@ pub enum AgentAction {
     /// Spawn a new persistent agent. For pre-threaded companies (root +
     /// seed agents/events/ideas/quests), use `aeqi template spawn <slug>`.
     Spawn {
-        /// Canonical name of the new agent.
+        /// Name of the new agent.
         name: String,
-        /// Optional display name shown in the UI.
-        #[arg(short = 'd', long = "display-name")]
-        display_name: Option<String>,
         /// Parent agent id — attach the new agent under an existing one.
         #[arg(short = 'p', long = "parent")]
         parent: Option<String>,

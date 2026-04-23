@@ -60,7 +60,6 @@ pub async fn handle_agents_registry(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "display_name": a.display_name,
                     "parent_id": a.parent_id,
                     "model": a.model,
                     "status": a.status,
@@ -99,7 +98,6 @@ pub async fn handle_agent_children(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "display_name": a.display_name,
                     "parent_id": a.parent_id,
                     "model": a.model,
                     "status": a.status,
@@ -114,7 +112,7 @@ pub async fn handle_agent_children(
 
 /// Spawn a new agent from a request body.
 ///
-/// Required: `name` (legacy `display_name` is accepted as an alias).
+/// Required: `name`.
 /// Optional: `parent_id` (attaches under an existing agent; root otherwise),
 /// `model`, `system_prompt` (persisted as an `identity` +
 /// `evergreen` idea owned by the new agent — matches the shape used by
@@ -126,7 +124,6 @@ pub async fn handle_agent_spawn(
 ) -> serde_json::Value {
     let name = request
         .get("name")
-        .or_else(|| request.get("display_name"))
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
@@ -150,7 +147,7 @@ pub async fn handle_agent_spawn(
         .map(str::trim)
         .filter(|s| !s.is_empty());
 
-    let agent = match ctx.agent_registry.spawn(name, None, parent_id, model).await {
+    let agent = match ctx.agent_registry.spawn(name, parent_id, model).await {
         Ok(a) => a,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
@@ -179,7 +176,6 @@ pub async fn handle_agent_spawn(
         "agent": {
             "id": agent.id,
             "name": agent.name,
-            "display_name": agent.display_name,
             "parent_id": agent.parent_id,
             "status": agent.status,
         },
@@ -270,7 +266,6 @@ pub async fn handle_agent_info(
                 "ok": true,
                 "id": agent.id,
                 "name": agent.name,
-                "display_name": agent.display_name,
                 "parent_id": agent.parent_id,
                 "model": agent.model,
                 "status": agent.status,

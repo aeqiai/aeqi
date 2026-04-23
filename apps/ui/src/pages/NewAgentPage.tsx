@@ -62,7 +62,7 @@ export default function NewAgentPage() {
     <SubAgentForm
       navigate={navigate}
       parentId={parentId}
-      parentLabel={parentAgent?.name || parentAgent?.display_name || "this agent"}
+      parentLabel={parentAgent?.name || "this agent"}
       onSpawned={async (newId) => {
         await fetchAgents();
         navigate(`/${encodeURIComponent(newId)}`);

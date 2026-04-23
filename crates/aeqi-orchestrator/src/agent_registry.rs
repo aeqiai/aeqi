@@ -37,8 +37,6 @@ pub struct Agent {
     pub id: String,
     /// Human-readable label (NOT unique — multiple agents can share a name).
     pub name: String,
-    /// Legacy alias for the old two-field model. New code should use `name`.
-    pub display_name: Option<String>,
     /// Parent agent UUID. None = root agent (the user's workspace).
     pub parent_id: Option<String>,
     /// Preferred model. None = inherit from parent.
@@ -238,6 +236,18 @@ fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn normalize_agent_names(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE agents
+         SET name = TRIM(display_name),
+             display_name = NULL
+         WHERE display_name IS NOT NULL
+           AND TRIM(display_name) <> ''",
+        [],
+    )?;
+    Ok(())
+}
+
 /// Lifecycle status of an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -421,6 +431,7 @@ impl AgentRegistry {
         // PRAGMA check so upgraded installs get the new fields without a
         // migrations framework.
         ensure_event_columns(&conn)?;
+        normalize_agent_names(&conn)?;
 
         // Agent ancestry closure table — materialised parent chain.
         // Self-row at depth=0 is always present, so visibility queries
@@ -615,23 +626,17 @@ impl AgentRegistry {
     pub async fn spawn(
         &self,
         name: &str,
-        display_name: Option<&str>,
         parent_id: Option<&str>,
         model: Option<&str>,
     ) -> Result<Agent> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let session_id = uuid::Uuid::new_v4().to_string();
-        let canonical_name = display_name
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(name)
-            .to_string();
+        let canonical_name = name.trim().to_string();
 
         let agent = Agent {
             id: id.clone(),
             name: canonical_name,
-            display_name: None,
             parent_id: parent_id.map(|s| s.to_string()),
             model: model.map(|s| s.to_string()),
             status: AgentStatus::Active,
@@ -659,7 +664,7 @@ impl AgentRegistry {
             params![
                 agent.id,
                 agent.name,
-                agent.display_name,
+                Option::<String>::None,
                 agent.parent_id,
                 agent.model,
                 agent.status.to_string(),
@@ -720,10 +725,7 @@ impl AgentRegistry {
             .query_row(
                 "SELECT * FROM agents
                  WHERE status = 'active'
-                   AND (
-                     name = ?1 COLLATE NOCASE
-                     OR display_name = ?1 COLLATE NOCASE
-                   )
+                   AND name = ?1 COLLATE NOCASE
                  ORDER BY created_at DESC
                  LIMIT 1",
                 params![name],
@@ -1268,21 +1270,13 @@ impl AgentRegistry {
         Ok(())
     }
 
-    /// Legacy alias for renaming an agent in the old two-field model.
-    /// New writes update `name` directly and clear `display_name`.
-    pub async fn update_display_name(&self, id: &str, display_name: Option<&str>) -> Result<()> {
+    pub async fn update_name(&self, id: &str, name: &str) -> Result<()> {
         let db = self.db.lock().await;
-        if let Some(name) = display_name.map(str::trim).filter(|s| !s.is_empty()) {
-            db.execute(
-                "UPDATE agents SET name = ?1, display_name = NULL WHERE id = ?2",
-                params![name, id],
-            )?;
-        } else {
-            db.execute(
-                "UPDATE agents SET display_name = NULL WHERE id = ?1",
-                params![id],
-            )?;
-        }
+        let name = name.trim();
+        db.execute(
+            "UPDATE agents SET name = ?1, display_name = NULL WHERE id = ?2",
+            params![name, id],
+        )?;
         Ok(())
     }
 
@@ -2629,17 +2623,9 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         "retired" => AgentStatus::Retired,
         _ => AgentStatus::Active,
     };
-    let raw_name: String = row.get("name").unwrap_or_default();
-    let legacy_display_name = row
-        .get::<_, String>("display_name")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-
     Agent {
         id: row.get("id").unwrap_or_default(),
-        name: legacy_display_name.clone().unwrap_or(raw_name),
-        display_name: None,
+        name: row.get("name").unwrap_or_default(),
         parent_id: row.get("parent_id").ok(),
         model: row.get("model").ok(),
         status,
@@ -2697,12 +2683,11 @@ mod tests {
     async fn spawn_and_get() {
         let reg = test_registry().await;
         let agent = reg
-            .spawn("shadow", Some("Shadow"), None, Some("claude-sonnet-4.6"))
+            .spawn("Shadow", None, Some("claude-sonnet-4.6"))
             .await
             .unwrap();
 
         assert_eq!(agent.name, "Shadow");
-        assert!(agent.display_name.is_none());
         assert!(agent.parent_id.is_none()); // Root agent
         assert_eq!(agent.status, AgentStatus::Active);
 
@@ -2713,15 +2698,12 @@ mod tests {
     #[tokio::test]
     async fn parent_child_relationship() {
         let reg = test_registry().await;
-        let root = reg.spawn("assistant", None, None, None).await.unwrap();
+        let root = reg.spawn("assistant", None, None).await.unwrap();
         let child = reg
-            .spawn("engineering", None, Some(&root.id), None)
+            .spawn("engineering", Some(&root.id), None)
             .await
             .unwrap();
-        let grandchild = reg
-            .spawn("backend", None, Some(&child.id), None)
-            .await
-            .unwrap();
+        let grandchild = reg.spawn("backend", Some(&child.id), None).await.unwrap();
 
         // Children
         let children = reg.get_children(&root.id).await.unwrap();
@@ -2746,11 +2728,8 @@ mod tests {
     #[tokio::test]
     async fn get_root() {
         let reg = test_registry().await;
-        let root = reg.spawn("assistant", None, None, None).await.unwrap();
-        let _child = reg
-            .spawn("worker", None, Some(&root.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("assistant", None, None).await.unwrap();
+        let _child = reg.spawn("worker", Some(&root.id), None).await.unwrap();
 
         let found = reg.get_root().await.unwrap().unwrap();
         assert_eq!(found.id, root.id);
@@ -2759,10 +2738,10 @@ mod tests {
     #[tokio::test]
     async fn subtree() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let a = reg.spawn("a", None, Some(&root.id), None).await.unwrap();
-        let _b = reg.spawn("b", None, Some(&root.id), None).await.unwrap();
-        let _c = reg.spawn("c", None, Some(&a.id), None).await.unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let a = reg.spawn("a", Some(&root.id), None).await.unwrap();
+        let _b = reg.spawn("b", Some(&root.id), None).await.unwrap();
+        let _c = reg.spawn("c", Some(&a.id), None).await.unwrap();
 
         let tree = reg.get_subtree(&root.id).await.unwrap();
         assert_eq!(tree.len(), 4); // root + a + b + c
@@ -2771,11 +2750,8 @@ mod tests {
     #[tokio::test]
     async fn move_agent_prevents_cycles() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let child = reg
-            .spawn("child", None, Some(&root.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let child = reg.spawn("child", Some(&root.id), None).await.unwrap();
 
         // Moving root under child would create a cycle.
         let result = reg.move_agent(&root.id, Some(&child.id)).await;
@@ -2785,7 +2761,7 @@ mod tests {
     #[tokio::test]
     async fn finalize_quest_done_stamps_closed_at() {
         let reg = test_registry().await;
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
         let quest = reg
             .create_task(&agent.id, "subj", "desc", &[], &[])
             .await
@@ -2804,7 +2780,7 @@ mod tests {
     #[tokio::test]
     async fn finalize_quest_retry_bumps_counter_and_leaves_closed_at_null() {
         let reg = test_registry().await;
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
         let quest = reg
             .create_task(&agent.id, "subj", "desc", &[], &[])
             .await
@@ -2826,7 +2802,7 @@ mod tests {
     #[tokio::test]
     async fn record_session_updates_stats() {
         let reg = test_registry().await;
-        let agent = reg.spawn("test", None, None, None).await.unwrap();
+        let agent = reg.spawn("test", None, None).await.unwrap();
 
         reg.record_session(&agent.id, 5000).await.unwrap();
         reg.record_session(&agent.id, 3000).await.unwrap();
@@ -2839,7 +2815,7 @@ mod tests {
     #[tokio::test]
     async fn get_by_name_found_and_missing() {
         let reg = test_registry().await;
-        reg.spawn("shadow", None, None, None).await.unwrap();
+        reg.spawn("shadow", None, None).await.unwrap();
 
         let found = reg.get_by_name("shadow").await.unwrap();
         assert_eq!(found.len(), 1);
@@ -2852,7 +2828,7 @@ mod tests {
     #[tokio::test]
     async fn get_active_by_name_returns_none_for_retired() {
         let reg = test_registry().await;
-        let agent = reg.spawn("worker", None, None, None).await.unwrap();
+        let agent = reg.spawn("worker", None, None).await.unwrap();
 
         // Active agent should be found.
         let found = reg.get_active_by_name("worker").await.unwrap();
@@ -2871,10 +2847,7 @@ mod tests {
     #[tokio::test]
     async fn resolve_by_hint_name_uuid_partial() {
         let reg = test_registry().await;
-        let agent = reg
-            .spawn("analyst", Some("Analyst"), None, None)
-            .await
-            .unwrap();
+        let agent = reg.spawn("Analyst", None, None).await.unwrap();
 
         let by_name = reg.resolve_by_hint("Analyst").await.unwrap();
         assert!(by_name.is_some());
@@ -2891,9 +2864,9 @@ mod tests {
     #[tokio::test]
     async fn list_with_parent_and_status_filters() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let child_a = reg.spawn("a", None, Some(&root.id), None).await.unwrap();
-        let _child_b = reg.spawn("b", None, Some(&root.id), None).await.unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let child_a = reg.spawn("a", Some(&root.id), None).await.unwrap();
+        let _child_b = reg.spawn("b", Some(&root.id), None).await.unwrap();
 
         reg.set_status(&child_a.id, AgentStatus::Paused)
             .await
@@ -2925,10 +2898,10 @@ mod tests {
     #[tokio::test]
     async fn list_active_excludes_paused_and_retired() {
         let reg = test_registry().await;
-        let a = reg.spawn("active1", None, None, None).await.unwrap();
-        let b = reg.spawn("paused1", None, None, None).await.unwrap();
-        let c = reg.spawn("retired1", None, None, None).await.unwrap();
-        let _d = reg.spawn("active2", None, None, None).await.unwrap();
+        let a = reg.spawn("active1", None, None).await.unwrap();
+        let b = reg.spawn("paused1", None, None).await.unwrap();
+        let c = reg.spawn("retired1", None, None).await.unwrap();
+        let _d = reg.spawn("active2", None, None).await.unwrap();
 
         reg.set_status(&b.id, AgentStatus::Paused).await.unwrap();
         reg.set_status(&c.id, AgentStatus::Retired).await.unwrap();
@@ -2951,19 +2924,10 @@ mod tests {
     #[tokio::test]
     async fn delete_agent_reparent_promotes_children_to_grandparent() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let middle = reg
-            .spawn("middle", None, Some(&root.id), None)
-            .await
-            .unwrap();
-        let leaf_a = reg
-            .spawn("leaf_a", None, Some(&middle.id), None)
-            .await
-            .unwrap();
-        let leaf_b = reg
-            .spawn("leaf_b", None, Some(&middle.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let middle = reg.spawn("middle", Some(&root.id), None).await.unwrap();
+        let leaf_a = reg.spawn("leaf_a", Some(&middle.id), None).await.unwrap();
+        let leaf_b = reg.spawn("leaf_b", Some(&middle.id), None).await.unwrap();
 
         let deleted = reg.delete_agent(&middle.id, false).await.unwrap();
         assert_eq!(deleted, 1);
@@ -2978,19 +2942,10 @@ mod tests {
     #[tokio::test]
     async fn delete_agent_cascade_removes_subtree() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let branch = reg
-            .spawn("branch", None, Some(&root.id), None)
-            .await
-            .unwrap();
-        let leaf = reg
-            .spawn("leaf", None, Some(&branch.id), None)
-            .await
-            .unwrap();
-        let sibling = reg
-            .spawn("sibling", None, Some(&root.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let branch = reg.spawn("branch", Some(&root.id), None).await.unwrap();
+        let leaf = reg.spawn("leaf", Some(&branch.id), None).await.unwrap();
+        let sibling = reg.spawn("sibling", Some(&root.id), None).await.unwrap();
 
         let deleted = reg.delete_agent(&branch.id, true).await.unwrap();
         assert_eq!(deleted, 2);
@@ -3005,11 +2960,8 @@ mod tests {
     #[tokio::test]
     async fn delete_agent_reparent_root_orphans_children() {
         let reg = test_registry().await;
-        let root = reg.spawn("root", None, None, None).await.unwrap();
-        let child = reg
-            .spawn("child", None, Some(&root.id), None)
-            .await
-            .unwrap();
+        let root = reg.spawn("root", None, None).await.unwrap();
+        let child = reg.spawn("child", Some(&root.id), None).await.unwrap();
 
         reg.delete_agent(&root.id, false).await.unwrap();
 
@@ -3020,7 +2972,7 @@ mod tests {
     #[tokio::test]
     async fn set_status_transitions() {
         let reg = test_registry().await;
-        let agent = reg.spawn("lifecycle", None, None, None).await.unwrap();
+        let agent = reg.spawn("lifecycle", None, None).await.unwrap();
 
         assert_eq!(
             reg.get(&agent.id).await.unwrap().unwrap().status,
@@ -3047,7 +2999,7 @@ mod tests {
     #[tokio::test]
     async fn create_get_list_tasks() {
         let reg = test_registry().await;
-        let agent = reg.spawn("tasker", None, None, None).await.unwrap();
+        let agent = reg.spawn("tasker", None, None).await.unwrap();
 
         let t1 = reg
             .create_task(&agent.id, "Build API", "Build the REST API", &[], &[])
@@ -3096,7 +3048,7 @@ mod tests {
     #[tokio::test]
     async fn update_task_persists_scope_changes() {
         let reg = test_registry().await;
-        let agent = reg.spawn("tasker", None, None, None).await.unwrap();
+        let agent = reg.spawn("tasker", None, None).await.unwrap();
 
         let task = reg
             .create_task(&agent.id, "Scoped quest", "desc", &[], &[])

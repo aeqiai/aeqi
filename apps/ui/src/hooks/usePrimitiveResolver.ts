@@ -8,7 +8,6 @@ export interface ResolvedAgent {
   kind: "agent";
   id: string;
   name: string;
-  display_name?: string;
   parent_id?: string | null;
 }
 
@@ -60,8 +59,7 @@ async function fetchAgent(id: string): Promise<ResolvedPrimitive | null> {
     return {
       kind: "agent",
       id: found.id,
-      name: found.display_name ?? found.name,
-      display_name: found.display_name,
+      name: found.name,
       parent_id: found.parent_id,
     };
   } catch {

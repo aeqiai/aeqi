@@ -243,13 +243,13 @@ export const api = {
   getRoots: () => request<Record<string, unknown>>("/roots"),
   createRoot: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/roots", { method: "POST", body: JSON.stringify(data) }),
-  updateRoot: (
-    name: string,
-    data: { name?: string; display_name?: string; tagline?: string; logo_url?: string },
-  ) =>
+  updateRoot: (name: string, data: { name?: string; tagline?: string; logo_url?: string }) =>
     request<{ ok: boolean }>(`/roots/${encodeURIComponent(name)}`, {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        ...(data.name ? { new_name: data.name } : {}),
+      }),
     }),
 
   // Quests
@@ -523,7 +523,7 @@ export const api = {
   // quests atomically and returns the new root_agent_id.
   getTemplates: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/templates"),
 
-  spawnTemplate: (data: { template: string; name?: string; display_name?: string }) =>
+  spawnTemplate: (data: { template: string; name?: string }) =>
     request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
       method: "POST",
       body: JSON.stringify(data),
@@ -535,7 +535,6 @@ export const api = {
     name?: string;
     project?: string;
     parent_id?: string;
-    display_name?: string;
     system_prompt?: string;
   }) =>
     request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),

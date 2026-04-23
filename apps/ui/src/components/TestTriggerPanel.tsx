@@ -164,7 +164,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
             <option value="">— pick an agent —</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.display_name ?? a.name}
+                {a.name}
               </option>
             ))}
           </select>

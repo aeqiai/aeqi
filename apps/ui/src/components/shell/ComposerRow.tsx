@@ -34,7 +34,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-  const agentDisplayName = agent?.display_name || agent?.name || agentId || "";
+  const agentDisplayName = agent?.name || agentId || "";
 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);

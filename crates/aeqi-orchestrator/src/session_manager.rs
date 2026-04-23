@@ -714,9 +714,9 @@ impl SessionManager {
         let is_interactive = !opts.auto_close;
 
         // Build orchestration tools (agents, quests, events, code, ideas)
-        {
+        if let Some(agent_id) = agent_uuid.clone() {
             let orch_tools = crate::tools::build_orchestration_tools(
-                agent_name.clone(),
+                agent_id,
                 activity_log.clone(),
                 None,
                 idea_store_for_agent.clone(),
@@ -725,6 +725,8 @@ impl SessionManager {
                 agent_registry.clone(),
             );
             tools.extend(orch_tools);
+        } else {
+            warn!(agent = %agent_name, "skipping orchestration tools: unresolved agent id");
         }
 
         // Filter tools based on agent's tool_deny list.
@@ -1042,7 +1044,7 @@ impl SessionManager {
             let sid = pregenerated_session_id.clone();
             if let Some(ref ss) = self.session_store {
                 let aid = agent_uuid.as_deref().unwrap_or("");
-                let display_name = opts.name.as_deref().unwrap_or(&agent_name);
+                let session_name = opts.name.as_deref().unwrap_or(&agent_name);
                 if ss.get_session(&sid).await.ok().flatten().is_none() {
                     is_first_execution = true;
                     let _ = ss
@@ -1050,7 +1052,7 @@ impl SessionManager {
                             &sid,
                             aid,
                             session_type_str,
-                            display_name,
+                            session_name,
                             parent_id,
                             quest_id,
                         )

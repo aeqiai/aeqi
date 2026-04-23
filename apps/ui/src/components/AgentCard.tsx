@@ -8,7 +8,7 @@ interface AgentCardProps {
 }
 
 export default function AgentCard({ agent, compact = false }: AgentCardProps) {
-  const label = agent.display_name || agent.name;
+  const label = agent.name;
 
   if (compact) {
     return (

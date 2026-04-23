@@ -86,7 +86,6 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       ? (rootsData.roots as Array<Record<string, unknown>>).map((r) => ({
           id: (r.id as string) ?? (r.name as string),
           name: r.name as string,
-          display_name: (r.display_name as string | undefined) ?? undefined,
           status: (r.running as boolean) ? "running" : "stopped",
           parent_id: null,
         }))

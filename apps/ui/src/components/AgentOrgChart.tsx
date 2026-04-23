@@ -31,7 +31,7 @@ function buildOrg(agents: Agent[], rootId: string): OrgNode | null {
     const kids = childrenByParent.get(agent.id) || [];
     return {
       id: agent.id,
-      label: agent.display_name || agent.name,
+      label: agent.name,
       subLabel: agent.status,
       isRoot,
       children: kids.map((k) => toNode(k, false)),

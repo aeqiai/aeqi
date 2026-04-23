@@ -51,7 +51,7 @@ export default function ContentTopBar() {
   const settingsActive = section === "settings" || section === "tools" || section === "channels";
   const showCrumb = Boolean(primitiveWord);
 
-  const agentName = agent ? agent.display_name || agent.name : "";
+  const agentName = agent ? agent.name : "";
 
   return (
     <div className="content-topbar">
