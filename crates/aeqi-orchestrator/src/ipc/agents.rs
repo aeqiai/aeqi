@@ -114,9 +114,9 @@ pub async fn handle_agent_children(
 
 /// Spawn a new agent from a request body.
 ///
-/// Required: `name`.
+/// Required: `name` (legacy `display_name` is accepted as an alias).
 /// Optional: `parent_id` (attaches under an existing agent; root otherwise),
-/// `display_name`, `model`, `system_prompt` (persisted as an `identity` +
+/// `model`, `system_prompt` (persisted as an `identity` +
 /// `evergreen` idea owned by the new agent — matches the shape used by
 /// company-template spawns so `assemble_ideas` picks it up at session:start).
 pub async fn handle_agent_spawn(
@@ -126,6 +126,7 @@ pub async fn handle_agent_spawn(
 ) -> serde_json::Value {
     let name = request
         .get("name")
+        .or_else(|| request.get("display_name"))
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
@@ -135,11 +136,6 @@ pub async fn handle_agent_spawn(
 
     let parent_id = request
         .get("parent_id")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let display_name = request
-        .get("display_name")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
@@ -154,11 +150,7 @@ pub async fn handle_agent_spawn(
         .map(str::trim)
         .filter(|s| !s.is_empty());
 
-    let agent = match ctx
-        .agent_registry
-        .spawn(name, display_name, parent_id, model)
-        .await
-    {
+    let agent = match ctx.agent_registry.spawn(name, None, parent_id, model).await {
         Ok(a) => a,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
@@ -167,8 +159,7 @@ pub async fn handle_agent_spawn(
     if let Some(prompt) = system_prompt {
         match ctx.idea_store.as_ref() {
             Some(store) => {
-                let label = agent.display_name.as_deref().unwrap_or(&agent.name);
-                let idea_name = format!("Persona — {label}");
+                let idea_name = format!("Persona — {}", agent.name);
                 let tags = vec!["identity".to_string(), "evergreen".to_string()];
                 if let Err(err) = store
                     .store(&idea_name, prompt, &tags, Some(&agent.id))

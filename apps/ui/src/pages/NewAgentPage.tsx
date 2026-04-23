@@ -62,7 +62,7 @@ export default function NewAgentPage() {
     <SubAgentForm
       navigate={navigate}
       parentId={parentId}
-      parentLabel={parentAgent?.display_name || parentAgent?.name || "this agent"}
+      parentLabel={parentAgent?.name || parentAgent?.display_name || "this agent"}
       onSpawned={async (newId) => {
         await fetchAgents();
         navigate(`/${encodeURIComponent(newId)}`);
@@ -274,7 +274,7 @@ function SubAgentForm({
   const [templates, setTemplates] = useState<IdentityOption[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [template, setTemplate] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [name, setName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -298,6 +298,8 @@ function SubAgentForm({
   }, []);
 
   const canSubmit = template.trim().length > 0 && !submitting;
+  const selectedTemplate = templates.find((t) => t.slug === template) || null;
+  const resolvedName = name.trim() || selectedTemplate?.name || template.trim();
 
   // Keyboard shortcuts: ⌘/Ctrl-Enter submits from anywhere on the page
   // (including the textarea), Escape cancels back to the parent's Agents
@@ -328,7 +330,7 @@ function SubAgentForm({
       const resp = await api.spawnAgent({
         template: template.trim(),
         parent_id: parentId,
-        ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
+        ...(resolvedName ? { name: resolvedName } : {}),
         ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
       const newId =
@@ -401,21 +403,21 @@ function SubAgentForm({
         <section className="new-sub-section">
           <label className="new-sub-label" htmlFor="new-sub-name">
             Name
-            <span className="new-sub-optional"> · optional</span>
+            <span className="new-sub-optional"> · defaults to the identity title</span>
           </label>
           <input
             id="new-sub-name"
             className="new-co-name-input"
             type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && canSubmit) {
                 e.preventDefault();
                 void handleSubmit();
               }
             }}
-            placeholder={template ? `e.g. Senior ${template}` : "Display name"}
+            placeholder={selectedTemplate?.name || (template ? `e.g. ${template}` : "Agent name")}
             autoFocus
           />
         </section>

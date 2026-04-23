@@ -174,15 +174,11 @@ impl AgentsTool {
     async fn action_hire(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let name = args
             .get("name")
+            .or_else(|| args.get("display_name"))
             .and_then(|v| v.as_str())
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .ok_or_else(|| anyhow::anyhow!("missing required parameter 'name'"))?;
-        let display_name = args
-            .get("display_name")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
         let model = args
             .get("model")
             .and_then(|v| v.as_str())
@@ -211,12 +207,11 @@ impl AgentsTool {
 
         let agent = self
             .agent_registry
-            .spawn(name, display_name, Some(&parent_id), model)
+            .spawn(name, None, Some(&parent_id), model)
             .await?;
 
         if let (Some(store), Some(prompt)) = (self.idea_store.as_ref(), system_prompt) {
-            let label = agent.display_name.as_deref().unwrap_or(&agent.name);
-            let idea_name = format!("Persona — {label}");
+            let idea_name = format!("Persona — {}", agent.name);
             let tags: Vec<String> = PERSONA_IDEA_TAGS.iter().map(|s| s.to_string()).collect();
             let _ = store
                 .store(&idea_name, prompt, &tags, Some(&agent.id))

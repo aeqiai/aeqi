@@ -245,7 +245,7 @@ export const api = {
     request<Record<string, unknown>>("/roots", { method: "POST", body: JSON.stringify(data) }),
   updateRoot: (
     name: string,
-    data: { display_name?: string; tagline?: string; logo_url?: string },
+    data: { name?: string; display_name?: string; tagline?: string; logo_url?: string },
   ) =>
     request<{ ok: boolean }>(`/roots/${encodeURIComponent(name)}`, {
       method: "PUT",
@@ -523,7 +523,7 @@ export const api = {
   // quests atomically and returns the new root_agent_id.
   getTemplates: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/templates"),
 
-  spawnTemplate: (data: { template: string; display_name?: string }) =>
+  spawnTemplate: (data: { template: string; name?: string; display_name?: string }) =>
     request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
       method: "POST",
       body: JSON.stringify(data),
@@ -532,6 +532,7 @@ export const api = {
   // Spawn Agent
   spawnAgent: (data: {
     template: string;
+    name?: string;
     project?: string;
     parent_id?: string;
     display_name?: string;

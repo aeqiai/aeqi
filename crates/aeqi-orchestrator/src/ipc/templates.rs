@@ -487,7 +487,9 @@ pub async fn handle_spawn_template(
         return serde_json::json!({"ok": false, "error": "template is required"});
     }
 
-    let display_name = super::request_field(request, "display_name").map(str::to_string);
+    let display_name = super::request_field(request, "name")
+        .or_else(|| super::request_field(request, "display_name"))
+        .map(str::to_string);
 
     let template = match crate::templates::company_template(slug) {
         Some(t) => t,
@@ -500,20 +502,25 @@ pub async fn handle_spawn_template(
         }
     };
 
+    let requested_root_name = display_name
+        .as_deref()
+        .or(template.root.display_name.as_deref())
+        .unwrap_or(&template.root.name);
+
     // Reject if a root agent with this name already exists — template spawns
     // are meant to be the beginning of a fresh company, not a silent merge
     // into an existing one.
     match ctx
         .agent_registry
-        .get_active_by_name(&template.root.name)
+        .get_active_by_name(requested_root_name)
         .await
     {
         Ok(Some(existing)) => {
             return serde_json::json!({
                 "ok": false,
                 "error": format!(
-                    "an agent named '{}' already exists (id {}); pick a template whose root name is free or retire the existing one",
-                    template.root.name, existing.id,
+                    "an agent named '{}' already exists (id {}); pick a different company name or retire the existing one",
+                    requested_root_name, existing.id,
                 ),
                 "code": "conflict",
             });
@@ -677,7 +684,7 @@ mod tests {
 
         // Root + 2 seed agents.
         assert_eq!(outcome.spawned_agents.len(), 3);
-        assert_eq!(outcome.spawned_agents[0].name, "director");
+        assert_eq!(outcome.spawned_agents[0].name, "Director");
         assert!(
             outcome.warnings.is_empty(),
             "warnings: {:?}",
@@ -806,12 +813,13 @@ mod tests {
         .expect("spawn should succeed");
 
         let root = registry
-            .get_active_by_name(&template.root.name)
+            .get_active_by_name("My Cool Studio")
             .await
             .unwrap()
             .unwrap();
         assert_eq!(root.id, outcome.root_agent_id);
-        assert_eq!(root.display_name.as_deref(), Some("My Cool Studio"));
+        assert_eq!(root.name, "My Cool Studio");
+        assert!(root.display_name.is_none());
     }
 
     #[tokio::test]

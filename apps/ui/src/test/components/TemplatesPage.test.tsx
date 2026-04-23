@@ -155,7 +155,7 @@ describe("SpawnTemplateModal", () => {
     await waitFor(() => {
       expect(spawn).toHaveBeenCalledWith({
         template: "solo-founder",
-        display_name: "Solo Founder",
+        name: "Solo Founder",
       });
       expect(onSpawned).toHaveBeenCalledWith("agent-42");
     });

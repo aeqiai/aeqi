@@ -35,9 +35,9 @@ use tracing::{debug, info};
 pub struct Agent {
     /// Stable UUID — the true identity. Used for memory scoping, delegation, everything.
     pub id: String,
-    /// Human-readable name (NOT unique — multiple agents can share a name).
+    /// Human-readable label (NOT unique — multiple agents can share a name).
     pub name: String,
-    /// Display name shown in UI.
+    /// Legacy alias for the old two-field model. New code should use `name`.
     pub display_name: Option<String>,
     /// Parent agent UUID. None = root agent (the user's workspace).
     pub parent_id: Option<String>,
@@ -622,11 +622,16 @@ impl AgentRegistry {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let session_id = uuid::Uuid::new_v4().to_string();
+        let canonical_name = display_name
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(name)
+            .to_string();
 
         let agent = Agent {
             id: id.clone(),
-            name: name.to_string(),
-            display_name: display_name.map(|s| s.to_string()),
+            name: canonical_name,
+            display_name: None,
             parent_id: parent_id.map(|s| s.to_string()),
             model: model.map(|s| s.to_string()),
             status: AgentStatus::Active,
@@ -713,7 +718,14 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let agent = db
             .query_row(
-                "SELECT * FROM agents WHERE name = ?1 AND status = 'active' ORDER BY created_at DESC LIMIT 1",
+                "SELECT * FROM agents
+                 WHERE status = 'active'
+                   AND (
+                     name = ?1 COLLATE NOCASE
+                     OR display_name = ?1 COLLATE NOCASE
+                   )
+                 ORDER BY created_at DESC
+                 LIMIT 1",
                 params![name],
                 |row| Ok(row_to_agent(row)),
             )
@@ -721,12 +733,12 @@ impl AgentRegistry {
         Ok(agent)
     }
 
-    /// Resolve an agent by hint — tries name first, then UUID.
+    /// Resolve an agent by hint — UUID first, then the single visible name.
     pub async fn resolve_by_hint(&self, hint: &str) -> Result<Option<Agent>> {
-        if let Some(agent) = self.get_active_by_name(hint).await? {
+        if let Some(agent) = self.get(hint).await? {
             return Ok(Some(agent));
         }
-        self.get(hint).await
+        self.get_active_by_name(hint).await
     }
 
     /// Get the root agent (parent_id IS NULL, status = active).
@@ -1256,13 +1268,21 @@ impl AgentRegistry {
         Ok(())
     }
 
-    /// Set the display_name for an agent.
+    /// Legacy alias for renaming an agent in the old two-field model.
+    /// New writes update `name` directly and clear `display_name`.
     pub async fn update_display_name(&self, id: &str, display_name: Option<&str>) -> Result<()> {
         let db = self.db.lock().await;
-        db.execute(
-            "UPDATE agents SET display_name = ?1 WHERE id = ?2",
-            params![display_name, id],
-        )?;
+        if let Some(name) = display_name.map(str::trim).filter(|s| !s.is_empty()) {
+            db.execute(
+                "UPDATE agents SET name = ?1, display_name = NULL WHERE id = ?2",
+                params![name, id],
+            )?;
+        } else {
+            db.execute(
+                "UPDATE agents SET display_name = NULL WHERE id = ?1",
+                params![id],
+            )?;
+        }
         Ok(())
     }
 
@@ -2609,11 +2629,17 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         "retired" => AgentStatus::Retired,
         _ => AgentStatus::Active,
     };
+    let raw_name: String = row.get("name").unwrap_or_default();
+    let legacy_display_name = row
+        .get::<_, String>("display_name")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
 
     Agent {
         id: row.get("id").unwrap_or_default(),
-        name: row.get("name").unwrap_or_default(),
-        display_name: row.get("display_name").ok(),
+        name: legacy_display_name.clone().unwrap_or(raw_name),
+        display_name: None,
         parent_id: row.get("parent_id").ok(),
         model: row.get("model").ok(),
         status,
@@ -2675,7 +2701,8 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(agent.name, "shadow");
+        assert_eq!(agent.name, "Shadow");
+        assert!(agent.display_name.is_none());
         assert!(agent.parent_id.is_none()); // Root agent
         assert_eq!(agent.status, AgentStatus::Active);
 
@@ -2844,15 +2871,18 @@ mod tests {
     #[tokio::test]
     async fn resolve_by_hint_name_uuid_partial() {
         let reg = test_registry().await;
-        let agent = reg.spawn("analyst", None, None, None).await.unwrap();
+        let agent = reg
+            .spawn("analyst", Some("Analyst"), None, None)
+            .await
+            .unwrap();
 
-        let by_name = reg.resolve_by_hint("analyst").await.unwrap();
+        let by_name = reg.resolve_by_hint("Analyst").await.unwrap();
         assert!(by_name.is_some());
         assert_eq!(by_name.unwrap().id, agent.id);
 
         let by_uuid = reg.resolve_by_hint(&agent.id).await.unwrap();
         assert!(by_uuid.is_some());
-        assert_eq!(by_uuid.unwrap().name, "analyst");
+        assert_eq!(by_uuid.unwrap().name, "Analyst");
 
         let none = reg.resolve_by_hint("zzz-no-such-agent").await.unwrap();
         assert!(none.is_none());

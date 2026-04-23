@@ -89,7 +89,7 @@ pub async fn handle_create_root(
         .unwrap_or_else(|| name.chars().take(2).collect::<String>().to_lowercase());
 
     // Spawn a root agent (parent_id = None).
-    let agent = ctx.agent_registry.spawn(name, Some(name), None, None).await;
+    let agent = ctx.agent_registry.spawn(name, None, None, None).await;
     match agent {
         Ok(a) => {
             if let Ok(cwd) = std::env::current_dir() {

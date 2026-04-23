@@ -16,7 +16,7 @@ interface Props {
 /**
  * Confirmation modal for "Start this company".
  *
- * Collects a display name (defaults to the template's own name), posts to
+ * Collects a company name (defaults to the template's own name), posts to
  * `/api/templates/spawn`, then hands the new root_agent_id back to the caller
  * — TemplatesPage redirects to `/{root}/sessions` so the user lands inside
  * the freshly-threaded company immediately.
@@ -25,7 +25,7 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
 
-  const [displayName, setDisplayName] = useState("");
+  const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,7 +33,7 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
 
   useEffect(() => {
     if (open && template) {
-      setDisplayName(template.name);
+      setName(template.name);
       setError("");
       setSubmitting(false);
       setTimeout(() => inputRef.current?.select(), 60);
@@ -41,13 +41,13 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
   }, [open, template]);
 
   const handleSubmit = async () => {
-    if (!template || !displayName.trim() || submitting) return;
+    if (!template || !name.trim() || submitting) return;
     setSubmitting(true);
     setError("");
     try {
       const resp = await api.spawnTemplate({
         template: template.slug,
-        display_name: displayName.trim(),
+        name: name.trim(),
       });
       const rootId = resp?.root_agent_id;
       if (!rootId) {
@@ -94,10 +94,10 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
           id="tpl-modal-name"
           className="tpl-modal-input"
           type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && displayName.trim() && !submitting) handleSubmit();
+            if (e.key === "Enter" && name.trim() && !submitting) handleSubmit();
           }}
           placeholder={template.name}
           disabled={submitting}
@@ -132,7 +132,7 @@ export default function SpawnTemplateModal({ template, open, onClose, onSpawned 
         <Button
           variant="primary"
           onClick={handleSubmit}
-          disabled={!displayName.trim() || submitting}
+          disabled={!name.trim() || submitting}
           loading={submitting}
         >
           Start company
