@@ -9,8 +9,10 @@ pub mod porkbun;
 pub mod prompt;
 pub mod secrets;
 pub mod shell;
+pub mod telegram;
 pub mod web_fetch;
 pub mod web_search;
+pub mod whatsapp;
 
 pub use edit::FileEditTool;
 pub use execute_plan::ExecutePlanTool;
@@ -22,5 +24,7 @@ pub use porkbun::PorkbunTool;
 pub use prompt::Prompt;
 pub use secrets::SecretsTool;
 pub use shell::ShellTool;
+pub use telegram::{TelegramReactTool, TelegramReplyTool};
 pub use web_fetch::WebFetchTool;
 pub use web_search::WebSearchTool;
+pub use whatsapp::{WhatsAppReactTool, WhatsAppReplyTool};
