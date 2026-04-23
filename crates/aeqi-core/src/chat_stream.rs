@@ -161,6 +161,19 @@ pub enum ChatStreamEvent {
     /// step indicated by `step`.
     Tombstone { step: u32, reason: String },
 
+    /// A user message was injected at a step boundary while a turn was
+    /// in-flight. The model sees it on the NEXT LLM round-trip, just like a
+    /// `tool_result`. The step counter is not reset — it continues from
+    /// `after_step + 1`. The UI uses this event to render a user bubble
+    /// between two assistant entries in the same turn transcript.
+    UserInjected {
+        text: String,
+        /// The step that had just completed when this injection was claimed.
+        after_step: u32,
+        /// `pending_messages.id` of the injected row, when available.
+        message_id: Option<i64>,
+    },
+
     /// An error occurred.
     Error { message: String, recoverable: bool },
 }

@@ -69,6 +69,14 @@ pub struct SpawnOptions {
     /// Used by channel gateway spawners to make reply/react tools available
     /// only to sessions bound to a particular channel (e.g. WhatsApp or Telegram).
     pub extra_tools: Vec<Arc<dyn aeqi_core::traits::Tool>>,
+    /// The `pending_messages.id` that triggered this turn, used as the
+    /// watermark for step-boundary injection. Only rows with id strictly
+    /// greater than this value are eligible for mid-turn injection — the
+    /// drain loop already consumed the starting row.
+    ///
+    /// When `None`, step-boundary injection is disabled for this session
+    /// (e.g. internal / direct spawns that bypass the queue).
+    pub starting_pending_id: Option<i64>,
 }
 
 impl Default for SpawnOptions {
@@ -87,6 +95,7 @@ impl Default for SpawnOptions {
             stream_sender: None,
             task_budget_usd: None,
             extra_tools: Vec::new(),
+            starting_pending_id: None,
         }
     }
 }
@@ -168,6 +177,14 @@ impl SpawnOptions {
     /// sessions bound to a given channel receive its messaging tools.
     pub fn with_extra_tools(mut self, tools: Vec<Arc<dyn aeqi_core::traits::Tool>>) -> Self {
         self.extra_tools.extend(tools);
+        self
+    }
+
+    /// Set the starting watermark for step-boundary injection. Pass the
+    /// `pending_messages.id` of the claim that triggered this turn so the
+    /// agent loop only injects rows that arrived AFTER this turn started.
+    pub fn with_starting_pending_id(mut self, id: i64) -> Self {
+        self.starting_pending_id = Some(id);
         self
     }
 
@@ -937,6 +954,14 @@ impl SessionManager {
 
         if let Some(ref mem) = idea_store_for_agent {
             agent = agent.with_idea_store(mem.clone());
+        }
+
+        // Wire step-boundary injection when the session was started from the
+        // pending_messages queue. The claim id from the drain loop is the
+        // watermark: only rows with id > watermark are eligible for injection.
+        if let (Some(ss), Some(pending_id)) = (&self.session_store, opts.starting_pending_id) {
+            let src: std::sync::Arc<dyn aeqi_core::PendingMessageSource> = ss.clone();
+            agent = agent.with_pending_source(src, Some(pending_id));
         }
 
         // Wire EventPatternDispatcher so the compaction pipeline can delegate

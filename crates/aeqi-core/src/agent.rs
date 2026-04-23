@@ -6,8 +6,8 @@ use tracing::{debug, info, warn};
 
 use crate::traits::{
     ChatRequest, ChatResponse, ContentPart, ContextAttachment, Event, IdeaStore, LoopAction,
-    Message, MessageContent, Observer, Provider, Role, StopReason, Tool, ToolResult, ToolSpec,
-    Usage,
+    Message, MessageContent, Observer, PendingMessageSource, Provider, Role, StopReason, Tool,
+    ToolResult, ToolSpec, Usage,
 };
 
 /// Generic notification that can be injected into the agent loop between steps.
@@ -672,6 +672,15 @@ pub struct Agent {
     /// LLM request within this spawn. Set once per spawn — lifetime matches
     /// `session:execution_start` (once per turn). Empty string = no injection.
     execution_context: String,
+    /// Source for step-boundary user-message injection. When set, the agent
+    /// loop claims any pending messages for `config.session_id` at each step
+    /// boundary (right before `StepStart`) and appends them as `Role::User`
+    /// entries so the model sees them on the next LLM round-trip.
+    pending_source: Option<Arc<dyn PendingMessageSource>>,
+    /// Watermark: the `pending_messages.id` that was consumed when this turn
+    /// started. Step-boundary injection only claims rows with `id > watermark`
+    /// so the main drain loop's claim (for the NEXT turn) is never stolen.
+    last_pending_id: Option<i64>,
 }
 
 impl Agent {
@@ -698,6 +707,8 @@ impl Agent {
             pattern_dispatcher: None,
             detectors: Vec::new(),
             execution_context: String::new(),
+            pending_source: None,
+            last_pending_id: None,
         }
     }
 
@@ -780,6 +791,22 @@ impl Agent {
     /// renders the pill at the truthful firing location.
     pub fn with_step_events(mut self, events: Vec<StepEventMeta>) -> Self {
         self.step_events = Mutex::new(events);
+        self
+    }
+
+    /// Attach a pending message source for step-boundary injection.
+    ///
+    /// When set, the agent drains any new `pending_messages` rows queued for
+    /// this session (with `id > last_pending_id`) at each step boundary, right
+    /// before `StepStart` is emitted. Rows are appended as `Role::User`
+    /// entries and a `UserInjected` event is emitted for each one.
+    pub fn with_pending_source(
+        mut self,
+        source: Arc<dyn PendingMessageSource>,
+        starting_pending_id: Option<i64>,
+    ) -> Self {
+        self.pending_source = Some(source);
+        self.last_pending_id = starting_pending_id;
         self
     }
 
@@ -944,6 +971,12 @@ impl Agent {
         let mut persist_dir_created: Option<PathBuf> = None;
         let mut has_attempted_reactive_compact = false;
         let mut replacement_state = ContentReplacementState::new();
+        // Watermark for step-boundary injection: tracks the highest
+        // `pending_messages.id` claimed at a boundary within this turn.
+        // Initialized from `self.last_pending_id` (set by the caller via
+        // `with_pending_source`) so we never re-claim the row that triggered
+        // this turn in the first place.
+        let mut injection_watermark: Option<i64> = self.last_pending_id;
 
         loop {
             // Check cancellation signal (set by parent interrupt propagation).
@@ -1092,6 +1125,51 @@ impl Agent {
                     tokens: estimated_tokens,
                 })
                 .await;
+
+            // Step-boundary injection: claim any user messages that arrived
+            // for this session while this turn was already running. Each
+            // injected message is appended to `messages` as Role::User and
+            // a UserInjected event is emitted so the UI can render the split
+            // transcript. Semantics match tool_result: the model sees the
+            // injected content on the NEXT LLM round-trip; the step counter
+            // continues without reset.
+            if let Some(ref src) = self.pending_source {
+                let sid = &self.config.session_id;
+                if !sid.is_empty() {
+                    match src
+                        .claim_pending_for_session(sid, injection_watermark)
+                        .await
+                    {
+                        Ok(injected) => {
+                            for row in injected {
+                                debug!(
+                                    agent = %self.config.name,
+                                    id = row.id,
+                                    after_step = iterations - 1,
+                                    "step-boundary injection: user message claimed"
+                                );
+                                messages.push(Message {
+                                    role: Role::User,
+                                    content: MessageContent::text(&row.content),
+                                });
+                                self.emit(crate::chat_stream::ChatStreamEvent::UserInjected {
+                                    text: row.content,
+                                    after_step: iterations - 1,
+                                    message_id: Some(row.id),
+                                });
+                                injection_watermark = Some(row.id);
+                            }
+                        }
+                        Err(e) => {
+                            warn!(
+                                agent = %self.config.name,
+                                error = %e,
+                                "step-boundary injection: claim failed, continuing"
+                            );
+                        }
+                    }
+                }
+            }
 
             // Emit the StepStart divider first, then the per-step EventFired
             // pills. UI reads: the "Step N" divider opens the step, and the

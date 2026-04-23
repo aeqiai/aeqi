@@ -295,6 +295,13 @@ fn process_ws_event(state: &mut AppState, evt: ChatStreamEvent, stdout: &mut imp
             state.push_system(&format!("✂ collapse: freed ~{tokens_freed} tokens"));
             render::print_message(stdout, state.messages.last().unwrap(), state, 80);
         }
+        ChatStreamEvent::UserInjected {
+            text, after_step, ..
+        } => {
+            let preview: String = text.chars().take(60).collect();
+            state.push_system(&format!("↩ user (after step {after_step}): {preview}"));
+            render::print_message(stdout, state.messages.last().unwrap(), state, 80);
+        }
     }
 }
 
