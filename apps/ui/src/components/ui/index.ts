@@ -63,3 +63,6 @@ export type { PopoverProps, PopoverPlacement } from "./Popover";
 
 export { Combobox } from "./Combobox";
 export type { ComboboxProps, ComboboxOption } from "./Combobox";
+
+export { Menu } from "./Menu";
+export type { MenuProps, MenuItem } from "./Menu";

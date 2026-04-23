@@ -5,7 +5,7 @@ import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
 
 const SCOPE_OPTIONS: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
-import { Button, IconButton, Select } from "./ui";
+import { Button, IconButton, Menu, Select } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
@@ -87,7 +87,6 @@ export default function IdeaCanvas({
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   // Candidate-skill decision state.
   const tags = idea?.tags ?? [];
   const isCandidateSkill = tags.includes("skill") && tags.includes("candidate");
@@ -124,7 +123,6 @@ export default function IdeaCanvas({
     setTypedTags(idea?.tags ?? []);
     setSaveState("idle");
     setError(null);
-    setConfirmDelete(false);
     setDecisionState("idle");
     setDecisionError(null);
     setShowRejectPanel(false);
@@ -279,17 +277,12 @@ export default function IdeaCanvas({
 
   const handleDelete = async () => {
     if (!idea) return;
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     try {
       await api.deleteIdea(idea.id);
       removeIdea(agentId, idea.id);
       goAgent(agentId, "ideas", undefined, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
-      setConfirmDelete(false);
     }
   };
 
@@ -356,10 +349,26 @@ export default function IdeaCanvas({
           }}
         />
         {isEdit && (
-          <IdeaMenu
-            confirmDelete={confirmDelete}
-            onDelete={handleDelete}
-            onCancelConfirm={() => setConfirmDelete(false)}
+          <Menu
+            trigger={
+              <IconButton variant="ghost" size="sm" aria-label="More actions">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                  <circle cx="3" cy="8" r="1.4" />
+                  <circle cx="8" cy="8" r="1.4" />
+                  <circle cx="13" cy="8" r="1.4" />
+                </svg>
+              </IconButton>
+            }
+            items={[
+              {
+                key: "delete",
+                label: "Delete idea",
+                destructive: true,
+                confirmLabel: "Confirm delete?",
+                onSelect: handleDelete,
+              },
+            ]}
+            placement="bottom-end"
           />
         )}
       </div>
@@ -526,76 +535,6 @@ export default function IdeaCanvas({
       </div>
 
       {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
-    </div>
-  );
-}
-
-/**
- * Notion-style kebab menu in the canvas head — destructive actions hide
- * here so they're out of the reader's flow but one click away. Two-step
- * confirm lives inside the popover to avoid an accidental delete.
- */
-function IdeaMenu({
-  confirmDelete,
-  onDelete,
-  onCancelConfirm,
-}: {
-  confirmDelete: boolean;
-  onDelete: () => void;
-  onCancelConfirm: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-        onCancelConfirm();
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        onCancelConfirm();
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onCancelConfirm]);
-
-  return (
-    <div className="ideas-canvas-menu" ref={rootRef}>
-      <IconButton
-        variant="ghost"
-        size="sm"
-        aria-label="More actions"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-          <circle cx="3" cy="8" r="1.4" />
-          <circle cx="8" cy="8" r="1.4" />
-          <circle cx="13" cy="8" r="1.4" />
-        </svg>
-      </IconButton>
-      {open && (
-        <div className="ideas-canvas-menu-popover" role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className={`ideas-canvas-menu-item danger${confirmDelete ? " confirm" : ""}`}
-            onClick={onDelete}
-          >
-            {confirmDelete ? "Confirm delete?" : "Delete idea"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

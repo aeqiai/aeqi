@@ -1,0 +1,89 @@
+/* Menu primitive
+   Popover-backed action list. Reuses <Popover> for positioning and
+   outside-click dismissal. Keyboard: arrow up/down, Enter, Esc.
+   Destructive items render in --danger on hover/active/armed.
+
+   --danger is aliased to --destructive (→ --color-error) since the
+   shared token package does not ship a --danger name. */
+
+.menu {
+  padding: 4px 0;
+  min-width: 160px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.4;
+  border-radius: 0;
+  outline: none;
+  transition: background var(--transition-fast);
+}
+
+.item:hover:not(.disabled),
+.item:focus-visible:not(.disabled) {
+  background: var(--state-hover);
+}
+
+.item:active:not(.disabled) {
+  background: var(--state-pressed);
+}
+
+.item.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Destructive variant — red label on hover / active / armed */
+
+.item.destructive:hover:not(.disabled),
+.item.destructive:focus-visible:not(.disabled) {
+  color: var(--destructive);
+  background: var(--state-hover);
+}
+
+.item.destructive:active:not(.disabled) {
+  color: var(--destructive);
+  background: var(--state-pressed);
+}
+
+.item.destructive.armed {
+  color: var(--destructive);
+  background: var(--state-hover);
+}
+
+/* Icon slot */
+
+.icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  line-height: 0;
+  color: var(--text-muted);
+  width: 16px;
+}
+
+.item.destructive:hover .icon,
+.item.destructive:focus-visible .icon,
+.item.destructive.armed .icon {
+  color: var(--destructive);
+}
+
+/* Label */
+
+.label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
