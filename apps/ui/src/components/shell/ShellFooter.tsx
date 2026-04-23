@@ -4,20 +4,26 @@ export default function ShellFooter() {
   return (
     <footer className="shell-footer" role="contentinfo">
       <p className="shell-footer-tagline">
-        <Wordmark size={11} className="shell-footer-wordmark" color="currentColor" />
-        <span>
-          By using aeqi you agree to our{" "}
-          <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
-            privacy policy
-          </a>{" "}
-          and{" "}
-          <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
-            terms of service
-          </a>
-          .
-        </span>
+        By using <Wordmark size={11} className="shell-footer-wordmark" color="currentColor" /> you
+        agree to our{" "}
+        <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+          privacy policy
+        </a>{" "}
+        and{" "}
+        <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+          terms of service
+        </a>
+        .
       </p>
-      <span className="shell-footer-meta">v0.7.0</span>
+      <a
+        href="https://status.aeqi.ai"
+        target="_blank"
+        rel="noreferrer noopener"
+        className="shell-footer-meta"
+        title="System status"
+      >
+        v0.7.0
+      </a>
     </footer>
   );
 }

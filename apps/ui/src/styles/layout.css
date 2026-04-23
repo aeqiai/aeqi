@@ -16,15 +16,16 @@
    home and app feel like one product. */
 /* Three-zone grid: empty | centered legal clause | version (right-flush).
    The sentence sits at the mathematical center of the row regardless
-   of the version width. No top divider — the footer reads as a quiet
-   baseline below the content card, not a bordered strip. */
+   of the version width. Vertical padding is symmetric (8px top + 8px
+   bottom) so the line of text floats in the middle of the strip, with
+   breathing room between the card above and the viewport edge below. */
 .shell-footer {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  padding: 3px 12px 4px;
+  padding: 8px 14px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.015)), var(--bg-sidebar);
   color: var(--text-muted);
@@ -40,9 +41,6 @@
 .shell-footer-tagline {
   grid-column: 2;
   margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   white-space: nowrap;
   color: var(--text-secondary);
 }
@@ -61,7 +59,7 @@
   outline: none;
 }
 .shell-footer-wordmark {
-  flex-shrink: 0;
+  vertical-align: baseline;
 }
 .shell-footer-meta {
   grid-column: 3;
@@ -71,7 +69,19 @@
   white-space: nowrap;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
   font-size: 9px;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+.shell-footer-meta:hover,
+.shell-footer-meta:focus-visible {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-hover);
+  outline: none;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
@@ -931,6 +941,9 @@
   background: transparent;
   box-shadow: none;
   animation: none;
+}
+.threads-rail-row-status--pulsing {
+  animation: c-pulse 1.8s ease-in-out infinite;
 }
 .threads-rail-row.active .threads-rail-row-name {
   font-weight: 500;
