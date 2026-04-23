@@ -70,8 +70,8 @@ const COMPACTABLE_TOOLS: &[&str] = &[
 /// Cleared content marker for microcompacted tool results.
 const MICROCOMPACT_CLEARED: &str = "[Old tool result content cleared]";
 
-/// Default prompt body used by `summarize_context` when no
-/// `AgentConfig::compact_prompt_template` override is supplied.
+/// Default compaction prompt body. Used as the content for the seeded
+/// `session:compact-prompt` idea when none is set by the operator.
 ///
 /// Contains `{custom_instructions}` and `{transcript}` placeholders. The
 /// prompt is AEQI's only built-in opinionated LLM template; exposing it as
@@ -206,11 +206,12 @@ pub struct AgentConfig {
     /// model instead of the primary. Saves cost on simple queries while keeping
     /// quality for complex work. Hermes calls this "smart model routing."
     pub routing_model: Option<String>,
-    /// Optional compaction instructions appended to the 9-section compaction prompt.
+    /// Optional compaction instructions appended to the compaction body.
+    /// Forwarded to the compactor session via the `context:budget:exceeded` event.
     pub compact_instructions: Option<String>,
-    /// Optional full override for the compaction prompt body. When `Some`, replaces
-    /// the default 9-section taxonomy. Must contain `{transcript}` and may contain
-    /// `{custom_instructions}`. When `None`, falls back to `DEFAULT_COMPACT_PROMPT`.
+    /// Optional full override for the compaction body seeded into the compactor
+    /// session. When `Some`, seeds the `session:compact-prompt` idea for the agent.
+    /// When `None`, falls back to `DEFAULT_COMPACT_PROMPT`.
     pub compact_prompt_template: Option<String>,
     /// Session UUID for the running session. Set by the orchestrator when the
     /// agent runs inside a managed session. Used to build the ExecutionContext
@@ -547,10 +548,8 @@ impl ContentReplacementState {
     }
 }
 
-/// Post-compact restoration constants.
+/// Maximum number of recent files to track for file-change detection.
 const POST_COMPACT_MAX_FILES: usize = 5;
-const POST_COMPACT_MAX_TOKENS_PER_FILE: usize = 5_000;
-const POST_COMPACT_FILE_BUDGET: usize = 50_000;
 
 /// Snip compaction: early threshold factor. Fires at threshold * SNIP_FACTOR
 /// before full compaction at threshold * 1.0.
@@ -564,11 +563,10 @@ const DIMINISHING_RETURNS_COUNT: u32 = 5;
 /// Token budget auto-continuation: stop when this fraction of budget is used.
 const TOKEN_BUDGET_COMPLETION_THRESHOLD: f32 = 0.90;
 
-/// A recently-read file tracked for post-compact restoration and change detection.
+/// A recently-read file tracked for external change detection.
 #[derive(Debug, Clone)]
 struct RecentFile {
     path: String,
-    content: String,
     /// File modification time at the point we read it (epoch secs).
     mtime_secs: u64,
 }
@@ -703,12 +701,10 @@ pub struct Agent {
     /// Optional event-driven pattern dispatcher (wired by the orchestrator).
     ///
     /// When present, the compaction pipeline fires `context:budget:exceeded`
-    /// via this dispatcher before falling back to inline `compact_messages`.
-    /// If an enabled event handles the pattern (returns `true`), inline
-    /// compaction is skipped — the event's tool_calls perform delegation.
-    ///
-    /// `None` in bare-CLI / test environments — inline compaction is always
-    /// used when the dispatcher is absent.
+    /// via this dispatcher. If an enabled event handles the pattern (returns
+    /// `true`), compaction is delegated to the event's tool_calls (e.g.
+    /// `transcript.replace_middle`). When absent or no event handles the
+    /// pattern, context pressure is reduced by snip/microcompact only.
     pattern_dispatcher: Option<Arc<dyn crate::tool_registry::PatternDispatcher>>,
     /// Pattern detectors run at each tool-call and step boundary.
     ///
@@ -762,9 +758,9 @@ impl Agent {
     /// Attach a pattern dispatcher for event-driven compaction delegation.
     ///
     /// When set, the compaction pipeline fires `context:budget:exceeded` via
-    /// this dispatcher. If an enabled event handles the pattern, inline
-    /// `compact_messages` is skipped. In bare-CLI / test environments where
-    /// this is not called, inline compaction always runs (no regression).
+    /// this dispatcher. If an enabled event handles the pattern, compaction is
+    /// performed durably via `transcript.replace_middle`. When absent, context
+    /// pressure is handled by the structural snip/microcompact passes only.
     pub fn with_pattern_dispatcher(
         mut self,
         dispatcher: Arc<dyn crate::tool_registry::PatternDispatcher>,
@@ -1066,7 +1062,6 @@ impl Agent {
             let (compaction_result, estimated_tokens) = self
                 .run_compaction_pipeline(
                     &mut messages,
-                    &recent_files,
                     &mut tracker,
                     &mut has_attempted_reactive_compact,
                     iterations,
@@ -1214,7 +1209,9 @@ impl Agent {
                             self.emit(crate::chat_stream::ChatStreamEvent::Status {
                                 message: "Emergency context compaction...".into(),
                             });
-                            // Full pipeline: snip → microcompact → full compact.
+                            // Structural cleanup: snip → microcompact.
+                            // Full compaction is handled by context:budget:exceeded via
+                            // transcript.replace_middle in the event-driven path.
                             let freed = Self::snip_compact(
                                 &mut messages,
                                 self.config.compact_preserve_head,
@@ -1235,7 +1232,6 @@ impl Agent {
                                     cleared: cleared as u32,
                                 });
                             }
-                            self.compact_messages(&mut messages, &recent_files).await;
                             tracker.compactions += 1;
                             has_attempted_reactive_compact = true;
                             iterations -= 1;
@@ -1921,11 +1917,7 @@ impl Agent {
                         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                         .map(|d| d.as_secs())
                         .unwrap_or(0);
-                    recent_files.push(RecentFile {
-                        path,
-                        content: r.output.clone(),
-                        mtime_secs,
-                    });
+                    recent_files.push(RecentFile { path, mtime_secs });
                     // Keep only the most recent N files.
                     if recent_files.len() > POST_COMPACT_MAX_FILES * 2 {
                         recent_files.drain(..recent_files.len() - POST_COMPACT_MAX_FILES);
@@ -2092,7 +2084,6 @@ impl Agent {
     async fn run_compaction_pipeline(
         &self,
         messages: &mut Vec<Message>,
-        recent_files: &[RecentFile],
         tracker: &mut ContextTracker,
         has_attempted_reactive_compact: &mut bool,
         iterations: u32,
@@ -2182,12 +2173,12 @@ impl Agent {
             }
         }
 
-        // --- Stage 2: Full compaction ---
-        // Before running inline compaction, try event-driven delegation via
-        // the `context:budget:exceeded` pattern. If a configured event handles
-        // it (e.g. spawns a compactor session and injects a summary), skip the
-        // inline path. If no event is configured or the dispatcher is absent,
-        // fall back to the existing inline `compact_messages`.
+        // --- Stage 2: Event-driven compaction ---
+        // Fire `context:budget:exceeded` via the pattern dispatcher. If a
+        // configured event handles it (e.g. spawns a compactor session and calls
+        // transcript.replace_middle), compaction is performed durably. If no
+        // event handles it, or the dispatcher is absent, skip — structural
+        // passes (snip/microcompact) have already reduced pressure above.
         if estimated_tokens > full_threshold
             && tracker.compactions < MAX_COMPACTIONS_PER_RUN
             && messages.len() > protected
@@ -2239,16 +2230,6 @@ impl Agent {
                     agent = %self.config.name,
                     "context:budget:exceeded handled by event — skipping inline compaction"
                 );
-                tracker.compactions += 1;
-                *has_attempted_reactive_compact = false;
-                transition = Some(LoopTransition::ContextCompacted);
-
-                if let Some(ref sf) = self.config.session_file {
-                    Self::save_session(messages, tracker, iterations, active_model, sf).await;
-                }
-            } else {
-                // No event configured or dispatcher absent — use inline compaction.
-                self.compact_messages(messages, recent_files).await;
                 tracker.compactions += 1;
                 *has_attempted_reactive_compact = false;
                 transition = Some(LoopTransition::ContextCompacted);
@@ -2759,50 +2740,6 @@ impl Agent {
         None
     }
 
-    /// Build post-compact file restoration messages from recently-read files.
-    ///
-    /// Returns `(messages, restored_paths)` — the messages to inject into the
-    /// compacted conversation and the corresponding file paths (for telemetry /
-    /// the `Compacted` chat-stream event).
-    fn build_file_restoration(recent_files: &[RecentFile]) -> (Vec<Message>, Vec<String>) {
-        let mut messages = Vec::new();
-        let mut restored_paths = Vec::new();
-        let mut total_tokens = 0usize;
-
-        // Take the most recent files first (end of vec = most recent).
-        for file in recent_files.iter().rev().take(POST_COMPACT_MAX_FILES) {
-            let file_tokens = file.content.len() / CHARS_PER_TOKEN;
-            let capped = file_tokens.min(POST_COMPACT_MAX_TOKENS_PER_FILE);
-
-            if total_tokens + capped > POST_COMPACT_FILE_BUDGET {
-                break;
-            }
-
-            let content = if file_tokens > POST_COMPACT_MAX_TOKENS_PER_FILE {
-                let max_chars = POST_COMPACT_MAX_TOKENS_PER_FILE * CHARS_PER_TOKEN;
-                format!(
-                    "# File (restored after compaction): {}\n{}... [truncated]",
-                    file.path,
-                    &file.content[..file.content.len().min(max_chars)]
-                )
-            } else {
-                format!(
-                    "# File (restored after compaction): {}\n{}",
-                    file.path, file.content
-                )
-            };
-
-            messages.push(Message {
-                role: Role::System,
-                content: MessageContent::text(content),
-            });
-            restored_paths.push(file.path.clone());
-            total_tokens += capped;
-        }
-
-        (messages, restored_paths)
-    }
-
     /// Detect files that changed externally since we last read them.
     /// Returns system messages with change notifications for injection between steps.
     async fn detect_file_changes(recent_files: &[RecentFile]) -> Vec<(String, Message)> {
@@ -3220,119 +3157,6 @@ impl Agent {
         freed
     }
 
-    /// Stages 2+3: Compact conversation by summarizing middle messages.
-    /// After compaction, restores: (1) active context (files/tools in use),
-    /// (2) preserved skills, (3) recently-read file contents, (4) enrichments.
-    async fn compact_messages(&self, messages: &mut Vec<Message>, recent_files: &[RecentFile]) {
-        let head = self.config.compact_preserve_head.min(messages.len());
-        let tail = self
-            .config
-            .compact_preserve_tail
-            .min(messages.len().saturating_sub(head));
-
-        if messages.len() <= head + tail {
-            return;
-        }
-
-        let middle_end = messages.len() - tail;
-        let middle = &messages[head..middle_end];
-        let middle_count = middle.len();
-
-        if middle.is_empty() {
-            return;
-        }
-
-        // Extract active context BEFORE compacting (files, tools in use).
-        let active_context = Self::extract_active_context(middle);
-
-        // Extract skill-load messages — these survive compaction verbatim.
-        // Skills are working instructions, not conversation history.
-        let preserved_skills = Self::extract_skill_messages(middle);
-
-        let transcript = Self::build_compaction_transcript(middle);
-
-        let summary = match self.summarize_context(&transcript).await {
-            Ok(s) => s,
-            Err(e) => {
-                warn!(agent = %self.config.name, "LLM compaction failed: {e}");
-                Self::simple_compact_summary(middle)
-            }
-        };
-
-        let mut compacted = Vec::with_capacity(head + 2 + tail);
-        compacted.extend_from_slice(&messages[..head]);
-        compacted.push(Message {
-            role: Role::System,
-            content: MessageContent::text(format!(
-                "# Context Summary\n[{middle_count} messages compacted]\n\n{summary}"
-            )),
-        });
-
-        // Re-inject preserved skill content — these are working instructions,
-        // not history. They survive compaction verbatim.
-        for skill_content in &preserved_skills {
-            compacted.push(Message {
-                role: Role::System,
-                content: MessageContent::text(format!(
-                    "# Skill (preserved through compaction)\n{skill_content}"
-                )),
-            });
-        }
-
-        // Post-compact restoration: inject active context so the model knows
-        // what it was working on without re-reading the full summary.
-        if !active_context.is_empty() {
-            compacted.push(Message {
-                role: Role::System,
-                content: MessageContent::text(format!(
-                    "# Active Context (restored after compaction)\n{active_context}"
-                )),
-            });
-        }
-
-        // Post-compact file restoration: re-inject recently-read file contents
-        // so the model can continue working without re-reading them.
-        let (file_msgs, restored_paths) = Self::build_file_restoration(recent_files);
-        if !file_msgs.is_empty() {
-            debug!(
-                agent = %self.config.name,
-                files = file_msgs.len(),
-                "restoring file contents after compaction"
-            );
-            compacted.extend(file_msgs);
-        }
-
-        compacted.extend_from_slice(&messages[messages.len() - tail..]);
-
-        self.observer
-            .record(Event::Custom {
-                name: "context_compacted".to_string(),
-                data: serde_json::json!({
-                    "original_messages": messages.len(),
-                    "compacted_messages": middle_count,
-                    "remaining_messages": compacted.len(),
-                }),
-            })
-            .await;
-
-        self.emit(crate::chat_stream::ChatStreamEvent::Compacted {
-            original_messages: messages.len(),
-            remaining_messages: compacted.len(),
-            compaction_number: 0, // Caller tracks this
-            restored_files: restored_paths,
-        });
-
-        info!(
-            agent = %self.config.name,
-            original = messages.len(),
-            removed = middle_count,
-            remaining = compacted.len(),
-            "context compacted"
-        );
-
-        *messages = compacted;
-    }
-
     fn build_compaction_transcript(messages: &[Message]) -> String {
         // Larger budget — the structured summarizer needs detail to produce
         // a good 9-section summary. 16K chars ≈ 4K tokens of input.
@@ -3417,197 +3241,6 @@ impl Agent {
         }
 
         transcript
-    }
-
-    /// Extract files and tools from messages being compacted.
-    /// Returns a human-readable context string for post-compact restoration.
-    fn extract_active_context(messages: &[Message]) -> String {
-        let mut files: Vec<String> = Vec::new();
-        let mut tools: Vec<String> = Vec::new();
-
-        for msg in messages {
-            let parts = match &msg.content {
-                MessageContent::Parts(p) => p,
-                _ => continue,
-            };
-
-            for part in parts {
-                if let ContentPart::ToolUse { name, input, .. } = part {
-                    if !tools.contains(name) {
-                        tools.push(name.clone());
-                    }
-
-                    // Extract file paths from common tool input fields.
-                    for key in &["file_path", "path", "file", "directory"] {
-                        if let Some(path) = input.get(*key).and_then(|v| v.as_str()) {
-                            let path = path.to_string();
-                            if !files.contains(&path) {
-                                files.push(path);
-                            }
-                        }
-                    }
-
-                    // Extract paths from glob/grep pattern fields.
-                    if let Some(pattern) = input.get("pattern").and_then(|v| v.as_str())
-                        && (pattern.contains('/') || pattern.contains('.'))
-                    {
-                        let path = pattern.to_string();
-                        if !files.contains(&path) && path.len() < 200 {
-                            files.push(path);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Cap at most recent to avoid overwhelming the context.
-        let max_files = 10;
-        let recent_files: Vec<&str> = files
-            .iter()
-            .rev()
-            .take(max_files)
-            .map(|s| s.as_str())
-            .collect();
-
-        let mut context = String::new();
-        if !recent_files.is_empty() {
-            context.push_str("Files active before compaction:\n");
-            for f in &recent_files {
-                context.push_str(&format!("- {f}\n"));
-            }
-        }
-        if !tools.is_empty() {
-            context.push_str(&format!("Tools used: {}\n", tools.join(", ")));
-        }
-        context
-    }
-
-    /// Extract skill content from tool results in compacted messages.
-    /// Skills are identified by ToolUse blocks calling "aeqi_prompts" with action="get",
-    /// followed by their ToolResult. The result content (the skill text) is preserved.
-    fn extract_skill_messages(messages: &[Message]) -> Vec<String> {
-        let mut skill_tool_ids: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        let mut skill_contents: Vec<String> = Vec::new();
-
-        // Pass 1: find tool_use IDs for aeqi_prompts get calls.
-        for msg in messages {
-            if let MessageContent::Parts(parts) = &msg.content {
-                for part in parts {
-                    if let ContentPart::ToolUse {
-                        id, name, input, ..
-                    } = part
-                        && name == "aeqi_prompts"
-                        && input
-                            .get("action")
-                            .and_then(|v| v.as_str())
-                            .is_some_and(|a| a == "get")
-                    {
-                        skill_tool_ids.insert(id.clone());
-                    }
-                }
-            }
-        }
-
-        if skill_tool_ids.is_empty() {
-            return skill_contents;
-        }
-
-        // Pass 2: extract the tool result content for those IDs.
-        for msg in messages {
-            if let MessageContent::Parts(parts) = &msg.content {
-                for part in parts {
-                    if let ContentPart::ToolResult {
-                        tool_use_id,
-                        content,
-                        is_error,
-                        ..
-                    } = part
-                        && !is_error
-                        && skill_tool_ids.contains(tool_use_id)
-                        && !content.is_empty()
-                    {
-                        skill_contents.push(content.clone());
-                    }
-                }
-            }
-        }
-
-        skill_contents
-    }
-
-    async fn summarize_context(&self, transcript: &str) -> anyhow::Result<String> {
-        let custom_instructions = self
-            .config
-            .compact_instructions
-            .as_ref()
-            .map(|ci| format!("## Additional Instructions\n\n{ci}\n\n"))
-            .unwrap_or_default();
-        let template = self
-            .config
-            .compact_prompt_template
-            .as_deref()
-            .unwrap_or(DEFAULT_COMPACT_PROMPT);
-        let prompt = template
-            .replace("{custom_instructions}", &custom_instructions)
-            .replace("{transcript}", transcript);
-        let request = ChatRequest {
-            model: self.config.model.clone(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::text(prompt),
-            }],
-            tools: vec![],
-            max_tokens: 8192,
-            temperature: 0.0,
-        };
-
-        let response = self.provider.chat(&request).await?;
-        let text = response
-            .content
-            .ok_or_else(|| anyhow::anyhow!("empty summary response"))?;
-
-        // Strip the <analysis> scratchpad, keep only <summary> content.
-        if let Some(start) = text.find("<summary>") {
-            let content_start = start + "<summary>".len();
-            let end = text.find("</summary>").unwrap_or(text.len());
-            Ok(text[content_start..end].trim().to_string())
-        } else {
-            Ok(text)
-        }
-    }
-
-    fn simple_compact_summary(messages: &[Message]) -> String {
-        let key_points: Vec<String> = messages
-            .iter()
-            .filter_map(|m| {
-                let text = match &m.content {
-                    MessageContent::Text(t) => t.clone(),
-                    MessageContent::Parts(parts) => parts
-                        .iter()
-                        .filter_map(|p| match p {
-                            ContentPart::Text { text } => Some(text.as_str()),
-                            ContentPart::ToolUse { name, .. } => Some(name.as_str()),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" "),
-                };
-                if text.is_empty() {
-                    None
-                } else if text.len() > 200 {
-                    Some(format!("{}...", &text[..200]))
-                } else {
-                    Some(text)
-                }
-            })
-            .collect();
-
-        format!(
-            "[{} messages summarized. Key points: {}]",
-            messages.len(),
-            key_points.join(" | ")
-        )
     }
 
     // -----------------------------------------------------------------------
@@ -3934,24 +3567,6 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_compact_summary() {
-        let messages = vec![
-            Message {
-                role: Role::User,
-                content: MessageContent::text("First message"),
-            },
-            Message {
-                role: Role::Assistant,
-                content: MessageContent::text("Second message"),
-            },
-        ];
-        let summary = Agent::simple_compact_summary(&messages);
-        assert!(summary.contains("2 messages summarized"));
-        assert!(summary.contains("First message"));
-        assert!(summary.contains("Second message"));
-    }
-
-    #[test]
     fn test_default_config_values() {
         let config = AgentConfig::default();
         assert_eq!(config.context_window, 200_000);
@@ -4133,66 +3748,6 @@ mod tests {
         assert_eq!(format!("{t:?}"), "ToolUse");
         let t = LoopTransition::OutputTruncated { attempt: 2 };
         assert!(format!("{t:?}").contains("2"));
-    }
-
-    #[test]
-    fn test_extract_active_context_finds_files() {
-        let messages = vec![
-            Message {
-                role: Role::Assistant,
-                content: MessageContent::Parts(vec![ContentPart::ToolUse {
-                    id: "t1".into(),
-                    name: "Read".into(),
-                    input: serde_json::json!({"file_path": "/src/main.rs"}),
-                }]),
-            },
-            Message {
-                role: Role::Assistant,
-                content: MessageContent::Parts(vec![ContentPart::ToolUse {
-                    id: "t2".into(),
-                    name: "Edit".into(),
-                    input: serde_json::json!({"file_path": "/src/lib.rs", "old_string": "a", "new_string": "b"}),
-                }]),
-            },
-        ];
-        let ctx = Agent::extract_active_context(&messages);
-        assert!(ctx.contains("/src/main.rs"));
-        assert!(ctx.contains("/src/lib.rs"));
-        assert!(ctx.contains("Read"));
-        assert!(ctx.contains("Edit"));
-    }
-
-    #[test]
-    fn test_extract_active_context_deduplicates() {
-        let messages = vec![Message {
-            role: Role::Assistant,
-            content: MessageContent::Parts(vec![
-                ContentPart::ToolUse {
-                    id: "t1".into(),
-                    name: "Read".into(),
-                    input: serde_json::json!({"file_path": "/src/main.rs"}),
-                },
-                ContentPart::ToolUse {
-                    id: "t2".into(),
-                    name: "Read".into(),
-                    input: serde_json::json!({"file_path": "/src/main.rs"}),
-                },
-            ]),
-        }];
-        let ctx = Agent::extract_active_context(&messages);
-        // Should only appear once.
-        assert_eq!(ctx.matches("/src/main.rs").count(), 1);
-        assert_eq!(ctx.matches("Read").count(), 1);
-    }
-
-    #[test]
-    fn test_extract_active_context_empty() {
-        let messages = vec![Message {
-            role: Role::User,
-            content: MessageContent::text("hello"),
-        }];
-        let ctx = Agent::extract_active_context(&messages);
-        assert!(ctx.is_empty());
     }
 
     // -----------------------------------------------------------------------
