@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import { useChatStore } from "@/store/chat";
+import { createDraftId, useChatStore, type PendingMessage } from "@/store/chat";
 import { useMessageProcessor } from "./session/useMessageProcessor";
 import { useSessionManager } from "./session/useSessionManager";
 import { useWebSocketChat } from "./session/useWebSocketChat";
@@ -12,6 +12,8 @@ import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
 
 // ── Main Component ──
+
+const EMPTY_QUEUED_DRAFTS: PendingMessage[] = [];
 
 interface AgentSessionProps {
   agentId: string;
@@ -77,7 +79,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     handleFork,
   } = sessionManager;
 
-  const { streaming, liveSegments, thinkingStart, dispatchMessage, messageQueueRef } = wsChat;
+  const { streaming, liveSegments, thinkingStart, dispatchMessage } = wsChat;
 
   // Keep streamingRef in sync so polling pauses during streaming
   streamingRef.current = streaming;
@@ -174,28 +176,33 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   }, [messages, liveSegments]);
 
   // Internal send handler — used by both local calls and the event bridge
-  const handleSendText = useCallback(
-    (messageText: string) => {
-      if (!messageText.trim() || !token) return;
+  const sendDraft = useCallback(
+    (draft: PendingMessage) => {
+      if (!draft.text.trim() || !token) return;
+
+      if (streaming) {
+        if (activeSessionId) {
+          useChatStore.getState().queueDraft(activeSessionId, draft);
+        }
+        return;
+      }
 
       setMessages((prev) => [
         ...prev,
         {
           role: "user",
-          content: messageText,
+          content: draft.text,
           timestamp: Date.now(),
-          queued: streaming || undefined,
         },
       ]);
 
-      if (streaming) {
-        messageQueueRef.current.push(messageText);
-        return;
-      }
-
-      void dispatchMessage(messageText);
+      void dispatchMessage(draft.text, {
+        sessionPrompts: draft.prompts,
+        sessionTask: draft.task || null,
+        attachedFiles: draft.files || [],
+      });
     },
-    [streaming, token, dispatchMessage, setMessages, messageQueueRef],
+    [streaming, token, dispatchMessage, setMessages, activeSessionId],
   );
 
   const handleStop = useCallback(() => {
@@ -219,7 +226,13 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       if (prompts?.length) setSessionPrompts(prompts);
       if (task) setSessionTask(task);
       if (files?.length) fileAttachments.setAttachedFiles(files);
-      handleSendText(text);
+      sendDraft({
+        id: detail.id || createDraftId(),
+        text,
+        files,
+        prompts,
+        task,
+      });
     };
     const onStop = () => handleStop();
     window.addEventListener("aeqi:send-message", onSend);
@@ -228,27 +241,42 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       window.removeEventListener("aeqi:send-message", onSend);
       window.removeEventListener("aeqi:stop-streaming", onStop);
     };
-  }, [handleSendText, handleStop, fileAttachments, setSessionPrompts, setSessionTask]);
+  }, [sendDraft, handleStop, fileAttachments, setSessionPrompts, setSessionTask]);
 
   // Broadcast streaming state so the composer in AppLayout can reflect it
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("aeqi:streaming-state", { detail: { streaming } }));
-  }, [streaming]);
+    window.dispatchEvent(
+      new CustomEvent("aeqi:streaming-state", {
+        detail: { streaming, sessionId: activeSessionId },
+      }),
+    );
+  }, [streaming, activeSessionId]);
 
   // Consume any pending message stashed by AppLayout's composer when there
   // was no chat mounted (type-anywhere flow). Fire once on mount/agent change.
-  const pendingMessage = useChatStore((s) => s.pendingMessage);
-  const setPendingMessage = useChatStore((s) => s.setPendingMessage);
+  const consumePendingMessage = useChatStore((s) => s.consumePendingMessage);
   useEffect(() => {
+    if (activeSessionId) return;
+    const pendingMessage = consumePendingMessage(agentId);
     if (!pendingMessage || !token) return;
-    const { text, files, prompts, task } = pendingMessage;
-    if (prompts?.length) setSessionPrompts(prompts);
-    if (task) setSessionTask(task);
-    if (files?.length) fileAttachments.setAttachedFiles(files);
-    handleSendText(text);
-    setPendingMessage(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once when pendingMessage arrives
-  }, [pendingMessage, token]);
+    sendDraft(pendingMessage);
+  }, [agentId, token, activeSessionId, consumePendingMessage, sendDraft]);
+
+  // Session-scoped queued drafts remain visible below the thinking panel and
+  // are drained in-order once the current turn finishes.
+  const queuedDrafts = useChatStore((s) =>
+    activeSessionId
+      ? s.queuedDraftsBySession[activeSessionId] || EMPTY_QUEUED_DRAFTS
+      : EMPTY_QUEUED_DRAFTS,
+  );
+  const consumeQueuedDraft = useChatStore((s) => s.consumeQueuedDraft);
+  useEffect(() => {
+    if (!activeSessionId || streaming) return;
+    if (!queuedDrafts[0]) return;
+    const draft = consumeQueuedDraft(activeSessionId);
+    if (!draft) return;
+    sendDraft(draft);
+  }, [activeSessionId, streaming, queuedDrafts, consumeQueuedDraft, sendDraft]);
 
   if (!agentId) return null;
 
@@ -262,7 +290,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     >
       <div className="asv-main">
         <div className="asv-messages">
-          {messages.length === 0 && !streaming && (
+          {messages.length === 0 && queuedDrafts.length === 0 && !streaming && (
             <EmptyState
               agentName={agentName}
               displayName={displayName}
@@ -271,9 +299,11 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             />
           )}
 
-          {messages.map((msg, i) => (
-            <MessageItem key={i} msg={msg} onFork={handleFork} onEdit={handleEdit} />
-          ))}
+          {messages
+            .filter((msg) => !msg.queued)
+            .map((msg, i) => (
+              <MessageItem key={i} msg={msg} onFork={handleFork} onEdit={handleEdit} />
+            ))}
 
           <StreamingMessage
             agentName={agentName}
@@ -281,6 +311,19 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             thinkingStart={thinkingStart}
             streaming={streaming}
           />
+
+          {queuedDrafts.map((draft) => (
+            <MessageItem
+              key={draft.id}
+              msg={{
+                role: "user",
+                content: draft.text,
+                queued: true,
+              }}
+              onFork={handleFork}
+              onEdit={handleEdit}
+            />
+          ))}
 
           <div ref={messagesEnd} />
         </div>

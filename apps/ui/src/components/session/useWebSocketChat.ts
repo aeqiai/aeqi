@@ -27,6 +27,12 @@ interface UseWebSocketChatOptions {
   attachedFiles: AttachedFile[];
 }
 
+interface DispatchMessageOptions {
+  sessionPrompts?: string[];
+  sessionTask?: { id: string; name: string } | null;
+  attachedFiles?: AttachedFile[];
+}
+
 export function useWebSocketChat({
   token,
   agentId,
@@ -45,7 +51,7 @@ export function useWebSocketChat({
   const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const messageQueueRef = useRef<string[]>([]);
+  const wsSessionRef = useRef<string | null>(null);
 
   const clearLiveState = useCallback(() => {
     setStreaming(false);
@@ -94,13 +100,18 @@ export function useWebSocketChat({
     [commitMessage, clearLiveState],
   );
 
-  const replaceSocket = useCallback((ws: WebSocket) => {
+  const replaceSocket = useCallback((ws: WebSocket, sessionId: string | null) => {
     closeSilently(wsRef.current);
     wsRef.current = ws;
+    wsSessionRef.current = sessionId;
   }, []);
 
   const dispatchMessage = useCallback(
-    async (messageText: string) => {
+    async (messageText: string, options?: DispatchMessageOptions) => {
+      const turnPrompts = options?.sessionPrompts ?? sessionPrompts;
+      const turnTask = options?.sessionTask ?? sessionTask;
+      const turnFiles = options?.attachedFiles ?? attachedFiles;
+      if (!token) return;
       const startTime = Date.now();
       unmarkQueued(setMessages, messageText);
       setStreaming(true);
@@ -117,9 +128,8 @@ export function useWebSocketChat({
         messageText,
       });
 
-      if (!token) return;
       const ws = openChatSocket(token);
-      replaceSocket(ws);
+      replaceSocket(ws, sessionId);
       ws.onopen = () =>
         ws.send(
           JSON.stringify(
@@ -128,9 +138,9 @@ export function useWebSocketChat({
               agentId,
               sessionId,
               isNew,
-              sessionPrompts,
-              sessionTask,
-              attachedFiles,
+              sessionPrompts: turnPrompts,
+              sessionTask: turnTask,
+              attachedFiles: turnFiles,
             }),
           ),
         );
@@ -145,11 +155,11 @@ export function useWebSocketChat({
       setSession,
       setSessions,
       setMessages,
+      attachEventHandlers,
+      replaceSocket,
       sessionPrompts,
       sessionTask,
       attachedFiles,
-      attachEventHandlers,
-      replaceSocket,
     ],
   );
 
@@ -162,30 +172,20 @@ export function useWebSocketChat({
       setThinkingStart(startTime);
 
       const ws = openChatSocket(token);
-      replaceSocket(ws);
+      replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
       attachEventHandlers(ws, startTime);
     },
     [token, attachEventHandlers, replaceSocket],
   );
 
-  const dispatchRef = useRef(dispatchMessage);
-  dispatchRef.current = dispatchMessage;
-
   useEffect(() => {
-    return () => {
-      closeSilently(wsRef.current);
-      wsRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (streaming) return;
-    if (messageQueueRef.current.length === 0) return;
-    const next = messageQueueRef.current.shift()!;
-    const timer = setTimeout(() => dispatchRef.current(next), 100);
-    return () => clearTimeout(timer);
-  }, [streaming]);
+    if (wsSessionRef.current === activeSessionId) return;
+    closeSilently(wsRef.current);
+    wsRef.current = null;
+    wsSessionRef.current = null;
+    clearLiveState();
+  }, [activeSessionId, clearLiveState]);
 
   useEffect(() => {
     if (!token || !activeSessionId || streaming) return;
@@ -207,6 +207,7 @@ export function useWebSocketChat({
   const handleStop = useCallback((sessionIdRefCurrent: string | null) => {
     if (sessionIdRefCurrent) api.cancelSession(sessionIdRefCurrent).catch(() => {});
     wsRef.current?.close();
+    wsSessionRef.current = null;
     setStreaming(false);
   }, []);
 
@@ -214,7 +215,6 @@ export function useWebSocketChat({
     streaming,
     liveSegments,
     thinkingStart,
-    messageQueueRef,
     dispatchMessage,
     attachToLiveStream,
     resetLiveSegments,

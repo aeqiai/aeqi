@@ -23,12 +23,8 @@ function persistSelectedAgent(agent: AgentRef | null) {
   }
 }
 
-/**
- * A message the user typed in the persistent composer while no chat view
- * was mounted. AgentSessionView consumes this on mount so the user doesn't
- * have to re-press Send after we navigate them into the chat.
- */
-interface PendingMessage {
+export interface PendingMessage {
+  id: string;
   text: string;
   files?: { name: string; content: string; size: number }[];
   prompts?: string[];
@@ -38,8 +34,13 @@ interface PendingMessage {
 interface ChatState {
   selectedAgent: AgentRef | null;
   setSelectedAgent: (agent: AgentRef | null) => void;
-  pendingMessage: PendingMessage | null;
-  setPendingMessage: (msg: PendingMessage | null) => void;
+  pendingMessageByAgent: Record<string, PendingMessage | null>;
+  setPendingMessage: (agentId: string, msg: PendingMessage | null) => void;
+  consumePendingMessage: (agentId: string) => PendingMessage | null;
+  queuedDraftsBySession: Record<string, PendingMessage[]>;
+  queueDraft: (sessionId: string, draft: PendingMessage) => void;
+  consumeQueuedDraft: (sessionId: string) => PendingMessage | null;
+  clearQueuedDrafts: (sessionId: string) => void;
   /**
    * Per-agent session list, populated by the active AgentSessionView so the
    * SessionsRail (left-adjacent threads column) can render the same data
@@ -55,11 +56,63 @@ export const useChatStore = create<ChatState>((set) => ({
     persistSelectedAgent(agent);
     set({ selectedAgent: agent });
   },
-  pendingMessage: null,
-  setPendingMessage: (msg) => set({ pendingMessage: msg }),
+  pendingMessageByAgent: {},
+  setPendingMessage: (agentId, msg) =>
+    set((state) => ({
+      pendingMessageByAgent: { ...state.pendingMessageByAgent, [agentId]: msg },
+    })),
+  consumePendingMessage: (agentId) => {
+    let pending: PendingMessage | null = null;
+    set((state) => {
+      pending = state.pendingMessageByAgent[agentId] || null;
+      if (!pending) return {};
+      const next = { ...state.pendingMessageByAgent };
+      delete next[agentId];
+      return { pendingMessageByAgent: next };
+    });
+    return pending;
+  },
+  queuedDraftsBySession: {},
+  queueDraft: (sessionId, draft) =>
+    set((state) => {
+      const next = state.queuedDraftsBySession[sessionId] || [];
+      return {
+        queuedDraftsBySession: {
+          ...state.queuedDraftsBySession,
+          [sessionId]: [...next, draft],
+        },
+      };
+    }),
+  consumeQueuedDraft: (sessionId) => {
+    let draft: PendingMessage | null = null;
+    set((state) => {
+      const next = state.queuedDraftsBySession[sessionId] || [];
+      if (next.length === 0) return {};
+      [draft] = next;
+      const rest = next.slice(1);
+      const queuedDraftsBySession = { ...state.queuedDraftsBySession };
+      if (rest.length > 0) queuedDraftsBySession[sessionId] = rest;
+      else delete queuedDraftsBySession[sessionId];
+      return { queuedDraftsBySession };
+    });
+    return draft;
+  },
+  clearQueuedDrafts: (sessionId) =>
+    set((state) => {
+      if (!state.queuedDraftsBySession[sessionId]) return {};
+      const queuedDraftsBySession = { ...state.queuedDraftsBySession };
+      delete queuedDraftsBySession[sessionId];
+      return { queuedDraftsBySession };
+    }),
   sessionsByAgent: {},
   setSessionsForAgent: (agentId, sessions) =>
     set((state) => ({
       sessionsByAgent: { ...state.sessionsByAgent, [agentId]: sessions },
     })),
 }));
+
+export function createDraftId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+}

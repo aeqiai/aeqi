@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import ChatComposer from "@/components/session/ChatComposer";
-import { useChatStore } from "@/store/chat";
+import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 
 interface ComposerRowProps {
@@ -30,11 +30,13 @@ interface ComposerRowProps {
  */
 export default function ComposerRow({ agentId, base, sessionsMounted }: ComposerRowProps) {
   const navigate = useNavigate();
+  const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
   const agents = useDaemonStore((s) => s.agents);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const agentDisplayName = agent?.name || agentId || "";
+  const currentSessionId = tab === "sessions" ? itemId || null : null;
 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -65,6 +67,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     const text = input.trim();
     if (!text) return;
     const detail = {
+      id: createDraftId(),
       text,
       files: files.length > 0 ? files : undefined,
       prompts: prompts.length > 0 ? prompts : undefined,
@@ -73,7 +76,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     if (sessionsMounted) {
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
-      setPendingMessage(detail);
+      if (agentId) setPendingMessage(agentId, detail);
       navigate(`${base}/sessions`);
     }
     setInput("");
@@ -81,7 +84,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
     setPrompts([]);
     setTask(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [input, files, prompts, task, sessionsMounted, setPendingMessage, navigate, base]);
+  }, [input, files, prompts, task, sessionsMounted, setPendingMessage, navigate, base, agentId]);
 
   const handleStop = useCallback(() => {
     window.dispatchEvent(new CustomEvent("aeqi:stop-streaming"));
@@ -91,11 +94,14 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      if (!currentSessionId || !detail?.sessionId || detail.sessionId !== currentSessionId) {
+        return;
+      }
       setStreaming(detail.streaming);
     };
     window.addEventListener("aeqi:streaming-state", handler);
     return () => window.removeEventListener("aeqi:streaming-state", handler);
-  }, []);
+  }, [currentSessionId]);
 
   // "Edit and resend" hands the composer the original user text so it can
   // be revised in place. Forking happens upstream; we only manage input.
@@ -121,7 +127,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   // Reset streaming indicator whenever the active chat changes.
   useEffect(() => {
     setStreaming(false);
-  }, [agentId]);
+  }, [agentId, currentSessionId]);
 
   // Keyboard shortcut `c` jumps focus into the composer without touching
   // the current input — lets a power user start typing from anywhere in
