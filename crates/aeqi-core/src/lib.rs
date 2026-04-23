@@ -42,3 +42,4 @@ pub use scope::Scope;
 pub use security::SecretStore;
 pub use tool_registry::{CallerKind, ExecutionContext, PatternDispatcher, ToolRegistry};
 pub use traits::provider::{Message, MessageContent, Role};
+pub use traits::{InjectedMessage, PendingMessageSource};

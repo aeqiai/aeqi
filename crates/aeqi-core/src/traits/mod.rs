@@ -3,6 +3,7 @@ pub mod embedder;
 pub mod gateway;
 pub mod idea;
 pub mod observer;
+pub mod pending_source;
 pub mod provider;
 pub mod tool;
 
@@ -14,6 +15,7 @@ pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,
     PrometheusObserver,
 };
+pub use pending_source::{InjectedMessage, PendingMessageSource};
 pub use provider::{
     ChatRequest, ChatResponse, ContentPart, Message, MessageContent, Provider, Role, StopReason,
     StreamEvent, ToolCall, ToolSpec, Usage,

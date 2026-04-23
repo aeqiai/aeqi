@@ -182,7 +182,11 @@ impl SessionExecutor for QueueExecutor {
         let mut opts = SpawnOptions::interactive()
             .with_session_id(session_id.to_string())
             .with_stream_sender(stream_sender)
-            .with_extra_tools(self.extra_tools.clone());
+            .with_extra_tools(self.extra_tools.clone())
+            // Pass the claim id as the step-boundary injection watermark.
+            // The agent loop will only inject pending rows with id > this value,
+            // so it never re-claims the row that triggered this very turn.
+            .with_starting_pending_id(claim.id);
         if let Some(ref s) = queued.sender_id {
             opts = opts.with_sender_id(s.clone());
         }

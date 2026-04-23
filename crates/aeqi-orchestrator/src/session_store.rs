@@ -4,7 +4,10 @@
 //! Uses a shared connection pool from AgentRegistry (aeqi.db).
 //! Sessions will move to sessions.db in the template/state split.
 
+use aeqi_core::InjectedMessage;
+use aeqi_core::traits::PendingMessageSource;
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -361,6 +364,45 @@ impl SessionStore {
         db.execute("DELETE FROM pending_messages WHERE id = ?1", params![id])
             .context("failed to delete pending message")?;
         Ok(())
+    }
+
+    /// Atomically claim all `queued` pending rows for `session_id` whose id
+    /// is strictly greater than `since_id` (or all queued rows when `since_id`
+    /// is `None`). Claimed rows are DELETEd so the main drain loop cannot also
+    /// pick them up for the next turn.
+    ///
+    /// Called at each agent step boundary for mid-turn user-message injection.
+    /// The `since_id` watermark prevents double-consuming the row that started
+    /// the current turn (which the drain loop already DELETEd via
+    /// [`delete_pending`]).
+    pub async fn claim_pending_for_session(
+        &self,
+        session_id: &str,
+        since_id: Option<i64>,
+    ) -> Result<Vec<InjectedMessage>> {
+        let db = self.db.lock().await;
+        let threshold = since_id.unwrap_or(i64::MIN);
+        let mut stmt = db.prepare(
+            "DELETE FROM pending_messages \
+             WHERE id IN ( \
+                 SELECT id FROM pending_messages \
+                 WHERE session_id = ?1 AND status = 'queued' AND id > ?2 \
+                 ORDER BY id \
+             ) \
+             RETURNING id, payload",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id, threshold], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, payload)| InjectedMessage {
+                id,
+                content: payload,
+            })
+            .collect())
     }
 
     /// Return distinct session_ids that have at least one 'queued' row.
@@ -1779,6 +1821,17 @@ impl SessionStore {
     }
 }
 
+#[async_trait]
+impl PendingMessageSource for SessionStore {
+    async fn claim_pending_for_session(
+        &self,
+        session_id: &str,
+        since_id: Option<i64>,
+    ) -> Result<Vec<InjectedMessage>> {
+        self.claim_pending_for_session(session_id, since_id).await
+    }
+}
+
 /// Mask to keep chat IDs within JS MAX_SAFE_INTEGER (2^53 - 1).
 /// Bottom 4 bits reserved for channel-type tag.
 const JS_SAFE_MASK: u64 = 0x1F_FFFF_FFFF_FFF0;
@@ -2587,6 +2640,106 @@ mod tests {
 
         let rows = store.list_invocations(session_id, 3).await.unwrap();
         assert_eq!(rows.len(), 3);
+    }
+
+    // ── Step-boundary injection tests ──────────────────────────────────────
+
+    /// `claim_pending_for_session` should atomically remove and return all
+    /// `queued` rows for the session whose id is strictly greater than the
+    /// watermark. After the call those rows no longer exist in the table.
+    #[tokio::test]
+    async fn claim_pending_for_session_respects_watermark() {
+        let store = test_store().await;
+        let sid = "sess-inject";
+
+        // Enqueue three messages. The second and third arrive AFTER the turn
+        // started, so we simulate watermark = first_id.
+        let first_id = store.enqueue_pending(sid, "msg-1").await.unwrap();
+        let second_id = store.enqueue_pending(sid, "msg-2").await.unwrap();
+        let third_id = store.enqueue_pending(sid, "msg-3").await.unwrap();
+
+        // Claim with watermark = first_id should return rows 2 and 3 only.
+        let claimed = store
+            .claim_pending_for_session(sid, Some(first_id))
+            .await
+            .unwrap();
+        assert_eq!(claimed.len(), 2);
+        let ids: Vec<i64> = claimed.iter().map(|r| r.id).collect();
+        assert!(ids.contains(&second_id));
+        assert!(ids.contains(&third_id));
+        assert_eq!(claimed[0].content, "msg-2");
+        assert_eq!(claimed[1].content, "msg-3");
+
+        // The claimed rows must be gone from the table — a second call returns
+        // nothing (above the same watermark).
+        let re_claim = store
+            .claim_pending_for_session(sid, Some(first_id))
+            .await
+            .unwrap();
+        assert!(re_claim.is_empty(), "claimed rows must not be re-claimable");
+    }
+
+    /// When `since_id` is `None`, all queued rows for the session are returned.
+    #[tokio::test]
+    async fn claim_pending_for_session_none_watermark_claims_all() {
+        let store = test_store().await;
+        let sid = "sess-all";
+
+        store.enqueue_pending(sid, "a").await.unwrap();
+        store.enqueue_pending(sid, "b").await.unwrap();
+
+        let claimed = store.claim_pending_for_session(sid, None).await.unwrap();
+        assert_eq!(claimed.len(), 2);
+        // All rows are deleted.
+        let again = store.claim_pending_for_session(sid, None).await.unwrap();
+        assert!(again.is_empty());
+    }
+
+    /// The `PendingMessageSource` trait impl on `SessionStore` delegates to
+    /// the inherent method. Verify the trait object is callable and produces
+    /// the same results.
+    #[tokio::test]
+    async fn pending_message_source_trait_impl() {
+        use aeqi_core::traits::PendingMessageSource;
+        use std::sync::Arc;
+
+        let store = Arc::new(test_store().await);
+        let sid = "sess-trait";
+
+        let id1 = store.enqueue_pending(sid, "hello").await.unwrap();
+        store.enqueue_pending(sid, "world").await.unwrap();
+
+        // Upcast to trait object — this verifies the impl compiles and works.
+        let source: Arc<dyn PendingMessageSource> = store.clone();
+        let injected = source
+            .claim_pending_for_session(sid, Some(id1))
+            .await
+            .unwrap();
+
+        assert_eq!(injected.len(), 1);
+        assert_eq!(injected[0].content, "world");
+    }
+
+    /// Injection must not claim rows belonging to other sessions.
+    #[tokio::test]
+    async fn claim_pending_for_session_isolates_sessions() {
+        let store = test_store().await;
+
+        let sid_a = "sess-a";
+        let sid_b = "sess-b";
+
+        let id_a = store.enqueue_pending(sid_a, "for-a").await.unwrap();
+        store.enqueue_pending(sid_b, "for-b").await.unwrap();
+
+        // Claim all queued rows for sid_a (no watermark).
+        let claimed_a = store.claim_pending_for_session(sid_a, None).await.unwrap();
+        assert_eq!(claimed_a.len(), 1);
+        assert_eq!(claimed_a[0].id, id_a);
+
+        // sid_b's row is untouched.
+        let claimed_b = store.claim_pending_for_session(sid_b, None).await.unwrap();
+        assert_eq!(claimed_b.len(), 1);
+        assert_eq!(claimed_b[0].content, "for-b");
     }
 
     #[tokio::test]
