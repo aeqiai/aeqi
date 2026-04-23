@@ -1,0 +1,70 @@
+/* Popover primitive
+   Absolute-positioned floating panel anchored to the trigger element.
+   Handles four placements by combining horizontal (start/end) and
+   vertical (top/bottom) edges.  Enters/exits with a subtle fade+shift. */
+
+.root {
+  position: relative;
+  display: inline-block;
+}
+
+.triggerSlot {
+  display: contents;
+}
+
+.panel {
+  position: absolute;
+  z-index: 20;
+  min-width: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  overflow: hidden;
+
+  /* Hidden by default */
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.panel.open {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Placements ── */
+
+.bottom_start {
+  top: calc(100% + 4px);
+  left: 0;
+}
+
+.bottom_end {
+  top: calc(100% + 4px);
+  right: 0;
+}
+
+.top_start {
+  bottom: calc(100% + 4px);
+  left: 0;
+  transform: translateY(4px);
+}
+
+.top_start.open {
+  transform: translateY(0);
+}
+
+.top_end {
+  bottom: calc(100% + 4px);
+  right: 0;
+  transform: translateY(4px);
+}
+
+.top_end.open {
+  transform: translateY(0);
+}

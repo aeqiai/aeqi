@@ -54,3 +54,9 @@ export type { DetailFieldProps } from "./DetailField";
 
 export { ErrorBoundary } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
+
+export { Select } from "./Select";
+export type { SelectProps, SelectOption } from "./Select";
+
+export { Popover } from "./Popover";
+export type { PopoverProps, PopoverPlacement } from "./Popover";
