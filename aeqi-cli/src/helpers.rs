@@ -330,7 +330,7 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
             key,
             model,
             config.ideas.embedding_dimensions,
-        )?);
+        ));
         mem.with_embedder(
             embedder,
             config.ideas.embedding_dimensions,
