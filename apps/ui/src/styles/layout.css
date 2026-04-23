@@ -18,36 +18,36 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 14px 5px;
+  gap: 8px;
+  padding: 3px 12px 4px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.015)), var(--bg-sidebar);
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.005em;
-  line-height: 1.2;
+  line-height: 1.1;
   border-top: 1px solid var(--border);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.shell-footer::-webkit-scrollbar {
+  display: none;
 }
 .shell-footer-brand {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   flex: 0 0 auto;
 }
 .shell-footer-brandmark {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
   flex-shrink: 0;
-}
-.shell-footer-copy {
-  color: var(--text-muted);
-  font-size: 10px;
-  white-space: nowrap;
 }
 .shell-footer-status {
   display: inline-flex;
@@ -56,6 +56,7 @@
   flex-shrink: 0;
   color: var(--text-secondary);
   text-decoration: none;
+  white-space: nowrap;
   border-bottom: 1px solid transparent;
   transition:
     color 0.12s ease,
@@ -70,8 +71,8 @@
 }
 .shell-footer-status-dot {
   display: inline-block;
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.55;
@@ -79,14 +80,16 @@
 .shell-footer-nav {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+  flex-wrap: nowrap;
+  gap: 4px 8px;
   min-width: 0;
-  flex: 1 1 320px;
+  flex: 1 1 280px;
+  white-space: nowrap;
 }
 .shell-footer-nav a {
   color: var(--text-secondary);
   text-decoration: none;
+  white-space: nowrap;
   border-bottom: 1px solid transparent;
   transition:
     color 0.12s ease,
@@ -106,6 +109,7 @@
   white-space: nowrap;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  font-size: 9px;
 }
 
 /* ── Left Sidebar — tinted surface flush to the viewport.
@@ -2676,8 +2680,8 @@
     border-right: none;
   }
   .shell-footer {
-    padding: 4px 12px 6px;
-    gap: 8px;
+    padding: 3px 10px 4px;
+    gap: 6px;
   }
 
   .left-sidebar {

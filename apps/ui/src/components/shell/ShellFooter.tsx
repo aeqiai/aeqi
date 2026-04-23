@@ -14,7 +14,6 @@ export default function ShellFooter() {
     <footer className="shell-footer" role="contentinfo">
       <div className="shell-footer-brand">
         <span className="shell-footer-brandmark">aeqi</span>
-        <span className="shell-footer-copy">Infrastructure for autonomous companies</span>
       </div>
 
       <a
@@ -31,7 +30,6 @@ export default function ShellFooter() {
       <nav className="shell-footer-nav" aria-label="Footer navigation">
         <Link to="/templates">Templates</Link>
         <Link to="/agents">Agents</Link>
-        <Link to="/new">Launch</Link>
         <Link to="/docs">Docs</Link>
         <ExternalLink href="https://aeqi.ai/privacy">Privacy</ExternalLink>
         <ExternalLink href="https://aeqi.ai/terms">Terms</ExternalLink>
