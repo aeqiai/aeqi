@@ -136,6 +136,7 @@ export function useMessageProcessor() {
           eventName: String(meta.event_name ?? ""),
           pattern: String(meta.pattern ?? ""),
           ideaIds,
+          scope: typeof meta.scope === "string" && meta.scope.length > 0 ? meta.scope : "self",
         };
         // Mid-turn fires (the agent is already producing output) inline at
         // their firing point. Between-turn fires (session:start before any

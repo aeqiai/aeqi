@@ -44,6 +44,22 @@ describe("reduceStreamEvent", () => {
     });
   });
 
+  it("defaults event-fire scope to self when the backend omits it", () => {
+    const s = drive([
+      { type: "EventFired", event_id: "ev-1", event_name: "on_start", pattern: "session:start" },
+    ]);
+    expect(s.segments).toContainEqual({
+      kind: "event_fire",
+      fire: {
+        eventId: "ev-1",
+        eventName: "on_start",
+        pattern: "session:start",
+        ideaIds: [],
+        scope: "self",
+      },
+    });
+  });
+
   it("numbers StepStart segments monotonically", () => {
     const s = drive([
       { type: "StepStart" },

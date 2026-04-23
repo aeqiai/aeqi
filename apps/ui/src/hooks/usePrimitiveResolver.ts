@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { Agent, Quest } from "@/lib/types";
+import type { Agent } from "@/lib/types";
 
 export type PrimitiveKind = "agent" | "event" | "idea" | "quest";
 
@@ -17,6 +17,7 @@ export interface ResolvedEvent {
   id: string;
   name: string;
   pattern: string;
+  agent_id?: string | null;
 }
 
 export interface ResolvedIdea {
@@ -24,6 +25,7 @@ export interface ResolvedIdea {
   id: string;
   name: string;
   tags: string[];
+  agent_id?: string | null;
 }
 
 export interface ResolvedQuest {
@@ -31,6 +33,7 @@ export interface ResolvedQuest {
   id: string;
   name: string;
   status: string;
+  agent_id?: string | null;
 }
 
 export type ResolvedPrimitive = ResolvedAgent | ResolvedEvent | ResolvedIdea | ResolvedQuest;
@@ -77,6 +80,7 @@ async function fetchIdea(id: string): Promise<ResolvedPrimitive | null> {
       id: idea.id,
       name: idea.name,
       tags: idea.tags ?? [],
+      agent_id: idea.agent_id,
     };
   } catch {
     return null;
@@ -84,22 +88,33 @@ async function fetchIdea(id: string): Promise<ResolvedPrimitive | null> {
 }
 
 async function fetchEvent(id: string): Promise<ResolvedPrimitive | null> {
-  // No single-event GET endpoint exists. getAgentEvents needs an agent_id.
-  // Return null — backend work needed for GET /events/:id.
-  void id;
-  return null;
+  try {
+    const res = await api.getEvent(id);
+    const event = res.event;
+    if (!event?.id) return null;
+    return {
+      kind: "event",
+      id: event.id,
+      name: event.name,
+      pattern: event.pattern,
+      agent_id: event.agent_id,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function fetchQuest(id: string): Promise<ResolvedPrimitive | null> {
   try {
     const res = await api.getQuest(id);
-    const q = res as unknown as Quest;
+    const q = res.quest;
     if (!q?.id) return null;
     return {
       kind: "quest",
       id: q.id,
       name: q.subject,
       status: q.status,
+      agent_id: q.agent_id,
     };
   } catch {
     return null;

@@ -1,5 +1,7 @@
 //! Quest/task IPC handlers.
 
+use aeqi_core::Scope;
+
 use super::tenancy::{check_agent_access, is_allowed};
 pub async fn handle_quests(
     ctx: &super::CommandContext,
@@ -77,6 +79,7 @@ pub async fn handle_quests(
                         "status": quest.status.to_string(),
                         "priority": quest.priority.to_string(),
                         "agent_id": quest.agent_id,
+                        "scope": quest.scope.as_str(),
                         "idea_ids": quest.idea_ids,
                         "labels": quest.labels,
                         "retry_count": quest.retry_count,
@@ -128,6 +131,10 @@ pub async fn handle_create_quest(
         .get("acceptance_criteria")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
+    let requested_scope = request
+        .get("scope")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Scope>().ok());
 
     if project.is_empty() || subject.is_empty() {
         return serde_json::json!({"ok": false, "error": "project and subject are required"});
@@ -202,6 +209,19 @@ pub async fn handle_create_quest(
                 .await
             {
                 Ok(mut quest) => {
+                    if let Some(scope) = requested_scope
+                        && scope != quest.scope
+                    {
+                        if let Err(err) = ctx
+                            .agent_registry
+                            .update_task_scope(&quest.id.0, scope)
+                            .await
+                        {
+                            tracing::warn!(quest_id = %quest.id.0, scope = %scope, error = %err, "update_task_scope after create failed");
+                        } else {
+                            quest.scope = scope;
+                        }
+                    }
                     // Persist acceptance_criteria if supplied (e.g. from a preset).
                     if let Some(ref ac) = acceptance_criteria {
                         let quest_id = quest.id.0.clone();
@@ -240,6 +260,7 @@ pub async fn handle_create_quest(
                             "description": quest.description,
                             "status": quest.status.to_string(),
                             "agent_id": quest.agent_id,
+                            "scope": quest.scope.as_str(),
                             "project": project,
                             "acceptance_criteria": quest.acceptance_criteria,
                         }
@@ -291,6 +312,7 @@ pub async fn handle_get_quest(
                 "status": quest.status.to_string(),
                 "priority": quest.priority.to_string(),
                 "agent_id": quest.agent_id,
+                "scope": quest.scope.as_str(),
                 "idea_ids": quest.idea_ids,
                 "labels": quest.labels,
                 "retry_count": quest.retry_count,
@@ -342,6 +364,10 @@ pub async fn handle_update_quest(
     let priority_str = request.get("priority").and_then(|v| v.as_str());
     let description = request.get("description").and_then(|v| v.as_str());
     let agent_id = request.get("agent_id").and_then(|v| v.as_str());
+    let scope = request
+        .get("scope")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Scope>().ok());
     let labels: Option<Vec<String>> = request.get("labels").and_then(|v| v.as_array()).map(|arr| {
         arr.iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
@@ -363,6 +389,7 @@ pub async fn handle_update_quest(
         _ => aeqi_quests::Priority::Normal,
     });
 
+    let requested_scope = scope;
     match ctx
         .agent_registry
         .update_task(quest_id, |quest| {
@@ -390,18 +417,30 @@ pub async fn handle_update_quest(
         })
         .await
     {
-        Ok(quest) => serde_json::json!({
-            "ok": true,
-            "quest": {
-                "id": quest.id.0,
-                "subject": quest.name,
-                "description": quest.description,
-                "status": quest.status.to_string(),
-                "priority": quest.priority.to_string(),
-                "agent_id": quest.agent_id,
-                "labels": quest.labels,
+        Ok(mut quest) => {
+            if let Some(scope) = requested_scope
+                && scope != quest.scope
+            {
+                if let Err(err) = ctx.agent_registry.update_task_scope(quest_id, scope).await {
+                    tracing::warn!(quest_id, scope = %scope, error = %err, "update_task_scope failed");
+                } else {
+                    quest.scope = scope;
+                }
             }
-        }),
+            serde_json::json!({
+                "ok": true,
+                "quest": {
+                    "id": quest.id.0,
+                    "subject": quest.name,
+                    "description": quest.description,
+                    "status": quest.status.to_string(),
+                    "priority": quest.priority.to_string(),
+                    "agent_id": quest.agent_id,
+                    "scope": quest.scope.as_str(),
+                    "labels": quest.labels,
+                }
+            })
+        }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }
@@ -536,6 +575,7 @@ pub async fn handle_close_quest(
                 "quest": {
                     "id": quest.id.0,
                     "status": quest.status.to_string(),
+                    "scope": quest.scope.as_str(),
                     "outcome": quest.quest_outcome(),
                     "runtime": quest.runtime(),
                 }

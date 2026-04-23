@@ -192,6 +192,7 @@ function eventFire(event: RawEvent) {
     eventName: String(event.event_name ?? ""),
     pattern: String(event.pattern ?? ""),
     ideaIds,
+    scope: typeof event.scope === "string" && event.scope.length > 0 ? event.scope : "self",
   };
 }
 

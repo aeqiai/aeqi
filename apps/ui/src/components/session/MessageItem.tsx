@@ -381,6 +381,9 @@ function EventFireItem({ msg }: { msg: Message }) {
       >
         {fire.eventName || fire.pattern || "event"}
       </button>
+      {fire.scope && fire.scope !== "self" && (
+        <span className="asv-event-fire-scope">{`(${fire.scope})`}</span>
+      )}
       <span className="asv-event-fire-arrow">{"\u2192"}</span>
       <span className="asv-event-fire-chips">
         {ideaIds.map((id) => (

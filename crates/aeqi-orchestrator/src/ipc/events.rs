@@ -440,6 +440,7 @@ fn event_to_json(e: &crate::event_handler::Event) -> serde_json::Value {
     serde_json::json!({
         "id": e.id,
         "agent_id": e.agent_id,
+        "scope": e.scope.as_str(),
         "name": e.name,
         "pattern": e.pattern,
         "idea_ids": e.idea_ids,

@@ -42,15 +42,22 @@ export function PrimitivePreview({ kind, id }: { kind: PrimitiveKind | null; id:
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const root = agentId || id;
     if (data.kind === "agent") {
       goAgent(data.id);
-    } else if (data.kind === "event") {
-      goAgent(root, "events", data.id);
+      return;
+    }
+
+    const targetAgentId = agentId || data.agent_id || "";
+    if (!targetAgentId) {
+      return;
+    }
+
+    if (data.kind === "event") {
+      goAgent(targetAgentId, "events", data.id);
     } else if (data.kind === "idea") {
-      goAgent(root, "ideas", data.id);
+      goAgent(targetAgentId, "ideas", data.id);
     } else if (data.kind === "quest") {
-      goAgent(root, "quests", data.id);
+      goAgent(targetAgentId, "quests", data.id);
     }
   };
 

@@ -35,6 +35,7 @@ export interface EventFire {
   eventName: string;
   pattern: string;
   ideaIds: string[];
+  scope: string;
 }
 
 export type MessageSegment =

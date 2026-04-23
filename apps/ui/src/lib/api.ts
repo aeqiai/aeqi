@@ -1,6 +1,13 @@
 import { clearSessionData } from "@/lib/session";
 import { getScopedRoot, type AppMode } from "@/lib/appMode";
-import type { CompanyTemplate, EventInvocationRow, InvocationStepRow } from "@/lib/types";
+import type {
+  AgentEvent,
+  CompanyTemplate,
+  EventInvocationRow,
+  InvocationStepRow,
+  Quest,
+  ScopeValue,
+} from "@/lib/types";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -496,7 +503,7 @@ export const api = {
     ),
 
   // Single quest
-  getQuest: (id: string) => request<Record<string, unknown>>(`/quests/${id}`),
+  getQuest: (id: string) => request<{ ok: boolean; quest: Quest }>(`/quests/${id}`),
 
   // Sessions
   getSessions: (agentId?: string) => {
@@ -590,12 +597,20 @@ export const api = {
   getIdeasByIds: (ids: string[]) =>
     request<{
       ok: boolean;
-      ideas: Array<{ id: string; name: string; content: string; tags: string[] }>;
+      ideas: Array<{
+        id: string;
+        name: string;
+        content: string;
+        tags: string[];
+        agent_id?: string;
+        scope?: ScopeValue;
+      }>;
     }>("/ideas/by-ids", { method: "POST", body: JSON.stringify({ ids }) }),
 
   // Agent events
   getAgentEvents: (agentId: string) =>
     request<Record<string, unknown>>(`/events?agent_id=${encodeURIComponent(agentId)}`),
+  getEvent: (id: string) => request<{ ok: boolean; event: AgentEvent }>(`/events/${id}`),
   createEvent: (data: Record<string, unknown>) =>
     request<Record<string, unknown>>("/events", { method: "POST", body: JSON.stringify(data) }),
   updateEvent: (id: string, data: Record<string, unknown>) =>

@@ -1121,6 +1121,7 @@ impl SessionManager {
                         "event_name": event.name,
                         "pattern": event.pattern,
                         "idea_ids": event.idea_ids,
+                        "scope": event.scope.as_str(),
                     });
                     let _ = ss
                         .record_event_by_session(

@@ -68,9 +68,21 @@ pub async fn handle_store_idea(
         .unwrap_or_else(|| vec!["fact".to_string()]);
 
     let agent_id = request_field(request, "agent_id");
+    let scope: aeqi_core::Scope = request_field(request, "scope")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| {
+            if agent_id.is_none() {
+                aeqi_core::Scope::Global
+            } else {
+                aeqi_core::Scope::SelfScope
+            }
+        });
     let links = parse_links(request);
 
-    match idea_store.store(name, content, &tags, agent_id).await {
+    match idea_store
+        .store_with_scope(name, content, &tags, agent_id, scope)
+        .await
+    {
         Ok(id) => {
             for (target_id, relation) in &links {
                 let _ = idea_store
@@ -298,6 +310,7 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
         "content": idea.content,
         "tags": idea.tags,
         "agent_id": idea.agent_id,
+        "scope": idea.scope.as_str(),
         "created_at": idea.created_at.to_rfc3339(),
         "session_id": idea.session_id,
         "score": idea.score,

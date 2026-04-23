@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
-import type { AgentEvent, ToolCall } from "@/lib/types";
+import type { AgentEvent, ScopeValue, ToolCall } from "@/lib/types";
 import { Button } from "./ui";
 import ToolCallRow from "./ToolCallRow";
 import EventIdeaPicker from "./EventIdeaPicker";
 import { COMMON_PATTERNS } from "./EventEditorConstants";
+
+function ScopeChip({ scope }: { scope: ScopeValue }) {
+  if (scope === "self") return null;
+  return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
 
 function parseTagFilter(raw: string): string[] {
   return raw
@@ -166,6 +171,7 @@ export default function EventEditor({
       >
         <div className="events-detail-ideas-header" style={{ margin: 0 }}>
           Event settings
+          {event.scope && <ScopeChip scope={event.scope} />}
           {readOnly && (
             <span style={{ fontSize: 10, fontWeight: 500, marginLeft: 8, opacity: 0.55 }}>
               (read-only — system event)

@@ -864,6 +864,11 @@
 .asv-event-fire-arrow {
   opacity: 0.4;
 }
+.asv-event-fire-scope {
+  font-size: var(--font-size-2xs);
+  opacity: 0.55;
+  font-style: italic;
+}
 .asv-event-fire-chips {
   display: inline-flex;
   flex-wrap: wrap;

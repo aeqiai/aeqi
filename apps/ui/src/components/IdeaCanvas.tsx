@@ -330,12 +330,17 @@ export default function IdeaCanvas({
 
   const inlineTags = mergeTags(content, typedTags);
   const scopeLabel = idea?.agent_id == null && isEdit ? "Global" : null;
+  const scopeChipValue =
+    isEdit && idea?.scope && idea.scope !== "self" && !scopeLabel ? idea.scope : null;
 
   return (
     <div className="asv-main ideas-canvas">
-      {scopeLabel && (
+      {(scopeLabel || scopeChipValue) && (
         <div className="ideas-canvas-eyebrow">
-          <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>
+          {scopeLabel && <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>}
+          {scopeChipValue && (
+            <span className={`scope-chip scope-chip--${scopeChipValue}`}>{scopeChipValue}</span>
+          )}
         </div>
       )}
       <div className="ideas-canvas-head">

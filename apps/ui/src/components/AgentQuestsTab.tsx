@@ -290,6 +290,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
               ·
             </span>
             <span className="quest-detail-eyebrow-status">{STATUS_LABELS[quest.status]}</span>
+            {quest.scope && <QuestScopeChip scope={quest.scope} />}
           </div>
 
           <h2 className="quest-detail-title">{quest.subject}</h2>
