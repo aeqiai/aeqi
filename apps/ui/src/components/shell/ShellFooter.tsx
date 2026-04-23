@@ -1,40 +1,22 @@
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer noopener">
-      {children}
-    </a>
-  );
-}
+import Wordmark from "../Wordmark";
 
 export default function ShellFooter() {
   return (
     <footer className="shell-footer" role="contentinfo">
-      <div className="shell-footer-brand">
-        <span className="shell-footer-brandmark">aeqi</span>
-      </div>
-
-      <a
-        href="https://status.aeqi.ai"
-        target="_blank"
-        rel="noreferrer noopener"
-        className="shell-footer-status"
-        title="System status"
-      >
-        <span className="shell-footer-status-dot" aria-hidden="true" />
-        <span>Nominal</span>
-      </a>
-
-      <nav className="shell-footer-nav" aria-label="Footer navigation">
-        <Link to="/templates">Templates</Link>
-        <Link to="/agents">Agents</Link>
-        <Link to="/docs">Docs</Link>
-        <ExternalLink href="https://aeqi.ai/privacy">Privacy</ExternalLink>
-        <ExternalLink href="https://aeqi.ai/terms">Terms</ExternalLink>
-      </nav>
-
+      <p className="shell-footer-tagline">
+        <Wordmark size={11} className="shell-footer-wordmark" color="currentColor" />
+        <span>
+          By using aeqi you agree to our{" "}
+          <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
+            privacy policy
+          </a>{" "}
+          and{" "}
+          <a href="https://aeqi.ai/terms" target="_blank" rel="noreferrer noopener">
+            terms of service
+          </a>
+          .
+        </span>
+      </p>
       <span className="shell-footer-meta">v0.7.0</span>
     </footer>
   );

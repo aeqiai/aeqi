@@ -14,9 +14,14 @@
 /* ── Footer strip — compact inline row pinned to the bottom of the
    content column, directly below the card. Shared on every page so
    home and app feel like one product. */
+/* Three-zone grid: empty | centered legal clause | version (right-flush).
+   The sentence sits at the mathematical center of the row regardless
+   of the version width. No top divider — the footer reads as a quiet
+   baseline below the content card, not a bordered strip. */
 .shell-footer {
   flex-shrink: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
   padding: 3px 12px 4px;
@@ -26,84 +31,41 @@
   font-size: 10px;
   letter-spacing: 0.005em;
   line-height: 1.1;
-  border-top: 1px solid var(--border);
-  flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .shell-footer::-webkit-scrollbar {
   display: none;
 }
-.shell-footer-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
-.shell-footer-brandmark {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.shell-footer-status {
+.shell-footer-tagline {
+  grid-column: 2;
+  margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
+  gap: 8px;
+  white-space: nowrap;
   color: var(--text-secondary);
+}
+.shell-footer-tagline a {
+  color: inherit;
   text-decoration: none;
-  white-space: nowrap;
-  border-bottom: 1px solid transparent;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-.shell-footer-status:hover,
-.shell-footer-status:focus-visible {
-  color: var(--text-primary);
-  border-bottom-color: var(--border-hover);
-  outline: none;
-}
-.shell-footer-status-dot {
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.55;
-}
-.shell-footer-nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 4px 8px;
-  min-width: 0;
-  flex: 1 1 280px;
-  white-space: nowrap;
-}
-.shell-footer-nav a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  white-space: nowrap;
   border-bottom: 1px solid transparent;
   transition:
     color 0.12s ease,
     border-color 0.12s ease;
 }
-.shell-footer-nav a:hover,
-.shell-footer-nav a:focus-visible {
+.shell-footer-tagline a:hover,
+.shell-footer-tagline a:focus-visible {
   color: var(--text-primary);
   border-bottom-color: var(--border-hover);
   outline: none;
 }
-.shell-footer-meta {
-  margin-left: auto;
+.shell-footer-wordmark {
   flex-shrink: 0;
+}
+.shell-footer-meta {
+  grid-column: 3;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
@@ -963,7 +925,6 @@
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-  animation: c-pulse 1.8s ease-in-out infinite;
   flex-shrink: 0;
 }
 .threads-rail-row-status--idle {
