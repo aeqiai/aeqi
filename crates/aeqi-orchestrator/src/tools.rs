@@ -962,7 +962,7 @@ impl QuestsTool {
 
         let quest = match self
             .agent_registry
-            .create_task(&agent.id, subject, description, &idea_ids, &[])
+            .create_task_scoped(&agent.id, subject, description, &idea_ids, &[], scope)
             .await
         {
             Ok(q) => q,
@@ -972,18 +972,6 @@ impl QuestsTool {
         };
 
         let quest_id = quest.id.0.clone();
-
-        // Persist non-default scope.
-        if scope != aeqi_core::Scope::SelfScope
-            && let Err(e) = self
-                .agent_registry
-                .update_task_scope(&quest_id, scope)
-                .await
-        {
-            return Ok(ToolResult::error(format!(
-                "Quest created ({quest_id}) but failed to set scope: {e}"
-            )));
-        }
 
         // Broadcast quest_created so the scheduler wakes up immediately.
         // Include creator_session_id so the scheduler can route completion

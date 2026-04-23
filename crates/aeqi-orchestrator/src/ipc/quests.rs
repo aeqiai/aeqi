@@ -197,7 +197,7 @@ pub async fn handle_create_quest(
                 .unwrap_or_default();
             match ctx
                 .agent_registry
-                .create_task_v2(
+                .create_task_v2_scoped(
                     &agent.id,
                     subject,
                     description,
@@ -205,23 +205,11 @@ pub async fn handle_create_quest(
                     &labels,
                     &depends_on,
                     parent_id,
+                    requested_scope.unwrap_or(aeqi_core::Scope::SelfScope),
                 )
                 .await
             {
                 Ok(mut quest) => {
-                    if let Some(scope) = requested_scope
-                        && scope != quest.scope
-                    {
-                        if let Err(err) = ctx
-                            .agent_registry
-                            .update_task_scope(&quest.id.0, scope)
-                            .await
-                        {
-                            tracing::warn!(quest_id = %quest.id.0, scope = %scope, error = %err, "update_task_scope after create failed");
-                        } else {
-                            quest.scope = scope;
-                        }
-                    }
                     // Persist acceptance_criteria if supplied (e.g. from a preset).
                     if let Some(ref ac) = acceptance_criteria {
                         let quest_id = quest.id.0.clone();
@@ -389,7 +377,6 @@ pub async fn handle_update_quest(
         _ => aeqi_quests::Priority::Normal,
     });
 
-    let requested_scope = scope;
     match ctx
         .agent_registry
         .update_task(quest_id, |quest| {
@@ -414,19 +401,13 @@ pub async fn handle_update_quest(
             if let Some(ref labels) = labels {
                 quest.labels = labels.clone();
             }
+            if let Some(scope) = scope {
+                quest.scope = scope;
+            }
         })
         .await
     {
-        Ok(mut quest) => {
-            if let Some(scope) = requested_scope
-                && scope != quest.scope
-            {
-                if let Err(err) = ctx.agent_registry.update_task_scope(quest_id, scope).await {
-                    tracing::warn!(quest_id, scope = %scope, error = %err, "update_task_scope failed");
-                } else {
-                    quest.scope = scope;
-                }
-            }
+        Ok(quest) => {
             serde_json::json!({
                 "ok": true,
                 "quest": {

@@ -397,7 +397,7 @@ export const api = {
     content: string;
     tags?: string[];
     agent_id?: string;
-    scope?: string;
+    scope?: ScopeValue;
     links?: string[];
   }) =>
     request<{ ok: boolean; id: string }>("/ideas", {
@@ -612,7 +612,10 @@ export const api = {
     request<Record<string, unknown>>(`/events?agent_id=${encodeURIComponent(agentId)}`),
   getEvent: (id: string) => request<{ ok: boolean; event: AgentEvent }>(`/events/${id}`),
   createEvent: (data: Record<string, unknown>) =>
-    request<Record<string, unknown>>("/events", { method: "POST", body: JSON.stringify(data) }),
+    request<{ ok: boolean; event: AgentEvent }>("/events", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   updateEvent: (id: string, data: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/events/${id}`, {
       method: "PUT",

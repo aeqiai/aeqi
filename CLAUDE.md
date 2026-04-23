@@ -21,7 +21,8 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 cd apps/ui && npx tsc --noEmit && npx prettier --check "src/**/*.{ts,tsx,css}"
 ```
-All must pass. The pre-commit hook enforces this.
+All must pass before merge. The pre-commit hook only enforces the UI subset
+when `apps/ui` files are staged; Rust checks remain a manual/CI responsibility.
 
 ### Code quality
 - Zero warnings, zero clippy lints, zero unused variables

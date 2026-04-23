@@ -1536,6 +1536,26 @@ impl AgentRegistry {
         idea_ids: &[String],
         labels: &[String],
     ) -> Result<aeqi_quests::Quest> {
+        self.create_task_scoped(
+            agent_id,
+            subject,
+            description,
+            idea_ids,
+            labels,
+            Scope::SelfScope,
+        )
+        .await
+    }
+
+    pub async fn create_task_scoped(
+        &self,
+        agent_id: &str,
+        subject: &str,
+        description: &str,
+        idea_ids: &[String],
+        labels: &[String],
+        scope: Scope,
+    ) -> Result<aeqi_quests::Quest> {
         // Resolve quest prefix: agent's quest_prefix, or first 2 chars of name, or "t".
         let agent = self
             .get(agent_id)
@@ -1590,7 +1610,7 @@ impl AgentRegistry {
             status: aeqi_quests::QuestStatus::Pending,
             priority: aeqi_quests::quest::Priority::Normal,
             agent_id: Some(agent_id.to_string()),
-            scope: Scope::SelfScope,
+            scope,
             depends_on: Vec::new(),
             idea_ids: idea_ids.to_vec(),
             labels: labels.to_vec(),
@@ -1609,13 +1629,14 @@ impl AgentRegistry {
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, created_at)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7)",
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, created_at)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
             params![
                 quest_id,
                 subject,
                 description,
                 agent_id,
+                scope.as_str(),
                 idea_ids_json,
                 labels_json,
                 now.to_rfc3339(),
@@ -1636,6 +1657,30 @@ impl AgentRegistry {
         labels: &[String],
         depends_on: &[aeqi_quests::QuestId],
         parent_id: Option<&str>,
+    ) -> Result<aeqi_quests::Quest> {
+        self.create_task_v2_scoped(
+            agent_id,
+            subject,
+            description,
+            idea_ids,
+            labels,
+            depends_on,
+            parent_id,
+            Scope::SelfScope,
+        )
+        .await
+    }
+
+    pub async fn create_task_v2_scoped(
+        &self,
+        agent_id: &str,
+        subject: &str,
+        description: &str,
+        idea_ids: &[String],
+        labels: &[String],
+        depends_on: &[aeqi_quests::QuestId],
+        parent_id: Option<&str>,
+        scope: Scope,
     ) -> Result<aeqi_quests::Quest> {
         // Resolve quest prefix: agent's quest_prefix, or first 2 chars of name, or "t".
         let agent = self
@@ -1705,17 +1750,19 @@ impl AgentRegistry {
         quest.depends_on = depends_on.to_vec();
         quest.idea_ids = idea_ids.to_vec();
         quest.labels = labels.to_vec();
+        quest.scope = scope;
         quest.created_at = now;
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, idea_ids, labels, depends_on, created_at)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, depends_on, created_at)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 quest_id,
                 subject,
                 description,
                 agent_id,
+                scope.as_str(),
                 idea_ids_json,
                 labels_json,
                 deps_json,
@@ -1936,17 +1983,18 @@ impl AgentRegistry {
         db.execute(
             "UPDATE quests SET
                 subject = ?1, description = ?2, status = ?3, priority = ?4,
-                agent_id = ?5, idea_ids = ?6, labels = ?7,
-                retry_count = ?8, checkpoints = ?9, metadata = ?10,
-                depends_on = ?11, acceptance_criteria = ?12,
-                updated_at = ?13, closed_at = ?14, outcome = ?15
-             WHERE id = ?16",
+                agent_id = ?5, scope = ?6, idea_ids = ?7, labels = ?8,
+                retry_count = ?9, checkpoints = ?10, metadata = ?11,
+                depends_on = ?12, acceptance_criteria = ?13,
+                updated_at = ?14, closed_at = ?15, outcome = ?16
+             WHERE id = ?17",
             params![
                 quest.name,
                 quest.description,
                 quest.status.to_string(),
                 quest.priority.to_string(),
                 quest.agent_id,
+                quest.scope.as_str(),
                 idea_ids_json,
                 labels_json,
                 quest.retry_count,
@@ -3013,5 +3061,25 @@ mod tests {
 
         let by_agent = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
         assert_eq!(by_agent.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn update_task_persists_scope_changes() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("tasker", None, None, None).await.unwrap();
+
+        let task = reg
+            .create_task(&agent.id, "Scoped quest", "desc", &[], &[])
+            .await
+            .unwrap();
+
+        reg.update_task(&task.id.0, |quest| {
+            quest.scope = Scope::Branch;
+        })
+        .await
+        .unwrap();
+
+        let fetched = reg.get_task(&task.id.0).await.unwrap().unwrap();
+        assert_eq!(fetched.scope, Scope::Branch);
     }
 }

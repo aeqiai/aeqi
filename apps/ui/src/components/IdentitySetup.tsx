@@ -6,15 +6,13 @@
  *   2. AgentPage     — compact card shown above the tabs, with edit dialog.
  *
  * Identity wiring = idea (content) + event (session:start injects that idea).
- * The API sequence is: storeIdentityIdea → createEvent with idea_ids.
- * On any failure the component surfaces the error as a toast; prior steps
- * are NOT rolled back (the idea may be left orphaned — acceptable for MVP,
- * since it appears in the Ideas tab and is harmless).
+ * The API sequence is: storeIdea → createEvent with idea_ids.
+ * If event creation fails after the idea is stored, we best-effort delete the
+ * new idea before surfacing the error.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { storeIdentityIdea } from "@/lib/identityApi";
 import type { AgentEvent } from "@/lib/types";
 import { Button, Spinner } from "./ui";
 
@@ -33,9 +31,9 @@ function slugify(name: string): string {
 
 interface IdentityEvent {
   event: AgentEvent;
-  ideaName: string;
-  ideaContent: string;
-  ideaId: string;
+  ideaName: string | null;
+  ideaContent: string | null;
+  ideaId: string | null;
 }
 
 /** Wire identity: create the idea + the session:start event. */
@@ -47,7 +45,7 @@ async function wireIdentity(
   const slug = slugify(agentName);
   const ideaName = `${slug}-identity`;
 
-  const ideaResp = await storeIdentityIdea({
+  const ideaResp = await api.storeIdea({
     name: ideaName,
     content,
     tags: ["identity"],
@@ -56,16 +54,25 @@ async function wireIdentity(
   });
   const ideaId = ideaResp.id;
 
-  const eventResp = await api.createEvent({
-    name: "on_session_start_identity",
-    pattern: "session:start",
-    agent_id: agentId,
-    idea_ids: [ideaId],
-    scope: "self",
-  });
-  const eventId = (eventResp as Record<string, unknown>).id as string;
+  try {
+    const eventResp = await api.createEvent({
+      name: "on_session_start_identity",
+      pattern: "session:start",
+      agent_id: agentId,
+      idea_ids: [ideaId],
+      scope: "self",
+    });
+    const eventId = eventResp.event.id;
 
-  return { ideaId, eventId };
+    return { ideaId, eventId };
+  } catch (error) {
+    try {
+      await api.deleteIdea(ideaId);
+    } catch {
+      // Best-effort cleanup only — the original failure is what matters here.
+    }
+    throw error;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -96,10 +103,27 @@ export function IdentityCard({
     try {
       const eventsResp = await api.getAgentEvents(agentId);
       const rows = ((eventsResp as Record<string, unknown>).events ?? []) as AgentEvent[];
-      // Find first session:start event with at least one idea attached.
-      const match = rows.find((e) => e.pattern === "session:start" && e.idea_ids.length > 0);
+      // Find the first session:start identity event. Idea-backed events remain
+      // editable here; tool_call-backed identities are shown as configured but
+      // are not editable from this card yet.
+      const match = rows.find(
+        (e) =>
+          e.pattern === "session:start" &&
+          (e.idea_ids.length > 0 || (e.tool_calls?.length ?? 0) > 0),
+      );
       if (!match) {
         setIdentity(null);
+        setLoading(false);
+        return;
+      }
+      if (match.idea_ids.length === 0) {
+        setIdentity({
+          event: match,
+          ideaId: null,
+          ideaName: match.name,
+          ideaContent: "Configured via event tool calls.",
+        });
+        setEditContent("");
         setLoading(false);
         return;
       }
@@ -148,7 +172,7 @@ export function IdentityCard({
   };
 
   const handleEdit = async () => {
-    if (!identity) return;
+    if (!identity?.ideaId) return;
     setSaving(true);
     try {
       await api.updateIdea(identity.ideaId, { content: editContent });
@@ -178,33 +202,35 @@ export function IdentityCard({
       <div className="identity-card identity-card--wired">
         <div className="identity-card-header">
           <span className="identity-card-label">Identity</span>
-          <span className="identity-card-name">{identity.ideaName}</span>
-          <button
-            type="button"
-            className="identity-card-edit-btn"
-            onClick={() => {
-              setEditContent(identity.ideaContent);
-              setEditing(true);
-            }}
-          >
-            edit
-          </button>
+          <span className="identity-card-name">{identity.ideaName ?? identity.event.name}</span>
+          {identity.ideaId && identity.ideaContent && (
+            <button
+              type="button"
+              className="identity-card-edit-btn"
+              onClick={() => {
+                setEditContent(identity.ideaContent ?? "");
+                setEditing(true);
+              }}
+            >
+              edit
+            </button>
+          )}
         </div>
         <p className="identity-card-preview">
-          {identity.ideaContent.length > 140
+          {identity.ideaContent && identity.ideaContent.length > 140
             ? `${identity.ideaContent.slice(0, 140)}…`
-            : identity.ideaContent}
+            : (identity.ideaContent ?? "Configured via event tool calls.")}
         </p>
       </div>
     );
   }
 
-  if (identity && editing) {
+  if (identity && editing && identity.ideaId) {
     return (
       <div className="identity-card identity-card--editing">
         <div className="identity-card-header">
           <span className="identity-card-label">Identity</span>
-          <span className="identity-card-name">{identity.ideaName}</span>
+          <span className="identity-card-name">{identity.ideaName ?? identity.event.name}</span>
         </div>
         <textarea
           className="identity-card-textarea"
