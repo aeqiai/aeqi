@@ -20,11 +20,11 @@ use std::sync::{Arc, OnceLock};
 use aeqi_core::traits::{
     Channel, CompletedResponse, DeliveryMode, IncomingMessage, OutgoingMessage, SessionGateway,
 };
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::bridge::{BridgeClient, BridgeEvent};
@@ -276,10 +276,21 @@ async fn handle_bridge_event(
                 .unwrap_or("")
                 .to_string();
             // Own-echo filtering lives in the Node bridge now: it tracks
-            // ids it sent via `send_text` and drops just those. A `from_me`
-            // message that survives to Rust is either a legitimate self-chat
-            // (user texting their own number) or the user typing from the
-            // paired phone — both should wake the agent.
+            // ids it sent via `send_text` and drops just those. We still
+            // defensively reject self-authored messages unless they belong
+            // to the paired account's actual chat-with-yourself thread.
+            let paired_jid = {
+                let s = status.read().await;
+                s.me.clone()
+            };
+            if !should_forward_message_in(&ev.data, paired_jid.as_deref()) {
+                debug!(
+                    jid,
+                    paired_jid = ?paired_jid,
+                    "dropping self-authored non-self-chat message"
+                );
+                return Ok(());
+            }
 
             if !allowed_jids.is_empty() && !allowed_jids.iter().any(|j| j == jid) {
                 debug!(jid, "dropping message from non-allowed jid");
@@ -303,6 +314,39 @@ async fn handle_bridge_event(
             Ok(())
         }
     }
+}
+
+fn should_forward_message_in(data: &serde_json::Value, paired_jid: Option<&str>) -> bool {
+    let from_me = data
+        .get("from_me")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    !from_me || is_self_chat_message(data, paired_jid)
+}
+
+fn is_self_chat_message(data: &serde_json::Value, paired_jid: Option<&str>) -> bool {
+    if let Some(self_chat) = data.get("self_chat").and_then(|v| v.as_bool()) {
+        return self_chat;
+    }
+
+    let jid = data.get("jid").and_then(|v| v.as_str());
+    matches!(
+        (jid, paired_jid),
+        (Some(chat_jid), Some(me_jid)) if same_whatsapp_account(chat_jid, me_jid)
+    )
+}
+
+fn same_whatsapp_account(left: &str, right: &str) -> bool {
+    matches!(
+        (whatsapp_account_user(left), whatsapp_account_user(right)),
+        (Some(left_user), Some(right_user)) if left_user == right_user
+    )
+}
+
+fn whatsapp_account_user(jid: &str) -> Option<&str> {
+    let (user, _) = jid.split_once('@')?;
+    let user = user.split(':').next().unwrap_or(user);
+    (!user.is_empty()).then_some(user)
 }
 
 /// Normalize a user-supplied recipient into a WhatsApp JID.
@@ -461,5 +505,67 @@ mod tests {
     fn normalize_jid_rejects_empty() {
         assert!(normalize_jid("").is_err());
         assert!(normalize_jid("   ").is_err());
+    }
+
+    #[test]
+    fn same_whatsapp_account_ignores_device_suffix() {
+        assert!(same_whatsapp_account(
+            "15551234567@s.whatsapp.net",
+            "15551234567:12@s.whatsapp.net"
+        ));
+    }
+
+    #[test]
+    fn same_whatsapp_account_rejects_different_users() {
+        assert!(!same_whatsapp_account(
+            "15551234567@s.whatsapp.net",
+            "15557654321@s.whatsapp.net"
+        ));
+    }
+
+    #[test]
+    fn should_forward_non_self_message() {
+        let data = json!({
+            "jid": "15557654321@s.whatsapp.net",
+            "from_me": false,
+        });
+        assert!(should_forward_message_in(
+            &data,
+            Some("15551234567@s.whatsapp.net")
+        ));
+    }
+
+    #[test]
+    fn should_forward_self_chat_from_me_message() {
+        let data = json!({
+            "jid": "15551234567@s.whatsapp.net",
+            "from_me": true,
+        });
+        assert!(should_forward_message_in(
+            &data,
+            Some("15551234567:8@s.whatsapp.net")
+        ));
+    }
+
+    #[test]
+    fn should_drop_from_me_message_to_other_chat() {
+        let data = json!({
+            "jid": "15557654321@s.whatsapp.net",
+            "from_me": true,
+        });
+        assert!(!should_forward_message_in(
+            &data,
+            Some("15551234567@s.whatsapp.net")
+        ));
+    }
+
+    #[test]
+    fn should_honor_explicit_self_chat_flag() {
+        let data = json!({
+            "jid": "15557654321@s.whatsapp.net",
+            "from_me": true,
+            "self_chat": true,
+        });
+        assert!(should_forward_message_in(&data, None));
     }
 }

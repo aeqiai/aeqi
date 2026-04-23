@@ -21,7 +21,7 @@
 //   connecting   {}
 //   qr           {qr, data_url}
 //   disconnected {reason, should_reconnect}
-//   message_in   {id, jid, from_me, is_group, text, timestamp}
+//   message_in   {id, jid, from_me, self_chat, is_group, text, timestamp}
 
 import readline from "node:readline";
 import path from "node:path";
@@ -34,6 +34,8 @@ import {
   DisconnectReason,
   fetchLatestBaileysVersion,
   Browsers,
+  areJidsSameUser,
+  jidNormalizedUser,
 } from "@whiskeysockets/baileys";
 
 const rl = readline.createInterface({ input: process.stdin });
@@ -44,7 +46,7 @@ let sessionDir = null;
 let reconnectTimer = null;
 
 // Message ids we just sent, so `messages.upsert` can distinguish our own
-// echoes (drop) from the user typing on the same phone / self-chat (forward).
+// echoes (drop) from a genuine chat-with-yourself message (forward).
 // Ordered Set; cap at 512, drop oldest on overflow.
 const sentMessageIds = new Set();
 function rememberSent(id) {
@@ -62,6 +64,10 @@ function send(obj) {
 
 function emit(event, data) {
   send({ event, data: data ?? null });
+}
+
+function normalizeJid(jid) {
+  return jid ? jidNormalizedUser(jid) : null;
 }
 
 function extractText(msg) {
@@ -110,7 +116,7 @@ async function startSocket(dir) {
     if (connection === "connecting") {
       emit("connecting", {});
     } else if (connection === "open") {
-      const meJid = sock.user?.id ?? null;
+      const meJid = normalizeJid(sock.user?.id);
       emit("ready", { jid: meJid, name: sock.user?.name ?? null });
     } else if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
@@ -137,21 +143,27 @@ async function startSocket(dir) {
     for (const msg of messages) {
       const text = extractText(msg);
       if (text === null) continue;
-      const jid = msg.key.remoteJid;
+      const jid = normalizeJid(msg.key.remoteJid);
       const fromMe = !!msg.key.fromMe;
+      const meJid = normalizeJid(sock?.user?.id);
+      const isSelfChat = !!jid && !!meJid && areJidsSameUser(jid, meJid);
       // Drop our own replies bouncing back through the event stream.
-      // But keep `fromMe` messages the bridge didn't send — that's the
-      // user typing on the paired phone or texting their own number.
+      // Also drop self-authored messages to other chats; only a real
+      // chat-with-yourself thread should wake the agent.
       if (fromMe && sentMessageIds.has(msg.key.id)) {
         sentMessageIds.delete(msg.key.id);
+        continue;
+      }
+      if (fromMe && !isSelfChat) {
         continue;
       }
       emit("message_in", {
         id: msg.key.id,
         jid,
         from_me: fromMe,
+        self_chat: isSelfChat,
         is_group: jid?.endsWith("@g.us") ?? false,
-        participant: msg.key.participant ?? null,
+        participant: normalizeJid(msg.key.participant),
         push_name: msg.pushName ?? null,
         text,
         timestamp: Number(msg.messageTimestamp ?? 0),
