@@ -2,6 +2,7 @@
 name = "aeqi"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "CLI, daemon, and web entrypoint for the AEQI agent runtime"
 
 [[bin]]
@@ -35,4 +36,3 @@ crossterm = { workspace = true }
 tungstenite = { workspace = true }
 pulldown-cmark = { workspace = true }
 syntect = { version = "5.3", default-features = false, features = ["parsing", "html", "plist-load", "regex-onig", "default-syntaxes", "default-themes"] }
-similar = { workspace = true }

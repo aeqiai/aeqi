@@ -13,10 +13,12 @@
 //! use aeqi_providers::OpenRouterEmbedder;
 //! use aeqi_core::traits::Embedder;
 //!
-//! # tokio_test::block_on(async {
-//! let embedder = OpenRouterEmbedder::new("api-key".to_string(), "openai/text-embedding-3-small", 1536);
+//! # let rt = tokio::runtime::Runtime::new().unwrap();
+//! # rt.block_on(async {
+//! let embedder =
+//!     OpenRouterEmbedder::new("api-key".to_string(), "openai/text-embedding-3-small", 1536);
 //! let embedding = embedder.embed("Hello, world!").await.unwrap();
-//! # })
+//! # });
 //! ```
 
 use aeqi_core::traits::Embedder;

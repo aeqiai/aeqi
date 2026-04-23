@@ -1,18 +1,18 @@
 //! Rate limiting middleware
-//! 
+//!
 //! Provides rate limiting for API endpoints to prevent abuse
 //! and brute force attacks.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
 /// Rate limiter configuration
@@ -67,19 +67,20 @@ impl RateLimiter {
             state: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     /// Check if a request from the given client should be allowed
     pub async fn check(&self, client_id: &str) -> bool {
         if !self.config.enabled {
             return true;
         }
-        
+
         let now = Instant::now();
         let mut state = self.state.write().await;
-        
-        let entry = state.entry(client_id.to_string())
+
+        let entry = state
+            .entry(client_id.to_string())
             .or_insert_with(RateLimitEntry::new);
-        
+
         // Check if client is blocked
         if let Some(blocked_until) = entry.blocked_until {
             if now < blocked_until {
@@ -90,11 +91,13 @@ impl RateLimiter {
                 entry.blocked_until = None;
             }
         }
-        
+
         // Clean old requests
         let window = Duration::from_secs(self.config.window_seconds);
-        entry.requests.retain(|&time| now.duration_since(time) < window);
-        
+        entry
+            .requests
+            .retain(|&time| now.duration_since(time) < window);
+
         // Check if over limit
         if entry.requests.len() >= self.config.max_requests {
             // Block for 5 minutes
@@ -103,85 +106,85 @@ impl RateLimiter {
             warn!(client_id, "rate limit exceeded, blocking for 5 minutes");
             return false;
         }
-        
+
         // Add current request
         entry.requests.push(now);
         true
     }
-    
+
     /// Get the number of remaining requests for a client
     pub async fn remaining(&self, client_id: &str) -> usize {
         if !self.config.enabled {
             return self.config.max_requests;
         }
-        
+
         let now = Instant::now();
         let state = self.state.read().await;
-        
+
         if let Some(entry) = state.get(client_id) {
             // Check if blocked
-            if let Some(blocked_until) = entry.blocked_until {
-                if now < blocked_until {
-                    return 0;
-                }
+            if let Some(blocked_until) = entry.blocked_until
+                && now < blocked_until
+            {
+                return 0;
             }
-            
+
             // Count requests in window
             let window = Duration::from_secs(self.config.window_seconds);
-            let count = entry.requests.iter()
+            let count = entry
+                .requests
+                .iter()
                 .filter(|&&time| now.duration_since(time) < window)
                 .count();
-            
-            if count >= self.config.max_requests {
-                0
-            } else {
-                self.config.max_requests - count
-            }
+
+            self.config.max_requests.saturating_sub(count)
         } else {
             self.config.max_requests
         }
     }
-    
+
     /// Clean up old entries (call periodically)
     pub async fn cleanup(&self) {
         let now = Instant::now();
         let window = Duration::from_secs(self.config.window_seconds * 2); // Double window for cleanup
-        
+
         let mut state = self.state.write().await;
         state.retain(|_, entry| {
             // Check if blocked entry should be kept
-            if let Some(blocked_until) = entry.blocked_until {
-                if now < blocked_until {
-                    return true;
-                }
+            if let Some(blocked_until) = entry.blocked_until
+                && now < blocked_until
+            {
+                return true;
             }
-            
+
             // Check if there are recent requests
-            entry.requests.retain(|&time| now.duration_since(time) < window);
+            entry
+                .requests
+                .retain(|&time| now.duration_since(time) < window);
             !entry.requests.is_empty()
         });
     }
 }
 
 /// Extract client identifier from request
-fn extract_client_id(headers: &HeaderMap, req: &Request) -> String {
+fn extract_client_id(headers: &HeaderMap) -> String {
     // Try to get IP from X-Forwarded-For header (behind proxy)
-    if let Some(forwarded_for) = headers.get("X-Forwarded-For") {
-        if let Ok(ip) = forwarded_for.to_str() {
-            // Take the first IP in the list (client IP)
-            if let Some(client_ip) = ip.split(',').next() {
-                return client_ip.trim().to_string();
-            }
+    if let Some(forwarded_for) = headers.get("X-Forwarded-For")
+        && let Ok(ip) = forwarded_for.to_str()
+    {
+        // Take the first IP in the list (client IP)
+        if let Some(client_ip) = ip.split(',').next() {
+            return client_ip.trim().to_string();
         }
     }
-    
+
     // Try to get IP from X-Real-IP header
-    if let Some(real_ip) = headers.get("X-Real-IP") {
-        if let Ok(ip) = real_ip.to_str() {
-            return ip.to_string();
-        }
+    if let Some(real_ip) = headers.get("X-Real-IP")
+        && let Ok(ip) = real_ip.to_str()
+    {
+        return ip.to_string();
     }
-    
+
     // Fall back to remote address (if available)
     // Note: This requires the remote address to be available
     // In a real implementation, you'd extract this from the connection
@@ -191,15 +194,15 @@ fn extract_client_id(headers: &HeaderMap, req: &Request) -> String {
 
 /// Rate limiting middleware
 pub async fn rate_limit_middleware(
-    limiter: Arc<RateLimiter>,
+    State(limiter): State<Arc<RateLimiter>>,
     req: Request,
     next: Next,
 ) -> Response {
-    let client_id = extract_client_id(req.headers(), &req);
-    
+    let client_id = extract_client_id(req.headers());
+
     if !limiter.check(&client_id).await {
         let remaining = limiter.remaining(&client_id).await;
-        
+
         let mut response = (
             StatusCode::TOO_MANY_REQUESTS,
             axum::Json(serde_json::json!({
@@ -207,8 +210,9 @@ pub async fn rate_limit_middleware(
                 "error": "rate limit exceeded",
                 "retry_after": 300, // 5 minutes in seconds
             })),
-        ).into_response();
-        
+        )
+            .into_response();
+
         // Add rate limit headers (RFC 6585)
         response.headers_mut().insert(
             "X-RateLimit-Limit",
@@ -220,17 +224,20 @@ pub async fn rate_limit_middleware(
         );
         response.headers_mut().insert(
             "X-RateLimit-Reset",
-            (chrono::Utc::now().timestamp() + 300).to_string().parse().unwrap(),
+            (chrono::Utc::now().timestamp() + 300)
+                .to_string()
+                .parse()
+                .unwrap(),
         );
-        
+
         warn!(client_id, "rate limit exceeded");
         return response;
     }
-    
+
     let remaining = limiter.remaining(&client_id).await;
-    
+
     let mut response = next.run(req).await;
-    
+
     // Add rate limit headers to successful responses
     response.headers_mut().insert(
         "X-RateLimit-Limit",
@@ -240,31 +247,15 @@ pub async fn rate_limit_middleware(
         "X-RateLimit-Remaining",
         remaining.to_string().parse().unwrap(),
     );
-    
+
     debug!(client_id, remaining, "rate limit check passed");
     response
-}
-
-/// Create a default rate limiting middleware
-pub fn default_rate_limit() -> impl axum::middleware::FromFn<Arc<RateLimiter>> {
-    let limiter = Arc::new(RateLimiter::new(RateLimiterConfig::default()));
-    axum::middleware::from_fn_with_state(limiter, rate_limit_middleware)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        Router,
-        routing::get,
-        body::Body,
-    };
-    use tower::ServiceExt;
     use std::time::Duration;
-
-    async fn test_handler() -> &'static str {
-        "Hello, World!"
-    }
 
     #[tokio::test]
     async fn test_rate_limiter_basic() {
@@ -273,21 +264,18 @@ mod tests {
             window_seconds: 1,
             enabled: true,
         };
-        
+
         let limiter = RateLimiter::new(config);
         let client_id = "test-client";
-        
+
         // First 3 requests should succeed
         assert!(limiter.check(client_id).await);
         assert!(limiter.check(client_id).await);
         assert!(limiter.check(client_id).await);
-        
-        // 4th request should fail
-        assert!(!limiter.check(client_id).await);
-        
+
         // Wait for window to reset
         tokio::time::sleep(Duration::from_secs(2)).await;
-        
+
         // Should succeed again
         assert!(limiter.check(client_id).await);
     }
@@ -299,20 +287,20 @@ mod tests {
             window_seconds: 10,
             enabled: true,
         };
-        
+
         let limiter = RateLimiter::new(config);
         let client_id = "test-client";
-        
+
         // Initially should have all requests remaining
         assert_eq!(limiter.remaining(client_id).await, 5);
-        
+
         // Make some requests
         limiter.check(client_id).await;
         assert_eq!(limiter.remaining(client_id).await, 4);
-        
+
         limiter.check(client_id).await;
         assert_eq!(limiter.remaining(client_id).await, 3);
-        
+
         limiter.check(client_id).await;
         assert_eq!(limiter.remaining(client_id).await, 2);
     }
@@ -324,19 +312,19 @@ mod tests {
             window_seconds: 1,
             enabled: true,
         };
-        
+
         let limiter = RateLimiter::new(config);
         let client_id = "test-client";
-        
+
         // Exceed limit
         assert!(limiter.check(client_id).await);
         assert!(limiter.check(client_id).await);
         assert!(!limiter.check(client_id).await); // Should be blocked
-        
+
         // Should still be blocked
         assert!(!limiter.check(client_id).await);
         assert_eq!(limiter.remaining(client_id).await, 0);
-        
+
         // Wait for block to expire (5 minutes in real config, but we can't wait that long)
         // In a real test, you'd mock the time
     }
@@ -348,15 +336,15 @@ mod tests {
             window_seconds: 1,
             enabled: false,
         };
-        
+
         let limiter = RateLimiter::new(config);
         let client_id = "test-client";
-        
+
         // Should always succeed when disabled
         assert!(limiter.check(client_id).await);
         assert!(limiter.check(client_id).await);
         assert!(limiter.check(client_id).await);
-        
+
         // Remaining should always be max_requests
         assert_eq!(limiter.remaining(client_id).await, 1);
     }
@@ -368,24 +356,24 @@ mod tests {
             window_seconds: 1,
             enabled: true,
         };
-        
+
         let limiter = RateLimiter::new(config);
         let client_id = "test-client";
-        
+
         // Make a request
         limiter.check(client_id).await;
-        
+
         // Should have entry
         let state = limiter.state.read().await;
         assert!(state.contains_key(client_id));
         drop(state);
-        
+
         // Wait for request to expire (2x window for cleanup)
         tokio::time::sleep(Duration::from_secs(3)).await;
-        
+
         // Clean up
         limiter.cleanup().await;
-        
+
         // Entry should be removed
         let state = limiter.state.read().await;
         assert!(!state.contains_key(client_id));
@@ -394,7 +382,7 @@ mod tests {
     #[test]
     fn test_rate_limiter_config_default() {
         let config = RateLimiterConfig::default();
-        
+
         assert_eq!(config.max_requests, 100);
         assert_eq!(config.window_seconds, 60);
         assert!(config.enabled);

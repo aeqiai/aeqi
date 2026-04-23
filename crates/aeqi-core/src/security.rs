@@ -31,7 +31,7 @@ impl SecretStore {
             key
         } else {
             let mut key = [0u8; 32];
-            rand::thread_rng().fill(&mut key);
+            rand::rng().fill(&mut key);
             let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, key);
             std::fs::write(&key_path, &encoded).context("failed to write secret store key")?;
 
@@ -57,7 +57,7 @@ impl SecretStore {
             .map_err(|e| anyhow::anyhow!("cipher init failed: {e}"))?;
 
         let mut nonce_bytes = [0u8; 12];
-        rand::thread_rng().fill(&mut nonce_bytes);
+        rand::rng().fill(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         let ciphertext = cipher

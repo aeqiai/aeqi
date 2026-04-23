@@ -2,6 +2,7 @@
 name = "aeqi-ideas"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Unified idea store — identity, skills, knowledge, memory in one place"
 
 [dev-dependencies]
@@ -13,7 +14,6 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }

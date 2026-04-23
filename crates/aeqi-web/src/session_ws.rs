@@ -49,7 +49,16 @@ pub async fn handler(
             user_roots = auth::proxy_scope_from_headers(&state, &headers).map(|s| s.roots);
         }
         AuthMode::Secret | AuthMode::Accounts => {
-            let secret = auth::signing_secret(&state);
+            let secret = match auth::signing_secret(&state) {
+                Ok(secret) => secret,
+                Err(err) => {
+                    tracing::error!("auth: {err}");
+                    return axum::response::IntoResponse::into_response((
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        "server configuration error",
+                    ));
+                }
+            };
             let token = q.token.as_deref().unwrap_or("");
             match auth::validate_token(token, secret) {
                 Ok(claims) => {

@@ -7,11 +7,15 @@ use syntect::parsing::SyntaxSet;
 use super::markdown::{StyledLine, StyledSpan};
 
 static SYNTAX_SET: std::sync::LazyLock<SyntaxSet> =
-    std::sync::LazyLock::new(SyntaxSet::default);
+    std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
 
 static THEME: std::sync::LazyLock<syntect::highlighting::Theme> = std::sync::LazyLock::new(|| {
-    let ts = ThemeSet::default();
-    ts.themes["base16-ocean.dark"].clone()
+    let ts = ThemeSet::load_defaults();
+    ts.themes
+        .get("base16-ocean.dark")
+        .cloned()
+        .or_else(|| ts.themes.values().next().cloned())
+        .expect("syntect default theme set should not be empty")
 });
 
 fn normalize_lang(lang: &str) -> &str {

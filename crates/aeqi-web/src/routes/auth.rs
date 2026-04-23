@@ -105,6 +105,18 @@ pub fn accounts_routes() -> Router<AppState> {
         .route("/api/auth/invite/codes", get(my_invite_codes_handler))
 }
 
+fn server_configuration_error(err: &'static str) -> Response {
+    tracing::error!("auth: {err}");
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({
+            "ok": false,
+            "error": "server configuration error"
+        })),
+    )
+        .into_response()
+}
+
 // ── Handlers ──────────────────────────────────────────────
 
 async fn health_handler(State(state): State<AppState>) -> Response {
@@ -336,7 +348,10 @@ async fn signup_handler(
         );
     }
 
-    let signing_key = auth::signing_secret(&state);
+    let signing_key = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     match auth::create_token(signing_key, 24, Some(&user.id), Some(email)) {
         Ok(token) => Json(serde_json::json!({
             "ok": true,
@@ -382,7 +397,10 @@ async fn email_login_handler(
         }
     };
 
-    let signing_key = auth::signing_secret(&state);
+    let signing_key = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     match auth::create_token(signing_key, 24, Some(&user.id), Some(&user.email)) {
         Ok(token) => Json(serde_json::json!({
             "ok": true, "token": token, "user": user,
@@ -404,7 +422,10 @@ async fn verify_email_handler(
         Ok(true) => {
             // Re-issue token with verified status.
             if let Ok(Some(user)) = accounts.get_user_by_email(&body.email) {
-                let signing_key = auth::signing_secret(&state);
+                let signing_key = match auth::signing_secret(&state) {
+                    Ok(secret) => secret,
+                    Err(err) => return server_configuration_error(err),
+                };
                 if let Ok(token) =
                     auth::create_token(signing_key, 24, Some(&user.id), Some(&body.email))
                 {
@@ -477,7 +498,10 @@ async fn me_handler(State(state): State<AppState>, req: Request) -> Response {
     };
 
     // Extract user from JWT.
-    let secret = auth::signing_secret(&state);
+    let secret = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     let token = req
         .headers()
         .get("authorization")
@@ -664,7 +688,10 @@ async fn google_callback_handler(
         }
     };
 
-    let signing_key = auth::signing_secret(&state);
+    let signing_key = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     let token = match auth::create_token(signing_key, 24, Some(&user.id), Some(email)) {
         Ok(t) => t,
         Err(e) => {
@@ -844,7 +871,10 @@ async fn github_callback_handler(
         }
     };
 
-    let signing_key = auth::signing_secret(&state);
+    let signing_key = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     let token = match auth::create_token(signing_key, 24, Some(&user.id), Some(&email)) {
         Ok(t) => t,
         Err(e) => {
@@ -918,7 +948,10 @@ async fn my_invite_codes_handler(State(state): State<AppState>, req: Request) ->
     let Some(accounts) = &state.accounts else {
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
-    let secret = auth::signing_secret(&state);
+    let secret = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
     let token = req
         .headers()
         .get("authorization")

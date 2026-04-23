@@ -29,7 +29,10 @@ jobs:
           if [ -f rust-toolchain.toml ]; then
             EXPECTED_CHANNEL=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
             echo "Installing Rust $EXPECTED_CHANNEL"
-            rustup toolchain install $EXPECTED_CHANNEL --profile minimal --components clippy,rustfmt,rust-src
+            rustup toolchain install "$EXPECTED_CHANNEL" --profile minimal \
+              --component clippy \
+              --component rustfmt \
+              --component rust-src
             rustup default $EXPECTED_CHANNEL
             echo "toolchain=$EXPECTED_CHANNEL" >> $GITHUB_OUTPUT
           else

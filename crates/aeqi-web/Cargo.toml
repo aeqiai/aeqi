@@ -34,6 +34,7 @@ mini-moka = { workspace = true }
 uuid = { workspace = true }
 rand = { workspace = true }
 bcrypt = { workspace = true }
+validator = { workspace = true }
 
 # Crypto (Twilio webhook signature verification)
 hmac = { workspace = true }

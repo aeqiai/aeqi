@@ -8,33 +8,3 @@ coverage = "tarpaulin --workspace --out Lcov"
 
 # Performance testing
 bench = "criterion"
-
-# Tarpaulin configuration
-[tarpaulin]
-# Generate HTML report
-html = true
-# Generate LCOV report
-lcov = true
-# Output directory
-out-dir = "target/tarpaulin"
-# Fail under coverage threshold
-fail-under = 80
-# Exclude test files from coverage
-exclude-files = ["*/tests/*", "*/examples/*", "*/benches/*"]
-# Exclude lines with #[cfg(test)]
-exclude-attr = ["cfg(test)"]
-
-# Criterion configuration
-[criterion]
-# Output directory for criterion reports
-output-directory = "target/criterion"
-# Plotting backend (gnuplot required for graphs)
-plotting-backend = "plotters"
-# Save baseline for comparison
-save-baseline = true
-# Load baseline for comparison
-load-baseline = "main"
-# Statistical significance level
-significance-level = 0.05
-# Noise threshold
-noise-threshold = 0.01

@@ -2,6 +2,7 @@
 name = "aeqi-orchestrator"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Agent orchestration engine — worker pool, workers, chat, dispatch, and daemon"
 
 [dependencies]
@@ -26,9 +27,7 @@ reqwest = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
 rusqlite = { workspace = true }
-hmac = { workspace = true }
 sha2 = { workspace = true }
-hex = { workspace = true }
 base64 = { workspace = true }
 rand = { workspace = true }
 

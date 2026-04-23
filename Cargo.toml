@@ -18,7 +18,7 @@ members = [
 [workspace.package]
 version = "0.7.0"
 edition = "2024"
-license = "BSL-1.1"
+license = "BUSL-1.1"
 authors = ["AEQI Contributors"]
 description = "Agent runtime, multi-agent harness, orchestration engine, and web control plane"
 repository = "https://github.com/aeqiai/aeqi"
@@ -43,6 +43,7 @@ axum = { version = "0.8", features = ["ws"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
 jsonwebtoken = "9"
+urlencoding = "2.1"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
@@ -100,23 +101,23 @@ rust-embed = { version = "8", features = ["compression"] }
 mime_guess = "2"
 
 # Validation
-validator = { version = "0.18", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 
 # Test
 tempfile = "3"
 
 # Internal crates
-aeqi-quests = { path = "crates/aeqi-quests" }
-aeqi-core = { path = "crates/aeqi-core" }
-aeqi-providers = { path = "crates/aeqi-providers" }
-aeqi-tools = { path = "crates/aeqi-tools" }
-aeqi-orchestrator = { path = "crates/aeqi-orchestrator" }
-aeqi-ideas = { path = "crates/aeqi-ideas" }
-aeqi-gates = { path = "crates/aeqi-gates" }
-aeqi-web = { path = "crates/aeqi-web" }
-aeqi-graph = { path = "crates/aeqi-graph" }
-aeqi-hosting = { path = "crates/aeqi-hosting" }
-aeqi-test-support = { path = "crates/aeqi-test-support" }
+aeqi-quests = { version = "0.7.0", path = "crates/aeqi-quests" }
+aeqi-core = { version = "0.7.0", path = "crates/aeqi-core" }
+aeqi-providers = { version = "0.7.0", path = "crates/aeqi-providers" }
+aeqi-tools = { version = "0.7.0", path = "crates/aeqi-tools" }
+aeqi-orchestrator = { version = "0.7.0", path = "crates/aeqi-orchestrator" }
+aeqi-ideas = { version = "0.7.0", path = "crates/aeqi-ideas" }
+aeqi-gates = { version = "0.7.0", path = "crates/aeqi-gates" }
+aeqi-web = { version = "0.7.0", path = "crates/aeqi-web" }
+aeqi-graph = { version = "0.7.0", path = "crates/aeqi-graph" }
+aeqi-hosting = { version = "0.7.0", path = "crates/aeqi-hosting" }
+aeqi-test-support = { version = "0.7.0", path = "crates/aeqi-test-support" }
 
 
 [profile.release]

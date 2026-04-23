@@ -78,7 +78,7 @@ impl Channel for DiscordChannel {
                     if let Some(after) = last_message_ids.get(channel_id) {
                         url.query_pairs_mut().append_pair("after", after.as_str());
                     }
-                    let mut req = client
+                    let req = client
                         .get(url)
                         .header("Authorization", format!("Bot {}", token));
 

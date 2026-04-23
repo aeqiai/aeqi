@@ -45,7 +45,7 @@ impl Provider for ReliableProvider {
 
                         if attempt < self.max_retries {
                             let base_ms = 500 * 2u64.pow(attempt);
-                            let jitter_ms = rand::thread_rng().gen_range(0..=base_ms / 2);
+                            let jitter_ms = rand::rng().random_range(0..=base_ms / 2);
                             let delay = std::time::Duration::from_millis(base_ms + jitter_ms);
                             tokio::time::sleep(delay).await;
                         }

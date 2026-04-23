@@ -40,7 +40,7 @@ pub fn resolve_ws_roots(
         return Err("missing token");
     };
 
-    let secret = auth::signing_secret(state);
+    let secret = auth::signing_secret(state)?;
     let claims = auth::validate_token(token, secret).map_err(|_| "invalid token")?;
 
     let roots = if let Some(accounts) = &state.accounts {
@@ -185,12 +185,14 @@ mod tests {
 
     #[test]
     fn resolve_ws_roots_default_secret_fallback() {
-        // No auth_secret configured -> signing_secret returns ephemeral fallback
+        // No auth_secret configured -> signing_secret returns an error.
         let state = test_state(None, AuthMode::Secret);
         let token =
             crate::auth::create_token("aeqi-ephemeral-fallback", 1, Some("user"), None).unwrap();
         let result = resolve_ws_roots(&state, Some(&token));
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
+        assert_eq!(
+            result.unwrap_err(),
+            "JWT signing secret not configured. Set AEQI_AUTH_SECRET environment variable."
+        );
     }
 }

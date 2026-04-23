@@ -20,11 +20,11 @@ use tracing::info;
 use crate::accounts::AccountStore;
 use crate::auth;
 use crate::ipc::IpcClient;
-use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
-use crate::ws;
-use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
 use crate::rate_limit::{RateLimiter, RateLimiterConfig, rate_limit_middleware};
+use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
+use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
 use crate::validation::{request_size_limit_middleware, validate_content_type_middleware};
+use crate::ws;
 use aeqi_core::config::SmtpConfig;
 
 /// Shared application state.
@@ -88,7 +88,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     // This prevents the insecure "aeqi-dev" fallback from ever being used.
     let auth_secret = web.auth_secret.clone().or_else(|| {
         use rand::Rng;
-        let secret: String = rand::thread_rng()
+        let secret: String = rand::rng()
             .sample_iter(&rand::distr::Alphanumeric)
             .take(48)
             .map(char::from)

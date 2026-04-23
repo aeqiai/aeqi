@@ -230,11 +230,27 @@ mod tests {
         p
     }
 
+    fn bridge_node_modules() -> PathBuf {
+        let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        p.pop(); // crates/
+        p.pop(); // repo root
+        p.push("bridges/baileys/node_modules");
+        p
+    }
+
     #[tokio::test]
     async fn ping_roundtrip_and_ready_event() {
         let script = bridge_script();
         if !script.exists() {
             eprintln!("skipping bridge ping test: {} missing", script.display());
+            return;
+        }
+        let node_modules = bridge_node_modules();
+        if !node_modules.exists() {
+            eprintln!(
+                "skipping bridge ping test: {} missing",
+                node_modules.display()
+            );
             return;
         }
         let client = BridgeClient::spawn("baileys-test", "node", &[script.to_str().unwrap()])

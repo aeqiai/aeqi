@@ -407,7 +407,7 @@ mod tests {
     fn signing_secret_whitespace_only_falls_back() {
         // A whitespace-only secret is not empty, so it should be used as-is.
         let state = test_state(Some("  ".to_string()));
-        assert_eq!(signing_secret(&state), "  ");
+        assert_eq!(signing_secret(&state).unwrap(), "  ");
     }
 
     // ── Proxy scope edge cases ───────────────────────────────

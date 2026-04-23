@@ -2,7 +2,7 @@ use aeqi_core::chat_stream::{ChatStreamSender, FileOperation};
 use aeqi_core::traits::{ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::debug;
 
 /// File read tool with workspace scoping.
@@ -17,9 +17,8 @@ impl FileReadTool {
 
     fn validate_path(&self, path: &str) -> Result<PathBuf> {
         use aeqi_core::secure_path::secure_path;
-        
-        secure_path(&self.workspace, path)
-            .map_err(|e| anyhow::anyhow!("{}", e))
+
+        secure_path(&self.workspace, path).map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
 
@@ -135,9 +134,8 @@ impl FileWriteTool {
 
     fn validate_path(&self, path: &str) -> Result<PathBuf> {
         use aeqi_core::secure_path::secure_path_for_write;
-        
-        secure_path_for_write(&self.workspace, path)
-            .map_err(|e| anyhow::anyhow!("{}", e))
+
+        secure_path_for_write(&self.workspace, path).map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
 
@@ -245,9 +243,11 @@ impl aeqi_core::traits::Tool for ListDirTool {
         let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
         use aeqi_core::secure_path::secure_path;
-        
-        let resolved = secure_path(&self.workspace, path)
-            .map_err(|e| ToolResult::error(e.to_string()))?;
+
+        let resolved = match secure_path(&self.workspace, path) {
+            Ok(path) => path,
+            Err(e) => return Ok(ToolResult::error(e.to_string())),
+        };
 
         debug!(path = %resolved.display(), "listing directory");
 
