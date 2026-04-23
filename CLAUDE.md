@@ -45,7 +45,8 @@ when `apps/ui` files are staged; Rust checks remain a manual/CI responsibility.
 - Compaction-as-delegation: context:budget:exceeded fires session.spawn (lightweight ephemeral compactor session) + transcript.replace_middle. Current session_id preserved. Inline compaction pipeline is fallback when no PatternDispatcher.
 - Legacy event fields (idea_ids, query_template, query_top_k, query_tag_filter) remain as fallback when tool_calls is empty.
 - Ideas have tags (Vec<String>), no category field
-- Quest owns worktree. Session owns nothing.
+- Quest owns worktree. Session owns nothing. Execution owns one turn.
+- Every execution is ephemeral: one turn per spawn. The agent task exits on Complete. The next user/transport/scheduler trigger INSERTs into `pending_messages`, a fresh spawn starts. No parked agents, no mpsc input channels.
 - Every execution in bwrap (when available)
 - Auto-commit at end of turn in quest worktrees
 - Tools configurable per agent via tool_deny

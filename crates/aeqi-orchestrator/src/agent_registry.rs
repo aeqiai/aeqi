@@ -246,9 +246,8 @@ fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
 /// table (older on-disk DBs won't have it) and backfills transport-bound agents.
 ///
 /// Transport-bound agents are those that own at least one row in `channels`.
-/// Their `can_self_delegate` is set to 1 because they previously inherited this
-/// capability via `SessionType::Perpetual` and their interactive behaviour depends
-/// on it. All other agents keep the default of 0.
+/// Their `can_self_delegate` is set to 1 because they need interactive
+/// self-delegation capability. All other agents keep the default of 0.
 fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
     let cols: Vec<String> = {
         let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
@@ -261,7 +260,7 @@ fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
             "ALTER TABLE agents ADD COLUMN can_self_delegate INTEGER NOT NULL DEFAULT 0;",
         )?;
         // Backfill: any agent that owns a channel row is transport-bound and
-        // inherits the old Perpetual / self-delegate behaviour.
+        // Backfill: transport-bound agents get self-delegate enabled.
         conn.execute_batch(
             "UPDATE agents SET can_self_delegate = 1
              WHERE id IN (SELECT DISTINCT agent_id FROM channels);",

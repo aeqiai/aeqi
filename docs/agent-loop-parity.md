@@ -38,7 +38,7 @@ Make AEQI's agent loop (`aeqi-core/src/agent.rs`) at least as resilient, perform
 - Streaming tool execution (ToolUseComplete → executor starts during stream)
 - Context management: snip, microcompact, full compact, reactive compact
 - Three-tier memory recall (hierarchical_search)
-- Perpetual sessions (stays open, accepts follow-up messages)
+- Ephemeral execution model (one turn per spawn; `pending_messages` is the ingress rail)
 - Token budget auto-continuation
 - Output truncation recovery (MaxTokens → auto-continue)
 - Fallback model switching on consecutive failures
@@ -57,7 +57,7 @@ See Phase 3 comparison below — gaps identified in 12 areas.
 1. **Three-tier hierarchical memory** — agent→project→system scoped memory with `hierarchical_search`. CC has flat memory prefetch.
 2. **Mid-loop memory recall** — proactively re-queries memory when tool output has novel terms (>200 chars, 3+ new terms). CC doesn't recall mid-loop.
 3. **Session memory extraction** — fire-and-forget background task extracting structured ideas (SCOPE TAG: key | content) into domain-scoped memory at 50K+ prompt tokens.
-4. **Perpetual sessions** — stays open via `input_rx` channel, accepts follow-up messages with full state reset per turn.
+4. **Ephemeral execution model** — every turn is a fresh spawn; follow-up messages INSERT into `pending_messages` and trigger a new claim-and-run cycle. No in-memory parked agents, no mpsc input channels.
 5. **Token budget auto-continuation** — built-in with percentage tracking, nudge messages showing "X% of budget used", stops at 90%.
 6. **Budget pressure injection** — injects warnings into tool results at 70% and 90% of iteration budget. CC has no equivalent.
 7. **Observer trait richness** — 16 hooks including `collect_attachments`, `pre_compact`/`post_compact`, `file_changed`, `user_prompt_submit`. CC's hooks are more user-facing but less programmatically extensible.
@@ -355,7 +355,7 @@ Read these files END TO END:
    - Session memory extraction
    - Output truncation recovery
    - Token budget auto-continuation
-   - Perpetual mode input waiting
+   - Step-boundary injection (pending_source.claim_pending_for_session)
    - format_tool_input() for input_preview
 
 2. **`crates/aeqi-core/src/streaming_executor.rs`** (~500 lines)
