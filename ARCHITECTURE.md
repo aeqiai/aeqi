@@ -132,12 +132,17 @@ Key implementation points:
   that fired before the caller subscribed to the broadcast channel — the
   caller must replay them onto the wire.
 
-### 2b. Session types
+### 2b. Session execution model
 
-```rust
-SessionType::Perpetual   // interactive chat, auto_close=false, max_iterations=200
-SessionType::Async       // quest / background, auto_close=true, max_iterations=50
-```
+Every execution is ephemeral: one turn per spawn. The agent task exits on
+Complete. The next user/transport/scheduler trigger INSERTs into
+`pending_messages`, a fresh spawn starts. No parked agents, no mpsc input
+channels.
+
+`SpawnOptions::interactive()` sets `auto_close=false` (the session row stays
+open in the DB for multi-turn chat), but the agent task still exits after
+each turn. The distinction is only about the DB session lifecycle, not about
+a persistent in-memory agent.
 
 Quest-backed sessions additionally wrap `LogObserver` in the universal
 middleware chain (`crates/aeqi-orchestrator/src/session_manager.rs:825`): cost
