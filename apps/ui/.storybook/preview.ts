@@ -10,8 +10,8 @@ const preview: Preview = {
       values: [
         { name: "shell", value: "#f4f4f5" },
         { name: "card", value: "#ffffff" },
-        { name: "inset-subtle", value: "#f2f2f4" },
-        { name: "inset-strong", value: "#efeff1" },
+        { name: "inset-subtle", value: "#f8f8f9" },
+        { name: "inset-strong", value: "#ededf0" },
         { name: "inverse", value: "#0a0a0b" },
       ],
     },

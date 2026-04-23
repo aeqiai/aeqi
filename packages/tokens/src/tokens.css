@@ -54,8 +54,8 @@
   --color-paper: #f4f4f5;
 
   /* Tier 3/4: inset family inside the white card */
-  --color-slab: #efeff1;
-  --color-slab-elevated: #f2f2f4; /* hover inside slab */
+  --color-slab: #ededf0;
+  --color-slab-elevated: #f8f8f9; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
   --color-slab-border-hover: rgba(0, 0, 0, 0.12);
   --color-slab-border-focus: rgba(0, 0, 0, 0.3);

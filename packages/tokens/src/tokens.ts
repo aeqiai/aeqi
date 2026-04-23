@@ -11,8 +11,8 @@
 
 export const color = {
   bg: {
-    base: "#efeff1", // inset strong inside the primary card
-    surface: "#f2f2f4", // inset subtle inside the primary card
+    base: "#ededf0", // inset strong inside the primary card
+    surface: "#f8f8f9", // inset subtle inside the primary card
     elevated: "#ffffff", // raised — modals, popovers, cards
     overlay: "#ffffff", // highest — tooltips, floating menus
   },
@@ -21,11 +21,11 @@ export const color = {
   shell: "#f4f4f5",
   paper: "#f4f4f5",
   card: "#ffffff",
-  cardSubtle: "#f2f2f4",
-  cardMuted: "#efeff1",
+  cardSubtle: "#f8f8f9",
+  cardMuted: "#ededf0",
   sectionAlt: "#ffffff",
-  slab: "#efeff1",
-  slabElevated: "#f2f2f4",
+  slab: "#ededf0",
+  slabElevated: "#f8f8f9",
   slabBorder: "rgba(0, 0, 0, 0.06)",
   slabBorderHover: "rgba(0, 0, 0, 0.1)",
   slabBorderFocus: "rgba(90, 115, 152, 0.45)",
