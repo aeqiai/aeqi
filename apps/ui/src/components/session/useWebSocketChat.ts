@@ -51,6 +51,7 @@ export function useWebSocketChat({
   const [streaming, setStreaming] = useState(false);
   const [liveSegments, setLiveSegments] = useState<MessageSegment[]>([]);
   const [thinkingStart, setThinkingStart] = useState<number | null>(null);
+  const [liveStepOffset, setLiveStepOffset] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const wsSessionRef = useRef<string | null>(null);
   const setSessionStreaming = useChatStore((s) => s.setSessionStreaming);
@@ -59,6 +60,7 @@ export function useWebSocketChat({
     setStreaming(false);
     setLiveSegments([]);
     setThinkingStart(null);
+    setLiveStepOffset(0);
     if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
   }, [setSessionStreaming]);
 
@@ -71,43 +73,58 @@ export function useWebSocketChat({
     [setMessages],
   );
 
+  const commitSplitMessage = useCallback(
+    (state: StreamState) => {
+      const msg = messageFromState(state);
+      if (!msg) return;
+      // Split messages always append — they are committed mid-turn, after
+      // any user bubble that preceded this turn.
+      setMessages((prev) => [...prev, { ...msg, status: "split" as const }]);
+    },
+    [setMessages],
+  );
+
   const attachEventHandlers = useCallback(
-    (ws: WebSocket, startTime: number, persistent: boolean, lazyStreaming: boolean) => {
+    (ws: WebSocket, startTime: number) => {
       let state = initialStreamState(startTime);
-      // When `lazyStreaming`, we deferred flipping the streaming flag at
-      // attach time — wait for the first real production event so we don't
-      // render a ghost thinking panel when subscribing to a session that is
-      // just awaiting-input (alive in ExecutionRegistry but not producing).
-      let hasFlippedStreaming = !lazyStreaming;
 
       ws.onmessage = (e) => {
         const raw = parseEvent(e.data);
         if (!raw) return;
-        const next = reduceStreamEvent(state, raw);
+        const result = reduceStreamEvent(state, raw);
+
+        if (result.kind === "split") {
+          // Commit the pre-split assistant entry, push a user bubble, then
+          // continue with the fresh state carrying the step offset forward.
+          commitSplitMessage(result.commit);
+          const userBubble: Message = {
+            role: "user",
+            content: result.injectedText,
+            timestamp: Date.now(),
+            messageId: result.messageId,
+          };
+          setMessages((prev) => [...prev, userBubble]);
+          state = result.next;
+          // Reset the live trail to the fresh (empty) continuation state.
+          setLiveSegments([]);
+          setThinkingStart(state.thinkingStart);
+          setLiveStepOffset(state.stepOffset);
+          return;
+        }
+
+        // result.kind === "next"
+        const next = result.state;
         if (next === state) return;
         const prevStart = state.thinkingStart;
         state = next;
-        if (persistent && String(raw.type ?? "") === "StepStart" && state.thinkingStart === 0) {
-          state = { ...state, thinkingStart: Date.now() };
-        }
         setLiveSegments(state.segments);
         if (state.thinkingStart !== prevStart) setThinkingStart(state.thinkingStart);
-        if (!hasFlippedStreaming && (hasContent(state) || state.thinkingStart > 0)) {
-          hasFlippedStreaming = true;
+        if (!streaming && (hasContent(state) || state.thinkingStart > 0)) {
           setStreaming(true);
           if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, true);
         }
         if (state.status.kind === "complete") {
           commitMessage(state, false);
-          if (persistent && isAwaitingInputComplete(raw)) {
-            state = initialStreamState(0);
-            hasFlippedStreaming = false;
-            setStreaming(false);
-            setLiveSegments([]);
-            setThinkingStart(null);
-            if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
-            return;
-          }
           ws.close();
         } else if (state.status.kind === "error") {
           commitMessage(state, true);
@@ -122,7 +139,14 @@ export function useWebSocketChat({
         clearLiveState();
       };
     },
-    [commitMessage, clearLiveState, setSessionStreaming],
+    [
+      commitMessage,
+      commitSplitMessage,
+      clearLiveState,
+      setMessages,
+      setSessionStreaming,
+      streaming,
+    ],
   );
 
   const replaceSocket = useCallback((ws: WebSocket, sessionId: string | null) => {
@@ -153,6 +177,7 @@ export function useWebSocketChat({
       setStreaming(true);
       setLiveSegments([]);
       setThinkingStart(startTime);
+      setLiveStepOffset(0);
       setSessionStreaming(sessionId, true);
 
       const liveAttached = wsSessionRef.current === activeSessionId;
@@ -190,7 +215,7 @@ export function useWebSocketChat({
             }),
           ),
         );
-      attachEventHandlers(ws, startTime, false, false);
+      attachEventHandlers(ws, startTime);
     },
     [
       token,
@@ -215,17 +240,16 @@ export function useWebSocketChat({
   const attachToLiveStream = useCallback(
     (sessionId: string) => {
       if (!token || !sessionId) return;
-      // Don't flip streaming / thinkingStart eagerly: the session may be in
-      // `awaiting_input` (alive but no turn in progress). `attachEventHandlers`
-      // will turn the panel on lazily once an actual production event arrives.
+      setStreaming(true);
       setLiveSegments([]);
+      setSessionStreaming(sessionId, true);
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
-      attachEventHandlers(ws, 0, true, true);
+      attachEventHandlers(ws, 0);
     },
-    [token, attachEventHandlers, replaceSocket],
+    [token, attachEventHandlers, replaceSocket, setSessionStreaming],
   );
 
   useEffect(() => {
@@ -251,7 +275,10 @@ export function useWebSocketChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-check on session change
   }, [activeSessionId, token]);
 
-  const resetLiveSegments = useCallback(() => setLiveSegments([]), []);
+  const resetLiveSegments = useCallback(() => {
+    setLiveSegments([]);
+    setLiveStepOffset(0);
+  }, []);
 
   const handleStop = useCallback((sessionIdRefCurrent: string | null) => {
     if (sessionIdRefCurrent) api.cancelSession(sessionIdRefCurrent).catch(() => {});
@@ -264,6 +291,7 @@ export function useWebSocketChat({
     streaming,
     liveSegments,
     thinkingStart,
+    liveStepOffset,
     dispatchMessage,
     attachToLiveStream,
     resetLiveSegments,
@@ -277,12 +305,6 @@ function parseEvent(data: string): RawEvent | null {
   } catch {
     return null;
   }
-}
-
-function isAwaitingInputComplete(event: RawEvent): boolean {
-  return (
-    String(event.type ?? "") === "Complete" && String(event.stop_reason ?? "") === "awaiting_input"
-  );
 }
 
 function openChatSocket(token: string): WebSocket {

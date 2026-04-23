@@ -109,7 +109,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     handleFork,
   } = sessionManager;
 
-  const { streaming, liveSegments, thinkingStart, dispatchMessage } = wsChat;
+  const { streaming, liveSegments, thinkingStart, liveStepOffset, dispatchMessage } = wsChat;
 
   // Keep streamingRef in sync so polling pauses during streaming
   streamingRef.current = streaming;
@@ -386,6 +386,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
             liveSegments={liveSegments}
             thinkingStart={thinkingStart}
             streaming={streaming}
+            stepOffset={liveStepOffset}
           />
 
           {queuedDrafts.map((draft) => (

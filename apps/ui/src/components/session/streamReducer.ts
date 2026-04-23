@@ -25,67 +25,134 @@ export interface StreamState {
   fullText: string;
   thinkingStart: number;
   status: StreamStatus;
+  /**
+   * Step number of the last step in the PREVIOUS split segment, if this
+   * state is a continuation after a `UserInjected` split. `StepStart` adds
+   * `stepOffset` to the counted steps so step numbers carry forward across
+   * the split.
+   */
+  stepOffset: number;
 }
 
-export function initialStreamState(thinkingStart: number): StreamState {
+/**
+ * Result of `reduceStreamEvent`. Most events return `{ kind: "next", state }`.
+ * A `UserInjected` event returns `{ kind: "split", commit, next }` — the
+ * caller must commit `commit` as a historical assistant message (status=split),
+ * push a user bubble, and continue streaming with `next`.
+ */
+export type ReduceResult =
+  | { kind: "next"; state: StreamState }
+  | {
+      kind: "split";
+      commit: StreamState;
+      next: StreamState;
+      injectedText: string;
+      messageId?: number;
+    };
+
+export function initialStreamState(thinkingStart: number, stepOffset = 0): StreamState {
   return {
     segments: [],
     fullText: "",
     thinkingStart,
     status: { kind: "streaming" },
+    stepOffset,
   };
 }
 
-export function reduceStreamEvent(state: StreamState, event: RawEvent): StreamState {
+export function reduceStreamEvent(state: StreamState, event: RawEvent): ReduceResult {
   const type = String(event.type ?? "");
   switch (type) {
     case "Subscribed":
-      return applySubscribed(state, event);
+      return { kind: "next", state: applySubscribed(state, event) };
     case "TextDelta":
-      return appendText(state, String(event.text ?? event.delta ?? ""));
+      return { kind: "next", state: appendText(state, String(event.text ?? event.delta ?? "")) };
     case "ToolStart":
-      return appendSegment(state, { kind: "tool", event: toolStartEvent(event) });
+      return {
+        kind: "next",
+        state: appendSegment(state, { kind: "tool", event: toolStartEvent(event) }),
+      };
     case "ToolResult":
     case "ToolComplete":
-      return upsertToolComplete(state, toolCompleteEvent(event));
-    case "StepStart":
-      return appendSegment(state, { kind: "step", step: countStepSegments(state.segments) + 1 });
+      return { kind: "next", state: upsertToolComplete(state, toolCompleteEvent(event)) };
+    case "StepStart": {
+      const step = countStepSegments(state.segments) + 1 + state.stepOffset;
+      return { kind: "next", state: appendSegment(state, { kind: "step", step }) };
+    }
     case "IdeaActivity":
     case "MemoryActivity":
-      return appendStatus(state, ideaActivityLabel(event));
+      return { kind: "next", state: appendStatus(state, ideaActivityLabel(event)) };
     case "EventFired":
-      return appendSegment(state, { kind: "event_fire", fire: eventFire(event) });
+      return {
+        kind: "next",
+        state: appendSegment(state, { kind: "event_fire", fire: eventFire(event) }),
+      };
     case "DelegateStart":
-      return appendStatus(state, `Delegating to ${event.worker_name ?? "agent"}...`);
+      return {
+        kind: "next",
+        state: appendStatus(state, `Delegating to ${event.worker_name ?? "agent"}...`),
+      };
     case "DelegateComplete":
-      return appendStatus(
-        state,
-        `${event.worker_name ?? "Agent"} finished: ${event.outcome ?? "done"}`,
-      );
+      return {
+        kind: "next",
+        state: appendStatus(
+          state,
+          `${event.worker_name ?? "Agent"} finished: ${event.outcome ?? "done"}`,
+        ),
+      };
     case "FileChanged":
-      return appendSegment(state, { kind: "file_changed", event: fileChanged(event) });
+      return {
+        kind: "next",
+        state: appendSegment(state, { kind: "file_changed", event: fileChanged(event) }),
+      };
     case "FileDeleted":
-      return appendSegment(state, { kind: "file_deleted", event: fileDeleted(event) });
+      return {
+        kind: "next",
+        state: appendSegment(state, { kind: "file_deleted", event: fileDeleted(event) }),
+      };
     case "ToolSummarized":
-      return appendSegment(state, { kind: "tool_summarized", event: toolSummarized(event) });
+      return {
+        kind: "next",
+        state: appendSegment(state, { kind: "tool_summarized", event: toolSummarized(event) }),
+      };
     case "Compacted":
-      return appendStatus(state, compactedLabel(event));
+      return { kind: "next", state: appendStatus(state, compactedLabel(event)) };
     case "SnipCompacted":
-      return appendStatus(state, `snip: freed ~${Number(event.tokens_freed ?? 0)} tokens`);
+      return {
+        kind: "next",
+        state: appendStatus(state, `snip: freed ~${Number(event.tokens_freed ?? 0)} tokens`),
+      };
     case "MicroCompacted":
-      return appendStatus(state, microCompactedLabel(event));
+      return { kind: "next", state: appendStatus(state, microCompactedLabel(event)) };
     case "ContextCollapsed":
-      return appendStatus(state, `collapse: freed ~${Number(event.tokens_freed ?? 0)} tokens`);
+      return {
+        kind: "next",
+        state: appendStatus(state, `collapse: freed ~${Number(event.tokens_freed ?? 0)} tokens`),
+      };
     case "Complete":
     case "done":
-      return completeIfDone(state, event, type);
+      return { kind: "next", state: completeIfDone(state, event, type) };
     case "Error":
       return {
-        ...state,
-        status: { kind: "error", message: String(event.message ?? "Unknown error") },
+        kind: "next",
+        state: {
+          ...state,
+          status: { kind: "error", message: String(event.message ?? "Unknown error") },
+        },
       };
+    case "UserInjected": {
+      // `after_step` is the backend's authoritative step count at the split
+      // point. Use it as stepOffset so the continuation's StepStart events
+      // number from after_step + 1.
+      const afterStep = Number(event.after_step ?? 0);
+      const messageId =
+        typeof event.message_id === "number" ? (event.message_id as number) : undefined;
+      const injectedText = String(event.text ?? "");
+      const next = initialStreamState(Date.now(), afterStep);
+      return { kind: "split", commit: state, next, injectedText, messageId };
+    }
     default:
-      return state;
+      return { kind: "next", state };
   }
 }
 

@@ -14,7 +14,7 @@ use tracing::warn;
 use crate::execution_registry::ExecutionRegistry;
 use crate::stream_registry::StreamRegistry;
 
-const SUBSCRIBE_IDLE_TIMEOUT: Duration = Duration::from_secs(600);
+const SUBSCRIBE_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub async fn handle_subscribe(
     execution_registry: &ExecutionRegistry,
@@ -54,12 +54,7 @@ async fn forward_live_events(
     loop {
         match tokio::time::timeout(SUBSCRIBE_IDLE_TIMEOUT, rx.recv()).await {
             Ok(Ok(event)) => {
-                let terminal = match &event {
-                    ChatStreamEvent::Complete { stop_reason, .. } => {
-                        stop_reason != "awaiting_input"
-                    }
-                    _ => false,
-                };
+                let terminal = matches!(event, ChatStreamEvent::Complete { .. });
                 write_event(writer, &event).await?;
                 if terminal {
                     return Ok(true);

@@ -60,6 +60,12 @@ export interface Message {
   eventType?: string;
   taskId?: string;
   queued?: boolean;
+  /**
+   * "split" — assistant turn was interrupted by a UserInjected event and
+   * committed as a partial entry. Renders identically to a regular assistant
+   * bubble but without copy / final-message chrome.
+   */
+  status?: "split";
   /** Populated when role === "event_fire". */
   eventFire?: EventFire;
   /** DB message ID — used for fork-from-here. */
@@ -142,6 +148,10 @@ export function numberFromMeta(value: unknown): number | undefined {
 
 export function formatStepCount(count: number): string {
   return `${count} step${count === 1 ? "" : "s"}`;
+}
+
+export function formatContinuingFromStep(step: number): string {
+  return `Continuing from step ${step}`;
 }
 
 export function countStepSegments(segments?: MessageSegment[]): number {

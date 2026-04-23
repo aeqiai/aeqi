@@ -6,6 +6,7 @@ import {
   formatDuration,
   formatTime,
   formatStepCount,
+  formatContinuingFromStep,
   countStepSegments,
   currentRunningToolName,
   splitTrailAndFinal,
@@ -51,14 +52,17 @@ function LiveTrail({
   thinkingStart,
   runningToolName,
   showThinking,
+  stepOffset,
 }: {
   trail: MessageSegment[];
   thinkingStart: number | null;
   runningToolName?: string;
   showThinking: boolean;
+  stepOffset: number;
 }) {
   const [expanded, setExpanded] = useState(true);
   const stepCount = countStepSegments(trail);
+  const isContinuation = stepOffset > 0;
   return (
     <div className={`asv-trail asv-trail--live${expanded ? " asv-trail--expanded" : ""}`}>
       <button
@@ -72,7 +76,9 @@ function LiveTrail({
         </span>
         <span className="asv-trail-summary">
           <span>
-            {thinkingStart ? (
+            {isContinuation ? (
+              formatContinuingFromStep(stepOffset)
+            ) : thinkingStart ? (
               <>
                 Thinking for <ElapsedText start={thinkingStart} />
               </>
@@ -98,6 +104,10 @@ interface StreamingMessageProps {
   liveSegments: MessageSegment[];
   thinkingStart: number | null;
   streaming: boolean;
+  /** Step offset carried forward from a UserInjected split. When > 0, the
+   * LiveTrail label reads "Continuing from step N" instead of the elapsed
+   * thinking timer. */
+  stepOffset?: number;
 }
 
 export default function StreamingMessage({
@@ -105,6 +115,7 @@ export default function StreamingMessage({
   liveSegments,
   thinkingStart,
   streaming,
+  stepOffset = 0,
 }: StreamingMessageProps) {
   if (!streaming) return null;
 
@@ -131,6 +142,7 @@ export default function StreamingMessage({
             thinkingStart={thinkingStart}
             runningToolName={runningToolName}
             showThinking={showLiveThinking}
+            stepOffset={stepOffset}
           />
         ) : null}
         {final.length > 0 && <SegmentRenderer segments={final} live />}

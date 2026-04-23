@@ -496,34 +496,36 @@ const MessageItem = memo(function MessageItem({
                 ))}
               </div>
             )}
-            {msg.role === "assistant" && msg.content.trim().length > 0 && (
-              <div className="asv-msg-chrome-actions">
-                <CopyButton text={msg.content} />
-                {msg.messageId && onFork && (
-                  <IconButton
-                    variant="ghost"
-                    size="xs"
-                    className="asv-msg-action-btn"
-                    onClick={() => onFork(msg.messageId!)}
-                    aria-label="Fork from here"
-                    title="Fork from here"
-                  >
-                    <svg
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
+            {msg.role === "assistant" &&
+              msg.status !== "split" &&
+              msg.content.trim().length > 0 && (
+                <div className="asv-msg-chrome-actions">
+                  <CopyButton text={msg.content} />
+                  {msg.messageId && onFork && (
+                    <IconButton
+                      variant="ghost"
+                      size="xs"
+                      className="asv-msg-action-btn"
+                      onClick={() => onFork(msg.messageId!)}
+                      aria-label="Fork from here"
+                      title="Fork from here"
                     >
-                      <circle cx="4" cy="4" r="1.5" />
-                      <circle cx="12" cy="4" r="1.5" />
-                      <circle cx="4" cy="12" r="1.5" />
-                      <path d="M4 5.5V10.5M5.5 4H10.5" />
-                    </svg>
-                  </IconButton>
-                )}
-              </div>
-            )}
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        strokeLinecap="round"
+                      >
+                        <circle cx="4" cy="4" r="1.5" />
+                        <circle cx="12" cy="4" r="1.5" />
+                        <circle cx="4" cy="12" r="1.5" />
+                        <path d="M4 5.5V10.5M5.5 4H10.5" />
+                      </svg>
+                    </IconButton>
+                  )}
+                </div>
+              )}
             {msg.role === "user" && msg.content.trim().length > 0 && (
               <div className="asv-msg-chrome-actions">
                 <CopyButton text={msg.content} />
