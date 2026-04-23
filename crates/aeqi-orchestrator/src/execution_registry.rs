@@ -23,7 +23,6 @@ use std::time::Instant;
 use tokio::sync::Mutex;
 
 use crate::sandbox::QuestSandbox;
-use aeqi_core::SessionInput;
 
 /// One live execution's cancel handle, sandbox pointer, and metadata.
 #[derive(Clone)]
@@ -33,7 +32,6 @@ pub struct ExecutionHandle {
     pub agent_name: String,
     pub correlation_id: String,
     pub cancel_token: Arc<AtomicBool>,
-    pub input_sender: Option<tokio::sync::mpsc::UnboundedSender<SessionInput>>,
     pub sandbox: Option<Arc<QuestSandbox>>,
     /// Quest id when this execution is a quest run; `None` for chat.
     pub quest_id: Option<String>,
@@ -124,24 +122,6 @@ impl ExecutionRegistry {
                 h.cancel_token.store(true, Ordering::SeqCst);
                 true
             }
-            None => false,
-        }
-    }
-
-    /// Inject a new user turn into a live perpetual execution.
-    /// Returns false when the session is not active or does not expose
-    /// a perpetual input channel.
-    pub async fn inject_input(&self, session_id: &str, input: SessionInput) -> bool {
-        let sender = {
-            let inner = self.inner.lock().await;
-            inner
-                .get(session_id)
-                .and_then(|h| h.input_sender.as_ref())
-                .cloned()
-        };
-
-        match sender {
-            Some(tx) => tx.send(input).is_ok(),
             None => false,
         }
     }

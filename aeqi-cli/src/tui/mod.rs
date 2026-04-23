@@ -537,9 +537,6 @@ pub async fn run(
     let (event_tx, event_rx) = mpsc::channel::<ChatStreamEvent>();
     let (cmd_tx, cmd_rx) = mpsc::channel::<WsCommand>();
     let mut ws_handle: Option<std::thread::JoinHandle<()>> = None;
-    let mut _direct_input_tx: Option<tokio::sync::mpsc::UnboundedSender<aeqi_core::SessionInput>> =
-        None;
-
     if daemon_running {
         // Daemon mode: connect via WebSocket.
         let bind = &config.web.bind;
@@ -552,38 +549,21 @@ pub async fn run(
         ws_handle = Some(spawn_ws_thread(ws_url, cmd_rx, event_tx.clone()));
         eprintln!("  \x1b[90m(connected to daemon)\x1b[0m");
     } else {
-        // Direct mode: run agent loop in-process.
-        eprintln!("  \x1b[90m(direct mode — no daemon)\x1b[0m");
-        let direct_result = spawn_direct_agent(&config, agent_record.as_ref(), event_tx.clone());
-        match direct_result {
-            Ok((input_tx, _join)) => {
-                _direct_input_tx = Some(input_tx.clone());
-                // Bridge: WsCommand::Send → parse message → push to input_tx
-                let input_tx_for_bridge = input_tx;
-                std::thread::spawn(move || {
-                    while let Ok(cmd) = cmd_rx.recv() {
-                        match cmd {
-                            WsCommand::Send(json) => {
-                                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&json)
-                                {
-                                    if let Some(msg) =
-                                        parsed.get("message").and_then(|v| v.as_str())
-                                    {
-                                        let _ = input_tx_for_bridge
-                                            .send(aeqi_core::SessionInput::text(msg));
-                                    }
-                                }
-                            }
-                            WsCommand::Quit => break,
-                        }
-                    }
-                });
-            }
-            Err(e) => {
-                eprintln!("  \x1b[31m✗ Failed to start agent: {e}\x1b[0m");
-                return Ok(());
-            }
+        // Direct mode: run a single greeting turn in-process.
+        // Multi-turn chat requires the daemon — start it with `aeqi start`.
+        eprintln!("  \x1b[90m(direct mode — no daemon; start daemon for multi-turn chat)\x1b[0m");
+        if let Err(e) = spawn_direct_agent(&config, agent_record.as_ref(), event_tx.clone()) {
+            eprintln!("  \x1b[31m✗ Failed to start agent: {e}\x1b[0m");
+            return Ok(());
         }
+        // Drain cmd_rx in a background thread so senders don't block.
+        std::thread::spawn(move || {
+            while let Ok(cmd) = cmd_rx.recv() {
+                if matches!(cmd, WsCommand::Quit) {
+                    break;
+                }
+            }
+        });
     }
 
     // Enter raw mode for input handling (NOT alternate screen).
@@ -747,19 +727,16 @@ fn is_daemon_running(config: &aeqi_core::AEQIConfig) -> bool {
     std::os::unix::net::UnixStream::connect(&sock_path).is_ok()
 }
 
-/// Spawn the agent loop directly in-process (no daemon).
-/// Returns a sender for pushing messages + a join handle.
+/// Spawn a single-greeting agent turn directly in-process (no daemon).
+/// Multi-turn chat requires the daemon.
 fn spawn_direct_agent(
     config: &aeqi_core::AEQIConfig,
     agent_record: Option<&aeqi_orchestrator::agent_registry::Agent>,
     event_tx: mpsc::Sender<ChatStreamEvent>,
-) -> Result<(
-    tokio::sync::mpsc::UnboundedSender<aeqi_core::SessionInput>,
-    tokio::task::JoinHandle<()>,
-)> {
+) -> Result<()> {
     use crate::helpers::{build_provider_for_runtime, build_tools};
     use aeqi_core::traits::LogObserver;
-    use aeqi_core::{Agent, AgentConfig, ProviderKind, SessionType};
+    use aeqi_core::{Agent, AgentConfig, ProviderKind};
 
     // Build provider from config.
     let model_override = agent_record.and_then(|a| a.model.as_deref());
@@ -780,13 +757,12 @@ fn spawn_direct_agent(
 
     let agent_config = AgentConfig {
         model,
-        max_iterations: 90,
+        max_iterations: 10,
         name: agent_record
             .map(|a| a.name.clone())
             .unwrap_or_else(|| "shadow".into()),
         agent_id: agent_record.map(|a| a.id.clone()),
         ancestor_ids: Vec::new(),
-        session_type: SessionType::Perpetual,
         session_file: agent_record.map(|a| {
             config
                 .data_dir()
@@ -796,7 +772,6 @@ fn spawn_direct_agent(
         ..Default::default()
     };
 
-    // Build agent with perpetual input channel.
     let observer: std::sync::Arc<dyn aeqi_core::traits::Observer> =
         std::sync::Arc::new(LogObserver);
 
@@ -805,9 +780,6 @@ fn spawn_direct_agent(
     // Chat stream sender for TUI events.
     let (stream_sender, mut stream_rx) = aeqi_core::ChatStreamSender::new(64);
     agent = agent.with_chat_stream(stream_sender);
-
-    // Perpetual input channel.
-    let (agent_with_input, input_tx) = agent.with_perpetual_input();
 
     // Bridge: ChatStreamEvent from agent → event_tx for TUI.
     tokio::spawn(async move {
@@ -818,9 +790,9 @@ fn spawn_direct_agent(
         }
     });
 
-    // Spawn the agent loop.
-    let join = tokio::spawn(async move {
-        match agent_with_input
+    // Spawn the single greeting turn.
+    tokio::spawn(async move {
+        match agent
             .run("The user just connected. Greet them briefly.")
             .await
         {
@@ -828,7 +800,7 @@ fn spawn_direct_agent(
                 tracing::info!(
                     stop = ?result.stop_reason,
                     iterations = result.iterations,
-                    "direct agent session ended"
+                    "direct agent greeting completed"
                 );
             }
             Err(e) => {
@@ -837,5 +809,5 @@ fn spawn_direct_agent(
         }
     });
 
-    Ok((input_tx, join))
+    Ok(())
 }

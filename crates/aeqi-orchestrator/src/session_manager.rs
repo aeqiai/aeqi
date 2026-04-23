@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use aeqi_core::AgentResult;
@@ -193,7 +192,6 @@ pub struct SpawnedSession {
     pub agent_name: String,
     pub correlation_id: String,
     pub stream_sender: ChatStreamSender,
-    pub input_sender: Option<mpsc::UnboundedSender<aeqi_core::SessionInput>>,
     pub cancel_token: Arc<std::sync::atomic::AtomicBool>,
     pub sandbox: Option<Arc<QuestSandbox>>,
     /// The agent task's join handle. Caller must `.await` it.
@@ -344,7 +342,6 @@ impl SessionManager {
                 &parent_session_id[..8.min(parent_session_id.len())]
             ),
             context_window,
-            session_type: aeqi_core::SessionType::Async,
             ..Default::default()
         };
 
@@ -485,7 +482,6 @@ impl SessionManager {
                             &req.parent_session_id[..8.min(req.parent_session_id.len())]
                         ),
                         context_window,
-                        session_type: aeqi_core::SessionType::Async,
                         ..Default::default()
                     };
                     let observer: Arc<dyn aeqi_core::traits::Observer> =
@@ -810,11 +806,6 @@ impl SessionManager {
         // 6. Build AgentConfig.
         let model = self.default_model.clone();
         let context_window = aeqi_providers::context_window_for_model(&model);
-        let session_type = if is_interactive {
-            aeqi_core::SessionType::Perpetual
-        } else {
-            aeqi_core::SessionType::Async
-        };
         let max_iterations = if is_interactive { 200 } else { 50 };
 
         // Load the compaction prompt template from the seeded global idea
@@ -838,7 +829,6 @@ impl SessionManager {
             context_window,
             agent_id: agent_uuid.clone(),
             ancestor_ids: ancestor_ids.clone(),
-            session_type,
             compact_prompt_template,
             session_id: pregenerated_session_id.clone(),
             ..Default::default()
@@ -989,7 +979,6 @@ impl SessionManager {
                             &req.parent_session_id[..8.min(req.parent_session_id.len())]
                         ),
                         context_window,
-                        session_type: aeqi_core::SessionType::Async,
                         ..Default::default()
                     };
                     let observer: Arc<dyn aeqi_core::traits::Observer> =
@@ -1015,12 +1004,7 @@ impl SessionManager {
             agent = agent.with_pattern_dispatcher(dispatcher);
         }
 
-        let (mut agent, input_sender) = if is_interactive {
-            let (agent, input_sender) = agent.with_perpetual_input();
-            (agent, Some(input_sender))
-        } else {
-            (agent, None)
-        };
+        let mut agent = agent;
 
         // 7.5. Load forked session history if the session already has messages.
         let mut session_resumed = false;
@@ -1312,7 +1296,6 @@ impl SessionManager {
             agent_name,
             correlation_id,
             stream_sender,
-            input_sender,
             cancel_token,
             sandbox,
             join_handle,
