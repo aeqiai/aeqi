@@ -24,6 +24,7 @@
 use std::sync::Arc;
 
 use aeqi_core::traits::{IdeaStore, StoreFull, Tool, ToolResult, ToolSpec};
+use aeqi_ideas::tag_policy::TagPolicyCache;
 use async_trait::async_trait;
 use serde::Deserialize;
 use tracing::{info, warn};
@@ -65,11 +66,28 @@ fn default_confidence() -> f32 {
 /// ACL: event_only. Set in `build_runtime_registry`.
 pub struct IdeasStoreManyTool {
     idea_store: Option<Arc<dyn IdeaStore>>,
+    /// Optional tag-policy cache. When wired, the tool consults
+    /// `TagPolicy::max_items_per_call` on every tag carried by the inbound
+    /// items + the `tag_suffix` and refuses items beyond the tightest cap
+    /// (T1.1). When `None`, behaviour is identical to the pre-T1.1 path:
+    /// every well-formed item is attempted regardless of policy.
+    tag_policy_cache: Option<Arc<TagPolicyCache>>,
 }
 
 impl IdeasStoreManyTool {
     pub fn new(idea_store: Option<Arc<dyn IdeaStore>>) -> Self {
-        Self { idea_store }
+        Self {
+            idea_store,
+            tag_policy_cache: None,
+        }
+    }
+
+    /// Wire a tag-policy cache so this tool can enforce per-tag dials
+    /// (T1.1: `max_items_per_call`). Builder-style so existing call sites
+    /// stay unchanged when no cache is available.
+    pub fn with_tag_policy_cache(mut self, cache: Option<Arc<TagPolicyCache>>) -> Self {
+        self.tag_policy_cache = cache;
+        self
     }
 }
 
@@ -188,6 +206,11 @@ impl Tool for IdeasStoreManyTool {
         let mut stored_ids: Vec<String> = Vec::with_capacity(items.len());
         let mut skipped: usize = 0;
         let mut errors: Vec<String> = Vec::new();
+        let mut refused: Vec<String> = Vec::new();
+        // Per-tag admitted count for the T1.1 `max_items_per_call` blast-
+        // radius cap. Lazily populated when policies are present.
+        let mut admitted_per_tag: std::collections::HashMap<String, i64> =
+            std::collections::HashMap::new();
 
         for item in items {
             if item.name.is_empty() {
@@ -205,6 +228,57 @@ impl Tool for IdeasStoreManyTool {
             }
             if tags.is_empty() {
                 tags.push("fact".to_string());
+            }
+
+            // ── T1.1 blast-radius cap ─────────────────────────────────
+            // Resolve per-tag policies and refuse the item if admitting it
+            // would push any tag past its `max_items_per_call`. The
+            // *tightest* cap among the item's tags wins (consistent with
+            // EffectivePolicy::max_items_per_call min-merge). When no
+            // policy declares a cap, behaviour is byte-identical to the
+            // pre-T1.1 path.
+            if let Some(cache) = self.tag_policy_cache.as_ref() {
+                let policies = cache.resolve(store.as_ref(), &tags).await;
+                let mut blocked_by: Option<(String, i64)> = None;
+                for policy in &policies {
+                    let Some(cap) = policy.max_items_per_call else {
+                        continue;
+                    };
+                    let count = admitted_per_tag
+                        .get(&policy.tag.to_lowercase())
+                        .copied()
+                        .unwrap_or(0);
+                    if count >= cap {
+                        blocked_by = Some((policy.tag.clone(), cap));
+                        break;
+                    }
+                }
+                if let Some((tag, cap)) = blocked_by {
+                    info!(
+                        name = %item.name,
+                        blocking_tag = %tag,
+                        cap,
+                        "ideas.store_many: refused — max_items_per_call cap reached",
+                    );
+                    refused.push(format!(
+                        "'{}': max_items_per_call cap {} reached for tag '{}'",
+                        item.name, cap, tag
+                    ));
+                    continue;
+                }
+                // Pre-bump the per-tag counters so subsequent items in this
+                // batch see the new admitted count. We do this BEFORE the
+                // store attempt: a downstream insert failure leaves the
+                // counter accurate to "items admitted past the cap gate"
+                // which is the gate's actual semantic (it enforces blast
+                // radius, not landed-write count).
+                for policy in &policies {
+                    if policy.max_items_per_call.is_some() {
+                        *admitted_per_tag
+                            .entry(policy.tag.to_lowercase())
+                            .or_insert(0) += 1;
+                    }
+                }
             }
 
             let agent_id = item.agent_id.or_else(|| default_agent_id.clone());
@@ -262,7 +336,11 @@ impl Tool for IdeasStoreManyTool {
         }
 
         let stored = stored_ids.len().saturating_sub(skipped);
-        let summary = format!("stored={stored} skipped={skipped} errors={}", errors.len());
+        let summary = format!(
+            "stored={stored} skipped={skipped} refused={} errors={}",
+            refused.len(),
+            errors.len()
+        );
         info!(%summary, "ideas.store_many: batch complete");
 
         Ok(ToolResult::success(summary).with_data(serde_json::json!({
@@ -270,6 +348,7 @@ impl Tool for IdeasStoreManyTool {
             "skipped": skipped,
             "ids": stored_ids,
             "errors": errors,
+            "refused": refused,
         })))
     }
 
@@ -515,5 +594,244 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_error);
+    }
+
+    // ── T1.1 — `max_items_per_call` blast-radius cap ─────────────────
+    //
+    // These tests cover the neutral-dial invariants for the
+    // `max_items_per_call` field added to TagPolicy:
+    //   1. Baseline: no policy cache wired → behaviour unchanged (every
+    //      well-formed item lands).
+    //   2. Baseline: cache wired but no policy declares a cap → behaviour
+    //      unchanged.
+    //   3. Activation: policy declares cap=N → first N items stored, rest
+    //      refused with a `refused` array entry.
+
+    /// Helper: seed a `meta:tag-policy` idea declaring a per-tag policy
+    /// body. Returns nothing — the cache picks it up on first resolve.
+    async fn seed_policy(store: &Arc<dyn IdeaStore>, tag: &str, body: &str) {
+        let name = format!("meta:tag-policy:{tag}");
+        store
+            .store(&name, body, &["meta:tag-policy".to_string()], None)
+            .await
+            .expect("seed policy must store");
+    }
+
+    #[tokio::test]
+    async fn t1_1_baseline_no_cache_stores_all_items() {
+        // Neutral-dial invariant 1 — when no TagPolicyCache is wired, no
+        // dial can possibly bind. Behaviour must be byte-identical to the
+        // pre-T1.1 path.
+        let (store, _dir) = make_store();
+        let tool = IdeasStoreManyTool::new(Some(store.clone()));
+        let items: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("baseline-no-cache/{i}"),
+                    "content": format!("body {i}"),
+                    "tags": ["ephemeral"],
+                })
+            })
+            .collect();
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": serde_json::Value::Array(items),
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(10));
+        assert_eq!(
+            result
+                .data
+                .get("refused")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(0),
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_baseline_cache_without_cap_stores_all_items() {
+        // Neutral-dial invariant 2 — cache wired but no policy declares
+        // `max_items_per_call`. Behaviour must be unchanged.
+        let (store, _dir) = make_store();
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        let tool = IdeasStoreManyTool::new(Some(store.clone())).with_tag_policy_cache(Some(cache));
+        let items: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("baseline-no-cap/{i}"),
+                    "content": format!("body {i}"),
+                    "tags": ["ephemeral"],
+                })
+            })
+            .collect();
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": serde_json::Value::Array(items),
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(10));
+        assert_eq!(
+            result
+                .data
+                .get("refused")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(0),
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_max_items_per_call_caps_batch_at_three() {
+        // Independent activation: only `max_items_per_call=3` set on the
+        // tag policy. 10 items → 3 stored, 7 refused.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "ephemeral",
+            r#"
+            tag = "ephemeral"
+            max_items_per_call = 3
+        "#,
+        )
+        .await;
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        let tool = IdeasStoreManyTool::new(Some(store.clone())).with_tag_policy_cache(Some(cache));
+
+        let items: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("blast-cap/{i}"),
+                    "content": format!("body {i}"),
+                    "tags": ["ephemeral"],
+                })
+            })
+            .collect();
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": serde_json::Value::Array(items),
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error, "expected ok, got: {}", result.output);
+        assert_eq!(
+            result.data.get("stored").and_then(|v| v.as_u64()),
+            Some(3),
+            "expected 3 stored, got data: {}",
+            result.data
+        );
+        let refused = result
+            .data
+            .get("refused")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(refused.len(), 7, "expected 7 refused, got: {refused:?}");
+        // Refused entries must reference the cap.
+        for r in &refused {
+            let s = r.as_str().unwrap_or("");
+            assert!(
+                s.contains("max_items_per_call"),
+                "refused string must mention dial: {s}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn t1_1_max_items_per_call_only_counts_matching_tag() {
+        // Items not carrying the capped tag should pass through. Cap is
+        // tag-scoped, not batch-scoped.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "ephemeral",
+            r#"
+            tag = "ephemeral"
+            max_items_per_call = 2
+        "#,
+        )
+        .await;
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        let tool = IdeasStoreManyTool::new(Some(store.clone())).with_tag_policy_cache(Some(cache));
+
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "e1", "content": "x", "tags": ["ephemeral"]},
+                    {"name": "f1", "content": "x", "tags": ["fact"]},
+                    {"name": "e2", "content": "x", "tags": ["ephemeral"]},
+                    {"name": "f2", "content": "x", "tags": ["fact"]},
+                    {"name": "e3", "content": "x", "tags": ["ephemeral"]},
+                    {"name": "f3", "content": "x", "tags": ["fact"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        // 2 ephemeral admitted + 3 fact admitted = 5 stored. 1 ephemeral refused.
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(5));
+        let refused = result
+            .data
+            .get("refused")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(refused.len(), 1);
+    }
+
+    /// End-to-end test from the universality plan: seed a policy with
+    /// `max_items_per_call=3`. Fire `ideas.store_many` with 10 items. Expect
+    /// 3 stored, 7 refused. (The other half of the plan's E2E — `ban_after_wrong`
+    /// + supersession recall — is deferred until `wrong_feedback_count`
+    /// exists as a column or a feedback-join migration lands.)
+    #[tokio::test]
+    async fn t1_1_end_to_end_blast_radius_three_in_seven_refused() {
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "throttled",
+            r#"
+            tag = "throttled"
+            max_items_per_call = 3
+        "#,
+        )
+        .await;
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        let tool = IdeasStoreManyTool::new(Some(store.clone())).with_tag_policy_cache(Some(cache));
+
+        let items: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("e2e/{i}"),
+                    "content": format!("body {i}"),
+                    "tags": ["throttled"],
+                })
+            })
+            .collect();
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": serde_json::Value::Array(items),
+                "authored_by": "e2e",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(3));
+        assert_eq!(
+            result
+                .data
+                .get("refused")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(7),
+        );
     }
 }

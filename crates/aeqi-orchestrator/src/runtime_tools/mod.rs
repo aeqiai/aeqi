@@ -33,6 +33,7 @@ use std::sync::Arc;
 
 use aeqi_core::tool_registry::{CallerKind, ToolRegistry};
 use aeqi_core::traits::{IdeaStore, Tool, ToolSpec};
+use aeqi_ideas::tag_policy::TagPolicyCache;
 
 use crate::session_store::SessionStore;
 
@@ -76,6 +77,22 @@ pub fn build_runtime_registry_with_spawn_and_caps(
     spawn_fn: Option<SpawnFn>,
     can_self_delegate: bool,
 ) -> ToolRegistry {
+    build_runtime_registry_full(idea_store, session_store, spawn_fn, can_self_delegate, None)
+}
+
+/// Superset constructor that accepts an optional [`TagPolicyCache`]. Used
+/// by the daemon to wire the cache into [`IdeasStoreManyTool`] so it can
+/// enforce the T1.1 `max_items_per_call` blast-radius cap. Other call
+/// sites (tests, harnesses) keep using the narrower constructors and pass
+/// `None` for the cache, preserving the pre-T1.1 unbounded-batch
+/// behaviour exactly.
+pub fn build_runtime_registry_full(
+    idea_store: Option<Arc<dyn IdeaStore>>,
+    session_store: Option<Arc<SessionStore>>,
+    spawn_fn: Option<SpawnFn>,
+    can_self_delegate: bool,
+    tag_policy_cache: Option<Arc<TagPolicyCache>>,
+) -> ToolRegistry {
     let spawn_tool: Arc<dyn Tool> = match spawn_fn {
         Some(f) => Arc::new(SessionSpawnTool::new(f, can_self_delegate)),
         None => Arc::new(SessionSpawnTool::stub()),
@@ -84,7 +101,7 @@ pub fn build_runtime_registry_with_spawn_and_caps(
         Arc::new(IdeasAssembleTool::new(idea_store.clone())),
         Arc::new(IdeasSearchTool::new(idea_store.clone())),
         Arc::new(IdeasStoreTool::new(idea_store.clone())),
-        Arc::new(IdeasStoreManyTool::new(idea_store)),
+        Arc::new(IdeasStoreManyTool::new(idea_store).with_tag_policy_cache(tag_policy_cache)),
         Arc::new(TranscriptInjectTool::new(session_store.clone())),
         Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),

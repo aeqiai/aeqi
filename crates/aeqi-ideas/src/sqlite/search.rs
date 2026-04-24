@@ -127,6 +127,7 @@ impl SqliteIdeas {
         query: &IdeaQuery,
         tag: &str,
         limit: usize,
+        include_superseded: bool,
     ) -> Result<Vec<(String, f32)>> {
         let fts_query = build_fts_query(&query.text);
 
@@ -144,7 +145,7 @@ impl SqliteIdeas {
         params.push(Box::new(now));
         idx += 1;
 
-        if !query.include_superseded {
+        if !include_superseded {
             conditions.push("m.status = 'active'".into());
             conditions.push(
                 "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
@@ -193,8 +194,11 @@ impl SqliteIdeas {
         query: &IdeaQuery,
         tag: &str,
         limit: usize,
+        include_superseded: bool,
     ) -> Vec<(String, f32)> {
-        if let Some(hits) = Self::try_ann_search(conn, query_vec, query, tag, limit) {
+        if let Some(hits) =
+            Self::try_ann_search(conn, query_vec, query, tag, limit, include_superseded)
+        {
             return hits;
         }
 
@@ -205,7 +209,7 @@ impl SqliteIdeas {
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(tag.to_lowercase())];
         let mut idx = 2usize;
 
-        if !query.include_superseded {
+        if !include_superseded {
             conditions.push("m.status = 'active'".into());
             conditions.push(
                 "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
@@ -268,6 +272,7 @@ impl SqliteIdeas {
         query: &IdeaQuery,
         tag: &str,
         limit: usize,
+        include_superseded: bool,
     ) -> Option<Vec<(String, f32)>> {
         use crate::sqlite::embeddings::vec_extension_ready;
         use crate::vector::vec_to_bytes;
@@ -306,7 +311,7 @@ impl SqliteIdeas {
         ];
         let mut idx = 4usize;
 
-        if !query.include_superseded {
+        if !include_superseded {
             conditions.push("m.status = 'active'".into());
             conditions.push(
                 "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
@@ -385,6 +390,7 @@ impl SqliteIdeas {
         _query: &IdeaQuery,
         _tag: &str,
         _limit: usize,
+        _include_superseded: bool,
     ) -> Option<Vec<(String, f32)>> {
         None
     }
@@ -631,10 +637,25 @@ impl SqliteIdeas {
         let mut by_id: HashMap<String, StagedHit> = HashMap::new();
         for ranker in rankers {
             let tag = &ranker.policy.tag;
+            // T1.1 — `include_superseded_default` per-tag dial. If the
+            // policy opts in, the supersession filter for THIS tag's
+            // retrieve+score pass is bypassed even if the caller's
+            // `IdeaQuery::include_superseded` is false. The OR-merge keeps
+            // the caller's existing override semantics intact.
+            let include_superseded =
+                query.include_superseded || ranker.policy.include_superseded_default == Some(true);
             let bm25_list =
-                Self::bm25_search_filtered(&conn, query, tag, per_tag_width).unwrap_or_default();
+                Self::bm25_search_filtered(&conn, query, tag, per_tag_width, include_superseded)
+                    .unwrap_or_default();
             let vec_list = match query_embedding {
-                Some(qv) => Self::vector_search_filtered(&conn, qv, query, tag, per_tag_width),
+                Some(qv) => Self::vector_search_filtered(
+                    &conn,
+                    qv,
+                    query,
+                    tag,
+                    per_tag_width,
+                    include_superseded,
+                ),
                 None => Vec::new(),
             };
 
@@ -970,4 +991,194 @@ fn stable_hash(s: &str) -> String {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     s.hash(&mut h);
     format!("{:016x}", h.finish())
+}
+
+// ── T1.1 retrieval tests ─────────────────────────────────────────────
+//
+// These exercise the `include_superseded_default` per-tag dial. The
+// invariant is: when no tag policy opts in (or no cache is wired) the
+// supersession filter behaves exactly as it did pre-T1.1; when a policy
+// declares `include_superseded_default = true` for a tag, that tag's
+// retrieve+score pass surfaces superseded rows even if the caller didn't
+// pass `IdeaQuery::include_superseded = true`.
+
+#[cfg(test)]
+mod t1_1_retrieval_tests {
+    use super::SqliteIdeas;
+    use crate::tag_policy::{TagPolicyCache, default_cache};
+    use aeqi_core::traits::{IdeaQuery, IdeaStore, StoreFull};
+    use std::sync::Arc;
+    use tempfile::TempDir;
+
+    fn make_store() -> (SqliteIdeas, TempDir, std::path::PathBuf) {
+        let dir = TempDir::new().unwrap();
+        let db_path = dir.path().join("d.db");
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+        (store, dir, db_path)
+    }
+
+    /// Seed two ideas tagged `tag` and flip the first to status='superseded'
+    /// directly via a side-channel SQLite connection. Mirrors the DB state
+    /// of a real supersession without writing a `supersedes` edge — keeps
+    /// these tests focused on the status-only path of the search filter.
+    /// Returns `(superseded_id, active_id)`.
+    async fn seed_supersession_pair(
+        store: &SqliteIdeas,
+        db_path: &std::path::Path,
+        tag: &str,
+    ) -> (String, String) {
+        let old_id = store
+            .store("first body", "old body content", &[tag.to_string()], None)
+            .await
+            .unwrap();
+        // Flip BEFORE inserting the new row so the active-name partial
+        // unique index doesn't trip when both rows share a name (we use
+        // distinct names below for clarity, but the flip-first ordering
+        // mirrors `supersede_atomic_impl`).
+        let conn = rusqlite::Connection::open(db_path).unwrap();
+        conn.execute(
+            "UPDATE ideas SET status='superseded' WHERE id = ?1",
+            rusqlite::params![old_id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let payload = StoreFull {
+            name: "second body".to_string(),
+            content: "new body content".to_string(),
+            tags: vec![tag.to_string()],
+            agent_id: None,
+            scope: aeqi_core::Scope::Global,
+            authored_by: None,
+            confidence: 1.0,
+            expires_at: None,
+            valid_from: None,
+            valid_until: None,
+            time_context: "timeless".to_string(),
+            status: "active".to_string(),
+        };
+        let new_id = store.store_full(payload).await.unwrap();
+        (old_id, new_id)
+    }
+
+    /// Seed a meta:tag-policy idea declaring policy TOML for `tag`.
+    async fn seed_policy(store: &SqliteIdeas, tag: &str, body: &str) {
+        let name = format!("meta:tag-policy:{tag}");
+        store
+            .store(&name, body, &["meta:tag-policy".to_string()], None)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn t1_1_baseline_no_cache_excludes_superseded_rows() {
+        // Neutral-dial invariant: when no policy cache is wired, the
+        // supersession filter behaves exactly as it did pre-T1.1.
+        let (store, _dir, db_path) = make_store();
+        let (_old, new_id) = seed_supersession_pair(&store, &db_path, "rule").await;
+
+        let mut q = IdeaQuery::new("body", 10);
+        q.tags = vec!["rule".to_string()];
+        let hits = store.search_explained_impl(&q, None).await.unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.idea.id.as_str()).collect();
+        assert!(
+            ids.contains(&new_id.as_str()),
+            "the active replacement must surface, got: {ids:?}"
+        );
+        assert!(
+            !ids.iter().any(|id| *id == _old),
+            "the superseded row must be filtered, got: {ids:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_baseline_cache_without_dial_excludes_superseded_rows() {
+        // Cache present but no policy declares the dial → behaviour
+        // identical to baseline.
+        let (store, _dir, db_path) = make_store();
+        let (old_id, new_id) = seed_supersession_pair(&store, &db_path, "rule").await;
+        let cache: Arc<TagPolicyCache> = default_cache();
+
+        let mut q = IdeaQuery::new("body", 10);
+        q.tags = vec!["rule".to_string()];
+        let hits = store.search_explained_impl(&q, Some(cache)).await.unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.idea.id.as_str()).collect();
+        assert!(ids.contains(&new_id.as_str()));
+        assert!(
+            !ids.iter().any(|id| *id == old_id),
+            "without policy opt-in, superseded row stays hidden"
+        );
+    }
+
+    /// Warm the tag policy cache against the store. The hot search path
+    /// uses `get_or_default` (sync; doesn't refresh), so production warms
+    /// the cache through `cache.resolve(...)` from `handle_store_idea`.
+    /// Tests that exercise the search path must do the same.
+    async fn warm_cache(cache: &TagPolicyCache, store: &SqliteIdeas, tags: &[&str]) {
+        let owned: Vec<String> = tags.iter().map(|t| t.to_string()).collect();
+        let _ = cache.resolve(store as &dyn IdeaStore, &owned).await;
+    }
+
+    #[tokio::test]
+    async fn t1_1_include_superseded_default_surfaces_superseded_rows() {
+        // Activation: a policy with `include_superseded_default = true`
+        // must surface the superseded row even when the caller didn't
+        // pass `include_superseded` in the IdeaQuery.
+        let (store, _dir, db_path) = make_store();
+        let (old_id, new_id) = seed_supersession_pair(&store, &db_path, "rule").await;
+        seed_policy(
+            &store,
+            "rule",
+            r#"
+            tag = "rule"
+            include_superseded_default = true
+        "#,
+        )
+        .await;
+        let cache: Arc<TagPolicyCache> = default_cache();
+        warm_cache(&cache, &store, &["rule"]).await;
+
+        let mut q = IdeaQuery::new("body", 10);
+        q.tags = vec!["rule".to_string()];
+        let hits = store.search_explained_impl(&q, Some(cache)).await.unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.idea.id.as_str()).collect();
+        assert!(
+            ids.contains(&new_id.as_str()),
+            "active row must still surface: {ids:?}"
+        );
+        assert!(
+            ids.iter().any(|id| *id == old_id),
+            "superseded row must surface when policy opts in: {ids:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_include_superseded_default_does_not_leak_to_other_tags() {
+        // The dial is per-tag. A policy on `rule` opting in must NOT
+        // affect retrieval for ideas tagged `unrelated`. Cross-
+        // contamination check.
+        let (store, _dir, db_path) = make_store();
+        let (old_other, new_other) = seed_supersession_pair(&store, &db_path, "unrelated").await;
+        seed_policy(
+            &store,
+            "rule",
+            r#"
+            tag = "rule"
+            include_superseded_default = true
+        "#,
+        )
+        .await;
+        let cache: Arc<TagPolicyCache> = default_cache();
+        warm_cache(&cache, &store, &["rule", "unrelated"]).await;
+
+        let mut q = IdeaQuery::new("body", 10);
+        q.tags = vec!["unrelated".to_string()];
+        let hits = store.search_explained_impl(&q, Some(cache)).await.unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.idea.id.as_str()).collect();
+        assert!(ids.contains(&new_other.as_str()));
+        assert!(
+            !ids.iter().any(|id| *id == old_other),
+            "rule-tag opt-in must not leak to unrelated-tag retrieval"
+        );
+    }
 }
