@@ -13,6 +13,7 @@
 pub mod ideas_assemble;
 pub mod ideas_search;
 pub mod ideas_store;
+pub mod ideas_store_many;
 pub mod session_spawn;
 pub mod session_status;
 pub mod transcript_inject;
@@ -21,6 +22,7 @@ pub mod transcript_replace_middle;
 pub use ideas_assemble::IdeasAssembleTool;
 pub use ideas_search::IdeasSearchTool;
 pub use ideas_store::IdeasStoreTool;
+pub use ideas_store_many::IdeasStoreManyTool;
 pub use session_spawn::{SessionSpawnTool, SpawnFn, SpawnRequest};
 pub use session_status::SessionStatusTool;
 pub use transcript_inject::TranscriptInjectTool;
@@ -81,7 +83,8 @@ pub fn build_runtime_registry_with_spawn_and_caps(
     let tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(IdeasAssembleTool::new(idea_store.clone())),
         Arc::new(IdeasSearchTool::new(idea_store.clone())),
-        Arc::new(IdeasStoreTool::new(idea_store)),
+        Arc::new(IdeasStoreTool::new(idea_store.clone())),
+        Arc::new(IdeasStoreManyTool::new(idea_store)),
         Arc::new(TranscriptInjectTool::new(session_store.clone())),
         Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),
@@ -99,6 +102,13 @@ pub fn build_runtime_registry_with_spawn_and_caps(
     // IPC handler (full dedup + tag policies). This internal tool is a
     // focused writer used by events like `ideas:threshold_reached`.
     reg.set_event_only("ideas.store");
+
+    // ideas.store_many: event-only — batch writer that takes a JSON array
+    // from a preceding session.spawn tool_call and stores every entry.
+    // This is the persistence half of the reflection / consolidation
+    // event chain (the sub-agent generates JSON; this tool writes it).
+    // Allowing the LLM to call this would be an arbitrary-write surface.
+    reg.set_event_only("ideas.store_many");
 
     // transcript.inject: event-only — adds messages directly to the transcript.
     // Allowing the LLM to call this would be a self-injection attack surface.
@@ -174,6 +184,47 @@ mod tests {
         assert!(
             reg.can_call("ideas.store", CallerKind::System),
             "system bypasses ACL"
+        );
+    }
+
+    /// ideas.store_many must be event-only. The reflection / consolidation
+    /// event chain depends on events firing this tool against the output of a
+    /// preceding session.spawn. Giving the LLM direct access would be an
+    /// arbitrary-write bypass (the LLM-facing surface is the dedup-pipelined
+    /// `ideas(action='store')` MCP handler).
+    #[test]
+    fn ideas_store_many_is_registered_event_only() {
+        let reg = build_runtime_registry(None, None);
+        assert!(
+            reg.can_call("ideas.store_many", CallerKind::Event),
+            "events must be able to call ideas.store_many"
+        );
+        assert!(
+            !reg.can_call("ideas.store_many", CallerKind::Llm),
+            "LLM must NOT be able to call ideas.store_many"
+        );
+        assert!(
+            reg.can_call("ideas.store_many", CallerKind::System),
+            "system bypasses ACL"
+        );
+    }
+
+    #[test]
+    fn ideas_store_many_spec_exposed_to_event_editor() {
+        let specs = runtime_tool_specs();
+        let spec = specs
+            .get("ideas.store_many")
+            .expect("ideas.store_many must appear in runtime_tool_specs");
+        assert_eq!(spec.name, "ideas.store_many");
+        let required = spec
+            .input_schema
+            .get("required")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            required.iter().any(|v| v.as_str() == Some("from_json")),
+            "ideas.store_many must require 'from_json'"
         );
     }
 

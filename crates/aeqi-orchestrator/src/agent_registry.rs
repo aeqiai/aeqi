@@ -781,15 +781,44 @@ impl AgentRegistry {
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         for (name, pattern, instructions_idea, seed_content, parent_session) in seeds {
-            let tool_calls = serde_json::json!([{
-                "tool": "session.spawn",
-                "args": {
-                    "kind": "compactor",
-                    "instructions_idea": instructions_idea,
-                    "seed_content": seed_content,
-                    "parent_session": parent_session,
+            // Event-chain (Round 6): spawn a tool-less compactor sub-agent that
+            // emits a JSON array of reflection / consolidation ideas, then pipe
+            // that JSON into ideas.store_many for persistence. Without the
+            // store_many step the sub-agent output evaporates because the
+            // session.spawn tools vector is empty.
+            let authored_by = match name {
+                "daily-digest" => "daily-reflector",
+                "weekly-consolidate" => "weekly-consolidator",
+                _ => "reflector",
+            };
+            let tag_suffix = match name {
+                "daily-digest" => {
+                    serde_json::json!([format!("source:agent:{}", agent_id), "reflection:daily"])
                 }
-            }]);
+                "weekly-consolidate" => {
+                    serde_json::json!([format!("source:agent:{}", agent_id), "reflection:weekly"])
+                }
+                _ => serde_json::json!([]),
+            };
+            let tool_calls = serde_json::json!([
+                {
+                    "tool": "session.spawn",
+                    "args": {
+                        "kind": "compactor",
+                        "instructions_idea": instructions_idea,
+                        "seed_content": seed_content,
+                        "parent_session": parent_session,
+                    }
+                },
+                {
+                    "tool": "ideas.store_many",
+                    "args": {
+                        "from_json": "{last_tool_result}",
+                        "authored_by": format!("{}:{}", authored_by, agent_id),
+                        "tag_suffix": tag_suffix,
+                    }
+                }
+            ]);
             let tool_calls_json =
                 serde_json::to_string(&tool_calls).unwrap_or_else(|_| "[]".to_string());
             let event_id = uuid::Uuid::new_v4().to_string();
@@ -3251,6 +3280,22 @@ mod tests {
             weekly_tc[0]["args"]["instructions_idea"],
             "meta:weekly-consolidator-template"
         );
+
+        // Round 6: the schedule event must chain session.spawn with
+        // ideas.store_many so the sub-agent's JSON output is actually
+        // persisted. Without the second call the reflection output evaporates.
+        assert_eq!(daily_tc[1]["tool"], "ideas.store_many");
+        assert_eq!(daily_tc[1]["args"]["from_json"], "{last_tool_result}");
+        assert!(
+            daily_tc[1]["args"]["authored_by"]
+                .as_str()
+                .unwrap_or("")
+                .starts_with("daily-reflector:"),
+            "daily authored_by must be daily-reflector:{{agent_id}}; got {}",
+            daily_tc[1]["args"]["authored_by"]
+        );
+        assert_eq!(weekly_tc[1]["tool"], "ideas.store_many");
+        assert_eq!(weekly_tc[1]["args"]["from_json"], "{last_tool_result}");
     }
 
     /// Calling `install_default_scheduled_events` twice for the same agent is

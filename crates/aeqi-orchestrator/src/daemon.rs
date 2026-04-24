@@ -226,6 +226,12 @@ struct IpcContext {
     // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
     embedder: Option<Arc<dyn aeqi_core::traits::Embedder>>,
     recall_cache: Arc<aeqi_ideas::RecallCache>,
+    // ── Round 6 additions (event-chain reflection loop) ────────────────
+    /// Daemon-level pattern dispatcher. Built once at startup once the
+    /// event store, agent registry, and session store are all available.
+    /// Handed to every CommandContext so IPC handlers can fire patterns
+    /// like `ideas:threshold_reached` outside a live session.
+    pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -751,6 +757,30 @@ impl Daemon {
                 // drains the queue so enqueue never blocks.
                 tokio::spawn(aeqi_ideas::embed_worker::run_no_op(embed_rx));
 
+                // ── Round 6 wiring: daemon-level pattern dispatcher ─────
+                //
+                // Build an `EventPatternDispatcher` at daemon scope so IPC
+                // handlers (`check_consolidation_threshold` in particular)
+                // can fire patterns outside a live session. The dispatcher
+                // reuses the same runtime ToolRegistry constructor as
+                // SessionManager; the spawn closure is a thinner variant
+                // that does not require a live SessionManager — the only
+                // events that fire from IPC (threshold_reached) spawn
+                // tool-less compactors so we can satisfy them with a
+                // minimal Agent::run() call.
+                //
+                // When provider is missing the dispatcher is still wired
+                // but spawn will fail at fire time — that degrades to a
+                // warn-log, it does not panic or block the daemon.
+                let pattern_dispatcher = build_daemon_pattern_dispatcher(
+                    self.event_handler_store.clone(),
+                    self.session_store.clone(),
+                    self.idea_store.clone(),
+                    self.agent_registry.clone(),
+                    self.default_provider.clone(),
+                    self.default_model.clone(),
+                );
+
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
                     activity_log: self.activity_log.clone(),
@@ -767,6 +797,8 @@ impl Daemon {
                     // ── Round 3 retrieval-side additions (Agent R) ──────
                     embedder: self.embedder.clone(),
                     recall_cache: self.recall_cache.clone(),
+                    // ── Round 6 additions ──────────────────────────────
+                    pattern_dispatcher,
                 });
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
@@ -1155,6 +1187,8 @@ impl Daemon {
                 // ── Round 3 retrieval-side additions (Agent R) ──────────
                 embedder: ipc_ctx.embedder.clone(),
                 recall_cache: ipc_ctx.recall_cache.clone(),
+                // ── Round 6 additions ──────────────────────────────────
+                pattern_dispatcher: ipc_ctx.pattern_dispatcher.clone(),
             };
 
             let response = match cmd {
@@ -2233,6 +2267,94 @@ pub fn readiness_response(
         "skipped_advisors": readiness.skipped_advisors.clone(),
         "blocking_reasons": blocking_reasons,
     })
+}
+
+// ── Round 6: daemon-level pattern dispatcher ─────────────────────────────
+//
+// Build an `EventPatternDispatcher` at daemon scope so IPC handlers can fire
+// patterns (like `ideas:threshold_reached`) outside any live session. Returns
+// `None` when the event store is missing — IPC callers then downgrade to a
+// log-only trigger.
+//
+// The spawn closure mirrors `SessionManager`'s compaction spawn: a tool-less
+// `aeqi_core::Agent` that runs the persona's instructions idea as its system
+// prompt and returns `result.text` as a plain string. The seeded events then
+// pipe that text through `ideas.store_many` for persistence.
+fn build_daemon_pattern_dispatcher(
+    event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    session_store: Option<Arc<SessionStore>>,
+    idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
+    agent_registry: Arc<AgentRegistry>,
+    provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
+    default_model: String,
+) -> Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>> {
+    use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn_and_caps};
+
+    let event_store = event_handler_store?;
+
+    // spawn_fn for the dispatcher's registry. Same shape as SessionManager's
+    // compaction spawn — runs a tool-less Agent with the persona's
+    // instructions idea as its system prompt and returns the final text.
+    let spawn_model = default_model.clone();
+    let spawn_provider = provider.clone();
+    let spawn_idea_store = idea_store.clone();
+    let dispatcher_spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
+        let model = spawn_model.clone();
+        let provider_opt = spawn_provider.clone();
+        let idea_store_opt = spawn_idea_store.clone();
+        Box::pin(async move {
+            let provider = provider_opt.ok_or_else(|| {
+                anyhow::anyhow!("session.spawn (daemon-dispatcher): no provider configured")
+            })?;
+            let system_prompt = if let Some(ref idea_name) = req.instructions_idea {
+                if let Some(ref is) = idea_store_opt
+                    && let Ok(Some(idea)) = is.get_by_name(idea_name, None).await
+                {
+                    idea.content
+                } else {
+                    "You are a reflection assistant. Output a JSON array of ideas.".to_string()
+                }
+            } else {
+                "You are a reflection assistant. Output a JSON array of ideas.".to_string()
+            };
+            let seed = req.seed_content.unwrap_or_default();
+            let context_window = aeqi_providers::context_window_for_model(&model);
+            let parent = &req.parent_session_id;
+            let config = aeqi_core::AgentConfig {
+                model,
+                max_iterations: 10,
+                name: format!("reflector:{}", &parent[..8.min(parent.len())]),
+                context_window,
+                ..Default::default()
+            };
+            let observer: Arc<dyn aeqi_core::traits::Observer> =
+                Arc::new(aeqi_core::traits::LogObserver);
+            let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+            let agent = aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
+            let result = agent.run(&seed).await?;
+            Ok(result.text)
+        })
+    });
+
+    let registry = build_runtime_registry_with_spawn_and_caps(
+        idea_store.clone(),
+        session_store.clone(),
+        Some(dispatcher_spawn_fn),
+        // IPC-level dispatcher fires events that are never originated by a
+        // specific agent's LLM loop — they come from threshold bookkeeping
+        // or scheduled cron. The self-delegation gate exists to stop LLMs
+        // from recursively spawning themselves; there is no LLM involved
+        // here. Grant the capability so session.spawn can actually run.
+        true,
+    );
+
+    let dispatcher = Arc::new(crate::idea_assembly::EventPatternDispatcher {
+        event_store,
+        registry: Arc::new(registry),
+        agent_registry,
+        session_store,
+    });
+    Some(dispatcher as Arc<dyn aeqi_core::tool_registry::PatternDispatcher>)
 }
 
 #[cfg(test)]
