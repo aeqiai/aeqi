@@ -20,9 +20,8 @@
 //!     ...
 //! ```
 
-use crate::graph::IdeaEdge;
 use crate::sqlite::SqliteIdeas;
-use aeqi_core::traits::Idea;
+use aeqi_core::traits::{Idea, IdeaGraphEdge, IdeaStore};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -33,7 +32,13 @@ use tracing::{debug, info, warn};
 /// Export all memories to an Obsidian vault directory.
 ///
 /// Returns the number of files written.
-pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
+///
+/// Uses `IdeaStore::edges_between` (string-typed relations) rather than the
+/// enum-typed `fetch_edges_for_set` so typed inline-link edges such as
+/// `supersedes` / `contradicts` / `supports` / `distilled_into` survive the
+/// round-trip — the enum in `IdeaRelation` only knows three relations, and
+/// any other string is silently dropped by the filter_map in `fetch_edges`.
+pub async fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
     let entries = store.list_all()?;
     if entries.is_empty() {
         info!("no memories to export");
@@ -46,12 +51,14 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
         .map(|e| (e.id.as_str(), e.name.as_str()))
         .collect();
 
-    // Fetch all edges.
+    // Fetch all edges via the string-typed interface so typed relations
+    // (supersedes, contradicts, supports, distilled_into, co_retrieved)
+    // aren't dropped by the 3-variant `IdeaRelation` enum.
     let all_ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
-    let edges = store.fetch_edges_for_set(&all_ids).unwrap_or_default();
+    let edges = store.edges_between(&all_ids).await.unwrap_or_default();
 
     // Group edges by source/target ID for quick lookup.
-    let mut edges_by_id: HashMap<&str, Vec<&IdeaEdge>> = HashMap::new();
+    let mut edges_by_id: HashMap<&str, Vec<&IdeaGraphEdge>> = HashMap::new();
     for edge in &edges {
         edges_by_id
             .entry(edge.source_id.as_str())
@@ -88,7 +95,7 @@ pub fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
 /// Render a single idea as Obsidian-compatible markdown.
 fn render_markdown(
     entry: &Idea,
-    edges: Option<&Vec<&IdeaEdge>>,
+    edges: Option<&Vec<&IdeaGraphEdge>>,
     id_to_name: &HashMap<&str, &str>,
 ) -> String {
     let tags = if entry.tags.is_empty() {
@@ -155,6 +162,11 @@ pub struct ParsedIdea {
     pub tags: Vec<String>,
     pub agent_id: Option<String>,
     pub relations: Vec<ParsedRelation>,
+    /// Path relative to the vault root (e.g. `fact/auth-system.md`).
+    /// Used to emit the `source:markdown:<path>` provenance tag so imported
+    /// ideas carry an unambiguous origin marker — the v3 schema dropped the
+    /// `source_kind` / `source_ref` columns in favour of these tags.
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug)]
@@ -166,10 +178,13 @@ pub struct ParsedRelation {
 
 /// Import memories from an Obsidian vault into the store.
 ///
+/// **Fallback path** — this bypasses the daemon dedup / embed / policy
+/// pipeline. The CLI should prefer routing through the daemon IPC
+/// (`cmd_ideas_import` in `aeqi-cli`); this function exists so tests and
+/// the no-daemon fallback keep working.
+///
 /// Returns (imported, skipped) counts.
 pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usize)> {
-    use aeqi_core::traits::IdeaStore;
-
     let parsed = scan_vault(vault_dir)?;
     if parsed.is_empty() {
         info!("no idea files found in vault");
@@ -183,8 +198,9 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
     let mut key_to_id: HashMap<String, String> = HashMap::new();
 
     for mem in &parsed {
+        let tags = merge_provenance_tags(&mem.tags, mem.source_path.as_deref());
         match store
-            .store(&mem.name, &mem.content, &mem.tags, mem.agent_id.as_deref())
+            .store(&mem.name, &mem.content, &tags, mem.agent_id.as_deref())
             .await
         {
             Ok(id) if id.is_empty() => {
@@ -264,7 +280,8 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
                 if path.extension().and_then(|e| e.to_str()) != Some("md") {
                     continue;
                 }
-                match parse_idea_file(&path) {
+                let rel = relative_to(&path, vault_dir);
+                match parse_idea_file(&path, rel) {
                     Ok(mem) => results.push(mem),
                     Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
                 }
@@ -287,7 +304,8 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
             }) {
                 continue;
             }
-            match parse_idea_file(&path) {
+            let rel = relative_to(&path, vault_dir);
+            match parse_idea_file(&path, rel) {
                 Ok(mem) => results.push(mem),
                 Err(e) => warn!(path = %path.display(), err = %e, "failed to parse"),
             }
@@ -297,8 +315,18 @@ fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
     Ok(results)
 }
 
+/// Compute a POSIX-style relative path (`<tag>/<file>.md` or `<file>.md`).
+/// Falls back to the file name alone if stripping the vault prefix fails.
+fn relative_to(path: &Path, vault_dir: &Path) -> Option<String> {
+    let rel = path.strip_prefix(vault_dir).ok()?;
+    let s = rel
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    if s.is_empty() { None } else { Some(s) }
+}
+
 /// Parse a single Obsidian markdown file into a `ParsedIdea`.
-fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
+fn parse_idea_file(path: &Path, source_path: Option<String>) -> Result<ParsedIdea> {
     let raw =
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
 
@@ -333,7 +361,35 @@ fn parse_idea_file(path: &Path) -> Result<ParsedIdea> {
         tags,
         agent_id,
         relations,
+        source_path,
     })
+}
+
+/// Merge the parsed frontmatter tags with the synthetic provenance tags
+/// emitted on every import. Dedupe case-insensitively, preserving the
+/// order of first appearance so the user's declared tags stay in front
+/// of machine-generated ones.
+pub(crate) fn merge_provenance_tags(
+    frontmatter_tags: &[String],
+    source_path: Option<&str>,
+) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(frontmatter_tags.len() + 2);
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let push =
+        |tag: String, out: &mut Vec<String>, seen: &mut std::collections::HashSet<String>| {
+            let key = tag.to_lowercase();
+            if !key.is_empty() && seen.insert(key) {
+                out.push(tag);
+            }
+        };
+    for tag in frontmatter_tags {
+        push(tag.clone(), &mut out, &mut seen);
+    }
+    push("source:obsidian".to_string(), &mut out, &mut seen);
+    if let Some(path) = source_path {
+        push(format!("source:markdown:{path}"), &mut out, &mut seen);
+    }
+    out
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -433,12 +489,22 @@ fn split_relations(body: &str) -> (String, Vec<ParsedRelation>) {
     }
 }
 
-/// Map any legacy or unknown relation name to one of the three new ones.
-/// `mentions` and `embeds` are preserved; everything else → `adjacent`.
+/// Map any legacy or unknown relation name to one of the relations the
+/// store recognises. The taxonomy tracks the `inline_links` parser:
+/// `mentions`, `embeds`, `supersedes`, `contradicts`, `supports`,
+/// `distilled_into` — plus `adjacent` for UI-added edges. Everything else
+/// (legacy `caused_by`, `related_to`, `triggered_by`, …) collapses to
+/// `adjacent` so old vaults round-trip without reintroducing retired
+/// relation names.
 fn normalize_relation(raw: &str) -> String {
     match raw.trim() {
         "mentions" => "mentions".to_string(),
         "embeds" => "embeds".to_string(),
+        "supersedes" => "supersedes".to_string(),
+        "contradicts" => "contradicts".to_string(),
+        "supports" => "supports".to_string(),
+        "distilled_into" => "distilled_into".to_string(),
+        "adjacent" => "adjacent".to_string(),
         _ => "adjacent".to_string(),
     }
 }
@@ -617,7 +683,7 @@ mod tests {
             .unwrap();
 
         // Export.
-        let exported = export(&store, &vault_dir).unwrap();
+        let exported = export(&store, &vault_dir).await.unwrap();
         assert_eq!(exported, 3);
 
         // Verify files exist.
@@ -639,5 +705,78 @@ mod tests {
             .unwrap();
         assert!(!results.is_empty());
         assert!(results[0].content.contains("JWT"));
+
+        // Imported ideas must carry provenance tags so the v3 schema's
+        // dropped `source_kind`/`source_ref` columns have a tag equivalent.
+        let imported_all = store2.list_all().unwrap();
+        for idea in &imported_all {
+            assert!(
+                idea.tags.iter().any(|t| t == "source:obsidian"),
+                "imported idea {} missing source:obsidian tag: {:?}",
+                idea.name,
+                idea.tags,
+            );
+            assert!(
+                idea.tags.iter().any(|t| t.starts_with("source:markdown:")),
+                "imported idea {} missing source:markdown:<path> tag: {:?}",
+                idea.name,
+                idea.tags,
+            );
+        }
+    }
+
+    #[test]
+    fn test_merge_provenance_tags_appends_source_markers() {
+        let input = vec!["fact".to_string(), "evergreen".to_string()];
+        let out = merge_provenance_tags(&input, Some("fact/auth-system.md"));
+        assert_eq!(
+            out,
+            vec![
+                "fact".to_string(),
+                "evergreen".to_string(),
+                "source:obsidian".to_string(),
+                "source:markdown:fact/auth-system.md".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_merge_provenance_tags_no_path_only_source_obsidian() {
+        let input = vec!["fact".to_string()];
+        let out = merge_provenance_tags(&input, None);
+        assert_eq!(out, vec!["fact".to_string(), "source:obsidian".to_string()]);
+    }
+
+    #[test]
+    fn test_merge_provenance_tags_dedupes_case_insensitive() {
+        // If the frontmatter already carried a source:obsidian marker
+        // (e.g. because the user hand-edited), don't emit a duplicate.
+        let input = vec![
+            "fact".to_string(),
+            "Source:Obsidian".to_string(),
+            "source:markdown:fact/x.md".to_string(),
+        ];
+        let out = merge_provenance_tags(&input, Some("fact/x.md"));
+        assert_eq!(out.len(), 3, "tag list must dedupe: {out:?}");
+        assert!(out.iter().any(|t| t == "fact"));
+        assert!(out.iter().any(|t| t == "Source:Obsidian"));
+        assert!(out.iter().any(|t| t == "source:markdown:fact/x.md"));
+    }
+
+    #[test]
+    fn test_parse_relations_preserves_typed_prefixes() {
+        // Round-trip for supersedes / contradicts / supports / distilled_into —
+        // these are emitted in the exporter now and must survive re-import.
+        let section = "## Relations\n\n\
+             - → [[Old Plan]] — supersedes (1.00)\n\
+             - → [[Stale Fact]] — contradicts (0.80)\n\
+             - → [[Main Claim]] — supports (0.90)\n\
+             - → [[Summary]] — distilled_into (1.00)\n";
+        let rels = parse_relations(section);
+        assert_eq!(rels.len(), 4);
+        assert_eq!(rels[0].relation, "supersedes");
+        assert_eq!(rels[1].relation, "contradicts");
+        assert_eq!(rels[2].relation, "supports");
+        assert_eq!(rels[3].relation, "distilled_into");
     }
 }

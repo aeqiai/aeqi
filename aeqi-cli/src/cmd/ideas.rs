@@ -79,7 +79,7 @@ async fn cmd_ideas_export(config_path: &Option<PathBuf>, vault: &Path) -> Result
     let (config, _) = load_config(config_path)?;
     let ideas = open_ideas(&config)?;
 
-    let count = aeqi_ideas::obsidian::export(&ideas, vault)?;
+    let count = aeqi_ideas::obsidian::export(&ideas, vault).await?;
     println!("Exported {count} ideas to {}", vault.display());
     Ok(())
 }
