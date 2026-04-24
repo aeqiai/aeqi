@@ -149,6 +149,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         (5, migration_v5),
         (6, migration_v6),
         (7, migration_v7),
+        (8, migration_v8),
     ];
 
     for (version, f) in migrations {
@@ -461,5 +462,21 @@ fn migration_v7(conn: &Connection) -> Result<()> {
         // no-op. Agent N wires the lookup when turning the feature on.
         let _ = conn;
     }
+    Ok(())
+}
+
+/// v8 — active-name uniqueness. The live pre-migration DB had
+/// `idx_ideas_agent_name_unique ON ideas(COALESCE(agent_id,''), name)` that
+/// the v3 rebuild dropped. We re-create it as a **partial** unique index
+/// scoped to `status='active'` so supersession (old row flips to
+/// 'superseded', new row inserts with same name) doesn't collide.
+/// Archived and superseded rows retain their names for history.
+fn migration_v8(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_ideas_agent_name_unique;
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_active_unique
+           ON ideas(COALESCE(agent_id, ''), name)
+           WHERE status = 'active';",
+    )?;
     Ok(())
 }
