@@ -8,7 +8,6 @@
 pub mod debounce;
 pub mod dedup;
 pub mod graph;
-pub mod hierarchy;
 pub mod hybrid;
 pub mod inline_links;
 pub mod lifecycle;
