@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNav } from "@/hooks/useNav";
 import { useChatStore } from "@/store/chat";
 import { api } from "@/lib/api";
+import { isRateLimited } from "@/lib/rateLimit";
 import { type Message, type SessionInfo } from "./types";
 
 interface UseSessionManagerOptions {
@@ -134,11 +135,14 @@ export function useSessionManager({
 
   // Poll for new messages on sessions not driven by local WebSocket.
   // Uses streamingRef so the interval checks latest streaming state without
-  // needing to restart the interval on every streaming toggle.
+  // needing to restart the interval on every streaming toggle. Pauses while
+  // the global rate-limit is engaged — otherwise a single 429 triggers an
+  // endless 3-per-interval cascade that keeps the lockout extended.
   useEffect(() => {
     if (!activeSessionId) return;
     const iv = setInterval(() => {
       if (streamingRef.current) return;
+      if (isRateLimited()) return;
       api
         .getSessionMessages(activeSessionId, 1000)
         .then((d: Record<string, unknown>) => {
@@ -148,7 +152,7 @@ export function useSessionManager({
           }
         })
         .catch(() => {});
-    }, 3000);
+    }, 10000);
     return () => clearInterval(iv);
   }, [activeSessionId, processRawMessages]);
 
