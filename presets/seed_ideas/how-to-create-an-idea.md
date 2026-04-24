@@ -37,3 +37,25 @@ New fact, recipe, or pattern that repeats across conversations. User preferences
 Ephemeral session state, generic knowledge already in the model, unverified claims.
 
 Verify after: `ideas(action='search', query='<something from content>')`.
+
+## Example
+
+User (mid-session): "Note that `./scripts/deploy.sh` restarts both aeqi-runtime and aeqi-platform — I always forget and only restart one."
+
+Before storing, search to avoid a duplicate:
+
+```
+ideas(action='search', query='deploy script restart runtime platform', top_k=3)
+// returns nothing relevant
+```
+
+Store it:
+
+```
+ideas(action='store',
+      name='aeqi-deploy-restarts-both-services',
+      content='`./scripts/deploy.sh` restarts aeqi-runtime.service (:8400) **and** aeqi-platform.service (:8443). Running it is the correct way — do not restart services manually one at a time.',
+      tags=['procedure', 'evergreen'])
+```
+
+Note: `fact` would be wrong here (this is a reusable how-to, not a state claim). `evergreen` because the deploy script's behavior is stable, not session-scoped.

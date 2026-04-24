@@ -520,6 +520,25 @@ mod tests {
             "meta:tag-policy:source:session",
             "meta:tag-policy:meta",
             "meta:tag-policy:reflection",
+            "meta:tag-policy:identity",
+        ];
+        // How-to skills that teach agents to operate the four primitives.
+        // Named so a file rename is a compile-time-visible regression.
+        const REQUIRED_HOW_TOS: &[&str] = &[
+            "create-idea",
+            "create-quest",
+            "create-event",
+            "spawn-subagent",
+            "evolve-identity",
+            "manage-tools",
+        ];
+        // Pack-infrastructure meta-ideas — the rulebook for future
+        // external imports. Added in β. Queried by future authors to
+        // decide how to absorb outside content.
+        const REQUIRED_PACK_INFRA: &[&str] = &[
+            "meta:content-taxonomy",
+            "meta:evaluation-criteria",
+            "meta:pack-catalog",
         ];
 
         let (_tmp, store) = setup_store().await;
@@ -545,7 +564,12 @@ mod tests {
             std::env::remove_var("AEQI_PRESETS_DIR");
         }
 
-        for required in REQUIRED_PERSONAS.iter().chain(REQUIRED_POLICIES.iter()) {
+        for required in REQUIRED_PERSONAS
+            .iter()
+            .chain(REQUIRED_POLICIES.iter())
+            .chain(REQUIRED_HOW_TOS.iter())
+            .chain(REQUIRED_PACK_INFRA.iter())
+        {
             let seen = results.iter().any(|r| r.name == *required);
             assert!(
                 seen,

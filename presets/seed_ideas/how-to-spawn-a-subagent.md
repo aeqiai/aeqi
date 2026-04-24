@@ -33,3 +33,35 @@ For a one-shot sub-task fired from an event: `{tool: 'session.spawn', args: {age
 ## When NOT to spawn
 
 The sub-problem is one tool call. You'd spawn "another you". The parent already has the context. Use sub-agents for specialization, not multiplication.
+
+## Example
+
+Operator: "Stand up a reviewer who audits every quest diff before it lands."
+
+Reviewer is a distinct persona (narrower tool scope, different identity), persistent (runs for every future quest), and delegated to via quests. Hire it:
+
+```
+agents(action='hire',
+       template='reviewer',
+       parent_id='<your-agent-id>')
+// returns the new agent's name + id
+```
+
+Then wire delegation — on `session:quest_end`, create a review quest against the new agent:
+
+```
+events(action='create',
+       name='route-diffs-to-reviewer',
+       pattern='session:quest_end',
+       tool_calls=[{
+         "tool": "quests.create",
+         "args": {
+           "agent": "reviewer",
+           "subject": "Review diff from {quest_id}",
+           "description": "Check the quest worktree diff for regressions. Approve or request changes.",
+           "priority": "normal"
+         }
+       }])
+```
+
+Contrast with an ephemeral case: compaction at `context:budget:exceeded` fires `session.spawn` (one-shot, no hire) — that's spawn-not-hire, and the child is gone after one turn.

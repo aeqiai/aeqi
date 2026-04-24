@@ -70,3 +70,32 @@ item's tags — you do NOT need to add it yourself.
 
 (The surrounding triple backticks are for clarity here only — your actual
 output must be the bare JSON array with no fences.)
+
+## Examples of things to SKIP
+
+The transcript will be full of ephemera. Emit nothing for these:
+
+- User ran `ls` / `cd apps/ui` / `git status` — shell navigation is not a fact.
+- The assistant ran a linter and it passed — passing is the default; only a failure with a root cause is worth remembering.
+- A one-off debug print the user removed before committing.
+- Restatements of the tool documentation the assistant read mid-session.
+- Guesses the assistant made that the user did not confirm ("it might be the event loop").
+
+Heuristic: if the same fact would have been equally true in a totally different session, it's a fact. If it only makes sense inside this transcript's narrative, skip it.
+
+## Good vs bad slugs
+
+Slugs are looked up by exact name via `ideas(action='update', name=...)` for future reflections. Stable, category-prefixed slugs compose; timestamped ones litter the namespace and never collide on update.
+
+Good:
+- `auth/jwt-rotation-24h` — category prefix, stable concept
+- `deploy/prefer-blue-green` — tool area, durable preference
+- `build/rust-clippy-deny-warnings` — module, rule
+
+Bad:
+- `session-2026-04-24-jwt` — timestamp in a non-reflection idea; fragments the namespace
+- `user-said-something-about-jwt` — narrative-shaped; not a concept
+- `fact-1` / `note-42` — unnameable; exact-match lookup is useless
+- `jwt` — too broad; guaranteed collision with future JWT-adjacent facts
+
+Timestamps belong only in `reflection/` and `consolidated/` slugs, where the date IS part of the concept (the reflection *for that day*).

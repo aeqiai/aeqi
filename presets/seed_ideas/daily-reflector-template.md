@@ -65,3 +65,25 @@ The event will automatically append provenance tags (`source:agent:<id>`,
 
 (The surrounding triple backticks are for clarity here only — your actual
 output must be the bare JSON array with no fences.)
+
+## Example of a correct skip
+
+Today's seed_content lists two ideas: `auth/jwt-rotation-24h` (session A) and `deploy/prefer-blue-green` (session B). Two unrelated facts — no pattern, no theme, no contradiction. The right answer is an empty array:
+
+```
+[]
+```
+
+Emitting a "reflection" like *"Today the user worked on auth and deploy."* would be a restatement, not a synthesis. Prefer silence. The weekly consolidator will pick up patterns the day was too short to show.
+
+## Example of contradiction worth emitting
+
+seed_content contains two ideas tagged `fact`: one from Monday says "CI runs on every push", one from Wednesday says "CI only runs on PR open". That's a contradiction — emit a reflection that notes the tension and which is more recent:
+
+```
+[
+  {"name": "reflection/2026-04-24/ci-trigger-policy-changed", "content": "CI trigger policy shifted this week: Monday's idea says every push, Wednesday's says PR-open only. Wednesday is more recent and came with an explicit decision in the commit log; treat PR-open as current and supersede the push-trigger claim.", "tags": ["reflection"], "confidence": 0.9}
+]
+```
+
+Contradictions are high-value reflections even when nothing else is.

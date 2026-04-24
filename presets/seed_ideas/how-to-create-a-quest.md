@@ -36,3 +36,18 @@ Omit `agent` to assign to yourself. Pass another agent's name or id to delegate.
 ## When NOT to create a quest
 
 Single tool calls, one-line answers, pure-knowledge asks. Just do them.
+
+## Example
+
+User: "The signup page breaks on iOS Safari — the email field overflows the container. Fix it."
+
+This is work-shaped (multi-file diff, needs a worktree, needs verification). Create a quest rather than editing in-session:
+
+```
+quests(action='create',
+       subject='Fix signup email field overflow on iOS Safari',
+       description='On iOS Safari the email input in apps/ui/src/pages/SignupPage.tsx overflows its container because the input inherits min-width: auto from flex. Fix with min-width: 0 on the input. Acceptance: field renders inside the card on iPhone 14 Safari at 390px width; no regressions on desktop.',
+       priority='high')
+```
+
+After the quest closes with a diff, verify by loading Storybook at that breakpoint — closing `result='...'` should state how you verified, not just "done".

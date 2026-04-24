@@ -35,3 +35,27 @@ Other: `schedule:<cron>`, `webhook:<token>`, middleware signals (`loop:detected`
 ## Tip
 
 Attach `idea_ids` to have ideas assemble into the session context when the pattern fires. That's how you wire a recurring ritual (e.g. a weekly-review checklist on `schedule:0 9 * * 1`).
+
+## Example
+
+User: "Every time a quest ends, run the reflector and save the facts it extracts."
+
+This is a pattern-triggered automation — `session:quest_end` plus a `session.spawn` tool_call that runs the reflector persona. One row, no `idea_ids` (the persona is passed as `instructions_idea`, not assembled into the parent session):
+
+```
+events(action='create',
+       name='reflect-after-quest',
+       pattern='session:quest_end',
+       tool_calls=[{
+         "tool": "session.spawn",
+         "args": {
+           "kind": "compactor",
+           "instructions_idea": "meta:reflector-template",
+           "seed_content": "{quest_transcript}",
+           "parent_session": "{session_id}"
+         }
+       }],
+       cooldown_secs=0)
+```
+
+Realistic gotcha: `schedule:*` patterns are rejected at the global scope — the scheduler needs an agent to fire against. For cron-based rituals, pass `agent_id=<your-id>` explicitly.
