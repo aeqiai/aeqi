@@ -787,4 +787,79 @@ mod tests {
         assert_eq!(rels[2].relation, "supports");
         assert_eq!(rels[3].relation, "distilled_into");
     }
+
+    #[tokio::test]
+    async fn test_export_preserves_typed_edges_in_wikilinks() {
+        // Typed edges written by the inline-link reconciler must come out
+        // as `supersedes` / `contradicts` / `supports` / `distilled_into`
+        // strings in the exported ## Relations section — the old enum-
+        // based `fetch_edges_for_set` path silently dropped them.
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("typed.db");
+        let vault_dir = dir.path().join("vault");
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+
+        // Four targets, one per typed relation.
+        let old_plan_id = store
+            .store("old-plan", "original approach", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        let stale_id = store
+            .store("stale-fact", "older claim", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        let claim_id = store
+            .store("main-claim", "the headline", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        let summary_id = store
+            .store("summary", "distilled notes", &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        // Source idea with a body that references each target via a
+        // typed prefix. `reconcile_inline_edges` is the production path
+        // that actually writes typed strings into `idea_edges.relation`.
+        let body = "supersedes:[[old-plan]] contradicts:[[stale-fact]] \
+                    supports:[[main-claim]] distilled_into:[[summary]]";
+        let new_id = store
+            .store("new-plan", body, &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        let resolver = {
+            let map: std::collections::HashMap<&str, String> = [
+                ("old-plan", old_plan_id.clone()),
+                ("stale-fact", stale_id.clone()),
+                ("main-claim", claim_id.clone()),
+                ("summary", summary_id.clone()),
+            ]
+            .into_iter()
+            .collect();
+            move |name: &str| map.get(name.to_lowercase().as_str()).cloned()
+        };
+        store
+            .reconcile_inline_edges(&new_id, body, &resolver)
+            .await
+            .unwrap();
+
+        // Export and scan the new-plan file for the typed relations.
+        let exported = export(&store, &vault_dir).await.unwrap();
+        assert_eq!(exported, 5);
+
+        let md = std::fs::read_to_string(vault_dir.join("fact/new-plan.md")).unwrap();
+        assert!(
+            md.contains("## Relations"),
+            "exported file missing Relations section: {md}"
+        );
+        for rel in ["supersedes", "contradicts", "supports", "distilled_into"] {
+            assert!(
+                md.contains(rel),
+                "exported file missing relation {rel} — markdown was:\n{md}"
+            );
+        }
+    }
 }
