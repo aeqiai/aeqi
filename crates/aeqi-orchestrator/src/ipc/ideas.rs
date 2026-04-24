@@ -552,15 +552,13 @@ async fn finalize_write(
 }
 
 /// Evaluate every tag on the idea against its policy's `consolidate_when`
-/// trigger. Fires `ideas:threshold_reached` via the event store (best-effort
-/// log) when the count hits the threshold.
+/// trigger. Fires `ideas:threshold_reached` via the daemon-level
+/// `PatternDispatcher` when the count hits the threshold so the seeded
+/// event runs: spawn a consolidator sub-agent, then persist its JSON
+/// output via `ideas.store_many`.
 ///
-/// Until a `PatternDispatcher` is wired into `CommandContext`, the actual
-/// event tool_calls don't run synchronously — this function logs the event
-/// shape at INFO so operators can observe the trigger. The seeded
-/// `ideas:threshold_reached` event in `event_handler.rs` is the code-side
-/// handler; once a dispatcher is available, it'll fire the `session.spawn`
-/// chain automatically on any agent whose loop handles the pattern.
+/// When no dispatcher is wired (test harnesses that bypass the daemon)
+/// the trigger is logged at INFO so operators can still observe the shape.
 async fn check_consolidation_threshold(
     ctx: &super::CommandContext,
     idea_store: &dyn IdeaStore,
@@ -598,11 +596,51 @@ async fn check_consolidation_threshold(
         age_hours = trigger.age_hours,
         consolidator = %trigger.consolidator_idea,
         triggering_id,
-        "ideas:threshold_reached (seeded event will fire when a pattern dispatcher is wired)"
+        "ideas:threshold_reached — dispatching to seeded event"
     );
-    // Touch the event handler store so future polling / UI observers can
-    // find the event row alongside the info-level log.
-    let _ = &ctx.event_handler_store;
+
+    // Dispatch the pattern if the daemon wired a dispatcher. Without it the
+    // trigger is observable in logs but the consolidator doesn't run —
+    // tolerated for unit-test harnesses that never spin up the daemon.
+    let Some(dispatcher) = ctx.pattern_dispatcher.as_ref() else {
+        return;
+    };
+
+    // Build trigger_args — these flow into the event's tool_call args via
+    // `{tag}`, `{count}`, `{candidate_ids}`, etc. The consolidator seed
+    // uses `{tag}` and `{candidate_ids}`; the store_many step uses
+    // `{last_tool_result}` and `{agent_id}`.
+    let candidate_ids_str = triggering_id.to_string();
+    let trigger_args = serde_json::json!({
+        "tag": tag,
+        "count": count,
+        "threshold": trigger.count,
+        "age_hours": trigger.age_hours,
+        "consolidator_idea": trigger.consolidator_idea,
+        "triggering_id": triggering_id,
+        "candidate_ids": candidate_ids_str,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+
+    // The IPC call has no live session; synthesize an ExecutionContext with
+    // a synthetic `ipc-threshold-<triggering_id>` session_id so the
+    // consolidator seed's `{session_id}` substitution produces a non-empty
+    // value (session.spawn rejects an empty parent_session). The
+    // agent_id stays empty — the consolidator seed is global, so
+    // visibility_sql_clause accepts the empty viewer.
+    let exec_ctx = aeqi_core::tool_registry::ExecutionContext {
+        session_id: format!("ipc-threshold-{triggering_id}"),
+        ..Default::default()
+    };
+    let handled = dispatcher
+        .dispatch("ideas:threshold_reached", &exec_ctx, &trigger_args)
+        .await;
+    if !handled {
+        tracing::debug!(
+            tag,
+            "ideas:threshold_reached dispatch returned false (no matching event configured)"
+        );
+    }
 }
 
 /// Build a case-insensitive name→id resolver scoped to the agent's visible

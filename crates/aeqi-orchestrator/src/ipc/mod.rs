@@ -74,6 +74,15 @@ pub struct CommandContext {
     /// Daemon-side recall cache. Invalidated on store / update / delete /
     /// feedback / link writes so repeated MCP searches stay coherent.
     pub recall_cache: Arc<aeqi_ideas::RecallCache>,
+    // ── Round 6 additions (event-chain reflection loop) ────────────────
+    /// Daemon-level event dispatcher for IPC handlers that need to fire
+    /// patterns outside of any live session. In particular
+    /// `check_consolidation_threshold` (in `ipc/ideas.rs`) uses this to
+    /// dispatch `ideas:threshold_reached` against the seeded event so the
+    /// consolidator sub-agent spawns and its JSON is persisted via
+    /// `ideas.store_many`. `None` in tests that only exercise the store
+    /// layer — the caller falls back to a no-op log.
+    pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 }
 
 pub use crate::daemon::ActivityBuffer;
