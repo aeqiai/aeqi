@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::sync::Mutex;
-use tracing::debug;
+use std::sync::atomic::{AtomicU8, Ordering};
+use tracing::{debug, warn};
+
+/// Per-VectorStore ANN availability cache. 0 = unknown, 1 = ready, 2 = unavailable.
+static VS_ANN_STATE: AtomicU8 = AtomicU8::new(0);
 
 /// Cosine similarity between two f32 vectors.
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -109,10 +113,17 @@ impl VectorStore {
     }
 
     /// Search for the top-k most similar embeddings to the query vector.
-    /// This is a brute-force scan — fine for <100K ideas per project.
+    /// Prefers the sqlite-vec `idea_vec` MATCH path; falls back to a
+    /// brute-force scan when the extension isn't loaded or a runtime error
+    /// bubbles up. `VS_ANN_STATE` caches the "unavailable" decision.
     pub fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<VectorResult>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
 
+        if let Some(hits) = try_ann_search_unscoped(&conn, query, top_k) {
+            return Ok(hits);
+        }
+
+        // Brute-force fallback.
         let mut stmt = conn.prepare("SELECT idea_id, embedding FROM idea_embeddings")?;
 
         let mut results: Vec<VectorResult> = stmt
@@ -142,6 +153,71 @@ impl VectorStore {
 
         Ok(results)
     }
+}
+
+/// Unscoped ANN query — VectorStore::search has no IdeaQuery context, so it
+/// skips the agent-visibility filter. (The scope-aware path lives in
+/// `sqlite/search.rs::try_ann_search`.) Returns None when ANN is unavailable.
+fn try_ann_search_unscoped(
+    conn: &Connection,
+    query_vec: &[f32],
+    top_k: usize,
+) -> Option<Vec<VectorResult>> {
+    if VS_ANN_STATE.load(Ordering::Relaxed) == 2 {
+        return None;
+    }
+
+    let query_bytes = vec_to_bytes(query_vec);
+    let k: i64 = (top_k as i64).saturating_mul(4).max(top_k as i64);
+    let sql = "SELECT me.idea_id, me.embedding \
+               FROM idea_vec iv \
+               JOIN idea_embeddings me ON me.rowid = iv.rowid \
+               WHERE iv.embedding MATCH ?1 AND iv.k = ?2 \
+               ORDER BY iv.distance";
+    let mut stmt = match conn.prepare(sql) {
+        Ok(s) => s,
+        Err(e) => {
+            debug!(error = %e, "VectorStore ANN prepare failed; falling back to brute-force");
+            VS_ANN_STATE.store(2, Ordering::Relaxed);
+            return None;
+        }
+    };
+
+    let iter = match stmt.query_map(
+        rusqlite::params![query_bytes, k],
+        |row| {
+            let id: String = row.get(0)?;
+            let bytes: Vec<u8> = row.get(1)?;
+            Ok((id, bytes))
+        },
+    ) {
+        Ok(i) => i,
+        Err(e) => {
+            warn!(error = %e, "VectorStore ANN query failed; falling back to brute-force");
+            VS_ANN_STATE.store(2, Ordering::Relaxed);
+            return None;
+        }
+    };
+
+    VS_ANN_STATE.store(1, Ordering::Relaxed);
+    let mut hits: Vec<VectorResult> = iter
+        .filter_map(|r| r.ok())
+        .map(|(idea_id, bytes)| {
+            let emb = bytes_to_vec(&bytes);
+            let similarity = cosine_similarity(query_vec, &emb);
+            VectorResult {
+                idea_id,
+                similarity,
+            }
+        })
+        .collect();
+    hits.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    hits.truncate(top_k);
+    Some(hits)
 }
 
 #[cfg(test)]
