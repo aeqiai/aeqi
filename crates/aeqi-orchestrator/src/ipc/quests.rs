@@ -551,6 +551,20 @@ pub async fn handle_close_quest(
         .await
     {
         Ok(quest) => {
+            // Fire `session:quest_end` through the daemon-level pattern
+            // dispatcher so the seeded reflect-after-quest chain
+            // (session.spawn → ideas.store_many) runs. Without this, every
+            // quest closed via the web/IPC path was a dead end for the
+            // reflection loop — the event was enabled in the DB but no code
+            // ever called `dispatch("session:quest_end", ...)` from here.
+            dispatch_quest_end_for_ipc_close(
+                ctx.pattern_dispatcher.as_ref(),
+                quest_id,
+                reason,
+                &quest,
+            )
+            .await;
+
             let mut result = serde_json::json!({
                 "ok": true,
                 "quest": {
@@ -693,4 +707,185 @@ pub async fn handle_quest_preflight(
             "deny": assembled.tools.deny,
         }
     })
+}
+
+/// Fire `session:quest_end` on the daemon-level pattern dispatcher so the
+/// seeded reflect-after-quest chain (`session.spawn(meta:reflector-template)`
+/// → `ideas.store_many`) runs when a quest is closed via IPC/web.
+///
+/// Extracted from `handle_close_quest` as a free function so it can be
+/// exercised without standing up the full `CommandContext`.
+///
+/// Mirrors `check_consolidation_threshold` in `ipc/ideas.rs`: we synthesize a
+/// `event:session:quest_end:<quest_id>` session_id so the seed's
+/// `{session_id}` placeholder substitutes to a non-empty value (the
+/// `session.spawn` tool rejects an empty `parent_session`). The `event:`
+/// prefix lets session-genealogy filters exclude IPC-originated synthetic
+/// sessions cleanly. `agent_id` in the ExecutionContext stays empty — the
+/// seed is global-scope, so `visibility_sql_clause` accepts the empty
+/// viewer.
+async fn dispatch_quest_end_for_ipc_close(
+    dispatcher: Option<&std::sync::Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    quest_id: &str,
+    reason: &str,
+    quest: &aeqi_quests::Quest,
+) {
+    let Some(dispatcher) = dispatcher else {
+        tracing::warn!(
+            quest_id,
+            "session:quest_end not dispatched from IPC close: no pattern_dispatcher wired"
+        );
+        return;
+    };
+
+    let synthetic_session_id = format!("event:session:quest_end:{quest_id}");
+    let trigger_args = serde_json::json!({
+        "session_id": synthetic_session_id,
+        "agent_id": quest.agent_id.clone().unwrap_or_default(),
+        "quest_id": quest_id,
+        "reason": reason,
+        "outcome": quest.quest_outcome(),
+        "transcript_preview": format!(
+            "Quest {quest_id} ({subject}) closed via IPC: {reason}",
+            subject = quest.name,
+        ),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+    let exec_ctx = aeqi_core::tool_registry::ExecutionContext {
+        session_id: synthetic_session_id.clone(),
+        ..Default::default()
+    };
+    let handled = dispatcher
+        .dispatch("session:quest_end", &exec_ctx, &trigger_args)
+        .await;
+    if handled {
+        tracing::info!(
+            quest_id,
+            synthetic_session = %synthetic_session_id,
+            "session:quest_end dispatched (IPC close → reflect-after-quest)"
+        );
+    } else {
+        tracing::debug!(
+            quest_id,
+            "session:quest_end dispatch returned false (no matching event configured)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::tool_registry::{ExecutionContext, PatternDispatcher};
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    /// Recording dispatcher: captures every `dispatch` call so tests can
+    /// assert which patterns fired and what trigger_args they carried.
+    #[derive(Default)]
+    struct RecordingDispatcher {
+        calls: Mutex<Vec<(String, String, serde_json::Value)>>,
+    }
+
+    impl PatternDispatcher for RecordingDispatcher {
+        fn dispatch<'a>(
+            &'a self,
+            pattern: &'a str,
+            ctx: &'a ExecutionContext,
+            trigger_args: &'a serde_json::Value,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+            let pattern = pattern.to_string();
+            let session_id = ctx.session_id.clone();
+            let trigger_args = trigger_args.clone();
+            Box::pin(async move {
+                self.calls
+                    .lock()
+                    .unwrap()
+                    .push((pattern, session_id, trigger_args));
+                true
+            })
+        }
+    }
+
+    fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
+        aeqi_quests::Quest {
+            id: aeqi_quests::QuestId(id.to_string()),
+            name: "Unit test quest".to_string(),
+            description: String::new(),
+            status: aeqi_quests::QuestStatus::Done,
+            priority: Default::default(),
+            agent_id: agent_id.map(str::to_string),
+            scope: aeqi_core::Scope::SelfScope,
+            depends_on: Vec::new(),
+            idea_ids: Vec::new(),
+            labels: Vec::new(),
+            retry_count: 0,
+            checkpoints: Vec::new(),
+            metadata: serde_json::Value::Null,
+            created_at: chrono::Utc::now(),
+            updated_at: Some(chrono::Utc::now()),
+            closed_at: Some(chrono::Utc::now()),
+            outcome: None,
+            worktree_branch: None,
+            worktree_path: None,
+            creator_session_id: None,
+            acceptance_criteria: None,
+        }
+    }
+
+    /// Regression lock: the IPC close path must fire `session:quest_end`
+    /// through the wired `PatternDispatcher`. Before this fix the dispatch
+    /// never happened, so the reflection loop had a `fire_count` of 0 in
+    /// production despite 200+ closed quests.
+    #[tokio::test]
+    async fn ipc_close_dispatches_session_quest_end_via_pattern_dispatcher() {
+        let recorder = Arc::new(RecordingDispatcher::default());
+        let dispatcher: Arc<dyn PatternDispatcher> = recorder.clone();
+
+        let quest = stub_quest("q-abc", Some("agent-123"));
+        dispatch_quest_end_for_ipc_close(
+            Some(&dispatcher),
+            &quest.id.0,
+            "finished by user",
+            &quest,
+        )
+        .await;
+
+        let calls = recorder.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1, "must dispatch exactly once");
+        let (pattern, session_id, trigger_args) = &calls[0];
+        assert_eq!(pattern, "session:quest_end");
+        assert_eq!(
+            session_id, "event:session:quest_end:q-abc",
+            "synthetic session_id encodes the quest id so session.spawn has a non-empty parent"
+        );
+        assert_eq!(
+            trigger_args.get("quest_id").and_then(|v| v.as_str()),
+            Some("q-abc"),
+        );
+        assert_eq!(
+            trigger_args.get("agent_id").and_then(|v| v.as_str()),
+            Some("agent-123"),
+        );
+        assert_eq!(
+            trigger_args.get("reason").and_then(|v| v.as_str()),
+            Some("finished by user"),
+        );
+        assert!(
+            trigger_args
+                .get("transcript_preview")
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains("q-abc")),
+            "transcript_preview must reference the closing quest"
+        );
+    }
+
+    /// When no dispatcher is wired (older daemon builds, embedded tests),
+    /// the close path must degrade silently — never panic, never return an
+    /// error — so the quest still closes normally.
+    #[tokio::test]
+    async fn ipc_close_without_dispatcher_is_a_no_op() {
+        let quest = stub_quest("q-nop", None);
+        // Passing `None` must not panic or hang.
+        dispatch_quest_end_for_ipc_close(None, &quest.id.0, "no dispatcher wired", &quest).await;
+    }
 }
