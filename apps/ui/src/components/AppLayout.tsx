@@ -264,11 +264,15 @@ export default function AppLayout() {
   // `/profile` — user-scoped profile. No agent in scope; the page is about
   // the user, not a company. Matched via path because the route has no
   // :agentId param (it's a top-level sibling of `/` and `/:agentId`).
-  const isProfile = path === "/profile" || tab === "profile";
+  // `/settings` is the user-scoped settings surface (formerly /profile).
+  // Legacy /profile URLs redirect there in App.tsx; we also match
+  // `tab === "profile"` defensively for any stale in-memory links.
+  const isSettings = path === "/settings" || path === "/profile" || tab === "profile";
   // `/` — user-scoped landing. Doubles as the Inbox surface: agent
   // pings, company switcher, summary all live on a single home page.
-  // No agent in scope here, so no topbar, composer, or sessions rail.
-  const isHome = !agentId && !isProfile;
+  // No agent in scope here, so no composer or sessions rail; the
+  // topbar still renders, carrying user identity + the Settings gear.
+  const isHome = !agentId && !isSettings;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
@@ -284,10 +288,10 @@ export default function AppLayout() {
   // no per-agent welcome splash.
   const effectiveTab = tab || "sessions";
 
-  // Profile is platform-mode only — runtime mode has nowhere to manage
-  // account-level identity, so kick back to the agent's Inbox.
-  if (isProfile && appMode && appMode !== "platform") {
-    return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
+  // User settings are platform-mode only — runtime mode has nowhere to
+  // manage account-level identity, so kick back to `/`.
+  if (isSettings && appMode && appMode !== "platform") {
+    return <Navigate to="/" replace />;
   }
 
   // Canonicalize the per-agent sessions URL: `/:agentId/sessions` (no
@@ -301,7 +305,7 @@ export default function AppLayout() {
   const mainContent = (() => {
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
-    if (isProfile) return <ProfilePage />;
+    if (isSettings) return <ProfilePage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
@@ -311,7 +315,7 @@ export default function AppLayout() {
   const showTopBar = true;
   // AgentSessionView only mounts when AgentPage is rendered on the
   // per-agent sessions surface.
-  const sessionsMounted = !isDrive && !isProfile && !isHome && effectiveTab === "sessions";
+  const sessionsMounted = !isDrive && !isSettings && !isHome && effectiveTab === "sessions";
   // Composer lives with the sessions surface only — the other W-primitive
   // surfaces (agents/events/quests/ideas) own their own editing
   // affordances and don't need a persistent composer eating vertical space.
@@ -319,7 +323,7 @@ export default function AppLayout() {
   // Sessions surface gets its own left-adjacent threads rail. Every other
   // tab owns its full width and embeds its own picker in the page body.
   const showSessionsRail =
-    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome;
+    effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome;
 
   return (
     <>

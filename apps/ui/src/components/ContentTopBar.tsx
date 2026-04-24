@@ -1,8 +1,9 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
+import BlockAvatar from "./BlockAvatar";
 import BudgetMeter from "./BudgetMeter";
 
 /**
@@ -34,13 +35,24 @@ const PRIMITIVE_WORDS: Record<string, string> = {
 export default function ContentTopBar() {
   const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
   const navigate = useNavigate();
+  const path = useLocation().pathname;
   const cost = useDaemonStore((s) => s.cost);
   const agents = useDaemonStore((s) => s.agents);
   const appMode = useAuthStore((s) => s.appMode);
+  const user = useAuthStore((s) => s.user);
+  const authMode = useAuthStore((s) => s.authMode);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
+  // User-scoped topbar: mirror the agent-topbar shape when we're on
+  // the user's own surfaces (/, /settings). Avatar + name on the left,
+  // gear button on the right. Runtime mode has no concept of a user
+  // account, so skip it there.
+  const isUserScope = !agentId && (path === "/" || path === "/settings" || path === "/profile");
+  const userSettingsActive = path === "/settings" || path === "/profile";
+  const userName =
+    user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   // The crumb is always a link once a primitive + agent are resolved —
   // from an item detail it pops back to the list, from compose mode it
   // sheds the `?compose=1` param, from the list itself the nav is a
@@ -56,6 +68,26 @@ export default function ContentTopBar() {
   return (
     <div className="content-topbar">
       <div className="content-topbar-title">
+        {isUserScope &&
+          (path === "/" ? (
+            <span className="content-topbar-agent">
+              <span className="content-topbar-agent-avatar" aria-hidden>
+                <BlockAvatar name={userName} size={18} />
+              </span>
+              <span className="content-topbar-agent-name">{userName}</span>
+            </span>
+          ) : (
+            <Link
+              to="/"
+              className="content-topbar-agent content-topbar-agent-link"
+              title="Back to your home"
+            >
+              <span className="content-topbar-agent-avatar" aria-hidden>
+                <BlockAvatar name={userName} size={18} />
+              </span>
+              <span className="content-topbar-agent-name">{userName}</span>
+            </Link>
+          ))}
         {agent &&
           (section === "sessions" ? (
             <span className="content-topbar-agent">
@@ -99,6 +131,31 @@ export default function ContentTopBar() {
             className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
             onClick={() => navigate(`/${encodeURIComponent(agent.id)}/settings`)}
             title="Agent settings — model, tools, channels"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="8" r="2" />
+              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
+            </svg>
+            Settings
+          </Button>
+        )}
+        {isUserScope && appMode === "platform" && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`topbar-settings-btn${userSettingsActive ? " active" : ""}`}
+            onClick={() => navigate("/settings")}
+            title="Your account settings"
           >
             <svg
               width="12"

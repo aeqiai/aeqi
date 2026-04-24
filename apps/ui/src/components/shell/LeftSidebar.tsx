@@ -97,11 +97,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   // layout. The nav row is always mounted; disabled state is purely visual.
   const primitivesDisabled = !agentId;
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
-  // Profile is a top-level user-scoped route — never namespaced under an
-  // agent. Keeps the URL clean on home and avoids dead-ending when no root
-  // is in scope.
-  const profileHref = "/profile";
-  const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
+  // Profile row = "you" as a scope. Clicking it lands on `/` (your
+  // home, the inbox surface); the gear in the topbar takes you to
+  // /settings. Active for both — you're "in yourself" either way,
+  // exactly the way an agent row is active across its own subtree.
+  const profileHref = "/";
+  const profileActive = path === "/" || path === "/settings" || path === "/profile";
   // Inbox is the user-scoped landing — same surface as `/`. Agent
   // pings, company switcher, summary all live here. No dedicated
   // /inbox URL; the home route IS the inbox.

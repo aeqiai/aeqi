@@ -110,7 +110,10 @@ export default function App() {
                       so react-router prefers the literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
-                    <Route path="profile" element={null} />
+                    <Route path="settings" element={null} />
+                    {/* Legacy /profile → /settings; preserved so old
+                        links (email CTAs, bookmarks) don't dead-end. */}
+                    <Route path="profile" element={<Navigate to="/settings" replace />} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />
