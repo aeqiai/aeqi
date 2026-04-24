@@ -334,17 +334,16 @@ async fn dispatch_create(
             // `SQLITE_CONSTRAINT_UNIQUE`. Look up the landed row and
             // return `skip` with its id so the caller sees a clean
             // idempotent result instead of a hard error.
-            if is_unique_constraint_error(&e) {
-                if let Ok(Some(existing_id)) = idea_store
+            if is_unique_constraint_error(&e)
+                && let Ok(Some(existing_id)) = idea_store
                     .get_active_id_by_name(&input.name, input.agent_id.as_deref())
                     .await
-                {
-                    return serde_json::json!({
-                        "ok": true,
-                        "id": existing_id,
-                        "action": "skip",
-                    });
-                }
+            {
+                return serde_json::json!({
+                    "ok": true,
+                    "id": existing_id,
+                    "action": "skip",
+                });
             }
             return serde_json::json!({"ok": false, "error": e.to_string()});
         }
@@ -371,10 +370,9 @@ fn is_unique_constraint_error(err: &anyhow::Error) -> bool {
     for cause in err.chain() {
         if let Some(rusqlite::Error::SqliteFailure(sqlite_err, _)) =
             cause.downcast_ref::<rusqlite::Error>()
+            && sqlite_err.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE
         {
-            if sqlite_err.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE {
-                return true;
-            }
+            return true;
         }
     }
     false

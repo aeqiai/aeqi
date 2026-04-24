@@ -12,6 +12,7 @@
 
 pub mod ideas_assemble;
 pub mod ideas_search;
+pub mod ideas_store;
 pub mod session_spawn;
 pub mod session_status;
 pub mod transcript_inject;
@@ -19,6 +20,7 @@ pub mod transcript_replace_middle;
 
 pub use ideas_assemble::IdeasAssembleTool;
 pub use ideas_search::IdeasSearchTool;
+pub use ideas_store::IdeasStoreTool;
 pub use session_spawn::{SessionSpawnTool, SpawnFn, SpawnRequest};
 pub use session_status::SessionStatusTool;
 pub use transcript_inject::TranscriptInjectTool;
@@ -78,7 +80,8 @@ pub fn build_runtime_registry_with_spawn_and_caps(
     };
     let tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(IdeasAssembleTool::new(idea_store.clone())),
-        Arc::new(IdeasSearchTool::new(idea_store)),
+        Arc::new(IdeasSearchTool::new(idea_store.clone())),
+        Arc::new(IdeasStoreTool::new(idea_store)),
         Arc::new(TranscriptInjectTool::new(session_store.clone())),
         Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),
@@ -90,6 +93,12 @@ pub fn build_runtime_registry_with_spawn_and_caps(
     // ideas.assemble: event-only — fetches by name and injects context.
     // Allowing the LLM to call this directly would let it inject arbitrary ideas.
     reg.set_event_only("ideas.assemble");
+
+    // ideas.store: event-only — persists consolidation / reflection results
+    // as ideas. The LLM-facing surface is the MCP `ideas(action='store')`
+    // IPC handler (full dedup + tag policies). This internal tool is a
+    // focused writer used by events like `ideas:threshold_reached`.
+    reg.set_event_only("ideas.store");
 
     // transcript.inject: event-only — adds messages directly to the transcript.
     // Allowing the LLM to call this would be a self-injection attack surface.
@@ -140,5 +149,51 @@ pub fn check_caller_allowed(
             "tool '{tool_name}' cannot be called by {:?}",
             caller
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Fix #8: ideas.store must be registered as event_only. The LLM has the
+    // MCP `ideas(action='store')` surface; the internal event-only tool is
+    // for consolidation / reflection flows. If this assertion regresses,
+    // events like `ideas:threshold_reached` will fail at fire time again.
+    #[test]
+    fn ideas_store_is_registered_event_only() {
+        let reg = build_runtime_registry(None, None);
+        assert!(
+            reg.can_call("ideas.store", CallerKind::Event),
+            "events must be able to call ideas.store"
+        );
+        assert!(
+            !reg.can_call("ideas.store", CallerKind::Llm),
+            "LLM must NOT be able to call ideas.store — use MCP ideas(action='store')"
+        );
+        assert!(
+            reg.can_call("ideas.store", CallerKind::System),
+            "system bypasses ACL"
+        );
+    }
+
+    #[test]
+    fn ideas_store_spec_exposed_to_event_editor() {
+        let specs = runtime_tool_specs();
+        let spec = specs
+            .get("ideas.store")
+            .expect("ideas.store must appear in runtime_tool_specs for event editor validation");
+        assert_eq!(spec.name, "ideas.store");
+        // Required: `name`.
+        let required = spec
+            .input_schema
+            .get("required")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            required.iter().any(|v| v.as_str() == Some("name")),
+            "ideas.store must require 'name'"
+        );
     }
 }
