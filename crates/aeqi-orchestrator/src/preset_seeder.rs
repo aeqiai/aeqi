@@ -532,6 +532,14 @@ mod tests {
             "evolve-identity",
             "manage-tools",
         ];
+        // Pack-infrastructure meta-ideas — the rulebook for future
+        // external imports. Added in β. Queried by future authors to
+        // decide how to absorb outside content.
+        const REQUIRED_PACK_INFRA: &[&str] = &[
+            "meta:content-taxonomy",
+            "meta:evaluation-criteria",
+            "meta:pack-catalog",
+        ];
 
         let (_tmp, store) = setup_store().await;
 
@@ -560,6 +568,7 @@ mod tests {
             .iter()
             .chain(REQUIRED_POLICIES.iter())
             .chain(REQUIRED_HOW_TOS.iter())
+            .chain(REQUIRED_PACK_INFRA.iter())
         {
             let seen = results.iter().any(|r| r.name == *required);
             assert!(
