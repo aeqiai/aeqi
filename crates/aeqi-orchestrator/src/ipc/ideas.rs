@@ -121,11 +121,19 @@ pub async fn handle_store_idea(
     // the dedup helper stays BM25-only for now so we don't block on
     // the embedder. Graceful fallback: if search errors, treat as "no
     // similar" (Create path).
+    //
+    // T1.1: when a tag policy declares `dedup_window_hours`, filter the
+    // candidate set to ideas created within that window. Older
+    // near-duplicates fall out of the dedup view, so the new content lands
+    // as a fresh `Create` (the desired semantics for tags like
+    // `state` or `signal:*` that re-emit on a cadence). When no policy
+    // declares a window, behaviour is byte-identical to pre-T1.1.
     let similar = find_similar_for_dedup(
         idea_store.as_ref(),
         &input.name,
         &redacted_content,
         input.agent_id.as_deref(),
+        effective.dedup_window_hours,
     )
     .await;
 
@@ -251,11 +259,16 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
 /// BM25-based similarity lookup for the dedup pipeline. Returns at most
 /// 5 candidates; absent ideas and transport errors yield an empty vec so
 /// the dispatch safely falls through to `Create`.
+///
+/// `dedup_window_hours` (T1.1): when `Some(h)`, filter results to ideas
+/// whose `created_at` is within the last `h` hours. `None` preserves the
+/// pre-T1.1 unbounded view.
 async fn find_similar_for_dedup(
     idea_store: &dyn IdeaStore,
     name: &str,
     content: &str,
     agent_id: Option<&str>,
+    dedup_window_hours: Option<i64>,
 ) -> Vec<SimilarIdea> {
     // Composite query: name keywords + first 200 chars of content.
     let snippet: String = content.chars().take(200).collect();
@@ -270,9 +283,18 @@ async fn find_similar_for_dedup(
         query = query.with_agent(aid);
     }
 
+    let cutoff: Option<chrono::DateTime<chrono::Utc>> = dedup_window_hours.and_then(|h| match h {
+        n if n > 0 => Some(chrono::Utc::now() - chrono::Duration::hours(n)),
+        _ => None,
+    });
+
     match idea_store.search(&query).await {
         Ok(hits) => hits
             .into_iter()
+            .filter(|idea| match cutoff {
+                Some(c) => idea.created_at >= c,
+                None => true,
+            })
             .map(|idea| {
                 // `Idea::score` is a BM25-ish rank here; clamp to [0, 1]
                 // for the dedup pipeline. Real similarity lives in
@@ -1672,5 +1694,194 @@ mod tests {
     fn is_unique_constraint_error_rejects_other_errors() {
         let anyhow_err: anyhow::Error = anyhow::anyhow!("some unrelated failure");
         assert!(!is_unique_constraint_error(&anyhow_err));
+    }
+
+    // ── T1.1 — `dedup_window_hours` retroactive cutoff ────────────────
+    //
+    // `find_similar_for_dedup` filters BM25 candidates to those created
+    // within `dedup_window_hours` when set. None preserves the pre-T1.1
+    // unbounded view byte-for-byte. The filter operates on
+    // `Idea::created_at` post-search, so an empty store still yields an
+    // empty similar set in either mode.
+
+    #[tokio::test]
+    async fn t1_1_dedup_window_none_returns_full_candidate_set() {
+        // Baseline: unset window → behaviour identical to the pre-T1.1
+        // path (no time filter applied to the BM25 result list).
+        use aeqi_ideas::SqliteIdeas;
+        use std::sync::Arc;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        let store: Arc<dyn aeqi_core::traits::IdeaStore> = Arc::new(store);
+        // Seed an idea with words that build a meaningful FTS query. Use
+        // single-word tokens to avoid `/` and `-` interactions inside the
+        // tokenizer.
+        store
+            .store(
+                "login flow",
+                "The login uses JWT tokens with 24 hour expiry",
+                &["fact".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Window = None → result includes the seed.
+        let similar = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            None,
+        )
+        .await;
+        assert!(
+            !similar.is_empty(),
+            "baseline (window=None) must surface the matching idea"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_dedup_window_six_hours_includes_recent_ideas() {
+        // Activation: window=6 → recent ideas (created just now) still
+        // surface in the similar set. Tests the positive path of the
+        // cutoff: ideas inside the window pass the filter.
+        use aeqi_ideas::SqliteIdeas;
+        use std::sync::Arc;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        let store: Arc<dyn aeqi_core::traits::IdeaStore> = Arc::new(store);
+        store
+            .store(
+                "login flow",
+                "The login uses JWT tokens with 24 hour expiry",
+                &["fact".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let similar = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            Some(6),
+        )
+        .await;
+        assert!(
+            !similar.is_empty(),
+            "recently-stored idea must remain in window=6"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_dedup_window_drops_pre_existing_rows_when_zero_or_negative_treated_as_none() {
+        // Negative / zero values must be tolerated and treated as "no
+        // filter" (defensive: prevents a foot-gun config from silently
+        // killing the dedup view).
+        use aeqi_ideas::SqliteIdeas;
+        use std::sync::Arc;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        let store: Arc<dyn aeqi_core::traits::IdeaStore> = Arc::new(store);
+        store
+            .store(
+                "login flow",
+                "The login uses JWT tokens with 24 hour expiry",
+                &["fact".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let negative = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            Some(-5),
+        )
+        .await;
+        assert!(
+            !negative.is_empty(),
+            "negative window must be ignored, behaviour identical to None"
+        );
+        let zero = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            Some(0),
+        )
+        .await;
+        assert!(
+            !zero.is_empty(),
+            "zero window must be ignored, behaviour identical to None"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_1_dedup_window_drops_old_rows_via_synthetic_created_at() {
+        // Activation: window=1 → an idea whose `created_at` is older than
+        // 1h ago must be filtered out. Override `created_at` directly via
+        // SQL since `store_full` stamps "now".
+        use aeqi_ideas::SqliteIdeas;
+        use std::sync::Arc;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("d.db");
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+        let store: Arc<dyn aeqi_core::traits::IdeaStore> = Arc::new(store);
+        store
+            .store(
+                "login flow",
+                "The login uses JWT tokens with 24 hour expiry",
+                &["fact".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Push the row's `created_at` 25 hours into the past. The idea is
+        // still in the FTS index (which keys on rowid, not created_at) so
+        // BM25 still finds it; only the post-search window filter should
+        // remove it.
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        let old = (chrono::Utc::now() - chrono::Duration::hours(25)).to_rfc3339();
+        conn.execute("UPDATE ideas SET created_at = ?1", rusqlite::params![old])
+            .unwrap();
+        drop(conn);
+
+        // Baseline (no window) — idea still surfaces.
+        let baseline = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            None,
+        )
+        .await;
+        assert!(
+            !baseline.is_empty(),
+            "old idea must still surface when no window is set"
+        );
+
+        // 1h window — old idea is filtered out.
+        let windowed = find_similar_for_dedup(
+            store.as_ref(),
+            "login flow",
+            "The login uses JWT tokens with 24 hour expiry",
+            None,
+            Some(1),
+        )
+        .await;
+        assert!(
+            windowed.is_empty(),
+            "1h window must drop a 25h-old row, got {windowed:?}"
+        );
     }
 }

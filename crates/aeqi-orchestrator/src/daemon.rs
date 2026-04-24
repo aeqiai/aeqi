@@ -2312,7 +2312,7 @@ pub fn build_daemon_pattern_dispatcher(
     provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
     default_model: String,
 ) -> Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>> {
-    use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_with_spawn_and_caps};
+    use crate::runtime_tools::{SpawnFn, SpawnRequest, build_runtime_registry_full};
 
     let event_store = event_handler_store?;
 
@@ -2360,7 +2360,14 @@ pub fn build_daemon_pattern_dispatcher(
         })
     });
 
-    let registry = build_runtime_registry_with_spawn_and_caps(
+    // T1.1: wire a `TagPolicyCache` so `ideas.store_many` can enforce the
+    // per-tag `max_items_per_call` blast-radius cap. The IPC-level handler
+    // owns its own cache (created in `spawn_ipc_listener`); both caches
+    // load from the same DB on stale TTL so divergence is bounded by the
+    // 60s default TTL. Sharing one cache would require lifting it onto the
+    // daemon, which is a larger surface change for no behavioural win.
+    let tag_policy_cache = aeqi_ideas::tag_policy::default_cache();
+    let registry = build_runtime_registry_full(
         idea_store.clone(),
         session_store.clone(),
         Some(dispatcher_spawn_fn),
@@ -2370,6 +2377,7 @@ pub fn build_daemon_pattern_dispatcher(
         // from recursively spawning themselves; there is no LLM involved
         // here. Grant the capability so session.spawn can actually run.
         true,
+        Some(tag_policy_cache),
     );
 
     let dispatcher = Arc::new(crate::idea_assembly::EventPatternDispatcher {

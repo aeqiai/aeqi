@@ -70,6 +70,36 @@ pub struct TagPolicy {
     /// Regex hints for `route_hint=auto` (Agent R consumes).
     #[serde(default)]
     pub signals: Vec<String>,
+    // ── Tier 1 universality dials (T1.1) ──────────────────────────────
+    //
+    // Each of these is a strictly additive optional dial. When `None`, the
+    // call site preserves its current hardcoded behaviour byte-for-byte.
+    // When `Some(_)`, the call site routes through the policy value. No
+    // baked-in opinion: the field expresses a primitive, the opinion lives
+    // in seed content that sets it.
+    /// Maximum items `ideas.store_many` is allowed to persist in a single
+    /// call against ideas carrying this tag. Acts as a per-tag blast-radius
+    /// cap on the batch writer. Items beyond the cap are refused and surface
+    /// in the response under `refused`. `None` (default) preserves the
+    /// pre-T1.1 unbounded behaviour.
+    #[serde(default)]
+    pub max_items_per_call: Option<i64>,
+    /// Override for the dedup pipeline's recency window (in hours). When set,
+    /// `handle_store_idea` filters BM25-similar candidates to those created
+    /// within this window before passing them to the dedup pipeline; ideas
+    /// created earlier are treated as "novel" and the new content is stored
+    /// fresh. `None` (default) preserves the pre-T1.1 behaviour where the
+    /// dedup pipeline considers every BM25-similar candidate regardless of
+    /// age.
+    #[serde(default)]
+    pub dedup_window_hours: Option<i64>,
+    /// Per-tag default for retrieval's supersession filter. When `Some(true)`
+    /// the search pipeline includes superseded ideas for this tag even if
+    /// the caller didn't pass `include_superseded=true`. `None` or
+    /// `Some(false)` preserves the pre-T1.1 behaviour: superseded rows are
+    /// filtered unless the query explicitly asks to include them.
+    #[serde(default)]
+    pub include_superseded_default: Option<bool>,
 }
 
 /// Consolidation threshold config embedded inside a [`TagPolicy`].
@@ -130,6 +160,9 @@ impl Default for TagPolicy {
             time_context: default_time_context(),
             consolidate_when: None,
             signals: Vec::new(),
+            max_items_per_call: None,
+            dedup_window_hours: None,
+            include_superseded_default: None,
         }
     }
 }
@@ -321,6 +354,18 @@ pub struct EffectivePolicy {
     pub expires_after_days: Option<f32>,
     pub time_context: String,
     pub consolidate_when: Option<(String, ConsolidationTrigger)>,
+    // ── Tier 1 universality dials (T1.1) ──────────────────────────────
+    /// Tightest per-tag blast-radius cap among the merged policies. The
+    /// minimum wins so a single restrictive tag bounds the whole batch.
+    /// `None` means no policy declared a cap.
+    pub max_items_per_call: Option<i64>,
+    /// Tightest per-tag dedup window among the merged policies. The minimum
+    /// wins so a tag that wants a stricter window narrows the dedup view
+    /// for everyone. `None` means no policy declared a window.
+    pub dedup_window_hours: Option<i64>,
+    /// Whether retrieval should include superseded rows by default for
+    /// this set of tags. Any policy opting in flips this on.
+    pub include_superseded_default: bool,
 }
 
 impl Default for EffectivePolicy {
@@ -330,6 +375,9 @@ impl Default for EffectivePolicy {
             expires_after_days: None,
             time_context: default_time_context(),
             consolidate_when: None,
+            max_items_per_call: None,
+            dedup_window_hours: None,
+            include_superseded_default: false,
         }
     }
 }
@@ -348,6 +396,9 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         expires_after_days: None,
         time_context: default_time_context(),
         consolidate_when: None,
+        max_items_per_call: None,
+        dedup_window_hours: None,
+        include_superseded_default: false,
     };
     let mut saw_non_default_time = false;
 
@@ -372,6 +423,29 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
             && let Some(ref trigger) = policy.consolidate_when
         {
             effective.consolidate_when = Some((policy.tag.clone(), trigger.clone()));
+        }
+
+        // Tier 1 dials — each merge rule mirrors the conservative direction
+        // the existing fields use:
+        //   `max_items_per_call` → min wins so the tightest cap binds.
+        //   `dedup_window_hours` → min wins so the strictest window binds.
+        //   `include_superseded_default` → OR-merge: any opt-in surfaces
+        //   superseded rows for the whole tag set (additive surface; zero
+        //   change unless someone explicitly asks).
+        effective.max_items_per_call =
+            match (effective.max_items_per_call, policy.max_items_per_call) {
+                (None, x) => x,
+                (x, None) => x,
+                (Some(a), Some(b)) => Some(a.min(b)),
+            };
+        effective.dedup_window_hours =
+            match (effective.dedup_window_hours, policy.dedup_window_hours) {
+                (None, x) => x,
+                (x, None) => x,
+                (Some(a), Some(b)) => Some(a.min(b)),
+            };
+        if policy.include_superseded_default == Some(true) {
+            effective.include_superseded_default = true;
         }
     }
 
@@ -472,6 +546,139 @@ mod tests {
         let (tag, trigger) = eff.consolidate_when.expect("first trigger kept");
         assert_eq!(tag, "a");
         assert_eq!(trigger.count, 5);
+    }
+
+    // ── T1.1 dial tests ────────────────────────────────────────────────
+
+    #[test]
+    fn t1_1_baseline_unset_fields_default_to_none() {
+        // Neutral-dial invariant 2: a policy that doesn't set any of the
+        // T1.1 fields preserves the pre-T1.1 surface — every dial is None.
+        let body = r#"
+            tag = "fact"
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+    }
+
+    #[test]
+    fn t1_1_max_items_per_call_round_trips_alone() {
+        // Independent activation: only this dial set.
+        let body = r#"
+            tag = "ephemeral"
+            max_items_per_call = 3
+        "#;
+        let policy = TagPolicy::from_toml(body, "ephemeral").unwrap();
+        assert_eq!(policy.max_items_per_call, Some(3));
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+    }
+
+    #[test]
+    fn t1_1_dedup_window_hours_round_trips_alone() {
+        let body = r#"
+            tag = "session"
+            dedup_window_hours = 6
+        "#;
+        let policy = TagPolicy::from_toml(body, "session").unwrap();
+        assert_eq!(policy.dedup_window_hours, Some(6));
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.include_superseded_default.is_none());
+    }
+
+    #[test]
+    fn t1_1_include_superseded_default_round_trips_alone() {
+        let body = r#"
+            tag = "history"
+            include_superseded_default = true
+        "#;
+        let policy = TagPolicy::from_toml(body, "history").unwrap();
+        assert_eq!(policy.include_superseded_default, Some(true));
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+    }
+
+    #[test]
+    fn t1_1_unknown_fields_dont_crash_deserialization() {
+        // Neutral-dial invariant 4: unknown TOML fields (including future
+        // T1.x dials authored by ahead-of-runtime seeds) must be tolerated.
+        let body = r#"
+            tag = "future"
+            curriculum_level = "expert"
+            mystery_dial = 42
+            [unknown_table]
+            anything = "goes"
+        "#;
+        let policy = TagPolicy::from_toml(body, "future").unwrap();
+        assert_eq!(policy.tag, "future");
+    }
+
+    #[test]
+    fn t1_1_merge_policies_takes_min_max_items_per_call() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            max_items_per_call: Some(10),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            max_items_per_call: Some(3),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.max_items_per_call, Some(3));
+    }
+
+    #[test]
+    fn t1_1_merge_policies_min_dedup_window_hours() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            dedup_window_hours: Some(48),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            dedup_window_hours: Some(6),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.dedup_window_hours, Some(6));
+    }
+
+    #[test]
+    fn t1_1_merge_policies_or_includes_superseded_default() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            include_superseded_default: Some(false),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            include_superseded_default: Some(true),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.include_superseded_default);
+    }
+
+    #[test]
+    fn t1_1_merge_policies_no_dials_set_keeps_neutral_effective() {
+        // Baseline preservation: the effective policy is byte-identical to
+        // an EffectivePolicy::default() when nobody opts in.
+        let a = TagPolicy {
+            tag: "a".into(),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.max_items_per_call.is_none());
+        assert!(eff.dedup_window_hours.is_none());
+        assert!(!eff.include_superseded_default);
     }
 
     #[test]
