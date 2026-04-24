@@ -1,82 +1,91 @@
-//! Migration regression tests.
+//! Schema regression tests.
 //!
-//! Simulates an old (pre-v2) aeqi.db by manually constructing the v1-era
-//! schema, inserting rows with the old shape, and then opening the file
-//! through `SqliteIdeas::open`. The migration runner should bring the DB
-//! up to v7 without losing data and with the correct defaults applied.
+//! The old v1..v9 incremental migration chain was collapsed into a single
+//! `initial_schema` baseline on 2026-04-24 (R5 Migration Collapse). These
+//! tests protect three scenarios:
+//!
+//! * Fresh DB: `initial_schema` runs once, DB is stamped at `schema_version=10`.
+//! * Legacy DB still at a pre-v8 version (the real production state at
+//!   collapse time): v8 (partial unique index) and v9 (default-tag backfill)
+//!   still catch up incrementally, without touching the rest of the schema.
+//! * Legacy DB already at v9: a pure no-op.
+//! * Opening the same DB twice: no-op.
+//!
+//! The tests that used to simulate a pre-v2 DB and watch the migration runner
+//! reshape it are gone — that code path (v1..v7) no longer exists.
+//!
+//! NOTE: the legacy v3 migration silently cascade-wiped `idea_tags` on
+//! upgrade. That class of bug can't reappear in `initial_schema` (no
+//! rename-swap).
 
 use aeqi_ideas::SqliteIdeas;
 use rusqlite::Connection;
 use tempfile::TempDir;
 
-/// Create a minimal v1-era schema by hand — no lifecycle columns, no
-/// bi-temporal columns, no feedback/access log tables. Matches what a
-/// pre-migration aeqi.db actually looked like.
-fn seed_v1_schema(conn: &Connection) {
-    conn.execute_batch(
-        "CREATE TABLE ideas (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            content TEXT NOT NULL,
-            scope TEXT NOT NULL DEFAULT 'domain',
-            agent_id TEXT,
-            session_id TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT,
-            expires_at TEXT,
-            inheritance TEXT NOT NULL DEFAULT 'self',
-            tool_allow TEXT NOT NULL DEFAULT '[]',
-            tool_deny TEXT NOT NULL DEFAULT '[]',
-            content_hash TEXT,
-            source_kind TEXT,
-            source_ref TEXT,
-            managed INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE TABLE idea_tags (
-            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-            tag TEXT NOT NULL,
-            PRIMARY KEY (idea_id, tag)
-        );
-        CREATE TABLE idea_embeddings (
-            idea_id TEXT PRIMARY KEY REFERENCES ideas(id) ON DELETE CASCADE,
-            embedding BLOB NOT NULL,
-            dimensions INTEGER NOT NULL,
-            content_hash TEXT
-        );
-        CREATE TABLE idea_edges (
-            source_id TEXT NOT NULL,
-            target_id TEXT NOT NULL,
-            relation TEXT NOT NULL,
-            strength REAL NOT NULL DEFAULT 0.5,
-            agent TEXT,
-            task_id TEXT,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (source_id, target_id, relation)
-        );
-        CREATE VIRTUAL TABLE ideas_fts USING fts5(
-            name, content, content=ideas, content_rowid=rowid
-        );
-        CREATE TRIGGER ideas_ai AFTER INSERT ON ideas BEGIN
-            INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-        END;
-        CREATE TRIGGER ideas_ad AFTER DELETE ON ideas BEGIN
-            INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-        END;
-        CREATE TRIGGER ideas_au AFTER UPDATE ON ideas BEGIN
-            INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-            INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-        END;",
-    )
-    .expect("seed v1 schema");
-}
+/// All columns the post-v9 `ideas` table must carry.
+const REQUIRED_IDEAS_COLUMNS: &[&str] = &[
+    "id",
+    "name",
+    "content",
+    "scope",
+    "agent_id",
+    "session_id",
+    "created_at",
+    "updated_at",
+    "expires_at",
+    "content_hash",
+    "status",
+    "access_count",
+    "last_accessed",
+    "authored_by",
+    "confidence",
+    "verified_by",
+    "verified_at",
+    "last_feedback_at",
+    "feedback_boost",
+    "embedding_pending",
+    "valid_from",
+    "valid_until",
+    "time_context",
+];
 
-fn insert_v1_row(conn: &Connection, id: &str, name: &str, content: &str, created_at: &str) {
-    conn.execute(
-        "INSERT INTO ideas (id, name, content, created_at) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![id, name, content, created_at],
-    )
-    .expect("insert v1 row");
-}
+/// Columns that were dropped by v3 — must NOT appear in the final shape.
+const DROPPED_IDEAS_COLUMNS: &[&str] = &[
+    "inheritance",
+    "tool_allow",
+    "tool_deny",
+    "managed",
+    "source_kind",
+    "source_ref",
+];
+
+/// Every index the baseline creates on `ideas` / `idea_edges` / `idea_tags` /
+/// log/feedback tables.
+const REQUIRED_INDEXES: &[&str] = &[
+    "idx_ideas_name",
+    "idx_ideas_created",
+    "idx_ideas_agent_id",
+    "idx_ideas_expires",
+    "idx_ideas_content_hash",
+    "idx_ideas_status",
+    "idx_ideas_last_accessed",
+    "idx_ideas_embedding_pending",
+    "idx_ideas_valid_from",
+    "idx_ideas_valid_until",
+    "idx_ideas_time_context",
+    "idx_ideas_agent_name_active_unique",
+    "idx_idea_tags_tag",
+    "idx_idea_edges_source",
+    "idx_idea_edges_target",
+    "idx_idea_edges_relation",
+    "idx_idea_edges_reinforced",
+    "idx_access_log_idea",
+    "idx_access_log_query",
+    "idx_feedback_idea",
+];
+
+/// Every FTS5 sync trigger on `ideas`.
+const REQUIRED_FTS_TRIGGERS: &[&str] = &["ideas_ai", "ideas_ad", "ideas_au"];
 
 fn columns_on(conn: &Connection, table: &str) -> Vec<String> {
     let mut stmt = conn
@@ -88,46 +97,135 @@ fn columns_on(conn: &Connection, table: &str) -> Vec<String> {
         .collect()
 }
 
+fn index_names(conn: &Connection) -> Vec<String> {
+    conn.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'")
+        .expect("prepare idx list")
+        .query_map([], |r| r.get::<_, String>(0))
+        .expect("run idx list")
+        .filter_map(Result::ok)
+        .collect()
+}
+
+fn trigger_names(conn: &Connection, tbl_name: &str) -> Vec<String> {
+    conn.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name = ?1")
+        .expect("prepare trigger list")
+        .query_map(rusqlite::params![tbl_name], |r| r.get::<_, String>(0))
+        .expect("run trigger list")
+        .filter_map(Result::ok)
+        .collect()
+}
+
+fn table_exists(conn: &Connection, name: &str) -> bool {
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?1",
+            rusqlite::params![name],
+            |r| r.get(0),
+        )
+        .expect("check table");
+    count == 1
+}
+
+/// Build the final-shape schema by hand for legacy-DB simulation. Matches
+/// `initial_schema` minus the v8 partial unique index (which is applied
+/// conditionally by the legacy tests that simulate pre-v8 state).
+fn build_post_v7_shape(conn: &Connection) {
+    conn.execute_batch(
+        "CREATE TABLE schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        );
+        CREATE TABLE ideas (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            content TEXT NOT NULL,
+            scope TEXT NOT NULL DEFAULT 'self',
+            agent_id TEXT,
+            session_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            expires_at TEXT,
+            content_hash TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            access_count INTEGER NOT NULL DEFAULT 0,
+            last_accessed TEXT,
+            authored_by TEXT,
+            confidence REAL NOT NULL DEFAULT 1.0,
+            verified_by TEXT,
+            verified_at TEXT,
+            last_feedback_at TEXT,
+            feedback_boost REAL NOT NULL DEFAULT 0,
+            embedding_pending INTEGER NOT NULL DEFAULT 1,
+            valid_from TEXT,
+            valid_until TEXT,
+            time_context TEXT NOT NULL DEFAULT 'timeless'
+        );
+        CREATE TABLE idea_tags (
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL,
+            PRIMARY KEY (idea_id, tag)
+        );
+        CREATE TABLE idea_edges (
+            source_id TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            relation TEXT NOT NULL,
+            strength REAL NOT NULL DEFAULT 0.5,
+            agent TEXT,
+            task_id TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_reinforced_at TEXT,
+            PRIMARY KEY (source_id, target_id, relation)
+        );
+        CREATE TABLE idea_embeddings (
+            idea_id TEXT PRIMARY KEY REFERENCES ideas(id) ON DELETE CASCADE,
+            embedding BLOB NOT NULL,
+            dimensions INTEGER NOT NULL,
+            content_hash TEXT
+        );
+        CREATE TABLE idea_access_log (
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            agent_id TEXT,
+            session_id TEXT,
+            context TEXT NOT NULL,
+            result_position INTEGER,
+            query_hash TEXT
+        );
+        CREATE TABLE idea_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            signal TEXT NOT NULL,
+            weight REAL NOT NULL DEFAULT 1.0,
+            at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            agent_id TEXT,
+            session_id TEXT,
+            query_text TEXT,
+            note TEXT
+        );
+        CREATE INDEX idx_ideas_name ON ideas(name);
+        CREATE INDEX idx_ideas_agent_id ON ideas(agent_id);
+        CREATE VIRTUAL TABLE ideas_fts USING fts5(
+            name, content, content=ideas, content_rowid=rowid
+        );
+        CREATE TRIGGER ideas_ai AFTER INSERT ON ideas BEGIN
+            INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
+        END;",
+    )
+    .expect("build post-v7 shape");
+}
+
+/// Fresh DB gets the full post-v9 shape directly from `initial_schema`,
+/// stamped at `schema_version = 10` (the "baseline reached" marker).
 #[test]
-fn test_migrations_preserve_rows_and_apply_defaults() {
+fn test_fresh_db_has_final_shape() {
     let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("legacy.db");
+    let db_path = dir.path().join("fresh.db");
 
-    // 1. Manually build the v1-era schema and insert three test rows with
-    //    the old shape (no status, access_count, valid_from, etc.).
-    {
-        let conn = Connection::open(&db_path).expect("open legacy db");
-        seed_v1_schema(&conn);
-        insert_v1_row(
-            &conn,
-            "idea-a",
-            "alpha-note",
-            "alpha body",
-            "2024-01-01T00:00:00Z",
-        );
-        insert_v1_row(
-            &conn,
-            "idea-b",
-            "beta-note",
-            "beta body",
-            "2024-06-15T12:30:00Z",
-        );
-        insert_v1_row(
-            &conn,
-            "idea-c",
-            "gamma-note",
-            "gamma body",
-            "2025-11-09T08:45:00Z",
-        );
-    }
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("fresh open");
 
-    // 2. Open through `SqliteIdeas::open` — this runs the migration runner.
-    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open + migrate");
-
-    // 3. Re-open a raw connection to inspect the rebuilt schema directly.
     let conn = Connection::open(&db_path).expect("inspect db");
 
-    // 3a. Schema version tracks all applied migrations.
+    // 1. schema_version is stamped at 10 — the baseline marker.
     let max_version: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -135,199 +233,255 @@ fn test_migrations_preserve_rows_and_apply_defaults() {
             |r| r.get(0),
         )
         .expect("read schema_version");
-    assert!(
-        max_version >= 7,
-        "expected schema_version >= 7 after migrate, got {max_version}"
+    assert_eq!(
+        max_version, 10,
+        "fresh DB should be stamped at baseline version 10, got {max_version}"
     );
 
-    // 3b. Old columns are dropped. Check `PRAGMA table_info`.
+    // 2. ideas has every required column.
     let cols = columns_on(&conn, "ideas");
-    for gone in &[
-        "inheritance",
-        "tool_allow",
-        "tool_deny",
-        "managed",
-        "source_kind",
-        "source_ref",
-    ] {
+    for required in REQUIRED_IDEAS_COLUMNS {
+        assert!(
+            cols.iter().any(|c| c == required),
+            "column {required} missing on fresh DB; got {cols:?}"
+        );
+    }
+
+    // 3. No ghosts from the v3 drop.
+    for gone in DROPPED_IDEAS_COLUMNS {
         assert!(
             !cols.iter().any(|c| c == gone),
-            "column {gone} should be dropped after v3 migration"
+            "column {gone} should never appear in baseline"
         );
     }
 
-    // 3c. New columns exist with correct defaults.
-    for must_have in &[
-        "status",
-        "access_count",
-        "last_accessed",
-        "authored_by",
-        "confidence",
-        "verified_by",
-        "verified_at",
-        "last_feedback_at",
-        "feedback_boost",
-        "embedding_pending",
-        "valid_from",
-        "valid_until",
-        "time_context",
+    // 4. Every auxiliary table exists.
+    for tbl in &[
+        "idea_tags",
+        "idea_edges",
+        "idea_embeddings",
+        "idea_access_log",
+        "idea_feedback",
+        "schema_version",
     ] {
-        assert!(
-            cols.iter().any(|c| c == must_have),
-            "column {must_have} should exist after migrations"
-        );
+        assert!(table_exists(&conn, tbl), "table {tbl} should exist");
     }
 
-    // 3d. Row survival + correct defaults. Fetch each row and assert.
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, name, content, status, access_count, confidence, embedding_pending, \
-                    valid_from, time_context, created_at \
-             FROM ideas ORDER BY id",
-        )
-        .expect("prepare inspect");
-    type MigratedRow = (
-        String,
-        String,
-        String,
-        String,
-        i64,
-        f64,
-        i64,
-        Option<String>,
-        String,
-        String,
-    );
-    let rows: Vec<MigratedRow> = stmt
-        .query_map([], |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get(3)?,
-                r.get(4)?,
-                r.get(5)?,
-                r.get(6)?,
-                r.get(7)?,
-                r.get(8)?,
-                r.get(9)?,
-            ))
-        })
-        .expect("query")
-        .filter_map(Result::ok)
-        .collect();
-
-    assert_eq!(rows.len(), 3, "all three pre-migration rows must survive");
-
-    for (
-        id,
-        _name,
-        _content,
-        status,
-        access_count,
-        confidence,
-        embedding_pending,
-        valid_from,
-        time_context,
-        created_at,
-    ) in &rows
-    {
-        assert_eq!(
-            status, "active",
-            "row {id}: status should default to 'active'"
-        );
-        assert_eq!(
-            *access_count, 0,
-            "row {id}: access_count should default to 0"
-        );
-        assert!(
-            (*confidence - 1.0).abs() < f64::EPSILON,
-            "row {id}: confidence should default to 1.0 (got {confidence})"
-        );
-        assert_eq!(
-            *embedding_pending, 1,
-            "row {id}: embedding_pending should default to 1 (no embedding yet)"
-        );
-        assert_eq!(
-            time_context, "timeless",
-            "row {id}: time_context should default to 'timeless'"
-        );
-        // v6 backfill: valid_from = created_at for rows migrated from v1.
-        assert_eq!(
-            valid_from.as_deref(),
-            Some(created_at.as_str()),
-            "row {id}: valid_from should be backfilled from created_at"
-        );
-    }
-
-    // 3e. New tables exist.
-    for table in &["idea_access_log", "idea_feedback", "schema_version"] {
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?1",
-                rusqlite::params![table],
-                |r| r.get(0),
-            )
-            .expect("check table existence");
-        assert_eq!(count, 1, "table {table} should exist post-migration");
-    }
-
-    // 3f. FTS triggers were recreated against the rebuilt `ideas` table.
-    let triggers: Vec<String> = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='ideas'")
-        .expect("prepare triggers")
-        .query_map([], |r| r.get::<_, String>(0))
-        .expect("run triggers")
-        .filter_map(Result::ok)
-        .collect();
-    for expected in &["ideas_ai", "ideas_ad", "ideas_au"] {
-        assert!(
-            triggers.contains(&expected.to_string()),
-            "FTS trigger {expected} should exist after v3 rename-swap"
-        );
-    }
-
-    // 3g. FTS table should be searchable — the rebuild in v3 should have
-    //     re-populated it with the new rowids.
-    let fts_hits: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM ideas_fts WHERE ideas_fts MATCH 'alpha'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("fts search");
+    // 5. FTS5 virtual table exists.
     assert!(
-        fts_hits >= 1,
-        "FTS should return the 'alpha' row after v3 rebuild"
+        table_exists(&conn, "ideas_fts"),
+        "FTS table ideas_fts should exist"
+    );
+
+    // 6. Every index from the legacy chain is present.
+    let indexes = index_names(&conn);
+    for required in REQUIRED_INDEXES {
+        assert!(
+            indexes.iter().any(|i| i == required),
+            "index {required} missing on fresh DB; got {indexes:?}"
+        );
+    }
+
+    // 7. FTS triggers wired.
+    let triggers = trigger_names(&conn, "ideas");
+    for required in REQUIRED_FTS_TRIGGERS {
+        assert!(
+            triggers.iter().any(|t| t == required),
+            "trigger {required} missing on fresh DB; got {triggers:?}"
+        );
+    }
+
+    // 8. `idea_edges.last_reinforced_at` column exists — v4's addition.
+    let edge_cols = columns_on(&conn, "idea_edges");
+    assert!(
+        edge_cols.iter().any(|c| c == "last_reinforced_at"),
+        "idea_edges.last_reinforced_at column missing; got {edge_cols:?}"
     );
 }
 
+/// A DB at `schema_version=7` — the state the production DB was in at
+/// collapse time. It has the full post-v7 shape (all columns, all tables)
+/// but never ran the partial unique index (v8) or the default-tag backfill
+/// (v9). The collapsed runner must catch both up incrementally without
+/// running `initial_schema` (which would explode on duplicate CREATE TABLE
+/// statements against the pre-existing schema).
 #[test]
-fn test_migrations_are_idempotent() {
+fn test_legacy_db_at_v7_catches_up_v8_and_v9() {
     let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("legacy.db");
+    let db_path = dir.path().join("legacy-v7.db");
 
     {
-        let conn = Connection::open(&db_path).expect("open legacy db");
-        seed_v1_schema(&conn);
-        insert_v1_row(
-            &conn,
-            "idea-idem",
-            "idem-note",
-            "idem body",
-            "2024-01-01T00:00:00Z",
-        );
+        let conn = Connection::open(&db_path).expect("open legacy");
+        build_post_v7_shape(&conn);
+
+        for v in 1..=7 {
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![v, "2026-04-20T00:00:00Z"],
+            )
+            .expect("stamp version");
+        }
+
+        // Two untagged ideas — v9 should tag both with 'fact'.
+        conn.execute(
+            "INSERT INTO ideas (id, name, content, created_at) VALUES \
+                ('untagged-a', 'u-a', 'a', '2024-01-01T00:00:00Z'), \
+                ('untagged-b', 'u-b', 'b', '2024-01-02T00:00:00Z')",
+            [],
+        )
+        .expect("seed untagged");
     }
 
-    // First migrate.
+    // Open through the new runner. v8 and v9 should run; v10 must NOT be
+    // stamped (initial_schema doesn't run on non-fresh DBs).
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open legacy v7");
+
+    let conn = Connection::open(&db_path).expect("reinspect");
+
+    let versions: Vec<i64> = conn
+        .prepare("SELECT version FROM schema_version ORDER BY version")
+        .expect("prepare")
+        .query_map([], |r| r.get::<_, i64>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert_eq!(
+        versions,
+        (1..=9).collect::<Vec<_>>(),
+        "v8 and v9 must have been applied; v10 must NOT be stamped on legacy"
+    );
+
+    // v8's unique index exists now.
+    let indexes = index_names(&conn);
+    assert!(
+        indexes.contains(&"idx_ideas_agent_name_active_unique".to_string()),
+        "v8 partial unique index missing after catch-up; got {indexes:?}"
+    );
+
+    // v9 backfilled tags for both untagged rows.
+    let tagged_ids: Vec<String> = conn
+        .prepare("SELECT idea_id FROM idea_tags WHERE tag = 'fact' ORDER BY idea_id")
+        .expect("prepare")
+        .query_map([], |r| r.get::<_, String>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert_eq!(
+        tagged_ids,
+        vec!["untagged-a".to_string(), "untagged-b".to_string()],
+        "v9 must backfill a 'fact' tag for every untagged idea"
+    );
+
+    // Re-opening is still a no-op on the now-caught-up DB.
+    drop(_ideas);
+    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
+    drop(_second);
+    let tag_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM idea_tags", [], |r| r.get(0))
+        .expect("count");
+    assert_eq!(tag_count, 2, "re-open must not duplicate backfilled tags");
+}
+
+/// A DB that was migrated by the full legacy v1..v9 chain carries
+/// `schema_version` rows 1..9. Opening it through the new runner must be a
+/// pure no-op: no re-running of CREATE TABLE (which would error), no extra
+/// schema_version rows, no data loss.
+#[test]
+fn test_legacy_db_with_schema_version_9_is_noop() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("legacy-v9.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open legacy");
+        build_post_v7_shape(&conn);
+        // v8 index was applied in this scenario.
+        conn.execute_batch(
+            "CREATE UNIQUE INDEX idx_ideas_agent_name_active_unique
+                ON ideas(COALESCE(agent_id, ''), name)
+                WHERE status = 'active';",
+        )
+        .expect("add v8 index");
+
+        for v in 1..=9 {
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![v, "2026-04-20T00:00:00Z"],
+            )
+            .expect("stamp version");
+        }
+
+        conn.execute(
+            "INSERT INTO ideas (id, name, content, created_at) VALUES \
+                ('legacy-a', 'legacy-a', 'body a', '2024-01-01T00:00:00Z'), \
+                ('legacy-b', 'legacy-b', 'body b', '2024-01-02T00:00:00Z')",
+            [],
+        )
+        .expect("seed ideas");
+        conn.execute(
+            "INSERT INTO idea_tags (idea_id, tag) VALUES ('legacy-a', 'fact'), ('legacy-b', 'user-tag')",
+            [],
+        )
+        .expect("seed tags");
+    }
+
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open legacy v9 db");
+
+    let conn = Connection::open(&db_path).expect("reinspect");
+
+    let versions: Vec<i64> = conn
+        .prepare("SELECT version FROM schema_version ORDER BY version")
+        .expect("prepare")
+        .query_map([], |r| r.get::<_, i64>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert_eq!(
+        versions,
+        (1..=9).collect::<Vec<_>>(),
+        "legacy 1..9 rows must be preserved, nothing appended"
+    );
+
+    let idea_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM ideas", [], |r| r.get(0))
+        .expect("count ideas");
+    assert_eq!(idea_count, 2, "seeded ideas must survive");
+
+    let tag_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM idea_tags", [], |r| r.get(0))
+        .expect("count tags");
+    assert_eq!(tag_count, 2, "seeded tags must survive");
+
+    let cols = columns_on(&conn, "ideas");
+    for required in REQUIRED_IDEAS_COLUMNS {
+        assert!(
+            cols.iter().any(|c| c == required),
+            "column {required} missing on legacy DB post-open"
+        );
+    }
+}
+
+/// Opening the same fresh DB twice is a no-op: the first open stamps
+/// version 10, the second sees current >= 10 and skips. No errors, no
+/// duplicate rows.
+#[test]
+fn test_open_is_idempotent() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("idem.db");
+
     let _a = SqliteIdeas::open(&db_path, 30.0).expect("first open");
     drop(_a);
-
-    // Second open — should be a no-op, no errors, no duplicate version rows.
     let _b = SqliteIdeas::open(&db_path, 30.0).expect("second open");
     drop(_b);
 
     let conn = Connection::open(&db_path).expect("inspect");
+    let total_rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
+        .expect("count");
+    assert_eq!(
+        total_rows, 1,
+        "idempotent re-open must not stamp schema_version twice"
+    );
+
     let distinct_versions: i64 = conn
         .query_row(
             "SELECT COUNT(DISTINCT version) FROM schema_version",
@@ -335,221 +489,8 @@ fn test_migrations_are_idempotent() {
             |r| r.get(0),
         )
         .expect("count distinct");
-    let total_rows: i64 = conn
-        .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
-        .expect("count total");
     assert_eq!(
         distinct_versions, total_rows,
-        "no migration should be recorded more than once"
-    );
-
-    // Row still exists.
-    let ideas_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM ideas", [], |r| r.get(0))
-        .expect("count ideas");
-    assert_eq!(ideas_count, 1, "idempotent re-open must not duplicate rows");
-}
-
-#[test]
-fn test_fresh_db_gets_full_schema() {
-    // Opening a fresh DB with no pre-existing schema should still apply all
-    // migrations cleanly — not just DBs that had legacy rows.
-    let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("fresh.db");
-
-    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("fresh open");
-
-    let conn = Connection::open(&db_path).expect("inspect");
-    let max_version: i64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-            [],
-            |r| r.get(0),
-        )
-        .expect("schema_version");
-    assert!(
-        max_version >= 7,
-        "fresh DB should reach schema_version >= 7, got {max_version}"
-    );
-
-    let cols = columns_on(&conn, "ideas");
-    for must_have in &[
-        "status",
-        "access_count",
-        "valid_from",
-        "time_context",
-        "embedding_pending",
-    ] {
-        assert!(
-            cols.iter().any(|c| c == must_have),
-            "column {must_have} missing on fresh DB"
-        );
-    }
-}
-
-/// v9 — every pre-existing idea that lacks a row in `idea_tags` should
-/// receive the default `fact` tag after the migration runs. Mirrors the
-/// live-DB state investigated on 2026-04-24: 333 ideas, 0 tag rows.
-///
-/// Root cause of the 0-tag state: the v3 migration does `DROP TABLE ideas`
-/// before recreating it, which cascades through the
-/// `idea_tags(idea_id) REFERENCES ideas(id) ON DELETE CASCADE` foreign key
-/// and deletes every tag row on upgrade. v9 restores the invariant that
-/// every idea has at least one tag (`normalize_tags` default = `fact`).
-#[test]
-fn test_migration_v9_backfills_default_tag_for_untagged_ideas() {
-    let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("untagged.db");
-
-    // Hand-build the v1 schema and insert rows without touching idea_tags —
-    // mirroring the observed production state after v3 cascade-wiped tags.
-    {
-        let conn = Connection::open(&db_path).expect("open legacy db");
-        seed_v1_schema(&conn);
-        insert_v1_row(
-            &conn,
-            "untagged-a",
-            "alpha",
-            "alpha body",
-            "2024-01-01T00:00:00Z",
-        );
-        insert_v1_row(
-            &conn,
-            "untagged-b",
-            "beta",
-            "beta body",
-            "2024-06-15T12:30:00Z",
-        );
-        insert_v1_row(
-            &conn,
-            "untagged-c",
-            "gamma",
-            "gamma body",
-            "2025-03-01T00:00:00Z",
-        );
-    }
-
-    // Run migrations.
-    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open + migrate");
-
-    let conn = Connection::open(&db_path).expect("inspect db");
-
-    let max_version: i64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-            [],
-            |r| r.get(0),
-        )
-        .expect("read schema_version");
-    assert!(
-        max_version >= 9,
-        "expected schema_version >= 9 after v9 migration, got {max_version}"
-    );
-
-    // Every idea now has at least one tag row.
-    let untagged: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM ideas i \
-             LEFT JOIN idea_tags t ON t.idea_id = i.id \
-             WHERE t.idea_id IS NULL",
-            [],
-            |r| r.get(0),
-        )
-        .expect("count untagged");
-    assert_eq!(untagged, 0, "v9 must backfill every untagged idea");
-
-    // Every previously-untagged row got the default `fact` tag.
-    for id in &["untagged-a", "untagged-b", "untagged-c"] {
-        let tag: String = conn
-            .query_row(
-                "SELECT tag FROM idea_tags WHERE idea_id = ?1",
-                rusqlite::params![id],
-                |r| r.get(0),
-            )
-            .expect("read backfilled tag");
-        assert_eq!(tag, "fact", "row {id}: expected default 'fact' tag");
-    }
-}
-
-/// v9 must NOT clobber ideas that already have tags. We simulate this by
-/// running the migrations once, manually adding a user tag to an idea that
-/// has only 'fact', then re-running migrations — the user tag survives,
-/// and v9 doesn't add a second 'fact' row.
-#[test]
-fn test_migration_v9_does_not_duplicate_existing_tags() {
-    let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("preserve-tags.db");
-
-    {
-        let conn = Connection::open(&db_path).expect("open legacy db");
-        seed_v1_schema(&conn);
-        insert_v1_row(&conn, "keep", "keep", "body", "2024-01-01T00:00:00Z");
-    }
-
-    // First migration pass — backfills 'fact'.
-    let _first = SqliteIdeas::open(&db_path, 30.0).expect("first open");
-    drop(_first);
-
-    // Simulate a user tagging this idea with something custom.
-    {
-        let conn = Connection::open(&db_path).expect("second raw open");
-        conn.execute(
-            "INSERT INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
-            rusqlite::params!["keep", "user-tag"],
-        )
-        .expect("insert user tag");
-    }
-
-    // Re-open — v9 is already applied per schema_version, so it should be a
-    // no-op. Even hypothetically, the guarded WHERE clause prevents
-    // double-inserts.
-    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
-    drop(_second);
-
-    let conn = Connection::open(&db_path).expect("inspect");
-    let mut stmt = conn
-        .prepare("SELECT tag FROM idea_tags WHERE idea_id = 'keep' ORDER BY tag")
-        .expect("prepare");
-    let tags: Vec<String> = stmt
-        .query_map([], |r| r.get::<_, String>(0))
-        .expect("query")
-        .filter_map(Result::ok)
-        .collect();
-    assert_eq!(
-        tags,
-        vec!["fact".to_string(), "user-tag".to_string()],
-        "both the backfilled 'fact' tag and the user-added 'user-tag' must coexist"
-    );
-}
-
-/// v9 is idempotent — re-running the migration runner (simulated by a
-/// second `SqliteIdeas::open`) must not duplicate tag rows.
-#[test]
-fn test_migration_v9_is_idempotent() {
-    let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("v9-idem.db");
-
-    {
-        let conn = Connection::open(&db_path).expect("open legacy db");
-        seed_v1_schema(&conn);
-        insert_v1_row(&conn, "id-x", "x", "x body", "2024-01-01T00:00:00Z");
-    }
-
-    let _first = SqliteIdeas::open(&db_path, 30.0).expect("first open");
-    drop(_first);
-    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
-    drop(_second);
-
-    let conn = Connection::open(&db_path).expect("inspect");
-    let tag_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM idea_tags WHERE idea_id = 'id-x'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("count tags");
-    assert_eq!(
-        tag_count, 1,
-        "v9 must be idempotent: re-running cannot duplicate the default tag row"
+        "every schema_version row must be unique"
     );
 }
