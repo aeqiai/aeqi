@@ -8,7 +8,7 @@ pub mod storage;
 
 pub use analysis::community::{Community, detect_communities};
 pub use analysis::process::{Process, ProcessType, detect_processes};
-pub use analysis::synthesis::{SynthesizedPrompt, synthesize_prompt};
+pub use analysis::synthesis::{GraphSummary, synthesize_summary};
 pub use extract::{SymbolTable, TypeEnv, build_type_env_rust, resolve_graph};
 pub use index::{DiffImpact, IndexResult, Indexer};
 pub use parser::rust::RustProvider;

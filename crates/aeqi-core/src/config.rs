@@ -365,9 +365,9 @@ pub struct PeerAgentConfig {
     /// Triggers defined in agent template.
     #[serde(default)]
     pub triggers: Vec<AgentTriggerConfig>,
-    /// System prompt — the agent's personality and instructions.
+    /// System text — the agent's personality and instructions.
     #[serde(default)]
-    pub prompt: Option<AgentPromptConfig>,
+    pub prompt: Option<AgentSystemConfig>,
 }
 
 impl PeerAgentConfig {
@@ -396,9 +396,9 @@ pub struct AgentTriggerConfig {
     pub skill: Option<String>,
 }
 
-/// Agent prompt configuration.
+/// Agent system text configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentPromptConfig {
+pub struct AgentSystemConfig {
     pub system: String,
 }
 
@@ -1418,7 +1418,7 @@ pub fn load_agent_config(agent_dir: &Path) -> Result<PeerAgentConfig> {
         .with_context(|| format!("failed to deserialize agent.md: {}", path.display()))?;
     // The body is the system prompt.
     if !body.is_empty() {
-        config.prompt = Some(AgentPromptConfig { system: body });
+        config.prompt = Some(AgentSystemConfig { system: body });
     }
     Ok(config)
 }

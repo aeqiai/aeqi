@@ -182,7 +182,7 @@ pub struct AgentConfig {
     pub session_file: Option<PathBuf>,
     /// Optional token budget for auto-continuation. When set, the agent continues
     /// automatically after end-step if total output tokens < budget * 0.9.
-    /// Parsed from "+500k" or "use 2m tokens" syntax in the user prompt.
+    /// Parsed from "+500k" or "use 2m tokens" syntax in the user input.
     pub token_budget: Option<u32>,
     /// Cheap/fast model for simple messages. When set, the agent routes trivial
     /// steps (short messages without code, URLs, or complex keywords) to this
@@ -246,11 +246,11 @@ impl Default for AgentConfig {
 }
 
 impl AgentConfig {
-    /// Parse a token budget from the user prompt. Recognizes:
-    /// - "+500k", "+2m" (at start or end of prompt)
+    /// Parse a token budget from the user input. Recognizes:
+    /// - "+500k", "+2m" (at start or end of input)
     /// - "use 500k tokens", "spend 2m tokens"
-    pub fn parse_token_budget(prompt: &str) -> Option<u32> {
-        let lower = prompt.to_lowercase();
+    pub fn parse_token_budget(input: &str) -> Option<u32> {
+        let lower = input.to_lowercase();
 
         // Pattern: +Nk or +Nm at start or end.
         for word in lower.split_whitespace() {
@@ -753,7 +753,7 @@ impl Agent {
     }
 
     /// Attach prior conversation history (for forked sessions).
-    /// These messages are prepended before the new user prompt in `run()`.
+    /// These messages are prepended before the new user input in `run()`.
     pub fn with_history(mut self, messages: Vec<Message>) -> Self {
         self.history = messages;
         self
@@ -907,8 +907,8 @@ impl Agent {
     // Main loop
     // -----------------------------------------------------------------------
 
-    /// Run the agent with a user prompt.
-    pub async fn run(&self, prompt: &str) -> anyhow::Result<AgentResult> {
+    /// Run the agent with an input message.
+    pub async fn run(&self, input: &str) -> anyhow::Result<AgentResult> {
         self.observer
             .record(Event::AgentStart {
                 agent_name: self.config.name.clone(),
@@ -929,7 +929,7 @@ impl Agent {
 
         messages.push(Message {
             role: Role::User,
-            content: MessageContent::text(prompt),
+            content: MessageContent::text(input),
         });
 
         let tool_specs: Vec<ToolSpec> = self.tools.iter().map(|t| t.spec()).collect();
@@ -959,7 +959,7 @@ impl Agent {
                 tracker.total_prompt_tokens = state.total_prompt_tokens;
                 tracker.total_completion_tokens = state.total_completion_tokens;
                 tracker.compactions = state.compactions;
-                // Inject a resume prompt so the model knows it's continuing.
+                // Inject a resume message so the model knows it's continuing.
                 messages.push(Message {
                     role: Role::User,
                     content: MessageContent::text(
@@ -2208,10 +2208,10 @@ impl Agent {
     // Step context
     // -----------------------------------------------------------------------
 
-    /// Build step context from snapshotted prompt content.
+    /// Build step context from snapshotted idea content.
     ///
     /// Content is read from the `StepIdeaSpec.content` field, which is
-    /// populated at session start. This prevents mid-flight prompt drift
+    /// populated at session start. This prevents mid-flight context drift
     /// when files are edited during a running session.
     async fn build_step_context(&self) -> String {
         let step_ideas = self.step_ideas.lock().await;
@@ -2237,8 +2237,8 @@ impl Agent {
                         warn!(
                             agent = %self.config.name,
                             path = %spec.path.display(),
-                            prompt = %spec.name,
-                            "failed to read step prompt: {e}"
+                            idea = %spec.name,
+                            "failed to read step idea: {e}"
                         );
                         continue;
                     }

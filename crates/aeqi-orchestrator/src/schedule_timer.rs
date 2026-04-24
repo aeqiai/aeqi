@@ -91,7 +91,7 @@ impl ScheduleTimer {
             return;
         };
 
-        let prompt = format!(
+        let input = format!(
             "Scheduled event '{}' fired. Check your injected context and decide what to do.",
             event.name
         );
@@ -103,7 +103,7 @@ impl ScheduleTimer {
 
         match self
             .session_manager
-            .spawn_session(agent_id, &prompt, provider.clone(), opts)
+            .spawn_session(agent_id, &input, provider.clone(), opts)
             .await
         {
             Ok(spawned) => {

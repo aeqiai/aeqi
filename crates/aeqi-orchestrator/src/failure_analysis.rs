@@ -183,8 +183,8 @@ impl FailureAnalysis {
         enrichment
     }
 
-    /// Build an LLM prompt for failure analysis.
-    pub fn analysis_prompt(subject: &str, description: &str, error: &str) -> String {
+    /// Build an LLM request for failure analysis.
+    pub fn analysis_request(subject: &str, description: &str, error: &str) -> String {
         format!(
             "Analyze this task failure and classify the failure mode.\n\n\
              Task: {subject}\n\
