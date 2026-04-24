@@ -138,7 +138,8 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )
         .unwrap_or(0);
 
-    let migrations: &[(i64, fn(&Connection) -> Result<()>)] = &[
+    type Migration = fn(&Connection) -> Result<()>;
+    let migrations: &[(i64, Migration)] = &[
         (1, migration_v1),
         (2, migration_v2),
         (3, migration_v3),

@@ -6,11 +6,18 @@
 //! `store_with_ttl` and `store_with_scope` layer expiry and visibility on
 //! top of the base `store` path. `reassign_agent` is the bulk ownership
 //! mutation used when agents are renamed.
+//!
+//! The provenance-rich path (`store_full_impl`, `update_full_impl`,
+//! `set_status_impl`, `set_embedding_impl`, `count_by_tag_since_impl`) is
+//! the real underlying writer; the plainer entry points are thin wrappers
+//! that fill missing fields with defaults. Agents R and W in Round 3 will
+//! route their write paths through `store_full_impl`.
 
 use super::SqliteIdeas;
 use crate::vector::vec_to_bytes;
+use aeqi_core::traits::{StoreFull, UpdateFull};
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::OptionalExtension;
 use tracing::{debug, warn};
 
@@ -358,6 +365,213 @@ impl SqliteIdeas {
                 rusqlite::params![new, old],
             )?;
             Ok(updated as u64)
+        })
+        .await
+    }
+
+    // ── Round 2 provenance-rich write path ──────────────────────────────
+
+    /// Provenance-rich store. This is the canonical writer for rows that
+    /// carry any non-default lifecycle / provenance / validity data.
+    ///
+    /// Skips the 24h name+content dedup entirely — callers that need dedup
+    /// should route through `store_impl` (which Agent W will refactor into
+    /// the dispatch in Round 3). Embedding is *not* queued here; callers
+    /// set `embedding_pending` and `set_embedding` completes the flow.
+    pub(super) async fn store_full_impl(&self, input: StoreFull) -> Result<String> {
+        // Same secret scrubbing as the plain path — the content lands in the
+        // FTS index and the embedding input, so over-redaction is safer than
+        // under-redaction.
+        let content = crate::redact::redact_secrets(&input.content);
+        let tags = Self::normalize_tags(input.tags.iter().cloned());
+
+        self.blocking(move |conn| {
+            let id = uuid::Uuid::new_v4().to_string();
+            let now = Utc::now().to_rfc3339();
+            let hash = Self::content_hash(&content);
+
+            let expires_at = input.expires_at.as_ref().map(|d| d.to_rfc3339());
+            let valid_from = input
+                .valid_from
+                .as_ref()
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| now.clone());
+            let valid_until = input.valid_until.as_ref().map(|d| d.to_rfc3339());
+
+            conn.execute(
+                "INSERT INTO ideas (
+                    id, name, content, scope, agent_id, created_at, expires_at,
+                    content_hash, status, access_count, authored_by, confidence,
+                    embedding_pending, valid_from, valid_until, time_context
+                 ) VALUES (
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                    ?8, ?9, 0, ?10, ?11,
+                    1, ?12, ?13, ?14
+                 )",
+                rusqlite::params![
+                    id,
+                    input.name,
+                    content,
+                    input.scope.as_str(),
+                    input.agent_id,
+                    now,
+                    expires_at,
+                    hash,
+                    input.status,
+                    input.authored_by,
+                    input.confidence as f64,
+                    valid_from,
+                    valid_until,
+                    input.time_context,
+                ],
+            )?;
+
+            for tag in &tags {
+                conn.execute(
+                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                    rusqlite::params![id, tag],
+                )?;
+            }
+            Ok(id)
+        })
+        .await
+    }
+
+    /// Provenance-rich partial update. Only fields set on the patch are
+    /// touched; `updated_at` defaults to now when content changes and a
+    /// patch-level `updated_at` wasn't supplied.
+    pub(super) async fn update_full_impl(&self, id: &str, patch: UpdateFull) -> Result<()> {
+        let id = id.to_string();
+        let content = patch.content.clone();
+        self.blocking(move |conn| {
+            let now = patch
+                .updated_at
+                .as_ref()
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| Utc::now().to_rfc3339());
+
+            if let Some(ref new_content) = content {
+                let hash = Self::content_hash(new_content);
+                conn.execute(
+                    "UPDATE ideas SET content = ?1, content_hash = ?2, updated_at = ?3 \
+                     WHERE id = ?4",
+                    rusqlite::params![new_content, hash, &now, &id],
+                )?;
+            }
+
+            if let Some(conf) = patch.confidence {
+                conn.execute(
+                    "UPDATE ideas SET confidence = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![conf as f64, &now, &id],
+                )?;
+            }
+
+            if let Some(pending) = patch.embedding_pending {
+                let flag: i64 = if pending { 1 } else { 0 };
+                conn.execute(
+                    "UPDATE ideas SET embedding_pending = ?1 WHERE id = ?2",
+                    rusqlite::params![flag, &id],
+                )?;
+            }
+
+            if let Some(ref valid_until) = patch.valid_until {
+                conn.execute(
+                    "UPDATE ideas SET valid_until = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![valid_until.to_rfc3339(), &now, &id],
+                )?;
+            }
+
+            if let Some(ref status) = patch.status {
+                conn.execute(
+                    "UPDATE ideas SET status = ?1, updated_at = ?2 WHERE id = ?3",
+                    rusqlite::params![status, &now, &id],
+                )?;
+            }
+
+            if let Some(ref tags) = patch.tags {
+                let tags = Self::normalize_tags(tags.iter().cloned());
+                conn.execute(
+                    "DELETE FROM idea_tags WHERE idea_id = ?1",
+                    rusqlite::params![&id],
+                )?;
+                for tag in &tags {
+                    conn.execute(
+                        "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                        rusqlite::params![&id, tag],
+                    )?;
+                }
+            }
+
+            Ok(())
+        })
+        .await
+    }
+
+    /// Flip an idea's `status` column. Used by supersession (writes
+    /// `superseded`) and consolidation (writes `archived`).
+    pub(super) async fn set_status_impl(&self, id: &str, status: &str) -> Result<()> {
+        let id = id.to_string();
+        let status = status.to_string();
+        self.blocking(move |conn| {
+            conn.execute(
+                "UPDATE ideas SET status = ?1, updated_at = ?2 WHERE id = ?3",
+                rusqlite::params![status, Utc::now().to_rfc3339(), id],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Persist a fresh embedding for an existing idea and clear the
+    /// `embedding_pending` flag. Called by the embed worker once the
+    /// (possibly slow) embedder round-trip completes.
+    pub(super) async fn set_embedding_impl(&self, id: &str, embedding: &[f32]) -> Result<()> {
+        let id = id.to_string();
+        let bytes = vec_to_bytes(embedding);
+        let dims = embedding.len() as i64;
+        self.blocking(move |conn| {
+            // Content hash is the cache key for duplicate-embedding detection;
+            // read it from the row so a later call with the same content can
+            // short-circuit via lookup_embedding_by_hash.
+            let hash: Option<String> = conn
+                .query_row(
+                    "SELECT content_hash FROM ideas WHERE id = ?1",
+                    rusqlite::params![&id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            conn.execute(
+                "INSERT OR REPLACE INTO idea_embeddings \
+                     (idea_id, embedding, dimensions, content_hash) \
+                 VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![id, bytes, dims, hash],
+            )?;
+            conn.execute(
+                "UPDATE ideas SET embedding_pending = 0 WHERE id = ?1",
+                rusqlite::params![id],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Count rows tagged `tag` created on/after `since`. Used by the
+    /// per-store consolidation threshold check.
+    pub(super) async fn count_by_tag_since_impl(
+        &self,
+        tag: &str,
+        since: DateTime<Utc>,
+    ) -> Result<i64> {
+        let tag = tag.trim().to_lowercase();
+        self.blocking(move |conn| {
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(DISTINCT i.id) \
+                 FROM ideas i JOIN idea_tags t ON t.idea_id = i.id \
+                 WHERE LOWER(t.tag) = ?1 AND i.created_at >= ?2",
+                rusqlite::params![tag, since.to_rfc3339()],
+                |row| row.get(0),
+            )?;
+            Ok(count)
         })
         .await
     }

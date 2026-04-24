@@ -7,7 +7,7 @@ mod store;
 mod tags;
 mod ttl;
 
-use aeqi_core::traits::{Embedder, Idea, IdeaQuery, IdeaStore};
+use aeqi_core::traits::{Embedder, Idea, IdeaQuery, IdeaStore, StoreFull, UpdateFull};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use rusqlite::Connection;
@@ -241,6 +241,36 @@ impl IdeaStore for SqliteIdeas {
         self.reconcile_inline_edges_impl(source_id, body, resolver)
             .await
     }
+
+    // ── Round 2 trait additions ─────────────────────────────────────────
+
+    async fn store_full(&self, input: StoreFull) -> Result<String> {
+        self.store_full_impl(input).await
+    }
+
+    async fn update_full(&self, id: &str, patch: UpdateFull) -> Result<()> {
+        self.update_full_impl(id, patch).await
+    }
+
+    async fn set_status(&self, id: &str, status: &str) -> Result<()> {
+        self.set_status_impl(id, status).await
+    }
+
+    async fn set_embedding(&self, id: &str, embedding: &[f32]) -> Result<()> {
+        self.set_embedding_impl(id, embedding).await
+    }
+
+    async fn count_by_tag_since(
+        &self,
+        tag: &str,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i64> {
+        self.count_by_tag_since_impl(tag, since).await
+    }
+
+    // Remaining Round 2 trait methods (search_explained, record_access,
+    // record_feedback, walk, ann_search, search_as_of) rely on the trait
+    // defaults until Rounds 3+ wire real implementations.
 }
 
 #[cfg(test)]

@@ -365,6 +365,141 @@ pub trait IdeaStore: Send + Sync {
     ) -> anyhow::Result<()> {
         Ok(())
     }
+
+    // ── Round 2 additions (Agent S) ─────────────────────────────────────
+    //
+    // The following methods are added for downstream agents (W, R, N, G)
+    // to plug into without changing trait signatures mid-round. Defaults
+    // either `unimplemented!()` (must be overridden to be useful) or a
+    // trivially-safe fallback that keeps existing call paths green.
+
+    /// Provenance-rich store. Carries authored_by, confidence, bi-temporal
+    /// validity window, status, and TTL in one payload.
+    ///
+    /// The SQLite backend treats this as the real underlying writer; the
+    /// plainer `store`/`store_with_ttl`/`store_with_scope` entry points are
+    /// thin wrappers that fill the missing fields with defaults. Agents R
+    /// and W call this directly.
+    async fn store_full(&self, input: StoreFull) -> anyhow::Result<String> {
+        let _ = input;
+        unimplemented!("store_full not implemented for this store")
+    }
+
+    /// Provenance-rich partial update. Only fields set on `patch` are touched.
+    async fn update_full(&self, id: &str, patch: UpdateFull) -> anyhow::Result<()> {
+        let _ = (id, patch);
+        unimplemented!("update_full not implemented for this store")
+    }
+
+    /// Set `status` for an idea (active | archived | superseded | ...).
+    /// Used by supersession and consolidation flows.
+    async fn set_status(&self, id: &str, status: &str) -> anyhow::Result<()> {
+        let _ = (id, status);
+        unimplemented!("set_status not implemented for this store")
+    }
+
+    /// Attach a (possibly refreshed) embedding to an existing idea row and
+    /// flip `embedding_pending = 0`. Called by the embed worker after async
+    /// embedding completes.
+    async fn set_embedding(&self, id: &str, embedding: &[f32]) -> anyhow::Result<()> {
+        let _ = (id, embedding);
+        unimplemented!("set_embedding not implemented for this store")
+    }
+
+    /// Count ideas tagged `tag` created on/after `since`. Used by the
+    /// consolidation threshold check on every store.
+    async fn count_by_tag_since(
+        &self,
+        tag: &str,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> anyhow::Result<i64> {
+        let _ = (tag, since);
+        unimplemented!("count_by_tag_since not implemented for this store")
+    }
+
+    /// Search with per-component score explainability. Default wraps the
+    /// existing `search` and attaches an empty `Why` to each hit so the
+    /// new API is safe before Agent R fills in per-component scoring.
+    async fn search_explained(&self, query: &IdeaQuery) -> anyhow::Result<Vec<SearchHit>> {
+        let hits = self.search(query).await?;
+        Ok(hits
+            .into_iter()
+            .map(|idea| {
+                let final_score = idea.score as f32;
+                SearchHit {
+                    idea,
+                    why: Why {
+                        final_score,
+                        ..Why::default()
+                    },
+                }
+            })
+            .collect())
+    }
+
+    /// Record that an idea was surfaced to a caller. Updates hotness
+    /// signals (`access_count`, `last_accessed`) and appends an access log
+    /// row. Hot path: must be fire-and-forget in production callers.
+    ///
+    /// Default is a no-op (no tracking backend).
+    async fn record_access(&self, idea_id: &str, ctx: AccessContext) -> anyhow::Result<()> {
+        let _ = (idea_id, ctx);
+        Ok(())
+    }
+
+    /// Record a feedback signal (`used | useful | ignored | corrected |
+    /// wrong | pinned`). Agent R maps signals onto hotness / feedback_boost
+    /// and may emit `contradiction` edges for `wrong`.
+    async fn record_feedback(
+        &self,
+        idea_id: &str,
+        signal: &str,
+        weight: f32,
+        meta: FeedbackMeta,
+    ) -> anyhow::Result<()> {
+        let _ = (idea_id, signal, weight, meta);
+        unimplemented!("record_feedback not implemented for this store")
+    }
+
+    /// Walk the idea graph up to `max_hops` from `from`, optionally
+    /// restricting to the given relations. Returns the visited edges in
+    /// traversal order. Agent G (Round 4c) wires the MCP
+    /// `ideas(action='walk')` against this.
+    async fn walk(
+        &self,
+        from: &str,
+        max_hops: u32,
+        relations: &[String],
+    ) -> anyhow::Result<Vec<WalkStep>> {
+        let _ = (from, max_hops, relations);
+        unimplemented!("walk not implemented for this store")
+    }
+
+    /// ANN-backed nearest-neighbour search over `query_vec`. Stores with
+    /// `sqlite-vec` (migration v7) override; the default errors so callers
+    /// can detect unavailability and fall back to the brute-force hybrid
+    /// path. Agent N (Round 3c) supplies the real implementation.
+    async fn ann_search(
+        &self,
+        query_vec: &[f32],
+        top_k: usize,
+    ) -> anyhow::Result<Vec<(String, f32)>> {
+        let _ = (query_vec, top_k);
+        anyhow::bail!("ann_search not implemented; use brute-force hybrid search")
+    }
+
+    /// Bi-temporal query. Only returns ideas whose validity window covers
+    /// `as_of` (i.e. `valid_from <= as_of AND (valid_until IS NULL OR
+    /// valid_until > as_of)`). Ideas with `time_context='timeless'` are
+    /// always included. Agent R wires this against the search pipeline.
+    async fn search_as_of(
+        &self,
+        query: &IdeaQuery,
+        as_of: chrono::DateTime<chrono::Utc>,
+    ) -> anyhow::Result<Vec<Idea>> {
+        let _ = (query, as_of);
+        unimplemented!("search_as_of not implemented for this store")
+    }
 }
 
 /// Outgoing and incoming edges for a single idea.
@@ -390,4 +525,155 @@ pub struct IdeaGraphEdge {
     pub target_id: String,
     pub relation: String,
     pub strength: f32,
+}
+
+// ── Round 2 additions ─────────────────────────────────────────────────
+
+/// Provenance-rich store payload. Covers every column that Agents W and R
+/// need to write on the store path; stores that understand it use it as
+/// the underlying writer and layer `store` / `store_with_ttl` /
+/// `store_with_scope` on top.
+#[derive(Debug, Clone)]
+pub struct StoreFull {
+    pub name: String,
+    pub content: String,
+    pub tags: Vec<String>,
+    pub agent_id: Option<String>,
+    pub scope: Scope,
+    /// Who authored this content. Not the same as `agent_id`: `authored_by`
+    /// is the tool / user / sub-agent that generated the text, while
+    /// `agent_id` is the anchor the row hangs off for visibility.
+    pub authored_by: Option<String>,
+    /// Default 1.0 ("author stands by this"). Tag policies override.
+    pub confidence: f32,
+    pub expires_at: Option<DateTime<Utc>>,
+    /// Real-world validity window start. `None` means "unknown / timeless".
+    pub valid_from: Option<DateTime<Utc>>,
+    /// Real-world validity end. `None` means "still valid".
+    pub valid_until: Option<DateTime<Utc>>,
+    /// Bi-temporal flavour. One of `timeless` (prefs, procedures),
+    /// `event` (time-scoped fact), `state` (current-state fact that gets
+    /// superseded over time).
+    pub time_context: String,
+    /// Lifecycle state. Usually `active`; supersession/consolidation sets
+    /// to `superseded`/`archived`.
+    pub status: String,
+}
+
+impl StoreFull {
+    /// Sensible defaults for the "store this for me" path: timeless,
+    /// active, confidence 1.0, no TTL, no pre-set validity window.
+    pub fn new(name: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            content: content.into(),
+            tags: Vec::new(),
+            agent_id: None,
+            scope: Scope::SelfScope,
+            authored_by: None,
+            confidence: 1.0,
+            expires_at: None,
+            valid_from: None,
+            valid_until: None,
+            time_context: "timeless".to_string(),
+            status: "active".to_string(),
+        }
+    }
+}
+
+/// Provenance-rich partial update payload. Any field left `None` is
+/// untouched; setting a field to `Some(..)` writes it.
+#[derive(Debug, Clone, Default)]
+pub struct UpdateFull {
+    pub content: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub confidence: Option<f32>,
+    pub embedding_pending: Option<bool>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub valid_until: Option<DateTime<Utc>>,
+    pub status: Option<String>,
+}
+
+/// A single search result with per-component explainability.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHit {
+    pub idea: Idea,
+    pub why: Why,
+}
+
+/// Per-component score breakdown for an explainable search result.
+///
+/// Agent R populates these during the staged pipeline; components that
+/// didn't contribute for this hit are left at 0.0. `picked_by_tag` records
+/// which tag's policy routed the query onto this result in the cross-tag
+/// weighted-sum merge.
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct Why {
+    pub picked_by_tag: Option<String>,
+    pub bm25: f32,
+    pub vector: f32,
+    pub hotness: f32,
+    pub graph: f32,
+    pub confidence: f32,
+    pub decay: f32,
+    pub final_score: f32,
+}
+
+/// One hop of a multi-hop graph walk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalkStep {
+    pub from: String,
+    pub to: String,
+    pub relation: String,
+    pub depth: u32,
+    pub strength: f32,
+}
+
+/// Context metadata for an access-log row (`record_access`).
+#[derive(Debug, Clone, Default)]
+pub struct AccessContext {
+    pub agent_id: Option<String>,
+    pub session_id: Option<String>,
+    /// Free-form category: `search`, `assemble`, `mcp`, `ui:idea-profile`,
+    /// etc.
+    pub context: String,
+    /// 0-based rank within the result set, when the access came from a
+    /// ranked search. `None` for direct lookups.
+    pub result_position: Option<i32>,
+    /// Stable hash of the triggering query text for co-access bucketing.
+    pub query_hash: Option<String>,
+}
+
+/// Context metadata for a feedback row (`record_feedback`).
+#[derive(Debug, Clone, Default)]
+pub struct FeedbackMeta {
+    pub agent_id: Option<String>,
+    pub session_id: Option<String>,
+    pub query_text: Option<String>,
+    pub note: Option<String>,
+}
+
+/// Open enum of known feedback signals. Wire-format is the `&str` version;
+/// this enum is a convenience for callers that want type-safety.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackSignal {
+    Used,
+    Useful,
+    Ignored,
+    Corrected,
+    Wrong,
+    Pinned,
+}
+
+impl FeedbackSignal {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Used => "used",
+            Self::Useful => "useful",
+            Self::Ignored => "ignored",
+            Self::Corrected => "corrected",
+            Self::Wrong => "wrong",
+            Self::Pinned => "pinned",
+        }
+    }
 }
