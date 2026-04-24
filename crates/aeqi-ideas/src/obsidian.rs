@@ -170,6 +170,14 @@ pub struct ParsedRelation {
     pub target_key: String,
     pub relation: String,
     pub strength: f32,
+    /// `true` when the relation line uses the `→` marker (this file is
+    /// the edge source → target_key is the edge target). `false` when
+    /// the line uses `←` (this file is the TARGET — the edge is
+    /// target_key → this file). The exporter writes every edge from
+    /// BOTH endpoints' perspectives; distinguishing direction here lets
+    /// the importer collapse to a single canonical edge row instead of
+    /// inventing a mirror edge that didn't exist in the source DB.
+    pub outgoing: bool,
 }
 
 /// Import memories from an Obsidian vault into the store.
@@ -232,6 +240,15 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
             continue;
         };
         for rel in &mem.relations {
+            // Skip incoming-direction (`←`) lines — the exporter emits
+            // every edge from BOTH endpoints, so the SAME canonical edge
+            // also appears as an outgoing row in the target's file.
+            // Restoring only outgoing rows keeps the imported graph
+            // identical to the source graph instead of doubling edge
+            // counts on the undirected relations.
+            if !rel.outgoing {
+                continue;
+            }
             let Some(target_id) = key_to_id.get(&rel.target_key) else {
                 debug!(
                     source = %mem.name,
@@ -521,6 +538,12 @@ fn normalize_relation(raw: &str) -> String {
 }
 
 /// Parse `- → [[key]] — relation (0.80)` lines.
+///
+/// The exporter emits each edge from BOTH endpoints' perspectives:
+/// `→ [[B]]` in A's file, `← [[A]]` in B's file. The direction marker
+/// on each line is kept on the parsed relation as `outgoing` so the
+/// importer can drop incoming-direction rows — storing them would
+/// invent a mirror edge that didn't exist in the source DB.
 fn parse_relations(section: &str) -> Vec<ParsedRelation> {
     let mut relations = Vec::new();
     for line in section.lines() {
@@ -528,6 +551,12 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
         if !line.starts_with("- ") {
             continue;
         }
+        // Direction marker sits between the bullet and the wikilink.
+        // Treat anything that isn't explicitly `←` as outgoing so old
+        // vaults without direction arrows default to the source-of-edge
+        // interpretation.
+        let after_bullet = line[2..].trim_start();
+        let outgoing = !after_bullet.starts_with('←');
         // Extract [[key]]
         let Some(open) = line.find("[[") else {
             continue;
@@ -550,12 +579,14 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
                     target_key,
                     relation,
                     strength,
+                    outgoing,
                 });
             } else {
                 relations.push(ParsedRelation {
                     target_key,
                     relation: normalize_relation(rest.trim()),
                     strength: 0.5,
+                    outgoing,
                 });
             }
         } else {
@@ -563,6 +594,7 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
                 target_key,
                 relation: crate::relation::ADJACENT.to_string(),
                 strength: 0.5,
+                outgoing,
             });
         }
     }
@@ -612,6 +644,22 @@ mod tests {
         assert!((rels[0].strength - 0.80).abs() < 0.01);
         assert_eq!(rels[1].target_key, "user-schema");
         assert_eq!(rels[1].relation, "adjacent");
+    }
+
+    #[test]
+    fn test_parse_relations_records_direction_marker() {
+        // `→` lines are outgoing from the current file; `←` lines are
+        // incoming (the current file is the edge's TARGET). The importer
+        // drops incoming lines to avoid double-counting undirected edges.
+        let section = "## Relations\n\n\
+             - → [[A]] — adjacent (0.50)\n\
+             - ← [[B]] — adjacent (0.50)\n";
+        let rels = parse_relations(section);
+        assert_eq!(rels.len(), 2);
+        assert_eq!(rels[0].target_key, "A");
+        assert!(rels[0].outgoing, "→ must be outgoing");
+        assert_eq!(rels[1].target_key, "B");
+        assert!(!rels[1].outgoing, "← must be incoming");
     }
 
     #[test]
@@ -789,6 +837,72 @@ mod tests {
         assert_eq!(rels[1].relation, "contradicts");
         assert_eq!(rels[2].relation, "supports");
         assert_eq!(rels[3].relation, "distilled_into");
+    }
+
+    /// Adjacent edges emitted by `ideas(action='link', relation='adjacent')`
+    /// or the UI picker must round-trip through export → import. The
+    /// exporter writes them into the `## Relations` section; the importer's
+    /// second-pass edge loop (via `store_idea_edge`) must restore them.
+    #[tokio::test]
+    async fn test_adjacent_edges_roundtrip_through_relations_section() {
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let src_db = dir.path().join("src.db");
+        let dst_db = dir.path().join("dst.db");
+        let vault = dir.path().join("vault");
+
+        let store = SqliteIdeas::open(&src_db, 30.0).unwrap();
+        let mut ids: Vec<String> = Vec::new();
+        for i in 0..5 {
+            let id = store
+                .store(
+                    &format!("node-{i}"),
+                    &format!("body {i}"),
+                    &["fact".to_string()],
+                    None,
+                )
+                .await
+                .unwrap();
+            ids.push(id);
+        }
+        // Five adjacent edges forming a ring: n0→n1, n1→n2, …, n4→n0.
+        for i in 0..5 {
+            let next = (i + 1) % 5;
+            store
+                .store_idea_edge(&ids[i], &ids[next], "adjacent", 0.5)
+                .await
+                .unwrap();
+        }
+
+        // Export → fresh DB import.
+        let exported = export(&store, &vault).await.unwrap();
+        assert_eq!(exported, 5);
+        let store2 = SqliteIdeas::open(&dst_db, 30.0).unwrap();
+        let (imported, _) = import(&store2, &vault).await.unwrap();
+        assert_eq!(imported, 5);
+
+        // Count `adjacent` edges in the destination store. The exporter
+        // writes each edge from BOTH endpoints' perspectives (→ and ←),
+        // so each of the five directed edges appears twice in the
+        // markdown; upsert collapses the duplicates back down.
+        let all_names: Vec<String> = (0..5).map(|i| format!("node-{i}")).collect();
+        let mut name_to_id: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for entry in store2.list_all().unwrap() {
+            name_to_id.insert(entry.name.clone(), entry.id.clone());
+        }
+        let all_ids: Vec<String> = all_names
+            .iter()
+            .map(|n| name_to_id.get(n).cloned().unwrap())
+            .collect();
+        let edges = store2.edges_between(&all_ids).await.unwrap();
+        let adjacent_count = edges.iter().filter(|e| e.relation == "adjacent").count();
+        assert_eq!(
+            adjacent_count, 5,
+            "all five adjacent edges must round-trip through ## Relations section; got {adjacent_count}"
+        );
     }
 
     #[tokio::test]
