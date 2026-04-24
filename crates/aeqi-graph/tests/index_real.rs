@@ -53,12 +53,12 @@ fn index_aeqi_core() {
         .find(|n| n.label == NodeLabel::Trait && n.name == "Observer")
         .expect("Observer trait should exist in src/traits/observer.rs");
 
-    // Should find the Agent struct
-    let agent_files = store.nodes_in_file("src/agent.rs").unwrap();
+    // Should find the Agent struct (now in src/agent/mod.rs after refactor)
+    let agent_files = store.nodes_in_file("src/agent/mod.rs").unwrap();
     let agent = agent_files
         .iter()
         .find(|n| n.name == "Agent")
-        .expect("Agent should exist in src/agent.rs");
+        .expect("Agent should exist in src/agent/mod.rs");
 
     let ctx = store.context(&observer.id).unwrap();
     let _agent = agent; // used above
