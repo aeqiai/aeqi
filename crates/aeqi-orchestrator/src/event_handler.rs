@@ -666,12 +666,18 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         // meta-idea, then stores the sub-agent's output as a new idea
         // tagged `consolidated` alongside the triggering tag.
         //
-        // {tag}, {candidate_ids}, {session_id} are substituted from the
-        // fire payload. The consolidator meta-idea is named via the
-        // tag policy's `consolidator_idea` field — Agent E (Round 4d)
-        // seeds the canonical `meta:*-template` bodies; this event is
-        // a reference template that a tag policy can override by
-        // creating a per-tag event with the same pattern.
+        // {tag}, {candidate_ids}, {authored_by}, {session_id} are
+        // substituted from the fire payload. `{candidate_ids}` arrives as
+        // a JSON array literal (oldest-first cluster); `{authored_by}` is
+        // pre-resolved to `consolidator:<owning-agent>` so IPC-fired
+        // threshold events (which have no live session agent) produce
+        // real provenance instead of `"consolidator:"`.
+        //
+        // The consolidator meta-idea is named via the tag policy's
+        // `consolidator_idea` field — Agent E (Round 4d) seeds the
+        // canonical `meta:*-template` bodies; this event is a reference
+        // template that a tag policy can override by creating a per-tag
+        // event with the same pattern.
         MiddlewareSeed {
             name: "on_ideas_threshold_reached",
             pattern: "ideas:threshold_reached",
@@ -695,7 +701,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                     tool: "ideas.store_many".into(),
                     args: serde_json::json!({
                         "from_json": "{last_tool_result}",
-                        "authored_by": "consolidator:{agent_id}",
+                        "authored_by": "{authored_by}",
                         "tag_suffix": ["source:threshold:{tag}"]
                     }),
                 },

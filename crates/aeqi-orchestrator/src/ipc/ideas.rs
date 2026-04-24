@@ -611,11 +611,42 @@ async fn check_consolidation_threshold(
         return;
     };
 
+    // Gather the full cluster of active ideas carrying `tag` inside the
+    // policy's age window — oldest-first, capped at 50. The consolidator
+    // persona distills the *cluster*, not just the triggering idea; feeding
+    // only the triggering id hides the signal. The cap bounds payload size
+    // so the sub-agent's context budget doesn't thrash on pathologically
+    // large clusters.
+    let candidates = idea_store
+        .list_active_by_tag_since(tag, window_start, 50)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::debug!(error = %e, tag, "list_active_by_tag_since failed; falling back to triggering_id only");
+            vec![triggering_id.to_string()]
+        });
+    // Serialize as JSON array so the event placeholder expands into a valid
+    // JSON list the consolidator can iterate.
+    let candidate_ids_json =
+        serde_json::to_string(&candidates).unwrap_or_else(|_| "[]".to_string());
+
+    // Resolve the triggering idea's owning agent so the consolidator's
+    // `authored_by` carries real provenance instead of `"consolidator:"`
+    // (the previous behaviour when the IPC path had no session-bound
+    // agent_id). Global ideas (agent_id IS NULL) fall back to
+    // `"consolidator:system"` — ugly but explicit.
+    let triggering_owner = idea_store
+        .get_by_ids(&[triggering_id.to_string()])
+        .await
+        .ok()
+        .and_then(|ideas| ideas.into_iter().next())
+        .and_then(|idea| idea.agent_id)
+        .unwrap_or_else(|| "system".to_string());
+    let authored_by = format!("consolidator:{triggering_owner}");
+
     // Build trigger_args — these flow into the event's tool_call args via
-    // `{tag}`, `{count}`, `{candidate_ids}`, etc. The consolidator seed
-    // uses `{tag}` and `{candidate_ids}`; the store_many step uses
-    // `{last_tool_result}` and `{agent_id}`.
-    let candidate_ids_str = triggering_id.to_string();
+    // `{tag}`, `{count}`, `{candidate_ids}`, `{authored_by}`, etc. The
+    // consolidator seed uses `{tag}` and `{candidate_ids}`; the store_many
+    // step uses `{last_tool_result}` and `{authored_by}`.
     let trigger_args = serde_json::json!({
         "tag": tag,
         "count": count,
@@ -623,7 +654,8 @@ async fn check_consolidation_threshold(
         "age_hours": trigger.age_hours,
         "consolidator_idea": trigger.consolidator_idea,
         "triggering_id": triggering_id,
-        "candidate_ids": candidate_ids_str,
+        "candidate_ids": candidate_ids_json,
+        "authored_by": authored_by,
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
 
