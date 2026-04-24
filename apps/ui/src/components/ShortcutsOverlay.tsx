@@ -24,7 +24,7 @@ const SHORTCUTS: { keys: string[][]; label: string; sep?: string }[] = [
   { keys: [["G", "E"]], label: "Jump to Events", sep: "then" },
   { keys: [["G", "Q"]], label: "Jump to Quests", sep: "then" },
   { keys: [["G", "I"]], label: "Jump to Ideas", sep: "then" },
-  { keys: [["G", "S"]], label: "Jump to Inbox", sep: "then" },
+  { keys: [["G", "S"]], label: "Jump to Home (agent landing)", sep: "then" },
   { keys: [["?"]], label: "Show this list" },
   { keys: [["Esc"]], label: "Close overlays" },
 ];

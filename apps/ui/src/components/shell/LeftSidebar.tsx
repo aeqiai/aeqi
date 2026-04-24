@@ -53,6 +53,13 @@ const HomeIcon = () => (
   </svg>
 );
 
+const InboxIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2 8.5 4 3h8l2 5.5v4.5H2z" />
+    <path d="M2 8.5h3.5l1 1.5h3l1-1.5H14" />
+  </svg>
+);
+
 const PRIMITIVES: NavItem[] = [
   { id: "agents", label: "Agents", icon: <PrimitiveLetter ch="a" />, title: "Agents · G then A" },
   { id: "events", label: "Events", icon: <PrimitiveLetter ch="e" />, title: "Events · G then E" },
@@ -102,6 +109,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   // is in scope.
   const profileHref = "/profile";
   const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
+  // Inbox is the user-scoped surface for agent-initiated pings — same
+  // top-level scope as /profile so it's reachable from anywhere.
+  const inboxHref = "/inbox";
+  const inboxActive = path === inboxHref;
 
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
@@ -255,6 +266,18 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="sidebar-footer">
+        <a
+          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+          href={inboxHref}
+          title="Inbox — agent pings for you"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(inboxHref);
+          }}
+        >
+          <InboxIcon />
+          <span className="sidebar-nav-label">Inbox</span>
+        </a>
         <div className="sidebar-footer-row">
           <a
             className={`sidebar-nav-item ${profileActive ? "active" : ""}`}

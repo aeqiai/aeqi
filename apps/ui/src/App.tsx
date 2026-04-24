@@ -111,6 +111,7 @@ export default function App() {
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="profile" element={null} />
+                    <Route path="inbox" element={null} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />

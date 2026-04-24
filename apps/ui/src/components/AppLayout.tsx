@@ -22,6 +22,7 @@ import type { Agent } from "@/lib/types";
 // (never namespaced under an agent) — it inherits the sidebar + tree chrome.
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const InboxPage = lazy(() => import("@/pages/InboxPage"));
 // HomeDashboard is the `/` landing — user-scoped summary across every
 // company the user has.
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
@@ -104,7 +105,7 @@ export default function AppLayout() {
   // resolves.
   useEffect(() => {
     const titles: Record<string, string> = {
-      sessions: "inbox",
+      sessions: "home",
       channels: "Channels",
       drive: "Drive",
       settings: "Settings",
@@ -265,10 +266,13 @@ export default function AppLayout() {
   // the user, not a company. Matched via path because the route has no
   // :agentId param (it's a top-level sibling of `/` and `/:agentId`).
   const isProfile = path === "/profile" || tab === "profile";
+  // `/inbox` — user-scoped inbox of agent-initiated pings. Matches the
+  // path literally (no :agentId) same way /profile does.
+  const isInbox = path === "/inbox";
   // `/` — user-scoped home dashboard. No agent in scope, so no topbar,
   // composer, or sessions rail. The sidebar still mounts so the user can
   // jump into any company from here.
-  const isHome = !agentId && !isProfile;
+  const isHome = !agentId && !isProfile && !isInbox;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
@@ -290,14 +294,16 @@ export default function AppLayout() {
     return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
   }
 
-  // Canonicalize the Inbox URL: `/:agentId/sessions` (no session picked)
-  // renders the same surface as bare `/:agentId`, so collapse it. Keep
-  // `/:agentId/sessions/:sessionId` intact — the itemId is real state.
+  // Canonicalize the per-agent sessions URL: `/:agentId/sessions` (no
+  // session picked) renders the same surface as bare `/:agentId`, so
+  // collapse it. Keep `/:agentId/sessions/:sessionId` intact — the
+  // itemId is real state.
   if (agentId && tab === "sessions" && !itemId) {
     return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
   }
 
   const mainContent = (() => {
+    if (isInbox) return <InboxPage />;
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isProfile) return <ProfilePage />;
@@ -308,16 +314,18 @@ export default function AppLayout() {
   // fixed height so the header band reads as one strip across the shell
   // regardless of whether an agent is in scope.
   const showTopBar = true;
-  // AgentSessionView only mounts when AgentPage is rendered on the Inbox surface.
-  const sessionsMounted = !isDrive && !isProfile && !isHome && effectiveTab === "sessions";
-  // Composer lives with the inbox only — the other W-primitive surfaces
-  // (agents/events/quests/ideas) own their own editing affordances and
-  // don't need a persistent composer eating vertical space.
+  // AgentSessionView only mounts when AgentPage is rendered on the
+  // per-agent sessions surface.
+  const sessionsMounted =
+    !isDrive && !isProfile && !isHome && !isInbox && effectiveTab === "sessions";
+  // Composer lives with the sessions surface only — the other W-primitive
+  // surfaces (agents/events/quests/ideas) own their own editing
+  // affordances and don't need a persistent composer eating vertical space.
   const showComposer = sessionsMounted;
-  // Inbox gets its own left-adjacent threads rail. Every other tab owns its
-  // full width and embeds its own picker in the page body.
+  // Sessions surface gets its own left-adjacent threads rail. Every other
+  // tab owns its full width and embeds its own picker in the page body.
   const showSessionsRail =
-    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome;
+    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome && !isInbox;
 
   return (
     <>

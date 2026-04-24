@@ -239,7 +239,7 @@ export default function EventTraceTab({ sessionId }: Props) {
         <EmptyState
           eyebrow="Trace"
           title="No session selected"
-          description="Pick a session from the inbox to see which events it fired, their steps, and where time went."
+          description="Pick a session from the agent's home to see which events it fired, their steps, and where time went."
         />
       </div>
     );

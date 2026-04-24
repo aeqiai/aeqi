@@ -31,7 +31,7 @@ export default function EmptyState({
       <div className="asv-empty-eyebrow">New thread</div>
       <div className="asv-empty-title">Message {displayName}</div>
       <div className="asv-empty-hint">
-        Type below to start. Threads stay in Inbox; agents reply in real-time.
+        Type below to start. Threads stay on Home; agents reply in real-time.
       </div>
       <div className="asv-empty-suggestions">
         {["What can you do?", "What quests are open?", "Summarize recent activity"].map((q) => (

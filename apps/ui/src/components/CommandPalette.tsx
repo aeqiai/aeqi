@@ -41,11 +41,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       const navItems: PaletteItem[] = agentId
         ? [
             {
-              id: "nav-inbox",
-              label: "Inbox",
-              hint: "Sessions",
+              id: "nav-home",
+              label: "Home",
+              hint: "Agent landing + sessions",
               section: "Navigate",
-              action: () => go(`${scope}/sessions`),
+              action: () => go(scope),
             },
             {
               id: "nav-agents-tab",

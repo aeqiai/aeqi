@@ -21,11 +21,11 @@ const SETTINGS_SUB_TABS = [
   { id: "tools", label: "Tools" },
 ];
 
-// Routes that AgentPage knows how to render. No-tab resolves to the Inbox
-// (id "sessions") — the agent's landing surface. ContentTopBar is the primary
-// nav and lives outside of this component.
+// Routes that AgentPage knows how to render. No-tab resolves to the Sessions
+// surface — the agent's home landing. ContentTopBar is the primary nav and
+// lives outside of this component.
 const TABS = [
-  { id: "sessions", label: "Inbox" },
+  { id: "sessions", label: "Sessions" },
   { id: "settings", label: "Settings" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },

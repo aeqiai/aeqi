@@ -68,7 +68,7 @@ export default function ContentTopBar() {
             <Link
               to={`/${encodeURIComponent(agent.id)}`}
               className="content-topbar-agent content-topbar-agent-link"
-              title={`Back to ${agentName}'s inbox`}
+              title={`Back to ${agentName}'s home`}
             >
               <span className="content-topbar-agent-avatar" aria-hidden>
                 <AgentAvatar name={agentName} />
