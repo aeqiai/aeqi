@@ -280,12 +280,18 @@ async fn run_gateway(
                     extra_tools: wa_tools,
                 });
 
+            // The `record_message` call above already wrote the inbound
+            // user-message row with WhatsApp-specific metadata (jid,
+            // message_id, from_me, participant). Flag it so spawn_session
+            // skips its own user-message write and we don't duplicate the
+            // row in the transcript.
             let queued = aeqi_orchestrator::queue_executor::QueuedMessage::chat(
                 aid.clone(),
                 user_text.clone(),
                 user_sender_id.clone(),
                 Some("whatsapp-baileys".to_string()),
-            );
+            )
+            .with_initial_message_recorded();
             let payload = queued
                 .to_payload()
                 .expect("QueuedMessage serialization is infallible");

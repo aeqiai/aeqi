@@ -79,6 +79,15 @@ pub struct QueuedMessage {
     /// enforces the cap.
     #[serde(default)]
     pub budget_usd: Option<f64>,
+    /// The enqueuer already persisted the initial user-message row (with
+    /// channel-specific metadata it has but the session manager doesn't —
+    /// e.g. WhatsApp's `{jid, message_id, from_me, participant}`). When
+    /// set, `QueueExecutor::execute` tells `spawn_session` to skip its
+    /// own user-message write so the row isn't duplicated. Legacy rows
+    /// without this flag default to `false`, preserving existing behavior
+    /// for web chat and quest runs.
+    #[serde(default)]
+    pub initial_message_recorded: bool,
 }
 
 impl QueuedMessage {
@@ -100,7 +109,16 @@ impl QueuedMessage {
             quest_id: None,
             creator_session_id: None,
             budget_usd: None,
+            initial_message_recorded: false,
         }
+    }
+
+    /// Mark the initial message as already persisted by the enqueuer.
+    /// Used by channel gateways (WhatsApp, Telegram) that pre-record the
+    /// inbound message with channel-specific metadata before enqueueing.
+    pub fn with_initial_message_recorded(mut self) -> Self {
+        self.initial_message_recorded = true;
+        self
     }
 
     /// Quest-run payload — enqueued by [`crate::quest_enqueuer::QuestEnqueuer`]
@@ -122,6 +140,7 @@ impl QueuedMessage {
             quest_id: Some(quest_id.into()),
             creator_session_id,
             budget_usd,
+            initial_message_recorded: false,
         }
     }
 
@@ -176,9 +195,13 @@ impl SessionExecutor for QueueExecutor {
         let stream_sender = self.stream_registry.get_or_create(session_id).await;
 
         // auto_close=false matches the old `interactive()` SpawnOptions for web.
-        // spawn_session records the initial user-message row itself, so the
-        // `event_fired` rows for session:start / session:execution_start sort
-        // BEFORE the user message in the timeline.
+        // spawn_session records the initial user-message row itself for web
+        // chat and quest runs, so the `event_fired` rows for session:start /
+        // session:execution_start sort BEFORE the user message in the
+        // timeline. Channel gateways (WhatsApp, Telegram) pre-record the
+        // inbound message with channel metadata before enqueueing, and set
+        // `initial_message_recorded` so we skip spawn_session's write and
+        // avoid a duplicate row.
         let mut opts = SpawnOptions::interactive()
             .with_session_id(session_id.to_string())
             .with_stream_sender(stream_sender)
@@ -187,6 +210,9 @@ impl SessionExecutor for QueueExecutor {
             // The agent loop will only inject pending rows with id > this value,
             // so it never re-claims the row that triggered this very turn.
             .with_starting_pending_id(claim.id);
+        if queued.initial_message_recorded {
+            opts = opts.without_initial_message_record();
+        }
         if let Some(ref s) = queued.sender_id {
             opts = opts.with_sender_id(s.clone());
         }

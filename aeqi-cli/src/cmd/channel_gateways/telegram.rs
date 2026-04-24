@@ -277,12 +277,17 @@ async fn run_telegram_gateway(
                     failure_analysis_model: String::new(),
                     extra_tools: tg_tools,
                 });
+            // The `record_message` call above already wrote the inbound
+            // user-message row with Telegram metadata (chat_id, message_id).
+            // Flag it so spawn_session skips its own user-message write and
+            // we don't duplicate the row in the transcript.
             let queued = aeqi_orchestrator::queue_executor::QueuedMessage::chat(
                 aid.clone(),
                 user_text.clone(),
                 user_sender_id.clone(),
                 Some("telegram".to_string()),
-            );
+            )
+            .with_initial_message_recorded();
             let payload = queued
                 .to_payload()
                 .expect("QueuedMessage serialization is infallible");
