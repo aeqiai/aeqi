@@ -4,131 +4,71 @@
 //! ideas database, plus the `prepare_schema` driver and a versioned migration
 //! runner tracked in `schema_version`.
 //!
-//! Migration order:
-//! - v1 — baseline (matches legacy `ensure_*` layout) + content_hash backfill.
-//! - v2 — lifecycle + provenance columns on `ideas`.
-//! - v3 — drop dead columns via rename-swap (FTS triggers recreated).
-//! - v4 — `idea_edges` expansion (last_reinforced_at + indices).
-//! - v5 — `idea_access_log` and `idea_feedback` tables.
-//! - v6 — bi-temporal columns (`valid_from`, `valid_until`, `time_context`).
-//! - v7 — ANN vector table (feature-gated behind `ann-sqlite-vec`).
-//! - v8 — partial unique index on `ideas(agent_id, name) WHERE status='active'`.
-//! - v9 — backfill default `fact` tag for ideas missing a row in `idea_tags`.
+//! # History
+//!
+//! This file used to carry nine numbered migrations (`migration_v1` ..
+//! `migration_v9`) that each incrementally reshaped the DB — ALTER TABLEs,
+//! a rename-swap to drop dead columns, FTS/ANN wiring, bi-temporal columns,
+//! the partial unique index on active names, and a default-tag backfill.
+//!
+//! On 2026-04-24 (R5 Agent A — Migration Collapse) the v1..v7 chain was
+//! deleted because every deployed DB had already run them (they only
+//! reshape columns on pre-existing data). v8 (partial unique index) and
+//! v9 (default-tag backfill) are kept as normal migrations because at
+//! collapse time the live DB was at `schema_version=7` — it had never
+//! run them. Fresh DBs use `initial_schema` instead and skip the whole
+//! chain in one step.
+//!
+//! The runner now recognises three cases:
+//!
+//! 1. **Fresh DB** (`schema_version` empty): apply `initial_schema` and
+//!    stamp `schema_version = 10`. This is the "baseline reached" marker.
+//! 2. **Legacy DB at v1..v7** (pre-partial-unique-index): v8 and v9 run
+//!    incrementally the way they always did; the earlier v1..v7 were
+//!    already applied so their deletion is harmless.
+//! 3. **Legacy DB at v8..v9 or v10**: all migrations already present; skip.
+//!
+//! Future incremental migrations start at v11 and run via the same
+//! `migrations: &[(i64, Migration)]` dispatch table.
+//!
+//! # Writing new migrations
+//!
+//! - Never do a rename-swap (`CREATE TABLE new; INSERT…SELECT; DROP TABLE old;
+//!   RENAME new TO old`) on `ideas` without first disabling foreign keys
+//!   **inside** the transaction. The v3 migration did this and silently
+//!   cascade-wiped every `idea_tags` row in production, which is why v9 had
+//!   to exist as a backfill. The baseline below doesn't rename-swap — if you
+//!   need to drop a column on a modern SQLite use `ALTER TABLE … DROP COLUMN`
+//!   directly.
+//! - Prefer additive migrations (new tables, new columns with defaults, new
+//!   indexes) over rebuilds. Rebuilds interact badly with FTS5 content-table
+//!   triggers and foreign keys.
 
 use super::SqliteIdeas;
 use crate::vector::VectorStore;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
+/// The version stamped on a fresh DB after `initial_schema` runs. Legacy
+/// DBs that ran the old v1..v9 chain carry rows 1..9 and are not re-stamped;
+/// both are considered "at baseline" for future migration purposes.
+const BASELINE_VERSION: i64 = 10;
+
 impl SqliteIdeas {
     pub fn prepare_schema(conn: &Connection) -> Result<()> {
-        // Legacy baseline schema — creates the v1 tables if they don't exist.
-        // Existing DBs already have these; fresh DBs get them here so migration
-        // v1's ALTER statements (and later migrations) all have something to
-        // mutate.
-        Self::ensure_ideas_table(conn)?;
-        Self::ensure_idea_tags_table(conn)?;
-        Self::ensure_idea_indexes(conn)?;
-        Self::ensure_fts(conn)?;
-        Self::ensure_edge_table(conn)?;
-        VectorStore::open(conn, 1536)?;
-
-        // Versioned migrations — idempotent, recorded in `schema_version`.
-        run_migrations(conn)?;
-        Ok(())
-    }
-
-    fn ensure_ideas_table(conn: &Connection) -> Result<()> {
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS ideas (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                content TEXT NOT NULL,
-                scope TEXT NOT NULL DEFAULT 'domain',
-                agent_id TEXT,
-                session_id TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT,
-                expires_at TEXT,
-                inheritance TEXT NOT NULL DEFAULT 'self',
-                tool_allow TEXT NOT NULL DEFAULT '[]',
-                tool_deny TEXT NOT NULL DEFAULT '[]',
-                content_hash TEXT,
-                source_kind TEXT,
-                source_ref TEXT,
-                managed INTEGER NOT NULL DEFAULT 0
-            );",
-        )?;
-        Ok(())
-    }
-
-    fn ensure_idea_tags_table(conn: &Connection) -> Result<()> {
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS idea_tags (
-                idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-                tag TEXT NOT NULL,
-                PRIMARY KEY (idea_id, tag)
-            );
-            CREATE INDEX IF NOT EXISTS idx_idea_tags_tag ON idea_tags(tag);",
-        )?;
-        Ok(())
-    }
-
-    fn ensure_idea_indexes(conn: &Connection) -> Result<()> {
-        // Only indexes on columns that survive the v3 rename-swap. The dropped
-        // `source_kind` / `source_ref` columns used to be indexed here; that
-        // moves to tag-based provenance (Round 4d).
-        conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_ideas_name ON ideas(name);
-             CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
-             CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
-             CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);",
-        )?;
-        Ok(())
-    }
-
-    fn ensure_fts(conn: &Connection) -> Result<()> {
-        conn.execute_batch(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS ideas_fts USING fts5(
-                name, content, content=ideas, content_rowid=rowid
-             );
-             CREATE TRIGGER IF NOT EXISTS ideas_ai AFTER INSERT ON ideas BEGIN
-                 INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-             END;
-             CREATE TRIGGER IF NOT EXISTS ideas_ad AFTER DELETE ON ideas BEGIN
-                 INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-             END;
-             CREATE TRIGGER IF NOT EXISTS ideas_au AFTER UPDATE ON ideas BEGIN
-                 INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
-                 INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
-             END;",
-        )?;
-        Ok(())
-    }
-
-    fn ensure_edge_table(conn: &Connection) -> Result<()> {
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS idea_edges (
-                source_id TEXT NOT NULL,
-                target_id TEXT NOT NULL,
-                relation TEXT NOT NULL,
-                strength REAL NOT NULL DEFAULT 0.5,
-                agent TEXT,
-                task_id TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (source_id, target_id, relation)
-            );
-            CREATE INDEX IF NOT EXISTS idx_idea_edges_source ON idea_edges(source_id);
-            CREATE INDEX IF NOT EXISTS idx_idea_edges_target ON idea_edges(target_id);",
-        )?;
-        Ok(())
+        run_migrations(conn)
     }
 }
 
-/// Runs every migration whose version is newer than `schema_version.max`.
-/// Each migration runs in its own transaction; version row is inserted
-/// alongside so a partial apply cannot leave the DB half-migrated.
+/// Migration runner.
+///
+/// * If `schema_version` is empty, runs `initial_schema` in a single
+///   transaction and stamps `BASELINE_VERSION`.
+/// * If `schema_version.max` is in 1..=9, the DB was migrated by the legacy
+///   chain; any versioned migration newer than `current` in the `migrations`
+///   table still runs. v8 and v9 are retained here because at collapse time
+///   the live DB was at v7 and had yet to apply them.
+/// * Future migrations (v11+) slot into the same `migrations` table.
 fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
@@ -142,19 +82,27 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )
         .unwrap_or(0);
 
+    if current == 0 {
+        // Truly fresh DB — apply the collapsed baseline.
+        let tx = conn.unchecked_transaction()?;
+        initial_schema(&tx).context("initial_schema failed")?;
+        tx.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+            rusqlite::params![BASELINE_VERSION, chrono::Utc::now().to_rfc3339()],
+        )?;
+        tx.commit()?;
+        return Ok(());
+    }
+
+    // Legacy DBs: v1..v7 are assumed already-applied (the functions are
+    // gone — they only added columns to pre-existing data and every
+    // deployed DB has them). v8 and v9 remain as incrementals because the
+    // live DB was still at v7 when we collapsed.
     type Migration = fn(&Connection) -> Result<()>;
     let migrations: &[(i64, Migration)] = &[
-        (1, migration_v1),
-        (2, migration_v2),
-        (3, migration_v3),
-        (4, migration_v4),
-        (5, migration_v5),
-        (6, migration_v6),
-        (7, migration_v7),
-        (8, migration_v8),
-        (9, migration_v9),
+        (8, migration_v8_active_name_unique_index),
+        (9, migration_v9_backfill_default_tag),
     ];
-
     for (version, f) in migrations {
         if *version > current {
             let tx = conn.unchecked_transaction()?;
@@ -169,81 +117,51 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// v1 — baseline. The CREATE TABLE IF NOT EXISTS statements in
-/// `prepare_schema` already populate the table shape; this migration only
-/// backfills `content_hash` for rows that pre-date that column so
-/// embedding-cache lookups work.
-fn migration_v1(conn: &Connection) -> Result<()> {
-    let mut stmt = conn.prepare("SELECT id, content FROM ideas WHERE content_hash IS NULL")?;
-    let rows: Vec<(String, String)> = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?
-        .filter_map(Result::ok)
-        .collect();
-    drop(stmt);
-
-    for (id, content) in rows {
-        let hash = SqliteIdeas::content_hash(&content);
-        conn.execute(
-            "UPDATE ideas SET content_hash = ?1 WHERE id = ?2",
-            rusqlite::params![hash, id],
-        )?;
-    }
+/// v8 — partial unique index on active (agent_id, name). Kept as a live
+/// migration because the production DB was at v7 at collapse time.
+fn migration_v8_active_name_unique_index(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_ideas_agent_name_unique;
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_active_unique
+           ON ideas(COALESCE(agent_id, ''), name)
+           WHERE status = 'active';",
+    )?;
     Ok(())
 }
 
-/// v2 — lifecycle + provenance columns on `ideas`.
-fn migration_v2(conn: &Connection) -> Result<()> {
-    let alters = [
-        "ALTER TABLE ideas ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
-        "ALTER TABLE ideas ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE ideas ADD COLUMN last_accessed TEXT",
-        "ALTER TABLE ideas ADD COLUMN authored_by TEXT",
-        "ALTER TABLE ideas ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0",
-        "ALTER TABLE ideas ADD COLUMN verified_by TEXT",
-        "ALTER TABLE ideas ADD COLUMN verified_at TEXT",
-        "ALTER TABLE ideas ADD COLUMN last_feedback_at TEXT",
-        "ALTER TABLE ideas ADD COLUMN feedback_boost REAL NOT NULL DEFAULT 0",
-        "ALTER TABLE ideas ADD COLUMN embedding_pending INTEGER NOT NULL DEFAULT 1",
-    ];
-    for sql in alters {
-        if let Err(e) = conn.execute(sql, []) {
-            // Tolerate "duplicate column name" so the migration stays idempotent
-            // against DBs that partially ran a hand-applied version of this.
-            let msg = e.to_string();
-            if !msg.contains("duplicate column name") {
-                return Err(e.into());
-            }
-        }
-    }
-
-    // Rows with an existing embedding already have vectors — don't mark them
-    // pending. The idea_embeddings join is cheap because `idea_id` is unique.
+/// v9 — backfill default `fact` tag for any pre-existing idea missing
+/// a tag row. Mirrors `SqliteIdeas::normalize_tags` defaulting to "fact"
+/// when no tags are supplied. Only matters for legacy DBs; fresh DBs never
+/// have untagged rows because `initial_schema` creates empty tables.
+fn migration_v9_backfill_default_tag(conn: &Connection) -> Result<()> {
     conn.execute(
-        "UPDATE ideas SET embedding_pending = 0 \
-         WHERE id IN (SELECT idea_id FROM idea_embeddings)",
+        "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
+         SELECT id, 'fact' FROM ideas
+         WHERE id NOT IN (SELECT idea_id FROM idea_tags)",
         [],
     )?;
-
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_ideas_status ON ideas(status);
-         CREATE INDEX IF NOT EXISTS idx_ideas_last_accessed ON ideas(last_accessed);
-         CREATE INDEX IF NOT EXISTS idx_ideas_embedding_pending ON ideas(embedding_pending) \
-            WHERE embedding_pending=1;",
-    )?;
     Ok(())
 }
 
-/// v3 — drop dead columns via rename-swap.
+/// Creates the full post-v9 schema from scratch.
 ///
-/// SQLite < 3.35 can't DROP COLUMN, and even modern versions prefer the
-/// rebuild pattern for multi-column drops to avoid shadow-index drift.
-/// Column removed: `inheritance`, `tool_allow`, `tool_deny`, `managed`,
-/// `source_kind`, `source_ref`.
-fn migration_v3(conn: &Connection) -> Result<()> {
+/// Runs as a single transaction (the caller wraps it). Covers:
+///
+/// * Core tables: `ideas`, `idea_tags`, `idea_edges`, `idea_embeddings`,
+///   `idea_access_log`, `idea_feedback`.
+/// * FTS5 virtual table `ideas_fts` + its 3 content-table triggers.
+/// * ANN virtual table `idea_vec` (feature-gated behind `ann-sqlite-vec`) +
+///   its 3 sync triggers. Failure to install vec0 is non-fatal — the
+///   brute-force cosine path in `VectorStore` stays active.
+/// * Every index the legacy migrations built, including the partial unique
+///   index on `(agent_id, name) WHERE status='active'` (v8).
+///
+/// There is no tag backfill here — on a fresh DB there's nothing to backfill.
+/// Legacy DBs that needed the v9 backfill already ran it.
+fn initial_schema(conn: &Connection) -> Result<()> {
+    // ideas — final shape after v2 additions + v3 drops + v6 bi-temporal cols.
     conn.execute_batch(
-        "CREATE TABLE ideas_new (
+        "CREATE TABLE ideas (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             content TEXT NOT NULL,
@@ -263,52 +181,110 @@ fn migration_v3(conn: &Connection) -> Result<()> {
             verified_at TEXT,
             last_feedback_at TEXT,
             feedback_boost REAL NOT NULL DEFAULT 0,
-            embedding_pending INTEGER NOT NULL DEFAULT 1
+            embedding_pending INTEGER NOT NULL DEFAULT 1,
+            valid_from TEXT,
+            valid_until TEXT,
+            time_context TEXT NOT NULL DEFAULT 'timeless'
         );",
     )?;
 
-    conn.execute(
-        "INSERT INTO ideas_new (
-            id, name, content, scope, agent_id, session_id, created_at,
-            updated_at, expires_at, content_hash,
-            status, access_count, last_accessed, authored_by, confidence,
-            verified_by, verified_at, last_feedback_at, feedback_boost,
-            embedding_pending
-         )
-         SELECT
-            id, name, content, scope, agent_id, session_id, created_at,
-            updated_at, expires_at, content_hash,
-            status, access_count, last_accessed, authored_by, confidence,
-            verified_by, verified_at, last_feedback_at, feedback_boost,
-            embedding_pending
-         FROM ideas",
-        [],
+    // idea_tags — many-to-many tag join (cascaded delete).
+    conn.execute_batch(
+        "CREATE TABLE idea_tags (
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL,
+            PRIMARY KEY (idea_id, tag)
+        );",
     )?;
 
-    // Dropping `ideas` cascades the FTS5 triggers (they reference `ideas`),
-    // so we must recreate them after the rename.
-    conn.execute_batch("DROP TABLE ideas; ALTER TABLE ideas_new RENAME TO ideas;")?;
-
-    // Recreate indexes that lived on the old `ideas` table.
+    // idea_edges — typed relations between ideas with reinforcement tracking.
     conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_ideas_name ON ideas(name);
-         CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
-         CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
-         CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
-         CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
-         CREATE INDEX IF NOT EXISTS idx_ideas_status ON ideas(status);
-         CREATE INDEX IF NOT EXISTS idx_ideas_last_accessed ON ideas(last_accessed);
-         CREATE INDEX IF NOT EXISTS idx_ideas_embedding_pending ON ideas(embedding_pending) \
-            WHERE embedding_pending=1;",
+        "CREATE TABLE idea_edges (
+            source_id TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            relation TEXT NOT NULL,
+            strength REAL NOT NULL DEFAULT 0.5,
+            agent TEXT,
+            task_id TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_reinforced_at TEXT,
+            PRIMARY KEY (source_id, target_id, relation)
+        );",
     )?;
 
-    // Recreate FTS5 triggers against the new `ideas` table. The FTS virtual
-    // table itself survives the rename (content=ideas is resolved at query
-    // time), so we only rewire the insert/delete/update triggers.
+    // idea_embeddings — owned here (not in VectorStore::open) to keep the
+    // whole schema definition in one place. VectorStore::open is idempotent;
+    // if it runs later it won't clobber this.
     conn.execute_batch(
-        "DROP TRIGGER IF EXISTS ideas_ai;
-         DROP TRIGGER IF EXISTS ideas_ad;
-         DROP TRIGGER IF EXISTS ideas_au;
+        "CREATE TABLE idea_embeddings (
+            idea_id TEXT PRIMARY KEY REFERENCES ideas(id) ON DELETE CASCADE,
+            embedding BLOB NOT NULL,
+            dimensions INTEGER NOT NULL,
+            content_hash TEXT
+        );",
+    )?;
+
+    // idea_access_log — append-only retrieval log for feedback signals.
+    conn.execute_batch(
+        "CREATE TABLE idea_access_log (
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            agent_id TEXT,
+            session_id TEXT,
+            context TEXT NOT NULL,
+            result_position INTEGER,
+            query_hash TEXT
+        );",
+    )?;
+
+    // idea_feedback — thumbs-up/down + custom signals, weighted.
+    conn.execute_batch(
+        "CREATE TABLE idea_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+            signal TEXT NOT NULL,
+            weight REAL NOT NULL DEFAULT 1.0,
+            at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            agent_id TEXT,
+            session_id TEXT,
+            query_text TEXT,
+            note TEXT
+        );",
+    )?;
+
+    // Indexes — every one the legacy v1..v8 chain built.
+    conn.execute_batch(
+        "CREATE INDEX idx_ideas_name ON ideas(name);
+         CREATE INDEX idx_ideas_created ON ideas(created_at);
+         CREATE INDEX idx_ideas_agent_id ON ideas(agent_id);
+         CREATE INDEX idx_ideas_expires ON ideas(expires_at);
+         CREATE INDEX idx_ideas_content_hash ON ideas(content_hash);
+         CREATE INDEX idx_ideas_status ON ideas(status);
+         CREATE INDEX idx_ideas_last_accessed ON ideas(last_accessed);
+         CREATE INDEX idx_ideas_embedding_pending ON ideas(embedding_pending)
+            WHERE embedding_pending=1;
+         CREATE INDEX idx_ideas_valid_from ON ideas(valid_from);
+         CREATE INDEX idx_ideas_valid_until ON ideas(valid_until);
+         CREATE INDEX idx_ideas_time_context ON ideas(time_context);
+         CREATE INDEX idx_idea_tags_tag ON idea_tags(tag);
+         CREATE INDEX idx_idea_edges_source ON idea_edges(source_id);
+         CREATE INDEX idx_idea_edges_target ON idea_edges(target_id);
+         CREATE INDEX idx_idea_edges_relation ON idea_edges(relation);
+         CREATE INDEX idx_idea_edges_reinforced ON idea_edges(last_reinforced_at)
+            WHERE relation = 'co_retrieved';
+         CREATE INDEX idx_access_log_idea ON idea_access_log(idea_id, accessed_at);
+         CREATE INDEX idx_access_log_query ON idea_access_log(query_hash, accessed_at);
+         CREATE INDEX idx_feedback_idea ON idea_feedback(idea_id, at);
+         CREATE UNIQUE INDEX idx_ideas_agent_name_active_unique
+            ON ideas(COALESCE(agent_id, ''), name)
+            WHERE status = 'active';",
+    )?;
+
+    // FTS5 content-table mirror + sync triggers.
+    conn.execute_batch(
+        "CREATE VIRTUAL TABLE ideas_fts USING fts5(
+            name, content, content=ideas, content_rowid=rowid
+         );
          CREATE TRIGGER ideas_ai AFTER INSERT ON ideas BEGIN
              INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
          END;
@@ -321,140 +297,19 @@ fn migration_v3(conn: &Connection) -> Result<()> {
          END;",
     )?;
 
-    // FTS index rows were keyed by the old rowids; rebuild to pick up the
-    // new `ideas` rowids after the rename-swap.
-    conn.execute("INSERT INTO ideas_fts(ideas_fts) VALUES('rebuild')", [])?;
-
-    Ok(())
-}
-
-/// v4 — `idea_edges` gains a `last_reinforced_at` column + relation index.
-fn migration_v4(conn: &Connection) -> Result<()> {
-    if let Err(e) = conn.execute(
-        "ALTER TABLE idea_edges ADD COLUMN last_reinforced_at TEXT",
-        [],
-    ) {
-        let msg = e.to_string();
-        if !msg.contains("duplicate column name") {
-            return Err(e.into());
-        }
-    }
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_idea_edges_relation ON idea_edges(relation);
-         CREATE INDEX IF NOT EXISTS idx_idea_edges_reinforced ON idea_edges(last_reinforced_at) \
-            WHERE relation = 'co_retrieved';",
-    )?;
-    Ok(())
-}
-
-/// v5 — access log + feedback tables.
-fn migration_v5(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS idea_access_log (
-            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-            accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            agent_id TEXT,
-            session_id TEXT,
-            context TEXT NOT NULL,
-            result_position INTEGER,
-            query_hash TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_access_log_idea ON idea_access_log(idea_id, accessed_at);
-        CREATE INDEX IF NOT EXISTS idx_access_log_query ON idea_access_log(query_hash, accessed_at);
-
-        CREATE TABLE IF NOT EXISTS idea_feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            idea_id TEXT NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-            signal TEXT NOT NULL,
-            weight REAL NOT NULL DEFAULT 1.0,
-            at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            agent_id TEXT,
-            session_id TEXT,
-            query_text TEXT,
-            note TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_feedback_idea ON idea_feedback(idea_id, at);",
-    )?;
-    Ok(())
-}
-
-/// v6 — bi-temporal columns on `ideas`.
-///
-/// `created_at` is DB ingestion time. `valid_from` / `valid_until` are
-/// real-world validity (Zep/Graphiti-style). `time_context` distinguishes
-/// timeless prefs from time-scoped events and current-state facts.
-fn migration_v6(conn: &Connection) -> Result<()> {
-    let alters = [
-        "ALTER TABLE ideas ADD COLUMN valid_from TEXT",
-        "ALTER TABLE ideas ADD COLUMN valid_until TEXT",
-        "ALTER TABLE ideas ADD COLUMN time_context TEXT NOT NULL DEFAULT 'timeless'",
-    ];
-    for sql in alters {
-        if let Err(e) = conn.execute(sql, []) {
-            let msg = e.to_string();
-            if !msg.contains("duplicate column name") {
-                return Err(e.into());
-            }
-        }
-    }
-
-    // Back-fill valid_from with created_at so existing rows become valid from
-    // their ingestion time (reasonable default for pre-bitemporal data).
-    conn.execute(
-        "UPDATE ideas SET valid_from = created_at WHERE valid_from IS NULL",
-        [],
-    )?;
-
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_ideas_valid_from ON ideas(valid_from);
-         CREATE INDEX IF NOT EXISTS idx_ideas_valid_until ON ideas(valid_until);
-         CREATE INDEX IF NOT EXISTS idx_ideas_time_context ON ideas(time_context);",
-    )?;
-    Ok(())
-}
-
-/// v7 — ANN via sqlite-vec virtual table.
-///
-/// The `ann-sqlite-vec` feature is default-on; a `--no-default-features`
-/// build compiles the no-op variant and keeps the brute-force cosine path.
-/// Any failure (extension load failure on managed SQLite, older libsqlite,
-/// dimension mismatch) is logged and swallowed so startup never blocks on
-/// ANN-adjacent infrastructure issues.
-///
-/// The 1536-dim vec0 table matches production (OpenAI ada-002,
-/// text-embedding-3-small). Callers wiring a smaller embedder via
-/// `with_embedder` rebuild the virtual table with the correct dim via
-/// `rebuild_idea_vec_table`.
-fn migration_v7(conn: &Connection) -> Result<()> {
+    // ANN virtual table — feature-gated, best-effort. Matches production
+    // embedding dim (OpenAI text-embedding-3-small = 1536). Callers that
+    // need a different dim rebuild via `rebuild_idea_vec_table`.
     #[cfg(feature = "ann-sqlite-vec")]
     {
-        if !install_idea_vec(conn, 1536) {
-            return Ok(());
-        }
-        // Backfill: existing idea_embeddings rows must be mirrored into
-        // idea_vec so the live DB (~295 ideas as of 2026-04-24) becomes
-        // ANN-searchable without waiting for a re-embed. Dimension-mismatch
-        // inserts (e.g. legacy rows with a different dim) are swallowed so
-        // one bad row doesn't sink the migration.
-        //
-        // Since vec0 enforces dim, we filter by LENGTH of the blob: 1536*4
-        // bytes = 6144. Legacy rows with different dims are skipped.
-        let backfill = conn.execute(
-            "INSERT OR IGNORE INTO idea_vec(rowid, embedding) \
-             SELECT rowid, embedding FROM idea_embeddings WHERE LENGTH(embedding) = 1536 * 4",
-            [],
-        );
-        if let Err(e) = backfill {
-            tracing::warn!(error = %e, "idea_vec backfill failed; ANN will only cover ideas written after migration");
-        }
+        let _ = install_idea_vec(conn, 1536);
     }
-    #[cfg(not(feature = "ann-sqlite-vec"))]
-    {
-        // Feature off: nothing to do. Schema stays brute-force. The migration
-        // row is still recorded so a future feature flip doesn't re-run the
-        // no-op.
-        let _ = conn;
-    }
+
+    // VectorStore::open is a no-op here (idea_embeddings already exists), but
+    // it's cheap and keeps the invariant that any VectorStore caller who
+    // forgets to call prepare_schema still gets the table.
+    VectorStore::open(conn, 1536)?;
+
     Ok(())
 }
 
@@ -533,47 +388,3 @@ pub(super) fn rebuild_idea_vec_table(conn: &Connection, dimensions: usize) {
 
 #[cfg(not(feature = "ann-sqlite-vec"))]
 pub(super) fn rebuild_idea_vec_table(_conn: &Connection, _dimensions: usize) {}
-
-/// v8 — active-name uniqueness. The live pre-migration DB had
-/// `idx_ideas_agent_name_unique ON ideas(COALESCE(agent_id,''), name)` that
-/// the v3 rebuild dropped. We re-create it as a **partial** unique index
-/// scoped to `status='active'` so supersession (old row flips to
-/// 'superseded', new row inserts with same name) doesn't collide.
-/// Archived and superseded rows retain their names for history.
-fn migration_v8(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "DROP INDEX IF EXISTS idx_ideas_agent_name_unique;
-         CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_active_unique
-           ON ideas(COALESCE(agent_id, ''), name)
-           WHERE status = 'active';",
-    )?;
-    Ok(())
-}
-
-/// v9 — backfill default `fact` tag for untagged ideas.
-///
-/// Investigation 2026-04-24: the live production DB (`~/.aeqi/aeqi.db`) had
-/// all 333 ideas with **zero** rows in `idea_tags`, despite the write-path
-/// `normalize_tags` defaulting to `["fact"]` when no tags are supplied. The
-/// 1668-tag-row claim from an earlier pass was stale or pointed at a
-/// different DB; M's smoke test report was correct.
-///
-/// Root cause is out of scope here — either pre-normalize-tags ideas never
-/// got a row inserted into `idea_tags`, or a historical migration dropped the
-/// table. Either way, the invariant is clear: every active idea should have
-/// at least one tag. Tag-filtered retrieval (`query_tag_filter`, tag-scoped
-/// search) silently drops any idea without a tag row, so the backfill is
-/// load-bearing.
-///
-/// Mirrors `SqliteIdeas::normalize_tags`' default of `"fact"`. Runs once;
-/// subsequent writes are handled by the normal store path. `INSERT OR IGNORE`
-/// means re-running (e.g. after a manual idea_tags repair) can't duplicate.
-fn migration_v9(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
-         SELECT id, 'fact' FROM ideas
-         WHERE id NOT IN (SELECT idea_id FROM idea_tags)",
-        [],
-    )?;
-    Ok(())
-}
