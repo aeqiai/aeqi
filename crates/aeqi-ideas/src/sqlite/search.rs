@@ -332,6 +332,10 @@ impl SqliteIdeas {
                     confidence: h.confidence,
                     decay: h.decay,
                     final_score: h.final_score,
+                    // `cache` is stamped by the IPC layer — the store itself
+                    // always produces fresh hits, so default (Fresh) is
+                    // correct here.
+                    ..Why::default()
                 },
             });
         }
