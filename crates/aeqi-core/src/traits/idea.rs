@@ -651,16 +651,13 @@ pub struct Why {
 /// staged pipeline on this request, or served from the daemon-side recall
 /// cache. `Hit` carries the cache entry's age in milliseconds so consumers
 /// can reason about freshness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CacheSource {
+    #[default]
     Fresh,
-    Hit { age_ms: u32 },
-}
-
-impl Default for CacheSource {
-    fn default() -> Self {
-        CacheSource::Fresh
-    }
+    Hit {
+        age_ms: u32,
+    },
 }
 
 /// One hop of a multi-hop graph walk.
