@@ -675,6 +675,12 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         MiddlewareSeed {
             name: "on_ideas_threshold_reached",
             pattern: "ideas:threshold_reached",
+            // Event-chain: spawn a tool-less consolidator sub-agent that emits
+            // a single-element JSON array describing the distilled meta-idea,
+            // then pipe that JSON through ideas.store_many which handles the
+            // actual persistence. Splitting generation from persistence means
+            // the sub-agent doesn't need tools, so it can run with the empty
+            // `tools: Vec::new()` vector that session.spawn gives compactors.
             tool_calls: vec![
                 ToolCall {
                     tool: "session.spawn".into(),
@@ -686,11 +692,11 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                     }),
                 },
                 ToolCall {
-                    tool: "ideas.store".into(),
+                    tool: "ideas.store_many".into(),
                     args: serde_json::json!({
-                        "name": "consolidation/{tag}/{timestamp}",
-                        "content": "{last_tool_result}",
-                        "tags": ["{tag}", "consolidated"]
+                        "from_json": "{last_tool_result}",
+                        "authored_by": "consolidator:{agent_id}",
+                        "tag_suffix": ["source:threshold:{tag}"]
                     }),
                 },
             ],
@@ -714,15 +720,33 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         MiddlewareSeed {
             name: "on_reflect_after_quest",
             pattern: "session:quest_end",
-            tool_calls: vec![ToolCall {
-                tool: "session.spawn".into(),
-                args: serde_json::json!({
-                    "kind": "compactor",
-                    "instructions_idea": "meta:reflector-template",
-                    "seed_content": "{transcript_preview}",
-                    "parent_session": "{session_id}"
-                }),
-            }],
+            // Event-chain (Round 6): spawn a tool-less reflector sub-agent that
+            // emits a JSON array of idea candidates, then pipe that JSON into
+            // ideas.store_many for persistence. The sub-agent never calls any
+            // tools; persistence is the event's job. See
+            // presets/seed_ideas/reflector-template.md for the JSON schema.
+            tool_calls: vec![
+                ToolCall {
+                    tool: "session.spawn".into(),
+                    args: serde_json::json!({
+                        "kind": "compactor",
+                        "instructions_idea": "meta:reflector-template",
+                        "seed_content": "{transcript_preview}",
+                        "parent_session": "{session_id}"
+                    }),
+                },
+                ToolCall {
+                    tool: "ideas.store_many".into(),
+                    args: serde_json::json!({
+                        "from_json": "{last_tool_result}",
+                        "authored_by": "reflector:{agent_id}",
+                        "tag_suffix": [
+                            "source:session:{session_id}",
+                            "reflection"
+                        ]
+                    }),
+                },
+            ],
         },
         MiddlewareSeed {
             name: "on_inject_recent_context",
@@ -2055,7 +2079,11 @@ mod tests {
             .find(|e| e.name == "on_reflect_after_quest")
             .expect("on_reflect_after_quest must be seeded");
         assert!(reflector.system);
-        assert_eq!(reflector.tool_calls.len(), 1);
+        // Round 6: reflect-after-quest is now a 2-step chain — spawn the
+        // reflector (generates JSON) then store_many (persists it). Without
+        // the store_many step the sub-agent's output evaporates because the
+        // compactor session has `tools: Vec::new()`.
+        assert_eq!(reflector.tool_calls.len(), 2);
         assert_eq!(reflector.tool_calls[0].tool, "session.spawn");
         assert_eq!(
             reflector.tool_calls[0]
@@ -2064,6 +2092,15 @@ mod tests {
                 .and_then(|v| v.as_str()),
             Some("meta:reflector-template"),
             "reflector must spawn the meta:reflector-template persona"
+        );
+        assert_eq!(reflector.tool_calls[1].tool, "ideas.store_many");
+        assert_eq!(
+            reflector.tool_calls[1]
+                .args
+                .get("from_json")
+                .and_then(|v| v.as_str()),
+            Some("{last_tool_result}"),
+            "store_many must read the sub-agent output"
         );
         // on_quest_end must still be present alongside reflect-after-quest.
         assert!(
