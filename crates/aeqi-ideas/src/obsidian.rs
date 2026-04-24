@@ -33,11 +33,8 @@ use tracing::{debug, info, warn};
 ///
 /// Returns the number of files written.
 ///
-/// Uses `IdeaStore::edges_between` (string-typed relations) rather than the
-/// enum-typed `fetch_edges_for_set` so typed inline-link edges such as
-/// `supersedes` / `contradicts` / `supports` / `distilled_into` survive the
-/// round-trip — the enum in `IdeaRelation` only knows three relations, and
-/// any other string is silently dropped by the filter_map in `fetch_edges`.
+/// Uses `IdeaStore::edges_between` (string-typed relations) so every
+/// entry in [`crate::relation::KNOWN_RELATIONS`] survives the round-trip.
 pub async fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
     let entries = store.list_all()?;
     if entries.is_empty() {
@@ -51,9 +48,8 @@ pub async fn export(store: &SqliteIdeas, vault_dir: &Path) -> Result<usize> {
         .map(|e| (e.id.as_str(), e.name.as_str()))
         .collect();
 
-    // Fetch all edges via the string-typed interface so typed relations
-    // (supersedes, contradicts, supports, distilled_into, co_retrieved)
-    // aren't dropped by the 3-variant `IdeaRelation` enum.
+    // Fetch all edges via the string-typed interface so every relation
+    // documented in `crate::relation::KNOWN_RELATIONS` round-trips.
     let all_ids: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
     let edges = store.edges_between(&all_ids).await.unwrap_or_default();
 
@@ -498,22 +494,29 @@ fn split_relations(body: &str) -> (String, Vec<ParsedRelation>) {
 }
 
 /// Map any legacy or unknown relation name to one of the relations the
-/// store recognises. The taxonomy tracks the `inline_links` parser:
-/// `mentions`, `embeds`, `supersedes`, `contradicts`, `supports`,
-/// `distilled_into` — plus `adjacent` for UI-added edges. Everything else
-/// (legacy `caused_by`, `related_to`, `triggered_by`, …) collapses to
-/// `adjacent` so old vaults round-trip without reintroducing retired
-/// relation names.
+/// inline-link / picker surface recognises: `mentions`, `embeds`,
+/// `supersedes`, `contradicts`, `supports`, `distilled_into`, `adjacent`.
+/// Everything else (legacy `caused_by`, `related_to`, `triggered_by`, …)
+/// collapses to `adjacent` so old vaults round-trip without reintroducing
+/// retired relation names.
+///
+/// Note: `caused_by` / `co_retrieved` / `contradiction` are valid on the
+/// store side (see [`crate::relation::KNOWN_RELATIONS`]) but aren't
+/// emissable through inline-link syntax, so the Obsidian parser downgrades
+/// them here to stay consistent with the writer.
 fn normalize_relation(raw: &str) -> String {
+    use crate::relation::{
+        ADJACENT, CONTRADICTS, DISTILLED_INTO, EMBEDS, MENTIONS, SUPERSEDES, SUPPORTS,
+    };
     match raw.trim() {
-        "mentions" => "mentions".to_string(),
-        "embeds" => "embeds".to_string(),
-        "supersedes" => "supersedes".to_string(),
-        "contradicts" => "contradicts".to_string(),
-        "supports" => "supports".to_string(),
-        "distilled_into" => "distilled_into".to_string(),
-        "adjacent" => "adjacent".to_string(),
-        _ => "adjacent".to_string(),
+        MENTIONS => MENTIONS.to_string(),
+        EMBEDS => EMBEDS.to_string(),
+        SUPERSEDES => SUPERSEDES.to_string(),
+        CONTRADICTS => CONTRADICTS.to_string(),
+        SUPPORTS => SUPPORTS.to_string(),
+        DISTILLED_INTO => DISTILLED_INTO.to_string(),
+        ADJACENT => ADJACENT.to_string(),
+        _ => ADJACENT.to_string(),
     }
 }
 
@@ -558,7 +561,7 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
         } else {
             relations.push(ParsedRelation {
                 target_key,
-                relation: "adjacent".to_string(),
+                relation: crate::relation::ADJACENT.to_string(),
                 strength: 0.5,
             });
         }
@@ -792,8 +795,8 @@ mod tests {
     async fn test_export_preserves_typed_edges_in_wikilinks() {
         // Typed edges written by the inline-link reconciler must come out
         // as `supersedes` / `contradicts` / `supports` / `distilled_into`
-        // strings in the exported ## Relations section — the old enum-
-        // based `fetch_edges_for_set` path silently dropped them.
+        // strings in the exported ## Relations section — regression guard
+        // for the original enum-downgrade bug that Agent G fixed.
         use crate::sqlite::SqliteIdeas;
         use aeqi_core::traits::IdeaStore;
 

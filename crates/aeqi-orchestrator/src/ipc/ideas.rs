@@ -630,21 +630,7 @@ fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
-/// Known edge relations the `link` MCP action accepts. Matches the open
-/// enum documented in the retrieval plan (v4 idea_edges migration).
-/// Unknown values return an error so typos are loud.
-const KNOWN_RELATIONS: &[&str] = &[
-    "mentions",
-    "embeds",
-    "adjacent",
-    "supersedes",
-    "supports",
-    "contradicts",
-    "distilled_into",
-    "caused_by",
-    "co_retrieved",
-    "contradiction",
-];
+use aeqi_ideas::relation::KNOWN_RELATIONS;
 
 /// Programmatic link between two ideas. Powers `ideas(action='link')`
 /// from the MCP surface and the "+ Link" UI flow when the user picks a

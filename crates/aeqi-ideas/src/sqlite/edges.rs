@@ -5,7 +5,7 @@
 //! derived `compute_graph_boost` used by the search pipeline.
 
 use super::SqliteIdeas;
-use crate::graph::{IdeaEdge, IdeaRelation};
+use crate::graph::IdeaEdge;
 use aeqi_core::traits::WalkStep;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -19,10 +19,6 @@ impl SqliteIdeas {
             .conn
             .lock()
             .map_err(|e| anyhow::anyhow!("lock poisoned in store_edge: {e}"))?;
-        let relation_str = serde_json::to_value(edge.relation)?
-            .as_str()
-            .unwrap_or("adjacent")
-            .to_string();
         conn.execute(
             "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -31,7 +27,7 @@ impl SqliteIdeas {
             rusqlite::params![
                 edge.source_id,
                 edge.target_id,
-                relation_str,
+                edge.relation,
                 edge.strength,
                 edge.created_at.to_rfc3339(),
             ],
@@ -39,7 +35,7 @@ impl SqliteIdeas {
         debug!(
             source = %edge.source_id,
             target = %edge.target_id,
-            relation = %relation_str,
+            relation = %edge.relation,
             strength = edge.strength,
             "stored idea edge"
         );
@@ -61,28 +57,24 @@ impl SqliteIdeas {
             .query_map(rusqlite::params![idea_id], |row| {
                 let source_id: String = row.get(0)?;
                 let target_id: String = row.get(1)?;
-                let relation_str: String = row.get(2)?;
+                let relation: String = row.get(2)?;
                 let strength: f32 = row.get(3)?;
                 let created_str: String = row.get(4)?;
-                Ok((source_id, target_id, relation_str, strength, created_str))
+                Ok((source_id, target_id, relation, strength, created_str))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(
-                |(source_id, target_id, relation_str, strength, created_str)| {
-                    let relation: IdeaRelation =
-                        serde_json::from_value(serde_json::Value::String(relation_str)).ok()?;
-                    let created_at = DateTime::parse_from_rfc3339(&created_str)
-                        .ok()?
-                        .with_timezone(&Utc);
-                    Some(IdeaEdge {
-                        source_id,
-                        target_id,
-                        relation,
-                        strength,
-                        created_at,
-                    })
-                },
-            )
+            .filter_map(|(source_id, target_id, relation, strength, created_str)| {
+                let created_at = DateTime::parse_from_rfc3339(&created_str)
+                    .ok()?
+                    .with_timezone(&Utc);
+                Some(IdeaEdge {
+                    source_id,
+                    target_id,
+                    relation,
+                    strength,
+                    created_at,
+                })
+            })
             .collect();
         Ok(edges)
     }
@@ -178,9 +170,9 @@ impl SqliteIdeas {
         // v4 migration expanded the vocabulary to include `supersedes`,
         // `supports`, `contradicts`, `distilled_into`, `caused_by`,
         // `co_retrieved`, `contradiction` (plus the legacy `mentions`,
-        // `embeds`, `adjacent`). The in-crate `IdeaRelation` enum only
-        // covers the legacy triplet, so write the raw string here to
-        // preserve the new relations end-to-end.
+        // `embeds`, `adjacent`). The canonical string list lives in
+        // [`crate::relation::KNOWN_RELATIONS`]; we write the raw string
+        // straight through so the full vocabulary round-trips.
         let source = source_id.to_string();
         let target = target_id.to_string();
         let relation = relation.to_string();
