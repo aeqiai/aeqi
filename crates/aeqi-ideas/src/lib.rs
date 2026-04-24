@@ -7,12 +7,14 @@
 
 pub mod debounce;
 pub mod dedup;
+pub mod embed_worker;
 pub mod graph;
 pub mod hybrid;
 pub mod inline_links;
 pub mod obsidian;
 pub mod redact;
 pub mod sqlite;
+pub mod tag_policy;
 pub mod temporal_filter;
 pub mod vector;
 

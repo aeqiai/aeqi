@@ -659,6 +659,42 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                 }),
             }],
         },
+        // ── Agent W (Round 3) — consolidation trigger ──────────────────
+        // Fires when a tag's policy has `consolidate_when` and the count
+        // of recently-tagged ideas hits the threshold. The seed spawns
+        // a compactor-style sub-agent from a tag-specific consolidator
+        // meta-idea, then stores the sub-agent's output as a new idea
+        // tagged `consolidated` alongside the triggering tag.
+        //
+        // {tag}, {candidate_ids}, {session_id} are substituted from the
+        // fire payload. The consolidator meta-idea is named via the
+        // tag policy's `consolidator_idea` field — Agent E (Round 4d)
+        // seeds the canonical `meta:*-template` bodies; this event is
+        // a reference template that a tag policy can override by
+        // creating a per-tag event with the same pattern.
+        MiddlewareSeed {
+            name: "on_ideas_threshold_reached",
+            pattern: "ideas:threshold_reached",
+            tool_calls: vec![
+                ToolCall {
+                    tool: "session.spawn".into(),
+                    args: serde_json::json!({
+                        "kind": "compactor",
+                        "instructions_idea": "meta:consolidator-template",
+                        "seed_content": "Tag={tag}; Candidate IDs: {candidate_ids}",
+                        "parent_session": "{session_id}"
+                    }),
+                },
+                ToolCall {
+                    tool: "ideas.store".into(),
+                    args: serde_json::json!({
+                        "name": "consolidation/{tag}/{timestamp}",
+                        "content": "{last_tool_result}",
+                        "tags": ["{tag}", "consolidated"]
+                    }),
+                },
+            ],
+        },
     ];
 
     let all_patterns: &[&str] = &[
@@ -674,6 +710,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         "guardrail:violation",
         "graph_guardrail:high_impact",
         "shell:command_failed",
+        "ideas:threshold_reached",
     ];
 
     // Count which patterns already have a global event row.
@@ -1864,29 +1901,29 @@ mod tests {
         create_default_lifecycle_events(&store).await.unwrap();
 
         // seed_lifecycle_events reports 0 for the lifecycle patterns (already present)
-        // but inserts 4 middleware patterns.
+        // but inserts 5 middleware patterns (4 detectors + ideas:threshold_reached).
         let n = seed_lifecycle_events(&store).await.unwrap();
-        assert_eq!(n, 4, "should insert 4 middleware seed events on first run");
+        assert_eq!(n, 5, "should insert 5 middleware seed events on first run");
 
-        // Re-run: all 11 patterns exist → no insertions.
+        // Re-run: all 13 patterns exist → no insertions.
         let n2 = seed_lifecycle_events(&store).await.unwrap();
         assert_eq!(n2, 0, "second run must be a no-op (idempotent)");
     }
 
     /// seed_lifecycle_events on a totally empty store (no lifecycle events yet)
-    /// reports 12 (8 lifecycle + 4 middleware) as the count.
+    /// reports 13 (8 lifecycle + 5 middleware/consolidation) as the count.
     #[tokio::test]
     async fn seed_lifecycle_events_counts_missing_lifecycle_patterns() {
         let store = test_store_with_ideas().await;
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 4 middleware patterns are inserted; 8 lifecycle patterns are counted as
+        // 5 middleware patterns are inserted; 8 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 12,
-            "should count all 12 missing patterns on a clean store"
+            n, 13,
+            "should count all 13 missing patterns on a clean store"
         );
     }
 

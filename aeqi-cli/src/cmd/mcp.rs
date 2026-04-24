@@ -170,14 +170,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Ideas (unified: store | search | update | delete) ───────────────
         ToolDef {
             name: "ideas".to_string(),
-            description: "Persistent knowledge store. Search, store, update, or delete ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
+            description: "Persistent knowledge store. Search, store, update, delete, or link ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["store", "search", "update", "delete"],
-                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id)."
+                        "enum": ["store", "search", "update", "delete", "link"],
+                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id). link: connect two ideas with a typed edge. Needs from, to, relation."
                     },
                     "id": {"type": "string", "description": "Idea ID (for update, delete)"},
                     "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update)."},
@@ -185,7 +185,15 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
                     "agent_id": {"type": "string", "description": "Agent ID to scope the idea to. Defaults to the session's AEQI_AGENT_ID (entity scope). Omit to create/search global (agent_id=NULL) ideas."},
                     "query": {"type": "string", "description": "Natural language search query (for search). Uses full-text search + optional vector similarity."},
-                    "limit": {"type": "integer", "description": "Max results (for search, default: 5)"}
+                    "limit": {"type": "integer", "description": "Max results (for search, default: 5)"},
+                    "from": {"type": "string", "description": "Source idea ID (for link action)"},
+                    "to": {"type": "string", "description": "Target idea ID (for link action)"},
+                    "relation": {
+                        "type": "string",
+                        "enum": ["mentions", "embeds", "adjacent", "supersedes", "supports", "contradicts", "distilled_into", "caused_by", "co_retrieved", "contradiction"],
+                        "description": "Edge relation (for link). supersedes: new replaces old. contradicts: disagrees with. supports: reinforces. distilled_into: summarized into. adjacent: generic association."
+                    },
+                    "strength": {"type": "number", "description": "Edge strength 0.0–1.0 (for link, default 1.0)"}
                 },
                 "required": ["action"]
             }),
@@ -442,8 +450,24 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     }),
                                 )
                             }
+                            "link" => {
+                                // Programmatic typed-edge creation. Body-parsed
+                                // edges (inline `[[X]]`, `supersedes:[[X]]`, …)
+                                // go through the store path; this is the
+                                // direct wire for UI "+ Link" flows and LLM
+                                // tool calls that want to assert a relation.
+                                let mut ipc = args.clone();
+                                ipc["cmd"] = serde_json::json!("link_idea");
+                                if ipc.get("agent_id").and_then(|v| v.as_str()).is_none()
+                                    && let Some(ref aid) = agent_id
+                                {
+                                    ipc["agent_id"] = serde_json::json!(aid);
+                                }
+                                recall_cache.clear();
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
                             _ => Err(anyhow::anyhow!(
-                                "unknown ideas action: {action}. Use: store, search, update, delete"
+                                "unknown ideas action: {action}. Use: store, search, update, delete, link"
                             )),
                         }
                     }

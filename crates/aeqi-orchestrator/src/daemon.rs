@@ -215,6 +215,14 @@ struct IpcContext {
     stream_registry: Arc<crate::stream_registry::StreamRegistry>,
     execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
     channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
+    // ── Round 3 additions (Agent W — write-path wiring) ──────────────────
+    /// Shared policy cache used by the idea store dispatch. Initialised
+    /// in `spawn_ipc_listener` alongside the embed queue so every IPC
+    /// request sees the same cache generation.
+    tag_policy_cache: Arc<aeqi_ideas::tag_policy::TagPolicyCache>,
+    /// Sender side of the async embedding queue. The worker is spawned
+    /// once per daemon boot and owns the receiver.
+    embed_queue: Arc<aeqi_ideas::embed_worker::EmbedQueue>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -661,6 +669,28 @@ impl Daemon {
                     let _ =
                         std::fs::set_permissions(sock_path, std::fs::Permissions::from_mode(0o600));
                 }
+                // ── Round 3 (Agent W): write-path wiring ─────────────────
+                // 1. TagPolicyCache is shared across every IPC request so
+                //    invalidations land in one place.
+                // 2. EmbedQueue is a cheap Arc; the worker takes the rx
+                //    side below and runs for the daemon's lifetime.
+                //    When no embedder is configured, `run_no_op` drains
+                //    the queue so enqueue never blocks.
+                //
+                //    N.B. Agent R will add the embedder + decay patrol
+                //    fields here in the same IpcContext block. Leave a
+                //    vertical gap below the embed_queue line so their
+                //    merge is trivial.
+                let tag_policy_cache = aeqi_ideas::tag_policy::default_cache();
+                let (embed_queue, embed_rx) = aeqi_ideas::embed_worker::EmbedQueue::channel(1024);
+                let embed_queue = Arc::new(embed_queue);
+
+                // Spawn the embedding worker. Agent R replaces this with
+                // `run(rx, idea_store.clone(), embedder)` when the embedder
+                // is wired into the daemon. Until then the no-op worker
+                // drains the queue so enqueue never blocks.
+                tokio::spawn(aeqi_ideas::embed_worker::run_no_op(embed_rx));
+
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
                     activity_log: self.activity_log.clone(),
@@ -672,6 +702,8 @@ impl Daemon {
                     stream_registry: self.stream_registry.clone(),
                     execution_registry: self.execution_registry.clone(),
                     channel_spawner: self.channel_spawner.clone(),
+                    tag_policy_cache,
+                    embed_queue,
                 });
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
@@ -1054,6 +1086,9 @@ impl Daemon {
                 execution_registry: ipc_ctx.execution_registry.clone(),
                 stream_registry: ipc_ctx.stream_registry.clone(),
                 channel_spawner: ipc_ctx.channel_spawner.clone(),
+                // ── Round 3 additions (Agent W) ────────────────────────
+                tag_policy_cache: ipc_ctx.tag_policy_cache.clone(),
+                embed_queue: ipc_ctx.embed_queue.clone(),
             };
 
             let response = match cmd {
@@ -1311,6 +1346,9 @@ impl Daemon {
                 }
                 "search_ideas" => {
                     crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_roots).await
+                }
+                "link_idea" => {
+                    crate::ipc::ideas::handle_link_idea(&ctx, &request, &allowed_roots).await
                 }
 
                 "list_events" => {

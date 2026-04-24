@@ -34,6 +34,9 @@ use crate::session_store::SessionStore;
 use crate::skill_loader::SkillLoader;
 use crate::stream_registry::StreamRegistry;
 
+use aeqi_ideas::embed_worker::EmbedQueue;
+use aeqi_ideas::tag_policy::TagPolicyCache;
+
 /// Shared context for all IPC command handlers.
 /// Replaces the 13 loose parameters previously passed to handle_socket_connection.
 pub struct CommandContext {
@@ -54,6 +57,16 @@ pub struct CommandContext {
     pub execution_registry: Arc<ExecutionRegistry>,
     pub stream_registry: Arc<StreamRegistry>,
     pub channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
+    // ── Round 3 additions (Agent W — write-path wiring) ──────────────────
+    /// Cache of `meta:tag-policy` meta-ideas, used by the store dispatch to
+    /// resolve effective confidence/TTL/time_context and consolidation
+    /// triggers. Invalidated on every `meta:tag-policy` write.
+    pub tag_policy_cache: Arc<TagPolicyCache>,
+    /// Async embedding work queue. The store path enqueues `(id, content)`
+    /// after inserting rows with `embedding_pending=1`; a worker spawned
+    /// in daemon startup drains the queue and flips the flag via
+    /// `IdeaStore::set_embedding`.
+    pub embed_queue: Arc<EmbedQueue>,
 }
 
 pub use crate::daemon::ActivityBuffer;
