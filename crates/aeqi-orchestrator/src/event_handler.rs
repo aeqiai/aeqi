@@ -752,8 +752,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
     // alongside the lifecycle seed on_quest_end, for example. Multiple events
     // per pattern compose at fire time; we must not let on_quest_end's
     // presence suppress on_reflect_after_quest.
-    let middleware_names: Vec<&'static str> =
-        middleware_seeds.iter().map(|s| s.name).collect();
+    let middleware_names: Vec<&'static str> = middleware_seeds.iter().map(|s| s.name).collect();
     let already_seeded_names: std::collections::HashSet<String> = {
         let db = store.db.lock().await;
         let mut seeded = std::collections::HashSet::new();
