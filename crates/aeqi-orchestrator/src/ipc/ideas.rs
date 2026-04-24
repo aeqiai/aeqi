@@ -436,8 +436,12 @@ async fn dispatch_merge(
     }
 
     // Queue a re-embed so the merged body gets the freshest vector.
+    // PRIORITY: the row is already visible to callers, but
+    // `embedding_pending=1` drops it from vector search until the worker
+    // catches up. Jumping the queue ahead of first-time embeds (which
+    // are invisible anyway) shrinks that window.
     ctx.embed_queue
-        .enqueue(existing_id.to_string(), merged_content.clone());
+        .enqueue_priority(existing_id.to_string(), merged_content.clone());
 
     // Re-reconcile inline edges from the merged body.
     reconcile_inline_edges_in_scope(
