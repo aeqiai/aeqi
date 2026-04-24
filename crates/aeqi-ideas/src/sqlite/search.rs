@@ -228,11 +228,28 @@ impl SqliteIdeas {
 
     // ── Pipeline entry — search_explained ──────────────────────────────
 
-    /// Staged retrieval returning fully-explained [`SearchHit`]s.
+    /// Staged retrieval returning fully-explained [`SearchHit`]s. Public
+    /// callers go through this; it always applies the temporal filter
+    /// against "now", mirroring the default `search` contract.
     pub async fn search_explained_impl(
         &self,
         query: &IdeaQuery,
         policies: Option<Arc<TagPolicyCache>>,
+    ) -> Result<Vec<SearchHit>> {
+        self.search_explained_impl_with_as_of(query, policies, None)
+            .await
+    }
+
+    /// Internal variant that accepts an explicit as_of for the pipeline's
+    /// temporal filter. Lets `search_as_of_impl` ask "what did the store look
+    /// like at this moment?" without the pipeline dropping rows whose
+    /// validity window closed before "now". `as_of = None` uses `Utc::now()`,
+    /// so `search_explained_impl` stays byte-identical.
+    async fn search_explained_impl_with_as_of(
+        &self,
+        query: &IdeaQuery,
+        policies: Option<Arc<TagPolicyCache>>,
+        as_of: Option<DateTime<Utc>>,
     ) -> Result<Vec<SearchHit>> {
         let top_k = query.top_k.max(1);
 
@@ -267,6 +284,7 @@ impl SqliteIdeas {
                 query_embedding.as_deref(),
                 &rankers_owned,
                 top_k,
+                as_of,
             )
         })
         .await
@@ -352,12 +370,17 @@ impl SqliteIdeas {
     /// Bi-temporal query — identical to `search_impl` plus a post-filter
     /// that keeps only ideas whose validity window covers `as_of`.
     /// `time_context='timeless'` rows always pass.
+    ///
+    /// Pushes `as_of` down into the staged pipeline so ideas whose window
+    /// has closed by "now" but was open at `as_of` are retrievable.
     pub(super) async fn search_as_of_impl(
         &self,
         query: &IdeaQuery,
         as_of: DateTime<Utc>,
     ) -> Result<Vec<Idea>> {
-        let hits = self.search_explained_impl(query, None).await?;
+        let hits = self
+            .search_explained_impl_with_as_of(query, None, Some(as_of))
+            .await?;
         let ids: Vec<String> = hits.iter().map(|h| h.idea.id.clone()).collect();
 
         // Snap the validity-at-as_of filter in a single blocking trip so we
@@ -424,12 +447,19 @@ impl SqliteIdeas {
 
     /// Synchronous guts of the pipeline. Called from spawn_blocking because
     /// it takes the SQLite mutex over multiple queries.
+    ///
+    /// `as_of` controls the temporal filter that drops rows whose validity
+    /// window doesn't cover the chosen moment. `None` means "now" — the
+    /// default `search` / `search_explained` contract. `Some(ts)` is used by
+    /// `search_as_of` so ideas whose window has closed by now but was open
+    /// at `ts` survive the pipeline and make it back to the caller.
     fn run_staged_pipeline(
         &self,
         query: &IdeaQuery,
         query_embedding: Option<&[f32]>,
         rankers: &[TagRanker],
         top_k: usize,
+        as_of: Option<DateTime<Utc>>,
     ) -> Result<Vec<StagedHit>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
         let per_tag_width = (top_k * 3).max(5);
@@ -539,14 +569,17 @@ impl SqliteIdeas {
         }
 
         // Temporal filter: drop rows with an open validity window that
-        // doesn't cover "now". Timeless rows always pass.
-        let now = Utc::now();
+        // doesn't cover the caller's chosen moment. Plain search queries
+        // against "now"; search_as_of passes the requested timestamp through
+        // so historical windows remain retrievable. Timeless rows always
+        // pass either way.
+        let ts = as_of.unwrap_or_else(Utc::now);
         let mut hits: Vec<StagedHit> = by_id
             .into_values()
             .filter(|h| {
                 let info = fetch_row_meta(&conn, &h.id);
                 match info {
-                    Some(r) => r.is_valid_at(now),
+                    Some(r) => r.is_valid_at(ts),
                     None => true,
                 }
             })
