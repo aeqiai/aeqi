@@ -86,6 +86,7 @@ impl OpenRouterProvider {
             temperature: 1.0,
             provider: Some(ProviderRouting {
                 allow_fallbacks: Some(false),
+                ignore: None,
             }),
             modalities: Some(vec!["image".to_string(), "text".to_string()]),
         };
@@ -185,6 +186,11 @@ struct ProviderRouting {
     /// Disable fallback to alternative providers on the OpenRouter side.
     #[serde(skip_serializing_if = "Option::is_none")]
     allow_fallbacks: Option<bool>,
+    /// Providers to skip entirely. Use for providers that respond with
+    /// HTTP 200 + empty content for our payloads — OpenRouter treats those
+    /// as success, so `allow_fallbacks` won't reroute around them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ignore: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -205,6 +211,11 @@ struct ApiResponse {
     choices: Vec<ApiChoice>,
     #[serde(default)]
     usage: Option<ApiUsage>,
+    /// Upstream provider OpenRouter routed to (e.g. "SiliconFlow",
+    /// "Friendli", "Baidu"). Surfaced in the 0-token warning so we can see
+    /// which upstream is misbehaving without grepping raw response bodies.
+    #[serde(default)]
+    provider: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -461,8 +472,22 @@ impl Provider for OpenRouterProvider {
             tools: convert_tools(&request.tools),
             max_tokens: request.max_tokens,
             temperature: request.temperature,
+            // Let OpenRouter fall back to alternative upstream providers
+            // when its first pick is broken — pinning (allow_fallbacks=false)
+            // surfaced as silent-EndTurn whenever the chosen provider
+            // (DeepInfra/Chutes for deepseek-v3.2) returned a protocol-level
+            // error.
+            //
+            // Ignore SiliconFlow specifically: with cache_control + tool
+            // schemas + temp=0 it consistently responds 200 OK with
+            // `content: null, completion_tokens: 0`. Because the response is
+            // syntactically a "success", `allow_fallbacks` won't reroute.
+            // Verified by replaying the exact runtime payload against each
+            // upstream — Baidu/Novita/Friendli return content, only
+            // SiliconFlow returns empty.
             provider: Some(ProviderRouting {
-                allow_fallbacks: Some(false),
+                allow_fallbacks: Some(true),
+                ignore: Some(vec!["SiliconFlow".to_string()]),
             }),
             modalities: None,
         };
@@ -505,6 +530,23 @@ impl Provider for OpenRouterProvider {
 
         let api_response: ApiResponse =
             serde_json::from_str(&body).context("failed to parse OpenRouter response")?;
+
+        // Surface 0-completion-token responses as a warning. Some upstream
+        // providers (e.g. SiliconFlow with cache_control + tools + temp=0)
+        // return HTTP 200 with empty content; the user sees nothing happen.
+        // This log keeps the failure mode observable. Combined with the
+        // provider.ignore list above we should rarely hit this in practice.
+        if api_response
+            .usage
+            .as_ref()
+            .map(|u| u.completion_tokens == 0)
+            .unwrap_or(false)
+        {
+            tracing::warn!(
+                upstream_provider = %api_response.provider.as_deref().unwrap_or("?"),
+                "openrouter returned 0 completion tokens"
+            );
+        }
 
         let choice = api_response
             .choices
