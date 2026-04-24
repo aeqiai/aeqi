@@ -119,37 +119,6 @@ impl TestHarness {
         let idea_store_impl = SqliteIdeas::open(&ideas_db, 30.0)?;
         let idea_store: Arc<dyn IdeaStore> = Arc::new(idea_store_impl);
 
-        // `AgentRegistry::list_ideas_visible_to` reads `inheritance`,
-        // `tool_allow`, `tool_deny` on the ideas table. These were columns
-        // on pre-v3 schemas; v3 dropped them from the baseline. On long-
-        // lived production DBs the columns survive because `ALTER TABLE
-        // DROP COLUMN` was never issued — only the `CREATE TABLE` body
-        // changed. Fresh DBs (like the one we just opened) lack them, so
-        // the visibility query 500s with "no such column: inheritance".
-        // Add them here as a shim so IPC handlers that consult the
-        // visibility list (feedback, link, add_idea_edge, graph, profile)
-        // work against a fresh harness DB. These are the same defaults
-        // the `Idea` hydration in `list_ideas_visible_to` falls back to.
-        {
-            let pool = agent_registry.db();
-            let conn = pool.lock().await;
-            let existing: Vec<String> = {
-                let mut stmt = conn.prepare("PRAGMA table_info(ideas)")?;
-                stmt.query_map([], |row| row.get::<_, String>(1))?
-                    .filter_map(|r| r.ok())
-                    .collect()
-            };
-            for (col, ddl) in [
-                ("inheritance", "TEXT NOT NULL DEFAULT 'self'"),
-                ("tool_allow", "TEXT"),
-                ("tool_deny", "TEXT"),
-            ] {
-                if !existing.iter().any(|c| c == col) {
-                    conn.execute_batch(&format!("ALTER TABLE ideas ADD COLUMN {col} {ddl};"))?;
-                }
-            }
-        }
-
         // Infra with trivial constructors.
         let metrics = Arc::new(AEQIMetrics::new());
         let activity_log = Arc::new(ActivityLog::new(agent_registry.db()));
