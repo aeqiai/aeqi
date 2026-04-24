@@ -31,10 +31,13 @@ export function useSessionManager({
     sessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Navigate helpers
+  // Navigate helpers. The Inbox landing is the bare `/:agentId` URL —
+  // there is no `/sessions` suffix when no session is picked. Only append
+  // the tab segment when we have a real sessionId to carry.
   const setSession = useCallback(
     (sid: string | null) => {
-      goAgent(agentId, "sessions", sid || undefined, { replace: true });
+      if (sid) goAgent(agentId, "sessions", sid, { replace: true });
+      else goAgent(agentId, undefined, undefined, { replace: true });
     },
     [agentId, goAgent],
   );

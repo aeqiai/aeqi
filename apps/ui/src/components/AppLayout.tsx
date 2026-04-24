@@ -290,6 +290,13 @@ export default function AppLayout() {
     return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
   }
 
+  // Canonicalize the Inbox URL: `/:agentId/sessions` (no session picked)
+  // renders the same surface as bare `/:agentId`, so collapse it. Keep
+  // `/:agentId/sessions/:sessionId` intact — the itemId is real state.
+  if (agentId && tab === "sessions" && !itemId) {
+    return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
+  }
+
   const mainContent = (() => {
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
