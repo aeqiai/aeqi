@@ -18,8 +18,69 @@ use crate::vector::vec_to_bytes;
 use aeqi_core::traits::{StoreFull, UpdateFull};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use rusqlite::OptionalExtension;
+use rusqlite::{Connection, OptionalExtension};
 use tracing::{debug, warn};
+
+/// Insert a provenance-rich row + its tags on an existing connection /
+/// transaction. Shared between `store_full_impl` (plain blocking) and
+/// `supersede_atomic_impl` (wrapped in a tx). `tags` must already be
+/// normalised; `content` must already be redacted.
+///
+/// Returns the freshly-minted UUID.
+fn insert_full_row_on_conn(
+    conn: &Connection,
+    input: &StoreFull,
+    content: &str,
+    tags: &[String],
+) -> Result<String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+    let hash = SqliteIdeas::content_hash(content);
+
+    let expires_at = input.expires_at.as_ref().map(|d| d.to_rfc3339());
+    let valid_from = input
+        .valid_from
+        .as_ref()
+        .map(|d| d.to_rfc3339())
+        .unwrap_or_else(|| now.clone());
+    let valid_until = input.valid_until.as_ref().map(|d| d.to_rfc3339());
+
+    conn.execute(
+        "INSERT INTO ideas (
+            id, name, content, scope, agent_id, created_at, expires_at,
+            content_hash, status, access_count, authored_by, confidence,
+            embedding_pending, valid_from, valid_until, time_context
+         ) VALUES (
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+            ?8, ?9, 0, ?10, ?11,
+            1, ?12, ?13, ?14
+         )",
+        rusqlite::params![
+            id,
+            input.name,
+            content,
+            input.scope.as_str(),
+            input.agent_id,
+            now,
+            expires_at,
+            hash,
+            input.status,
+            input.authored_by,
+            input.confidence as f64,
+            valid_from,
+            valid_until,
+            input.time_context,
+        ],
+    )?;
+
+    for tag in tags {
+        conn.execute(
+            "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+            rusqlite::params![id, tag],
+        )?;
+    }
+    Ok(id)
+}
 
 impl SqliteIdeas {
     pub(super) async fn store_impl(
@@ -385,54 +446,65 @@ impl SqliteIdeas {
         let content = crate::redact::redact_secrets(&input.content);
         let tags = Self::normalize_tags(input.tags.iter().cloned());
 
+        self.blocking(move |conn| insert_full_row_on_conn(conn, &input, &content, &tags))
+            .await
+    }
+
+    /// Atomically supersede an existing idea. Wraps three sub-operations in
+    /// a single SQLite transaction:
+    ///
+    /// 1. Flip the old row's `status` to `superseded`.
+    /// 2. Insert the new row (the v8 partial unique index enforces active-
+    ///    name uniqueness, so step 1 has to land before step 2).
+    /// 3. Write a `supersedes` edge from new → old.
+    ///
+    /// If any step fails the transaction rolls back, leaving the old row in
+    /// `active` and no partial edge. The three sub-ops have an interlocked
+    /// correctness contract that plain sequential calls can't honour — if
+    /// step 2 or 3 errored mid-way the old row would be orphaned in
+    /// `superseded` status with no replacement.
+    ///
+    /// Edge reconciliation from body parsing (mentions, embeds, typed
+    /// prefixes) still happens outside this transaction — inline edges are
+    /// additive and their resolver may need async DB round-trips that don't
+    /// compose with a single-connection tx.
+    pub(super) async fn supersede_atomic_impl(
+        &self,
+        old_id: &str,
+        input: StoreFull,
+    ) -> Result<String> {
+        let old = old_id.to_string();
+        let content = crate::redact::redact_secrets(&input.content);
+        let tags = Self::normalize_tags(input.tags.iter().cloned());
+
         self.blocking(move |conn| {
-            let id = uuid::Uuid::new_v4().to_string();
+            let tx = conn.unchecked_transaction()?;
             let now = Utc::now().to_rfc3339();
-            let hash = Self::content_hash(&content);
 
-            let expires_at = input.expires_at.as_ref().map(|d| d.to_rfc3339());
-            let valid_from = input
-                .valid_from
-                .as_ref()
-                .map(|d| d.to_rfc3339())
-                .unwrap_or_else(|| now.clone());
-            let valid_until = input.valid_until.as_ref().map(|d| d.to_rfc3339());
+            // 1. Flip the old row off `active` so step 2 can insert the
+            //    same `(agent_id, name)` without tripping the partial
+            //    unique index.
+            let flipped = tx.execute(
+                "UPDATE ideas SET status = 'superseded', updated_at = ?1 WHERE id = ?2",
+                rusqlite::params![now, old],
+            )?;
+            if flipped == 0 {
+                anyhow::bail!("supersede_atomic: old idea {old} not found");
+            }
 
-            conn.execute(
-                "INSERT INTO ideas (
-                    id, name, content, scope, agent_id, created_at, expires_at,
-                    content_hash, status, access_count, authored_by, confidence,
-                    embedding_pending, valid_from, valid_until, time_context
-                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7,
-                    ?8, ?9, 0, ?10, ?11,
-                    1, ?12, ?13, ?14
-                 )",
-                rusqlite::params![
-                    id,
-                    input.name,
-                    content,
-                    input.scope.as_str(),
-                    input.agent_id,
-                    now,
-                    expires_at,
-                    hash,
-                    input.status,
-                    input.authored_by,
-                    input.confidence as f64,
-                    valid_from,
-                    valid_until,
-                    input.time_context,
-                ],
+            // 2. Insert the replacement row (tags + row in one shot).
+            let new_id = insert_full_row_on_conn(&tx, &input, &content, &tags)?;
+
+            // 3. Write the `supersedes` edge new → old.
+            tx.execute(
+                "INSERT INTO idea_edges \
+                    (source_id, target_id, relation, strength, created_at) \
+                 VALUES (?1, ?2, 'supersedes', 1.0, ?3)",
+                rusqlite::params![new_id, old, now],
             )?;
 
-            for tag in &tags {
-                conn.execute(
-                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
-                    rusqlite::params![id, tag],
-                )?;
-            }
-            Ok(id)
+            tx.commit()?;
+            Ok(new_id)
         })
         .await
     }

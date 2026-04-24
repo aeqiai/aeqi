@@ -284,6 +284,31 @@ async fn duplicate_store_full_raises_unique_constraint_error() {
     );
 }
 
+// ── Fix #7: unknown relations in explicit links are rejected ───────────
+//
+// `finalize_write` now filters `input.links` through
+// `aeqi_ideas::relation::is_known` before calling `store_idea_edge`. This
+// shadow test exercises the same gate: storing an edge with an unknown
+// relation string goes through the store's `store_idea_edge` without
+// complaint (the store is permissive — it's the IPC layer that guards),
+// but IPC's `finalize_write` should never make that call in the first
+// place. We verify the gate function directly.
+
+#[test]
+fn is_known_rejects_unknown_relation_before_write() {
+    use aeqi_ideas::relation;
+
+    // Every documented relation passes.
+    for rel in relation::KNOWN_RELATIONS {
+        assert!(relation::is_known(rel), "{rel} must be known");
+    }
+    // Typo / injection attempts fail.
+    assert!(!relation::is_known("foobar"));
+    assert!(!relation::is_known("Mentions")); // case-sensitive
+    assert!(!relation::is_known(""));
+    assert!(!relation::is_known("<script>"));
+}
+
 // ── 4. Search with `include_superseded=true` — IPC bypass knob ─────────
 
 #[tokio::test]

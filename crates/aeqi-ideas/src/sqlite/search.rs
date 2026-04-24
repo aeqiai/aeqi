@@ -214,6 +214,13 @@ impl SqliteIdeas {
             );
         }
 
+        // Rows mid-reembed carry a stale embedding (the content_hash on the
+        // row has advanced but `idea_embeddings` still holds the old vector
+        // until the embed worker writes the new one). Filter them out of
+        // the vector path so we never score against an out-of-date vector.
+        // BM25 is unaffected — FTS5 indexes the current content directly.
+        conditions.push("m.embedding_pending = 0".into());
+
         apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
 
         let where_clause = conditions.join(" AND ");
@@ -307,6 +314,13 @@ impl SqliteIdeas {
                     .into(),
             );
         }
+
+        // Mirror the brute-force path: skip rows mid-reembed. `idea_vec`
+        // syncs from `idea_embeddings` via triggers, so stale rows WILL be
+        // present here too — the `m.embedding_pending = 0` filter removes
+        // them from the ANN join so a post-update search doesn't return a
+        // hit against the pre-update vector.
+        conditions.push("m.embedding_pending = 0".into());
 
         apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
 

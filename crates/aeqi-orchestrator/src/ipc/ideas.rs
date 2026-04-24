@@ -468,34 +468,28 @@ async fn dispatch_supersede(
     effective: &EffectivePolicy,
     redacted_content: &str,
 ) -> serde_json::Value {
-    // ── CRITICAL ORDERING ─────────────────────────────────────────────
-    // The v8 partial unique index enforces uniqueness on
-    // `(agent_id, name)` WHERE `status='active'`. We can only insert
-    // a new row with the same name once the old row is flipped off
-    // `active`. Do the flip FIRST.
-    if let Err(e) = idea_store.set_status(old_id, "superseded").await {
-        return serde_json::json!({"ok": false, "error": format!("set_status failed: {e}")});
-    }
-
+    // Atomic supersession: single SQLite transaction flips old → superseded,
+    // inserts the new row, and writes the supersedes edge. If any step
+    // errors mid-way, the tx rolls back and the old row stays `active` —
+    // no partial state, no orphaned superseded row without a replacement.
+    // The v8 partial unique index enforces active-name uniqueness, and the
+    // three sub-ops have an interlocked correctness contract the atomic
+    // path preserves without the caller having to sequence them by hand.
     let payload = build_store_full(input, effective, redacted_content);
-    let new_id = match idea_store.store_full(payload).await {
+    let new_id = match idea_store.supersede_atomic(old_id, payload).await {
         Ok(id) => id,
-        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        Err(e) => {
+            return serde_json::json!({
+                "ok": false,
+                "error": format!("supersede_atomic failed: {e}"),
+            });
+        }
     };
 
-    // Graph edge: new → supersedes → old.
-    if let Err(e) = idea_store
-        .store_idea_edge(&new_id, old_id, "supersedes", 1.0)
-        .await
-    {
-        tracing::warn!(
-            new = %new_id,
-            old = %old_id,
-            error = %e,
-            "dispatch_supersede: failed to add supersedes edge"
-        );
-    }
-
+    // Edge reconciliation from body parsing (mentions, embeds, typed
+    // prefixes) still happens outside the transaction in `finalize_write`
+    // — inline edges are additive and their resolver may need async DB
+    // round-trips that don't compose with a single-connection tx.
     finalize_write(
         ctx,
         idea_store,
@@ -520,8 +514,19 @@ async fn finalize_write(
     redacted_content: &str,
     action: &str,
 ) -> serde_json::Value {
-    // Explicit links from the IPC `links` field.
+    // Explicit links from the IPC `links` field. Validate the relation
+    // against `aeqi_ideas::relation::KNOWN_RELATIONS` so a typoed or
+    // malicious wire value can't slip an unknown edge-kind into the graph
+    // and corrupt downstream walks / MMR.
     for (target_id, relation) in &input.links {
+        if !aeqi_ideas::relation::is_known(relation) {
+            tracing::warn!(
+                relation = %relation,
+                target = %target_id,
+                "unknown relation in explicit links — skipping"
+            );
+            continue;
+        }
         let _ = idea_store
             .store_idea_edge(id, target_id, relation, 1.0)
             .await;
@@ -1193,6 +1198,26 @@ pub async fn handle_feedback_idea(
         query_text: request_field(request, "query_text").map(str::to_string),
         note: request_field(request, "note").map(str::to_string),
     };
+
+    // Scope visibility guard. Callers that announce themselves as an agent
+    // can only record feedback on ideas they can actually see — otherwise
+    // a compromised or misrouted agent could move the feedback signal on
+    // a sibling's private idea. Callers without an `agent_id` (global /
+    // admin / internal daemon invocations) bypass this check, matching the
+    // read-side scope model where an unscoped caller sees everything.
+    if let Some(aid) = meta.agent_id.as_deref() {
+        let visible = ctx
+            .agent_registry
+            .list_ideas_visible_to(aid)
+            .await
+            .unwrap_or_default();
+        if !visible.iter().any(|i| i.id == id) {
+            return serde_json::json!({
+                "ok": false,
+                "error": "idea not visible to this agent",
+            });
+        }
+    }
 
     match idea_store.record_feedback(id, signal, weight, meta).await {
         Ok(()) => {

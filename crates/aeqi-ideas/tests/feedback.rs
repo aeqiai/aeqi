@@ -104,6 +104,88 @@ async fn wrong_signal_crushes_boost() {
     );
 }
 
+// ── 2b. `wrong` / `corrected` feedback emits a contradiction self-edge ─
+//
+// Spec (hotness.rs): on `wrong` / `corrected`, alongside the boost math,
+// record a self-loop `contradiction` edge on `idea_edges`. The edge is a
+// durable marker that survives hotness decay so graph walks and MMR can
+// downweight contradicted ideas. Repeated negative feedback bumps the
+// edge strength (capped at 1.0) instead of duplicating rows.
+
+#[tokio::test]
+async fn wrong_feedback_writes_contradiction_edge() {
+    let (ideas, dir) = make_store();
+    let id = ideas
+        .store_full(store_full(
+            "contradiction-target",
+            "body content",
+            &["fact"],
+        ))
+        .await
+        .unwrap();
+
+    ideas
+        .record_feedback(&id, "wrong", 1.0, FeedbackMeta::default())
+        .await
+        .unwrap();
+
+    let conn = rusqlite::Connection::open(dir.path().join("feedback.db")).unwrap();
+    let (src, tgt, rel, strength): (String, String, String, f64) = conn
+        .query_row(
+            "SELECT source_id, target_id, relation, strength FROM idea_edges \
+             WHERE source_id = ?1 AND relation = 'contradiction'",
+            rusqlite::params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .expect("wrong feedback must emit a contradiction edge");
+    assert_eq!(src, id);
+    assert_eq!(tgt, id, "contradiction marker is a self-loop");
+    assert_eq!(rel, "contradiction");
+    assert!(
+        strength >= 1.0,
+        "initial contradiction strength should be >= 1.0, got {strength}"
+    );
+}
+
+#[tokio::test]
+async fn repeat_wrong_feedback_bumps_contradiction_strength() {
+    let (ideas, dir) = make_store();
+    let id = ideas
+        .store_full(store_full("repeat-wrong", "body", &["fact"]))
+        .await
+        .unwrap();
+
+    // First signal seeds the edge at strength 1.0.
+    ideas
+        .record_feedback(&id, "wrong", 1.0, FeedbackMeta::default())
+        .await
+        .unwrap();
+    // Repeat doesn't duplicate the row; it bumps strength, clamped at 1.0.
+    ideas
+        .record_feedback(&id, "wrong", 1.0, FeedbackMeta::default())
+        .await
+        .unwrap();
+
+    let conn = rusqlite::Connection::open(dir.path().join("feedback.db")).unwrap();
+    let rows: Vec<(String, f64)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT relation, strength FROM idea_edges \
+                 WHERE source_id = ?1 AND target_id = ?1",
+            )
+            .unwrap();
+        stmt.query_map(rusqlite::params![id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?))
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect()
+    };
+    assert_eq!(rows.len(), 1, "upsert must not duplicate the edge");
+    assert_eq!(rows[0].0, "contradiction");
+    assert!(rows[0].1 <= 1.0, "strength must be clamped at 1.0");
+}
+
 // ── 3. Feedback row lands on `idea_feedback` ───────────────────────────
 //
 // The feedback loop is auditable: every record_feedback call appends a

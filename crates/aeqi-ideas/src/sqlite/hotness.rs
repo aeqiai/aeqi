@@ -13,6 +13,7 @@
 
 use super::SqliteIdeas;
 use crate::graph::HotnessScorer;
+use crate::relation::CONTRADICTION;
 use aeqi_core::traits::{AccessContext, FeedbackMeta};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -184,6 +185,24 @@ impl SqliteIdeas {
                 )?;
             }
 
+            // `wrong` / `corrected` feedback marks the idea as contradicted.
+            // We emit a self-loop `contradiction` edge as a durable marker
+            // that survives hotness decay — graph walks and MMR downweight
+            // contradicted ideas. If a prior contradiction edge already
+            // exists, bump its strength (capped at 1.0) so repeated negative
+            // feedback accumulates visibly.
+            if signal == "wrong" || signal == "corrected" {
+                conn.execute(
+                    "INSERT INTO idea_edges \
+                        (source_id, target_id, relation, strength, created_at) \
+                     VALUES (?1, ?1, ?2, 1.0, ?3) \
+                     ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                        strength = MIN(1.0, strength + 0.1), \
+                        created_at = excluded.created_at",
+                    rusqlite::params![idea_id, CONTRADICTION, now],
+                )?;
+            }
+
             Ok(())
         })
         .await
@@ -249,6 +268,54 @@ mod tests {
             boost.abs() < 0.05,
             "wrong signal should crush boost; got {boost}"
         );
+    }
+
+    #[tokio::test]
+    async fn feedback_wrong_emits_contradiction_self_edge() {
+        let (mem, _d) = ideas().await;
+        let id = mem.store("t", "body", &[], None).await.unwrap();
+
+        mem.record_feedback_impl(&id, "wrong", 1.0, FeedbackMeta::default())
+            .await
+            .unwrap();
+
+        let conn = mem.conn.lock().unwrap();
+        let (src, tgt, rel, strength): (String, String, String, f64) = conn
+            .query_row(
+                "SELECT source_id, target_id, relation, strength FROM idea_edges \
+                 WHERE source_id = ?1 AND relation = 'contradiction'",
+                rusqlite::params![id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("contradiction edge must exist after `wrong` feedback");
+        assert_eq!(src, id);
+        assert_eq!(tgt, id, "contradiction marker is a self-loop");
+        assert_eq!(rel, "contradiction");
+        assert!(
+            strength >= 1.0,
+            "first contradiction edge strength should be 1.0, got {strength}"
+        );
+    }
+
+    #[tokio::test]
+    async fn feedback_corrected_also_emits_contradiction_edge() {
+        let (mem, _d) = ideas().await;
+        let id = mem.store("t", "body", &[], None).await.unwrap();
+
+        mem.record_feedback_impl(&id, "corrected", 1.0, FeedbackMeta::default())
+            .await
+            .unwrap();
+
+        let conn = mem.conn.lock().unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM idea_edges \
+                 WHERE source_id = ?1 AND target_id = ?1 AND relation = 'contradiction'",
+                rusqlite::params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "`corrected` signal must emit contradiction edge");
     }
 
     #[tokio::test]

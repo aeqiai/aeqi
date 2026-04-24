@@ -519,6 +519,90 @@ async fn search_as_of_retrieves_ideas_with_closed_window() {
     );
 }
 
+// ── Test 6b: vector search filters `embedding_pending=1` ──────────────
+//
+// After a merge/update, `content_hash` advances and `embedding_pending`
+// flips to 1, but the old embedding row stays in `idea_embeddings` until
+// the embed worker writes the new vector. Without the filter, a vector
+// search in that window would score against the stale embedding.
+//
+// Scenario: store an idea → vector search finds it → mark it pending →
+// re-search → it disappears from vector results → write a new embedding
+// via `set_embedding` (which clears the pending flag) → re-search →
+// it's back.
+
+#[tokio::test]
+async fn vector_search_skips_rows_with_embedding_pending() {
+    use aeqi_core::traits::UpdateFull;
+
+    let (ideas, _dir) = make_store();
+
+    // Store an idea and let the initial embedding land.
+    let id = ideas
+        .store_full(store_full(
+            "pending-filter-target",
+            "zebra quokka narwhal platypus okapi",
+            &["fact"],
+        ))
+        .await
+        .unwrap();
+    // A second, unrelated idea so the vector search has a non-target hit.
+    let _other = ideas
+        .store_full(store_full(
+            "pending-filter-other",
+            "completely unrelated content about the weather",
+            &["fact"],
+        ))
+        .await
+        .unwrap();
+
+    // Baseline: search returns the target idea.
+    let q = IdeaQuery::new("zebra quokka narwhal platypus okapi", 10);
+    let hits_before = ideas.search_explained(&q).await.unwrap();
+    assert!(
+        hits_before.iter().any(|h| h.idea.id == id),
+        "baseline: target idea must be retrievable pre-invalidation"
+    );
+
+    // Flip embedding_pending to true to simulate mid-reembed state.
+    ideas
+        .update_full(
+            &id,
+            UpdateFull {
+                embedding_pending: Some(true),
+                ..UpdateFull::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    // Now the target should be absent from the vector-scored results
+    // (its why.vector is dropped). BM25 may still surface it, but the
+    // `vector` component on any hit for this id should be 0 — the row
+    // is filtered out of the vector path entirely.
+    let hits_pending = ideas.search_explained(&q).await.unwrap();
+    for hit in &hits_pending {
+        if hit.idea.id == id {
+            assert!(
+                hit.why.vector <= 0.0 + f32::EPSILON,
+                "pending row must not contribute a vector score; got {}",
+                hit.why.vector
+            );
+        }
+    }
+
+    // Restore the embedding via set_embedding — that clears
+    // embedding_pending. The vector path should pick the row up again.
+    let dummy_vec = vec![0.25_f32; TEST_DIMS];
+    ideas.set_embedding(&id, &dummy_vec).await.unwrap();
+
+    let hits_after = ideas.search_explained(&q).await.unwrap();
+    assert!(
+        hits_after.iter().any(|h| h.idea.id == id),
+        "row must reappear once the new embedding lands and pending=0"
+    );
+}
+
 // ── Test 6: embedder dim mismatch doesn't panic (16 vs default 1536) ──
 
 #[tokio::test]
