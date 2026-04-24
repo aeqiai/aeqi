@@ -13,6 +13,7 @@ pub mod inline_links;
 pub mod obsidian;
 pub mod redact;
 pub mod sqlite;
+pub mod tag_policy;
 pub mod temporal_filter;
 pub mod vector;
 
