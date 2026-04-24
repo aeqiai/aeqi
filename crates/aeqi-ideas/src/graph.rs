@@ -1,40 +1,17 @@
-//! Idea graph primitives: edges, relations, provenance, and hotness scoring.
+//! Idea graph primitives: edges, provenance, and hotness scoring.
 //!
 //! These are the building blocks for the idea graph described in AEQI v4
 //! Layer 5 (Learn). Ideas become graph nodes; relationships between them
 //! are typed, directed edges with strength weights.
+//!
+//! Relation strings are open-ended and live in [`crate::relation`] —
+//! the `idea_edges.relation` column is TEXT so the vocabulary can grow
+//! without a schema migration. `IdeaEdge.relation` is therefore a plain
+//! `String`; validate with `crate::relation::is_known` at the callers
+//! that accept untrusted input.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-// ── Relations ───────────────────────────────────────────────────────────────
-
-/// Typed relationship between two idea nodes.
-///
-/// Three relations, each implying an origin:
-/// - `Mentions` — created from `[[X]]` in an idea's body (in-prose reference).
-/// - `Embeds` — created from `![[X]]` in an idea's body (in-prose transclusion).
-/// - `Adjacent` — out-of-band "also see" link added via the picker.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdeaRelation {
-    /// In-prose reference: `[[X]]` in the source's body.
-    Mentions,
-    /// In-prose transclusion: `![[X]]` in the source's body.
-    Embeds,
-    /// Out-of-band association added via the "+ Link" picker.
-    Adjacent,
-}
-
-impl std::fmt::Display for IdeaRelation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Mentions => write!(f, "mentions"),
-            Self::Embeds => write!(f, "embeds"),
-            Self::Adjacent => write!(f, "adjacent"),
-        }
-    }
-}
 
 // ── Edges ───────────────────────────────────────────────────────────────────
 
@@ -45,8 +22,9 @@ pub struct IdeaEdge {
     pub source_id: String,
     /// Target idea node ID.
     pub target_id: String,
-    /// Type of relationship.
-    pub relation: IdeaRelation,
+    /// Type of relationship — one of the strings in
+    /// [`crate::relation::KNOWN_RELATIONS`].
+    pub relation: String,
     /// Edge strength in `[0.0, 1.0]`.
     pub strength: f32,
     /// When this edge was created.
@@ -60,13 +38,13 @@ impl IdeaEdge {
     pub fn new(
         source_id: impl Into<String>,
         target_id: impl Into<String>,
-        relation: IdeaRelation,
+        relation: impl Into<String>,
         strength: f32,
     ) -> Self {
         Self {
             source_id: source_id.into(),
             target_id: target_id.into(),
-            relation,
+            relation: relation.into(),
             strength: strength.clamp(0.0, 1.0),
             created_at: Utc::now(),
         }
@@ -234,25 +212,18 @@ mod tests {
 
     #[test]
     fn idea_edge_creation() {
-        let edge = IdeaEdge::new("src-1", "tgt-2", IdeaRelation::Embeds, 0.9);
+        let edge = IdeaEdge::new("src-1", "tgt-2", crate::relation::EMBEDS, 0.9);
         assert_eq!(edge.source_id, "src-1");
         assert_eq!(edge.target_id, "tgt-2");
-        assert_eq!(edge.relation, IdeaRelation::Embeds);
+        assert_eq!(edge.relation, "embeds");
         assert!((edge.strength - 0.9).abs() < f32::EPSILON);
     }
 
     #[test]
-    fn relation_display() {
-        assert_eq!(IdeaRelation::Mentions.to_string(), "mentions");
-        assert_eq!(IdeaRelation::Embeds.to_string(), "embeds");
-        assert_eq!(IdeaRelation::Adjacent.to_string(), "adjacent");
-    }
-
-    #[test]
     fn edge_strength_clamped() {
-        let edge = IdeaEdge::new("a", "b", IdeaRelation::Adjacent, 1.5);
+        let edge = IdeaEdge::new("a", "b", crate::relation::ADJACENT, 1.5);
         assert!((edge.strength - 1.0).abs() < f32::EPSILON);
-        let edge2 = IdeaEdge::new("a", "b", IdeaRelation::Adjacent, -0.5);
+        let edge2 = IdeaEdge::new("a", "b", crate::relation::ADJACENT, -0.5);
         assert!(edge2.strength.abs() < f32::EPSILON);
     }
 

@@ -14,6 +14,7 @@ pub mod inline_links;
 pub mod obsidian;
 pub mod recall_cache;
 pub mod redact;
+pub mod relation;
 pub mod sqlite;
 pub mod tag_policy;
 pub mod tag_ranker;

@@ -168,8 +168,9 @@ async fn supersede_via_body_syntax_emits_edge_and_hides_old() {
 // direct `IdeaStore::store_idea_edge(new, old, "supersedes", 1.0)` call.
 // Originally `#[ignore]`-tagged because `store_idea_edge_impl` silently
 // downgraded typed relations to `adjacent` via the legacy 3-variant
-// `IdeaRelation` enum. Agent G fixed the impl inline (raw relation strings);
-// the test is now live and guards the fix.
+// enum. Agent G fixed the impl inline (raw relation strings) and the
+// enum itself has since been retired in favour of `aeqi_ideas::relation`
+// constants; the test is live and guards the fix.
 #[tokio::test]
 async fn supersede_via_store_idea_edge_writes_typed_relation() {
     let (ideas, _dir) = make_store();
