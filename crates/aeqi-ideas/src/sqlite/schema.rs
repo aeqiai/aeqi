@@ -73,13 +73,15 @@ impl SqliteIdeas {
     }
 
     fn ensure_idea_indexes(conn: &Connection) -> Result<()> {
+        // Only indexes on columns that survive the v3 rename-swap. The dropped
+        // `source_kind` / `source_ref` columns used to be indexed here; that
+        // moves to tag-based provenance (Round 4d).
         conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_ideas_name ON ideas(name);
              CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
              CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
              CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
-             CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);
-             CREATE INDEX IF NOT EXISTS idx_ideas_source ON ideas(source_kind, source_ref);",
+             CREATE INDEX IF NOT EXISTS idx_ideas_content_hash ON ideas(content_hash);",
         )?;
         Ok(())
     }
