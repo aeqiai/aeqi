@@ -30,12 +30,11 @@ use crate::traits::{Tool, ToolResult};
 ///
 /// The orchestrator implements this trait; the agent calls `dispatch` when it
 /// needs to fire a pattern (e.g. `context:budget:exceeded`). If any enabled
-/// event is configured for the pattern and ran its tool_calls successfully,
-/// `dispatch` returns `true` so the caller can skip the inline fallback path.
+/// event is configured for the pattern, `dispatch` runs its tool_calls and
+/// returns `true` so the caller can skip the inline fallback path.
 ///
-/// Returning `false` (or an `Err`) tells the caller to use the built-in
-/// fallback — important for bare-CLI / test environments where the event store
-/// is not available.
+/// Returning `false` tells the caller to use the built-in fallback — important
+/// for bare-CLI / test environments where the event store is not available.
 pub trait PatternDispatcher: Send + Sync + 'static {
     /// Fire all enabled events matching `pattern`, executing their `tool_calls`.
     ///
@@ -43,9 +42,19 @@ pub trait PatternDispatcher: Send + Sync + 'static {
     /// event tool_call args (e.g. `{session_id}`, `{estimated_tokens}`).
     /// `ctx`: execution context for ACL checks and session-id injection.
     ///
-    /// Returns `true` if at least one event was found and handled the pattern
-    /// (all tool_calls ran without fatal error). Returns `false` if no event
-    /// was configured for the pattern — caller should use inline fallback.
+    /// Return semantic: **"did any matching event run?"** — regardless of
+    /// whether its tool_calls produced context output. Returns `true` when
+    /// at least one enabled event with a non-empty tool_calls list was
+    /// dispatched (even if individual tools returned `is_error`; those are
+    /// logged, not fatal). Returns `false` only when no event was configured
+    /// for the pattern, or every matching event had an empty tool_calls list.
+    ///
+    /// Pure side-effect chains (session.spawn → ideas.store_many,
+    /// session.spawn → transcript.replace_middle) still return `true` — the
+    /// previous "produces context" semantic silently failed the inline
+    /// fallback suppression for compaction and consolidation. Callers that
+    /// need the *context* output from an event (rare; only the assembly
+    /// pipeline does) consume `parts` directly, not this return value.
     fn dispatch<'a>(
         &'a self,
         pattern: &'a str,

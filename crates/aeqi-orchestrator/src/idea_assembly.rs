@@ -966,9 +966,12 @@ fn append_idea(
 /// `context:budget:exceeded` (and any future pattern) and delegate to a
 /// configured event without depending on the orchestrator directly.
 ///
-/// Returns `true` if at least one enabled event for the pattern ran all its
-/// tool_calls without fatal error. Returns `false` if no event is configured
-/// for the pattern — the caller falls back to inline handling.
+/// See the `PatternDispatcher` trait docs for the return semantic.
+/// Summary: `dispatch` returns `true` if any matching event ran its
+/// tool_calls — including pure side-effect chains that don't produce
+/// context output. Returns `false` only when no event is configured (or
+/// every matching event has an empty tool_calls list), so the caller can
+/// fall back to inline handling.
 pub struct EventPatternDispatcher {
     pub event_store: Arc<EventHandlerStore>,
     pub registry: Arc<ToolRegistry>,
@@ -1029,7 +1032,19 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
 
             for event in &events {
                 if !event.tool_calls.is_empty() {
-                    let fired = dispatch_event_tool_calls_with_trigger(
+                    // Option B: mark the event as handled for the *caller's*
+                    // fallback-suppression decision as soon as we run its
+                    // tool_calls. The previous "did any tool produce context
+                    // output" semantic silently failed callers with pure
+                    // side-effect chains (compaction's session.spawn →
+                    // transcript.replace_middle; consolidation's session.spawn
+                    // → ideas.store_many) — they'd return `false` and the
+                    // caller would run its inline fallback too, doubling work.
+                    // The inner helper's `produced_output` return still governs
+                    // whether the event contributed to `parts`; that's separate
+                    // from whether a matching event ran.
+                    handled = true;
+                    let _produced_context = dispatch_event_tool_calls_with_trigger(
                         event,
                         &dispatch,
                         &assembly_ctx,
@@ -1037,17 +1052,14 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
                         &mut parts,
                     )
                     .await;
-                    if fired {
-                        handled = true;
-                        // Record fire — best effort.
-                        if let Err(e) = self.event_store.record_fire(&event.id, 0.0).await {
-                            tracing::warn!(
-                                event = %event.id,
-                                pattern = %pattern,
-                                error = %e,
-                                "EventPatternDispatcher: failed to record event fire"
-                            );
-                        }
+                    // Record fire — best effort.
+                    if let Err(e) = self.event_store.record_fire(&event.id, 0.0).await {
+                        tracing::warn!(
+                            event = %event.id,
+                            pattern = %pattern,
+                            error = %e,
+                            "EventPatternDispatcher: failed to record event fire"
+                        );
                     }
                 }
             }
