@@ -1419,6 +1419,9 @@ impl Daemon {
                 "feedback_idea" => {
                     crate::ipc::ideas::handle_feedback_idea(&ctx, &request, &allowed_roots).await
                 }
+                "walk_ideas" => {
+                    crate::ipc::ideas::handle_walk_ideas(&ctx, &request, &allowed_roots).await
+                }
 
                 "list_events" => {
                     crate::ipc::events::handle_list_events(&ctx, &request, &allowed_roots).await
