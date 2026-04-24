@@ -12,7 +12,7 @@ use tracing::{info, warn};
 use crate::cli::DaemonAction;
 use crate::helpers::{
     build_provider_for_project, build_provider_for_runtime, daemon_ipc_request, get_api_key,
-    load_config, load_config_with_agents, open_ideas, pid_file_path,
+    load_config, load_config_with_agents, pid_file_path,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
 
@@ -64,16 +64,30 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // Pre-create task notify so the completion listener and root agent project share it.
             let fa_task_notify: Arc<tokio::sync::Notify> = Arc::new(tokio::sync::Notify::new());
 
-            // Open a single insights DB for the entire daemon.
-            let shared_idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>> =
-                match open_ideas(&config) {
-                    Ok(mem) => {
+            // Open a single insights DB for the entire daemon. Keep a
+            // separate handle to the embedder so the daemon search path
+            // can reuse it for query embedding at the CommandContext
+            // boundary.
+            type IdeaStoreHandle = Option<Arc<dyn aeqi_core::traits::IdeaStore>>;
+            type EmbedderHandle = Option<Arc<dyn aeqi_core::traits::Embedder>>;
+            let (shared_idea_store, shared_embedder): (IdeaStoreHandle, EmbedderHandle) =
+                match crate::helpers::open_ideas_with_embedder(&config) {
+                    Ok((mem, embedder)) => {
                         info!("idea store initialized (single DB)");
-                        Some(Arc::new(mem) as Arc<dyn aeqi_core::traits::IdeaStore>)
+                        if embedder.is_none() {
+                            warn!(
+                                "no embedder configured; search falls back to BM25-only — \
+                                 set [providers.openrouter].embedding_model + api_key_env to enable"
+                            );
+                        }
+                        (
+                            Some(Arc::new(mem) as Arc<dyn aeqi_core::traits::IdeaStore>),
+                            embedder,
+                        )
                     }
                     Err(e) => {
                         warn!("failed to open idea store: {e}");
-                        None
+                        (None, None)
                     }
                 };
 
@@ -413,6 +427,9 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             println!("Events: {event_count} enabled");
             daemon.event_handler_store = Some(event_handler_store);
             daemon.idea_store = shared_idea_store.clone();
+            if let Some(embedder) = shared_embedder.clone() {
+                daemon.set_embedder(embedder);
+            }
 
             daemon.set_readiness_context(
                 config.agent_spawns.len(),
