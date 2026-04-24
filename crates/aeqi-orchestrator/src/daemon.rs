@@ -2377,6 +2377,7 @@ pub fn build_daemon_pattern_dispatcher(
         registry: Arc::new(registry),
         agent_registry,
         session_store,
+        idea_store,
     });
     Some(dispatcher as Arc<dyn aeqi_core::tool_registry::PatternDispatcher>)
 }

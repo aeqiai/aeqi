@@ -811,6 +811,7 @@ impl SessionManager {
                     registry: Arc::new(runtime_reg_for_dispatcher),
                     agent_registry: agent_registry.clone(),
                     session_store: self.session_store.clone(),
+                    idea_store: self.idea_store.clone(),
                 });
                 Some(dispatcher as Arc<dyn aeqi_core::tool_registry::PatternDispatcher>)
             } else {

@@ -35,6 +35,7 @@ pub mod metrics;
 pub mod middleware;
 pub mod operation;
 pub mod pipeline;
+pub mod placeholder_resolver;
 pub mod preset_seeder;
 pub mod progress_tracker;
 pub mod quest_context;

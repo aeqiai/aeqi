@@ -36,6 +36,7 @@ use aeqi_core::traits::{Idea, IdeaStore};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
+use crate::placeholder_resolver::{ResolverContext, resolve_placeholder_providers};
 use crate::scope_visibility;
 use crate::session_store::SessionStore;
 
@@ -299,6 +300,18 @@ pub async fn assemble_ideas_for_patterns(
     let ancestors = registry.get_ancestors(agent_id).await.unwrap_or_default();
     let ancestor_ids: Vec<String> = ancestors.iter().map(|a| a.id.clone()).collect();
 
+    // T1.3: pre-resolve `meta:placeholder-providers` once for this assembly
+    // call. The map lives for the duration of the traversal; sync template
+    // helpers consult it before falling through to built-ins. Empty when
+    // the meta-idea is absent → existing behaviour preserved exactly.
+    let resolver_ctx = ResolverContext {
+        agent_id: Some(agent_id.to_string()),
+        agent_name: ancestors.first().map(|a| a.name.clone()),
+        session_id: tool_dispatch.map(|d| d.ctx.session_id.clone()),
+    };
+    let placeholder_providers =
+        resolve_placeholder_providers(idea_store, Some(registry), &resolver_ctx).await;
+
     let mut parts: Vec<String> = Vec::new();
     let mut allow_sets: Vec<Vec<String>> = Vec::new();
     let mut deny_all: Vec<String> = Vec::new();
@@ -337,8 +350,14 @@ pub async fn assemble_ideas_for_patterns(
             if !event.tool_calls.is_empty() {
                 match tool_dispatch {
                     Some(dispatch) => {
-                        let fired =
-                            dispatch_event_tool_calls(event, dispatch, context, &mut parts).await;
+                        let fired = dispatch_event_tool_calls(
+                            event,
+                            dispatch,
+                            context,
+                            Some(&placeholder_providers),
+                            &mut parts,
+                        )
+                        .await;
                         if fired && fired_event_seen.insert(event.id.clone()) {
                             fired_event_ids.push(event.id.clone());
                         }
@@ -398,7 +417,8 @@ pub async fn assemble_ideas_for_patterns(
                 let Some(template) = event.query_template.as_deref() else {
                     continue;
                 };
-                let expanded = expand_template(template, context);
+                let expanded =
+                    expand_template_with_providers(template, context, Some(&placeholder_providers));
                 if expanded.trim().is_empty() {
                     continue;
                 }
@@ -520,9 +540,18 @@ async fn dispatch_event_tool_calls(
     event: &crate::event_handler::Event,
     dispatch: &ToolDispatch<'_>,
     assembly_ctx: &AssemblyContext,
+    placeholder_providers: Option<&HashMap<String, String>>,
     parts: &mut Vec<String>,
 ) -> bool {
-    dispatch_event_tool_calls_with_trigger(event, dispatch, assembly_ctx, None, parts).await
+    dispatch_event_tool_calls_with_trigger(
+        event,
+        dispatch,
+        assembly_ctx,
+        None,
+        placeholder_providers,
+        parts,
+    )
+    .await
 }
 
 /// Like `dispatch_event_tool_calls` but flows every scalar field of the
@@ -535,6 +564,7 @@ async fn dispatch_event_tool_calls_with_trigger(
     dispatch: &ToolDispatch<'_>,
     assembly_ctx: &AssemblyContext,
     trigger_args: Option<&serde_json::Value>,
+    placeholder_providers: Option<&HashMap<String, String>>,
     parts: &mut Vec<String>,
 ) -> bool {
     // Build substitution context from AssemblyContext fields.
@@ -586,6 +616,15 @@ async fn dispatch_event_tool_calls_with_trigger(
     // passed as trigger_args when context:budget:exceeded fires.
     if let Some(ref v) = dispatch.ctx.transcript_tail {
         sub_ctx.insert("transcript_preview".to_string(), v.clone());
+    }
+    // T1.3: meta-idea placeholder providers win over built-ins. Inserted
+    // last so any name collision (e.g. an operator override of `agent_id`)
+    // overwrites the runtime-supplied value. Empty when no meta-idea is
+    // seeded → identical behaviour to the pre-T1.3 sub_ctx.
+    if let Some(map) = placeholder_providers {
+        for (k, v) in map {
+            sub_ctx.insert(k.clone(), v.clone());
+        }
     }
 
     let mut produced_output = false;
@@ -958,6 +997,22 @@ pub fn resolve_tool_calls_ref(
 /// Unknown `{placeholders}` pass through literally.
 /// Known-but-unset placeholders substitute to the empty string.
 pub fn expand_template(template: &str, ctx: &AssemblyContext) -> String {
+    expand_template_with_providers(template, ctx, None)
+}
+
+/// Like [`expand_template`] but consults `providers` BEFORE the built-in
+/// match. T1.3 (placeholder resolver extensibility) — when the operator
+/// has seeded `meta:placeholder-providers`, the caller pre-resolves it
+/// into a `name → value` map and threads it through here.
+///
+/// Lookup priority: `providers` first (operator override allowed), then
+/// the existing built-ins. Absent / `None` → identical behaviour to the
+/// pre-T1.3 `expand_template`.
+pub fn expand_template_with_providers(
+    template: &str,
+    ctx: &AssemblyContext,
+    providers: Option<&HashMap<String, String>>,
+) -> String {
     let mut out = String::with_capacity(template.len());
     let bytes = template.as_bytes();
     let mut i = 0;
@@ -967,6 +1022,16 @@ pub fn expand_template(template: &str, ctx: &AssemblyContext) -> String {
         {
             let close = i + 1 + close_rel;
             let key = &template[i + 1..close];
+            // T1.3: meta-idea providers consulted first so operators can
+            // override built-ins. A miss falls through to the legacy
+            // hardcoded match below.
+            if let Some(map) = providers
+                && let Some(val) = map.get(key)
+            {
+                out.push_str(val);
+                i = close + 1;
+                continue;
+            }
             match key {
                 "user_prompt" => {
                     out.push_str(ctx.user_prompt.as_deref().unwrap_or(""));
@@ -1047,6 +1112,9 @@ pub struct EventPatternDispatcher {
     /// When set, invocation traces are written to `event_invocations` /
     /// `event_invocation_steps` for every dispatch.
     pub session_store: Option<Arc<SessionStore>>,
+    /// T1.3: optional idea store for resolving `meta:placeholder-providers`.
+    /// `None` → no custom placeholders; built-ins behave as before.
+    pub idea_store: Option<Arc<dyn IdeaStore>>,
 }
 
 impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
@@ -1097,6 +1165,20 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
             let mut parts: Vec<String> = Vec::new();
             let mut handled = false;
 
+            // T1.3: pre-resolve placeholder providers once for this dispatch
+            // so every fired event in this batch sees the same map.
+            let resolver_ctx = ResolverContext {
+                agent_id: Some(ctx.agent_id.clone()),
+                agent_name: None,
+                session_id: Some(ctx.session_id.clone()),
+            };
+            let placeholder_providers = resolve_placeholder_providers(
+                self.idea_store.as_ref(),
+                Some(&self.agent_registry),
+                &resolver_ctx,
+            )
+            .await;
+
             for event in &events {
                 if !event.tool_calls.is_empty() {
                     // Option B: mark the event as handled for the *caller's*
@@ -1116,6 +1198,7 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
                         &dispatch,
                         &assembly_ctx,
                         Some(trigger_args),
+                        Some(&placeholder_providers),
                         &mut parts,
                     )
                     .await;
@@ -1571,6 +1654,78 @@ mod tests {
         let ctx = AssemblyContext::default();
         let out = expand_template("hello {unterminated", &ctx);
         assert_eq!(out, "hello {unterminated");
+    }
+
+    /// T1.3: meta-idea providers are consulted FIRST. A custom `{now}`
+    /// substitutes from the provider map; absent it would pass through
+    /// literally (it is not a built-in).
+    #[test]
+    fn expand_template_with_providers_uses_provider_value() {
+        let ctx = AssemblyContext::default();
+        let mut providers: HashMap<String, String> = HashMap::new();
+        providers.insert("now".to_string(), "2026-04-25T00:00:00Z".to_string());
+        let out = expand_template_with_providers("at {now}", &ctx, Some(&providers));
+        assert_eq!(out, "at 2026-04-25T00:00:00Z");
+    }
+
+    /// T1.3: when the same placeholder name exists in the providers map
+    /// AND in the built-in match (`user_prompt`), the provider entry
+    /// wins. This is the operator-override semantic.
+    #[test]
+    fn expand_template_with_providers_overrides_builtin() {
+        let ctx = AssemblyContext {
+            user_prompt: Some("from-builtin".to_string()),
+            ..AssemblyContext::default()
+        };
+        let mut providers: HashMap<String, String> = HashMap::new();
+        providers.insert("user_prompt".to_string(), "from-provider".to_string());
+        let out = expand_template_with_providers("{user_prompt}", &ctx, Some(&providers));
+        assert_eq!(
+            out, "from-provider",
+            "providers must override built-ins (operator-override semantic)"
+        );
+    }
+
+    /// T1.3: a placeholder that is NOT in the providers map and NOT a
+    /// built-in falls through to literal pass-through (no behaviour change).
+    #[test]
+    fn expand_template_with_providers_falls_through_to_literal() {
+        let ctx = AssemblyContext::default();
+        let providers: HashMap<String, String> = HashMap::new();
+        let out = expand_template_with_providers("{banana}", &ctx, Some(&providers));
+        assert_eq!(out, "{banana}");
+    }
+
+    /// T1.3: when the providers map is missing a name BUT the built-in
+    /// match handles it, the built-in still works. This is the
+    /// "baseline preservation" invariant — adding the meta-idea must not
+    /// remove any built-in behaviour.
+    #[test]
+    fn expand_template_with_providers_preserves_builtin_when_provider_missing() {
+        let ctx = AssemblyContext {
+            user_prompt: Some("hello".to_string()),
+            ..AssemblyContext::default()
+        };
+        let mut providers: HashMap<String, String> = HashMap::new();
+        providers.insert("now".to_string(), "2026-04-25T00:00:00Z".to_string());
+        let out = expand_template_with_providers("{user_prompt} at {now}", &ctx, Some(&providers));
+        assert_eq!(out, "hello at 2026-04-25T00:00:00Z");
+    }
+
+    /// T1.3: passing `None` for providers reproduces the pre-T1.3
+    /// behaviour exactly. This is what `expand_template` (the
+    /// public-API shim) does for every existing caller.
+    #[test]
+    fn expand_template_with_providers_none_matches_legacy_expand_template() {
+        let ctx = AssemblyContext {
+            user_prompt: Some("hello".to_string()),
+            tool_output: Some("42".to_string()),
+            quest_description: Some("ship".to_string()),
+        };
+        let template = "{user_prompt} {tool_output} {quest_description} {banana}";
+        let legacy = expand_template(template, &ctx);
+        let with_none = expand_template_with_providers(template, &ctx, None);
+        assert_eq!(legacy, with_none);
     }
 
     /// Phase-1: `substitute_args` replaces known string-leaf placeholders and

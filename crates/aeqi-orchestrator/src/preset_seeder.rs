@@ -539,6 +539,11 @@ mod tests {
             "meta:content-taxonomy",
             "meta:evaluation-criteria",
             "meta:pack-catalog",
+            // T1.3 — declares custom `{name}` placeholders consulted by
+            // event template expansion. Default body seeds `{now}`,
+            // `{date.iso}`, `{agent.name}`, `{agent.id}`. If this seed
+            // disappears, fresh installs lose those placeholders silently.
+            "meta:placeholder-providers",
         ];
         // Principle category — first entries, Karpathy-inspired,
         // rewritten in aeqi voice. The behavior heuristics surface
