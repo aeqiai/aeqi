@@ -17,18 +17,35 @@ export interface SelectProps extends Omit<
   placeholder?: string;
   disabled?: boolean;
   size?: "sm" | "md";
+  /** Stretch the wrapper to fill its container. */
+  fullWidth?: boolean;
   className?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { options, value, onChange, placeholder, disabled, size = "md", className, id, ...rest },
+  {
+    options,
+    value,
+    onChange,
+    placeholder,
+    disabled,
+    size = "md",
+    fullWidth,
+    className,
+    id,
+    ...rest
+  },
   ref,
 ) {
   const autoId = useId();
   const selectId = id || autoId;
 
   return (
-    <div className={[styles.wrapper, styles[size], className].filter(Boolean).join(" ")}>
+    <div
+      className={[styles.wrapper, styles[size], fullWidth && styles.fullWidth, className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <select
         ref={ref}
         id={selectId}

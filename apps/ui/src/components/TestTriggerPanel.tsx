@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button } from "./ui";
+import { Button, Select } from "./ui";
 import type { AgentEvent } from "@/lib/types";
 
 interface Props {
@@ -155,19 +155,14 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
           >
             Agent
           </label>
-          <select
-            className="agent-settings-input"
+          <Select
+            size="sm"
+            fullWidth
             value={pickedAgentId}
-            onChange={(e) => setPickedAgentId(e.target.value)}
-            style={{ width: "100%" }}
-          >
-            <option value="">— pick an agent —</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setPickedAgentId(v)}
+            placeholder="— pick an agent —"
+            options={agents.map((a) => ({ value: a.id, label: a.name }))}
+          />
         </div>
       )}
 

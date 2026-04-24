@@ -298,31 +298,21 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
           <div className="quest-detail-meta">
             <label className="quest-detail-meta-field">
               <span className="quest-detail-meta-label">Status</span>
-              <select
-                className="quest-detail-select"
+              <Select
+                size="sm"
                 value={status}
-                onChange={(e) => handleStatusChange(e.target.value as QuestStatus)}
-              >
-                {statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => handleStatusChange(v as QuestStatus)}
+                options={statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+              />
             </label>
             <label className="quest-detail-meta-field">
               <span className="quest-detail-meta-label">Priority</span>
-              <select
-                className="quest-detail-select"
+              <Select
+                size="sm"
                 value={priority}
-                onChange={(e) => handlePriorityChange(e.target.value as QuestPriority)}
-              >
-                {priorities.map((p) => (
-                  <option key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => handlePriorityChange(v as QuestPriority)}
+                options={priorities.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+              />
             </label>
           </div>
 
@@ -635,18 +625,18 @@ function QuestBoard({
           }}
           disabled={busy}
         />
-        <select
-          className="quest-board-compose-priority"
+        <Select
+          size="sm"
           value={priority}
-          onChange={(e) => setPriority(e.target.value as QuestPriority)}
+          onChange={(v) => setPriority(v as QuestPriority)}
+          options={(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => ({
+            value: p,
+            label: PRIORITY_LABELS[p],
+          }))}
           disabled={busy}
-        >
-          {(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => (
-            <option key={p} value={p}>
-              {PRIORITY_LABELS[p]}
-            </option>
-          ))}
-        </select>
+          aria-label="Priority"
+          title="Priority"
+        />
         <Select
           size="sm"
           value={composeScope}
