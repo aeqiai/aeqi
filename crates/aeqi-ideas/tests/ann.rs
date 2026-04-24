@@ -38,7 +38,9 @@ impl Embedder for HashEmbedder {
         let mut out = Vec::with_capacity(self.dimensions);
         let mut state = seed | 1; // avoid zero vector
         for i in 0..self.dimensions {
-            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let f = ((state >> 32) as u32 as f32) / (u32::MAX as f32) - 0.5;
             out.push(f + (i as f32 * 1e-6));
         }
@@ -128,14 +130,12 @@ async fn ann_search_matches_brute_force_top_hit() {
     // The other two candidates (banana, car) are both non-matches; we only
     // assert the top slot here since vec0's MATCH ordering is stable enough.
     assert!(
-        results.iter().any(|r| r.idea_id == banana_id) || results.iter().any(|r| r.idea_id == car_id)
+        results.iter().any(|r| r.idea_id == banana_id)
+            || results.iter().any(|r| r.idea_id == car_id)
     );
 
     // 2. IdeaStore::search (through the scope-aware `vector_search_scoped`).
-    let hits = ideas
-        .search(&IdeaQuery::new(query_text, 2))
-        .await
-        .unwrap();
+    let hits = ideas.search(&IdeaQuery::new(query_text, 2)).await.unwrap();
     assert!(!hits.is_empty(), "search must return at least one hit");
     // The ANN + BM25 merge should place apple at the top (BM25 agrees, vec agrees).
     assert_eq!(hits[0].id, apple_id);
@@ -221,7 +221,8 @@ async fn ann_path_honors_agent_scope() {
     let librarian_q = IdeaQuery::new("service port", 10).with_agent("librarian");
     let hits = ideas.search(&librarian_q).await.unwrap();
     assert!(
-        hits.iter().all(|i| i.agent_id.as_deref() != Some("guardian")),
+        hits.iter()
+            .all(|i| i.agent_id.as_deref() != Some("guardian")),
         "cross-agent scope leak: librarian got guardian's idea"
     );
 }

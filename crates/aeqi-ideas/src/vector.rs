@@ -183,14 +183,11 @@ fn try_ann_search_unscoped(
         }
     };
 
-    let iter = match stmt.query_map(
-        rusqlite::params![query_bytes, k],
-        |row| {
-            let id: String = row.get(0)?;
-            let bytes: Vec<u8> = row.get(1)?;
-            Ok((id, bytes))
-        },
-    ) {
+    let iter = match stmt.query_map(rusqlite::params![query_bytes, k], |row| {
+        let id: String = row.get(0)?;
+        let bytes: Vec<u8> = row.get(1)?;
+        Ok((id, bytes))
+    }) {
         Ok(i) => i,
         Err(e) => {
             warn!(error = %e, "VectorStore ANN query failed; falling back to brute-force");

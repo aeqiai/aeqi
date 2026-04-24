@@ -512,13 +512,9 @@ fn try_ann_search(
          ORDER BY iv.distance"
     );
 
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
-        Box::new(query_bytes),
-        Box::new(k),
-    ];
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(query_bytes), Box::new(k)];
     params.extend(scope_params);
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-        params.iter().map(|p| p.as_ref()).collect();
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
     let mut stmt = match conn.prepare(&sql) {
         Ok(s) => s,
@@ -584,8 +580,7 @@ fn brute_force_vector_search(
          WHERE {where_clause}"
     );
 
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-        params.iter().map(|p| p.as_ref()).collect();
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     let Ok(mut stmt) = conn.prepare(&sql) else {
         return vec![];
     };
