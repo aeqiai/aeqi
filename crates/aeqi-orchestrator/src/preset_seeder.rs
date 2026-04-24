@@ -118,6 +118,11 @@ pub enum SeedStatus {
 /// never overwritten. Tags are applied only on fresh inserts — once an idea
 /// exists, the operator owns its taxonomy.
 ///
+/// Scans the top-level of the presets directory, then each immediate
+/// subdirectory (one level deep). This lets operators group related seeds —
+/// e.g. `tag-policies/` for `meta:tag-policy:*` ideas whose body is TOML —
+/// without changes to this loader. Subdirectory recursion stops at one level.
+///
 /// Returns the per-file result list so the caller can log a summary.
 pub async fn seed_preset_ideas(store: &EventHandlerStore) -> Result<Vec<SeedResult>> {
     let Some(presets_dir) = locate_presets_dir() else {
@@ -126,11 +131,43 @@ pub async fn seed_preset_ideas(store: &EventHandlerStore) -> Result<Vec<SeedResu
     };
 
     let mut results: Vec<SeedResult> = Vec::new();
-    let entries = std::fs::read_dir(&presets_dir)
+
+    // Top-level markdown — the skill library + personas.
+    collect_dir_results(store, &presets_dir, &mut results).await?;
+
+    // Subdirectories — tag-policies/, future event-templates/ etc. One level
+    // deep is enough; operators can add more categories without touching
+    // the seeder.
+    let subdirs = std::fs::read_dir(&presets_dir)
         .with_context(|| format!("read_dir failed: {}", presets_dir.display()))?;
+    for entry in subdirs.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        collect_dir_results(store, &path, &mut results).await?;
+    }
+
+    Ok(results)
+}
+
+/// Glob `*.md` from a single directory (non-recursive) and run them through
+/// `seed_one_file`. Append each outcome to `results`. Directory read errors
+/// bubble up with context so the caller sees which subtree failed.
+async fn collect_dir_results(
+    store: &EventHandlerStore,
+    dir: &Path,
+    results: &mut Vec<SeedResult>,
+) -> Result<()> {
+    let entries =
+        std::fs::read_dir(dir).with_context(|| format!("read_dir failed: {}", dir.display()))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
+        // Non-recursive — subdirectories are the caller's job.
+        if path.is_dir() {
+            continue;
+        }
         if path.extension().and_then(|s| s.to_str()) != Some("md") {
             continue;
         }
@@ -154,7 +191,7 @@ pub async fn seed_preset_ideas(store: &EventHandlerStore) -> Result<Vec<SeedResu
         results.push(SeedResult { name, path, status });
     }
 
-    Ok(results)
+    Ok(())
 }
 
 /// Seed a single markdown file. Returns (idea name, status).
@@ -456,6 +493,102 @@ mod tests {
             std::env::remove_var("AEQI_PRESETS_DIR");
         }
         assert!(results.is_empty());
+    }
+
+    /// Round 4 contract (vanilla-perfect out-of-box): after seeding, the
+    /// reflector / consolidator personas and the default tag policies must be
+    /// present so the memory stack (LLM extraction, reflection, consolidation)
+    /// runs with zero configuration. If a seed file is renamed or deleted, a
+    /// fresh install silently loses that capability — this test catches it.
+    #[tokio::test]
+    async fn seed_preset_ideas_installs_round4_memory_stack() {
+        // Personas the memory stack spawns sub-agents from.
+        const REQUIRED_PERSONAS: &[&str] = &[
+            "meta:reflector-template",
+            "meta:daily-reflector-template",
+            "meta:weekly-consolidator-template",
+            "meta:consolidator-template",
+        ];
+        // Tag policies driving retrieval / decay / consolidation defaults.
+        const REQUIRED_POLICIES: &[&str] = &[
+            "meta:tag-policy:fact",
+            "meta:tag-policy:preference",
+            "meta:tag-policy:decision",
+            "meta:tag-policy:procedure",
+            "meta:tag-policy:skill",
+            "meta:tag-policy:evergreen",
+            "meta:tag-policy:source:session",
+            "meta:tag-policy:meta",
+            "meta:tag-policy:reflection",
+        ];
+
+        let (_tmp, store) = setup_store().await;
+
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = manifest_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root resolves from CARGO_MANIFEST_DIR");
+        let presets_dir = repo_root.join("presets");
+        assert!(
+            presets_dir.join("seed_ideas").join("tag-policies").is_dir(),
+            "expected tag-policies subdirectory at {}/seed_ideas/tag-policies",
+            presets_dir.display(),
+        );
+
+        let _guard = PRESETS_ENV_LOCK.lock().await;
+        unsafe {
+            std::env::set_var("AEQI_PRESETS_DIR", &presets_dir);
+        }
+        let results = seed_preset_ideas(&store).await.unwrap();
+        unsafe {
+            std::env::remove_var("AEQI_PRESETS_DIR");
+        }
+
+        for required in REQUIRED_PERSONAS.iter().chain(REQUIRED_POLICIES.iter()) {
+            let seen = results.iter().any(|r| r.name == *required);
+            assert!(
+                seen,
+                "seed_preset_ideas did not process required Round-4 seed '{required}'; \
+                 saw: {:?}",
+                results.iter().map(|r| &r.name).collect::<Vec<_>>(),
+            );
+
+            let db = store.db.lock().await;
+            let present: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                    rusqlite::params![required],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            assert_eq!(
+                present, 1,
+                "Round-4 seed '{required}' must land in the global idea store \
+                 exactly once (agent_id IS NULL)"
+            );
+        }
+
+        // Tag policies must carry the meta:tag-policy tag so TagPolicyCache can
+        // find them via ideas_by_tags(POLICY_TAG).
+        for required in REQUIRED_POLICIES {
+            let db = store.db.lock().await;
+            let has_policy_tag: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM idea_tags t \
+                     JOIN ideas i ON i.id = t.idea_id \
+                     WHERE i.name = ?1 AND t.tag = 'meta:tag-policy'",
+                    rusqlite::params![required],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            assert_eq!(
+                has_policy_tag, 1,
+                "tag policy '{required}' must carry the meta:tag-policy tag"
+            );
+        }
     }
 
     /// Founder MVP contract: every vanilla agent must be able to discover
