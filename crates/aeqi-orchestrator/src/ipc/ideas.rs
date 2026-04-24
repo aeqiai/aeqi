@@ -628,13 +628,15 @@ async fn check_consolidation_threshold(
     });
 
     // The IPC call has no live session; synthesize an ExecutionContext with
-    // a synthetic `ipc-threshold-<triggering_id>` session_id so the
-    // consolidator seed's `{session_id}` substitution produces a non-empty
-    // value (session.spawn rejects an empty parent_session). The
-    // agent_id stays empty — the consolidator seed is global, so
-    // visibility_sql_clause accepts the empty viewer.
+    // a synthetic `event:ideas:threshold_reached:<triggering_id>` session_id
+    // so the consolidator seed's `{session_id}` substitution produces a
+    // non-empty value (session.spawn rejects an empty parent_session). The
+    // `event:` prefix lets session-genealogy filters exclude IPC-originated
+    // synthetic sessions cleanly. The agent_id stays empty — the
+    // consolidator seed is global, so visibility_sql_clause accepts the
+    // empty viewer.
     let exec_ctx = aeqi_core::tool_registry::ExecutionContext {
-        session_id: format!("ipc-threshold-{triggering_id}"),
+        session_id: format!("event:ideas:threshold_reached:{triggering_id}"),
         ..Default::default()
     };
     let handled = dispatcher
