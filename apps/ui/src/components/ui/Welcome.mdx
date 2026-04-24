@@ -4,24 +4,48 @@ import { Meta } from "@storybook/blocks";
 
 # aeqi component library
 
-The reference for every primitive exported from `@/components/ui`. Use it
-to look up a component, copy a working example, or check what tokens a
-surface should consume.
+The reference for every primitive exported from `@/components/ui` and
+the rules that keep them coherent. Use it to look up a component, copy
+a working example, inspect a token, or see how primitives compose into
+product patterns.
 
 ## Find what you need
 
-| Goal                                                        | Where to look                       |
-| ----------------------------------------------------------- | ----------------------------------- |
-| Browse every primitive grouped by purpose                   | **Primitives** in the sidebar       |
-| See the design system rules (colors, type, spacing, motion) | **Foundations → Design Language**   |
-| See the full inventory and import surface                   | **Get Started → Component Library** |
-| Jump to a specific primitive by name                        | Press <kbd>/</kbd> to search        |
-| Walk every story for one primitive                          | Click its name, then arrow keys     |
+| Goal                                      | Where to look                          |
+| ----------------------------------------- | -------------------------------------- |
+| Browse every primitive grouped by purpose | **Primitives** in the sidebar          |
+| Inspect a design token (click to copy)    | **Foundations → Color** (and siblings) |
+| See the design rules and philosophy       | **Foundations → Principles**           |
+| See composed UI recipes                   | **Patterns** in the sidebar            |
+| See the import surface and inventory      | **Get Started → Component Library**    |
+| Jump to a specific primitive by name      | Press <kbd>/</kbd> to search           |
 
 ## How the sidebar is organised
 
-**Primitives** is the meat of the library. It splits into six buckets so you
-do not have to scan a flat list of 20+ items:
+### Get Started
+
+Orientation pages. Read these once. Come back to the Component Library
+when you need the import surface or the "which primitive when" table.
+
+### Foundations
+
+The design system itself — one scrollable page per concern so each is a
+single read:
+
+| Page           | What's in it                                         |
+| -------------- | ---------------------------------------------------- |
+| **Principles** | Ratios, restraint rules, the four primitives         |
+| **Color**      | Surfaces, ink ladder, accent, status — click to copy |
+| **Typography** | Four font roles with live specimens + type scale     |
+| **Spacing**    | 4px grid visualised, row rhythm rules                |
+| **Radii**      | Six-step scale with live shapes                      |
+| **Elevation**  | Canonical lifted card vs alternatives                |
+| **Motion**     | Three cadences you can play side-by-side             |
+| **Wordmark**   | The æqi brand mark and its rules                     |
+
+### Primitives
+
+The 23 primitives, grouped by purpose so you don't scan a flat list:
 
 | Bucket           | What lives here                                                      |
 | ---------------- | -------------------------------------------------------------------- |
@@ -32,8 +56,19 @@ do not have to scan a flat list of 20+ items:
 | **Overlays**     | `Modal`, `Popover`, `Tooltip`                                        |
 | **Feedback**     | `Spinner`, `ThinkingDot`, `EmptyState`, `DataState`, `ErrorBoundary` |
 
-Every primitive carries `autodocs`, so each entry has a generated **Docs**
-tab with prop tables alongside the hand-written stories.
+Every primitive carries `autodocs`, so each entry has a generated
+**Docs** tab with prop tables alongside the hand-written stories.
+
+### Patterns
+
+Composed recipes that show how primitives combine into dashboard UI.
+Use these as starting templates, not as fixed screenshots.
+
+| Pattern             | What it composes                              |
+| ------------------- | --------------------------------------------- |
+| **Agent Card**      | Card + Badge + DetailField + TagList + Button |
+| **Quest Row**       | Badge + IconButton (dense list rhythm)        |
+| **Empty Dashboard** | EmptyState + Button (first-run, zero-data)    |
 
 ## Useful keyboard shortcuts
 
@@ -48,11 +83,14 @@ tab with prop tables alongside the hand-written stories.
 ## Conventions
 
 - Stories live next to their primitive in `apps/ui/src/components/ui/`.
-- Story title format is `Primitives/<Bucket>/<Primitive>` — match this when
-  you add a new one.
-- Use real strings from the dashboard ("Create Quest", "Assign Agent") in
-  examples, not "Lorem ipsum".
-- Reach for tokens — never hardcode hex, radius, or transition values in a
-  story. Read the **Foundations → Design Language** page for the rules.
+- Story title format is `Primitives/<bucket>/<primitive>` — match this
+  when you add a new one.
+- Foundations and Patterns pages live in `apps/ui/src/components/ui/docs/`
+  so the primitive folder stays scannable.
+- Use real strings from the dashboard ("Create Quest", "Assign Agent")
+  in examples, not "Lorem ipsum".
+- Never hardcode hex, radius, or transition values in a story — reach
+  for a token. The **Foundations → Color / Radii / Motion** pages are
+  the source of truth.
 
 If a primitive ships in code without a story, the library is incomplete.

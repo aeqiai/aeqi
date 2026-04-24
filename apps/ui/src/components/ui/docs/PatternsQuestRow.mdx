@@ -1,0 +1,111 @@
+import { Meta } from "@storybook/blocks";
+import { Badge } from "../Badge";
+import { IconButton } from "../IconButton";
+
+<Meta title="Patterns/Quest Row" />
+
+# Quest Row
+
+Dense list row for a quest queue. Reads left-to-right: status, title,
+agent, timestamp, actions.
+
+## Live
+
+<div
+  style={{
+    border: "1px solid rgba(0,0,0,0.06)",
+    borderRadius: 12,
+    overflow: "hidden",
+    background: "#ffffff",
+    margin: "24px 0",
+  }}
+>
+  {[
+    {
+      status: "in-progress",
+      badge: "info",
+      title: "Summarise the Q2 board pack",
+      agent: "research-lead",
+      time: "4m ago",
+    },
+    {
+      status: "blocked",
+      badge: "warning",
+      title: "Resolve duplicate investor records",
+      agent: "ops-janitor",
+      time: "1h ago",
+    },
+    {
+      status: "done",
+      badge: "success",
+      title: "Draft the Series A intro email",
+      agent: "founder-voice",
+      time: "Yesterday",
+    },
+  ].map((row, i) => (
+    <div
+      key={row.title}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "140px 1fr 160px 120px auto",
+        alignItems: "center",
+        gap: 16,
+        padding: "14px 20px",
+        borderTop: i === 0 ? "none" : "1px solid rgba(0,0,0,0.04)",
+      }}
+    >
+      <Badge variant={row.badge}>{row.status}</Badge>
+      <span style={{ fontSize: 14, color: "rgba(0,0,0,0.85)" }}>{row.title}</span>
+      <span
+        style={{
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: 12,
+          color: "rgba(0,0,0,0.55)",
+        }}
+      >
+        {row.agent}
+      </span>
+      <span
+        style={{
+          fontSize: 12,
+          color: "rgba(0,0,0,0.4)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {row.time}
+      </span>
+      <IconButton aria-label="Row actions" variant="ghost" size="sm">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="3" cy="7" r="1.2" fill="currentColor" />
+          <circle cx="7" cy="7" r="1.2" fill="currentColor" />
+          <circle cx="11" cy="7" r="1.2" fill="currentColor" />
+        </svg>
+      </IconButton>
+    </div>
+  ))}
+</div>
+
+## Anatomy
+
+1. **Status badge** — fixed-width column. Columns line up across the whole
+   list, so statuses scan vertically.
+2. **Title** — single line, truncated on overflow. Never wrap to two
+   lines in a list row.
+3. **Agent** — mono so it reads as an identifier, not prose.
+4. **Timestamp** — tabular-nums so digits line up; right-align if the
+   column is narrow.
+5. **Row actions** — one `IconButton` with an overflow menu, not an
+   inline action bar. Row actions are secondary; the row itself is the
+   primary action (click to open).
+
+## When to use
+
+Quest queues, event streams, agent activity lists — anywhere the user is
+scanning to find one item among many.
+
+## When not to use
+
+- For 3–8 items with more than 2 data points each → use a **Card grid**
+  (see Agent Card) so each item has room to breathe.
+- For tabular data that needs sortable columns and filters → reach for a
+  real `<table>` with column headers, not a row pattern.

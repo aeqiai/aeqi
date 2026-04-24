@@ -1,0 +1,29 @@
+import { Meta } from "@storybook/blocks";
+import { MotionDemo } from "./MotionDemo";
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+Three cadences. No bouncy easing. Motion conveys continuity, not delight.
+
+<MotionDemo />
+
+## When to use which
+
+| Token                 | Cadence                            | Use for                             |
+| --------------------- | ---------------------------------- | ----------------------------------- |
+| `--transition-fast`   | 150ms ease                         | Hover, focus, toggle, state change  |
+| `--transition-normal` | 200ms cubic-bezier(0.4, 0, 0.2, 1) | Entrances, layout shifts, popovers  |
+| `--transition-slow`   | 500ms cubic-bezier(0.4, 0, 0.2, 1) | Page-level reveal, hero, onboarding |
+
+## Do / don't
+
+- **Do** transition the specific property that changes (`opacity`,
+  `transform`, `background`) — never `all`.
+- **Do** respect `prefers-reduced-motion`. For anything above a fade,
+  drop the transform and keep the opacity.
+- **Don't** add a bounce or overshoot. aeqi motion is steady, not
+  performative.
+- **Don't** chain more than two transitions on the same element; the
+  cadence gets muddy.

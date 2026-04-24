@@ -1,0 +1,29 @@
+import { Meta } from "@storybook/blocks";
+import { RadiusScale } from "./RadiusScale";
+
+<Meta title="Foundations/Radii" />
+
+# Radii
+
+Six steps. Radius maps to scale of surface, not to mood.
+
+<RadiusScale />
+
+## Mapping
+
+| Surface          | Radius          |
+| ---------------- | --------------- |
+| Key pills, chips | `--radius-xs`   |
+| Badges, tags     | `--radius-sm`   |
+| Inputs, buttons  | `--radius-md`   |
+| Panels, cards    | `--radius-lg`   |
+| Modals           | `--radius-xl`   |
+| Pills, avatars   | `--radius-full` |
+
+## Do / don't
+
+- **Do** reach for a radius token, never a pixel value. If your surface
+  doesn't fit an existing step, the geometry is off — not the tokens.
+- **Don't** round differently on different corners of a surface unless
+  the surface is anchored (sidebar joining a top bar, sheet docked to an
+  edge). Asymmetric radii are a composition signal, not a style choice.

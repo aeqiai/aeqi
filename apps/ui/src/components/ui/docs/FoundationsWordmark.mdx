@@ -1,0 +1,56 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundations/Wordmark" />
+
+# Wordmark
+
+<div
+  style={{
+    padding: "56px 0",
+    textAlign: "center",
+    background: "#ffffff",
+    border: "1px solid rgba(0,0,0,0.06)",
+    borderRadius: 12,
+    margin: "20px 0",
+  }}
+>
+  <span
+    style={{
+      fontFamily: "'Zen Dots', system-ui, sans-serif",
+      fontSize: 72,
+      color: "#0a0a0b",
+      letterSpacing: "0.02em",
+    }}
+  >
+    æqi
+  </span>
+</div>
+
+The **æqi** wordmark, set in Zen Dots and rendered in graphite
+(`var(--color-accent)`), is the brand mark. It appears as the product
+name and never as decoration. Brand primitives (`<Wordmark>`,
+`<BrandMark>`) default to the accent — never pass a `color` override
+unless the surface demands it.
+
+## Rules
+
+- Always lowercase in prose: **æqi**, never "AEQI" or "Aeqi" in UI text,
+  docs, or marketing copy.
+- The **æ** ligature is reserved for the logo and brand references. In
+  running text inside the dashboard, "aeqi" is fine.
+- Never add gradients, shadows, or effects. Never rotate or stretch.
+- The accent owns the wordmark — nothing else competes.
+
+## Clear space
+
+Keep a clear-space buffer around the wordmark equal to the height of the
+lowercase "q" descender. Do not place chrome (icons, lines, other
+lockups) inside that buffer.
+
+## Do / don't
+
+- **Do** use the wordmark once per screen — typically at the top-left.
+- **Don't** pair the wordmark with a tagline inside the dashboard. The
+  wordmark speaks for itself.
+- **Don't** treat the wordmark as decoration. If a surface needs visual
+  weight, reach for a headline, not the mark.

@@ -1,0 +1,181 @@
+import { Meta } from "@storybook/blocks";
+import { ColorSwatchGrid } from "./ColorSwatchGrid";
+
+<Meta title="Foundations/Color" />
+
+# Color
+
+Click any swatch to copy its token. Values are read live from `:root`, so
+this page tracks `packages/tokens/src/tokens.css` — never hardcode a hex.
+
+## Surfaces
+
+One shell, one white working paper, one ink sheet for inversion. The
+two-step inset family lives inside the white card.
+
+<ColorSwatchGrid
+  swatches={[
+    {
+      token: "--color-shell",
+      label: "App shell",
+      note: "Authenticated outer frame",
+    },
+    {
+      token: "--color-card",
+      label: "Paper",
+      note: "Primary reading surface",
+    },
+    {
+      token: "--color-card-subtle",
+      label: "Inset (subtle)",
+      note: "Lighter well inside the card",
+    },
+    {
+      token: "--color-card-muted",
+      label: "Inset (strong)",
+      note: "Stronger well inside the card",
+    },
+    {
+      token: "--color-ink-card",
+      label: "Ink sheet",
+      note: "High-contrast moments only",
+    },
+  ]}
+/>
+
+## Ink (text and borders)
+
+A single near-black at varying opacities carries the full text hierarchy.
+Do not add grey hues.
+
+<ColorSwatchGrid
+  variant="ink"
+  swatches={[
+    {
+      token: "--color-text-title",
+      label: "Title (92%)",
+      note: "Page titles, headings",
+    },
+    {
+      token: "--color-text-primary",
+      label: "Body (85%)",
+      note: "Default body text",
+    },
+    {
+      token: "--color-text-secondary",
+      label: "Secondary (54%)",
+      note: "Descriptions, labels",
+    },
+    {
+      token: "--color-text-muted",
+      label: "Muted (36%)",
+      note: "Hints, eyebrows, timestamps",
+    },
+    {
+      token: "--color-text-disabled",
+      label: "Disabled (22%)",
+      note: "Disabled text",
+    },
+    {
+      token: "--color-border-faint",
+      label: "Faint border (4%)",
+      note: "Softest section divider",
+    },
+    {
+      token: "--color-border",
+      label: "Border (6%)",
+      note: "Default hairline",
+    },
+    {
+      token: "--color-border-hover",
+      label: "Border (14%)",
+      note: "Hover / active hairline",
+    },
+  ]}
+/>
+
+## Accent
+
+The accent is near-black graphite. It owns the wordmark, primary CTAs,
+links, focus rings, and active state. At ~2% surface area, it feels
+authoritative. At more, it feels heavy.
+
+<ColorSwatchGrid
+  swatches={[
+    {
+      token: "--color-accent",
+      label: "Accent",
+      note: "CTAs, links, focus, wordmark",
+    },
+    {
+      token: "--color-accent-hover",
+      label: "Accent hover",
+      note: "Hover state on CTAs",
+    },
+    {
+      token: "--color-accent-dim",
+      label: "Accent dim",
+      note: "Mid-grey for marginalia",
+    },
+    {
+      token: "--color-accent-bg",
+      label: "Accent tint",
+      note: "Selected rows, subtle highlights",
+    },
+  ]}
+/>
+
+## Status
+
+Status colors are the only chromatic exception outside the accent. They
+appear minimally — a dot, a tint, subtle text color — never a full-bleed
+wash.
+
+<ColorSwatchGrid
+  swatches={[
+    {
+      token: "--color-success",
+      label: "Success",
+      note: "Done, active, healthy (jade)",
+    },
+    {
+      token: "--color-error",
+      label: "Error",
+      note: "Failed, validation errors (oxide red)",
+    },
+    {
+      token: "--color-warning",
+      label: "Warning",
+      note: "Blocked, degraded (muted amber)",
+    },
+    {
+      token: "--color-info",
+      label: "Info",
+      note: "In progress (inherits accent)",
+    },
+  ]}
+/>
+
+### Status backgrounds
+
+Tinted backgrounds for toast/banner/row emphasis. Pair with the matching
+border token; never use a status foreground color on its own surface.
+
+<ColorSwatchGrid
+  swatches={[
+    { token: "--color-success-bg", label: "Success bg" },
+    { token: "--color-error-bg", label: "Error bg" },
+    { token: "--color-warning-bg", label: "Warning bg" },
+    { token: "--color-info-bg", label: "Info bg" },
+  ]}
+/>
+
+## Do / don't
+
+- **Do** carry hierarchy with opacity on ink, not with new greys.
+- **Do** reserve jade for success. Don't use it for decoration or brand.
+- **Do** keep the accent at ~2% of pixel area. More reads as chrome.
+- **Don't** hardcode hex values in component CSS. Add a token to
+  `@aeqi/tokens` first, then alias it in `primitives.css`.
+- **Don't** use a status color as a full-bleed background. A dot or a 10%
+  tint is almost always enough.

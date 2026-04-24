@@ -1,0 +1,72 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundations/Principles" />
+
+# Principles
+
+> **v4 — Graphite + Ink.** The aeqi design system is built on restraint.
+> Every element earns its place through function, not decoration. The
+> interface recedes so the four primitives — Agents, Events, Quests,
+> Ideas — can speak clearly.
+
+## Restraint, with one accent
+
+Pure neutral paper, ink at opacity, one near-black graphite accent. The
+accent earns its weight by scarcity: wordmark, primary CTA, links, focus,
+active state. Titles stay ink. The system is restrained, not monochrome.
+
+**Ratio rule — hold these or it goes generic:**
+
+- ~70% neutral grey paper + white card surfaces
+- ~28% ink body copy (black at 22–92% alpha)
+- ~2% near-black graphite accent (CTAs, active nav, focus, selected, wordmark)
+
+Jade is reserved for the **success** semantic (completed quests, resolved
+events) so brand and status signal read visually distinct.
+
+## Opacity as depth
+
+A single black at varying opacities carries hierarchy inside the ink
+system. No grey tints with their own hue — just black with more or less
+presence. See **Foundations → Color** for the full ink ladder.
+
+## Precision over decoration
+
+No gratuitous gradients, heavy shadows, or extravagant rounding.
+Components use sharp geometry and minimal chrome. Status color (success,
+error, warning, info) appears sparingly — a dot, a tint — never a
+full-bleed wash.
+
+## The four primitives
+
+Everything in aeqi maps to one of four primitives:
+
+- **Agents** — autonomous entities with parent-child hierarchy (WHO)
+- **Events** — triggers and audit stream (WHEN)
+- **Quests** — work items agents pursue (WHAT)
+- **Ideas** — knowledge, identity, instructions, memories (HOW)
+
+The UI is a vehicle for these four. When in doubt about whether a piece
+of chrome belongs, ask: does it serve one of the four, or does it
+compete with them?
+
+## Rule of least chrome
+
+Reach for `components/ui/` before writing a new class. A new ad-hoc style
+is the last resort, not the default. If the thing you want doesn't exist
+as a primitive, propose adding it to the library before writing a
+one-off class in a page-level stylesheet.
+
+See **Get Started → Component Library** for the canonical inventory and
+the "which primitive to use when" table.
+
+## Sources of truth
+
+| Artifact                            | Role                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| `packages/tokens/src/tokens.css`    | **Values**: colors, fonts, spacing, radii, shadows, motion. The one source. |
+| `packages/tokens/src/tokens.ts`     | TypeScript mirror of tokens.css — for canvas/chart/JS consumers.            |
+| `apps/ui/src/styles/primitives.css` | Dashboard aliases + dashboard-only tokens (input-h, sidebar, etc).          |
+| `apps/ui/src/components/ui/`        | Primitives + Storybook stories — the component API.                         |
+| `/brand` on aeqi.ai                 | Public brand reference — palette, typography, downloads.                    |
+| `apps/ui/.impeccable.md`            | AI context file — design philosophy + pointer to this doc.                  |

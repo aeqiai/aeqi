@@ -1,0 +1,39 @@
+import { Meta } from "@storybook/blocks";
+import { ElevationDemo } from "./ElevationDemo";
+
+<Meta title="Foundations/Elevation" />
+
+# Elevation
+
+A single canonical treatment for lifted white cards. Composes a 1px
+hairline ring (inset via `box-shadow` — no layout cost) with a whisper of
+ambient shadow and a long-range soft shadow.
+
+The sheet separates from the tinted frame without any of the drop-shadow
+heaviness that reads as "AI wrapper."
+
+<ElevationDemo />
+
+## Usage
+
+```css
+.sheet {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-elevation);
+}
+```
+
+- Pair `--card-elevation` with `--radius-lg` and `--color-card`.
+- Do **not** combine with `--shadow-md`, `--shadow-lg`, or custom drop
+  shadows. The token already carries its own depth.
+- The inline `--shadow-popover` / `--shadow-glow` tokens are for floating
+  surfaces (popovers, pickers). Lifted cards use `--card-elevation`.
+
+## Do / don't
+
+- **Do** use elevation to separate a working sheet from its tinted frame.
+- **Do** keep the hairline ring; it reads crisp on both light and dark
+  backgrounds.
+- **Don't** stack two elevation tokens on the same surface. If the card
+  needs more weight, reach for contrast, not for bigger shadows.

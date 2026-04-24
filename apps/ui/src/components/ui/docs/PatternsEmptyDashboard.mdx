@@ -1,0 +1,70 @@
+import { Meta } from "@storybook/blocks";
+import { EmptyState } from "../EmptyState";
+import { Button } from "../Button";
+
+<Meta title="Patterns/Empty Dashboard" />
+
+# Empty Dashboard
+
+The first-run state. A newly authenticated user has zero agents, zero
+quests, zero events. The job of this pattern is to point at one next
+action — not to showcase everything the product can do.
+
+## Live
+
+<div
+  style={{
+    minHeight: 480,
+    padding: 40,
+    background: "#f4f4f5",
+    borderRadius: 12,
+    margin: "24px 0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  <EmptyState
+    title="No agents yet"
+    description="Create your first agent to start handing off work. An agent is a persona with instructions, memories, and a wallet — it runs quests on your behalf."
+    action={
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button variant="primary">Create first agent</Button>
+        <Button variant="ghost">Read the docs</Button>
+      </div>
+    }
+  />
+</div>
+
+## Anatomy
+
+1. **Title** — one sentence. No emoji. State the condition, not the
+   feeling ("No agents yet" beats "Welcome!").
+2. **Description** — one sentence that explains what the missing thing
+   is and why the user would want one. Use the product's vocabulary
+   (agent, quest, idea, event) — not generic SaaS language.
+3. **Primary action** — singular. The entire dashboard reduces to one
+   CTA. If there appear to be two equal actions, the empty state is
+   doing too much.
+4. **Secondary action** — ghost button, reserved for docs or a demo.
+   Never a second creation path.
+
+## When to use
+
+- First-run dashboards
+- Empty search results where a creation action is sensible
+- Zero-state panels inside a larger screen
+
+## When not to use
+
+- Mid-flight error states → use `DataState` with an error slot.
+- Filtered-list-empty where the user can just clear a filter → use a
+  tighter inline message, not a full `EmptyState`.
+
+## Copy rules
+
+- Never "Oops!" or "Uh oh!" — the user hasn't done anything wrong.
+- Never "Welcome!" on an empty state — it's the dashboard, not the login
+  page.
+- Use sentence case. Period at the end of the description, no period on
+  the title.

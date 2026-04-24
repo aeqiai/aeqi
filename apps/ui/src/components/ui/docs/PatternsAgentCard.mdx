@@ -1,0 +1,98 @@
+import { Meta } from "@storybook/blocks";
+import { Card } from "../Card";
+import { Badge } from "../Badge";
+import { DetailField } from "../DetailField";
+import { IconButton } from "../IconButton";
+import { TagList } from "../TagList";
+import { Button } from "../Button";
+
+<Meta title="Patterns/Agent Card" />
+
+# Agent Card
+
+Compact summary of an agent on the dashboard or in a grid view.
+Composes `Card`, `Badge`, `DetailField`, `TagList`, `IconButton`, and
+`Button`.
+
+## Live
+
+<div style={{ maxWidth: 420, margin: "24px 0" }}>
+  <Card variant="default" padding="md">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span
+          style={{
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 11,
+            color: "rgba(0,0,0,0.4)",
+          }}
+        >
+          agent/research-lead
+        </span>
+        <span
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: "rgba(0,0,0,0.9)",
+          }}
+        >
+          Research Lead
+        </span>
+      </div>
+      <Badge variant="success">active</Badge>
+    </div>
+    <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+      <DetailField label="Parent">orchestrator</DetailField>
+      <DetailField label="Quests in flight">3</DetailField>
+      <DetailField label="Last event">2 minutes ago</DetailField>
+    </div>
+    <div style={{ marginTop: 16 }}>
+      <TagList items={["research", "summarisation", "drafting"]} />
+    </div>
+    <div
+      style={{
+        marginTop: 20,
+        paddingTop: 16,
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+        display: "flex",
+        gap: 8,
+      }}
+    >
+      <Button variant="secondary" size="sm">
+        Open agent
+      </Button>
+      <Button variant="ghost" size="sm">
+        Assign quest
+      </Button>
+    </div>
+  </Card>
+</div>
+
+## Anatomy
+
+1. **Header row** — mono slug + human name on the left, status `Badge`
+   on the right.
+2. **Detail ladder** — three `DetailField` rows at most. More than three
+   and the card stops being a summary.
+3. **Tags** — `TagList` for expertise signals. Keep to 3–5 tags.
+4. **Action bar** — up to two actions, separated from the body by a
+   `--space-4` gap and a hairline divider.
+
+## When to use
+
+Dashboard grids. Agent pickers. Anywhere the user is scanning a set of
+agents and needs to decide which one to open.
+
+## When not to use
+
+- For a single, focused agent view → use `Panel` with a full detail
+  layout instead.
+- For a list with >20 agents → rows (see **Patterns → Quest Row**) scan
+  faster than cards.

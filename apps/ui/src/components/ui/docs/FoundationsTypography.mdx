@@ -1,0 +1,110 @@
+import { Meta } from "@storybook/blocks";
+import { TypeSpecimen } from "./TypeSpecimen";
+import { TokenTable } from "../TokenTable";
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+Four typefaces with single, non-overlapping roles. Do not introduce more.
+
+## Roles
+
+<TypeSpecimen
+  roles={[
+    {
+      label: "Display",
+      fontVar: "--font-display",
+      sizeVar: "--font-size-3xl",
+      weight: 600,
+      sample: "Autonomous companies",
+      note: "Exo 2 — page titles, hero, marquee moments",
+    },
+    {
+      label: "Title",
+      fontVar: "--font-sans",
+      sizeVar: "--font-size-2xl",
+      weight: 600,
+      sample: "Active quests",
+      note: "Inter at 2xl, semibold — section headings",
+    },
+    {
+      label: "Heading",
+      fontVar: "--font-sans",
+      sizeVar: "--font-size-xl",
+      weight: 600,
+      sample: "Agent identity",
+      note: "Inter at xl, semibold",
+    },
+    {
+      label: "Body",
+      fontVar: "--font-sans",
+      sizeVar: "--font-size-base",
+      weight: 400,
+      sample: "Hand off an ambiguous outcome to an agent. It decides, acts, and commits the work.",
+      note: "Inter at base — default body copy",
+    },
+    {
+      label: "Label",
+      fontVar: "--font-sans",
+      sizeVar: "--font-size-sm",
+      weight: 500,
+      sample: "Assigned agent",
+      note: "Inter at sm, medium — form and detail labels",
+    },
+    {
+      label: "Caption",
+      fontVar: "--font-sans",
+      sizeVar: "--font-size-xs",
+      weight: 400,
+      sample: "Last updated 2 minutes ago",
+      note: "Inter at xs — metadata, timestamps",
+    },
+    {
+      label: "Code",
+      fontVar: "--font-mono",
+      sizeVar: "--font-size-sm",
+      weight: 400,
+      sample: "agent.runtime.execute(quest)",
+      note: "JetBrains Mono — code, IDs, model names",
+    },
+    {
+      label: "Brand",
+      fontVar: "--font-brand",
+      sizeVar: "--font-size-4xl",
+      weight: 400,
+      sample: "æqi",
+      note: "Zen Dots — wordmark only. Never decorative.",
+      tracking: "0.02em",
+    },
+  ]}
+/>
+
+## Type scale
+
+<TokenTable
+  rows={[
+    { token: "--font-size-3xs", usage: "Micro labels" },
+    { token: "--font-size-2xs", usage: "Eyebrow caps" },
+    { token: "--font-size-xs", usage: "Badges, timestamps, metadata" },
+    { token: "--font-size-sm", usage: "Secondary text, descriptions" },
+    { token: "--font-size-base", usage: "Body text, form labels" },
+    { token: "--font-size-lg", usage: "Base / root size" },
+    { token: "--font-size-xl", usage: "Section headings" },
+    { token: "--font-size-2xl", usage: "Page titles" },
+    { token: "--font-size-3xl", usage: "Hero headlines" },
+    { token: "--font-size-4xl", usage: "Display" },
+  ]}
+/>
+
+Weights: **400** regular, **500** labels, **600** headings, **700** (rare).
+
+## Do / don't
+
+- **Do** use Inter for everything chrome-related. If it could run in a
+  settings row, it's Inter.
+- **Do** keep Exo 2 for moments that deserve monumentality. Overuse
+  dilutes it.
+- **Don't** set a new font family anywhere. Four is the budget.
+- **Don't** hand-tune letter-spacing on body text. The defaults are
+  calibrated.
