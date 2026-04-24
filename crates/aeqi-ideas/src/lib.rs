@@ -12,7 +12,6 @@ pub mod hybrid;
 pub mod inline_links;
 pub mod lifecycle;
 pub mod obsidian;
-pub mod query_planner;
 pub mod redact;
 pub mod retrieval;
 pub mod sqlite;
