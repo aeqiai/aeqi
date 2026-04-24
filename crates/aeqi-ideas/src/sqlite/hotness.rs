@@ -245,7 +245,10 @@ mod tests {
             .await
             .unwrap();
         let (_c, _l, boost) = mem.fetch_hotness_inputs(&id).unwrap();
-        assert!(boost.abs() < 0.05, "wrong signal should crush boost; got {boost}");
+        assert!(
+            boost.abs() < 0.05,
+            "wrong signal should crush boost; got {boost}"
+        );
     }
 
     #[tokio::test]

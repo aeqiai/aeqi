@@ -259,7 +259,12 @@ impl SqliteIdeas {
         let query_owned = query.clone();
         let rankers_owned = rankers;
         let hits = tokio::task::spawn_blocking(move || -> Result<Vec<StagedHit>> {
-            this.run_staged_pipeline(&query_owned, query_embedding.as_deref(), &rankers_owned, top_k)
+            this.run_staged_pipeline(
+                &query_owned,
+                query_embedding.as_deref(),
+                &rankers_owned,
+                top_k,
+            )
         })
         .await
         .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))??;
@@ -267,7 +272,8 @@ impl SqliteIdeas {
         // Phase D: hydrate ideas + tags for each hit id.
         let ids: Vec<String> = hits.iter().map(|h| h.id.clone()).collect();
         let ideas = self.get_by_ids_impl(&ids).await.unwrap_or_default();
-        let idea_map: HashMap<String, Idea> = ideas.into_iter().map(|i| (i.id.clone(), i)).collect();
+        let idea_map: HashMap<String, Idea> =
+            ideas.into_iter().map(|i| (i.id.clone(), i)).collect();
 
         // Phase E: fire-and-forget access recording + co-retrieval reinforcement.
         let top_ids: Vec<String> = hits.iter().take(10).map(|h| h.id.clone()).collect();
@@ -425,8 +431,8 @@ impl SqliteIdeas {
         let mut by_id: HashMap<String, StagedHit> = HashMap::new();
         for ranker in rankers {
             let tag = &ranker.policy.tag;
-            let bm25_list = Self::bm25_search_filtered(&conn, query, tag, per_tag_width)
-                .unwrap_or_default();
+            let bm25_list =
+                Self::bm25_search_filtered(&conn, query, tag, per_tag_width).unwrap_or_default();
             let vec_list = match query_embedding {
                 Some(qv) => Self::vector_search_filtered(&conn, qv, query, tag, per_tag_width),
                 None => Vec::new(),
@@ -464,7 +470,10 @@ impl SqliteIdeas {
                 };
                 let vector = vec_map.get(&id).copied().unwrap_or(0.0).clamp(0.0, 1.0);
                 let row_info = fetch_row_meta(&conn, &id);
-                let created_at = row_info.as_ref().map(|r| r.created_at).unwrap_or_else(Utc::now);
+                let created_at = row_info
+                    .as_ref()
+                    .map(|r| r.created_at)
+                    .unwrap_or_else(Utc::now);
                 let confidence = row_info.as_ref().map(|r| r.confidence).unwrap_or(1.0);
                 let hotness = Self::fetch_hotness_on_conn(&conn, &id);
                 let decay = ranker.decay_factor(created_at);
@@ -472,9 +481,8 @@ impl SqliteIdeas {
                 // Graph component: populated post-merge once we know the
                 // winning id-set. Placeholder here.
                 let graph = 0.0_f32;
-                let final_score = ranker.score_components(
-                    bm25, vector, hotness, graph, confidence, decay,
-                );
+                let final_score =
+                    ranker.score_components(bm25, vector, hotness, graph, confidence, decay);
                 let new_hit = StagedHit {
                     id: id.clone(),
                     bm25,
@@ -510,10 +518,7 @@ impl SqliteIdeas {
                 hit.graph = boost.clamp(0.0, 1.0);
                 // Re-blend graph into the final score using the ranker the
                 // hit was routed with.
-                if let Some(ranker) = rankers
-                    .iter()
-                    .find(|r| r.policy.tag == hit.picked_by_tag)
-                {
+                if let Some(ranker) = rankers.iter().find(|r| r.policy.tag == hit.picked_by_tag) {
                     hit.final_score = ranker.score_components(
                         hit.bm25,
                         hit.vector,
@@ -618,7 +623,6 @@ impl SqliteIdeas {
         })
         .unwrap_or_default()
     }
-
 }
 
 /// Compile an FTS5 MATCH expression. Strips metacharacters per word and
@@ -720,7 +724,8 @@ fn fetch_row_meta(conn: &Connection, id: &str) -> Option<RowMeta> {
                     r.get::<_, f64>(1)? as f32,
                     r.get::<_, Option<String>>(2)?,
                     r.get::<_, Option<String>>(3)?,
-                    r.get::<_, String>(4).unwrap_or_else(|_| "timeless".to_string()),
+                    r.get::<_, String>(4)
+                        .unwrap_or_else(|_| "timeless".to_string()),
                 ))
             },
         )
