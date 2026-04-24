@@ -7,6 +7,7 @@
 
 pub mod debounce;
 pub mod dedup;
+pub mod embed_worker;
 pub mod graph;
 pub mod hybrid;
 pub mod inline_links;
