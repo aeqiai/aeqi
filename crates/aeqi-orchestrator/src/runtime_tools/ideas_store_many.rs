@@ -24,10 +24,14 @@
 use std::sync::Arc;
 
 use aeqi_core::traits::{IdeaStore, StoreFull, Tool, ToolResult, ToolSpec};
-use aeqi_ideas::tag_policy::TagPolicyCache;
+use aeqi_ideas::tag_policy::{TagPolicy, TagPolicyCache, merge_policies};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tracing::{info, warn};
+
+use crate::runtime_tools::validators::{
+    IdeaValidator, ValidatorCtx, ValidatorItem, lookup_validator,
+};
 
 /// One item in the reflector / consolidator output array.
 #[derive(Debug, Deserialize)]
@@ -207,6 +211,13 @@ impl Tool for IdeasStoreManyTool {
         let mut skipped: usize = 0;
         let mut errors: Vec<String> = Vec::new();
         let mut refused: Vec<String> = Vec::new();
+        // T1.4 — per-item validator failures are surfaced separately from
+        // `refused` because the two carry different signals: `refused`
+        // means "blast-radius cap denied admission", `failed_validation`
+        // means "admitted, then a declared validator rejected the
+        // content". A consumer triaging a batch wants to tell those apart.
+        // Each entry is `{item, validator, reason}`.
+        let mut failed_validation: Vec<serde_json::Value> = Vec::new();
         // Per-tag admitted count for the T1.1 `max_items_per_call` blast-
         // radius cap. Lazily populated when policies are present.
         let mut admitted_per_tag: std::collections::HashMap<String, i64> =
@@ -230,17 +241,22 @@ impl Tool for IdeasStoreManyTool {
                 tags.push("fact".to_string());
             }
 
-            // ── T1.1 blast-radius cap ─────────────────────────────────
-            // Resolve per-tag policies and refuse the item if admitting it
-            // would push any tag past its `max_items_per_call`. The
-            // *tightest* cap among the item's tags wins (consistent with
-            // EffectivePolicy::max_items_per_call min-merge). When no
-            // policy declares a cap, behaviour is byte-identical to the
+            // ── T1.1 blast-radius cap + T1.4 validator dispatch ───────
+            // Resolve per-tag policies once and reuse the list across both
+            // the admission cap check (T1.1) and the validator dispatch
+            // (T1.4). When no `TagPolicyCache` is wired, neither dial can
+            // possibly bind and behaviour is byte-identical to the
             // pre-T1.1 path.
-            if let Some(cache) = self.tag_policy_cache.as_ref() {
-                let policies = cache.resolve(store.as_ref(), &tags).await;
+            let resolved_policies: Vec<TagPolicy> =
+                if let Some(cache) = self.tag_policy_cache.as_ref() {
+                    cache.resolve(store.as_ref(), &tags).await
+                } else {
+                    Vec::new()
+                };
+
+            if !resolved_policies.is_empty() {
                 let mut blocked_by: Option<(String, i64)> = None;
-                for policy in &policies {
+                for policy in &resolved_policies {
                     let Some(cap) = policy.max_items_per_call else {
                         continue;
                     };
@@ -272,11 +288,60 @@ impl Tool for IdeasStoreManyTool {
                 // counter accurate to "items admitted past the cap gate"
                 // which is the gate's actual semantic (it enforces blast
                 // radius, not landed-write count).
-                for policy in &policies {
+                for policy in &resolved_policies {
                     if policy.max_items_per_call.is_some() {
                         *admitted_per_tag
                             .entry(policy.tag.to_lowercase())
                             .or_insert(0) += 1;
+                    }
+                }
+            }
+
+            // T1.4 — run declared validators AFTER admission so we never
+            // pay validation cost on items the cap would refuse anyway.
+            // First validator failure wins: we record `{item, validator,
+            // reason}` and skip THIS item, leaving the rest of the batch
+            // untouched. Unknown validator names log a warning and
+            // dispatch as no-op.
+            if !resolved_policies.is_empty() {
+                let effective = merge_policies(&resolved_policies);
+                if !effective.validators.is_empty() {
+                    let validator_item = ValidatorItem {
+                        name: &item.name,
+                        content: &redacted_content,
+                        tags: &tags,
+                    };
+                    let ctx = ValidatorCtx { store: &store };
+                    let mut failure: Option<(String, String)> = None;
+                    for declared in &effective.validators {
+                        let Some(validator): Option<Arc<dyn IdeaValidator>> =
+                            lookup_validator(declared)
+                        else {
+                            warn!(
+                                validator = %declared,
+                                name = %item.name,
+                                "ideas.store_many: unknown validator name — skipping (no-op)",
+                            );
+                            continue;
+                        };
+                        if let Err(reason) = validator.validate(&validator_item, &ctx).await {
+                            failure = Some((declared.clone(), reason));
+                            break;
+                        }
+                    }
+                    if let Some((validator_name, reason)) = failure {
+                        info!(
+                            name = %item.name,
+                            validator = %validator_name,
+                            reason = %reason,
+                            "ideas.store_many: failed validation — skipping item",
+                        );
+                        failed_validation.push(serde_json::json!({
+                            "item": item.name.clone(),
+                            "validator": validator_name,
+                            "reason": reason,
+                        }));
+                        continue;
                     }
                 }
             }
@@ -337,8 +402,9 @@ impl Tool for IdeasStoreManyTool {
 
         let stored = stored_ids.len().saturating_sub(skipped);
         let summary = format!(
-            "stored={stored} skipped={skipped} refused={} errors={}",
+            "stored={stored} skipped={skipped} refused={} failed_validation={} errors={}",
             refused.len(),
+            failed_validation.len(),
             errors.len()
         );
         info!(%summary, "ideas.store_many: batch complete");
@@ -349,6 +415,7 @@ impl Tool for IdeasStoreManyTool {
             "ids": stored_ids,
             "errors": errors,
             "refused": refused,
+            "failed_validation": failed_validation,
         })))
     }
 
@@ -832,6 +899,388 @@ mod tests {
                 .and_then(|v| v.as_array())
                 .map(Vec::len),
             Some(7),
+        );
+    }
+
+    // ── T1.4 — per-item validator hook ──────────────────────────────────
+    //
+    // These tests cover the neutral-dial invariants for the `validators`
+    // field added to `TagPolicy` (T1.4):
+    //   1. Baseline preservation: cache wired but no policy declares
+    //      validators → behaviour unchanged.
+    //   2. Per-validator activation: each built-in admits valid items and
+    //      rejects bad ones with a `failed_validation` entry while the
+    //      remaining items still land.
+    //   3. Unknown validator names log + treat as no-op (don't crash).
+    //   4. Failure on item N never aborts the batch — items N+1..M still
+    //      flow through admission unchanged.
+
+    fn make_validator_tool(store: &Arc<dyn IdeaStore>) -> IdeasStoreManyTool {
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        IdeasStoreManyTool::new(Some(store.clone())).with_tag_policy_cache(Some(cache))
+    }
+
+    #[tokio::test]
+    async fn t1_4_baseline_no_validators_declared_stores_all_items() {
+        // Neutral-dial invariant 1: cache wired, no policy declares
+        // `validators` → behaviour identical to pre-T1.4.
+        let (store, _dir) = make_store();
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "a", "content": "body a", "tags": ["fact"]},
+                    {"name": "b", "content": "body b", "tags": ["fact"]},
+                    {"name": "c", "content": "body c", "tags": ["fact"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(3));
+        assert_eq!(
+            result
+                .data
+                .get("failed_validation")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(0),
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_4_name_non_empty_rejects_blank_name_admits_others() {
+        // Whitespace-only `name` is rejected by the validator. The two
+        // valid siblings still land. Note: structurally-empty names are
+        // already rejected upstream by the `item.name.is_empty()` guard,
+        // which counts as an `errors` entry — this test exercises the
+        // policy-driven validator on a whitespace-only name that the
+        // structural guard does NOT catch.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["name_non_empty"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "ok-1", "content": "body", "tags": ["validated"]},
+                    {"name": "   ", "content": "blank-name body", "tags": ["validated"]},
+                    {"name": "ok-2", "content": "body", "tags": ["validated"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(2));
+        let fv = result
+            .data
+            .get("failed_validation")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(fv.len(), 1);
+        assert_eq!(
+            fv[0].get("validator").and_then(|v| v.as_str()),
+            Some("name_non_empty")
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_4_content_non_empty_rejects_blank_content() {
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["content_non_empty"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "good", "content": "real body", "tags": ["validated"]},
+                    {"name": "blank", "content": "   ", "tags": ["validated"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(1));
+        let fv = result
+            .data
+            .get("failed_validation")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(fv.len(), 1);
+        assert_eq!(
+            fv[0].get("validator").and_then(|v| v.as_str()),
+            Some("content_non_empty")
+        );
+        assert_eq!(fv[0].get("item").and_then(|v| v.as_str()), Some("blank"));
+    }
+
+    #[tokio::test]
+    async fn t1_4_tag_in_known_set_rejects_off_catalog_tags() {
+        // Seed a meta:pack-catalog body listing only `foo` (single
+        // backticks — matches the catalog's prose convention). Items
+        // tagged `bar` are rejected; items tagged `foo` pass.
+        let (store, _dir) = make_store();
+        store
+            .store(
+                "meta:pack-catalog",
+                "Available tags: `foo` and `validated`.",
+                &["meta".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["tag_in_known_set"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "ok-foo", "content": "x", "tags": ["validated", "foo"]},
+                    {"name": "bad-bar", "content": "x", "tags": ["validated", "bar"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(1));
+        let fv = result
+            .data
+            .get("failed_validation")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(fv.len(), 1);
+        assert_eq!(
+            fv[0].get("validator").and_then(|v| v.as_str()),
+            Some("tag_in_known_set")
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_4_references_resolve_rejects_dangling_distilled_into() {
+        // Item with `distilled_into:[[nonexistent]]` in the body fails;
+        // sibling whose distilled_into target exists passes.
+        let (store, _dir) = make_store();
+        store
+            .store("real-target", "I exist.", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["references_resolve"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {
+                        "name": "ok-link",
+                        "content": "see distilled_into:[[real-target]] for context",
+                        "tags": ["validated"],
+                    },
+                    {
+                        "name": "dangling",
+                        "content": "see distilled_into:[[nonexistent]] for context",
+                        "tags": ["validated"],
+                    },
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(1));
+        let fv = result
+            .data
+            .get("failed_validation")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(fv.len(), 1, "expected 1 failed_validation, got: {fv:?}");
+        assert_eq!(
+            fv[0].get("validator").and_then(|v| v.as_str()),
+            Some("references_resolve")
+        );
+        assert_eq!(fv[0].get("item").and_then(|v| v.as_str()), Some("dangling"));
+    }
+
+    #[tokio::test]
+    async fn t1_4_unknown_validator_name_warns_and_admits_all() {
+        // Neutral-dial invariant 4: a typo in the validators list must
+        // never crash the batch. Treat as no-op + warn.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["nonexistent"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "a", "content": "body", "tags": ["validated"]},
+                    {"name": "b", "content": "body", "tags": ["validated"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(2));
+        assert_eq!(
+            result
+                .data
+                .get("failed_validation")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(0),
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_4_failure_on_item_n_does_not_abort_batch() {
+        // Ordering / batch-survival invariant: if item N fails validation,
+        // items N+1..M must still be admitted normally.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["content_non_empty"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {"name": "before", "content": "ok", "tags": ["validated"]},
+                    {"name": "fails", "content": "  ", "tags": ["validated"]},
+                    {"name": "after-1", "content": "ok", "tags": ["validated"]},
+                    {"name": "after-2", "content": "ok", "tags": ["validated"]},
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(
+            result.data.get("stored").and_then(|v| v.as_u64()),
+            Some(3),
+            "expected 3 stored after the failing item, got data: {}",
+            result.data
+        );
+        assert_eq!(
+            result
+                .data
+                .get("failed_validation")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(1),
+        );
+        // The siblings actually landed (verify via direct lookup).
+        for name in ["before", "after-1", "after-2"] {
+            assert!(
+                store.get_by_name(name, None).await.unwrap().is_some(),
+                "expected '{name}' to be persisted",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn t1_4_validator_runs_after_blast_radius_cap() {
+        // Ordering invariant: blast-radius admission gate runs FIRST.
+        // Items refused by the cap must NOT consume validator cycles.
+        // We verify this by declaring a cap of 2 + the `content_non_empty`
+        // validator on items whose content WOULD fail validation: only
+        // the first two items are seen by the validator, both fail, so
+        // we expect 0 stored, 7 refused, 2 failed_validation. (If
+        // validators ran first we'd see 0 stored, 0 refused, 9
+        // failed_validation.)
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "ordering",
+            r#"
+            tag = "ordering"
+            max_items_per_call = 2
+            validators = ["content_non_empty"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let items: Vec<serde_json::Value> = (0..9)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("ord/{i}"),
+                    "content": "   ",
+                    "tags": ["ordering"],
+                })
+            })
+            .collect();
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": serde_json::Value::Array(items),
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(result.data.get("stored").and_then(|v| v.as_u64()), Some(0));
+        assert_eq!(
+            result
+                .data
+                .get("refused")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(7),
+            "blast-radius cap should refuse 7 items before the validator sees them",
+        );
+        assert_eq!(
+            result
+                .data
+                .get("failed_validation")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(2),
+            "validator should only run on the 2 items the cap admitted",
         );
     }
 }

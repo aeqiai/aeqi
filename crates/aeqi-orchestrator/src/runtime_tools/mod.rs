@@ -18,6 +18,7 @@ pub mod session_spawn;
 pub mod session_status;
 pub mod transcript_inject;
 pub mod transcript_replace_middle;
+pub mod validators;
 
 pub use ideas_assemble::IdeasAssembleTool;
 pub use ideas_search::IdeasSearchTool;

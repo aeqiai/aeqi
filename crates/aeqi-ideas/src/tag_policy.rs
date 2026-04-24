@@ -100,6 +100,16 @@ pub struct TagPolicy {
     /// filtered unless the query explicitly asks to include them.
     #[serde(default)]
     pub include_superseded_default: Option<bool>,
+    /// (T1.4) Names of per-item validators to run inside `ideas.store_many`
+    /// against any item carrying this tag. Validators are looked up by name
+    /// in the orchestrator's built-in registry (`name_non_empty`,
+    /// `content_non_empty`, `tag_in_known_set`, `references_resolve`).
+    /// Unknown names log a warning and are skipped — they are NEVER fatal
+    /// to the batch. `None` (default) preserves the pre-T1.4 behaviour
+    /// where the only checks are the structural ones already inlined in
+    /// `ideas.store_many`.
+    #[serde(default)]
+    pub validators: Option<Vec<String>>,
 }
 
 /// Consolidation threshold config embedded inside a [`TagPolicy`].
@@ -163,6 +173,7 @@ impl Default for TagPolicy {
             max_items_per_call: None,
             dedup_window_hours: None,
             include_superseded_default: None,
+            validators: None,
         }
     }
 }
@@ -366,6 +377,11 @@ pub struct EffectivePolicy {
     /// Whether retrieval should include superseded rows by default for
     /// this set of tags. Any policy opting in flips this on.
     pub include_superseded_default: bool,
+    /// (T1.4) Union of validator names declared by every contributing tag.
+    /// Order is the first-seen ordering across the policies; duplicates are
+    /// collapsed case-sensitively. Empty when no policy declares
+    /// validators — preserving the pre-T1.4 behaviour.
+    pub validators: Vec<String>,
 }
 
 impl Default for EffectivePolicy {
@@ -378,6 +394,7 @@ impl Default for EffectivePolicy {
             max_items_per_call: None,
             dedup_window_hours: None,
             include_superseded_default: false,
+            validators: Vec::new(),
         }
     }
 }
@@ -399,6 +416,7 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         max_items_per_call: None,
         dedup_window_hours: None,
         include_superseded_default: false,
+        validators: Vec::new(),
     };
     let mut saw_non_default_time = false;
 
@@ -446,6 +464,18 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
             };
         if policy.include_superseded_default == Some(true) {
             effective.include_superseded_default = true;
+        }
+        // T1.4 — validators merge by union of names. First-seen ordering is
+        // preserved so seed authors can rely on a deterministic dispatch
+        // order (the runtime still treats validators as commutative; this
+        // is purely for stable logging/refusal text). Duplicates across
+        // policies collapse silently.
+        if let Some(names) = policy.validators.as_ref() {
+            for name in names {
+                if !effective.validators.iter().any(|n| n == name) {
+                    effective.validators.push(name.clone());
+                }
+            }
         }
     }
 
@@ -679,6 +709,84 @@ mod tests {
         assert!(eff.max_items_per_call.is_none());
         assert!(eff.dedup_window_hours.is_none());
         assert!(!eff.include_superseded_default);
+    }
+
+    // ── T1.4 dial tests ────────────────────────────────────────────────
+
+    #[test]
+    fn t1_4_validators_round_trip_alone() {
+        // Independent activation: only `validators` is set on the policy.
+        let body = r#"
+            tag = "fact"
+            validators = ["name_non_empty", "content_non_empty"]
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert_eq!(
+            policy.validators.as_deref(),
+            Some(
+                &[
+                    "name_non_empty".to_string(),
+                    "content_non_empty".to_string()
+                ][..]
+            )
+        );
+        // Other T1 dials remain None — independent activation.
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+    }
+
+    #[test]
+    fn t1_4_unset_validators_is_none() {
+        let body = r#"
+            tag = "fact"
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert!(policy.validators.is_none());
+    }
+
+    #[test]
+    fn t1_4_merge_policies_unions_validator_names_dedup() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            validators: Some(vec!["name_non_empty".into(), "content_non_empty".into()]),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            validators: Some(vec![
+                "content_non_empty".into(), // duplicate — collapses
+                "tag_in_known_set".into(),
+            ]),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(
+            eff.validators,
+            vec![
+                "name_non_empty".to_string(),
+                "content_non_empty".to_string(),
+                "tag_in_known_set".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn t1_4_merge_policies_no_validators_yields_empty_vec() {
+        // Baseline preservation: when no policy declares validators, the
+        // effective list is empty (NOT None vs Some — the merged side is a
+        // plain Vec because an empty list and "not declared" are
+        // operationally identical at the dispatch site).
+        let a = TagPolicy {
+            tag: "a".into(),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.validators.is_empty());
     }
 
     #[test]
