@@ -392,5 +392,6 @@ async fn build_canned_dispatcher(
         registry: Arc::new(registry),
         agent_registry,
         session_store: None,
+        idea_store: None,
     }) as Arc<dyn PatternDispatcher>
 }
