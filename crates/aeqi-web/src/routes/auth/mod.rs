@@ -58,16 +58,24 @@ pub struct CheckInviteRequest {
 
 // ── Route builders ────────────────────────────────────────
 
-/// Public routes that require no authentication.
-pub fn public_routes() -> Router<AppState> {
+/// Exempt from rate limiting: health/liveness, auth-mode probe, Prometheus
+/// metrics.  These are called by infrastructure (load balancer, scrape
+/// jobs) and have no credential-testing surface.
+pub fn exempt_routes() -> Router<AppState> {
     Router::new()
         .route("/api/health", get(health_handler))
         .route("/api/auth/mode", get(auth_mode_handler))
-        .route("/api/auth/login", axum::routing::post(local::login_handler))
         .route("/metrics", get(metrics_handler))
 }
 
-/// Account-related routes (signup, login, verify, OAuth, waitlist, invites).
+/// Login entry — isolated so server.rs can put just this one route in the
+/// tight rate-limit tier.  The rest of the credential flows live in
+/// [`accounts_routes`].
+pub fn login_routes() -> Router<AppState> {
+    Router::new().route("/api/auth/login", axum::routing::post(local::login_handler))
+}
+
+/// Account-related routes (signup, verify, me, OAuth, waitlist, invites).
 pub fn accounts_routes() -> Router<AppState> {
     Router::new()
         .merge(local::routes())

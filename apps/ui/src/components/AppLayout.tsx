@@ -13,6 +13,8 @@ import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
+import { isRateLimited } from "@/lib/rateLimit";
+import RateLimitBanner from "./shell/RateLimitBanner";
 import type { Agent } from "@/lib/types";
 
 // Out-of-flow pages rendered inside the shell — lazy to keep AppLayout light.
@@ -119,11 +121,16 @@ export default function AppLayout() {
     document.title = agentLabel ? `${sectionTitle} — ${agentLabel} · æqi` : "æqi";
   }, [tab, currentAgent]);
 
-  // Daemon bootstrap + live updates.
+  // Daemon bootstrap + live updates.  We pause the periodic refresh while
+  // the central 429 state says we're rate-limited — polling while blocked
+  // just piles on more 429s and extends the window the user is stuck.
   const fetchAll = useDaemonStore((s) => s.fetchAll);
   useEffect(() => {
     fetchAll();
-    const i = setInterval(fetchAll, 30000);
+    const i = setInterval(() => {
+      if (isRateLimited()) return;
+      fetchAll();
+    }, 30000);
     return () => clearInterval(i);
   }, [fetchAll, rootId]);
   useDaemonSocket();
@@ -341,6 +348,7 @@ export default function AppLayout() {
               <Suspense fallback={null}>{mainContent}</Suspense>
             )}
           </div>
+          <RateLimitBanner />
           <ShellFooter />
         </div>
       </div>

@@ -11,14 +11,58 @@
   margin: 0 auto;
 }
 
+/* ── Rate-limit strip ─────────────────────────────────────
+   Shown directly above the shell footer when the API returned 429.
+   Borrows the footer tint + padding so the two strips read as one
+   compact infra band with the rate-limit sitting on top when active.
+   An amber cast, baked into the footer tint via color-mix, signals
+   "slowing down" without jumping to a loud solid color. */
+.shell-rate-limit {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: color-mix(in srgb, var(--bg-sidebar) 88%, #b87333 12%);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.005em;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, #b87333 30%);
+}
+.shell-rate-limit-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: #b87333;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #b87333 18%, transparent);
+  animation: shell-rate-limit-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.shell-rate-limit strong {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes shell-rate-limit-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* ── Footer strip — compact inline row pinned to the bottom of the
    content column, directly below the card. Shared on every page so
-   home and app feel like one product. */
-/* Three-zone grid: empty | centered legal clause | version (right-flush).
+   home and app feel like one product.
+   Three-zone grid: empty | centered legal clause | version (right-flush).
    The sentence sits at the mathematical center of the row regardless
    of the version width. Vertical padding is symmetric (8px top + 8px
-   bottom) so the line of text floats in the middle of the strip, with
-   breathing room between the card above and the viewport edge below. */
+   bottom) so the line floats in the middle of the strip, with breathing
+   room between the card above and the viewport edge below. */
 .shell-footer {
   flex-shrink: 0;
   display: grid;

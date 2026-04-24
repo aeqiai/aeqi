@@ -20,12 +20,13 @@ use tracing::info;
 use crate::accounts::AccountStore;
 use crate::auth;
 use crate::ipc::IpcClient;
-use crate::rate_limit::{RateLimiter, RateLimiterConfig, rate_limit_middleware};
+use crate::rate_limit;
 use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
 use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
 use crate::validation::{request_size_limit_middleware, validate_content_type_middleware};
 use crate::ws;
 use aeqi_core::config::SmtpConfig;
+use tower_governor::GovernorLayer;
 
 /// Shared application state.
 #[derive(Clone)]
@@ -142,14 +143,16 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
             .allow_headers(Any)
     };
 
-    // Protected routes (auth required) — uses AppState for the secret.
-    let protected = api_routes().route_layer(middleware::from_fn_with_state(
-        state.clone(),
-        auth::require_auth,
-    ));
+    // Rate-limit tiers (see rate_limit.rs).  Built once and attached to
+    // subrouters below — topology, not a global blanket.
+    let loose_tier = rate_limit::loose();
+    let tight_tier = rate_limit::tight();
 
-    // Public routes (health + login + ws + webhooks).
-    let mut public = auth_routes::public_routes()
+    // ── Exempt ────────────────────────────────────────────
+    // Liveness/readiness, operational endpoints, websocket upgrades (one
+    // HTTP request per session lifetime, not per message), and signed
+    // webhooks (they authenticate themselves via signature).  No limiter.
+    let exempt = auth_routes::exempt_routes()
         .route("/api/ws", axum::routing::get(ws::handler))
         .route(
             "/api/chat/stream",
@@ -157,14 +160,29 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         )
         .nest("/api", webhook_routes());
 
-    // Accounts-mode routes (signup, verify, me, OAuth, waitlist, invites).
+    // ── Tight tier ────────────────────────────────────────
+    // Credential-testing endpoints: login, signup, verify, password reset,
+    // OAuth callbacks.  Abuse here is the real threat model.
+    let mut tight = auth_routes::login_routes();
     if matches!(state.auth_mode, AuthMode::Accounts) {
-        public = public.merge(auth_routes::accounts_routes());
+        tight = tight.merge(auth_routes::accounts_routes());
     }
+    let tight = tight.layer(GovernorLayer::new(tight_tier));
+
+    // ── Loose tier ────────────────────────────────────────
+    // Everything authenticated (the full /api surface).
+    let protected = api_routes().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_auth,
+    ));
+    let loose = Router::new()
+        .nest("/api", protected)
+        .layer(GovernorLayer::new(loose_tier));
 
     let mut app = Router::new()
-        .nest("/api", protected)
-        .merge(public)
+        .merge(exempt)
+        .merge(tight)
+        .merge(loose)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         // Add request size limiting middleware
@@ -175,11 +193,6 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         .layer(axum::middleware::from_fn_with_state(
             SecurityHeadersConfig::default(),
             security_headers_middleware,
-        ))
-        // Add rate limiting middleware
-        .layer(axum::middleware::from_fn_with_state(
-            std::sync::Arc::new(RateLimiter::new(RateLimiterConfig::default())),
-            rate_limit_middleware,
         ));
 
     if serve_ui {
