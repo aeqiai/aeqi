@@ -12,6 +12,27 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 
+/// Jaccard similarity between two tag sets. Used by the MMR diversifier
+/// as a fallback when embeddings aren't available for either side of a
+/// pair.
+pub(super) fn tag_set_jaccard(a: Option<&Vec<String>>, b: Option<&Vec<String>>) -> f32 {
+    let (Some(a), Some(b)) = (a, b) else {
+        return 0.0;
+    };
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let sa: HashSet<&str> = a.iter().map(String::as_str).collect();
+    let sb: HashSet<&str> = b.iter().map(String::as_str).collect();
+    let inter = sa.intersection(&sb).count();
+    let union = sa.union(&sb).count();
+    if union == 0 {
+        0.0
+    } else {
+        inter as f32 / union as f32
+    }
+}
+
 impl SqliteIdeas {
     pub(super) fn normalize_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
         let mut seen = HashSet::new();

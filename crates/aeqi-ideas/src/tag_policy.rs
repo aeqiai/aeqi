@@ -147,6 +147,15 @@ impl TagPolicy {
         }
         Ok(policy)
     }
+
+    /// Build a default policy pinned to a specific tag.
+    /// Used when the cache has no explicit policy for a requested tag.
+    pub fn default_for(tag: &str) -> Self {
+        Self {
+            tag: tag.to_string(),
+            ..Default::default()
+        }
+    }
 }
 
 // ── Cache ──────────────────────────────────────────────────────────────────
@@ -211,6 +220,20 @@ impl TagPolicyCache {
     pub async fn invalidate(&self) {
         let mut guard = self.inner.write().await;
         guard.loaded_at = DateTime::<Utc>::from_timestamp(0, 0).unwrap_or_else(Utc::now);
+    }
+
+    /// Synchronous non-refreshing lookup. Returns whatever is currently in
+    /// the cache for `tag`; falls back to `TagPolicy::default_for(tag)` when
+    /// the cache doesn't carry one. Used by the hot search path where taking
+    /// an async refresh would be a needless stall — callers are expected to
+    /// `resolve()` periodically elsewhere.
+    pub fn get_or_default(&self, tag: &str) -> TagPolicy {
+        if let Ok(guard) = self.inner.try_read()
+            && let Some(p) = guard.policies.get(&tag.to_lowercase())
+        {
+            return p.clone();
+        }
+        TagPolicy::default_for(tag)
     }
 
     async fn refresh_if_stale(&self, store: &dyn aeqi_core::traits::IdeaStore) {

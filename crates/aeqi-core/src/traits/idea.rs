@@ -112,6 +112,15 @@ pub struct IdeaQuery {
     /// OR whose `scope = 'global'`. Computed by `scope_visibility` and passed
     /// down to avoid re-querying the agent tree inside aeqi-ideas.
     pub visible_anchor_ids: Option<Vec<String>>,
+    /// When `true`, bypass the default `status='active'` filter and the
+    /// "exclude sources of `supersedes` edges" filter. Used by history /
+    /// audit queries that want the full version chain.
+    #[allow(dead_code)]
+    pub include_superseded: bool,
+    /// Optional routing hint from the caller. `"auto"` (or `None`) means the
+    /// retrieval pipeline picks tags from the corpus with weights; explicit
+    /// `query.tags` remains a hard filter either way.
+    pub route_hint: Option<String>,
 }
 
 impl IdeaQuery {
@@ -124,6 +133,8 @@ impl IdeaQuery {
             agent_id: None,
             sibling_agent_ids: Vec::new(),
             visible_anchor_ids: None,
+            include_superseded: false,
+            route_hint: None,
         }
     }
 
@@ -499,6 +510,17 @@ pub trait IdeaStore: Send + Sync {
     ) -> anyhow::Result<Vec<Idea>> {
         let _ = (query, as_of);
         unimplemented!("search_as_of not implemented for this store")
+    }
+
+    /// Decay `co_retrieved` edges that haven't been reinforced in `days`
+    /// days. Multiplies their strength by 0.5 then drops edges below 0.01.
+    /// Returns the number of edges touched.
+    ///
+    /// Default is `Ok(0)` — only the SQLite-backed store persists
+    /// co-retrieval edges. Called by the daemon's background patrol
+    /// (Agent R).
+    async fn decay_co_retrieval_older_than(&self, _days: i64) -> anyhow::Result<u64> {
+        Ok(0)
     }
 }
 

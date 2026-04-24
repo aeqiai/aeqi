@@ -18,6 +18,11 @@ static VEC_EXTENSION_READY: AtomicBool = AtomicBool::new(false);
 /// Returns true if the sqlite-vec extension has been registered for this
 /// process and the `idea_vec` virtual table is therefore usable (subject to
 /// the per-connection probe in the search path).
+///
+/// Temporarily unreferenced after the W+R merge dropped N's orphaned ANN
+/// helpers from `search.rs`. Round 5 cleanup re-integrates ANN into
+/// `vector_search_filtered` and this probe gates it again.
+#[allow(dead_code)]
 pub(crate) fn vec_extension_ready() -> bool {
     VEC_EXTENSION_READY.load(Ordering::Relaxed)
 }

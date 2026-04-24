@@ -302,6 +302,17 @@ pub(crate) fn open_quests_for_project(project_name: &str) -> Result<QuestBoard> 
 }
 
 pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
+    let (ideas, _) = open_ideas_with_embedder(config)?;
+    Ok(ideas)
+}
+
+/// Like `open_ideas` but also returns the embedder so the daemon can
+/// reuse it for query-time embedding / the async embed worker. Returns
+/// `None` when no API key is configured — the search path falls back to
+/// BM25-only.
+pub(crate) fn open_ideas_with_embedder(
+    config: &AEQIConfig,
+) -> Result<(SqliteIdeas, Option<Arc<dyn aeqi_core::traits::Embedder>>)> {
     // Ideas live in aeqi.db — the single source of truth.
     let db_path = config.data_dir().join("aeqi.db");
     if let Some(parent) = db_path.parent() {
@@ -326,21 +337,22 @@ pub(crate) fn open_ideas(config: &AEQIConfig) -> Result<SqliteIdeas> {
 
     if let (Some(key), Some(model)) = (api_key, embedding_model) {
         tracing::info!(model = %model, "idea vector search enabled");
-        let embedder = Arc::new(OpenRouterEmbedder::new(
+        let embedder: Arc<dyn aeqi_core::traits::Embedder> = Arc::new(OpenRouterEmbedder::new(
             key,
             model,
             config.ideas.embedding_dimensions,
         ));
-        mem.with_embedder(
-            embedder,
+        let mem = mem.with_embedder(
+            embedder.clone(),
             config.ideas.embedding_dimensions,
             config.ideas.vector_weight,
             config.ideas.keyword_weight,
             config.ideas.mmr_lambda,
-        )
+        )?;
+        Ok((mem, Some(embedder)))
     } else {
         tracing::info!("idea vector search disabled (no API key); using keyword search only");
-        Ok(mem)
+        Ok((mem, None))
     }
 }
 

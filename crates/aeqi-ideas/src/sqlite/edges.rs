@@ -104,37 +104,61 @@ impl SqliteIdeas {
 
     /// Compute graph boost for an idea based on supporting edges in a result set.
     pub fn compute_graph_boost(&self, idea_id: &str, result_ids: &[String]) -> f32 {
-        let edges = match self.fetch_edges(idea_id) {
-            Ok(e) => e,
+        let conn = match self.conn.lock() {
+            Ok(c) => c,
             Err(_) => return 0.0,
         };
+        Self::compute_graph_boost_on_conn(&conn, idea_id, result_ids)
+    }
 
+    /// Same as [`Self::compute_graph_boost`] but uses an already-locked
+    /// connection so callers inside `spawn_blocking` (e.g. the staged
+    /// retrieval pipeline) can compute per-candidate boosts without
+    /// re-entering the sync mutex.
+    pub(super) fn compute_graph_boost_on_conn(
+        conn: &rusqlite::Connection,
+        idea_id: &str,
+        result_ids: &[String],
+    ) -> f32 {
         let result_set: std::collections::HashSet<&str> =
             result_ids.iter().map(|s| s.as_str()).collect();
-
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT source_id, target_id, relation, strength \
+             FROM idea_edges \
+             WHERE source_id = ?1 OR target_id = ?1",
+        ) else {
+            return 0.0;
+        };
+        let rows = stmt.query_map(rusqlite::params![idea_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, f64>(3)? as f32,
+            ))
+        });
         let mut boost: f32 = 0.0;
-        for edge in &edges {
-            let other = if edge.source_id == idea_id {
-                &edge.target_id
+        let Ok(rows) = rows else { return 0.0 };
+        for (source_id, target_id, relation_str, strength) in rows.flatten() {
+            let other = if source_id == idea_id {
+                target_id
             } else {
-                &edge.source_id
+                source_id
             };
             if !result_set.contains(other.as_str()) {
                 continue;
             }
-            match edge.relation {
-                // Explicit in-prose references are the strongest signal.
-                IdeaRelation::Embeds => {
-                    boost += edge.strength * 0.6;
-                }
-                IdeaRelation::Mentions => {
-                    boost += edge.strength * 0.4;
-                }
-                // Out-of-band "also see" — weaker signal.
-                IdeaRelation::Adjacent => {
-                    boost += edge.strength * 0.3;
-                }
-            }
+            let weight = match relation_str.as_str() {
+                "embeds" => 0.6,
+                "mentions" => 0.4,
+                "adjacent" => 0.3,
+                // Usage-derived edges reinforce co-access; authoritative
+                // relations (supersedes, distilled_into, caused_by) are
+                // not score-boosters but routing hints.
+                "co_retrieved" => 0.25,
+                _ => 0.0,
+            };
+            boost += strength * weight;
         }
         boost.clamp(0.0, 1.0)
     }
@@ -269,6 +293,82 @@ impl SqliteIdeas {
             Ok(edges)
         })
         .await
+    }
+
+    /// Strengthen `co_retrieved` edges between every pair in `ids`. Called
+    /// from the retrieval hot path (fire-and-forget) so ideas that travel
+    /// together in result sets accumulate a usage-derived edge over time.
+    ///
+    /// Pairs are normalised to `(min(a,b), max(a,b))` for undirected dedup —
+    /// this relation has no direction. Strength is capped at 1.0 and
+    /// `last_reinforced_at` is refreshed each call so the background decay
+    /// patrol can prune stale pairs.
+    pub fn strengthen_co_retrieval(&self, ids: &[&str]) -> Result<()> {
+        if ids.len() < 2 {
+            return Ok(());
+        }
+        let mut pairs: Vec<(String, String)> = Vec::with_capacity(ids.len() * (ids.len() - 1) / 2);
+        for i in 0..ids.len() {
+            for j in (i + 1)..ids.len() {
+                let a = ids[i];
+                let b = ids[j];
+                if a == b {
+                    continue;
+                }
+                let (lo, hi) = if a < b { (a, b) } else { (b, a) };
+                pairs.push((lo.to_string(), hi.to_string()));
+            }
+        }
+        if pairs.is_empty() {
+            return Ok(());
+        }
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("lock poisoned in strengthen_co_retrieval: {e}"))?;
+        let tx = conn.unchecked_transaction()?;
+        let now = Utc::now().to_rfc3339();
+        for (src, dst) in pairs {
+            tx.execute(
+                "INSERT INTO idea_edges \
+                    (source_id, target_id, relation, strength, created_at, last_reinforced_at) \
+                 VALUES (?1, ?2, 'co_retrieved', 0.05, ?3, ?3) \
+                 ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                    strength = MIN(1.0, strength + 0.05), \
+                    last_reinforced_at = excluded.last_reinforced_at",
+                rusqlite::params![src, dst, now],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Decay `co_retrieved` edges that haven't been reinforced in `days`.
+    /// Applies a multiplicative decay (×0.5) then deletes edges that fall
+    /// below 0.01. Authoritative relations (`supersedes`, `distilled_into`,
+    /// `caused_by`, etc.) are untouched.
+    ///
+    /// Returns the number of edges updated + deleted so the background
+    /// patrol can log progress.
+    pub fn decay_co_retrieval_older_than(&self, days: i64) -> Result<u64> {
+        let cutoff = (Utc::now() - chrono::Duration::days(days.max(0))).to_rfc3339();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("lock poisoned in decay_co_retrieval_older_than: {e}"))?;
+        let tx = conn.unchecked_transaction()?;
+        let updated = tx.execute(
+            "UPDATE idea_edges SET strength = strength * 0.5 \
+             WHERE relation = 'co_retrieved' \
+               AND (last_reinforced_at IS NULL OR last_reinforced_at < ?1)",
+            rusqlite::params![cutoff],
+        )?;
+        let deleted = tx.execute(
+            "DELETE FROM idea_edges WHERE relation = 'co_retrieved' AND strength < 0.01",
+            [],
+        )?;
+        tx.commit()?;
+        Ok((updated + deleted) as u64)
     }
 
     pub(super) async fn reconcile_inline_edges_impl(

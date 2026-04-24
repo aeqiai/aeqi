@@ -1,5 +1,6 @@
 mod edges;
 mod embeddings;
+mod hotness;
 mod queries;
 mod schema;
 mod search;
@@ -7,7 +8,10 @@ mod store;
 mod tags;
 mod ttl;
 
-use aeqi_core::traits::{Embedder, Idea, IdeaQuery, IdeaStore, StoreFull, UpdateFull};
+use aeqi_core::traits::{
+    AccessContext, Embedder, FeedbackMeta, Idea, IdeaQuery, IdeaStore, SearchHit, StoreFull,
+    UpdateFull,
+};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use rusqlite::Connection;
@@ -16,29 +20,21 @@ use std::sync::{Arc, Mutex};
 
 use crate::vector::VectorStore;
 
-pub(super) struct IdeaRow {
-    pub(super) id: String,
-    pub(super) name: String,
-    pub(super) content: String,
-    pub(super) agent_id: Option<String>,
-    pub(super) created_at: String,
-    pub(super) session_id: Option<String>,
-    pub(super) tags: Vec<String>,
-}
-
 #[derive(Clone)]
 pub struct SqliteIdeas {
     conn: Arc<Mutex<Connection>>,
-    decay_halflife_days: f64,
     embedder: Option<Arc<dyn Embedder>>,
     embedding_dimensions: usize,
-    vector_weight: f64,
-    keyword_weight: f64,
     mmr_lambda: f64,
 }
 
 impl SqliteIdeas {
-    pub fn open(path: &Path, decay_halflife_days: f64) -> Result<Self> {
+    /// Open (or create) a SQLite-backed idea store at `path`.
+    ///
+    /// `_decay_half_life_days` is retained for source-compat with the CLI
+    /// helper but is no longer a store-level field — decay is now per-tag
+    /// via [`crate::tag_policy::TagPolicy::decay_half_life_days`].
+    pub fn open(path: &Path, _decay_half_life_days: f64) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -79,11 +75,8 @@ impl SqliteIdeas {
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
-            decay_halflife_days,
             embedder: None,
             embedding_dimensions: 1536,
-            vector_weight: 0.6,
-            keyword_weight: 0.4,
             mmr_lambda: 0.7,
         })
     }
@@ -105,12 +98,16 @@ impl SqliteIdeas {
     }
 
     /// Configure vector embeddings and hybrid search.
+    ///
+    /// `_vector_weight` / `_keyword_weight` are retained for CLI call-site
+    /// compat but are superseded by per-tag policy weights in the staged
+    /// pipeline.
     pub fn with_embedder(
         mut self,
         embedder: Arc<dyn Embedder>,
         dimensions: usize,
-        vector_weight: f64,
-        keyword_weight: f64,
+        _vector_weight: f64,
+        _keyword_weight: f64,
         mmr_lambda: f64,
     ) -> Result<Self> {
         {
@@ -126,8 +123,6 @@ impl SqliteIdeas {
         }
         self.embedder = Some(embedder);
         self.embedding_dimensions = dimensions;
-        self.vector_weight = vector_weight;
-        self.keyword_weight = keyword_weight;
         self.mmr_lambda = mmr_lambda;
         Ok(self)
     }
@@ -285,9 +280,45 @@ impl IdeaStore for SqliteIdeas {
         self.count_by_tag_since_impl(tag, since).await
     }
 
-    // Remaining Round 2 trait methods (search_explained, record_access,
-    // record_feedback, walk, ann_search, search_as_of) rely on the trait
-    // defaults until Rounds 3+ wire real implementations.
+    // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
+
+    async fn search_explained(&self, query: &IdeaQuery) -> Result<Vec<SearchHit>> {
+        // Callers that want a policy cache route through the daemon path
+        // (`search_explained_impl(query, Some(cache))`). The trait entry
+        // point uses defaults so it stays usable from non-daemon contexts
+        // (tests, CLI).
+        self.search_explained_impl(query, None).await
+    }
+
+    async fn record_access(&self, idea_id: &str, ctx: AccessContext) -> Result<()> {
+        self.record_access_impl(idea_id, ctx).await
+    }
+
+    async fn record_feedback(
+        &self,
+        idea_id: &str,
+        signal: &str,
+        weight: f32,
+        meta: FeedbackMeta,
+    ) -> Result<()> {
+        self.record_feedback_impl(idea_id, signal, weight, meta)
+            .await
+    }
+
+    async fn search_as_of(
+        &self,
+        query: &IdeaQuery,
+        as_of: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<Idea>> {
+        self.search_as_of_impl(query, as_of).await
+    }
+
+    async fn decay_co_retrieval_older_than(&self, days: i64) -> Result<u64> {
+        let this = self.clone();
+        tokio::task::spawn_blocking(move || this.decay_co_retrieval_older_than(days))
+            .await
+            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
+    }
 }
 
 #[cfg(test)]

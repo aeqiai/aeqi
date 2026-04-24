@@ -67,6 +67,13 @@ pub struct CommandContext {
     /// in daemon startup drains the queue and flips the flag via
     /// `IdeaStore::set_embedding`.
     pub embed_queue: Arc<EmbedQueue>,
+    // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
+    /// Embedder used by `search_explained` when present. `None` falls back
+    /// to BM25-only search.
+    pub embedder: Option<Arc<dyn aeqi_core::traits::Embedder>>,
+    /// Daemon-side recall cache. Invalidated on store / update / delete /
+    /// feedback / link writes so repeated MCP searches stay coherent.
+    pub recall_cache: Arc<aeqi_ideas::RecallCache>,
 }
 
 pub use crate::daemon::ActivityBuffer;

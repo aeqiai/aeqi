@@ -1,9 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
-use std::time::Instant;
 
 use crate::helpers::load_config;
 
@@ -170,22 +168,25 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         // ── Ideas (unified: store | search | update | delete) ───────────────
         ToolDef {
             name: "ideas".to_string(),
-            description: "Persistent knowledge store. Search, store, update, delete, or link ideas — facts, procedures, preferences, architecture decisions, skills, and context worth remembering across sessions.".to_string(),
+            description: "Persistent knowledge store. Search, store, update, delete, link, or give feedback on ideas. The search pipeline is tag-routed BM25+vector with MMR diversification, graph boosts, bi-temporal filtering, and hotness/feedback boosts. Results are served from a daemon-side recall cache that invalidates on writes, so MCP calls stay coherent across tools.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["store", "search", "update", "delete", "link"],
-                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id). link: connect two ideas with a typed edge. Needs from, to, relation."
+                        "enum": ["store", "search", "update", "delete", "link", "feedback"],
+                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id). link: connect two ideas with a typed edge (needs from, to, relation). feedback: mark an idea as used/useful/ignored/wrong/corrected/pinned (needs id and signal)."
                     },
-                    "id": {"type": "string", "description": "Idea ID (for update, delete)"},
+                    "id": {"type": "string", "description": "Idea ID (for update, delete, feedback)"},
                     "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update)."},
                     "content": {"type": "string", "description": "The knowledge to store or replace (for store, update)"},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported. On search, becomes a hard filter."},
                     "agent_id": {"type": "string", "description": "Agent ID to scope the idea to. Defaults to the session's AEQI_AGENT_ID (entity scope). Omit to create/search global (agent_id=NULL) ideas."},
-                    "query": {"type": "string", "description": "Natural language search query (for search). Uses full-text search + optional vector similarity."},
+                    "query": {"type": "string", "description": "Natural language search query (for search). Uses tag-routed BM25 + vector similarity with MMR diversification."},
                     "limit": {"type": "integer", "description": "Max results (for search, default: 5)"},
+                    "explain": {"type": "boolean", "description": "Include per-component score breakdown (bm25/vector/hotness/graph/confidence/decay/final_score) on each hit. Default false."},
+                    "route_hint": {"type": "string", "description": "Optional routing hint for search. 'auto' (default) picks tags from the corpus; passing an explicit hint biases the planner."},
+                    "include_superseded": {"type": "boolean", "description": "When true, include archived and superseded rows in search. Default false."},
                     "from": {"type": "string", "description": "Source idea ID (for link action)"},
                     "to": {"type": "string", "description": "Target idea ID (for link action)"},
                     "relation": {
@@ -193,7 +194,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         "enum": ["mentions", "embeds", "adjacent", "supersedes", "supports", "contradicts", "distilled_into", "caused_by", "co_retrieved", "contradiction"],
                         "description": "Edge relation (for link). supersedes: new replaces old. contradicts: disagrees with. supports: reinforces. distilled_into: summarized into. adjacent: generic association."
                     },
-                    "strength": {"type": "number", "description": "Edge strength 0.0–1.0 (for link, default 1.0)"}
+                    "strength": {"type": "number", "description": "Edge strength 0.0–1.0 (for link, default 1.0)"},
+                    "signal": {"type": "string", "enum": ["used", "useful", "ignored", "corrected", "wrong", "pinned"], "description": "Feedback signal (for feedback). used/useful lift hotness; ignored dampens it; wrong/corrected drop it sharply; pinned tags the idea."},
+                    "weight": {"type": "number", "description": "Feedback weight (for feedback, default 1.0)"},
+                    "note": {"type": "string", "description": "Optional note to attach to a feedback row"}
                 },
                 "required": ["action"]
             }),
@@ -302,10 +306,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         },
     ];
 
-    // Recall result cache: avoids redundant IPC queries within a session.
-    // Entries older than 5 minutes are treated as stale.
-    let mut recall_cache: HashMap<String, (Instant, serde_json::Value)> = HashMap::new();
-    const RECALL_CACHE_TTL_SECS: u64 = 300;
+    // Recall caching is daemon-side (aeqi_ideas::RecallCache on the
+    // CommandContext) so every MCP invocation sees a coherent cache.
+    // The old per-process HashMap cache was removed — it only benefited
+    // one MCP instance and went stale across tool calls.
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -371,7 +375,6 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                recall_cache.clear();
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "search" => {
@@ -383,43 +386,27 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .or(agent_id.as_deref());
                                 let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
 
-                                let agent_key = search_agent_id.unwrap_or("");
-                                let tags_key =
-                                    args.get("tags").map(|v| v.to_string()).unwrap_or_default();
-                                let cache_key =
-                                    format!("{query}\0{agent_key}\0{tags_key}\0{limit}");
-
-                                let cached_hit =
-                                    recall_cache.get(&cache_key).and_then(|(ts, val)| {
-                                        if ts.elapsed().as_secs() < RECALL_CACHE_TTL_SECS {
-                                            Some(val.clone())
-                                        } else {
-                                            None
-                                        }
-                                    });
-
-                                if let Some(val) = cached_hit {
-                                    Ok(val)
-                                } else {
-                                    recall_cache.remove(&cache_key);
-                                    let mut ipc = serde_json::json!({
-                                        "cmd": "search_ideas",
-                                        "query": query,
-                                        "top_k": limit,
-                                    });
-                                    if let Some(aid) = search_agent_id {
-                                        ipc["agent_id"] = serde_json::json!(aid);
-                                    }
-                                    if let Some(tags) = args.get("tags") {
-                                        ipc["tags"] = tags.clone();
-                                    }
-                                    let r = ipc_request_sync(&sock_path, &ipc);
-                                    if let Ok(ref val) = r {
-                                        recall_cache
-                                            .insert(cache_key, (Instant::now(), val.clone()));
-                                    }
-                                    r
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "search_ideas",
+                                    "query": query,
+                                    "top_k": limit,
+                                });
+                                if let Some(aid) = search_agent_id {
+                                    ipc["agent_id"] = serde_json::json!(aid);
                                 }
+                                if let Some(tags) = args.get("tags") {
+                                    ipc["tags"] = tags.clone();
+                                }
+                                if let Some(v) = args.get("explain") {
+                                    ipc["explain"] = v.clone();
+                                }
+                                if let Some(v) = args.get("route_hint") {
+                                    ipc["route_hint"] = v.clone();
+                                }
+                                if let Some(v) = args.get("include_superseded") {
+                                    ipc["include_superseded"] = v.clone();
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
                             }
                             "update" => {
                                 let mut ipc = serde_json::json!({
@@ -436,12 +423,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(tags) = args.get("tags") {
                                     ipc["tags"] = tags.clone();
                                 }
-                                recall_cache.clear();
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             "delete" => {
                                 let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                recall_cache.clear();
                                 ipc_request_sync(
                                     &sock_path,
                                     &serde_json::json!({
@@ -463,11 +448,29 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                recall_cache.clear();
+                                // Recall cache lives daemon-side now; the daemon
+                                // invalidates it on any write (link_idea included).
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
+                            "feedback" => {
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "feedback_idea",
+                                    "id": args.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                                    "signal": args.get("signal").and_then(|v| v.as_str()).unwrap_or(""),
+                                });
+                                if let Some(w) = args.get("weight") {
+                                    ipc["weight"] = w.clone();
+                                }
+                                if let Some(n) = args.get("note").and_then(|v| v.as_str()) {
+                                    ipc["note"] = serde_json::json!(n);
+                                }
+                                if let Some(ref aid) = agent_id {
+                                    ipc["agent_id"] = serde_json::json!(aid);
+                                }
                                 ipc_request_sync(&sock_path, &ipc)
                             }
                             _ => Err(anyhow::anyhow!(
-                                "unknown ideas action: {action}. Use: store, search, update, delete, link"
+                                "unknown ideas action: {action}. Use: store, search, update, delete, link, feedback"
                             )),
                         }
                     }

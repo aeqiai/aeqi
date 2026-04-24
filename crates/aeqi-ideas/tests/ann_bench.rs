@@ -59,16 +59,10 @@ async fn bench_ann_vs_brute_force_1000() {
     let n = 1000usize;
     let t0 = Instant::now();
     for i in 0..n {
-        let text = format!(
-            "sample idea number {i} with some varying content text for the embedding"
-        );
+        let text =
+            format!("sample idea number {i} with some varying content text for the embedding");
         ideas
-            .store(
-                &format!("idea-{i}"),
-                &text,
-                &["fact".to_string()],
-                None,
-            )
+            .store(&format!("idea-{i}"), &text, &["fact".to_string()], None)
             .await
             .unwrap();
     }
