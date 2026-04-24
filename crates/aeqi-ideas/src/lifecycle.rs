@@ -55,9 +55,6 @@ pub struct IdeaAge {
     pub access_count: u32,
 }
 
-/// Backward-compat alias.
-pub type MemoryAge = IdeaAge;
-
 // ── Prune Result ───────────────────────────────────────────────────────────
 
 /// Result of a prune operation.

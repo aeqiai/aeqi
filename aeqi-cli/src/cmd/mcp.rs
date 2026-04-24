@@ -180,7 +180,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id)."
                     },
                     "id": {"type": "string", "description": "Idea ID (for update, delete)"},
-                    "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update). Same name+agent within 24h is deduplicated on store."},
+                    "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update)."},
                     "content": {"type": "string", "description": "The knowledge to store or replace (for store, update)"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported."},
                     "agent_id": {"type": "string", "description": "Agent ID to scope the idea to. Defaults to the session's AEQI_AGENT_ID (entity scope). Omit to create/search global (agent_id=NULL) ideas."},

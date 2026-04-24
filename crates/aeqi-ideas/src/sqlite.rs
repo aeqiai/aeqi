@@ -184,7 +184,7 @@ impl SqliteIdeas {
 
     fn ensure_idea_indexes(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_ideas_key ON ideas(name);
+            "CREATE INDEX IF NOT EXISTS idx_ideas_name ON ideas(name);
              CREATE INDEX IF NOT EXISTS idx_ideas_created ON ideas(created_at);
              CREATE INDEX IF NOT EXISTS idx_ideas_agent_id ON ideas(agent_id);
              CREATE INDEX IF NOT EXISTS idx_ideas_expires ON ideas(expires_at);
@@ -283,7 +283,7 @@ impl SqliteIdeas {
         let mut entries = stmt
             .query_map(rusqlite::params![now], |row| {
                 let id: String = row.get(0)?;
-                let name: String = row.get(1)?; // DB column is `key`
+                let name: String = row.get(1)?;
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let session_id: Option<String> = row.get(4)?;
@@ -330,7 +330,7 @@ impl SqliteIdeas {
         let mut entries: Vec<Idea> = stmt
             .query_map(rusqlite::params![like_pattern, now, limit as i64], |row| {
                 let id: String = row.get(0)?;
-                let name: String = row.get(1)?; // DB column is `key`
+                let name: String = row.get(1)?;
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let session_id: Option<String> = row.get(4)?;
@@ -506,7 +506,7 @@ impl SqliteIdeas {
         let rows = stmt
             .query_map(param_refs.as_slice(), |row| {
                 let id: String = row.get(0)?;
-                let name: String = row.get(1)?; // DB column is `key`
+                let name: String = row.get(1)?;
                 let content: String = row.get(2)?;
                 let agent_id: Option<String> = row.get(3)?;
                 let created_at: String = row.get(4)?;
@@ -624,7 +624,7 @@ impl SqliteIdeas {
         stmt.query_map(params.as_slice(), |row| {
             Ok(IdeaRow {
                 id: row.get(0)?,
-                name: row.get(1)?, // DB column is `key`
+                name: row.get(1)?,
                 content: row.get(2)?,
                 agent_id: row.get(3)?,
                 created_at: row.get(4)?,
@@ -718,9 +718,9 @@ impl SqliteIdeas {
         }
     }
 
-    /// Check if a memory with the same key was stored within the given time window.
+    /// Check if an idea with the same name was stored within the given time window.
     /// When agent_id is provided, scopes the check to that agent only.
-    pub fn has_recent_key(&self, key: &str, agent_id: Option<&str>, hours: u32) -> bool {
+    pub fn has_recent_name(&self, name: &str, agent_id: Option<&str>, hours: u32) -> bool {
         let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
         let conn = match self.conn.lock() {
             Ok(c) => c,
@@ -729,14 +729,14 @@ impl SqliteIdeas {
         let count: i64 = if let Some(aid) = agent_id {
             conn.query_row(
                 "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id = ?2 AND created_at > ?3",
-                rusqlite::params![key, aid, cutoff],
+                rusqlite::params![name, aid, cutoff],
                 |row| row.get(0),
             )
             .unwrap_or(0)
         } else {
             conn.query_row(
                 "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id IS NULL AND created_at > ?2",
-                rusqlite::params![key, cutoff],
+                rusqlite::params![name, cutoff],
                 |row| row.get(0),
             )
             .unwrap_or(0)
@@ -1135,7 +1135,7 @@ impl SqliteIdeas {
 impl IdeaStore for SqliteIdeas {
     async fn store(
         &self,
-        key: &str,
+        name: &str,
         content: &str,
         tags: &[String],
         agent_id: Option<&str>,
@@ -1146,7 +1146,7 @@ impl IdeaStore for SqliteIdeas {
         let redacted = crate::redact::redact_secrets(content);
 
         // Dedup + insert in spawn_blocking to avoid blocking tokio.
-        let key_owned = key.to_string();
+        let name_owned = name.to_string();
         let content_owned = redacted.clone();
         let tags_owned = Self::normalize_tags(tags.iter().cloned());
         let agent_id_owned = agent_id.map(|s| s.to_string());
@@ -1154,11 +1154,11 @@ impl IdeaStore for SqliteIdeas {
 
         let id = tokio::task::spawn_blocking(move || -> Result<String> {
             if this.has_recent_duplicate(&content_owned, 24) {
-                debug!(key = %key_owned, "skipping duplicate memory (exact content match within 24h)");
+                debug!(name = %name_owned, "skipping duplicate idea (exact content match within 24h)");
                 return Ok(String::new());
             }
-            if this.has_recent_key(&key_owned, agent_id_owned.as_deref(), 24) {
-                debug!(key = %key_owned, "skipping duplicate memory (same key within 24h)");
+            if this.has_recent_name(&name_owned, agent_id_owned.as_deref(), 24) {
+                debug!(name = %name_owned, "skipping duplicate idea (same name within 24h)");
                 return Ok(String::new());
             }
 
@@ -1172,7 +1172,7 @@ impl IdeaStore for SqliteIdeas {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 rusqlite::params![
                     id,
-                    key_owned,
+                    name_owned,
                     content_owned,
                     agent_id_owned,
                     now,
@@ -1188,7 +1188,7 @@ impl IdeaStore for SqliteIdeas {
                 )?;
             }
 
-            debug!(id = %id, key = %key_owned, agent_id = ?agent_id_owned, "memory stored");
+            debug!(id = %id, name = %name_owned, agent_id = ?agent_id_owned, "idea stored");
             Ok(id)
         })
         .await
@@ -1294,13 +1294,13 @@ impl IdeaStore for SqliteIdeas {
     async fn update(
         &self,
         id: &str,
-        key: Option<&str>,
+        name: Option<&str>,
         content: Option<&str>,
         tags: Option<&[String]>,
     ) -> Result<()> {
         let id = id.to_string();
         let id_for_update = id.clone();
-        let key = key.map(|s| s.to_string());
+        let name = name.map(|s| s.to_string());
         let content = content.map(|s| s.to_string());
         let content_for_embedding = content.clone();
         let tags_owned = tags.map(|t| Self::normalize_tags(t.iter().cloned()));
@@ -1317,7 +1317,7 @@ impl IdeaStore for SqliteIdeas {
                     anyhow::bail!("idea not found: {id_for_update}");
                 };
 
-                if key.is_none() && content.is_none() && tags_owned.is_none() {
+                if name.is_none() && content.is_none() && tags_owned.is_none() {
                     anyhow::bail!("at least one field must be updated");
                 }
 
@@ -1326,10 +1326,10 @@ impl IdeaStore for SqliteIdeas {
                     .is_some_and(|new_content| new_content != &current_content);
 
                 let now = Utc::now().to_rfc3339();
-                if let Some(ref key) = key {
+                if let Some(ref name) = name {
                     conn.execute(
                         "UPDATE ideas SET name = ?1, updated_at = ?2 WHERE id = ?3",
-                        rusqlite::params![key, &now, &id_for_update],
+                        rusqlite::params![name, &now, &id_for_update],
                     )?;
                 }
                 if let Some(ref content) = content {
@@ -1435,13 +1435,13 @@ impl IdeaStore for SqliteIdeas {
 
     async fn store_with_ttl(
         &self,
-        key: &str,
+        name: &str,
         content: &str,
         tags: &[String],
         agent_id: Option<&str>,
         ttl_secs: Option<u64>,
     ) -> Result<String> {
-        let id = self.store(key, content, tags, agent_id).await?;
+        let id = self.store(name, content, tags, agent_id).await?;
         if id.is_empty() {
             return Ok(id);
         }
@@ -1463,13 +1463,13 @@ impl IdeaStore for SqliteIdeas {
 
     async fn store_with_scope(
         &self,
-        key: &str,
+        name: &str,
         content: &str,
         tags: &[String],
         agent_id: Option<&str>,
         scope: aeqi_core::Scope,
     ) -> Result<String> {
-        let id = self.store(key, content, tags, agent_id).await?;
+        let id = self.store(name, content, tags, agent_id).await?;
         if id.is_empty() || scope == aeqi_core::Scope::SelfScope {
             return Ok(id);
         }

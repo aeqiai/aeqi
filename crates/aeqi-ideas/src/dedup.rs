@@ -49,9 +49,6 @@ pub struct SimilarIdea {
     pub similarity: f32,
 }
 
-/// Backward-compat alias.
-pub type SimilarMemory = SimilarIdea;
-
 // ── Pipeline ────────────────────────────────────────────────────────────────
 
 /// Deduplication pipeline that decides whether a candidate idea should be
