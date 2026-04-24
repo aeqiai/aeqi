@@ -89,6 +89,25 @@ pub async fn handle_store_idea(
     // Redact secrets before anything persists or feeds the embedder.
     let redacted_content = aeqi_ideas::redact::redact_secrets(&input.content);
 
+    // ── Fix #6 (Option A) ─────────────────────────────────────────────
+    // Pre-dedup active-row short-circuit. The partial unique index on
+    // `(COALESCE(agent_id,''), name) WHERE status='active'` means an
+    // INSERT with the same key will trip UNIQUE. Catching it here keeps
+    // bulk re-imports (M's 333-markdown smoke) fast: one cheap lookup
+    // instead of the full dedup + search + error-path round-trip. The
+    // race between this check and INSERT is covered by the downstream
+    // Option-B safety net inside `dispatch_create`.
+    if let Ok(Some(existing_id)) = idea_store
+        .get_active_id_by_name(&input.name, input.agent_id.as_deref())
+        .await
+    {
+        return serde_json::json!({
+            "ok": true,
+            "id": existing_id,
+            "action": "skip",
+        });
+    }
+
     // Resolve tag policies. Empty → defaults are synthesised inside
     // `TagPolicyCache::resolve` so the merge always has something to
     // fold over.
@@ -182,10 +201,14 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
     let name = request_field(request, "name")
         .or_else(|| request_field(request, "key"))
         .unwrap_or("");
+    // Fix #7 (Option A): empty content is legitimate. Marker ideas, policy
+    // stubs, and lifecycle seeds like `session:stopped` carry a name + tags
+    // with no body — rejecting them here broke M's markdown re-import and
+    // the preset seeder for empty-body entries. Only `name` is required.
     let content = request_field(request, "content").unwrap_or("");
 
-    if name.is_empty() || content.is_empty() {
-        return Err("name and content are required".to_string());
+    if name.is_empty() {
+        return Err("name is required".to_string());
     }
 
     let tags: Vec<String> = request
@@ -303,7 +326,27 @@ async fn dispatch_create(
     let payload = build_store_full(input, effective, redacted_content);
     let id = match idea_store.store_full(payload).await {
         Ok(id) => id,
-        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        Err(e) => {
+            // Fix #6 (Option B): safety net for the race between the
+            // pre-dedup active-row check in `handle_store_idea` and this
+            // INSERT. If a concurrent writer committed the same
+            // `(agent_id, name)` first the partial unique index trips
+            // `SQLITE_CONSTRAINT_UNIQUE`. Look up the landed row and
+            // return `skip` with its id so the caller sees a clean
+            // idempotent result instead of a hard error.
+            if is_unique_constraint_error(&e)
+                && let Ok(Some(existing_id)) = idea_store
+                    .get_active_id_by_name(&input.name, input.agent_id.as_deref())
+                    .await
+            {
+                return serde_json::json!({
+                    "ok": true,
+                    "id": existing_id,
+                    "action": "skip",
+                });
+            }
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
     };
 
     finalize_write(
@@ -316,6 +359,23 @@ async fn dispatch_create(
         "create",
     )
     .await
+}
+
+/// Walk an `anyhow::Error` chain looking for a `rusqlite` UNIQUE-constraint
+/// failure. The orchestrator's idea store is backed by SQLite, so the
+/// innermost error on a duplicate `(agent_id, name) WHERE status='active'`
+/// insert is `rusqlite::Error::SqliteFailure` with extended code
+/// `SQLITE_CONSTRAINT_UNIQUE` (2067).
+fn is_unique_constraint_error(err: &anyhow::Error) -> bool {
+    for cause in err.chain() {
+        if let Some(rusqlite::Error::SqliteFailure(sqlite_err, _)) =
+            cause.downcast_ref::<rusqlite::Error>()
+            && sqlite_err.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE
+        {
+            return true;
+        }
+    }
+    false
 }
 
 async fn dispatch_merge(
@@ -1403,5 +1463,82 @@ pub async fn handle_idea_prefix(
             serde_json::json!({"ok": true, "ideas": ideas, "count": ideas.len()})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Fix #7: empty content is allowed ─────────────────────────────
+    //
+    // `parse_store_request` only enforces `name` presence. Empty or missing
+    // `content` resolves to an empty String, and the full handler must
+    // still dispatch to Create. Callers send marker ideas and lifecycle
+    // stubs (e.g. `session:stopped`) with body-less bodies.
+
+    #[test]
+    fn parse_store_request_accepts_empty_content() {
+        let req = serde_json::json!({ "name": "marker-idea", "content": "" });
+        let parsed = parse_store_request(&req).expect("empty content must parse");
+        assert_eq!(parsed.name, "marker-idea");
+        assert!(parsed.content.is_empty());
+    }
+
+    #[test]
+    fn parse_store_request_accepts_missing_content_field() {
+        let req = serde_json::json!({ "name": "just-a-name" });
+        let parsed = parse_store_request(&req).expect("omitted content must parse");
+        assert_eq!(parsed.name, "just-a-name");
+        assert!(parsed.content.is_empty());
+    }
+
+    #[test]
+    fn parse_store_request_rejects_empty_name() {
+        let req = serde_json::json!({ "name": "", "content": "body" });
+        match parse_store_request(&req) {
+            Ok(_) => panic!("empty name must fail"),
+            Err(e) => assert!(e.contains("name")),
+        }
+    }
+
+    #[test]
+    fn parse_store_request_rejects_missing_name() {
+        let req = serde_json::json!({ "content": "body" });
+        match parse_store_request(&req) {
+            Ok(_) => panic!("missing name must fail"),
+            Err(e) => assert!(e.contains("name")),
+        }
+    }
+
+    // ── Fix #6: unique-constraint downcast ──────────────────────────
+    //
+    // The safety net in `dispatch_create` only fires when the inner cause is
+    // a rusqlite `SqliteFailure` with extended code `SQLITE_CONSTRAINT_UNIQUE`.
+    // Exercise the detector against a real UNIQUE collision in a throwaway
+    // in-memory connection so the downcast chain and the extended-code match
+    // stay in sync with rusqlite's wire shape.
+
+    #[test]
+    fn is_unique_constraint_error_detects_unique_collision() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE t (name TEXT NOT NULL UNIQUE)",
+            rusqlite::params![],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO t(name) VALUES ('a')", rusqlite::params![])
+            .unwrap();
+        let err = conn
+            .execute("INSERT INTO t(name) VALUES ('a')", rusqlite::params![])
+            .unwrap_err();
+        let anyhow_err: anyhow::Error = anyhow::Error::new(err);
+        assert!(is_unique_constraint_error(&anyhow_err));
+    }
+
+    #[test]
+    fn is_unique_constraint_error_rejects_other_errors() {
+        let anyhow_err: anyhow::Error = anyhow::anyhow!("some unrelated failure");
+        assert!(!is_unique_constraint_error(&anyhow_err));
     }
 }

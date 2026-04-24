@@ -173,6 +173,117 @@ async fn feedback_persists_row_and_updates_boost() {
     assert!(boost > 0.0, "used signal must raise feedback_boost");
 }
 
+// ── Fix #6: active-row dedup lookup ───────────────────────────────────
+//
+// `get_active_id_by_name` mirrors the partial unique index
+// `idx_ideas_agent_name_active_unique`. The write-path short-circuit in
+// `handle_store_idea` calls this to return `action: "skip"` with the
+// existing id instead of tripping UNIQUE at INSERT. Same-name second
+// writes to an active row must find it; superseded rows must NOT match;
+// global vs agent-scoped rows must not cross-contaminate.
+
+#[tokio::test]
+async fn get_active_id_by_name_finds_active_row() {
+    let (ideas, _dir) = make_store();
+    let id = ideas
+        .store_full(store_full("uniq-target", "body", &["fact"]))
+        .await
+        .unwrap();
+    let found = ideas
+        .get_active_id_by_name("uniq-target", None)
+        .await
+        .unwrap();
+    assert_eq!(found.as_deref(), Some(id.as_str()));
+}
+
+#[tokio::test]
+async fn get_active_id_by_name_ignores_superseded_rows() {
+    let (ideas, _dir) = make_store();
+    let id = ideas
+        .store_full(store_full("archivable", "historical", &["fact"]))
+        .await
+        .unwrap();
+    ideas.set_status(&id, "superseded").await.unwrap();
+    let found = ideas
+        .get_active_id_by_name("archivable", None)
+        .await
+        .unwrap();
+    assert!(
+        found.is_none(),
+        "superseded rows must not shadow the active slot"
+    );
+}
+
+#[tokio::test]
+async fn get_active_id_by_name_scopes_by_agent() {
+    let (ideas, _dir) = make_store();
+    let mut scoped = store_full("scoped-fact", "body", &["fact"]);
+    scoped.agent_id = Some("agent-a".to_string());
+    scoped.scope = aeqi_core::Scope::SelfScope;
+    let _ = ideas.store_full(scoped).await.unwrap();
+
+    // Global lookup finds nothing.
+    let global_hit = ideas
+        .get_active_id_by_name("scoped-fact", None)
+        .await
+        .unwrap();
+    assert!(
+        global_hit.is_none(),
+        "agent-scoped row must not surface on global lookup"
+    );
+
+    // Agent-scoped lookup finds it.
+    let scoped_hit = ideas
+        .get_active_id_by_name("scoped-fact", Some("agent-a"))
+        .await
+        .unwrap();
+    assert!(scoped_hit.is_some());
+
+    // Sibling agent must not see it.
+    let sibling_hit = ideas
+        .get_active_id_by_name("scoped-fact", Some("agent-b"))
+        .await
+        .unwrap();
+    assert!(sibling_hit.is_none());
+}
+
+#[tokio::test]
+async fn duplicate_store_full_raises_unique_constraint_error() {
+    // This exercises the *failure* path that `dispatch_create` swallows via
+    // `is_unique_constraint_error`. We can't reach the IPC handler without
+    // a `CommandContext`, but we can confirm the underlying error shape
+    // stays stable: a second `store_full` with the same active
+    // `(agent_id, name)` must surface a rusqlite UNIQUE error through the
+    // `anyhow` chain.
+    let (ideas, _dir) = make_store();
+    let _ = ideas
+        .store_full(store_full("dup-name", "body one", &["fact"]))
+        .await
+        .unwrap();
+    let err = ideas
+        .store_full(store_full("dup-name", "body two", &["fact"]))
+        .await
+        .expect_err("second active insert must collide with UNIQUE");
+
+    // The safety net in `dispatch_create` relies on finding a rusqlite
+    // SqliteFailure with extended code SQLITE_CONSTRAINT_UNIQUE somewhere
+    // in the error chain.
+    let mut saw_unique = false;
+    for cause in err.chain() {
+        if let Some(rusqlite::Error::SqliteFailure(sqlite_err, _)) =
+            cause.downcast_ref::<rusqlite::Error>()
+            && sqlite_err.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE
+        {
+            saw_unique = true;
+            break;
+        }
+    }
+    assert!(
+        saw_unique,
+        "expected SQLITE_CONSTRAINT_UNIQUE in error chain; got {err:?}"
+    );
+}
+
 // ── 4. Search with `include_superseded=true` — IPC bypass knob ─────────
 
 #[tokio::test]
