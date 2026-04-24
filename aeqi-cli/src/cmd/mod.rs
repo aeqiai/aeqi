@@ -6,6 +6,7 @@ pub(crate) mod config;
 pub(crate) mod daemon;
 pub(crate) mod deps;
 pub(crate) mod doctor;
+pub(crate) mod events;
 pub(crate) mod graph;
 pub(crate) mod hooks;
 pub(crate) mod ideas;

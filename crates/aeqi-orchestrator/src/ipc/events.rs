@@ -339,6 +339,172 @@ pub async fn handle_trigger_event(
     })
 }
 
+/// Retroactively install the per-agent standard schedule events
+/// (`daily-digest`, `weekly-consolidate`) on existing agents.
+///
+/// Spawning new agents already runs `install_default_scheduled_events`;
+/// this handler is for agents that predate that hook. Idempotent thanks
+/// to the `(COALESCE(agent_id,''), name)` unique index — replaying is a
+/// no-op.
+///
+/// Request shape:
+///   { cmd: "install_default_events",
+///     agent_ids?: [uuid, ...],
+///     agent_names?: [name, ...],
+///     dry_run?: bool }
+///
+/// With neither `agent_ids` nor `agent_names`, installs on every agent
+/// in the registry. `dry_run=true` reports what would change without
+/// writing.
+pub async fn handle_install_default_events(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref event_store) = ctx.event_handler_store else {
+        return serde_json::json!({"ok": false, "error": "event handler store not available"});
+    };
+
+    let dry_run = request
+        .get("dry_run")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    // Resolve target agents. Priority: explicit agent_ids > agent_names > all.
+    let agent_ids = request
+        .get("agent_ids")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        });
+    let agent_names = request
+        .get("agent_names")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        });
+
+    let mut targets: Vec<(String, String)> = Vec::new(); // (id, name)
+
+    if let Some(ids) = agent_ids {
+        for id in ids {
+            match ctx.agent_registry.get(&id).await {
+                Ok(Some(a)) => targets.push((a.id, a.name)),
+                Ok(None) => {
+                    return serde_json::json!({
+                        "ok": false,
+                        "error": format!("agent id not found: {id}"),
+                    });
+                }
+                Err(e) => {
+                    return serde_json::json!({"ok": false, "error": e.to_string()});
+                }
+            }
+        }
+    } else if let Some(names) = agent_names {
+        for name in names {
+            match ctx.agent_registry.get_active_by_name(&name).await {
+                Ok(Some(a)) => targets.push((a.id, a.name)),
+                Ok(None) => {
+                    return serde_json::json!({
+                        "ok": false,
+                        "error": format!("active agent not found: {name}"),
+                    });
+                }
+                Err(e) => {
+                    return serde_json::json!({"ok": false, "error": e.to_string()});
+                }
+            }
+        }
+    } else {
+        match ctx.agent_registry.list_active().await {
+            Ok(agents) => {
+                for a in agents {
+                    targets.push((a.id, a.name));
+                }
+            }
+            Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        }
+    }
+
+    let mut total_installed: u64 = 0;
+    let mut total_skipped: u64 = 0;
+    let mut details: Vec<serde_json::Value> = Vec::new();
+
+    for (id, name) in &targets {
+        let (would_install, would_skip) = match plan_install_default_events(event_store, id).await {
+            Ok(plan) => plan,
+            Err(e) => {
+                return serde_json::json!({
+                    "ok": false,
+                    "error": format!("list_for_agent({id}): {e}"),
+                });
+            }
+        };
+
+        if !dry_run && would_install > 0 {
+            // Session id for seed_content templating — "cli-install-defaults"
+            // label so audit trails can distinguish backfills from live spawns.
+            if let Err(e) = ctx
+                .agent_registry
+                .install_default_scheduled_events(id, "cli-install-defaults")
+                .await
+            {
+                return serde_json::json!({
+                    "ok": false,
+                    "error": format!("install on agent {id}: {e}"),
+                });
+            }
+        }
+
+        total_installed += would_install;
+        total_skipped += would_skip;
+        details.push(serde_json::json!({
+            "id": id,
+            "name": name,
+            "installed": would_install,
+            "skipped_existing": would_skip,
+        }));
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "dry_run": dry_run,
+        "agents": targets.len(),
+        "installed": total_installed,
+        "skipped_existing": total_skipped,
+        "details": details,
+    })
+}
+
+/// Default schedule event names this backfill installs.
+pub const DEFAULT_SCHEDULED_EVENT_NAMES: [&str; 2] = ["daily-digest", "weekly-consolidate"];
+
+/// Plan the install for a single agent: return `(would_install, would_skip)`
+/// based on which of the two default schedule events the agent already owns.
+/// Extracted for testability.
+async fn plan_install_default_events(
+    event_store: &crate::event_handler::EventHandlerStore,
+    agent_id: &str,
+) -> anyhow::Result<(u64, u64)> {
+    let existing = event_store.list_for_agent(agent_id).await?;
+    let already_present: std::collections::HashSet<&str> = existing
+        .iter()
+        .filter(|e| e.agent_id.as_deref() == Some(agent_id))
+        .map(|e| e.name.as_str())
+        .collect();
+    let would_install = DEFAULT_SCHEDULED_EVENT_NAMES
+        .iter()
+        .filter(|n| !already_present.contains(**n))
+        .count() as u64;
+    let would_skip = DEFAULT_SCHEDULED_EVENT_NAMES.len() as u64 - would_install;
+    Ok((would_install, would_skip))
+}
+
 /// Return the input schemas for every runtime tool so the event editor can
 /// validate `tool_calls[].args` client-side and offer autocomplete. Takes no
 /// parameters — it's a read of a static table built from the tool registry.
@@ -526,5 +692,73 @@ mod tests {
     fn parse_optional_idea_ids_rejects_non_array_values() {
         let invalid = serde_json::json!({"idea_ids": "not-an-array"});
         assert!(parse_optional_idea_ids(&invalid).is_err());
+    }
+
+    /// `plan_install_default_events` must count all missing defaults on a
+    /// brand-new agent and flip counts to 0 installed / 2 skipped after the
+    /// registry has already run the install (idempotency check for the
+    /// backfill path).
+    #[tokio::test]
+    async fn plan_install_reports_missing_then_idempotent() {
+        use crate::agent_registry::AgentRegistry;
+        use crate::event_handler::EventHandlerStore;
+
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let event_store = EventHandlerStore::new(registry.db());
+
+        // Spawn already runs install_default_scheduled_events for every fresh
+        // agent — so to simulate a pre-hook legacy agent we spawn, then wipe
+        // its schedule rows before planning. That mirrors the 69-ideas-style
+        // backfill situation this command exists to handle.
+        let agent = registry.spawn("legacy", None, None).await.unwrap();
+        {
+            let db = registry.db();
+            let conn = db.lock().await;
+            conn.execute(
+                "DELETE FROM events WHERE agent_id = ?1 AND pattern LIKE 'schedule:%'",
+                rusqlite::params![agent.id],
+            )
+            .unwrap();
+        }
+
+        // Pre-install: both defaults are missing.
+        let (install, skip) = plan_install_default_events(&event_store, &agent.id)
+            .await
+            .unwrap();
+        assert_eq!(install, 2);
+        assert_eq!(skip, 0);
+
+        // Run the real install (the function the CLI backfill wraps).
+        registry
+            .install_default_scheduled_events(&agent.id, "cli-install-defaults")
+            .await
+            .unwrap();
+
+        // Post-install: both defaults present.
+        let (install, skip) = plan_install_default_events(&event_store, &agent.id)
+            .await
+            .unwrap();
+        assert_eq!(install, 0);
+        assert_eq!(skip, 2);
+
+        // And a replay of the registry-level install is still a no-op (the
+        // unique-name index enforces that at the DB).
+        registry
+            .install_default_scheduled_events(&agent.id, "cli-install-defaults")
+            .await
+            .unwrap();
+
+        let count: i64 = {
+            let db = registry.db();
+            let conn = db.lock().await;
+            conn.query_row(
+                "SELECT COUNT(*) FROM events WHERE agent_id = ?1 AND pattern LIKE 'schedule:%'",
+                rusqlite::params![agent.id],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(count, 2, "still exactly 2 schedule events after replay");
     }
 }
