@@ -466,6 +466,21 @@ pub trait IdeaStore: Send + Sync {
         unimplemented!("count_by_tag_since not implemented for this store")
     }
 
+    /// Return active idea IDs carrying `tag` whose `created_at >= since`,
+    /// ordered oldest-first (the natural "cluster to consolidate" shape).
+    /// Capped at `limit` to bound payload size. Used by the consolidation
+    /// threshold check so the consolidator persona sees the whole cluster,
+    /// not just the triggering idea.
+    async fn list_active_by_tag_since(
+        &self,
+        tag: &str,
+        since: chrono::DateTime<chrono::Utc>,
+        limit: usize,
+    ) -> anyhow::Result<Vec<String>> {
+        let _ = (tag, since, limit);
+        unimplemented!("list_active_by_tag_since not implemented for this store")
+    }
+
     /// Search with per-component score explainability. Default wraps the
     /// existing `search` and attaches an empty `Why` to each hit so the
     /// new API is safe before Agent R fills in per-component scoring.

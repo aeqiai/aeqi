@@ -145,17 +145,18 @@ async fn reflect_after_quest_persists_canned_json_via_store_many() {
         ..Default::default()
     };
 
-    // Note: EventPatternDispatcher::dispatch returns `handled=true` only
-    // when at least one tool_call produces *context* output (see the
-    // produced_output flag in dispatch_event_tool_calls). Reflection events
-    // are pure side effect — session.spawn returns diagnostic text and
-    // ideas.store_many returns a summary ack, neither of which contributes
-    // to assembled context. We therefore don't assert on the return value;
-    // we assert on the observable side effect (ideas persisted below).
-    let _ = h
+    // Round 7a (Option B): `dispatch` returns `true` when any matching event
+    // ran its tool_calls — side-effect chains included. The reflector chain
+    // is pure side effect but still counts as "handled" so callers don't
+    // double-fire an inline fallback.
+    let handled = h
         .dispatcher
         .dispatch("session:quest_end", &ctx, &trigger_args)
         .await;
+    assert!(
+        handled,
+        "Option B: dispatcher must return true when a side-effect event ran"
+    );
 
     // Assert: both reflector items landed in the store, with the event's
     // tag_suffix appended (source:session:{session_id} + reflection).
@@ -215,16 +216,19 @@ async fn reflect_after_quest_is_idempotent_on_replay() {
         ..Default::default()
     };
 
-    // See note in the first test: we assert on side effects, not on the
-    // dispatcher's return value.
-    let _ = h
-        .dispatcher
-        .dispatch("session:quest_end", &ctx, &trigger_args)
-        .await;
-    let _ = h
-        .dispatcher
-        .dispatch("session:quest_end", &ctx, &trigger_args)
-        .await;
+    // Round 7a: both fires should be "handled" (Option B semantic) — the
+    // second is a no-op on the store side (UNIQUE collision → skip) but the
+    // event chain still ran.
+    assert!(
+        h.dispatcher
+            .dispatch("session:quest_end", &ctx, &trigger_args)
+            .await
+    );
+    assert!(
+        h.dispatcher
+            .dispatch("session:quest_end", &ctx, &trigger_args)
+            .await
+    );
 
     // Only one active row with that name.
     let active = h
@@ -281,12 +285,18 @@ async fn threshold_reached_persists_consolidator_output() {
     ]"#;
     let h = build_harness(canned).await;
 
+    // Round 7a Fix 1: candidate_ids is a JSON array literal (oldest-first
+    // cluster, not just the triggering id). Round 7a Fix 2: authored_by is
+    // pre-resolved in check_consolidation_threshold and passed through
+    // trigger_args — the seed consumes `{authored_by}` directly instead of
+    // hardcoding `consolidator:{agent_id}`.
     let trigger_args = serde_json::json!({
         "tag": "test-tag",
         "count": 5,
         "threshold": 5,
         "age_hours": 24,
-        "candidate_ids": "a, b, c, d, e",
+        "candidate_ids": r#"["a","b","c","d","e"]"#,
+        "authored_by": "consolidator:agent-x",
         "session_id": "sess-threshold",
         "agent_id": "agent-x"
     });
@@ -304,10 +314,14 @@ async fn threshold_reached_persists_consolidator_output() {
         session_id: "ipc-threshold".to_string(),
         ..Default::default()
     };
-    let _ = h
+    let handled = h
         .dispatcher
         .dispatch("ideas:threshold_reached", &ctx, &trigger_args)
         .await;
+    assert!(
+        handled,
+        "Option B: threshold event must report handled=true even though it's side-effect only"
+    );
 
     let stored = h
         .idea_store
@@ -323,6 +337,97 @@ async fn threshold_reached_persists_consolidator_output() {
         "threshold-reached suffix must be applied, got: {:?}",
         stored.tags
     );
+}
+
+/// Fix 1: `list_active_by_tag_since` returns the whole cluster, oldest-first,
+/// capped at the requested limit. Seeds 5 ideas with the same tag across two
+/// distinct timestamps + one older idea outside the window, then asserts the
+/// 5-in-window rows come back in the correct order.
+#[tokio::test]
+async fn list_active_by_tag_since_returns_cluster_oldest_first() {
+    use aeqi_core::traits::StoreFull;
+    let dir = TempDir::new().unwrap();
+    let store = SqliteIdeas::open(&dir.path().join("ideas.db"), 30.0).unwrap();
+
+    // Seed 5 ideas tagged "cluster" via store_full so each picks up a fresh
+    // created_at. They'll naturally be ordered by insertion time.
+    let mut created_ids: Vec<String> = Vec::new();
+    for i in 0..5 {
+        let id = store
+            .store_full(StoreFull {
+                name: format!("cluster/item-{i}"),
+                content: format!("body {i}"),
+                tags: vec!["cluster".to_string()],
+                agent_id: None,
+                scope: aeqi_core::Scope::Global,
+                authored_by: Some("test".to_string()),
+                confidence: 1.0,
+                expires_at: None,
+                valid_from: None,
+                valid_until: None,
+                time_context: "timeless".to_string(),
+                status: "active".to_string(),
+            })
+            .await
+            .unwrap();
+        created_ids.push(id);
+    }
+
+    // Seed one "ignore-me" idea with a different tag — should not appear.
+    store
+        .store_full(StoreFull {
+            name: "other/ignored".to_string(),
+            content: "off-cluster".to_string(),
+            tags: vec!["not-cluster".to_string()],
+            agent_id: None,
+            scope: aeqi_core::Scope::Global,
+            authored_by: Some("test".to_string()),
+            confidence: 1.0,
+            expires_at: None,
+            valid_from: None,
+            valid_until: None,
+            time_context: "timeless".to_string(),
+            status: "active".to_string(),
+        })
+        .await
+        .unwrap();
+
+    // Query with an `since` far in the past — all 5 cluster rows qualify.
+    let since = chrono::Utc::now() - chrono::Duration::hours(24);
+    let ids = store
+        .list_active_by_tag_since("cluster", since, 50)
+        .await
+        .unwrap();
+    assert_eq!(ids.len(), 5, "all 5 cluster rows must be returned");
+    // Oldest-first: the first inserted id comes first.
+    assert_eq!(ids, created_ids, "returned in oldest-first order");
+
+    // Cap respected: limit=2 drops the tail.
+    let ids2 = store
+        .list_active_by_tag_since("cluster", since, 2)
+        .await
+        .unwrap();
+    assert_eq!(ids2.len(), 2);
+    assert_eq!(ids2, created_ids[..2].to_vec());
+
+    // Tag filter is case-insensitive.
+    let ids3 = store
+        .list_active_by_tag_since("CLUSTER", since, 50)
+        .await
+        .unwrap();
+    assert_eq!(ids3.len(), 5);
+
+    // Superseding an item excludes it from future calls (status='active' only).
+    store
+        .set_status(&created_ids[0], "superseded")
+        .await
+        .unwrap();
+    let ids4 = store
+        .list_active_by_tag_since("cluster", since, 50)
+        .await
+        .unwrap();
+    assert_eq!(ids4.len(), 4, "superseded row must be excluded");
+    assert!(!ids4.contains(&created_ids[0]));
 }
 
 /// Empty array output (a reflector that legitimately decides nothing is

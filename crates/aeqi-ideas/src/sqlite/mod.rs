@@ -292,6 +292,15 @@ impl IdeaStore for SqliteIdeas {
         self.count_by_tag_since_impl(tag, since).await
     }
 
+    async fn list_active_by_tag_since(
+        &self,
+        tag: &str,
+        since: chrono::DateTime<chrono::Utc>,
+        limit: usize,
+    ) -> Result<Vec<String>> {
+        self.list_active_by_tag_since_impl(tag, since, limit).await
+    }
+
     // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
 
     async fn search_explained(&self, query: &IdeaQuery) -> Result<Vec<SearchHit>> {
