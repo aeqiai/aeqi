@@ -280,21 +280,34 @@ impl SqliteIdeas {
         // Resolve every referenced name up front, before we suspend on the
         // blocking task. Unresolved names are dropped; self-edges are dropped
         // too (meaningless to link an idea to itself).
+        //
+        // ── Agent W (write path) note ────────────────────────────────────
+        // Typed prefixes (`supersedes`, `contradicts`, `supports`,
+        // `distilled_into`) emit their matching relation. Plain `[[X]]`
+        // and `![[X]]` keep the legacy `mentions` / `embeds` relations.
+        // The DELETE-then-INSERT below scrubs exactly the relations this
+        // parser owns — authoritative edges emitted by code paths outside
+        // inline parsing (e.g. supersede dispatch) are untouched.
         let resolved: Vec<(String, &'static str)> = {
             let parsed = crate::inline_links::parse_links(body);
             let mut out: Vec<(String, &'static str)> = Vec::new();
-            for name in parsed.mentions {
-                if let Some(target) = resolver(name.as_str())
+            for (relation, name) in parsed.as_relation_pairs() {
+                if let Some(target) = resolver(name)
                     && target != source_id
                 {
-                    out.push((target, "mentions"));
-                }
-            }
-            for name in parsed.embeds {
-                if let Some(target) = resolver(name.as_str())
-                    && target != source_id
-                {
-                    out.push((target, "embeds"));
+                    // Convert to a &'static str by matching the parser's
+                    // fixed enum of relations. An unknown relation here
+                    // would be a parser bug — fall back to "mentions".
+                    let rel: &'static str = match relation {
+                        "mentions" => "mentions",
+                        "embeds" => "embeds",
+                        "supersedes" => "supersedes",
+                        "contradicts" => "contradicts",
+                        "supports" => "supports",
+                        "distilled_into" => "distilled_into",
+                        _ => "mentions",
+                    };
+                    out.push((target, rel));
                 }
             }
             out
@@ -304,9 +317,12 @@ impl SqliteIdeas {
         let created = chrono::Utc::now().to_rfc3339();
         self.blocking(move |conn| {
             let tx = conn.unchecked_transaction()?;
+            // Scrub every relation the inline parser owns so a removed
+            // reference in the body disappears from the graph.
             tx.execute(
                 "DELETE FROM idea_edges WHERE source_id = ?1 \
-                 AND relation IN ('mentions', 'embeds')",
+                 AND relation IN ('mentions', 'embeds', 'supersedes', \
+                                  'contradicts', 'supports', 'distilled_into')",
                 rusqlite::params![source_id],
             )?;
             for (target_id, relation) in &resolved {
