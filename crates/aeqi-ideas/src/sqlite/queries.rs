@@ -220,6 +220,43 @@ impl SqliteIdeas {
         .await
     }
 
+    /// Return active idea IDs carrying `tag` whose `created_at >= since`,
+    /// ordered oldest-first. Used by the consolidation threshold check so
+    /// the consolidator persona sees the whole cluster. `limit` caps the
+    /// returned list so the event's substituted args don't blow past the
+    /// consolidator's context budget.
+    pub(super) async fn list_active_by_tag_since_impl(
+        &self,
+        tag: &str,
+        since: DateTime<Utc>,
+        limit: usize,
+    ) -> Result<Vec<String>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let tag = tag.trim().to_lowercase();
+        let since_str = since.to_rfc3339();
+        self.blocking(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT i.id FROM ideas i \
+                 JOIN idea_tags t ON t.idea_id = i.id \
+                 WHERE LOWER(t.tag) = ?1 \
+                   AND i.created_at >= ?2 \
+                   AND i.status = 'active' \
+                 ORDER BY i.created_at ASC \
+                 LIMIT ?3",
+            )?;
+            let ids: Vec<String> = stmt
+                .query_map(rusqlite::params![tag, since_str, limit as i64], |row| {
+                    row.get::<_, String>(0)
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(ids)
+        })
+        .await
+    }
+
     /// Cheap id-only lookup for the unique-active `(agent_id, name)` slot.
     /// Returns `Some(id)` when a `status='active'` row exists for that key,
     /// `None` otherwise — including when the name only matches superseded or
