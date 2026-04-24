@@ -418,13 +418,11 @@ decay_half_life_days = 1.0
 
 #[tokio::test]
 async fn search_as_of_honours_validity_window() {
-    // NB: `search_as_of` layers an as_of filter on top of `search_explained`,
-    // which itself applies a "now" temporal filter inside the staged
-    // pipeline. An idea whose validity window is entirely in the past can't
-    // surface here — the staged pipeline drops it before `search_as_of`
-    // gets to filter. That's a real limitation (flagged to orchestrator);
-    // this test covers what DOES work: an idea whose window covers "now"
-    // and the as_of query picks a moment inside it vs one outside.
+    // `search_as_of` pushes the caller's timestamp down into the staged
+    // pipeline's temporal filter, so ideas whose window is entirely in the
+    // past still surface when as_of picks a moment inside them. See
+    // `search_as_of_retrieves_ideas_with_closed_window` for that case; this
+    // test covers the simpler scenario of a window that covers "now".
     let (ideas, _dir) = make_store();
 
     // Window that covers "now" plus a generous span forward.
@@ -466,6 +464,58 @@ async fn search_as_of_honours_validity_window() {
     assert!(
         !after_hits.iter().any(|h| h.id == id),
         "as_of after valid_until must NOT return the state idea"
+    );
+}
+
+// ── Test 5b: search_as_of retrieves ideas whose window has closed by now ─
+
+#[tokio::test]
+async fn search_as_of_retrieves_ideas_with_closed_window() {
+    // Round 5 regression: before the fix, run_staged_pipeline applied a
+    // temporal filter against Utc::now() even when called from
+    // search_as_of, so ideas whose valid_until lies in the past would be
+    // dropped by the pipeline before the outer as_of filter ran.
+    let (ideas, _dir) = make_store();
+
+    // Build a window that is entirely in the past relative to "now" so the
+    // non-as_of path (search_explained) would not surface it, but as_of
+    // inside the window should.
+    let past_from = Utc::now() - chrono::Duration::days(120); // 2026-01 relative
+    let past_until = Utc::now() - chrono::Duration::days(60); // 2026-02 relative
+    let inside_past = past_from + chrono::Duration::days(15);
+    let after_past = past_until + chrono::Duration::days(15);
+
+    let mut state_idea = store_full(
+        "policy-v0",
+        "the archived policy body closed window content",
+        &["fact"],
+    );
+    state_idea.valid_from = Some(past_from);
+    state_idea.valid_until = Some(past_until);
+    state_idea.time_context = "state".into();
+    let id = ideas.store_full(state_idea).await.unwrap();
+
+    let q = IdeaQuery::new("archived policy closed window", 5);
+
+    // as_of inside the past window → returned.
+    let inside_hits = ideas.search_as_of(&q, inside_past).await.unwrap();
+    assert!(
+        inside_hits.iter().any(|h| h.id == id),
+        "search_as_of must surface ideas whose validity covered as_of even when that window is now closed"
+    );
+
+    // as_of after the window closed → empty.
+    let after_hits = ideas.search_as_of(&q, after_past).await.unwrap();
+    assert!(
+        !after_hits.iter().any(|h| h.id == id),
+        "search_as_of after the window closed must NOT return the state idea"
+    );
+
+    // Plain search_explained at "now" → empty (window is already closed).
+    let now_hits = ideas.search_explained(&q).await.unwrap();
+    assert!(
+        !now_hits.iter().any(|h| h.idea.id == id),
+        "search_explained at now must not return ideas whose window has already closed"
     );
 }
 

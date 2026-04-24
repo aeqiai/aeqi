@@ -182,7 +182,7 @@ impl Default for RecallCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aeqi_core::traits::{Idea, Why};
+    use aeqi_core::traits::{CacheSource, Idea, Why};
     use chrono::Utc;
 
     fn hit(id: &str) -> SearchHit {
@@ -254,5 +254,48 @@ mod tests {
         // TTL zero → immediate expiry on read.
         std::thread::sleep(Duration::from_millis(5));
         assert!(cache.get(&k).is_none());
+    }
+
+    #[test]
+    fn cache_source_defaults_to_fresh() {
+        // Round 5 regression: default Why must stamp CacheSource::Fresh so
+        // the "is this a cache hit?" check in the IPC layer has a stable
+        // ground truth to overwrite.
+        let w = Why::default();
+        assert_eq!(w.cache, CacheSource::Fresh);
+    }
+
+    #[test]
+    fn cache_stamping_moves_fresh_to_hit_with_age() {
+        // Simulates what handle_search_ideas does: first call is a miss and
+        // writes into the cache with Fresh, second call reads back out and
+        // stamps Hit { age_ms }. We assert both halves.
+        let cache = RecallCache::new(4, 300);
+        let key = CacheKey::build("hello", &[], 5, None, None);
+
+        // First search: simulate a fresh pipeline result.
+        let mut fresh: Vec<SearchHit> = vec![hit("x")];
+        for h in &mut fresh {
+            h.why.cache = CacheSource::Fresh;
+        }
+        assert_eq!(fresh[0].why.cache, CacheSource::Fresh);
+        cache.put(key, fresh);
+
+        // Sleep briefly so age_ms > 0 on the second read — mirrors what a
+        // live IPC caller would see.
+        std::thread::sleep(Duration::from_millis(2));
+
+        // Second search: pull from cache, stamp Hit.
+        let (age, mut cached) = cache.get(&key).expect("cache hit");
+        let age_ms = age.as_millis().min(u32::MAX as u128) as u32;
+        for h in &mut cached {
+            h.why.cache = CacheSource::Hit { age_ms };
+        }
+        match cached[0].why.cache {
+            CacheSource::Hit { age_ms: a } => {
+                assert!(a > 0, "age_ms on cache hit must be > 0; got {a}");
+            }
+            other => panic!("expected CacheSource::Hit, got {other:?}"),
+        }
     }
 }

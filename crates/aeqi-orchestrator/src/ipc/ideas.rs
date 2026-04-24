@@ -914,13 +914,23 @@ pub async fn handle_search_ideas(
         query.visible_anchor_ids.as_deref(),
     );
 
-    if let Some((age, cached)) = ctx.recall_cache.get(&cache_key) {
-        tracing::debug!(age_ms = age.as_millis() as u64, "recall cache hit");
+    if let Some((age, mut cached)) = ctx.recall_cache.get(&cache_key) {
+        let age_ms = age.as_millis().min(u32::MAX as u128) as u32;
+        tracing::debug!(age_ms, "recall cache hit");
+        for hit in &mut cached {
+            hit.why.cache = aeqi_core::traits::CacheSource::Hit { age_ms };
+        }
         return build_search_response(cached, explain);
     }
 
     match idea_store.search_explained(&query).await {
-        Ok(hits) => {
+        Ok(mut hits) => {
+            // Freshly computed — stamp CacheSource::Fresh before caching so
+            // the stored copy reflects its origin. A later cache hit
+            // overrides this with CacheSource::Hit before returning.
+            for hit in &mut hits {
+                hit.why.cache = aeqi_core::traits::CacheSource::Fresh;
+            }
             ctx.recall_cache.put(cache_key, hits.clone());
             build_search_response(hits, explain)
         }
@@ -940,6 +950,12 @@ fn build_search_response(
         .map(|h| {
             let mut v = idea_to_json(&h.idea);
             if explain {
+                let cache_val = match h.why.cache {
+                    aeqi_core::traits::CacheSource::Fresh => serde_json::json!("fresh"),
+                    aeqi_core::traits::CacheSource::Hit { age_ms } => {
+                        serde_json::json!({"hit": {"age_ms": age_ms}})
+                    }
+                };
                 v["why"] = serde_json::json!({
                     "picked_by_tag": h.why.picked_by_tag,
                     "bm25": h.why.bm25,
@@ -949,6 +965,7 @@ fn build_search_response(
                     "confidence": h.why.confidence,
                     "decay": h.why.decay,
                     "final_score": h.why.final_score,
+                    "cache": cache_val,
                 });
             }
             v

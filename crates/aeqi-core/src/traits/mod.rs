@@ -11,8 +11,8 @@ pub use channel::{Channel, IncomingMessage, OutgoingMessage};
 pub use embedder::Embedder;
 pub use gateway::{CompletedResponse, DeliveryMode, SessionGateway};
 pub use idea::{
-    AccessContext, FeedbackMeta, FeedbackSignal, Idea, IdeaEdgeRow, IdeaEdges, IdeaGraphEdge,
-    IdeaQuery, IdeaStore, SearchHit, StoreFull, UpdateFull, WalkStep, Why,
+    AccessContext, CacheSource, FeedbackMeta, FeedbackSignal, Idea, IdeaEdgeRow, IdeaEdges,
+    IdeaGraphEdge, IdeaQuery, IdeaStore, SearchHit, StoreFull, UpdateFull, WalkStep, Why,
 };
 pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,

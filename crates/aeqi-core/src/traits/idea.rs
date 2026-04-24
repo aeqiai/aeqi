@@ -654,6 +654,25 @@ pub struct Why {
     pub confidence: f32,
     pub decay: f32,
     pub final_score: f32,
+    /// Whether this hit was produced freshly or served from the recall
+    /// cache (with the age at which it was served). Added AFTER existing
+    /// fields and defaulted via serde so older serialised payloads still
+    /// deserialise cleanly.
+    #[serde(default)]
+    pub cache: CacheSource,
+}
+
+/// Source annotation for a [`Why`]: whether the hit was computed by the
+/// staged pipeline on this request, or served from the daemon-side recall
+/// cache. `Hit` carries the cache entry's age in milliseconds so consumers
+/// can reason about freshness.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CacheSource {
+    #[default]
+    Fresh,
+    Hit {
+        age_ms: u32,
+    },
 }
 
 /// One hop of a multi-hop graph walk.
