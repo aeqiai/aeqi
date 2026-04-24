@@ -102,9 +102,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   // is in scope.
   const profileHref = "/profile";
   const profileActive = path === profileHref || path.startsWith(`${profileHref}/`);
-  // Inbox is the user-scoped surface for agent-initiated pings — same
-  // top-level scope as /profile so it's reachable from anywhere.
-  const inboxHref = "/inbox";
+  // Inbox is the user-scoped landing — same surface as `/`. Agent
+  // pings, company switcher, summary all live here. No dedicated
+  // /inbox URL; the home route IS the inbox.
+  const inboxHref = "/";
   const inboxActive = path === inboxHref;
 
   const navHref = (id: string) => `${base}/${id}`;

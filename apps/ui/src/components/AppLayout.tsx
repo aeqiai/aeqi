@@ -22,7 +22,6 @@ import type { Agent } from "@/lib/types";
 // (never namespaced under an agent) — it inherits the sidebar + tree chrome.
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
-const InboxPage = lazy(() => import("@/pages/InboxPage"));
 // HomeDashboard is the `/` landing — user-scoped summary across every
 // company the user has.
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
@@ -266,13 +265,10 @@ export default function AppLayout() {
   // the user, not a company. Matched via path because the route has no
   // :agentId param (it's a top-level sibling of `/` and `/:agentId`).
   const isProfile = path === "/profile" || tab === "profile";
-  // `/inbox` — user-scoped inbox of agent-initiated pings. Matches the
-  // path literally (no :agentId) same way /profile does.
-  const isInbox = path === "/inbox";
-  // `/` — user-scoped home dashboard. No agent in scope, so no topbar,
-  // composer, or sessions rail. The sidebar still mounts so the user can
-  // jump into any company from here.
-  const isHome = !agentId && !isProfile && !isInbox;
+  // `/` — user-scoped landing. Doubles as the Inbox surface: agent
+  // pings, company switcher, summary all live on a single home page.
+  // No agent in scope here, so no topbar, composer, or sessions rail.
+  const isHome = !agentId && !isProfile;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
@@ -303,7 +299,6 @@ export default function AppLayout() {
   }
 
   const mainContent = (() => {
-    if (isInbox) return <InboxPage />;
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isProfile) return <ProfilePage />;
@@ -316,8 +311,7 @@ export default function AppLayout() {
   const showTopBar = true;
   // AgentSessionView only mounts when AgentPage is rendered on the
   // per-agent sessions surface.
-  const sessionsMounted =
-    !isDrive && !isProfile && !isHome && !isInbox && effectiveTab === "sessions";
+  const sessionsMounted = !isDrive && !isProfile && !isHome && effectiveTab === "sessions";
   // Composer lives with the sessions surface only — the other W-primitive
   // surfaces (agents/events/quests/ideas) own their own editing
   // affordances and don't need a persistent composer eating vertical space.
@@ -325,7 +319,7 @@ export default function AppLayout() {
   // Sessions surface gets its own left-adjacent threads rail. Every other
   // tab owns its full width and embeds its own picker in the page body.
   const showSessionsRail =
-    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome && !isInbox;
+    effectiveTab === "sessions" && !!agentId && !isProfile && !isDrive && !isHome;
 
   return (
     <>
