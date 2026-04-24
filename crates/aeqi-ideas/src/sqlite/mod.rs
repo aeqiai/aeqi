@@ -10,7 +10,7 @@ mod ttl;
 
 use aeqi_core::traits::{
     AccessContext, Embedder, FeedbackMeta, Idea, IdeaQuery, IdeaStore, SearchHit, StoreFull,
-    UpdateFull,
+    UpdateFull, WalkStep,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -316,6 +316,19 @@ impl IdeaStore for SqliteIdeas {
     async fn decay_co_retrieval_older_than(&self, days: i64) -> Result<u64> {
         let this = self.clone();
         tokio::task::spawn_blocking(move || this.decay_co_retrieval_older_than(days))
+            .await
+            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
+    }
+
+    // ── Round 4c additions (Agent G — graph walk) ───────────────────────
+
+    async fn walk(&self, from: &str, max_hops: u32, relations: &[String]) -> Result<Vec<WalkStep>> {
+        // Default threshold of 0.0 accepts every edge; callers that want
+        // to prune weak edges use `walk_impl` directly.
+        let this = self.clone();
+        let from = from.to_string();
+        let relations = relations.to_vec();
+        tokio::task::spawn_blocking(move || this.walk_impl(&from, max_hops, &relations, 0.0))
             .await
             .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
     }

@@ -174,8 +174,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["store", "search", "update", "delete", "link", "feedback"],
-                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id). link: connect two ideas with a typed edge (needs from, to, relation). feedback: mark an idea as used/useful/ignored/wrong/corrected/pinned (needs id and signal)."
+                        "enum": ["store", "search", "update", "delete", "link", "feedback", "walk"],
+                        "description": "store: save knowledge (needs name, content, tags). search: find ideas by natural language query (needs query). update: modify an idea by ID (needs id plus name/content/tags). delete: remove an idea by ID (needs id). link: connect two ideas with a typed edge (needs from, to, relation). feedback: mark an idea as used/useful/ignored/wrong/corrected/pinned (needs id and signal). walk: BFS the idea graph from a starting idea (needs from; optional max_hops, relations[], strength_threshold, limit)."
                     },
                     "id": {"type": "string", "description": "Idea ID (for update, delete, feedback)"},
                     "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update)."},
@@ -197,7 +197,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "strength": {"type": "number", "description": "Edge strength 0.0–1.0 (for link, default 1.0)"},
                     "signal": {"type": "string", "enum": ["used", "useful", "ignored", "corrected", "wrong", "pinned"], "description": "Feedback signal (for feedback). used/useful lift hotness; ignored dampens it; wrong/corrected drop it sharply; pinned tags the idea."},
                     "weight": {"type": "number", "description": "Feedback weight (for feedback, default 1.0)"},
-                    "note": {"type": "string", "description": "Optional note to attach to a feedback row"}
+                    "note": {"type": "string", "description": "Optional note to attach to a feedback row"},
+                    "max_hops": {"type": "integer", "description": "Walk depth limit (for walk, default 3, max 10)"},
+                    "relations": {"type": "array", "items": {"type": "string"}, "description": "Walk relation filter (for walk). Empty/omitted = all relations allowed."},
+                    "strength_threshold": {"type": "number", "description": "Minimum edge strength to traverse (for walk, default 0.1). Applied both per-edge and to the accumulated multi-hop strength."}
                 },
                 "required": ["action"]
             }),
@@ -469,8 +472,35 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 ipc_request_sync(&sock_path, &ipc)
                             }
+                            "walk" => {
+                                // Multi-hop graph traversal. The daemon
+                                // scopes visibility by `agent_id` and caps
+                                // max_hops at 10.
+                                let mut ipc = serde_json::json!({
+                                    "cmd": "walk_ideas",
+                                    "from": args.get("from").and_then(|v| v.as_str()).unwrap_or(""),
+                                });
+                                if let Some(v) = args.get("max_hops") {
+                                    ipc["max_hops"] = v.clone();
+                                }
+                                if let Some(v) = args.get("relations") {
+                                    ipc["relations"] = v.clone();
+                                }
+                                if let Some(v) = args.get("strength_threshold") {
+                                    ipc["strength_threshold"] = v.clone();
+                                }
+                                if let Some(v) = args.get("limit") {
+                                    ipc["limit"] = v.clone();
+                                }
+                                if ipc.get("agent_id").and_then(|v| v.as_str()).is_none()
+                                    && let Some(ref aid) = agent_id
+                                {
+                                    ipc["agent_id"] = serde_json::json!(aid);
+                                }
+                                ipc_request_sync(&sock_path, &ipc)
+                            }
                             _ => Err(anyhow::anyhow!(
-                                "unknown ideas action: {action}. Use: store, search, update, delete, link, feedback"
+                                "unknown ideas action: {action}. Use: store, search, update, delete, link, feedback, walk"
                             )),
                         }
                     }

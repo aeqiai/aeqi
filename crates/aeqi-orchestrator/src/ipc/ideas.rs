@@ -911,6 +911,146 @@ fn build_search_response(
     serde_json::json!({"ok": true, "ideas": items})
 }
 
+/// Multi-hop graph walk from a starting idea. Scopes every visited node
+/// to the requesting agent's visible anchor set so a walk cannot leak
+/// ideas owned by sibling agents. Used by `ideas(action='walk')`.
+///
+/// The walk is BFS with cycle protection, strength accumulation, and an
+/// optional relation-filter. `max_hops` is capped at 10 so a pathological
+/// call cannot push the SQLite CTE depth limit or swamp the daemon.
+pub async fn handle_walk_ideas(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+
+    let Some(from) = request_field(request, "from") else {
+        return serde_json::json!({"ok": false, "error": "from is required"});
+    };
+    let from = from.to_string();
+
+    // Cap max_hops at 10 so no caller can push the traversal past the
+    // default SQLite CTE depth or swamp the daemon on a dense graph.
+    let max_hops = request
+        .get("max_hops")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(3)
+        .min(10) as u32;
+
+    let relations: Vec<String> = request
+        .get("relations")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let strength_threshold = request
+        .get("strength_threshold")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.1) as f32;
+
+    let limit = request
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50)
+        .min(100) as usize;
+
+    // Visibility gate: resolve the requesting agent's anchor set so every
+    // visited node (both endpoints) is clipped to what the agent can see.
+    // Without an `agent_id` we fall back to globals + everything the store
+    // sees — the admin / internal path. With an `agent_id` the resolver
+    // is authoritative.
+    let visible_ids: Option<std::collections::HashSet<String>> =
+        if let Some(aid) = request_field(request, "agent_id") {
+            match ctx.agent_registry.list_ideas_visible_to(aid).await {
+                Ok(list) => Some(list.into_iter().map(|i| i.id).collect()),
+                Err(e) => {
+                    return serde_json::json!({
+                        "ok": false,
+                        "error": format!("visibility lookup failed: {e}"),
+                    });
+                }
+            }
+        } else {
+            None
+        };
+
+    // If the agent can't see `from`, the walk must stop at the boundary
+    // (hard-fail rather than silently returning empty so callers notice).
+    if let Some(ref visible) = visible_ids
+        && !visible.contains(&from)
+    {
+        return serde_json::json!({
+            "ok": false,
+            "error": "from is not visible to this agent",
+        });
+    }
+
+    let raw_steps = match idea_store.walk(&from, max_hops, &relations).await {
+        Ok(s) => s,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    // Post-filter: drop steps whose accumulated strength is below the
+    // threshold, and whose endpoints aren't visible to the caller. Both
+    // `from` and `to` must be visible — otherwise a walk can cross an
+    // agent boundary at the second hop even though the start is in scope.
+    let filtered_steps: Vec<&aeqi_core::traits::WalkStep> = raw_steps
+        .iter()
+        .filter(|step| step.strength >= strength_threshold)
+        .filter(|step| match &visible_ids {
+            Some(visible) => visible.contains(&step.from) && visible.contains(&step.to),
+            None => true,
+        })
+        .take(limit)
+        .collect();
+
+    // Enrich the steps with the target idea's name and tags so UI/LLM
+    // consumers don't have to round-trip through another `get_by_ids`.
+    let node_ids: Vec<String> = filtered_steps.iter().map(|s| s.to.clone()).collect();
+    let nodes: std::collections::HashMap<String, aeqi_core::traits::Idea> = if node_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        match idea_store.get_by_ids(&node_ids).await {
+            Ok(items) => items.into_iter().map(|i| (i.id.clone(), i)).collect(),
+            Err(_) => std::collections::HashMap::new(),
+        }
+    };
+
+    let steps_json: Vec<serde_json::Value> = filtered_steps
+        .into_iter()
+        .map(|s| {
+            let (name, tags) = match nodes.get(&s.to) {
+                Some(i) => (Some(i.name.clone()), i.tags.clone()),
+                None => (None, Vec::new()),
+            };
+            serde_json::json!({
+                "from": s.from,
+                "to": s.to,
+                "relation": s.relation,
+                "depth": s.depth,
+                "strength": s.strength,
+                "to_name": name,
+                "to_tags": tags,
+            })
+        })
+        .collect();
+
+    serde_json::json!({
+        "ok": true,
+        "from": from,
+        "count": steps_json.len(),
+        "steps": steps_json,
+    })
+}
+
 /// Record a feedback signal on an idea (used | useful | ignored | wrong |
 /// corrected | pinned). Updates the row's `feedback_boost`, appends a
 /// row to `idea_feedback`, invalidates the recall cache.

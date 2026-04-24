@@ -6,8 +6,10 @@
 
 use super::SqliteIdeas;
 use crate::graph::{IdeaEdge, IdeaRelation};
+use aeqi_core::traits::WalkStep;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use std::collections::{HashSet, VecDeque};
 use tracing::debug;
 
 impl SqliteIdeas {
@@ -172,14 +174,28 @@ impl SqliteIdeas {
         relation: &str,
         strength: f32,
     ) -> Result<()> {
-        let relation_enum: IdeaRelation =
-            serde_json::from_value(serde_json::Value::String(relation.to_string()))
-                .unwrap_or(IdeaRelation::Adjacent);
-        let edge = IdeaEdge::new(source_id, target_id, relation_enum, strength);
-        let this = self.clone();
-        tokio::task::spawn_blocking(move || this.store_edge(&edge))
-            .await
-            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))?
+        // The `idea_edges.relation` column is an open-enum TEXT — the
+        // v4 migration expanded the vocabulary to include `supersedes`,
+        // `supports`, `contradicts`, `distilled_into`, `caused_by`,
+        // `co_retrieved`, `contradiction` (plus the legacy `mentions`,
+        // `embeds`, `adjacent`). The in-crate `IdeaRelation` enum only
+        // covers the legacy triplet, so write the raw string here to
+        // preserve the new relations end-to-end.
+        let source = source_id.to_string();
+        let target = target_id.to_string();
+        let relation = relation.to_string();
+        let created = Utc::now().to_rfc3339();
+        self.blocking(move |conn| {
+            conn.execute(
+                "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5) \
+                 ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                    strength = MAX(excluded.strength, idea_edges.strength)",
+                rusqlite::params![source, target, relation, strength, created],
+            )?;
+            Ok(())
+        })
+        .await
     }
 
     pub(super) async fn remove_idea_edge_impl(
@@ -371,6 +387,119 @@ impl SqliteIdeas {
         Ok((updated + deleted) as u64)
     }
 
+    /// BFS-walk the idea graph starting at `from`, up to `max_hops` deep,
+    /// optionally filtering edges by `relations` (empty list = all) and
+    /// dropping edges whose `strength < strength_threshold`.
+    ///
+    /// Cycle protection: a `HashSet<String>` of visited ids is maintained
+    /// across the BFS frontier so `A → B → A` terminates at depth 2 (the
+    /// second visit to `A` is suppressed).
+    ///
+    /// Strength accumulation: each edge multiplies the path's accumulator
+    /// by the edge strength, with an additional per-relation weight for
+    /// usage-derived / downweighted relations. Authoritative relations
+    /// (`supersedes`, `distilled_into`, `caused_by`) and high-confidence
+    /// semantic relations (`mentions`, `embeds`, `supports`) carry full
+    /// weight (1.0); `adjacent`, `co_retrieved`, `contradicts` multiply
+    /// by 0.7; `contradiction` by 0.5 so walks through contradictions
+    /// still surface but rank lower.
+    ///
+    /// Results are ordered by `strength_accum DESC`, capped at 100 rows
+    /// internally. The caller's `limit` is applied downstream.
+    pub fn walk_impl(
+        &self,
+        from: &str,
+        max_hops: u32,
+        relations: &[String],
+        strength_threshold: f32,
+    ) -> Result<Vec<WalkStep>> {
+        if max_hops == 0 {
+            return Ok(Vec::new());
+        }
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("lock poisoned in walk_impl: {e}"))?;
+
+        // Make the set of allowed relations cheap to probe. Empty set
+        // means no filter (allow all).
+        let relation_filter: HashSet<String> = relations.iter().cloned().collect();
+
+        // Visited-ids dedup. The start node is seeded so we never emit
+        // an edge that loops back to it.
+        let mut visited: HashSet<String> = HashSet::new();
+        visited.insert(from.to_string());
+
+        // Frontier items track (id, depth, strength_accum). We consume
+        // from the front and push successors to the back — standard BFS.
+        let mut frontier: VecDeque<(String, u32, f32)> = VecDeque::new();
+        frontier.push_back((from.to_string(), 0, 1.0));
+
+        let mut out: Vec<WalkStep> = Vec::new();
+
+        let mut stmt = conn.prepare(
+            "SELECT target_id, relation, strength \
+             FROM idea_edges \
+             WHERE source_id = ?1 AND strength >= ?2",
+        )?;
+
+        while let Some((node, depth, strength_accum)) = frontier.pop_front() {
+            if depth >= max_hops {
+                continue;
+            }
+            let rows =
+                stmt.query_map(rusqlite::params![node, strength_threshold as f64], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, f64>(2)? as f32,
+                    ))
+                })?;
+            for row in rows {
+                let (target_id, relation, edge_strength) = match row {
+                    Ok(t) => t,
+                    Err(_) => continue,
+                };
+                // Optional relation filter.
+                if !relation_filter.is_empty() && !relation_filter.contains(&relation) {
+                    continue;
+                }
+                // Cycle / duplicate suppression — first visit wins (BFS
+                // guarantees shortest-path visitation).
+                if visited.contains(&target_id) {
+                    continue;
+                }
+                visited.insert(target_id.clone());
+
+                let weight = relation_weight(&relation);
+                let next_strength = strength_accum * edge_strength * weight;
+
+                out.push(WalkStep {
+                    from: node.clone(),
+                    to: target_id.clone(),
+                    relation: relation.clone(),
+                    depth: depth + 1,
+                    strength: next_strength,
+                });
+
+                // Only extend the frontier while there's depth left.
+                if depth + 1 < max_hops {
+                    frontier.push_back((target_id, depth + 1, next_strength));
+                }
+            }
+        }
+
+        // Stable-sort by strength descending; keep insertion order within
+        // ties so BFS ordering shows through on the tie-break.
+        out.sort_by(|a, b| {
+            b.strength
+                .partial_cmp(&a.strength)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        out.truncate(100);
+        Ok(out)
+    }
+
     pub(super) async fn reconcile_inline_edges_impl(
         &self,
         source_id: &str,
@@ -439,5 +568,182 @@ impl SqliteIdeas {
             Ok(())
         })
         .await
+    }
+}
+
+/// Per-relation weighting factor applied on every hop of the graph walk.
+///
+/// Rationale:
+/// - Authoritative (`supersedes`, `distilled_into`, `caused_by`) and
+///   high-confidence semantic relations (`mentions`, `embeds`, `supports`)
+///   propagate strength at full weight.
+/// - Usage-derived / soft edges (`adjacent`, `co_retrieved`, `contradicts`)
+///   multiply by 0.7 so multi-hop walks along them decay naturally.
+/// - `contradiction` (the `wrong` feedback signal emits this) multiplies
+///   by 0.5 — still surfaces in walks but ranks below supportive paths.
+/// - Unknown relations default to 1.0 so open-enum extensions don't silently
+///   drop out of the ranking.
+fn relation_weight(relation: &str) -> f32 {
+    match relation {
+        "supersedes" | "distilled_into" | "caused_by" => 1.0,
+        "mentions" | "embeds" | "supports" => 1.0,
+        "adjacent" | "co_retrieved" | "contradicts" => 0.7,
+        "contradiction" => 0.5,
+        _ => 1.0,
+    }
+}
+
+#[cfg(test)]
+mod walk_tests {
+    use super::*;
+
+    fn test_store() -> (SqliteIdeas, tempfile::TempDir) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db_path = dir.path().join("walk.db");
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+        (store, dir)
+    }
+
+    /// Helper: build a 3-node `A → B → C` chain with `supports` edges at
+    /// full strength. Returns the (a, b, c) ids.
+    async fn chain_abc(mem: &SqliteIdeas, rel_ab: &str, rel_bc: &str) -> (String, String, String) {
+        use aeqi_core::traits::IdeaStore;
+        let a = mem.store("node-a", "body A", &[], None).await.unwrap();
+        let b = mem.store("node-b", "body B", &[], None).await.unwrap();
+        let c = mem.store("node-c", "body C", &[], None).await.unwrap();
+        mem.store_idea_edge(&a, &b, rel_ab, 1.0).await.unwrap();
+        mem.store_idea_edge(&b, &c, rel_bc, 1.0).await.unwrap();
+        (a, b, c)
+    }
+
+    #[tokio::test]
+    async fn walk_chain_two_hops_returns_b_and_c() {
+        let (mem, _dir) = test_store();
+        let (a, b, c) = chain_abc(&mem, "supports", "supports").await;
+
+        let steps = mem.walk_impl(&a, 2, &[], 0.0).unwrap();
+        let ids: std::collections::HashSet<&str> = steps.iter().map(|s| s.to.as_str()).collect();
+
+        assert!(ids.contains(b.as_str()), "walk should reach B at depth 1");
+        assert!(ids.contains(c.as_str()), "walk should reach C at depth 2");
+        assert_eq!(ids.len(), 2);
+
+        // Depth annotations.
+        let by_id: std::collections::HashMap<&str, u32> =
+            steps.iter().map(|s| (s.to.as_str(), s.depth)).collect();
+        assert_eq!(by_id.get(b.as_str()).copied(), Some(1));
+        assert_eq!(by_id.get(c.as_str()).copied(), Some(2));
+    }
+
+    #[tokio::test]
+    async fn walk_chain_one_hop_only_returns_b() {
+        let (mem, _dir) = test_store();
+        let (a, b, _c) = chain_abc(&mem, "supports", "supports").await;
+
+        let steps = mem.walk_impl(&a, 1, &[], 0.0).unwrap();
+        assert_eq!(steps.len(), 1, "max_hops=1 must stop at depth 1");
+        assert_eq!(steps[0].to, b);
+        assert_eq!(steps[0].depth, 1);
+    }
+
+    #[tokio::test]
+    async fn walk_filter_unknown_relation_returns_empty() {
+        let (mem, _dir) = test_store();
+        let (a, _b, _c) = chain_abc(&mem, "supports", "supports").await;
+
+        let filter = vec!["supersedes".to_string()];
+        let steps = mem.walk_impl(&a, 3, &filter, 0.0).unwrap();
+        assert!(
+            steps.is_empty(),
+            "no supersedes edges in the chain — walk must be empty"
+        );
+    }
+
+    #[tokio::test]
+    async fn walk_filter_to_matching_relation_only() {
+        let (mem, _dir) = test_store();
+        let (a, b, _c) = chain_abc(&mem, "supports", "mentions").await;
+
+        // Only `supports` allowed — A→B keeps, B→C drops.
+        let filter = vec!["supports".to_string()];
+        let steps = mem.walk_impl(&a, 3, &filter, 0.0).unwrap();
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].to, b);
+        assert_eq!(steps[0].relation, "supports");
+    }
+
+    #[tokio::test]
+    async fn walk_cycle_does_not_infinite_loop() {
+        use aeqi_core::traits::IdeaStore;
+        let (mem, _dir) = test_store();
+        let a = mem.store("cyc-a", "A", &[], None).await.unwrap();
+        let b = mem.store("cyc-b", "B", &[], None).await.unwrap();
+        // A → B → A cycle.
+        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
+        mem.store_idea_edge(&b, &a, "supports", 1.0).await.unwrap();
+
+        // max_hops=10 would loop forever without visited-set suppression.
+        let steps = mem.walk_impl(&a, 10, &[], 0.0).unwrap();
+        // Exactly one step: A → B. The reverse edge would revisit A
+        // (the start node, already in `visited`), so it's dropped.
+        assert_eq!(
+            steps.len(),
+            1,
+            "cycle back to start node must not be traversed"
+        );
+        assert_eq!(steps[0].to, b);
+    }
+
+    #[tokio::test]
+    async fn walk_strength_threshold_drops_weak_edges() {
+        use aeqi_core::traits::IdeaStore;
+        let (mem, _dir) = test_store();
+        let a = mem.store("s-a", "A", &[], None).await.unwrap();
+        let b = mem.store("s-b", "B", &[], None).await.unwrap();
+        let c = mem.store("s-c", "C", &[], None).await.unwrap();
+        mem.store_idea_edge(&a, &b, "supports", 0.9).await.unwrap();
+        mem.store_idea_edge(&a, &c, "supports", 0.05).await.unwrap();
+
+        // Threshold 0.1 keeps A→B (0.9) but drops A→C (0.05).
+        let steps = mem.walk_impl(&a, 1, &[], 0.1).unwrap();
+        let targets: std::collections::HashSet<&str> =
+            steps.iter().map(|s| s.to.as_str()).collect();
+        assert!(targets.contains(b.as_str()));
+        assert!(!targets.contains(c.as_str()));
+    }
+
+    #[tokio::test]
+    async fn walk_max_hops_zero_returns_empty() {
+        let (mem, _dir) = test_store();
+        let (a, _b, _c) = chain_abc(&mem, "supports", "supports").await;
+
+        let steps = mem.walk_impl(&a, 0, &[], 0.0).unwrap();
+        assert!(steps.is_empty(), "max_hops=0 disables the walk");
+    }
+
+    #[tokio::test]
+    async fn walk_strength_accum_decays_with_weighted_relations() {
+        use aeqi_core::traits::IdeaStore;
+        let (mem, _dir) = test_store();
+        let a = mem.store("w-a", "A", &[], None).await.unwrap();
+        let b = mem.store("w-b", "B", &[], None).await.unwrap();
+        let c = mem.store("w-c", "C", &[], None).await.unwrap();
+        // Path through `adjacent` edges (weight 0.7 per hop).
+        mem.store_idea_edge(&a, &b, "adjacent", 1.0).await.unwrap();
+        mem.store_idea_edge(&b, &c, "adjacent", 1.0).await.unwrap();
+
+        let steps = mem.walk_impl(&a, 2, &[], 0.0).unwrap();
+        let by_id: std::collections::HashMap<&str, f32> =
+            steps.iter().map(|s| (s.to.as_str(), s.strength)).collect();
+
+        // A→B strength = 1.0 * 1.0 * 0.7 = 0.7
+        // A→B→C strength = 0.7 * 1.0 * 0.7 = 0.49
+        let b_strength = by_id.get(b.as_str()).copied().unwrap();
+        let c_strength = by_id.get(c.as_str()).copied().unwrap();
+        assert!((b_strength - 0.7).abs() < 1e-5, "B ≈ 0.7, got {b_strength}");
+        assert!(
+            (c_strength - 0.49).abs() < 1e-5,
+            "C ≈ 0.49, got {c_strength}"
+        );
     }
 }
