@@ -1106,9 +1106,16 @@ impl AgentRegistry {
         &self,
         agent_id: &str,
     ) -> Result<Vec<aeqi_core::traits::Idea>> {
-        // Tuple of (id, name, content, agent_id, session_id, created_at,
-        // inheritance, tool_allow, tool_deny, scope). Local to this method so
-        // the complex row shape doesn't leak into the module.
+        // Tuple of (id, name, content, agent_id, session_id, created_at, scope).
+        // Local to this method so the row shape doesn't leak into the module.
+        //
+        // NOTE: The `inheritance`, `tool_allow`, `tool_deny` columns were
+        // dropped in the v3 ideas-schema migration and are absent from the
+        // v10 baseline `initial_schema`. Selecting them here would 500 on
+        // fresh DBs with "no such column: inheritance" — legacy DBs that
+        // still carry the columns physically are harmless but must not be
+        // relied on. The `Idea` struct fields of the same name are filled
+        // with defaults below.
         type IdeaRow = (
             String,
             String,
@@ -1117,16 +1124,12 @@ impl AgentRegistry {
             Option<String>,
             String,
             String,
-            Option<String>,
-            Option<String>,
-            String,
         );
 
         let db = self.db.lock().await;
         let rows: Vec<IdeaRow> = {
             let mut stmt = db.prepare(
-                "SELECT id, name, content, agent_id, session_id, created_at,
-                        inheritance, tool_allow, tool_deny, scope
+                "SELECT id, name, content, agent_id, session_id, created_at, scope
                  FROM ideas
                  WHERE agent_id IS NULL
                     OR agent_id IN (
@@ -1142,10 +1145,7 @@ impl AgentRegistry {
                     row.get::<_, Option<String>>(3)?,
                     row.get::<_, Option<String>>(4)?,
                     row.get::<_, String>(5)?,
-                    row.get::<_, String>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                    row.get::<_, Option<String>>(8)?,
-                    row.get::<_, String>(9)
+                    row.get::<_, String>(6)
                         .unwrap_or_else(|_| "self".to_string()),
                 ))
             })?
@@ -1154,19 +1154,7 @@ impl AgentRegistry {
 
         // Hydrate tags per idea (secondary query; tag set tends to be tiny).
         let mut out = Vec::with_capacity(rows.len());
-        for (
-            id,
-            name,
-            content,
-            aid,
-            session_id,
-            created_at,
-            inheritance,
-            tool_allow,
-            tool_deny,
-            scope_str,
-        ) in rows
-        {
+        for (id, name, content, aid, session_id, created_at, scope_str) in rows {
             let tags: Vec<String> = {
                 let mut tag_stmt =
                     db.prepare("SELECT tag FROM idea_tags WHERE idea_id = ?1 ORDER BY tag")?;
@@ -1195,13 +1183,9 @@ impl AgentRegistry {
                 created_at,
                 score: 1.0,
                 scope,
-                inheritance,
-                tool_allow: tool_allow
-                    .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
-                    .unwrap_or_default(),
-                tool_deny: tool_deny
-                    .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
-                    .unwrap_or_default(),
+                inheritance: "self".to_string(),
+                tool_allow: Vec::new(),
+                tool_deny: Vec::new(),
             });
         }
         Ok(out)
