@@ -1,89 +1,15 @@
 //! Read-only idea lookups that aren't part of the ranked search pipeline.
 //!
-//! Export-oriented queries (`list_all`, `list_global_ideas`), direct lookups
-//! by ID or name (`get_by_ids`, `get_by_name`), and the low-level row fetcher
-//! plus `row_to_entry` helper used by the search layer.
+//! Export-oriented queries (`list_all`, `list_global_ideas`) and direct
+//! lookups by ID or name (`get_by_ids`, `get_by_name`). The ranked search
+//! pipeline lives in [`super::search`].
 
-use super::{IdeaRow, SqliteIdeas};
-use aeqi_core::traits::{Idea, IdeaQuery};
+use super::SqliteIdeas;
+use aeqi_core::traits::Idea;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
 
 impl SqliteIdeas {
-    /// Fetch raw rows for a set of idea IDs. Tags are left empty — callers
-    /// may enrich via `fetch_tags_for_ids` if needed.
-    pub(super) fn fetch_by_ids(conn: &Connection, ids: &[String]) -> Vec<IdeaRow> {
-        if ids.is_empty() {
-            return vec![];
-        }
-        let placeholders = ids
-            .iter()
-            .enumerate()
-            .map(|(i, _)| format!("?{}", i + 1))
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT id, name, content, agent_id, created_at, session_id
-             FROM ideas WHERE id IN ({placeholders})"
-        );
-        let params: Vec<&dyn rusqlite::types::ToSql> = ids
-            .iter()
-            .map(|s| s as &dyn rusqlite::types::ToSql)
-            .collect();
-        let Ok(mut stmt) = conn.prepare(&sql) else {
-            return vec![];
-        };
-        stmt.query_map(params.as_slice(), |row| {
-            Ok(IdeaRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                content: row.get(2)?,
-                agent_id: row.get(3)?,
-                created_at: row.get(4)?,
-                session_id: row.get(5)?,
-                tags: Vec::new(),
-            })
-        })
-        .map(|iter| iter.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
-    }
-
-    pub(super) fn row_to_entry(&self, row: IdeaRow, score: f64, query: &IdeaQuery) -> Option<Idea> {
-        let tags = Self::normalize_tags(row.tags);
-
-        if !query.tags.is_empty() && !query.tags.iter().any(|query_tag| tags.contains(query_tag)) {
-            return None;
-        }
-
-        if let Some(ref q_session) = query.session_id
-            && row.session_id.as_deref() != Some(q_session.as_str())
-        {
-            return None;
-        }
-
-        let created_at = DateTime::parse_from_rfc3339(&row.created_at)
-            .ok()?
-            .with_timezone(&Utc);
-
-        let decay = if tags.iter().any(|tag| tag == "evergreen") {
-            1.0
-        } else {
-            self.decay_factor(&created_at)
-        };
-
-        Some(Idea::recalled(
-            row.id,
-            row.name,
-            row.content,
-            tags,
-            row.agent_id,
-            created_at,
-            row.session_id,
-            score * decay,
-        ))
-    }
-
     /// List all non-expired ideas (unscored, no search ranking).
     pub fn list_all(&self) -> Result<Vec<Idea>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
