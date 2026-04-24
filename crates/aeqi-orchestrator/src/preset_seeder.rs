@@ -540,6 +540,13 @@ mod tests {
             "meta:evaluation-criteria",
             "meta:pack-catalog",
         ];
+        // Principle category — first entries, Karpathy-inspired,
+        // rewritten in aeqi voice. The behavior heuristics surface
+        // alongside identity at session:start; the examples are
+        // cite-able from reflections when an agent catches itself
+        // drifting. If either goes missing, agents lose their
+        // self-correction handle silently — this assertion catches it.
+        const REQUIRED_PRINCIPLES: &[&str] = &["meta:behavior-principles", "meta:coding-examples"];
 
         let (_tmp, store) = setup_store().await;
 
@@ -569,6 +576,7 @@ mod tests {
             .chain(REQUIRED_POLICIES.iter())
             .chain(REQUIRED_HOW_TOS.iter())
             .chain(REQUIRED_PACK_INFRA.iter())
+            .chain(REQUIRED_PRINCIPLES.iter())
         {
             let seen = results.iter().any(|r| r.name == *required);
             assert!(

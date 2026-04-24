@@ -50,12 +50,18 @@ Runtime-seeded (by `seed_lifecycle_events`, not markdown — 8 lifecycle +
 - 2 memory-stack events: `on_reflect_after_quest`,
   `on_inject_recent_context`.
 
-## Principle (0 — gap)
+## Principle (2)
 
-- None yet. Candidate imports: Karpathy four-principles, Zettelkasten
-  atomic-notes rule. The `## Acting` section in `vanilla-assistant` is
-  currently carrying principle-weight content inline; promoting it to a
-  standalone `meta:behavior-principles` is the obvious first move.
+- `meta:behavior-principles` — four decision heuristics (think first,
+  minimum sufficient, surgical scope, define done). Karpathy-inspired,
+  rewritten in aeqi voice. Extended companion to `vanilla-assistant`'s
+  `## Acting` section; identity stays terse, depth lives here.
+- `meta:coding-examples` — six anti-pattern → right-approach pairs,
+  one per common drift (hidden assumptions, multiple interpretations,
+  over-abstraction, speculative features, drive-by refactoring,
+  reproduce-before-fix). Cite-able from reflections.
+
+Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 
 ## Tag policies (10, meta)
 
@@ -83,8 +89,9 @@ Runtime-seeded (by `seed_lifecycle_events`, not markdown — 8 lifecycle +
   response, research, planning.
 - More personas: reviewer, researcher, planner, security auditor.
 - More rituals: weekly review, standup, end-of-sprint retro.
-- Principle category: needs first entry (Karpathy 4-principles
-  integration likely).
+- Principle category: seeded with Karpathy-inspired pair in β; future
+  additions (Zettelkasten, reflection-principles) earn their slot
+  case-by-case.
 - Domain packs: language/stack-specific (Rust, TypeScript, DevOps).
 
 ## Invariants (what must stay true of the pack)
