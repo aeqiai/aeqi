@@ -449,9 +449,19 @@ pub enum IdeasAction {
         vault: std::path::PathBuf,
     },
     /// Import ideas from an Obsidian vault.
+    ///
+    /// Import normally routes through the daemon IPC so every idea goes
+    /// through the full write pipeline (dedup, async embedding, tag
+    /// policy, inline-link edge reconciliation, consolidation checks).
+    /// Pass `--no-daemon` to force the direct SQLite path when the
+    /// daemon isn't running or for offline migrations.
     Import {
         /// Path to the Obsidian vault directory.
         #[arg(long)]
         vault: std::path::PathBuf,
+        /// Bypass the daemon and write directly to SQLite. Skips dedup,
+        /// embedding, tag policy, and edge reconciliation.
+        #[arg(long = "no-daemon")]
+        no_daemon: bool,
     },
 }

@@ -262,6 +262,14 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
     Ok((imported, skipped))
 }
 
+/// Scan an Obsidian vault directory for idea markdown files and return
+/// parsed `ParsedIdea` structs. Public because the CLI's IPC-routed
+/// importer parses locally, then dispatches each entry through the
+/// daemon's `store_idea` handler.
+pub fn scan_vault_parsed(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
+    scan_vault(vault_dir)
+}
+
 /// Scan an Obsidian vault directory for idea markdown files.
 fn scan_vault(vault_dir: &Path) -> Result<Vec<ParsedIdea>> {
     let mut results = Vec::new();
@@ -369,7 +377,7 @@ fn parse_idea_file(path: &Path, source_path: Option<String>) -> Result<ParsedIde
 /// emitted on every import. Dedupe case-insensitively, preserving the
 /// order of first appearance so the user's declared tags stay in front
 /// of machine-generated ones.
-pub(crate) fn merge_provenance_tags(
+pub fn merge_provenance_tags(
     frontmatter_tags: &[String],
     source_path: Option<&str>,
 ) -> Vec<String> {
