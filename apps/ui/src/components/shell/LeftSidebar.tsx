@@ -46,13 +46,6 @@ const PrimitiveLetter = ({ ch }: { ch: string }) => (
   </span>
 );
 
-const HomeIcon = () => (
-  <svg {...iconProps}>
-    <path d="M2.5 7 8 2.5 13.5 7v6.5H2.5z" />
-    <path d="M6.5 13.5V9h3v4.5" />
-  </svg>
-);
-
 const InboxIcon = () => (
   <svg {...iconProps}>
     <path d="M2 8.5 4 3h8l2 5.5v4.5H2z" />
@@ -119,12 +112,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  // Home = the bare /:agentId route (the Inbox landing). Clicking an agent
-  // in the tree navigates here, so Home is also what reads as "selected"
-  // when the user has just picked an agent. The `/sessions` path is the
-  // same surface with an explicit tab segment, so treat it as Home too —
-  // otherwise the rail would go dark the moment a session is opened.
-  const homeActive = !!base && (path === base || path.startsWith(`${base}/sessions`));
 
   const renderNav = (item: NavItem) => {
     if (primitivesDisabled) {
@@ -205,39 +192,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="sidebar-user-zone">
-        <div className="sidebar-user-zone-row">
-          <a
-            className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
-            href={profileHref}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(profileHref);
-            }}
-          >
-            <span className="sidebar-nav-avatar">
-              <BlockAvatar name={userName} size={16} />
-            </span>
-            {userEmail ? (
-              <span className="sidebar-nav-identity">
-                <span className="sidebar-nav-identity-name">{userName}</span>
-                <span className="sidebar-nav-identity-email" title={userEmail}>
-                  {userEmail}
-                </span>
-              </span>
-            ) : (
-              <span className="sidebar-nav-label">{userName}</span>
-            )}
-          </a>
-          <button
-            type="button"
-            className="sidebar-help-btn"
-            onClick={openShortcuts}
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
-          >
-            ?
-          </button>
-        </div>
         <a
           className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
           href={inboxHref}
@@ -282,35 +236,46 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           className={`sidebar-surface-nav${primitivesDisabled ? " disabled" : ""}`}
           aria-disabled={primitivesDisabled || undefined}
         >
-          {primitivesDisabled ? (
-            <span
-              className="sidebar-nav-item disabled"
-              title="Pick a root agent to open its home"
-              aria-disabled="true"
-            >
-              <HomeIcon />
-              <span className="sidebar-nav-label">Home</span>
-            </span>
-          ) : (
-            <a
-              className={`sidebar-nav-item ${homeActive ? "active" : ""}`}
-              href={base}
-              title="Home · G then S"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(base);
-              }}
-            >
-              <HomeIcon />
-              <span className="sidebar-nav-label">Home</span>
-            </a>
-          )}
           {PRIMITIVES.map(renderNav)}
         </nav>
 
         <div className="sidebar-tree-slot">
           <AgentTree />
         </div>
+      </div>
+
+      <div className="sidebar-footer">
+        <a
+          className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
+          href={profileHref}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(profileHref);
+          }}
+        >
+          <span className="sidebar-nav-avatar">
+            <BlockAvatar name={userName} size={16} />
+          </span>
+          {userEmail ? (
+            <span className="sidebar-nav-identity">
+              <span className="sidebar-nav-identity-name">{userName}</span>
+              <span className="sidebar-nav-identity-email" title={userEmail}>
+                {userEmail}
+              </span>
+            </span>
+          ) : (
+            <span className="sidebar-nav-label">{userName}</span>
+          )}
+        </a>
+        <button
+          type="button"
+          className="sidebar-help-btn"
+          onClick={openShortcuts}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+        >
+          ?
+        </button>
       </div>
     </div>
   );
