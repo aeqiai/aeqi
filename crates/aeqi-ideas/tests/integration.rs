@@ -360,11 +360,7 @@ decay_half_life_days = 1.0
         .unwrap();
 
     let _a = ideas
-        .store_full(store_full(
-            "fact-alpha",
-            "alpha system runtime",
-            &["fact"],
-        ))
+        .store_full(store_full("fact-alpha", "alpha system runtime", &["fact"]))
         .await
         .unwrap();
     let _b = ideas
@@ -392,7 +388,10 @@ decay_half_life_days = 1.0
     // min-max normalisation produces spread.
     let q = IdeaQuery::new("alpha system runtime", 5);
     let hits = ideas.search_explained(&q).await.unwrap();
-    assert!(!hits.is_empty(), "tag-policy-influenced search returns hits");
+    assert!(
+        !hits.is_empty(),
+        "tag-policy-influenced search returns hits"
+    );
     // fact-alpha has the most overlap; it should surface somewhere in the hits.
     assert!(
         hits.iter().any(|h| h.idea.name == "fact-alpha"),

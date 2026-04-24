@@ -123,11 +123,21 @@ async fn feedback_row_persists_with_metadata() {
         query_text: Some("why this".into()),
         note: Some("follow-up note".into()),
     };
-    ideas.record_feedback(&id, "useful", 0.75, meta).await.unwrap();
+    ideas
+        .record_feedback(&id, "useful", 0.75, meta)
+        .await
+        .unwrap();
 
     // Query the DB directly — there's no read API for feedback rows.
     let conn = rusqlite::Connection::open(dir.path().join("feedback.db")).unwrap();
-    let (signal, weight, agent, sess, qtext, note): (String, f64, Option<String>, Option<String>, Option<String>, Option<String>) = conn
+    let (signal, weight, agent, sess, qtext, note): (
+        String,
+        f64,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = conn
         .query_row(
             "SELECT signal, weight, agent_id, session_id, query_text, note \
              FROM idea_feedback WHERE idea_id = ?1 \

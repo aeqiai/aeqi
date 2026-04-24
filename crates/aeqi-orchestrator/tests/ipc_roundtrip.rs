@@ -116,7 +116,10 @@ async fn link_persists_edge_between_ideas() {
     // `idea_store.store_idea_edge(from, to, relation, strength=1.0)`.
     // `adjacent` is the only relation in the enum that doesn't hit the
     // known typed-relation downgrade bug.
-    ideas.store_idea_edge(&a, &b, "adjacent", 1.0).await.unwrap();
+    ideas
+        .store_idea_edge(&a, &b, "adjacent", 1.0)
+        .await
+        .unwrap();
 
     let edges = ideas.idea_edges(&a).await.unwrap();
     assert!(
@@ -128,7 +131,10 @@ async fn link_persists_edge_between_ideas() {
     );
 
     // Remove roundtrips too (used by the UI when un-linking).
-    let removed = ideas.remove_idea_edge(&a, &b, Some("adjacent")).await.unwrap();
+    let removed = ideas
+        .remove_idea_edge(&a, &b, Some("adjacent"))
+        .await
+        .unwrap();
     assert_eq!(removed, 1);
     let edges_after = ideas.idea_edges(&a).await.unwrap();
     assert!(edges_after.links.is_empty());
@@ -180,7 +186,10 @@ async fn search_include_superseded_surfaces_archived_rows() {
         ))
         .await
         .unwrap();
-    ideas.set_status(&superseded_id, "superseded").await.unwrap();
+    ideas
+        .set_status(&superseded_id, "superseded")
+        .await
+        .unwrap();
 
     // Default: gated out.
     let default = ideas
