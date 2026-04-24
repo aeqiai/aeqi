@@ -748,6 +748,75 @@ impl SessionManager {
         // Determine session_id placeholder for delegate tool wiring (filled in after DB create).
         let is_interactive = !opts.auto_close;
 
+        // Build the per-session pattern dispatcher up-front so we can hand
+        // it to both `build_orchestration_tools` (so `quests(action='close')`
+        // fires `session:quest_end` end-to-end) and the agent itself (for
+        // compaction-as-delegation via `context:budget:exceeded`). Same
+        // dispatcher serves both roles — building it twice would duplicate
+        // the runtime registry for no win.
+        let pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>> =
+            if let Some(ref ehs) = self.event_store {
+                let eph_model_d = self.default_model.clone();
+                let eph_provider_d = self.default_provider.clone();
+                let eph_idea_store_d = self.idea_store.clone();
+                let dispatcher_spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
+                    let model = eph_model_d.clone();
+                    let provider_opt = eph_provider_d.clone();
+                    let idea_store_opt = eph_idea_store_d.clone();
+                    Box::pin(async move {
+                        let provider = provider_opt.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "session.spawn (per-session dispatcher): no provider configured"
+                            )
+                        })?;
+                        let system_prompt = if let Some(ref idea_name) = req.instructions_idea {
+                            if let Some(ref is) = idea_store_opt
+                                && let Ok(Some(idea)) = is.get_by_name(idea_name, None).await
+                            {
+                                idea.content
+                            } else {
+                                "You are a context compaction assistant. Summarize the provided transcript.".to_string()
+                            }
+                        } else {
+                            "You are a context compaction assistant. Summarize the provided transcript."
+                            .to_string()
+                        };
+                        let seed = req.seed_content.unwrap_or_default();
+                        let context_window = aeqi_providers::context_window_for_model(&model);
+                        let parent = &req.parent_session_id;
+                        let config = aeqi_core::AgentConfig {
+                            model,
+                            max_iterations: 10,
+                            name: format!("compactor:{}", &parent[..8.min(parent.len())]),
+                            context_window,
+                            ..Default::default()
+                        };
+                        let observer: Arc<dyn aeqi_core::traits::Observer> =
+                            Arc::new(aeqi_core::traits::LogObserver);
+                        let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
+                        let agent =
+                            aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
+                        let result = agent.run(&seed).await?;
+                        Ok(result.text)
+                    })
+                });
+                let runtime_reg_for_dispatcher = build_runtime_registry_with_spawn_and_caps(
+                    self.idea_store.clone(),
+                    self.session_store.clone(),
+                    Some(dispatcher_spawn_fn),
+                    agent_can_self_delegate,
+                );
+                let dispatcher = Arc::new(crate::idea_assembly::EventPatternDispatcher {
+                    event_store: ehs.clone(),
+                    registry: Arc::new(runtime_reg_for_dispatcher),
+                    agent_registry: agent_registry.clone(),
+                    session_store: self.session_store.clone(),
+                });
+                Some(dispatcher as Arc<dyn aeqi_core::tool_registry::PatternDispatcher>)
+            } else {
+                None
+            };
+
         // Build orchestration tools (agents, quests, events, code, ideas)
         if let Some(agent_id) = agent_uuid.clone() {
             let orch_tools = crate::tools::build_orchestration_tools(
@@ -758,6 +827,7 @@ impl SessionManager {
                 graph_db_path,
                 self.session_store.clone(),
                 agent_registry.clone(),
+                pattern_dispatcher.clone(),
             );
             tools.extend(orch_tools);
         } else {
@@ -972,70 +1042,13 @@ impl SessionManager {
             agent = agent.with_pending_source(src, Some(pending_id));
         }
 
-        // Wire EventPatternDispatcher so the compaction pipeline can delegate
-        // via the `context:budget:exceeded` event. Requires both event_store
-        // and a provider so session.spawn (used by the compaction event) can run.
-        if let Some(ref ehs) = self.event_store {
-            // Build a spawn_fn for the dispatcher's registry — same closure as
-            // the one used during session assembly, capturing the provider and
-            // idea_store.
-            let eph_model_d = self.default_model.clone();
-            let eph_provider_d = self.default_provider.clone();
-            let eph_idea_store_d = self.idea_store.clone();
-            let dispatcher_spawn_fn: SpawnFn = Arc::new(move |req: SpawnRequest| {
-                let model = eph_model_d.clone();
-                let provider_opt = eph_provider_d.clone();
-                let idea_store_opt = eph_idea_store_d.clone();
-                Box::pin(async move {
-                    let provider = provider_opt.ok_or_else(|| {
-                        anyhow::anyhow!("session.spawn (compaction): no provider configured")
-                    })?;
-                    let system_prompt = if let Some(ref idea_name) = req.instructions_idea {
-                        if let Some(ref is) = idea_store_opt
-                            && let Ok(Some(idea)) = is.get_by_name(idea_name, None).await
-                        {
-                            idea.content
-                        } else {
-                            "You are a context compaction assistant. Summarize the provided transcript.".to_string()
-                        }
-                    } else {
-                        "You are a context compaction assistant. Summarize the provided transcript."
-                            .to_string()
-                    };
-                    let seed = req.seed_content.unwrap_or_default();
-                    let context_window = aeqi_providers::context_window_for_model(&model);
-                    let config = aeqi_core::AgentConfig {
-                        model,
-                        max_iterations: 10,
-                        name: format!(
-                            "compactor:{}",
-                            &req.parent_session_id[..8.min(req.parent_session_id.len())]
-                        ),
-                        context_window,
-                        ..Default::default()
-                    };
-                    let observer: Arc<dyn aeqi_core::traits::Observer> =
-                        Arc::new(aeqi_core::traits::LogObserver);
-                    let tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = Vec::new();
-                    let agent =
-                        aeqi_core::Agent::new(config, provider, tools, observer, system_prompt);
-                    let result = agent.run(&seed).await?;
-                    Ok(result.text)
-                })
-            });
-            let runtime_reg_for_dispatcher = build_runtime_registry_with_spawn_and_caps(
-                self.idea_store.clone(),
-                self.session_store.clone(),
-                Some(dispatcher_spawn_fn),
-                agent_can_self_delegate,
-            );
-            let dispatcher = std::sync::Arc::new(crate::idea_assembly::EventPatternDispatcher {
-                event_store: ehs.clone(),
-                registry: std::sync::Arc::new(runtime_reg_for_dispatcher),
-                agent_registry: agent_registry.clone(),
-                session_store: self.session_store.clone(),
-            });
-            agent = agent.with_pattern_dispatcher(dispatcher);
+        // Reuse the per-session pattern dispatcher built up-front (see the
+        // `pattern_dispatcher` binding above the `build_orchestration_tools`
+        // call) so the compaction pipeline can delegate via the
+        // `context:budget:exceeded` event. Building it twice would duplicate
+        // the runtime registry for no win.
+        if let Some(ref dispatcher) = pattern_dispatcher {
+            agent = agent.with_pattern_dispatcher(dispatcher.clone());
         }
 
         let mut agent = agent;
