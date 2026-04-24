@@ -443,6 +443,21 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             info!(total_max_workers, "global dispatcher initialized");
 
+            // Build the daemon-level pattern dispatcher BEFORE constructing
+            // SpawnContext / channel gateways so every QueueExecutor —
+            // including those owned by gateway tasks — can fire
+            // `session:quest_end` when an autonomous worker finalizes a
+            // quest. `Daemon::run()` will detect this is already populated
+            // and reuse it instead of building a second instance.
+            daemon.pattern_dispatcher = aeqi_orchestrator::daemon::build_daemon_pattern_dispatcher(
+                daemon.event_handler_store.clone(),
+                daemon.session_store.clone(),
+                daemon.idea_store.clone(),
+                agent_reg.clone(),
+                daemon.default_provider.clone(),
+                daemon.default_model.clone(),
+            );
+
             let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
 
             let spawn_ctx = crate::cmd::channel_gateways::SpawnContext {
@@ -453,6 +468,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 gateway_manager: daemon.gateway_manager.clone(),
                 stream_registry: daemon.stream_registry.clone(),
                 execution_registry: daemon.execution_registry.clone(),
+                pattern_dispatcher: daemon.pattern_dispatcher.clone(),
             };
             let mut gateway_count = 0u32;
             match channel_store.list_enabled().await {

@@ -107,6 +107,7 @@ async fn run_gateway(
         gateway_manager,
         stream_registry,
         execution_registry,
+        pattern_dispatcher,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(ch.as_ref()).await {
@@ -170,6 +171,7 @@ async fn run_gateway(
         let provider = default_provider.clone();
         let aid = agent_id.clone();
         let session_store_clone = session_store.clone();
+        let pattern_dispatcher = pattern_dispatcher.clone();
 
         tokio::spawn(async move {
             let user_sender_id = if let Some(ref ss) = session_store_clone {
@@ -278,6 +280,7 @@ async fn run_gateway(
                     adaptive_retry: false,
                     failure_analysis_model: String::new(),
                     extra_tools: wa_tools,
+                    pattern_dispatcher: pattern_dispatcher.clone(),
                 });
 
             // The `record_message` call above already wrote the inbound

@@ -97,6 +97,7 @@ async fn run_telegram_gateway(
         gateway_manager,
         stream_registry,
         execution_registry,
+        pattern_dispatcher,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(tg_channel.as_ref()).await {
@@ -180,6 +181,7 @@ async fn run_telegram_gateway(
         let provider = default_provider.clone();
         let aid = agent_id.clone();
         let session_store_clone = session_store.clone();
+        let pattern_dispatcher = pattern_dispatcher.clone();
 
         tokio::spawn(async move {
             let _ = tg.send_typing(chat_id).await;
@@ -276,6 +278,7 @@ async fn run_telegram_gateway(
                     adaptive_retry: false,
                     failure_analysis_model: String::new(),
                     extra_tools: tg_tools,
+                    pattern_dispatcher: pattern_dispatcher.clone(),
                 });
             // The `record_message` call above already wrote the inbound
             // user-message row with Telegram metadata (chat_id, message_id).

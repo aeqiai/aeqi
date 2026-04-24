@@ -289,6 +289,14 @@ pub struct Daemon {
     /// Daemon-wide recall cache; shared by every IPC handler via the
     /// CommandContext clone.
     pub recall_cache: Arc<aeqi_ideas::RecallCache>,
+    /// Daemon-level pattern dispatcher. Built once on `run()` so it can be
+    /// shared by every code path that needs to fire `session:quest_end` /
+    /// `ideas:threshold_reached` outside a live session: the IPC handlers
+    /// (`CommandContext`), the autonomous worker's quest-finalize path
+    /// (`QueueExecutor`), and the IPC quests handler. Wiring it once here
+    /// avoids three independently-built registries with subtly different
+    /// capability flags.
+    pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 }
 
 impl Daemon {
@@ -333,6 +341,7 @@ impl Daemon {
             // ── Round 3 retrieval-side additions (Agent R) ──────────────
             embedder: None,
             recall_cache: Arc::new(aeqi_ideas::RecallCache::default()),
+            pattern_dispatcher: None,
         }
     }
 
@@ -445,6 +454,24 @@ impl Daemon {
 
         self.write_pid_file()?;
 
+        // Build the daemon-level pattern dispatcher up-front so every
+        // background-task construction site below can clone it: the IPC
+        // listener (for `CommandContext`), the queue recovery / quest
+        // enqueuer paths (for `QueueExecutor::pattern_dispatcher`), and the
+        // gateway listener path. Three independently-built dispatchers
+        // would mean three runtime registries with subtly different
+        // capability flags — building it once avoids that drift.
+        if self.pattern_dispatcher.is_none() {
+            self.pattern_dispatcher = build_daemon_pattern_dispatcher(
+                self.event_handler_store.clone(),
+                self.session_store.clone(),
+                self.idea_store.clone(),
+                self.agent_registry.clone(),
+                self.default_provider.clone(),
+                self.default_model.clone(),
+            );
+        }
+
         self.spawn_signal_handlers();
         self.spawn_activity_buffer();
         self.spawn_event_matcher();
@@ -487,6 +514,7 @@ impl Daemon {
                     adaptive_retry: self.dispatcher.config.adaptive_retry,
                     failure_analysis_model: self.dispatcher.config.failure_analysis_model.clone(),
                     extra_tools: Vec::new(),
+                    pattern_dispatcher: self.pattern_dispatcher.clone(),
                 });
             if let Err(e) = crate::session_queue::recover_on_boot(ss, executor).await {
                 warn!(error = %e, "session_queue::recover_on_boot failed");
@@ -537,6 +565,7 @@ impl Daemon {
                     adaptive_retry: self.dispatcher.config.adaptive_retry,
                     failure_analysis_model: self.dispatcher.config.failure_analysis_model.clone(),
                     extra_tools: Vec::new(),
+                    pattern_dispatcher: self.pattern_dispatcher.clone(),
                 });
             let config = crate::dispatch::DispatchConfig {
                 max_workers: self.dispatcher.config.max_workers,
@@ -759,27 +788,13 @@ impl Daemon {
 
                 // ── Round 6 wiring: daemon-level pattern dispatcher ─────
                 //
-                // Build an `EventPatternDispatcher` at daemon scope so IPC
-                // handlers (`check_consolidation_threshold` in particular)
-                // can fire patterns outside a live session. The dispatcher
-                // reuses the same runtime ToolRegistry constructor as
-                // SessionManager; the spawn closure is a thinner variant
-                // that does not require a live SessionManager — the only
-                // events that fire from IPC (threshold_reached) spawn
-                // tool-less compactors so we can satisfy them with a
-                // minimal Agent::run() call.
-                //
-                // When provider is missing the dispatcher is still wired
-                // but spawn will fail at fire time — that degrades to a
-                // warn-log, it does not panic or block the daemon.
-                let pattern_dispatcher = build_daemon_pattern_dispatcher(
-                    self.event_handler_store.clone(),
-                    self.session_store.clone(),
-                    self.idea_store.clone(),
-                    self.agent_registry.clone(),
-                    self.default_provider.clone(),
-                    self.default_model.clone(),
-                );
+                // Reuse the daemon-level dispatcher built once in `run()`.
+                // It satisfies every code path that needs to fire patterns
+                // outside a live session (IPC handlers, queue-finalize,
+                // gateway). Building it locally would create a second
+                // registry with the same provider closure — wasteful and
+                // a source of drift if capability flags ever diverge.
+                let pattern_dispatcher = self.pattern_dispatcher.clone();
 
                 let ipc_ctx = Arc::new(IpcContext {
                     metrics: self.metrics.clone(),
@@ -1845,6 +1860,7 @@ impl Daemon {
                                             .failure_analysis_model
                                             .clone(),
                                         extra_tools: Vec::new(),
+                                        pattern_dispatcher: ipc_ctx.pattern_dispatcher.clone(),
                                     });
                                 let queued = crate::queue_executor::QueuedMessage::chat(
                                     agent_id_direct
@@ -2288,7 +2304,7 @@ pub fn readiness_response(
 // `aeqi_core::Agent` that runs the persona's instructions idea as its system
 // prompt and returns `result.text` as a plain string. The seeded events then
 // pipe that text through `ideas.store_many` for persistence.
-fn build_daemon_pattern_dispatcher(
+pub fn build_daemon_pattern_dispatcher(
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
     session_store: Option<Arc<SessionStore>>,
     idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
