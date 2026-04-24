@@ -43,6 +43,12 @@ impl SqliteIdeas {
             std::fs::create_dir_all(parent)?;
         }
 
+        // Register sqlite-vec as an auto-extension on the SQLite library
+        // BEFORE opening the connection, so the first `Connection::open` and
+        // every subsequent one picks up `vec0`. Called inside `Once`, so
+        // re-calling `open` is cheap and idempotent.
+        crate::sqlite::embeddings::ensure_vec_extension_loaded_global();
+
         let conn = Connection::open(path)
             .with_context(|| format!("failed to open memory DB: {}", path.display()))?;
 
@@ -64,6 +70,10 @@ impl SqliteIdeas {
             std::thread::sleep(std::time::Duration::from_millis(jitter_ms));
             true
         }))?;
+
+        // Probe the extension on this specific connection so `VEC_EXTENSION_READY`
+        // reflects post-open reality (not just the auto_extension registration).
+        crate::sqlite::embeddings::ensure_vec_extension_loaded(&conn)?;
 
         Self::prepare_schema(&conn)?;
 
@@ -106,6 +116,13 @@ impl SqliteIdeas {
         {
             let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
             VectorStore::open(&conn, dimensions)?;
+            // Rebuild the ANN virtual table with the correct dim — the default
+            // 1536 from `prepare_schema` suits production, but a test or caller
+            // wiring a smaller embedder needs the vec0 table rebuilt so the
+            // sync triggers don't reject inserts with a dimension mismatch.
+            if dimensions != 1536 {
+                crate::sqlite::schema::rebuild_idea_vec_table(&conn, dimensions);
+            }
         }
         self.embedder = Some(embedder);
         self.embedding_dimensions = dimensions;

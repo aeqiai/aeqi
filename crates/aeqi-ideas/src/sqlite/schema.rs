@@ -412,58 +412,124 @@ fn migration_v6(conn: &Connection) -> Result<()> {
 
 /// v7 — ANN via sqlite-vec virtual table.
 ///
-/// The `ann-sqlite-vec` feature gates the extension load at runtime. When the
-/// feature is off (current default), this migration is a no-op: the
-/// brute-force cosine path in `sqlite/search.rs` stays active. Agent N
-/// wires the real lookup path in Round 3c.
+/// The `ann-sqlite-vec` feature is default-on; a `--no-default-features`
+/// build compiles the no-op variant and keeps the brute-force cosine path.
+/// Any failure (extension load failure on managed SQLite, older libsqlite,
+/// dimension mismatch) is logged and swallowed so startup never blocks on
+/// ANN-adjacent infrastructure issues.
 ///
-/// When the feature is on, we try to create the virtual table. Any failure
-/// (missing extension, older libsqlite, dimension mismatch) is logged and
-/// swallowed so startup doesn't fail on ANN-adjacent infrastructure issues.
+/// The 1536-dim vec0 table matches production (OpenAI ada-002,
+/// text-embedding-3-small). Callers wiring a smaller embedder via
+/// `with_embedder` rebuild the virtual table with the correct dim via
+/// `rebuild_idea_vec_table`.
 fn migration_v7(conn: &Connection) -> Result<()> {
     #[cfg(feature = "ann-sqlite-vec")]
     {
-        let create =
-            "CREATE VIRTUAL TABLE IF NOT EXISTS idea_vec USING vec0(embedding float[1536])";
-        if let Err(e) = conn.execute(create, []) {
-            tracing::warn!(error = %e, "sqlite-vec virtual table unavailable; falling back to brute-force search");
+        if !install_idea_vec(conn, 1536) {
             return Ok(());
         }
-
-        // Sync triggers: any write to idea_embeddings mirrors into idea_vec.
-        // The rowid of idea_embeddings is the join key.
-        let triggers = "
-            CREATE TRIGGER IF NOT EXISTS idea_vec_sync_insert
-            AFTER INSERT ON idea_embeddings
-            BEGIN
-                INSERT INTO idea_vec(rowid, embedding) VALUES (new.rowid, new.embedding);
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS idea_vec_sync_update
-            AFTER UPDATE ON idea_embeddings
-            BEGIN
-                INSERT OR REPLACE INTO idea_vec(rowid, embedding) VALUES (new.rowid, new.embedding);
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS idea_vec_sync_delete
-            AFTER DELETE ON idea_embeddings
-            BEGIN
-                DELETE FROM idea_vec WHERE rowid = old.rowid;
-            END;
-        ";
-        if let Err(e) = conn.execute_batch(triggers) {
-            tracing::warn!(error = %e, "sqlite-vec trigger setup failed; brute-force search remains active");
+        // Backfill: existing idea_embeddings rows must be mirrored into
+        // idea_vec so the live DB (~295 ideas as of 2026-04-24) becomes
+        // ANN-searchable without waiting for a re-embed. Dimension-mismatch
+        // inserts (e.g. legacy rows with a different dim) are swallowed so
+        // one bad row doesn't sink the migration.
+        //
+        // Since vec0 enforces dim, we filter by LENGTH of the blob: 1536*4
+        // bytes = 6144. Legacy rows with different dims are skipped.
+        let backfill = conn.execute(
+            "INSERT OR IGNORE INTO idea_vec(rowid, embedding) \
+             SELECT rowid, embedding FROM idea_embeddings WHERE LENGTH(embedding) = 1536 * 4",
+            [],
+        );
+        if let Err(e) = backfill {
+            tracing::warn!(error = %e, "idea_vec backfill failed; ANN will only cover ideas written after migration");
         }
     }
     #[cfg(not(feature = "ann-sqlite-vec"))]
     {
         // Feature off: nothing to do. Schema stays brute-force. The migration
         // row is still recorded so a future feature flip doesn't re-run the
-        // no-op. Agent N wires the lookup when turning the feature on.
+        // no-op.
         let _ = conn;
     }
     Ok(())
 }
+
+/// Create the `idea_vec` virtual table at a given dimension and wire the
+/// sync triggers against `idea_embeddings`. Returns false if the virtual
+/// table creation failed (typically because the sqlite-vec extension isn't
+/// available) — the caller should log and fall back to brute-force.
+#[cfg(feature = "ann-sqlite-vec")]
+fn install_idea_vec(conn: &Connection, dimensions: usize) -> bool {
+    let create = format!(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS idea_vec USING vec0(embedding float[{dimensions}])"
+    );
+    if let Err(e) = conn.execute(&create, []) {
+        tracing::warn!(error = %e, "sqlite-vec virtual table unavailable; falling back to brute-force search");
+        return false;
+    }
+
+    // Sync triggers: any write to idea_embeddings mirrors into idea_vec.
+    // The rowid of idea_embeddings is the join key. `INSERT OR IGNORE` on
+    // the INSERT trigger prevents dimension-mismatch writes from bubbling
+    // up and rejecting the outer idea_embeddings insert — in such cases
+    // the ANN table simply skips that row, and vector_search_scoped falls
+    // back to brute-force for it.
+    let triggers = "
+        CREATE TRIGGER IF NOT EXISTS idea_vec_sync_insert
+        AFTER INSERT ON idea_embeddings
+        BEGIN
+            INSERT OR IGNORE INTO idea_vec(rowid, embedding) VALUES (new.rowid, new.embedding);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS idea_vec_sync_update
+        AFTER UPDATE ON idea_embeddings
+        BEGIN
+            INSERT OR REPLACE INTO idea_vec(rowid, embedding) VALUES (new.rowid, new.embedding);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS idea_vec_sync_delete
+        AFTER DELETE ON idea_embeddings
+        BEGIN
+            DELETE FROM idea_vec WHERE rowid = old.rowid;
+        END;
+    ";
+    if let Err(e) = conn.execute_batch(triggers) {
+        tracing::warn!(error = %e, "sqlite-vec trigger setup failed; brute-force search remains active");
+        return false;
+    }
+    true
+}
+
+/// Drop and recreate the `idea_vec` virtual table at a new dimension. Used
+/// when `with_embedder` changes the embedding size (typical in tests, rare
+/// in production). Re-runs the backfill for rows whose blob length matches.
+///
+/// Failures are logged and swallowed: if ANN rebuild fails, the system stays
+/// on the brute-force path.
+#[cfg(feature = "ann-sqlite-vec")]
+pub(super) fn rebuild_idea_vec_table(conn: &Connection, dimensions: usize) {
+    // Drop the existing triggers + virtual table. `idea_vec_sync_insert` has
+    // to go too or we'd fire it during the backfill and double-insert.
+    let _ = conn.execute_batch(
+        "DROP TRIGGER IF EXISTS idea_vec_sync_insert;
+         DROP TRIGGER IF EXISTS idea_vec_sync_update;
+         DROP TRIGGER IF EXISTS idea_vec_sync_delete;
+         DROP TABLE IF EXISTS idea_vec;",
+    );
+    if !install_idea_vec(conn, dimensions) {
+        return;
+    }
+    let byte_len = (dimensions * 4) as i64;
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO idea_vec(rowid, embedding) \
+         SELECT rowid, embedding FROM idea_embeddings WHERE LENGTH(embedding) = ?1",
+        rusqlite::params![byte_len],
+    );
+}
+
+#[cfg(not(feature = "ann-sqlite-vec"))]
+pub(super) fn rebuild_idea_vec_table(_conn: &Connection, _dimensions: usize) {}
 
 /// v8 — active-name uniqueness. The live pre-migration DB had
 /// `idx_ideas_agent_name_unique ON ideas(COALESCE(agent_id,''), name)` that
