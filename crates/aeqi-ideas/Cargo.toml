@@ -6,11 +6,13 @@ license.workspace = true
 description = "Unified idea store — identity, skills, knowledge, memory in one place"
 
 [features]
-default = []
-# Enable the sqlite-vec ANN virtual table + sync triggers (migration v7).
-# Off by default — Round 2 (Agent S) wires only the schema side; Agent N
-# finishes the lookup path in Round 3c.
-ann-sqlite-vec = []
+default = ["ann-sqlite-vec"]
+# ANN via the sqlite-vec virtual table + sync triggers (migration v7).
+# Default ON — the extension is statically linked; a brute-force fallback in
+# `sqlite/search.rs` and `vector.rs` runs when the virtual table isn't
+# available (e.g. `--no-default-features` builds or a runtime extension load
+# failure on hosted SQLite).
+ann-sqlite-vec = ["dep:sqlite-vec"]
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -27,3 +29,4 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 rusqlite = { workspace = true }
 sha2 = { workspace = true }
+sqlite-vec = { version = "0.1.9", optional = true }
