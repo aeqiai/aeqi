@@ -1,3 +1,4 @@
+mod embeddings;
 mod schema;
 mod tags;
 
@@ -112,25 +113,6 @@ impl SqliteIdeas {
         self.keyword_weight = keyword_weight;
         self.mmr_lambda = mmr_lambda;
         Ok(self)
-    }
-
-    /// Compute SHA256 hash of content for embedding cache lookup.
-    fn content_hash(content: &str) -> String {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        format!("{:x}", hasher.finalize())
-    }
-
-    /// Look up a cached embedding by content hash.
-    /// Returns the embedding bytes if a match exists, None otherwise.
-    fn lookup_embedding_by_hash(conn: &Connection, hash: &str) -> Option<Vec<u8>> {
-        conn.query_row(
-            "SELECT embedding FROM idea_embeddings WHERE content_hash = ?1 LIMIT 1",
-            rusqlite::params![hash],
-            |row| row.get(0),
-        )
-        .ok()
     }
 
     // ── Bulk queries for export ──
