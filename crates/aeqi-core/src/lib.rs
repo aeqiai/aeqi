@@ -23,9 +23,11 @@ pub mod streaming_executor;
 pub mod tool_registry;
 pub mod traits;
 
+pub use agent::step_context::{StepEventMeta, StepIdeaSpec};
+pub use agent::tool_result::ContentReplacementState;
 pub use agent::{
-    Agent, AgentConfig, AgentResult, AgentStopReason, ContentReplacementState, LoopNotification,
-    NotificationReceiver, NotificationSender, SessionState, StepEventMeta, StepIdeaSpec,
+    Agent, AgentConfig, AgentResult, AgentStopReason, LoopNotification, NotificationReceiver,
+    NotificationSender, SessionState,
 };
 pub use chat_stream::{ChatStreamEvent, ChatStreamSender, EventBacklog};
 pub use config::{
