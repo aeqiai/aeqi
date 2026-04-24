@@ -99,6 +99,7 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Daemon { action }) => cmd::daemon::cmd_daemon(&cli.config, action).await,
         Some(Commands::Ideas { action }) => cmd::ideas::cmd_ideas(&cli.config, action).await,
+        Some(Commands::Events { action }) => cmd::events::cmd_events(&cli.config, action).await,
         Some(Commands::Pipeline { action }) => {
             cmd::pipeline::cmd_pipeline(&cli.config, action).await
         }

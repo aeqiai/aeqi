@@ -108,6 +108,13 @@ pub enum Commands {
         action: IdeasAction,
     },
 
+    // --- Events ---
+    /// Manage event handlers (schedule, install defaults, etc.).
+    Events {
+        #[command(subcommand)]
+        action: EventsAction,
+    },
+
     // --- Phase 5: Pipelines ---
     /// Pipeline workflow commands.
     Pipeline {
@@ -463,5 +470,41 @@ pub enum IdeasAction {
         /// embedding, tag policy, and edge reconciliation.
         #[arg(long = "no-daemon")]
         no_daemon: bool,
+    },
+    /// Merge tags from a snapshot DB into the live ideas store.
+    ///
+    /// Use this to restore tag data wiped by a past migration — opens the
+    /// snapshot read-only, looks up each idea in the live DB (by name or
+    /// id), and `INSERT OR IGNORE`s missing `idea_tags` rows. Never
+    /// creates new ideas, never overwrites existing tags.
+    RecoverTags {
+        /// Snapshot DB path to read tags from.
+        #[arg(long)]
+        from: std::path::PathBuf,
+        /// How to match ideas between snapshot and live: `name` (default) or `id`.
+        #[arg(long, default_value = "name")]
+        r#match: String,
+        /// Preview changes without writing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip the confirmation prompt.
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum EventsAction {
+    /// Install the two standard schedule events (`daily-digest`,
+    /// `weekly-consolidate`) on every existing agent. Idempotent — rows
+    /// already present are skipped via the unique index.
+    InstallDefaults {
+        /// Restrict the install to named agents. Pass `--agent NAME` per
+        /// target; omit to target every agent in the registry.
+        #[arg(long = "agent")]
+        agents: Vec<String>,
+        /// Preview which agents would gain which events without writing.
+        #[arg(long)]
+        dry_run: bool,
     },
 }
