@@ -34,6 +34,17 @@ pub struct ToolResult {
     /// Only honored for non-concurrent tools (to avoid race conditions).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub context_modifier: Option<ContextModifier>,
+    /// Optional quality signal in `[0.0, 1.0]`. When a tool returns a score the
+    /// dispatcher persists it on `event_invocations.outcome_score` so later
+    /// consolidation can treat it as a generic outcome metric. Out-of-range
+    /// values are clamped at the dispatcher boundary; tools should still keep
+    /// values in range to avoid the warning.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub outcome_score: Option<f64>,
+    /// Optional free-form details accompanying `outcome_score`. Persisted as
+    /// `event_invocations.outcome_details` when present.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub outcome_details: Option<String>,
 }
 
 impl ToolResult {
@@ -43,6 +54,8 @@ impl ToolResult {
             is_error: false,
             data: serde_json::Value::Null,
             context_modifier: None,
+            outcome_score: None,
+            outcome_details: None,
         }
     }
 
@@ -52,6 +65,8 @@ impl ToolResult {
             is_error: true,
             data: serde_json::Value::Null,
             context_modifier: None,
+            outcome_score: None,
+            outcome_details: None,
         }
     }
 
@@ -65,6 +80,20 @@ impl ToolResult {
     /// Attach a context modifier to this result.
     pub fn with_context_modifier(mut self, modifier: ContextModifier) -> Self {
         self.context_modifier = Some(modifier);
+        self
+    }
+
+    /// Attach a quality score in `[0.0, 1.0]`. Out-of-range values are still
+    /// stored verbatim here; clamping happens at the dispatcher boundary so
+    /// the warning fires once per offending tool call.
+    pub fn with_outcome_score(mut self, score: f64) -> Self {
+        self.outcome_score = Some(score);
+        self
+    }
+
+    /// Attach free-form outcome details paired with `outcome_score`.
+    pub fn with_outcome_details(mut self, details: impl Into<String>) -> Self {
+        self.outcome_details = Some(details.into());
         self
     }
 }

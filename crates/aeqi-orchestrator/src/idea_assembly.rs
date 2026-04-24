@@ -623,6 +623,14 @@ async fn dispatch_event_tool_calls_with_trigger(
     };
 
     let mut invocation_error: Option<String> = None;
+    // T1.2 outcome capture. The dispatcher records the *last* tool result's
+    // outcome on the invocation row. Tools can opt in by returning
+    // `outcome_score` (and optionally `outcome_details`) on `ToolResult`. The
+    // score is clamped to [0.0, 1.0] with a warning when out of range so a
+    // single bad tool can't reject the whole invocation. Both stay `None` when
+    // no tool opts in — the legacy zero-behavior path that persists NULLs.
+    let mut invocation_outcome_score: Option<f64> = None;
+    let mut invocation_outcome_details: Option<String> = None;
 
     for (step_index, tc) in event.tool_calls.iter().enumerate() {
         // 1. Substitute placeholders in args (including {last_tool_result}
@@ -698,6 +706,20 @@ async fn dispatch_event_tool_calls_with_trigger(
                     //    `{last_tool_result}` and structured refs
                     //    `{tool_calls.N.output|data.path}`.
                     sub_ctx.insert("last_tool_result".to_string(), result.output.clone());
+
+                    // T1.2 outcome capture. Last opt-in wins on the invocation
+                    // row. Out-of-range values are clamped with a warning so a
+                    // single misbehaving tool never rejects the whole result.
+                    if let Some(raw) = result.outcome_score {
+                        let clamped = clamp_outcome_score(raw, &event.id, &tc.tool);
+                        invocation_outcome_score = Some(clamped);
+                        invocation_outcome_details = result.outcome_details.clone();
+                    } else if result.outcome_details.is_some() {
+                        // Details without a score are still recorded — useful
+                        // for free-form outcome notes (e.g. classifier labels).
+                        invocation_outcome_details = result.outcome_details.clone();
+                    }
+
                     results_so_far.push(result.clone());
 
                     // Only context-producing tools (ideas.*) contribute their
@@ -750,19 +772,64 @@ async fn dispatch_event_tool_calls_with_trigger(
         }
     }
 
-    // Close the invocation trace row.
+    // Close the invocation trace row. When no tool opted in to outcome
+    // tracking, both score and details are `None` and persist as NULL — the
+    // legacy zero-behavior path.
     if let (Some(inv_id), Some(store)) = (invocation_id, &dispatch.session_store) {
         let (status, err) = if let Some(ref e) = invocation_error {
             ("error", Some(e.as_str()))
         } else {
             ("ok", None)
         };
-        if let Err(e) = store.finish_invocation(inv_id, status, err).await {
+        if let Err(e) = store
+            .finish_invocation_with_outcome(
+                inv_id,
+                status,
+                err,
+                invocation_outcome_score,
+                invocation_outcome_details.as_deref(),
+            )
+            .await
+        {
             tracing::warn!(error = %e, "failed to close invocation trace row");
         }
     }
 
     produced_output
+}
+
+/// Clamp a tool-supplied `outcome_score` into `[0.0, 1.0]`. Logs a warning
+/// (with event + tool context) when the value falls outside the range or is
+/// non-finite. Pure helper so it's trivially testable.
+fn clamp_outcome_score(raw: f64, event_id: &str, tool: &str) -> f64 {
+    if !raw.is_finite() {
+        tracing::warn!(
+            event_id = %event_id,
+            tool = %tool,
+            raw = raw,
+            "non-finite outcome_score from tool; clamping to 0.0"
+        );
+        return 0.0;
+    }
+    if raw < 0.0 {
+        tracing::warn!(
+            event_id = %event_id,
+            tool = %tool,
+            raw = raw,
+            "outcome_score below 0.0 from tool; clamping"
+        );
+        return 0.0;
+    }
+    if raw > 1.0 {
+        tracing::warn!(
+            event_id = %event_id,
+            tool = %tool,
+            raw = raw,
+            "outcome_score above 1.0 from tool; clamping"
+        );
+        return 1.0;
+    }
+    raw
 }
 
 /// Walk a JSON value recursively and replace `{key}` placeholders in every
@@ -1732,5 +1799,25 @@ mod tests {
              Either wire `record_fire` for every contributing event, or add the file to \
              DRY_RUN_PATHS in this test with a comment explaining why it's a preview/dry-run path."
         );
+    }
+
+    /// T1.2: `clamp_outcome_score` keeps in-range values, clamps out-of-range
+    /// to `[0.0, 1.0]`, and folds non-finite to `0.0`. Warnings are emitted as
+    /// side effects and not asserted here — the dial is "don't reject the
+    /// whole result", which is what the return value guarantees.
+    #[test]
+    fn t1_2_clamp_outcome_score_clamps_to_unit_interval() {
+        assert!((clamp_outcome_score(0.0, "evt", "tool") - 0.0).abs() < f64::EPSILON);
+        assert!((clamp_outcome_score(0.5, "evt", "tool") - 0.5).abs() < f64::EPSILON);
+        assert!((clamp_outcome_score(1.0, "evt", "tool") - 1.0).abs() < f64::EPSILON);
+        // Above range clamps to 1.0.
+        assert!((clamp_outcome_score(1.5, "evt", "tool") - 1.0).abs() < f64::EPSILON);
+        assert!((clamp_outcome_score(99.0, "evt", "tool") - 1.0).abs() < f64::EPSILON);
+        // Below range clamps to 0.0.
+        assert!((clamp_outcome_score(-0.1, "evt", "tool") - 0.0).abs() < f64::EPSILON);
+        // NaN / infinity fold to 0.0.
+        assert!((clamp_outcome_score(f64::NAN, "evt", "tool") - 0.0).abs() < f64::EPSILON);
+        assert!((clamp_outcome_score(f64::INFINITY, "evt", "tool") - 0.0).abs() < f64::EPSILON);
+        assert!((clamp_outcome_score(f64::NEG_INFINITY, "evt", "tool") - 0.0).abs() < f64::EPSILON);
     }
 }
