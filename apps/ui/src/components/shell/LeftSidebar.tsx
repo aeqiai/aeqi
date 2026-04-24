@@ -97,17 +97,19 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   // layout. The nav row is always mounted; disabled state is purely visual.
   const primitivesDisabled = !agentId;
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
-  // Profile row = "you" as a scope. Clicking it lands on `/` (your
-  // home, the inbox surface); the gear in the topbar takes you to
-  // /settings. Active for both — you're "in yourself" either way,
-  // exactly the way an agent row is active across its own subtree.
+  // Profile row = "you" as a scope, always pointing at the user root.
+  // Clicking it lands on `/` (your home); the gear in the topbar takes
+  // you to /settings. Active for both — you're "in yourself" either
+  // way, exactly the way an agent row stays active across its subtree.
   const profileHref = "/";
   const profileActive = path === "/" || path === "/settings" || path === "/profile";
-  // Inbox is the user-scoped landing — same surface as `/`. Agent
-  // pings, company switcher, summary all live here. No dedicated
-  // /inbox URL; the home route IS the inbox.
-  const inboxHref = "/";
-  const inboxActive = path === inboxHref;
+  // Inbox = scope-aware home. In agent scope it points to the agent's
+  // own home (/:agentId); at the user root it points to `/`. The brand
+  // and the footer profile both already route to `/`, so Inbox doesn't
+  // need to duplicate that — it stays within the current scope so the
+  // user can return to their agent's inbox with one click.
+  const inboxHref = base || "/";
+  const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
 
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
@@ -197,7 +199,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         <a
           className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
           href={inboxHref}
-          title="Inbox — agent pings for you"
+          title={agentId ? "Agent inbox" : "Your inbox"}
           onClick={(e) => {
             e.preventDefault();
             navigate(inboxHref);
