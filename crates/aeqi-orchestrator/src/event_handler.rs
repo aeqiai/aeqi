@@ -695,29 +695,100 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                 },
             ],
         },
+        // ── Agent E (Round 4d) — vanilla memory stack ──────────────────
+        // The reflect-after-quest and inject-recent-context seeds turn the
+        // memory pipeline on by default: on a fresh install, every quest
+        // close triggers a reflector sub-agent that extracts durable facts
+        // as ideas, and every execution start pulls the last handful of
+        // session-sourced ideas into the transcript. No per-agent
+        // configuration required. The reflector persona lives in
+        // presets/seed_ideas/reflector-template.md (meta:reflector-template).
+        //
+        // Placeholders: {session_id}, {transcript_preview} are substituted
+        // by the event dispatcher from trigger_args at fire time.
+        //
+        // We deliberately seed these as *additional* system events against
+        // session:quest_end and session:execution_start — they compose
+        // alongside the existing on_quest_end / on_execution_start seeds
+        // because get_events_for_pattern returns every matching row.
+        MiddlewareSeed {
+            name: "on_reflect_after_quest",
+            pattern: "session:quest_end",
+            tool_calls: vec![ToolCall {
+                tool: "session.spawn".into(),
+                args: serde_json::json!({
+                    "kind": "compactor",
+                    "instructions_idea": "meta:reflector-template",
+                    "seed_content": "{transcript_preview}",
+                    "parent_session": "{session_id}"
+                }),
+            }],
+        },
+        MiddlewareSeed {
+            name: "on_inject_recent_context",
+            pattern: "session:execution_start",
+            tool_calls: vec![
+                ToolCall {
+                    tool: "ideas.search".into(),
+                    args: serde_json::json!({
+                        "query": "recent reflections facts preferences",
+                        "tags": ["source:session", "reflection"],
+                        "top_k": 3
+                    }),
+                },
+                ToolCall {
+                    tool: "transcript.inject".into(),
+                    args: serde_json::json!({
+                        "role": "system",
+                        "content": "Recent context:\n{last_tool_result}"
+                    }),
+                },
+            ],
+        },
     ];
 
-    let all_patterns: &[&str] = &[
-        "session:start",
-        "session:execution_start",
-        "session:quest_start",
-        "session:quest_end",
-        "session:quest_result",
-        "session:step_start",
-        "session:stopped",
-        "context:budget:exceeded",
-        "loop:detected",
-        "guardrail:violation",
-        "graph_guardrail:high_impact",
-        "shell:command_failed",
-        "ideas:threshold_reached",
-    ];
-
-    // Count which patterns already have a global event row.
-    let already_seeded: std::collections::HashSet<String> = {
+    // Middleware seeds are deduped by (agent_id IS NULL, name) so two seeds
+    // can legitimately share a pattern — Agent E's reflect-after-quest lives
+    // alongside the lifecycle seed on_quest_end, for example. Multiple events
+    // per pattern compose at fire time; we must not let on_quest_end's
+    // presence suppress on_reflect_after_quest.
+    let middleware_names: Vec<&'static str> = middleware_seeds.iter().map(|s| s.name).collect();
+    let already_seeded_names: std::collections::HashSet<String> = {
         let db = store.db.lock().await;
         let mut seeded = std::collections::HashSet::new();
-        for pattern in all_patterns {
+        for name in &middleware_names {
+            let exists: bool = db
+                .query_row(
+                    "SELECT 1 FROM events WHERE agent_id IS NULL AND name = ?1 LIMIT 1",
+                    rusqlite::params![name],
+                    |_| Ok(true),
+                )
+                .optional()
+                .unwrap_or(None)
+                .unwrap_or(false);
+            if exists {
+                seeded.insert((*name).to_string());
+            }
+        }
+        seeded
+    };
+
+    // For lifecycle pattern accounting we still want to know which patterns
+    // were present before this run (for the count returned to the caller).
+    let already_seeded_patterns: std::collections::HashSet<String> = {
+        let db = store.db.lock().await;
+        let mut seeded = std::collections::HashSet::new();
+        let lifecycle_only: &[&str] = &[
+            "session:start",
+            "session:execution_start",
+            "session:quest_start",
+            "session:quest_end",
+            "session:quest_result",
+            "session:step_start",
+            "session:stopped",
+            "context:budget:exceeded",
+        ];
+        for pattern in lifecycle_only {
             let exists: bool = db
                 .query_row(
                     "SELECT 1 FROM events WHERE agent_id IS NULL AND pattern = ?1 LIMIT 1",
@@ -728,7 +799,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                 .unwrap_or(None)
                 .unwrap_or(false);
             if exists {
-                seeded.insert(pattern.to_string());
+                seeded.insert((*pattern).to_string());
             }
         }
         seeded
@@ -736,9 +807,9 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
 
     let mut inserted = 0usize;
 
-    // Seed middleware patterns that are not yet present.
+    // Seed middleware events that are not yet present (dedup by name).
     for seed in &middleware_seeds {
-        if already_seeded.contains(seed.pattern) {
+        if already_seeded_names.contains(seed.name) {
             continue;
         }
         store
@@ -773,7 +844,7 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
         "context:budget:exceeded",
     ];
     for pattern in lifecycle_patterns {
-        if !already_seeded.contains(*pattern) {
+        if !already_seeded_patterns.contains(*pattern) {
             inserted += 1;
         }
     }
@@ -1890,9 +1961,11 @@ mod tests {
         assert_eq!(hits[0].name, "exact");
     }
 
-    /// seed_lifecycle_events on an empty store inserts 4 middleware seed events
-    /// (the 8 lifecycle events are handled by create_default_lifecycle_events, which
-    /// runs first on daemon boot). On a re-run it inserts 0.
+    /// seed_lifecycle_events on an empty store inserts 7 middleware seed events
+    /// (4 detectors + ideas:threshold_reached + reflect-after-quest +
+    /// inject-recent-context). The 8 lifecycle events are handled by
+    /// create_default_lifecycle_events, which runs first on daemon boot.
+    /// On a re-run it inserts 0.
     #[tokio::test]
     async fn seed_lifecycle_events_is_idempotent() {
         let store = test_store_with_ideas().await;
@@ -1901,29 +1974,31 @@ mod tests {
         create_default_lifecycle_events(&store).await.unwrap();
 
         // seed_lifecycle_events reports 0 for the lifecycle patterns (already present)
-        // but inserts 5 middleware patterns (4 detectors + ideas:threshold_reached).
+        // but inserts 7 middleware-name seeds. Name-based dedup means
+        // on_reflect_after_quest lands even though session:quest_end already has
+        // an on_quest_end row.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        assert_eq!(n, 5, "should insert 5 middleware seed events on first run");
+        assert_eq!(n, 7, "should insert 7 middleware seed events on first run");
 
-        // Re-run: all 13 patterns exist → no insertions.
+        // Re-run: every name exists → no insertions.
         let n2 = seed_lifecycle_events(&store).await.unwrap();
         assert_eq!(n2, 0, "second run must be a no-op (idempotent)");
     }
 
     /// seed_lifecycle_events on a totally empty store (no lifecycle events yet)
-    /// reports 13 (8 lifecycle + 5 middleware/consolidation) as the count.
+    /// reports 15 (8 lifecycle patterns absent + 7 middleware names inserted).
     #[tokio::test]
     async fn seed_lifecycle_events_counts_missing_lifecycle_patterns() {
         let store = test_store_with_ideas().await;
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 5 middleware patterns are inserted; 8 lifecycle patterns are counted as
+        // 7 middleware-name seeds are inserted; 8 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 13,
-            "should count all 13 missing patterns on a clean store"
+            n, 15,
+            "should count all 15 missing lifecycle+middleware rows on a clean store"
         );
     }
 
@@ -1959,5 +2034,54 @@ mod tests {
                 "middleware seed tool_call must be transcript.inject"
             );
         }
+    }
+
+    /// Agent E (Round 4d) — the vanilla memory stack seeds must be installed
+    /// as additional system events on session:quest_end and
+    /// session:execution_start, composing alongside the existing lifecycle
+    /// seeds rather than replacing them.
+    #[tokio::test]
+    async fn seed_lifecycle_events_installs_vanilla_memory_stack() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+        seed_lifecycle_events(&store).await.unwrap();
+
+        // reflect-after-quest: session:quest_end → session.spawn(reflector)
+        let quest_end = store
+            .get_events_for_exact_pattern("", "session:quest_end")
+            .await;
+        let reflector = quest_end
+            .iter()
+            .find(|e| e.name == "on_reflect_after_quest")
+            .expect("on_reflect_after_quest must be seeded");
+        assert!(reflector.system);
+        assert_eq!(reflector.tool_calls.len(), 1);
+        assert_eq!(reflector.tool_calls[0].tool, "session.spawn");
+        assert_eq!(
+            reflector.tool_calls[0]
+                .args
+                .get("instructions_idea")
+                .and_then(|v| v.as_str()),
+            Some("meta:reflector-template"),
+            "reflector must spawn the meta:reflector-template persona"
+        );
+        // on_quest_end must still be present alongside reflect-after-quest.
+        assert!(
+            quest_end.iter().any(|e| e.name == "on_quest_end"),
+            "on_quest_end lifecycle seed must coexist with reflect-after-quest"
+        );
+
+        // inject-recent-context: session:execution_start → ideas.search +
+        // transcript.inject
+        let exec_start = store
+            .get_events_for_exact_pattern("", "session:execution_start")
+            .await;
+        let injector = exec_start
+            .iter()
+            .find(|e| e.name == "on_inject_recent_context")
+            .expect("on_inject_recent_context must be seeded");
+        assert_eq!(injector.tool_calls.len(), 2);
+        assert_eq!(injector.tool_calls[0].tool, "ideas.search");
+        assert_eq!(injector.tool_calls[1].tool, "transcript.inject");
     }
 }
