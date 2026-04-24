@@ -166,15 +166,11 @@ async fn supersede_via_body_syntax_emits_edge_and_hides_old() {
 //
 // This test exercises the path Agent W's `dispatch_supersede` uses: a
 // direct `IdeaStore::store_idea_edge(new, old, "supersedes", 1.0)` call.
-// It's marked `#[ignore]` because it surfaces an observed round-1-3 bug —
-// `store_idea_edge_impl` round-trips the relation through
-// `serde_json::from_value::<IdeaRelation>` and silently falls back to
-// `Adjacent` for typed relations (`supersedes`, `contradicts`, ...).
-// Tracked in the agent return for orchestrator triage. Un-ignore once
-// the trait method writes the raw relation string.
-
+// Originally `#[ignore]`-tagged because `store_idea_edge_impl` silently
+// downgraded typed relations to `adjacent` via the legacy 3-variant
+// `IdeaRelation` enum. Agent G fixed the impl inline (raw relation strings);
+// the test is now live and guards the fix.
 #[tokio::test]
-#[ignore = "known bug: store_idea_edge downgrades typed relations to 'adjacent' via IdeaRelation fallback — see agent return"]
 async fn supersede_via_store_idea_edge_writes_typed_relation() {
     let (ideas, _dir) = make_store();
 
