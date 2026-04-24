@@ -4,7 +4,7 @@ import { Button } from "./Button";
 import { Badge, StatusBadge } from "./Badge";
 
 const meta: Meta<typeof Card> = {
-  title: "Components/Card",
+  title: "Primitives/Containers/Card",
   component: Card,
   tags: ["autodocs"],
   parameters: {

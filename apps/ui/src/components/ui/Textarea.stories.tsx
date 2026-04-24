@@ -3,7 +3,7 @@ import { Textarea } from "./Textarea";
 import { Button } from "./Button";
 
 const meta: Meta<typeof Textarea> = {
-  title: "Components/Textarea",
+  title: "Primitives/Inputs/Textarea",
   component: Textarea,
   tags: ["autodocs"],
   parameters: {

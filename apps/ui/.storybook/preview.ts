@@ -17,7 +17,15 @@ const preview: Preview = {
     },
     options: {
       storySort: {
-        order: ["Library", "Foundations", "Components", "Feedback"],
+        method: "alphabetical",
+        order: [
+          "Get Started",
+          ["Welcome", "Component Library", "Changelog"],
+          "Foundations",
+          ["Design Language"],
+          "Primitives",
+          ["Actions", "Inputs", "Containers", "Data Display", "Overlays", "Feedback"],
+        ],
       },
     },
     docs: { theme },

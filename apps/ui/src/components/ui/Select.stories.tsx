@@ -18,7 +18,7 @@ const MODEL_OPTIONS = [
 ];
 
 const meta: Meta<typeof Select> = {
-  title: "Components/Select",
+  title: "Primitives/Inputs/Select",
   component: Select,
   tags: ["autodocs"],
 };

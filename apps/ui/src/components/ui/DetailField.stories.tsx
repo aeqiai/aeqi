@@ -4,7 +4,7 @@ import { Badge, StatusBadge } from "./Badge";
 import { TagList } from "./TagList";
 
 const meta: Meta<typeof DetailField> = {
-  title: "Components/DetailField",
+  title: "Primitives/Data Display/DetailField",
   component: DetailField,
   tags: ["autodocs"],
 };

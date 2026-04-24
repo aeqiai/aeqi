@@ -49,7 +49,7 @@ const LARGE_OPTIONS: ComboboxOption[] = Array.from({ length: 60 }, (_, i) => ({
 }));
 
 const meta: Meta<typeof Combobox> = {
-  title: "Components/Combobox",
+  title: "Primitives/Inputs/Combobox",
   component: Combobox,
   tags: ["autodocs"],
   parameters: {

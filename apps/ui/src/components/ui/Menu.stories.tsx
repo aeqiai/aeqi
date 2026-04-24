@@ -40,7 +40,7 @@ const TrashIcon = () => (
 );
 
 const meta: Meta<typeof Menu> = {
-  title: "Components/Menu",
+  title: "Primitives/Actions/Menu",
   component: Menu,
   tags: ["autodocs"],
   parameters: {

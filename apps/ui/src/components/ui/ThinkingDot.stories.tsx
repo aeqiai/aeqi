@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { ThinkingDot } from "./ThinkingDot";
 
 const meta: Meta<typeof ThinkingDot> = {
-  title: "Feedback/ThinkingDot",
+  title: "Primitives/Feedback/ThinkingDot",
   component: ThinkingDot,
   tags: ["autodocs"],
   parameters: {

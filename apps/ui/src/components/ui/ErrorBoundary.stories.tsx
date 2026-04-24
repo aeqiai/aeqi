@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 const meta: Meta<typeof ErrorBoundary> = {
-  title: "Feedback/ErrorBoundary",
+  title: "Primitives/Feedback/ErrorBoundary",
   component: ErrorBoundary,
   tags: ["autodocs"],
 };

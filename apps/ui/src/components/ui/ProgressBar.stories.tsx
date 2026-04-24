@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { ProgressBar } from "./ProgressBar";
 
 const meta: Meta<typeof ProgressBar> = {
-  title: "Components/ProgressBar",
+  title: "Primitives/Data Display/ProgressBar",
   component: ProgressBar,
   tags: ["autodocs"],
   decorators: [

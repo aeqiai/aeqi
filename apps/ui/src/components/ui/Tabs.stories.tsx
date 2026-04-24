@@ -3,7 +3,7 @@ import { Tabs } from "./Tabs";
 import { StatusBadge } from "./Badge";
 
 const meta: Meta<typeof Tabs> = {
-  title: "Components/Tabs",
+  title: "Primitives/Containers/Tabs",
   component: Tabs,
   tags: ["autodocs"],
 };

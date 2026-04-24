@@ -3,7 +3,7 @@ import { DataState } from "./DataState";
 import { StatusBadge } from "./Badge";
 
 const meta: Meta<typeof DataState> = {
-  title: "Feedback/DataState",
+  title: "Primitives/Feedback/DataState",
   component: DataState,
   tags: ["autodocs"],
 };

@@ -5,7 +5,7 @@ import { HeroStats } from "./HeroStats";
 import { Button } from "./Button";
 
 const meta: Meta<typeof Panel> = {
-  title: "Components/Panel",
+  title: "Primitives/Containers/Panel",
   component: Panel,
   tags: ["autodocs"],
   argTypes: {

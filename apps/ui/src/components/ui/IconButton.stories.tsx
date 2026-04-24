@@ -45,7 +45,7 @@ function ChevronIcon() {
 }
 
 const meta: Meta<typeof IconButton> = {
-  title: "Components/IconButton",
+  title: "Primitives/Actions/IconButton",
   component: IconButton,
   tags: ["autodocs"],
   parameters: {

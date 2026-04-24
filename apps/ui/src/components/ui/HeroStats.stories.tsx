@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { HeroStats } from "./HeroStats";
 
 const meta: Meta<typeof HeroStats> = {
-  title: "Components/HeroStats",
+  title: "Primitives/Data Display/HeroStats",
   component: HeroStats,
   tags: ["autodocs"],
 };

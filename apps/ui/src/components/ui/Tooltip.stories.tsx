@@ -4,7 +4,7 @@ import { Button } from "./Button";
 import { Badge } from "./Badge";
 
 const meta: Meta<typeof Tooltip> = {
-  title: "Components/Tooltip",
+  title: "Primitives/Overlays/Tooltip",
   component: Tooltip,
   tags: ["autodocs"],
   parameters: {

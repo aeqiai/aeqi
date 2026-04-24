@@ -3,7 +3,7 @@ import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
 
 const meta: Meta<typeof EmptyState> = {
-  title: "Feedback/EmptyState",
+  title: "Primitives/Feedback/EmptyState",
   component: EmptyState,
   tags: ["autodocs"],
 };

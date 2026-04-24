@@ -3,7 +3,7 @@ import { Input } from "./Input";
 import { Button } from "./Button";
 
 const meta: Meta<typeof Input> = {
-  title: "Components/Input",
+  title: "Primitives/Inputs/Input",
   component: Input,
   tags: ["autodocs"],
 };

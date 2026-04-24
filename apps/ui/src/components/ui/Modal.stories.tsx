@@ -7,7 +7,7 @@ import { Badge } from "./Badge";
 import { DetailField } from "./DetailField";
 
 const meta: Meta<typeof Modal> = {
-  title: "Feedback/Modal",
+  title: "Primitives/Overlays/Modal",
   component: Modal,
   tags: ["autodocs"],
   parameters: {

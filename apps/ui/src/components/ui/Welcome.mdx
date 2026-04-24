@@ -1,0 +1,58 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Get Started/Welcome" />
+
+# aeqi component library
+
+The reference for every primitive exported from `@/components/ui`. Use it
+to look up a component, copy a working example, or check what tokens a
+surface should consume.
+
+## Find what you need
+
+| Goal                                                        | Where to look                       |
+| ----------------------------------------------------------- | ----------------------------------- |
+| Browse every primitive grouped by purpose                   | **Primitives** in the sidebar       |
+| See the design system rules (colors, type, spacing, motion) | **Foundations → Design Language**   |
+| See the full inventory and import surface                   | **Get Started → Component Library** |
+| Jump to a specific primitive by name                        | Press <kbd>/</kbd> to search        |
+| Walk every story for one primitive                          | Click its name, then arrow keys     |
+
+## How the sidebar is organised
+
+**Primitives** is the meat of the library. It splits into six buckets so you
+do not have to scan a flat list of 20+ items:
+
+| Bucket           | What lives here                                                      |
+| ---------------- | -------------------------------------------------------------------- |
+| **Actions**      | `Button`, `IconButton`, `Menu`                                       |
+| **Inputs**       | `Input`, `Textarea`, `Select`, `Combobox`                            |
+| **Containers**   | `Card`, `Panel`, `Tabs`                                              |
+| **Data Display** | `Badge`, `DetailField`, `HeroStats`, `ProgressBar`, `TagList`        |
+| **Overlays**     | `Modal`, `Popover`, `Tooltip`                                        |
+| **Feedback**     | `Spinner`, `ThinkingDot`, `EmptyState`, `DataState`, `ErrorBoundary` |
+
+Every primitive carries `autodocs`, so each entry has a generated **Docs**
+tab with prop tables alongside the hand-written stories.
+
+## Useful keyboard shortcuts
+
+- <kbd>/</kbd> — focus the sidebar search
+- <kbd>S</kbd> — toggle the sidebar
+- <kbd>D</kbd> — switch to the docs view
+- <kbd>C</kbd> — switch to the canvas view
+- <kbd>F</kbd> — go fullscreen on the current story
+- <kbd>A</kbd> — toggle the addons panel
+- <kbd>T</kbd> — toggle the toolbar
+
+## Conventions
+
+- Stories live next to their primitive in `apps/ui/src/components/ui/`.
+- Story title format is `Primitives/<Bucket>/<Primitive>` — match this when
+  you add a new one.
+- Use real strings from the dashboard ("Create Quest", "Assign Agent") in
+  examples, not "Lorem ipsum".
+- Reach for tokens — never hardcode hex, radius, or transition values in a
+  story. Read the **Foundations → Design Language** page for the rules.
+
+If a primitive ships in code without a story, the library is incomplete.

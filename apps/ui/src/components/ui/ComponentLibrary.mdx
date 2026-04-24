@@ -1,13 +1,14 @@
 import { Meta } from "@storybook/blocks";
 
-<Meta title="Library/Component Library" />
+<Meta title="Get Started/Component Library" />
 
-# aeqi component library
+# Component inventory
 
-This Storybook is the public reference for the primitives exported from
-`@/components/ui`.
+This page is the canonical inventory of primitives exported from
+`@/components/ui`. The Welcome page tells you how the sidebar is organised;
+this page tells you what is in the box.
 
-Every primitive in the library should satisfy three conditions:
+Every primitive in the library satisfies three conditions:
 
 - it is exported from `src/components/ui/index.ts`
 - it has at least one Storybook story
@@ -20,6 +21,7 @@ import {
   Badge,
   Button,
   Card,
+  Combobox,
   DataState,
   DetailField,
   EmptyState,
@@ -27,58 +29,86 @@ import {
   HeroStats,
   IconButton,
   Input,
+  Menu,
   Modal,
   Panel,
+  Popover,
   ProgressBar,
+  Select,
   Spinner,
   Tabs,
   TagList,
   Textarea,
+  ThinkingDot,
   Tooltip,
 } from "@/components/ui";
 ```
 
-## Current primitives
+## Primitives by bucket
 
-The current public library exposes 18 primitives.
+The sidebar mirrors these buckets. If you add a new primitive, retitle its
+story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 
-### Actions and input
+### Actions
 
-| Primitive | Purpose |
-| --- | --- |
-| `Button` | Primary, secondary, ghost, and destructive actions |
-| `IconButton` | Dense icon-only actions for toolbars and rows |
-| `Input` | Single-line text input with label, hint, and error support |
-| `Textarea` | Multi-line prose input using the same field language |
+| Primitive    | Purpose                                                 |
+| ------------ | ------------------------------------------------------- |
+| `Button`     | Primary, secondary, ghost, and destructive actions      |
+| `IconButton` | Dense icon-only actions for toolbars and rows           |
+| `Menu`       | Disclosed action list for overflow and per-row controls |
 
-### Structure and data display
+### Inputs
 
-| Primitive | Purpose |
-| --- | --- |
-| `Card` | Generic grouped container with optional header/footer |
-| `Panel` | Opinionated section container with title/actions chrome |
-| `Tabs` | Accessible tablist with counts and panel content |
+| Primitive  | Purpose                                                    |
+| ---------- | ---------------------------------------------------------- |
+| `Input`    | Single-line text input with label, hint, and error support |
+| `Textarea` | Multi-line prose input using the same field language       |
+| `Select`   | Native single-choice dropdown with consistent chrome       |
+| `Combobox` | Searchable single-choice picker over a known option set    |
+
+### Containers
+
+| Primitive | Purpose                                                 |
+| --------- | ------------------------------------------------------- |
+| `Card`    | Generic grouped container with optional header/footer   |
+| `Panel`   | Opinionated section container with title/actions chrome |
+| `Tabs`    | Accessible tablist with counts and panel content        |
+
+### Data Display
+
+| Primitive     | Purpose                                        |
+| ------------- | ---------------------------------------------- |
+| `Badge`       | Status and metadata chips                      |
 | `DetailField` | Label/value pair for settings and detail views |
-| `HeroStats` | Compact stats row for dashboards and summaries |
-| `ProgressBar` | Determinate progress and workload indicators |
-| `TagList` | Tag/chip list with optional empty fallback |
+| `HeroStats`   | Compact stats row for dashboards and summaries |
+| `ProgressBar` | Determinate progress and workload indicators   |
+| `TagList`     | Tag/chip list with optional empty fallback     |
 
-### Feedback, status, and overlays
+### Overlays
 
-| Primitive | Purpose |
-| --- | --- |
-| `Badge` | Status and metadata chips |
-| `EmptyState` | No-data and zero-result placeholders |
-| `DataState` | Loading / empty / content tri-state wrapper |
-| `Spinner` | Loading indicator |
-| `Tooltip` | Hover/focus explanation for dense controls |
-| `Modal` | Dialog shell for confirmations and forms |
-| `ErrorBoundary` | Render fallback UI when a subtree throws |
+| Primitive | Purpose                                           |
+| --------- | ------------------------------------------------- |
+| `Modal`   | Dialog shell for confirmations and forms          |
+| `Popover` | Anchored floating surface for filters and pickers |
+| `Tooltip` | Hover/focus explanation for dense controls        |
 
-## How to read this Storybook
+### Feedback
 
-- `Foundations` documents tokens, surfaces, typography, motion, and rules.
-- `Components` holds reusable UI primitives.
-- `Feedback` holds status, loading, empty, and overlay primitives that are still part of the component library.
+| Primitive       | Purpose                                         |
+| --------------- | ----------------------------------------------- |
+| `Spinner`       | Loading indicator (indeterminate)               |
+| `ThinkingDot`   | Agent-thinking indicator for streaming surfaces |
+| `EmptyState`    | No-data and zero-result placeholders            |
+| `DataState`     | Loading / empty / content tri-state wrapper     |
+| `ErrorBoundary` | Render fallback UI when a subtree throws        |
 
-If a new primitive lands in code but not in Storybook, the library docs are incomplete.
+## Adding a new primitive
+
+1. Start from an existing one (`Input.tsx` / `Input.module.css` are the cleanest template).
+2. Props: `variant`, `size`, `className`, then role-specific props. Always accept `className` and forward it last so call sites can extend.
+3. CSS module: use `--input-*`, `--space-*`, `--radius-*`, `--text-*` tokens only.
+4. Add a Storybook story showing every variant and every size. Title it `Primitives/<bucket>/<name>`.
+5. Export from `src/components/ui/index.ts`.
+6. Add the row to the bucket table above.
+
+If a primitive lands in code but not in this inventory, the library docs are incomplete.
