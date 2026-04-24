@@ -4,7 +4,7 @@
 //! ideas database, plus the `prepare_schema` driver and a versioned migration
 //! runner tracked in `schema_version`.
 //!
-//! # History
+//! # History: one baseline, no migration chain
 //!
 //! This file used to carry nine numbered migrations (`migration_v1` ..
 //! `migration_v9`) that each incrementally reshaped the DB — ALTER TABLEs,
@@ -12,24 +12,22 @@
 //! the partial unique index on active names, and a default-tag backfill.
 //!
 //! On 2026-04-24 (R5 Agent A — Migration Collapse) the v1..v7 chain was
-//! deleted because every deployed DB had already run them (they only
-//! reshape columns on pre-existing data). v8 (partial unique index) and
-//! v9 (default-tag backfill) are kept as normal migrations because at
-//! collapse time the live DB was at `schema_version=7` — it had never
-//! run them. Fresh DBs use `initial_schema` instead and skip the whole
-//! chain in one step.
+//! deleted because every deployed DB had already run them. R9 (same day)
+//! finished the job by deleting v8 and v9: after the platform deploy the
+//! live DB reached `schema_version = 9`, so no DB in the fleet still needs
+//! incremental catch-up. Fresh DBs go straight to `initial_schema` and
+//! legacy DBs (v1..v9) are pure no-ops.
 //!
-//! The runner now recognises three cases:
+//! The runner now recognises two cases:
 //!
 //! 1. **Fresh DB** (`schema_version` empty): apply `initial_schema` and
 //!    stamp `schema_version = 10`. This is the "baseline reached" marker.
-//! 2. **Legacy DB at v1..v7** (pre-partial-unique-index): v8 and v9 run
-//!    incrementally the way they always did; the earlier v1..v7 were
-//!    already applied so their deletion is harmless.
-//! 3. **Legacy DB at v8..v9 or v10**: all migrations already present; skip.
+//! 2. **Legacy DB at v1..v9 (or v10)**: every table, index, and trigger is
+//!    already present. The runner skips `initial_schema` and iterates the
+//!    empty migrations list; no-op.
 //!
-//! Future incremental migrations start at v11 and run via the same
-//! `migrations: &[(i64, Migration)]` dispatch table.
+//! Future incremental migrations start at v11 and slot into the
+//! `migrations: &[(i64, Migration)]` table below.
 //!
 //! # Writing new migrations
 //!
@@ -64,10 +62,10 @@ impl SqliteIdeas {
 ///
 /// * If `schema_version` is empty, runs `initial_schema` in a single
 ///   transaction and stamps `BASELINE_VERSION`.
-/// * If `schema_version.max` is in 1..=9, the DB was migrated by the legacy
-///   chain; any versioned migration newer than `current` in the `migrations`
-///   table still runs. v8 and v9 are retained here because at collapse time
-///   the live DB was at v7 and had yet to apply them.
+/// * If `schema_version.max` is ≥ 1, the DB was migrated by the legacy
+///   v1..v9 chain (or already stamped at baseline). Any versioned migration
+///   newer than `current` in the `migrations` table runs; today that list
+///   is empty, so opening a legacy DB is a pure no-op.
 /// * Future migrations (v11+) slot into the same `migrations` table.
 fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -94,15 +92,11 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
-    // Legacy DBs: v1..v7 are assumed already-applied (the functions are
-    // gone — they only added columns to pre-existing data and every
-    // deployed DB has them). v8 and v9 remain as incrementals because the
-    // live DB was still at v7 when we collapsed.
+    // Legacy DBs at v1..v9 already have every table, index, and trigger.
+    // Future incremental migrations slot into the list below; today it's
+    // empty, so the loop is a no-op.
     type Migration = fn(&Connection) -> Result<()>;
-    let migrations: &[(i64, Migration)] = &[
-        (8, migration_v8_active_name_unique_index),
-        (9, migration_v9_backfill_default_tag),
-    ];
+    let migrations: &[(i64, Migration)] = &[];
     for (version, f) in migrations {
         if *version > current {
             let tx = conn.unchecked_transaction()?;
@@ -114,32 +108,6 @@ fn run_migrations(conn: &Connection) -> Result<()> {
             tx.commit()?;
         }
     }
-    Ok(())
-}
-
-/// v8 — partial unique index on active (agent_id, name). Kept as a live
-/// migration because the production DB was at v7 at collapse time.
-fn migration_v8_active_name_unique_index(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "DROP INDEX IF EXISTS idx_ideas_agent_name_unique;
-         CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_active_unique
-           ON ideas(COALESCE(agent_id, ''), name)
-           WHERE status = 'active';",
-    )?;
-    Ok(())
-}
-
-/// v9 — backfill default `fact` tag for any pre-existing idea missing
-/// a tag row. Mirrors `SqliteIdeas::normalize_tags` defaulting to "fact"
-/// when no tags are supplied. Only matters for legacy DBs; fresh DBs never
-/// have untagged rows because `initial_schema` creates empty tables.
-fn migration_v9_backfill_default_tag(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
-         SELECT id, 'fact' FROM ideas
-         WHERE id NOT IN (SELECT idea_id FROM idea_tags)",
-        [],
-    )?;
     Ok(())
 }
 

@@ -1,18 +1,18 @@
 //! Schema regression tests.
 //!
 //! The old v1..v9 incremental migration chain was collapsed into a single
-//! `initial_schema` baseline on 2026-04-24 (R5 Migration Collapse). These
-//! tests protect three scenarios:
+//! `initial_schema` baseline on 2026-04-24. R5 Agent A deleted v1..v7;
+//! R9 finished the job by deleting v8 and v9 once the live DB reached
+//! `schema_version = 9`. These tests protect three scenarios:
 //!
 //! * Fresh DB: `initial_schema` runs once, DB is stamped at `schema_version=10`.
-//! * Legacy DB still at a pre-v8 version (the real production state at
-//!   collapse time): v8 (partial unique index) and v9 (default-tag backfill)
-//!   still catch up incrementally, without touching the rest of the schema.
-//! * Legacy DB already at v9: a pure no-op.
+//! * Legacy DB already at v9: a pure no-op (no catch-up migrations remain).
 //! * Opening the same DB twice: no-op.
 //!
 //! The tests that used to simulate a pre-v2 DB and watch the migration runner
-//! reshape it are gone — that code path (v1..v7) no longer exists.
+//! reshape it are gone — that code path (v1..v7) no longer exists. The test
+//! that simulated a v7 DB catching up to v9 is also gone — v8 and v9 were
+//! deleted from the runner.
 //!
 //! NOTE: the legacy v3 migration silently cascade-wiped `idea_tags` on
 //! upgrade. That class of bug can't reappear in `initial_schema` (no
@@ -127,8 +127,8 @@ fn table_exists(conn: &Connection, name: &str) -> bool {
 }
 
 /// Build the final-shape schema by hand for legacy-DB simulation. Matches
-/// `initial_schema` minus the v8 partial unique index (which is applied
-/// conditionally by the legacy tests that simulate pre-v8 state).
+/// `initial_schema` (with the v8 partial unique index applied explicitly by
+/// the legacy test that pretends to be a DB stamped at v9).
 fn build_post_v7_shape(conn: &Connection) {
     conn.execute_batch(
         "CREATE TABLE schema_version (
@@ -299,93 +299,11 @@ fn test_fresh_db_has_final_shape() {
     );
 }
 
-/// A DB at `schema_version=7` — the state the production DB was in at
-/// collapse time. It has the full post-v7 shape (all columns, all tables)
-/// but never ran the partial unique index (v8) or the default-tag backfill
-/// (v9). The collapsed runner must catch both up incrementally without
-/// running `initial_schema` (which would explode on duplicate CREATE TABLE
-/// statements against the pre-existing schema).
-#[test]
-fn test_legacy_db_at_v7_catches_up_v8_and_v9() {
-    let dir = TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("legacy-v7.db");
-
-    {
-        let conn = Connection::open(&db_path).expect("open legacy");
-        build_post_v7_shape(&conn);
-
-        for v in 1..=7 {
-            conn.execute(
-                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
-                rusqlite::params![v, "2026-04-20T00:00:00Z"],
-            )
-            .expect("stamp version");
-        }
-
-        // Two untagged ideas — v9 should tag both with 'fact'.
-        conn.execute(
-            "INSERT INTO ideas (id, name, content, created_at) VALUES \
-                ('untagged-a', 'u-a', 'a', '2024-01-01T00:00:00Z'), \
-                ('untagged-b', 'u-b', 'b', '2024-01-02T00:00:00Z')",
-            [],
-        )
-        .expect("seed untagged");
-    }
-
-    // Open through the new runner. v8 and v9 should run; v10 must NOT be
-    // stamped (initial_schema doesn't run on non-fresh DBs).
-    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open legacy v7");
-
-    let conn = Connection::open(&db_path).expect("reinspect");
-
-    let versions: Vec<i64> = conn
-        .prepare("SELECT version FROM schema_version ORDER BY version")
-        .expect("prepare")
-        .query_map([], |r| r.get::<_, i64>(0))
-        .expect("query")
-        .filter_map(Result::ok)
-        .collect();
-    assert_eq!(
-        versions,
-        (1..=9).collect::<Vec<_>>(),
-        "v8 and v9 must have been applied; v10 must NOT be stamped on legacy"
-    );
-
-    // v8's unique index exists now.
-    let indexes = index_names(&conn);
-    assert!(
-        indexes.contains(&"idx_ideas_agent_name_active_unique".to_string()),
-        "v8 partial unique index missing after catch-up; got {indexes:?}"
-    );
-
-    // v9 backfilled tags for both untagged rows.
-    let tagged_ids: Vec<String> = conn
-        .prepare("SELECT idea_id FROM idea_tags WHERE tag = 'fact' ORDER BY idea_id")
-        .expect("prepare")
-        .query_map([], |r| r.get::<_, String>(0))
-        .expect("query")
-        .filter_map(Result::ok)
-        .collect();
-    assert_eq!(
-        tagged_ids,
-        vec!["untagged-a".to_string(), "untagged-b".to_string()],
-        "v9 must backfill a 'fact' tag for every untagged idea"
-    );
-
-    // Re-opening is still a no-op on the now-caught-up DB.
-    drop(_ideas);
-    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
-    drop(_second);
-    let tag_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM idea_tags", [], |r| r.get(0))
-        .expect("count");
-    assert_eq!(tag_count, 2, "re-open must not duplicate backfilled tags");
-}
-
 /// A DB that was migrated by the full legacy v1..v9 chain carries
 /// `schema_version` rows 1..9. Opening it through the new runner must be a
 /// pure no-op: no re-running of CREATE TABLE (which would error), no extra
-/// schema_version rows, no data loss.
+/// schema_version rows, no data loss. This is the permanent legacy path
+/// now that v8 and v9 migration functions have been deleted.
 #[test]
 fn test_legacy_db_with_schema_version_9_is_noop() {
     let dir = TempDir::new().expect("tempdir");
