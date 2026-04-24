@@ -835,6 +835,50 @@ mod tests {
         );
     }
 
+    /// Regression: `update_full` (the path `dispatch_merge` uses) must
+    /// refresh `ideas.content_hash` whenever the `content` column changes.
+    /// If the hash stays stale, `lookup_embedding_by_hash` on the row would
+    /// return the PRE-merge embedding even though the row carries the
+    /// POST-merge content — a freshness hygiene bug.
+    #[tokio::test]
+    async fn test_update_full_refreshes_content_hash() {
+        use aeqi_core::traits::UpdateFull;
+        let (mem, _dir) = test_ideas();
+
+        let id = mem
+            .store("merge-target", "original body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        let merged = "original body\n\n--- merged at now ---\nnew fragment";
+        let patch = UpdateFull {
+            content: Some(merged.to_string()),
+            tags: None,
+            confidence: None,
+            embedding_pending: Some(true),
+            updated_at: Some(chrono::Utc::now()),
+            valid_until: None,
+            status: None,
+        };
+        mem.update_full_impl(&id, patch).await.unwrap();
+
+        let conn = mem.conn.lock().unwrap();
+        let stored_hash: Option<String> = conn
+            .query_row(
+                "SELECT content_hash FROM ideas WHERE id = ?1",
+                rusqlite::params![&id],
+                |row| row.get(0),
+            )
+            .optional()
+            .unwrap();
+
+        assert_eq!(
+            stored_hash,
+            Some(SqliteIdeas::content_hash(merged)),
+            "update_full with new content must refresh ideas.content_hash"
+        );
+    }
+
     #[tokio::test]
     async fn test_content_hash_deterministic() {
         let h1 = SqliteIdeas::content_hash("hello world");
