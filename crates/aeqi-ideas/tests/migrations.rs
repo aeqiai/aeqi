@@ -386,3 +386,170 @@ fn test_fresh_db_gets_full_schema() {
         );
     }
 }
+
+/// v9 — every pre-existing idea that lacks a row in `idea_tags` should
+/// receive the default `fact` tag after the migration runs. Mirrors the
+/// live-DB state investigated on 2026-04-24: 333 ideas, 0 tag rows.
+///
+/// Root cause of the 0-tag state: the v3 migration does `DROP TABLE ideas`
+/// before recreating it, which cascades through the
+/// `idea_tags(idea_id) REFERENCES ideas(id) ON DELETE CASCADE` foreign key
+/// and deletes every tag row on upgrade. v9 restores the invariant that
+/// every idea has at least one tag (`normalize_tags` default = `fact`).
+#[test]
+fn test_migration_v9_backfills_default_tag_for_untagged_ideas() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("untagged.db");
+
+    // Hand-build the v1 schema and insert rows without touching idea_tags —
+    // mirroring the observed production state after v3 cascade-wiped tags.
+    {
+        let conn = Connection::open(&db_path).expect("open legacy db");
+        seed_v1_schema(&conn);
+        insert_v1_row(
+            &conn,
+            "untagged-a",
+            "alpha",
+            "alpha body",
+            "2024-01-01T00:00:00Z",
+        );
+        insert_v1_row(
+            &conn,
+            "untagged-b",
+            "beta",
+            "beta body",
+            "2024-06-15T12:30:00Z",
+        );
+        insert_v1_row(
+            &conn,
+            "untagged-c",
+            "gamma",
+            "gamma body",
+            "2025-03-01T00:00:00Z",
+        );
+    }
+
+    // Run migrations.
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open + migrate");
+
+    let conn = Connection::open(&db_path).expect("inspect db");
+
+    let max_version: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+            [],
+            |r| r.get(0),
+        )
+        .expect("read schema_version");
+    assert!(
+        max_version >= 9,
+        "expected schema_version >= 9 after v9 migration, got {max_version}"
+    );
+
+    // Every idea now has at least one tag row.
+    let untagged: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM ideas i \
+             LEFT JOIN idea_tags t ON t.idea_id = i.id \
+             WHERE t.idea_id IS NULL",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count untagged");
+    assert_eq!(untagged, 0, "v9 must backfill every untagged idea");
+
+    // Every previously-untagged row got the default `fact` tag.
+    for id in &["untagged-a", "untagged-b", "untagged-c"] {
+        let tag: String = conn
+            .query_row(
+                "SELECT tag FROM idea_tags WHERE idea_id = ?1",
+                rusqlite::params![id],
+                |r| r.get(0),
+            )
+            .expect("read backfilled tag");
+        assert_eq!(tag, "fact", "row {id}: expected default 'fact' tag");
+    }
+}
+
+/// v9 must NOT clobber ideas that already have tags. We simulate this by
+/// running the migrations once, manually adding a user tag to an idea that
+/// has only 'fact', then re-running migrations — the user tag survives,
+/// and v9 doesn't add a second 'fact' row.
+#[test]
+fn test_migration_v9_does_not_duplicate_existing_tags() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("preserve-tags.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open legacy db");
+        seed_v1_schema(&conn);
+        insert_v1_row(&conn, "keep", "keep", "body", "2024-01-01T00:00:00Z");
+    }
+
+    // First migration pass — backfills 'fact'.
+    let _first = SqliteIdeas::open(&db_path, 30.0).expect("first open");
+    drop(_first);
+
+    // Simulate a user tagging this idea with something custom.
+    {
+        let conn = Connection::open(&db_path).expect("second raw open");
+        conn.execute(
+            "INSERT INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+            rusqlite::params!["keep", "user-tag"],
+        )
+        .expect("insert user tag");
+    }
+
+    // Re-open — v9 is already applied per schema_version, so it should be a
+    // no-op. Even hypothetically, the guarded WHERE clause prevents
+    // double-inserts.
+    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
+    drop(_second);
+
+    let conn = Connection::open(&db_path).expect("inspect");
+    let mut stmt = conn
+        .prepare("SELECT tag FROM idea_tags WHERE idea_id = 'keep' ORDER BY tag")
+        .expect("prepare");
+    let tags: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert_eq!(
+        tags,
+        vec!["fact".to_string(), "user-tag".to_string()],
+        "both the backfilled 'fact' tag and the user-added 'user-tag' must coexist"
+    );
+}
+
+/// v9 is idempotent — re-running the migration runner (simulated by a
+/// second `SqliteIdeas::open`) must not duplicate tag rows.
+#[test]
+fn test_migration_v9_is_idempotent() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("v9-idem.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open legacy db");
+        seed_v1_schema(&conn);
+        insert_v1_row(&conn, "id-x", "x", "x body", "2024-01-01T00:00:00Z");
+    }
+
+    let _first = SqliteIdeas::open(&db_path, 30.0).expect("first open");
+    drop(_first);
+    let _second = SqliteIdeas::open(&db_path, 30.0).expect("second open");
+    drop(_second);
+
+    let conn = Connection::open(&db_path).expect("inspect");
+    let tag_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM idea_tags WHERE idea_id = 'id-x'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count tags");
+    assert_eq!(
+        tag_count, 1,
+        "v9 must be idempotent: re-running cannot duplicate the default tag row"
+    );
+}

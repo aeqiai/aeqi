@@ -12,6 +12,8 @@
 //! - v5 — `idea_access_log` and `idea_feedback` tables.
 //! - v6 — bi-temporal columns (`valid_from`, `valid_until`, `time_context`).
 //! - v7 — ANN vector table (feature-gated behind `ann-sqlite-vec`).
+//! - v8 — partial unique index on `ideas(agent_id, name) WHERE status='active'`.
+//! - v9 — backfill default `fact` tag for ideas missing a row in `idea_tags`.
 
 use super::SqliteIdeas;
 use crate::vector::VectorStore;
@@ -150,6 +152,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         (6, migration_v6),
         (7, migration_v7),
         (8, migration_v8),
+        (9, migration_v9),
     ];
 
     for (version, f) in migrations {
@@ -543,6 +546,34 @@ fn migration_v8(conn: &Connection) -> Result<()> {
          CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_active_unique
            ON ideas(COALESCE(agent_id, ''), name)
            WHERE status = 'active';",
+    )?;
+    Ok(())
+}
+
+/// v9 — backfill default `fact` tag for untagged ideas.
+///
+/// Investigation 2026-04-24: the live production DB (`~/.aeqi/aeqi.db`) had
+/// all 333 ideas with **zero** rows in `idea_tags`, despite the write-path
+/// `normalize_tags` defaulting to `["fact"]` when no tags are supplied. The
+/// 1668-tag-row claim from an earlier pass was stale or pointed at a
+/// different DB; M's smoke test report was correct.
+///
+/// Root cause is out of scope here — either pre-normalize-tags ideas never
+/// got a row inserted into `idea_tags`, or a historical migration dropped the
+/// table. Either way, the invariant is clear: every active idea should have
+/// at least one tag. Tag-filtered retrieval (`query_tag_filter`, tag-scoped
+/// search) silently drops any idea without a tag row, so the backfill is
+/// load-bearing.
+///
+/// Mirrors `SqliteIdeas::normalize_tags`' default of `"fact"`. Runs once;
+/// subsequent writes are handled by the normal store path. `INSERT OR IGNORE`
+/// means re-running (e.g. after a manual idea_tags repair) can't duplicate.
+fn migration_v9(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO idea_tags (idea_id, tag)
+         SELECT id, 'fact' FROM ideas
+         WHERE id NOT IN (SELECT idea_id FROM idea_tags)",
+        [],
     )?;
     Ok(())
 }
