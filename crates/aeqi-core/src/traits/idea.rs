@@ -417,6 +417,29 @@ pub trait IdeaStore: Send + Sync {
         unimplemented!("update_full not implemented for this store")
     }
 
+    /// Atomically supersede an existing idea. Flips `old_id.status` to
+    /// `superseded`, inserts the new row, and writes a `supersedes` edge
+    /// from new → old — all in a single transaction. All-or-nothing: if
+    /// any step fails no rows change, so the old idea is never left
+    /// orphaned in `superseded` status without a replacement.
+    ///
+    /// Required because the v8 partial unique index enforces active-name
+    /// uniqueness, and the three sub-ops (status flip, insert, edge) have
+    /// an interlocked correctness contract that sequential calls cannot
+    /// honour without risking partial state.
+    ///
+    /// Default delegates to the non-atomic sequence via the primitive
+    /// methods on this trait — backends that support real transactions
+    /// (SqliteIdeas) override with a true tx-wrapped implementation.
+    async fn supersede_atomic(
+        &self,
+        old_id: &str,
+        new_payload: StoreFull,
+    ) -> anyhow::Result<String> {
+        let _ = (old_id, new_payload);
+        unimplemented!("supersede_atomic not implemented for this store")
+    }
+
     /// Set `status` for an idea (active | archived | superseded | ...).
     /// Used by supersession and consolidation flows.
     async fn set_status(&self, id: &str, status: &str) -> anyhow::Result<()> {

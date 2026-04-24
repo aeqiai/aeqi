@@ -272,6 +272,10 @@ impl IdeaStore for SqliteIdeas {
         self.update_full_impl(id, patch).await
     }
 
+    async fn supersede_atomic(&self, old_id: &str, new_payload: StoreFull) -> Result<String> {
+        self.supersede_atomic_impl(old_id, new_payload).await
+    }
+
     async fn set_status(&self, id: &str, status: &str) -> Result<()> {
         self.set_status_impl(id, status).await
     }

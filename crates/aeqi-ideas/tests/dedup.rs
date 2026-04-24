@@ -324,3 +324,130 @@ async fn include_superseded_surfaces_archived_rows() {
         "include_superseded must also include the new (active) row"
     );
 }
+
+// ── 5. supersede_atomic — all-or-nothing contract ──────────────────────
+//
+// The atomic path flips old → superseded, inserts the new row, and writes
+// the `supersedes` edge inside a single transaction. On success we see all
+// three effects; on failure none of them should have landed.
+
+#[tokio::test]
+async fn supersede_atomic_commits_all_three_effects() {
+    let (ideas, _dir) = make_store();
+
+    let old_id = ideas
+        .store_full(store_full(
+            "policy-rule",
+            "first version of the policy",
+            &["fact"],
+        ))
+        .await
+        .unwrap();
+
+    let new_payload = store_full("policy-rule", "second version of the policy", &["fact"]);
+    let new_id = ideas
+        .supersede_atomic(&old_id, new_payload)
+        .await
+        .expect("supersede_atomic must succeed when the old id exists");
+    assert_ne!(new_id, old_id, "supersede returns a freshly-minted id");
+
+    // 1. Old row is now `superseded` — the active-name slot points at the
+    //    new row, not the old one.
+    let active = ideas
+        .get_active_id_by_name("policy-rule", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        active.as_deref(),
+        Some(new_id.as_str()),
+        "partial unique index should point at the new row after atomic supersede"
+    );
+
+    // 2. New row is directly retrievable.
+    let rows = ideas
+        .get_by_ids(std::slice::from_ref(&new_id))
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1, "new row must be fetchable by id");
+    assert_eq!(rows[0].name, "policy-rule");
+    assert!(rows[0].content.contains("second version"));
+
+    // 3. Supersedes edge new → old.
+    let edges = ideas.idea_edges(&new_id).await.unwrap();
+    assert!(
+        edges
+            .links
+            .iter()
+            .any(|e| e.other_id == old_id && e.relation == "supersedes"),
+        "supersedes edge new → old must land atomically"
+    );
+}
+
+#[tokio::test]
+async fn supersede_atomic_rolls_back_on_missing_old() {
+    let (ideas, _dir) = make_store();
+
+    // No old row — supersede_atomic should refuse without mutating state.
+    let payload = store_full("ghost", "content", &["fact"]);
+    let result = ideas.supersede_atomic("does-not-exist", payload).await;
+    assert!(result.is_err(), "missing old_id must surface as an error");
+
+    // No row landed under the proposed name — the tx rolled back.
+    let hits = ideas
+        .get_by_ids(&["does-not-exist".to_string()])
+        .await
+        .unwrap_or_default();
+    assert!(hits.is_empty(), "no row should exist under does-not-exist");
+    let search = ideas.search(&IdeaQuery::new("ghost", 10)).await.unwrap();
+    assert!(search.is_empty(), "no partial insert should be visible");
+}
+
+#[tokio::test]
+async fn supersede_atomic_rejects_when_new_name_collides_with_active() {
+    // Two active rows with distinct names; supersede_atomic invoked with
+    // `old_id = row-a` but `new_payload.name = row-b.name` must trip the
+    // partial unique index inside the tx, surface as an error, and leave
+    // both original rows `active` with no edge written.
+    let (ideas, _dir) = make_store();
+
+    let a_id = ideas
+        .store_full(store_full("row-a", "body a", &["fact"]))
+        .await
+        .unwrap();
+    let b_id = ideas
+        .store_full(store_full("row-b", "body b", &["fact"]))
+        .await
+        .unwrap();
+
+    // The new payload tries to claim the name `row-b` while a is the one
+    // being superseded. After step 1 row-a is `superseded`, but step 2
+    // attempting to insert another active `row-b` collides with the
+    // partial unique index — tx rolls back.
+    let bad = store_full("row-b", "hostile replacement", &["fact"]);
+    let result = ideas.supersede_atomic(&a_id, bad).await;
+    assert!(
+        result.is_err(),
+        "name collision inside supersede_atomic must error"
+    );
+
+    // Both rows should still be `active` (tx rollback).
+    let a_active = ideas.get_active_id_by_name("row-a", None).await.unwrap();
+    assert_eq!(
+        a_active.as_deref(),
+        Some(a_id.as_str()),
+        "row-a must stay active after rollback"
+    );
+    let b_active = ideas.get_active_id_by_name("row-b", None).await.unwrap();
+    assert_eq!(
+        b_active.as_deref(),
+        Some(b_id.as_str()),
+        "row-b must stay active after rollback"
+    );
+
+    // No supersedes edge should have been written from any new id.
+    let a_edges = ideas.idea_edges(&a_id).await.unwrap();
+    assert!(
+        a_edges.backlinks.iter().all(|e| e.relation != "supersedes"),
+        "no supersedes edge should point at row-a after rollback"
+    );
+}
