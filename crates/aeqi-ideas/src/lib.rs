@@ -13,8 +13,8 @@ pub mod inline_links;
 pub mod lifecycle;
 pub mod obsidian;
 pub mod redact;
-pub mod retrieval;
 pub mod sqlite;
+pub mod ttl;
 pub mod vector;
 
 pub use hybrid::{ScoredResult, merge_scores, mmr_rerank};
