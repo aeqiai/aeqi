@@ -11,11 +11,17 @@ pub mod graph;
 pub mod hybrid;
 pub mod inline_links;
 pub mod obsidian;
+pub mod recall_cache;
 pub mod redact;
 pub mod sqlite;
+pub mod tag_policy;
+pub mod tag_ranker;
 pub mod temporal_filter;
 pub mod vector;
 
 pub use hybrid::{ScoredResult, merge_scores, mmr_rerank};
+pub use recall_cache::{CacheKey, RecallCache};
 pub use sqlite::SqliteIdeas;
+pub use tag_policy::{TagPolicy, TagPolicyCache};
+pub use tag_ranker::TagRanker;
 pub use vector::{VectorStore, cosine_similarity};
