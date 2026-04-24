@@ -271,9 +271,12 @@
   opacity: 1;
 }
 
-/* ── Avatar slot inside a sidebar-nav-item (same footprint as SVG icons) ── */
+/* ── Avatar slot inside a sidebar-nav-item.
+   16px matches both the SVG icon column (Home, Inbox, primitives) and
+   the tree's .iconSlot, so a profile row with an avatar lines up on
+   the same vertical axis as every other identity row in the rail. */
 .sidebar-nav-avatar {
-  width: 22px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -644,22 +647,23 @@
   flex-direction: column;
   flex-shrink: 0;
   gap: 2px;
-  padding: 4px 8px 0;
+  /* Bottom inset matches .sidebar-search-row's bottom inset (8px),
+     so the gap above the search pill mirrors the gap below it. */
+  padding: 4px 8px 8px;
 }
 .left-sidebar.collapsed .sidebar-user-zone .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
 }
-/* Footer row — profile link on the left, tiny `?` help affordance on
-   the right. The `?` used to live in the content topbar; moving it
-   down here lets the topbar carry only navigation context, and groups
-   the two "you / about the app" affordances together. */
-.sidebar-footer-row {
+/* User-zone row — profile link on the left, tiny `?` help affordance
+   on the right. Groups the two "you / about the app" affordances
+   together on a single row. */
+.sidebar-user-zone-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.sidebar-footer-row > .sidebar-nav-item {
+.sidebar-user-zone-row > .sidebar-nav-item {
   flex: 1;
   min-width: 0;
 }

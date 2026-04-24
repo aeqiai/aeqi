@@ -205,19 +205,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="sidebar-user-zone">
-        <a
-          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-          href={inboxHref}
-          title="Inbox — agent pings for you"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(inboxHref);
-          }}
-        >
-          <InboxIcon />
-          <span className="sidebar-nav-label">Inbox</span>
-        </a>
-        <div className="sidebar-footer-row">
+        <div className="sidebar-user-zone-row">
           <a
             className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
             href={profileHref}
@@ -250,6 +238,18 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             ?
           </button>
         </div>
+        <a
+          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+          href={inboxHref}
+          title="Inbox — agent pings for you"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(inboxHref);
+          }}
+        >
+          <InboxIcon />
+          <span className="sidebar-nav-label">Inbox</span>
+        </a>
       </div>
 
       <div className="sidebar-search-row">
