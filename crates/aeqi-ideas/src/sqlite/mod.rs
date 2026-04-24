@@ -114,7 +114,6 @@ impl SqliteIdeas {
         self.mmr_lambda = mmr_lambda;
         Ok(self)
     }
-
 }
 
 #[async_trait]
