@@ -76,3 +76,15 @@ Given a seed_content that lists 7 session-sourced ideas about the JWT flow:
 
 (The surrounding triple backticks are for clarity here only — your actual
 output must be the bare JSON array with no fences.)
+
+## Example of a correct skip
+
+seed_content contains a cluster under tag `preference` with 3 members. That's below the 5-member floor — skip it. Do not emit a meta-idea for that cluster; return it as absent from your output. A cluster with 4 members about the same JWT rotation policy? Also skip — the size rule is a hard floor, not a suggestion.
+
+Similarly, a cluster under tag `evergreen` with 12 members: skip. `evergreen` is durable on purpose; consolidating it would erase the per-claim provenance that made the content evergreen in the first place.
+
+The only correct output when nothing qualifies is:
+
+```
+[]
+```

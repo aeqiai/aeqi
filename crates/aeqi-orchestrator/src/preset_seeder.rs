@@ -520,6 +520,17 @@ mod tests {
             "meta:tag-policy:source:session",
             "meta:tag-policy:meta",
             "meta:tag-policy:reflection",
+            "meta:tag-policy:identity",
+        ];
+        // How-to skills that teach agents to operate the four primitives.
+        // Named so a file rename is a compile-time-visible regression.
+        const REQUIRED_HOW_TOS: &[&str] = &[
+            "create-idea",
+            "create-quest",
+            "create-event",
+            "spawn-subagent",
+            "evolve-identity",
+            "manage-tools",
         ];
 
         let (_tmp, store) = setup_store().await;
@@ -545,7 +556,11 @@ mod tests {
             std::env::remove_var("AEQI_PRESETS_DIR");
         }
 
-        for required in REQUIRED_PERSONAS.iter().chain(REQUIRED_POLICIES.iter()) {
+        for required in REQUIRED_PERSONAS
+            .iter()
+            .chain(REQUIRED_POLICIES.iter())
+            .chain(REQUIRED_HOW_TOS.iter())
+        {
             let seen = results.iter().any(|r| r.name == *required);
             assert!(
                 seen,

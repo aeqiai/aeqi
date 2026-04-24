@@ -36,3 +36,22 @@ Cloning for a new scope? Store a new `identity`-tagged idea, then hire a new age
 - A specialist overlaps with generic-you → fork and diverge.
 
 Identity is the smallest block of text that, on re-reading, makes you *you* again.
+
+## Example
+
+Over three sessions the user keeps saying "don't apologize, just fix it". It's a recurring correction — amend identity rather than storing a new preference idea each time.
+
+Find it, then overwrite:
+
+```
+ideas(action='search', query='vanilla-assistant', top_k=3)
+// → id: idea-abc123, name: 'vanilla-assistant'
+
+ideas(action='update',
+      id='idea-abc123',
+      content='<existing body>\n\n## Acknowledgement style\n\nNo apologies, no hedging preamble. If the user flags a mistake, fix it silently and move on. One line if confirmation is needed; none if the fix speaks for itself.')
+```
+
+The id is preserved, so every event with `idea_ids=['idea-abc123']` still resolves. The rule is active on the next session.
+
+If you catch yourself amending the same identity idea for a *different* specialisation (e.g. adding Rust-specific review criteria), that's the signal to fork — store a new `identity`-tagged idea for the specialist and hire a new agent against it. Identity drift is how generic-you slowly eats specialists' lunches.

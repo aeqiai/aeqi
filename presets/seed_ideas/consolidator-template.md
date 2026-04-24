@@ -76,3 +76,20 @@ Given `Tag=source:session:X`, `Candidate IDs: a, b, c, d, e`:
 
 (The surrounding triple backticks are for clarity here only — your actual
 output must be the bare JSON array with no fences.)
+
+## Example of a correct skip
+
+Unlike the daily/weekly reflectors, you were fired by a tag-policy threshold — the decision to consolidate has already been made upstream. Your equivalent of a skip is when every candidate carries an excluded tag (e.g. all five candidates are tagged `evergreen`). In that case emit a single meta-idea whose content notes the deliberate no-op:
+
+```
+[
+  {
+    "name": "consolidated/source:session:X/2026-04-24-noop",
+    "content": "All candidates under this threshold were tagged evergreen/skill/identity and excluded from synthesis. distilled_into:[[a]] [[b]] [[c]] [[d]] [[e]]",
+    "tags": ["source:session:X", "consolidated"],
+    "confidence": 1.0
+  }
+]
+```
+
+This keeps the provenance chain intact (the archival step still fires) without pretending you synthesised something. What you must NEVER do: silently return `[]` and leave the threshold trip unresolved — the tag will trip again immediately and you'll loop.
