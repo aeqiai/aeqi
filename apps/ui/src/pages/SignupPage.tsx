@@ -33,13 +33,6 @@ const GithubIcon = () => (
   </svg>
 );
 
-const POINTS = [
-  "Agents ship code, run ops, chase growth",
-  "Treasury, cap table, payroll — one audit trail",
-  "On-chain ownership and settlement",
-  "Open source. Self-hostable. Free to launch.",
-];
-
 const TEMPLATE_LABELS: Record<string, string> = {
   software: "Software Agent",
   research: "Research Agent",
@@ -527,14 +520,11 @@ export default function SignupPage() {
 
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <h2 className="signup-pitch-heading">The company runs itself.</h2>
-          <ul className="signup-points">
-            {POINTS.map((p) => (
-              <li key={p} className="signup-point">
-                {p}
-              </li>
-            ))}
-          </ul>
+          <h2 className="signup-pitch-heading">Build something that can work without you.</h2>
+          <p className="signup-lead">
+            Launch ownable agents that work, earn, and grow into companies.
+          </p>
+          <p className="signup-trust">Open source. Self-hostable. Free to start.</p>
           <div className="signup-cta-section">
             <a
               href="https://booking.aeqi.ai"
