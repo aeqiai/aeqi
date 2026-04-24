@@ -98,6 +98,13 @@ pub struct EventInvocationRow {
     pub status: String,
     pub error: Option<String>,
     pub tool_calls_json: String,
+    /// Optional quality signal in `[0.0, 1.0]` recorded by the dispatcher when a
+    /// tool result carried `outcome_score`. NULL on legacy rows and on
+    /// invocations whose tools did not opt in. T1.2 of the universality plan.
+    pub outcome_score: Option<f64>,
+    /// Free-form details paired with `outcome_score`. NULL when the dispatcher
+    /// has nothing to record.
+    pub outcome_details: Option<String>,
 }
 
 /// A row from `event_invocation_steps` — one tool call within an invocation.
@@ -141,6 +148,33 @@ pub struct SessionStore {
     db: Arc<crate::agent_registry::ConnectionPool>,
     /// Max messages per session before auto-summarization kicks in.
     pub max_messages_per_chat: usize,
+}
+
+/// Idempotent migration that adds the T1.2 outcome columns
+/// (`outcome_score REAL`, `outcome_details TEXT`) to legacy `event_invocations`
+/// tables. Fresh DBs already get the columns from `create_invocation_tables`'s
+/// CREATE TABLE — this helper exists for DBs that were created before T1.2
+/// landed. Pure ADD COLUMN, never destructive.
+fn ensure_invocation_outcome_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(event_invocations)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.contains("outcome_score") {
+        conn.execute(
+            "ALTER TABLE event_invocations ADD COLUMN outcome_score REAL",
+            [],
+        )?;
+    }
+    if !cols.contains("outcome_details") {
+        conn.execute(
+            "ALTER TABLE event_invocations ADD COLUMN outcome_details TEXT",
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 impl SessionStore {
@@ -273,6 +307,12 @@ impl SessionStore {
 
     /// Create the event invocation tracing tables.
     /// Called from `create_tables` so they are always present.
+    ///
+    /// `outcome_score` and `outcome_details` were added by T1.2 of the
+    /// universality plan as optional, additive quality-signal columns. They are
+    /// NULL by default and only populated when an event tool returns the
+    /// matching fields on its `ToolResult`. Legacy DBs catch up via
+    /// `ensure_invocation_outcome_columns`.
     pub fn create_invocation_tables(conn: &Connection) -> Result<()> {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS event_invocations (
@@ -285,7 +325,9 @@ impl SessionStore {
                  finished_at TEXT,
                  status TEXT NOT NULL,
                  error TEXT,
-                 tool_calls_json TEXT NOT NULL
+                 tool_calls_json TEXT NOT NULL,
+                 outcome_score REAL,
+                 outcome_details TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_event_invocations_session
                  ON event_invocations(session_id, started_at DESC);
@@ -304,6 +346,9 @@ impl SessionStore {
              );",
         )
         .context("failed to create event invocation tables")?;
+
+        ensure_invocation_outcome_columns(conn)
+            .context("failed to ensure outcome columns on event_invocations")?;
         Ok(())
     }
 
@@ -1717,13 +1762,37 @@ impl SessionStore {
         status: &str,
         error: Option<&str>,
     ) -> Result<()> {
+        self.finish_invocation_with_outcome(invocation_id, status, error, None, None)
+            .await
+    }
+
+    /// Close an invocation record with optional outcome score and details.
+    /// `outcome_score` is expected to be in `[0.0, 1.0]` (callers clamp at the
+    /// dispatcher boundary so the warning fires once per offending tool call).
+    /// `None` for either column persists NULL — the legacy zero-behavior path.
+    pub async fn finish_invocation_with_outcome(
+        &self,
+        invocation_id: i64,
+        status: &str,
+        error: Option<&str>,
+        outcome_score: Option<f64>,
+        outcome_details: Option<&str>,
+    ) -> Result<()> {
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
         db.execute(
             "UPDATE event_invocations \
-             SET finished_at = ?1, status = ?2, error = ?3 \
-             WHERE id = ?4",
-            params![now, status, error, invocation_id],
+             SET finished_at = ?1, status = ?2, error = ?3, \
+                 outcome_score = ?4, outcome_details = ?5 \
+             WHERE id = ?6",
+            params![
+                now,
+                status,
+                error,
+                outcome_score,
+                outcome_details,
+                invocation_id
+            ],
         )
         .context("failed to update event_invocation")?;
         Ok(())
@@ -1738,7 +1807,8 @@ impl SessionStore {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT id, session_id, pattern, event_name, caller_kind, \
-                    started_at, finished_at, status, error, tool_calls_json \
+                    started_at, finished_at, status, error, tool_calls_json, \
+                    outcome_score, outcome_details \
              FROM event_invocations \
              WHERE session_id = ?1 \
              ORDER BY started_at DESC, id DESC \
@@ -1757,6 +1827,8 @@ impl SessionStore {
                     status: row.get(7)?,
                     error: row.get(8)?,
                     tool_calls_json: row.get(9)?,
+                    outcome_score: row.get(10)?,
+                    outcome_details: row.get(11)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -1773,7 +1845,8 @@ impl SessionStore {
         let inv = db
             .query_row(
                 "SELECT id, session_id, pattern, event_name, caller_kind, \
-                        started_at, finished_at, status, error, tool_calls_json \
+                        started_at, finished_at, status, error, tool_calls_json, \
+                        outcome_score, outcome_details \
                  FROM event_invocations WHERE id = ?1",
                 params![invocation_id],
                 |row| {
@@ -1788,6 +1861,8 @@ impl SessionStore {
                         status: row.get(7)?,
                         error: row.get(8)?,
                         tool_calls_json: row.get(9)?,
+                        outcome_score: row.get(10)?,
+                        outcome_details: row.get(11)?,
                     })
                 },
             )
@@ -2763,5 +2838,155 @@ mod tests {
             steps[0].result_summary.as_deref().map(|s| s.len()),
             Some(2001)
         );
+    }
+
+    // ── T1.2 outcome columns (universality plan) ──────────────────────────
+
+    /// Fresh DB after `create_invocation_tables` exposes both T1.2 columns
+    /// and they default to NULL. Re-running the helper is a no-op (the
+    /// migration is idempotent) and keeps existing rows untouched.
+    #[tokio::test]
+    async fn t1_2_outcome_columns_present_and_default_null_idempotent() {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+            SessionStore::create_tables(&conn).unwrap();
+            // Idempotent re-application — must not error or duplicate columns.
+            SessionStore::create_invocation_tables(&conn).unwrap();
+            ensure_invocation_outcome_columns(&conn).unwrap();
+            ensure_invocation_outcome_columns(&conn).unwrap();
+
+            let mut stmt = conn
+                .prepare("PRAGMA table_info(event_invocations)")
+                .unwrap();
+            let cols: std::collections::HashSet<String> = stmt
+                .query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect();
+            assert!(cols.contains("outcome_score"), "outcome_score missing");
+            assert!(cols.contains("outcome_details"), "outcome_details missing");
+        }
+
+        let store = SessionStore::new(Arc::new(pool));
+        let inv_id = store
+            .start_invocation("t1-2-fresh", "p:x", None, "Event", "[]")
+            .await
+            .unwrap();
+        store.finish_invocation(inv_id, "ok", None).await.unwrap();
+        let (row, _) = store.get_invocation_detail(inv_id).await.unwrap();
+        assert!(row.outcome_score.is_none());
+        assert!(row.outcome_details.is_none());
+    }
+
+    /// Simulate a legacy DB that pre-dates T1.2 (no outcome columns) and
+    /// confirm the migration adds them without losing data.
+    #[tokio::test]
+    async fn t1_2_migration_applies_to_legacy_db_without_data_loss() {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+
+            // Hand-build the pre-T1.2 shape.
+            conn.execute_batch(
+                "CREATE TABLE event_invocations (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     session_id TEXT NOT NULL,
+                     pattern TEXT NOT NULL,
+                     event_name TEXT,
+                     caller_kind TEXT NOT NULL,
+                     started_at TEXT NOT NULL,
+                     finished_at TEXT,
+                     status TEXT NOT NULL,
+                     error TEXT,
+                     tool_calls_json TEXT NOT NULL
+                 );
+                 CREATE TABLE event_invocation_steps (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     invocation_id INTEGER NOT NULL REFERENCES event_invocations(id),
+                     step_index INTEGER NOT NULL,
+                     tool_name TEXT NOT NULL,
+                     args_json TEXT NOT NULL,
+                     started_at TEXT NOT NULL,
+                     finished_at TEXT,
+                     result_summary TEXT,
+                     status TEXT NOT NULL,
+                     error TEXT
+                 );",
+            )
+            .unwrap();
+
+            // Pre-existing legacy row.
+            conn.execute(
+                "INSERT INTO event_invocations \
+                 (session_id, pattern, event_name, caller_kind, started_at, status, tool_calls_json) \
+                 VALUES ('legacy', 'session:start', 'on_start', 'Event', '2026-04-25T00:00:00Z', 'ok', '[]')",
+                [],
+            )
+            .unwrap();
+
+            // Simulate the rest of `create_tables` so SessionStore methods work.
+            // We only need session_messages + sessions for `get_invocation_detail`
+            // — but get_invocation_detail only reads event_invocation*, so
+            // creating just the missing message tables is unnecessary. The
+            // migration alone is enough; the assertion verifies it.
+            ensure_invocation_outcome_columns(&conn).unwrap();
+
+            let mut stmt = conn
+                .prepare("PRAGMA table_info(event_invocations)")
+                .unwrap();
+            let cols: std::collections::HashSet<String> = stmt
+                .query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect();
+            assert!(cols.contains("outcome_score"));
+            assert!(cols.contains("outcome_details"));
+
+            // Legacy row survives with NULL outcomes.
+            let (legacy_session, score, details): (String, Option<f64>, Option<String>) = conn
+                .query_row(
+                    "SELECT session_id, outcome_score, outcome_details \
+                     FROM event_invocations WHERE id = 1",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(legacy_session, "legacy");
+            assert!(score.is_none());
+            assert!(details.is_none());
+        }
+    }
+
+    /// `finish_invocation_with_outcome` persists the supplied score/details.
+    #[tokio::test]
+    async fn t1_2_finish_invocation_persists_outcome_score_and_details() {
+        let store = test_store().await;
+        let inv_id = store
+            .start_invocation("t1-2-score", "p:x", None, "Event", "[]")
+            .await
+            .unwrap();
+        store
+            .finish_invocation_with_outcome(inv_id, "ok", None, Some(0.7), Some("worked"))
+            .await
+            .unwrap();
+        let (row, _) = store.get_invocation_detail(inv_id).await.unwrap();
+        assert!((row.outcome_score.unwrap() - 0.7).abs() < f64::EPSILON);
+        assert_eq!(row.outcome_details.as_deref(), Some("worked"));
+    }
+
+    /// Default `finish_invocation` (no outcome) leaves both columns NULL —
+    /// the legacy zero-behavior path required by the neutral-dial invariant.
+    #[tokio::test]
+    async fn t1_2_finish_invocation_without_outcome_persists_null() {
+        let store = test_store().await;
+        let inv_id = store
+            .start_invocation("t1-2-null", "p:x", None, "Event", "[]")
+            .await
+            .unwrap();
+        store.finish_invocation(inv_id, "ok", None).await.unwrap();
+        let (row, _) = store.get_invocation_detail(inv_id).await.unwrap();
+        assert!(row.outcome_score.is_none());
+        assert!(row.outcome_details.is_none());
     }
 }

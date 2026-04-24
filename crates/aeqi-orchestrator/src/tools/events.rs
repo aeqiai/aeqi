@@ -58,6 +58,8 @@ impl Tool for EventsTool {
                         is_error: true,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     });
                 };
 
@@ -147,12 +149,16 @@ impl Tool for EventsTool {
                         is_error: false,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed to create event: {e}"),
                         is_error: true,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                 }
             }
@@ -207,6 +213,8 @@ impl Tool for EventsTool {
                     is_error: false,
                     data: serde_json::Value::Null,
                     context_modifier: None,
+                    outcome_score: None,
+                    outcome_details: None,
                 })
             }
 
@@ -226,12 +234,16 @@ impl Tool for EventsTool {
                         is_error: false,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed: {e}"),
                         is_error: true,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                 }
             }
@@ -248,12 +260,16 @@ impl Tool for EventsTool {
                         is_error: false,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                     Err(e) => Ok(ToolResult {
                         output: format!("Failed: {e}"),
                         is_error: true,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     }),
                 }
             }
@@ -265,6 +281,8 @@ impl Tool for EventsTool {
                 is_error: true,
                 data: serde_json::Value::Null,
                 context_modifier: None,
+                outcome_score: None,
+                outcome_details: None,
             }),
         }
     }

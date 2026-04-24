@@ -360,6 +360,8 @@ impl CodeTool {
                         is_error: false,
                         data: serde_json::Value::Null,
                         context_modifier: None,
+                        outcome_score: None,
+                        outcome_details: None,
                     });
                 }
                 let results: Vec<String> = messages
@@ -379,6 +381,8 @@ impl CodeTool {
                     is_error: false,
                     data: serde_json::Value::Null,
                     context_modifier: None,
+                    outcome_score: None,
+                    outcome_details: None,
                 })
             }
             Err(e) => Ok(ToolResult {
@@ -386,6 +390,8 @@ impl CodeTool {
                 is_error: true,
                 data: serde_json::Value::Null,
                 context_modifier: None,
+                outcome_score: None,
+                outcome_details: None,
             }),
         }
     }
