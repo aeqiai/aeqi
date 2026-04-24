@@ -44,13 +44,13 @@ pub async fn classify_failure(
         return None;
     }
 
-    let prompt =
-        FailureAnalysis::analysis_prompt(inputs.subject, inputs.description, inputs.error_text);
+    let request_text =
+        FailureAnalysis::analysis_request(inputs.subject, inputs.description, inputs.error_text);
     let request = ChatRequest {
         model: model.to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: MessageContent::text(&prompt),
+            content: MessageContent::text(&request_text),
         }],
         tools: vec![],
         max_tokens: 256,

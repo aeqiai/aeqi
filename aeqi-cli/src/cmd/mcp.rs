@@ -1047,14 +1047,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
 
                                 match community {
                                     Some(comm) => {
-                                        let synthesized = aeqi_graph::synthesize_prompt(
+                                        let summary = aeqi_graph::synthesize_summary(
                                             comm, &all_nodes, &all_edges,
                                         );
                                         Ok(serde_json::json!({
                                             "ok": true,
-                                            "prompt_name": synthesized.name,
-                                            "description": synthesized.description,
-                                            "content": synthesized.content,
+                                            "name": summary.name,
+                                            "description": summary.description,
+                                            "content": summary.content,
                                         }))
                                     }
                                     None => {

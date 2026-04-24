@@ -29,7 +29,7 @@ pub use agent::{
 };
 pub use chat_stream::{ChatStreamEvent, ChatStreamSender, EventBacklog};
 pub use config::{
-    AEQIConfig, AgentPromptConfig, AgentSpawnConfig, AgentTriggerConfig, ContextBudgetConfig,
+    AEQIConfig, AgentSpawnConfig, AgentSystemConfig, AgentTriggerConfig, ContextBudgetConfig,
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
 };
@@ -37,7 +37,7 @@ pub use detector::{DetectedPattern, DetectionContext, PatternDetector, ToolCallR
 pub use hooks::{
     HookAction, HookRule, HookTrigger, HooksObserver, load_hooks_from_dir, match_hooks,
 };
-pub use prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
+pub use prompt::{AssembledContext, PromptScope, ToolRestrictions};
 pub use scope::Scope;
 pub use security::SecretStore;
 pub use tool_registry::{CallerKind, ExecutionContext, PatternDispatcher, ToolRegistry};

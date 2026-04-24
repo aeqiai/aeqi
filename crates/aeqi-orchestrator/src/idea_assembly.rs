@@ -1,8 +1,8 @@
-//! Idea assembly — event-driven prompt construction.
+//! Idea assembly — event-driven context construction.
 //!
 //! Walks the agent ancestor chain, collects ideas activated by the
 //! target event pattern, and concatenates their content into a single
-//! system prompt. Tool restrictions from each idea merge across the set
+//! assembled context. Tool restrictions from each idea merge across the set
 //! (intersection of allows, union of denies). Scope controls whether an
 //! ancestor's idea reaches the target agent.
 //!
@@ -30,7 +30,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use aeqi_core::prompt::{AssembledPrompt, PromptScope, ToolRestrictions};
+use aeqi_core::prompt::{AssembledContext, PromptScope, ToolRestrictions};
 use aeqi_core::tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
 use aeqi_core::traits::{Idea, IdeaStore};
 
@@ -62,7 +62,7 @@ pub struct AssemblyContext {
     pub quest_description: Option<String>,
 }
 
-/// Assemble the foundational system prompt for a session — `session:start`
+/// Assemble the foundational context for a session — `session:start`
 /// ideas only. This is the stable, once-per-session context (identity, role,
 /// skills) that persists across every turn and iteration.
 ///
@@ -83,7 +83,7 @@ pub async fn assemble_ideas(
     agent_id: &str,
     task_idea_ids: &[String],
     tool_dispatch: Option<&ToolDispatch<'_>>,
-) -> AssembledPrompt {
+) -> AssembledContext {
     assemble_ideas_for_patterns(
         registry,
         idea_store,
@@ -98,8 +98,8 @@ pub async fn assemble_ideas(
 }
 
 /// Assemble the per-turn refresh context — `session:execution_start` ideas
-/// only. Returned as an `AssembledPrompt` (string + tool restrictions) so the
-/// caller can merge tool restrictions with the foundational prompt if any.
+/// only. Returned as an `AssembledContext` (string + tool restrictions) so the
+/// caller can merge tool restrictions with the foundational context if any.
 ///
 /// The resulting `.system` string is injected ephemerally by the agent as a
 /// system message appended AFTER the user message on every LLM request within
@@ -110,7 +110,7 @@ pub async fn assemble_execution_context(
     event_store: &EventHandlerStore,
     agent_id: &str,
     tool_dispatch: Option<&ToolDispatch<'_>>,
-) -> AssembledPrompt {
+) -> AssembledContext {
     assemble_ideas_for_patterns(
         registry,
         idea_store,
@@ -124,7 +124,7 @@ pub async fn assemble_execution_context(
     .await
 }
 
-/// Assemble the prompt for a quest-start moment. Covers both session:start
+/// Assemble the context for a quest-start moment. Covers both session:start
 /// (session-scoped context) and session:quest_start (quest-scoped context),
 /// with `quest_description` threaded into any query_template that references
 /// it — this is how the closed learning loop surfaces promoted skills
@@ -141,7 +141,7 @@ pub async fn assemble_ideas_for_quest_start(
     task_idea_ids: &[String],
     quest_description: &str,
     tool_dispatch: Option<&ToolDispatch<'_>>,
-) -> AssembledPrompt {
+) -> AssembledContext {
     let context = AssemblyContext {
         quest_description: Some(quest_description.to_string()),
         ..AssemblyContext::default()
@@ -261,7 +261,7 @@ pub async fn assemble_ideas_for_pattern(
     event_pattern: &str,
     context: &AssemblyContext,
     tool_dispatch: Option<&ToolDispatch<'_>>,
-) -> AssembledPrompt {
+) -> AssembledContext {
     assemble_ideas_for_patterns(
         registry,
         idea_store,
@@ -293,7 +293,7 @@ pub async fn assemble_ideas_for_patterns(
     event_patterns: &[&str],
     context: &AssemblyContext,
     tool_dispatch: Option<&ToolDispatch<'_>>,
-) -> AssembledPrompt {
+) -> AssembledContext {
     // get_ancestors returns [self, parent, grandparent, ..., root].
     // We want root-first ordering.
     let ancestors = registry.get_ancestors(agent_id).await.unwrap_or_default();
@@ -474,7 +474,7 @@ pub async fn assemble_ideas_for_patterns(
     deny_all.sort();
     deny_all.dedup();
 
-    AssembledPrompt {
+    AssembledContext {
         system: parts.join("\n\n---\n\n"),
         tools: ToolRestrictions {
             allow: merged_allow,
@@ -1030,7 +1030,7 @@ mod tests {
     /// Stub idea store that captures `hierarchical_search` queries and
     /// returns one pre-seeded idea. Used to prove the on_quest_start path
     /// expands `{quest_description}` and merges the returned idea into the
-    /// assembled prompt — this is the lu-005 closed-loop wiring.
+    /// assembled context — this is the lu-005 closed-loop wiring.
     struct StubIdeaStore {
         seen_queries: Mutex<Vec<String>>,
         idea: Idea,
@@ -1149,7 +1149,7 @@ mod tests {
 
         assert!(
             assembled.system.contains("Prefer TDD for this quest type."),
-            "assembled prompt must merge the promoted skill content, got: {:?}",
+            "assembled context must merge the promoted skill content, got: {:?}",
             assembled.system
         );
 

@@ -32,7 +32,7 @@ use crate::skill_loader::SkillLoader;
 
 /// What kind of session to spawn.
 /// Options for spawning a session. Every field is optional context —
-/// spawn_session works with just agent_id + prompt + provider.
+/// spawn_session works with just agent_id + input + provider.
 pub struct SpawnOptions {
     /// Existing session id to bind the running agent loop to.
     pub session_id: Option<String>,
@@ -42,16 +42,16 @@ pub struct SpawnOptions {
     pub parent_id: Option<String>,
     /// Quest being executed (links session to quest).
     pub quest_id: Option<String>,
-    /// Session prompts to inject (prompt + tool filter). Multiple allowed.
+    /// Skills to inject into this session (name + tool filter). Multiple allowed.
     pub skills: Vec<String>,
     /// Close session automatically when agent.run() completes.
     /// Default: true. Set false for persistent/interactive sessions.
     pub auto_close: bool,
-    /// Record the initial prompt into the session store.
-    pub record_initial_prompt: bool,
+    /// Record the initial user message into the session store.
+    pub record_initial_message: bool,
     /// Label for the session (shown in UI sidebar).
     pub name: Option<String>,
-    /// Sender identity for the initial prompt (who started this session).
+    /// Sender identity for the initial message (who started this session).
     pub sender_id: Option<String>,
     /// Transport that originated this session (e.g. "web", "telegram", "ipc").
     pub transport: Option<String>,
@@ -88,7 +88,7 @@ impl Default for SpawnOptions {
             quest_id: None,
             skills: Vec::new(),
             auto_close: true,
-            record_initial_prompt: true,
+            record_initial_message: true,
             name: None,
             sender_id: None,
             transport: None,
@@ -147,8 +147,8 @@ impl SpawnOptions {
         self
     }
 
-    pub fn without_initial_prompt_record(mut self) -> Self {
-        self.record_initial_prompt = false;
+    pub fn without_initial_message_record(mut self) -> Self {
+        self.record_initial_message = false;
         self
     }
 
@@ -381,7 +381,7 @@ impl SessionManager {
     pub async fn spawn_session(
         &self,
         agent_id_or_hint: &str,
-        prompt: &str,
+        input: &str,
         provider: Arc<dyn Provider>,
         opts: SpawnOptions,
     ) -> anyhow::Result<SpawnedSession> {
@@ -446,7 +446,7 @@ impl SessionManager {
             Vec::new()
         };
 
-        // 2. Assemble prompt from ancestor chain.
+        // 2. Assemble context from ancestor chain.
         //    Event-driven: events define which ideas activate at session start.
         let event_store = self
             .event_store
@@ -879,7 +879,7 @@ impl SessionManager {
             .await;
             let mut worker_ctx = crate::middleware::WorkerContext::new(
                 opts.quest_id.clone().unwrap_or_default(),
-                prompt.chars().take(500).collect::<String>(),
+                input.chars().take(500).collect::<String>(),
                 &agent_name,
                 &self.default_project,
             );
@@ -1221,8 +1221,8 @@ impl SessionManager {
                 .extend(fire_pattern("session:execution_start", aid, &mut seen_event_ids).await);
         }
 
-        // 10. Record prompt as user message (with sender identity when available).
-        if opts.record_initial_prompt
+        // 10. Record initial user message into the session store.
+        if opts.record_initial_message
             && let Some(ref ss) = self.session_store
         {
             let _ = ss
@@ -1230,7 +1230,7 @@ impl SessionManager {
                     &session_id,
                     "message",
                     "user",
-                    prompt,
+                    input,
                     Some(session_type_str),
                     None,
                     opts.sender_id.as_deref(),
@@ -1240,7 +1240,7 @@ impl SessionManager {
         }
 
         // 11. Spawn via tokio::spawn.
-        let prompt_owned = prompt.to_string();
+        let input_owned = input.to_string();
         let ss_clone = self.session_store.clone();
         let sid_clone = session_id.clone();
         let is_interactive_spawn = is_interactive;
@@ -1254,7 +1254,7 @@ impl SessionManager {
             // Dropped when this task completes, unblocking the next queued
             // spawn_session call for the same session_id.
             let _exec_guard = exec_guard;
-            let result = agent.run(&prompt_owned).await;
+            let result = agent.run(&input_owned).await;
             // On completion, record result and close session (unless Interactive — those
             // stay open until explicitly closed).
             if !is_interactive_spawn && let (Some(ss), Ok(r)) = (&ss_clone, &result) {

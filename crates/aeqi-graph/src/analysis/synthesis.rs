@@ -3,22 +3,22 @@ use std::collections::HashMap;
 use crate::analysis::community::Community;
 use crate::schema::{CodeEdge, CodeNode, EdgeType, NodeLabel};
 
-/// A synthesized prompt document generated from community analysis.
+/// A synthesized knowledge document generated from community analysis.
 #[derive(Debug, Clone)]
-pub struct SynthesizedPrompt {
+pub struct GraphSummary {
     pub name: String,
     pub description: String,
     pub content: String,
 }
 
-/// Synthesize a prompt document from a community's structure.
+/// Synthesize a knowledge document from a community's structure.
 /// Analyzes the community's symbols, call patterns, file distribution,
-/// and generates a structured knowledge document.
-pub fn synthesize_prompt(
+/// and generates a structured graph summary.
+pub fn synthesize_summary(
     community: &Community,
     all_nodes: &[CodeNode],
     all_edges: &[CodeEdge],
-) -> SynthesizedPrompt {
+) -> GraphSummary {
     let member_set: std::collections::HashSet<&str> =
         community.members.iter().map(|s| s.as_str()).collect();
 
@@ -181,7 +181,7 @@ pub fn synthesize_prompt(
         content.push_str(&format!("- `{file}`\n"));
     }
 
-    SynthesizedPrompt {
+    GraphSummary {
         name,
         description,
         content,
@@ -257,7 +257,7 @@ mod tests {
             keywords: vec!["Observer".to_string()],
         };
 
-        let p = synthesize_prompt(&community, &nodes, &edges);
+        let p = synthesize_summary(&community, &nodes, &edges);
         assert_eq!(p.name, "observer-system");
         assert!(p.content.contains("Observer"));
         assert!(p.content.contains("LogObserver"));
