@@ -33,4 +33,9 @@ rand = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# `aeqi-test-support` depends on `aeqi-orchestrator` to expose
+# `TestHarness` (a full `CommandContext` builder). Cargo permits this
+# dev-dep back-edge because dev-deps are excluded from the non-test
+# dependency graph. Integration tests under `tests/` can therefore
+# `use aeqi_test_support::TestHarness;` safely.
 aeqi-test-support = { workspace = true }

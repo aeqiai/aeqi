@@ -211,10 +211,17 @@ name = "aeqi-test-support"
 version = "0.8.0"
 dependencies = [
  "aeqi-core",
+ "aeqi-ideas",
+ "aeqi-orchestrator",
  "anyhow",
  "async-trait",
  "chrono",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
  "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
