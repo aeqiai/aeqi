@@ -174,8 +174,6 @@ impl Tool for TelegramReactTool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // ── TelegramReplyTool argument validation ──
 
     #[test]

@@ -348,12 +348,14 @@ pub async fn purge_test_identity_ideas(store: &EventHandlerStore) -> Result<Vec<
 mod tests {
     use super::*;
     use crate::agent_registry::AgentRegistry;
-    use std::sync::Mutex;
     use tempfile::tempdir;
+    use tokio::sync::Mutex;
 
     /// Serialize any test that mutates the shared `AEQI_PRESETS_DIR` env var
-    /// so parallel tests don't trample each other's env setup.
-    static PRESETS_ENV_LOCK: Mutex<()> = Mutex::new(());
+    /// so parallel tests don't trample each other's env setup. Uses a tokio
+    /// Mutex so the guard can be held across `.await` without triggering
+    /// `await_holding_lock`.
+    static PRESETS_ENV_LOCK: Mutex<()> = Mutex::const_new(());
 
     async fn setup_store() -> (tempfile::TempDir, EventHandlerStore) {
         let tmp = tempdir().unwrap();
@@ -445,7 +447,7 @@ mod tests {
         let (_tmp, store) = setup_store().await;
         // Isolate the env so tests don't pick up the repo's own presets dir.
         // Serialize with other tests that mutate AEQI_PRESETS_DIR.
-        let _guard = PRESETS_ENV_LOCK.lock().unwrap();
+        let _guard = PRESETS_ENV_LOCK.lock().await;
         unsafe {
             std::env::set_var("AEQI_PRESETS_DIR", "/nonexistent/path/that/does/not/exist");
         }
@@ -488,7 +490,7 @@ mod tests {
             presets_dir.display(),
         );
 
-        let _guard = PRESETS_ENV_LOCK.lock().unwrap();
+        let _guard = PRESETS_ENV_LOCK.lock().await;
         unsafe {
             std::env::set_var("AEQI_PRESETS_DIR", &presets_dir);
         }

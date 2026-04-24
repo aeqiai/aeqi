@@ -133,6 +133,31 @@ pub async fn enqueue(
 ///    `ChatStreamEvent::UserInjected`. Verified at the `SessionStore` level
 ///    (the production impl of `PendingMessageSource`) and at the `Agent` level
 ///    via a single-step run with a spy source.
+pub async fn recover_on_boot(
+    store: Arc<SessionStore>,
+    executor: Arc<dyn SessionExecutor>,
+) -> Result<()> {
+    let dropped = store.recover_orphaned_running().await?;
+    if dropped > 0 {
+        info!(
+            dropped,
+            "dropped orphaned 'running' rows from crashed daemon"
+        );
+    }
+
+    let sessions = store.sessions_with_queued().await?;
+    if !sessions.is_empty() {
+        info!(
+            count = sessions.len(),
+            "resuming drain for sessions with queued work"
+        );
+    }
+    for session_id in sessions {
+        spawn_claim_loop(store.clone(), executor.clone(), session_id);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -512,29 +537,4 @@ mod tests {
             );
         }
     }
-}
-
-pub async fn recover_on_boot(
-    store: Arc<SessionStore>,
-    executor: Arc<dyn SessionExecutor>,
-) -> Result<()> {
-    let dropped = store.recover_orphaned_running().await?;
-    if dropped > 0 {
-        info!(
-            dropped,
-            "dropped orphaned 'running' rows from crashed daemon"
-        );
-    }
-
-    let sessions = store.sessions_with_queued().await?;
-    if !sessions.is_empty() {
-        info!(
-            count = sessions.len(),
-            "resuming drain for sessions with queued work"
-        );
-    }
-    for session_id in sessions {
-        spawn_claim_loop(store.clone(), executor.clone(), session_id);
-    }
-    Ok(())
 }
