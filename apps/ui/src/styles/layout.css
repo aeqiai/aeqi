@@ -633,18 +633,20 @@
   align-items: center;
 }
 
-/* ── Sidebar footer — identity anchor.
-   Pinned at the bottom of the rail (Linear pattern). No top border —
-   the row reads as the tail of the tree, not a separate module.
-   Bottom padding matches .content-card's so both rails share a
-   baseline above the footer strip. */
-.sidebar-footer {
+/* ── Sidebar user zone — identity anchor, now at the top.
+   Inbox + profile live above the search bar because they're both
+   user-scoped (cross-agent), same scope as search itself. Grouping
+   them at the top keeps a single "you" band before the agent-scoped
+   surface nav starts. No bottom border — the search row below and
+   its spacing carry the separation. */
+.sidebar-user-zone {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  padding: 8px 8px 12px;
+  gap: 2px;
+  padding: 4px 8px 0;
 }
-.left-sidebar.collapsed .sidebar-footer .sidebar-nav-item {
+.left-sidebar.collapsed .sidebar-user-zone .sidebar-nav-item {
   justify-content: center;
   padding: 8px;
 }
@@ -709,8 +711,7 @@
    sheet. The sidebar tint flows through here so the topbar + sidebar
    read as one continuous frame; the paper sheet floats inset below.
    A generous bottom padding lifts the paper off the legal footer
-   strip so its rounded corners read as a real card. Matches the
-   sidebar-footer's own bottom inset so both rails share a baseline. */
+   strip so its rounded corners read as a real card. */
 .content-card {
   flex: 1;
   min-height: 0;
@@ -2699,7 +2700,7 @@
 
   .sidebar-nav-label,
   .sidebar-nav-action,
-  .sidebar-footer {
+  .sidebar-user-zone {
     display: none;
   }
 
@@ -2749,7 +2750,7 @@
 
   /* Hide everything except nav items on mobile */
   .left-sidebar-body,
-  .sidebar-footer {
+  .sidebar-user-zone {
     display: none;
   }
 

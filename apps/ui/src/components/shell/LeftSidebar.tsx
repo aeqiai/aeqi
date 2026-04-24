@@ -204,6 +204,54 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         )}
       </div>
 
+      <div className="sidebar-user-zone">
+        <a
+          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+          href={inboxHref}
+          title="Inbox — agent pings for you"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(inboxHref);
+          }}
+        >
+          <InboxIcon />
+          <span className="sidebar-nav-label">Inbox</span>
+        </a>
+        <div className="sidebar-footer-row">
+          <a
+            className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
+            href={profileHref}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(profileHref);
+            }}
+          >
+            <span className="sidebar-nav-avatar">
+              <BlockAvatar name={userName} size={16} />
+            </span>
+            {userEmail ? (
+              <span className="sidebar-nav-identity">
+                <span className="sidebar-nav-identity-name">{userName}</span>
+                <span className="sidebar-nav-identity-email" title={userEmail}>
+                  {userEmail}
+                </span>
+              </span>
+            ) : (
+              <span className="sidebar-nav-label">{userName}</span>
+            )}
+          </a>
+          <button
+            type="button"
+            className="sidebar-help-btn"
+            onClick={openShortcuts}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
+        </div>
+      </div>
+
       <div className="sidebar-search-row">
         <button
           type="button"
@@ -262,54 +310,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
 
         <div className="sidebar-tree-slot">
           <AgentTree />
-        </div>
-      </div>
-
-      <div className="sidebar-footer">
-        <a
-          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-          href={inboxHref}
-          title="Inbox — agent pings for you"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(inboxHref);
-          }}
-        >
-          <InboxIcon />
-          <span className="sidebar-nav-label">Inbox</span>
-        </a>
-        <div className="sidebar-footer-row">
-          <a
-            className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
-            href={profileHref}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(profileHref);
-            }}
-          >
-            <span className="sidebar-nav-avatar">
-              <BlockAvatar name={userName} size={18} />
-            </span>
-            {userEmail ? (
-              <span className="sidebar-nav-identity">
-                <span className="sidebar-nav-identity-name">{userName}</span>
-                <span className="sidebar-nav-identity-email" title={userEmail}>
-                  {userEmail}
-                </span>
-              </span>
-            ) : (
-              <span className="sidebar-nav-label">{userName}</span>
-            )}
-          </a>
-          <button
-            type="button"
-            className="sidebar-help-btn"
-            onClick={openShortcuts}
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
-          >
-            ?
-          </button>
         </div>
       </div>
     </div>
