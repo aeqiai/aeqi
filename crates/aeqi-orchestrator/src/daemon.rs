@@ -215,6 +215,9 @@ struct IpcContext {
     stream_registry: Arc<crate::stream_registry::StreamRegistry>,
     execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
     channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
+    // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
+    embedder: Option<Arc<dyn aeqi_core::traits::Embedder>>,
+    recall_cache: Arc<aeqi_ideas::RecallCache>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -266,6 +269,12 @@ pub struct Daemon {
     /// daemon restart. Populated by the CLI at startup; `None` leaves the
     /// old "spawn-on-boot" behavior intact.
     pub channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
+    // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
+    /// Embedder used by the daemon search path. `None` → BM25-only.
+    pub embedder: Option<Arc<dyn aeqi_core::traits::Embedder>>,
+    /// Daemon-wide recall cache; shared by every IPC handler via the
+    /// CommandContext clone.
+    pub recall_cache: Arc<aeqi_ideas::RecallCache>,
 }
 
 impl Daemon {
@@ -307,6 +316,9 @@ impl Daemon {
             stream_registry: Arc::new(crate::stream_registry::StreamRegistry::new()),
             execution_registry: Arc::new(crate::execution_registry::ExecutionRegistry::new()),
             channel_spawner: None,
+            // ── Round 3 retrieval-side additions (Agent R) ──────────────
+            embedder: None,
+            recall_cache: Arc::new(aeqi_ideas::RecallCache::default()),
         }
     }
 
@@ -315,6 +327,20 @@ impl Daemon {
         spawner: Arc<dyn crate::channel_registry::ChannelSpawner>,
     ) {
         self.channel_spawner = Some(spawner);
+    }
+
+    // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
+    /// Attach the embedder used by the daemon's search path. Expected to
+    /// be the same instance passed to `SqliteIdeas::with_embedder` so
+    /// query embedding and stored embeddings come from the same model.
+    pub fn set_embedder(&mut self, embedder: Arc<dyn aeqi_core::traits::Embedder>) {
+        self.embedder = Some(embedder);
+    }
+
+    /// Replace the recall cache — used by tests that want to inspect
+    /// invalidation from outside. Production callers leave the default.
+    pub fn set_recall_cache(&mut self, cache: Arc<aeqi_ideas::RecallCache>) {
+        self.recall_cache = cache;
     }
 
     pub fn set_background_automation_enabled(&mut self, enabled: bool) {
@@ -410,6 +436,8 @@ impl Daemon {
         self.spawn_event_matcher();
         self.spawn_schedule_timer();
         self.spawn_ipc_listener();
+        // ── Round 3 retrieval-side additions (Agent R) ──────────────────
+        self.spawn_co_retrieval_decay_patrol();
         self.load_persisted_state().await;
 
         // Crash recovery: reset stale in_progress quests from previous run.
@@ -636,6 +664,38 @@ impl Daemon {
         });
     }
 
+    /// Spawn the co-retrieval decay patrol — every 6 hours, decay edges
+    /// that haven't been reinforced in the last 14 days. Keeps the
+    /// co-retrieval graph from growing unbounded while preserving
+    /// recently-used pairs.
+    fn spawn_co_retrieval_decay_patrol(&self) {
+        let Some(store) = self.idea_store.clone() else {
+            return;
+        };
+        let shutdown = self.shutdown_notify.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(6 * 3600));
+            // Skip the immediate tick so startup doesn't trigger a write.
+            interval.tick().await;
+            loop {
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = interval.tick() => {
+                        match store.decay_co_retrieval_older_than(14).await {
+                            Ok(n) if n > 0 => {
+                                info!(touched = n, "co-retrieval decay patrol ran");
+                            }
+                            Ok(_) => {}
+                            Err(e) => {
+                                warn!(error = %e, "co-retrieval decay patrol failed");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     /// Bind the Unix socket for IPC queries (if configured).
     #[cfg(unix)]
     fn spawn_ipc_listener(&self) {
@@ -672,6 +732,9 @@ impl Daemon {
                     stream_registry: self.stream_registry.clone(),
                     execution_registry: self.execution_registry.clone(),
                     channel_spawner: self.channel_spawner.clone(),
+                    // ── Round 3 retrieval-side additions (Agent R) ──────
+                    embedder: self.embedder.clone(),
+                    recall_cache: self.recall_cache.clone(),
                 });
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
@@ -1054,6 +1117,9 @@ impl Daemon {
                 execution_registry: ipc_ctx.execution_registry.clone(),
                 stream_registry: ipc_ctx.stream_registry.clone(),
                 channel_spawner: ipc_ctx.channel_spawner.clone(),
+                // ── Round 3 retrieval-side additions (Agent R) ──────────
+                embedder: ipc_ctx.embedder.clone(),
+                recall_cache: ipc_ctx.recall_cache.clone(),
             };
 
             let response = match cmd {
@@ -1311,6 +1377,9 @@ impl Daemon {
                 }
                 "search_ideas" => {
                     crate::ipc::ideas::handle_search_ideas(&ctx, &request, &allowed_roots).await
+                }
+                "feedback_idea" => {
+                    crate::ipc::ideas::handle_feedback_idea(&ctx, &request, &allowed_roots).await
                 }
 
                 "list_events" => {
