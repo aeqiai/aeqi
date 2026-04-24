@@ -30,21 +30,25 @@ use tower_governor::{
 /// it to hand to `GovernorLayer { config: ... }`.
 pub type Tier = GovernorConfig<SmartIpKeyExtractor, governor::middleware::NoOpMiddleware>;
 
-/// Loose tier — general API traffic.
+/// Loose tier — general API traffic.  10 req/s steady, 100-req burst.
 pub fn loose() -> Arc<Tier> {
-    build(10, 100, "loose")
+    build(Duration::from_millis(100), 100, "loose")
 }
 
-/// Tight tier — auth/credential endpoints.
+/// Tight tier — auth/credential endpoints.  1 req/s steady, 10-req burst.
 pub fn tight() -> Arc<Tier> {
-    build(1, 10, "tight")
+    build(Duration::from_secs(1), 10, "tight")
 }
 
-fn build(per_second: u64, burst: u32, name: &'static str) -> Arc<Tier> {
+// tower_governor's `per_second(n)` actually means "one token every n
+// seconds" (the period between refills), *not* n requests per second.
+// We specify the period as a Duration to avoid ever tripping over that
+// naming trap again — the variable name makes the meaning unambiguous.
+fn build(replenish_period: Duration, burst: u32, name: &'static str) -> Arc<Tier> {
     let config = Arc::new(
         GovernorConfigBuilder::default()
             .key_extractor(SmartIpKeyExtractor)
-            .per_second(per_second)
+            .period(replenish_period)
             .burst_size(burst)
             .finish()
             .expect("rate-limit: tier config rejected by governor"),
