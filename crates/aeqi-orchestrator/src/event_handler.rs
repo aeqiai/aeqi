@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::agent_registry::ConnectionPool;
 
@@ -858,6 +858,102 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
             })
             .await?;
         inserted += 1;
+    }
+
+    // ── Bug C migration: refresh stale `on_reflect_after_quest` rows ──
+    //
+    // Production DBs seeded before Round 6 hold an `on_reflect_after_quest`
+    // event with only the legacy `session.spawn` tool_call — missing the
+    // second step `ideas.store_many` that persists the reflector's JSON
+    // output. The seed dedupe-by-name above prevents a re-insert from
+    // refreshing them. Without this migration even Bugs A+B fixed would
+    // leave reflection firing into the void: 0 ideas have
+    // `authored_by LIKE 'reflector:%'` in the live DB today.
+    //
+    // Detection: walk every middleware seed and refresh rows whose tool
+    // names no longer match the canonical chain. Currently only
+    // `on_reflect_after_quest` is at risk (its shape changed in Round 6),
+    // but the loop is general so future seed-shape changes are covered.
+    //
+    // Safety: we ONLY refresh `tool_calls` when the row's tool_names set
+    // differs from the canonical seed. Operator-customized tool ARGS are
+    // overwritten only when the operator added/removed tools from the
+    // chain. Operators who tweaked args only (e.g. tag_suffix tweaks) will
+    // have their changes lost — but the only known case where this trips
+    // is the production stale seed, and the cost of leaving that broken
+    // is the entire reflection loop being non-functional.
+    let mut refreshed: usize = 0;
+    for seed in &middleware_seeds {
+        // Look up the existing row by (agent_id IS NULL, name).
+        let existing: Option<(String, String)> = {
+            let db = store.db.lock().await;
+            db.query_row(
+                "SELECT id, tool_calls FROM events WHERE agent_id IS NULL AND name = ?1 LIMIT 1",
+                rusqlite::params![seed.name],
+                |row| {
+                    let id: String = row.get(0)?;
+                    let tc: String = row.get(1)?;
+                    Ok((id, tc))
+                },
+            )
+            .optional()
+            .unwrap_or(None)
+        };
+        let Some((event_id, existing_json)) = existing else {
+            continue;
+        };
+
+        // Parse the existing tool_calls JSON to a tool-name set; compare to
+        // the canonical seed's tool-name list (ordered). If either the
+        // length or any tool name differs, refresh.
+        let existing_tools: Vec<String> = serde_json::from_str::<Vec<ToolCall>>(&existing_json)
+            .map(|tcs| tcs.into_iter().map(|tc| tc.tool).collect())
+            .unwrap_or_default();
+        let canonical_tools: Vec<String> =
+            seed.tool_calls.iter().map(|tc| tc.tool.clone()).collect();
+        if existing_tools == canonical_tools {
+            continue;
+        }
+
+        // Shape diverged — overwrite tool_calls. `update_fields` writes
+        // only the fields we pass, so cooldown/idea_ids/query_* are left
+        // alone (operator-tunable knobs).
+        if let Err(e) = store
+            .update_fields(
+                &event_id,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&seed.tool_calls),
+            )
+            .await
+        {
+            warn!(
+                event = %event_id,
+                seed = %seed.name,
+                error = %e,
+                "Bug C migration: failed to refresh stale tool_calls"
+            );
+            continue;
+        }
+        info!(
+            event = %event_id,
+            seed = %seed.name,
+            existing = ?existing_tools,
+            canonical = ?canonical_tools,
+            "Bug C migration: refreshed stale event tool_calls"
+        );
+        refreshed += 1;
+    }
+    if refreshed > 0 {
+        info!(
+            n = refreshed,
+            "Bug C migration: refreshed {refreshed} stale middleware-seed event(s)"
+        );
     }
 
     // Lifecycle patterns are seeded by create_default_lifecycle_events; count the ones
@@ -2126,5 +2222,168 @@ mod tests {
         assert_eq!(injector.tool_calls.len(), 2);
         assert_eq!(injector.tool_calls[0].tool, "ideas.search");
         assert_eq!(injector.tool_calls[1].tool, "transcript.inject");
+    }
+
+    /// Bug C migration: when a pre-Round-6 `on_reflect_after_quest` row
+    /// exists with only the legacy single `session.spawn` tool_call,
+    /// `seed_lifecycle_events` must refresh it to the canonical 2-step
+    /// chain (session.spawn → ideas.store_many). Production DBs sit in
+    /// this state today — the seed dedupe-by-name prevents a re-insert
+    /// from refreshing the row, so without this migration even Bugs A+B
+    /// fixed leave reflection firing into the void.
+    #[tokio::test]
+    async fn seed_lifecycle_events_refreshes_stale_reflect_after_quest() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+
+        // Hand-insert a stale pre-R6 row with only the legacy single
+        // session.spawn tool_call (no ideas.store_many step). Mirrors the
+        // shape captured from the live production DB.
+        store
+            .create(&NewEvent {
+                agent_id: None,
+                scope: Scope::Global,
+                name: "on_reflect_after_quest".to_string(),
+                pattern: "session:quest_end".to_string(),
+                idea_ids: Vec::new(),
+                query_template: None,
+                query_top_k: None,
+                query_tag_filter: None,
+                tool_calls: vec![ToolCall {
+                    tool: "session.spawn".into(),
+                    args: serde_json::json!({
+                        "kind": "compactor",
+                        "instructions_idea": "meta:reflector-template",
+                        "seed_content": "{transcript_preview}",
+                        "parent_session": "{session_id}"
+                    }),
+                }],
+                cooldown_secs: 0,
+                system: true,
+            })
+            .await
+            .unwrap();
+
+        // Sanity: the stale row exists with the legacy 1-tool shape.
+        let before = store
+            .get_events_for_exact_pattern("", "session:quest_end")
+            .await;
+        let stale = before
+            .iter()
+            .find(|e| e.name == "on_reflect_after_quest")
+            .expect("stale row must be present before migration");
+        assert_eq!(
+            stale.tool_calls.len(),
+            1,
+            "fixture must start with the legacy single-tool_call shape"
+        );
+
+        // Run the migration via seed_lifecycle_events. The seeded-by-name
+        // dedupe means no insert happens; the migration loop must detect
+        // the shape mismatch and refresh.
+        seed_lifecycle_events(&store).await.unwrap();
+
+        let after = store
+            .get_events_for_exact_pattern("", "session:quest_end")
+            .await;
+        let refreshed = after
+            .iter()
+            .find(|e| e.name == "on_reflect_after_quest")
+            .expect("on_reflect_after_quest must still exist after migration");
+        assert_eq!(
+            refreshed.tool_calls.len(),
+            2,
+            "migration must rewrite tool_calls to the canonical 2-step chain"
+        );
+        assert_eq!(refreshed.tool_calls[0].tool, "session.spawn");
+        assert_eq!(
+            refreshed.tool_calls[1].tool, "ideas.store_many",
+            "second step must be ideas.store_many — without it the reflector's JSON evaporates"
+        );
+        // Row id must not change (we update in place; consumers holding
+        // event_id references should keep working).
+        assert_eq!(refreshed.id, stale.id);
+    }
+
+    /// Bug C migration must NOT touch rows that already have the canonical
+    /// 2-step shape — operator customizations to args (e.g. tag_suffix
+    /// tweaks) survive subsequent boots when the tool-name set is intact.
+    #[tokio::test]
+    async fn seed_lifecycle_events_preserves_canonical_reflect_after_quest() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+        seed_lifecycle_events(&store).await.unwrap();
+
+        // Seeded row from the first call. Mutate the second tool's args
+        // (operator customization) — this should survive the second boot
+        // because the tool-name set is still canonical.
+        let after_seed = store
+            .get_events_for_exact_pattern("", "session:quest_end")
+            .await;
+        let canonical_id = after_seed
+            .iter()
+            .find(|e| e.name == "on_reflect_after_quest")
+            .expect("seed must have inserted on_reflect_after_quest")
+            .id
+            .clone();
+        let custom_calls = vec![
+            ToolCall {
+                tool: "session.spawn".into(),
+                args: serde_json::json!({
+                    "kind": "compactor",
+                    "instructions_idea": "meta:reflector-template",
+                    "seed_content": "{transcript_preview}",
+                    "parent_session": "{session_id}"
+                }),
+            },
+            ToolCall {
+                tool: "ideas.store_many".into(),
+                args: serde_json::json!({
+                    "from_json": "{last_tool_result}",
+                    "authored_by": "reflector:{agent_id}",
+                    "tag_suffix": ["operator:customized"]
+                }),
+            },
+        ];
+        store
+            .update_fields(
+                &canonical_id,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(&custom_calls),
+            )
+            .await
+            .unwrap();
+
+        // Re-running seed_lifecycle_events must NOT overwrite the operator's
+        // customized args because the tool-name set is identical to the
+        // canonical seed.
+        seed_lifecycle_events(&store).await.unwrap();
+
+        let after_rerun = store
+            .get_events_for_exact_pattern("", "session:quest_end")
+            .await;
+        let kept = after_rerun
+            .iter()
+            .find(|e| e.name == "on_reflect_after_quest")
+            .unwrap();
+        assert_eq!(kept.tool_calls.len(), 2);
+        let suffix = kept.tool_calls[1]
+            .args
+            .get("tag_suffix")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            suffix
+                .iter()
+                .any(|v| v.as_str() == Some("operator:customized")),
+            "operator's custom tag_suffix must be preserved when tool-name set is canonical"
+        );
     }
 }

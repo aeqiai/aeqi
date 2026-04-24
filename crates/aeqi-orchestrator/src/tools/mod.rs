@@ -492,6 +492,7 @@ pub fn build_orchestration_tools(
     graph_db_path: Option<PathBuf>,
     session_store: Option<Arc<crate::SessionStore>>,
     agent_registry: Arc<crate::agent_registry::AgentRegistry>,
+    pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 ) -> Vec<Arc<dyn Tool>> {
     let event_handler_store = Arc::new(crate::event_handler::EventHandlerStore::new(
         agent_registry.db(),
@@ -507,12 +508,17 @@ pub fn build_orchestration_tools(
     );
 
     // 2. Quests tool (create/list/show/update/close/cancel)
+    // Threading `pattern_dispatcher` lets `quests(action='close')` fire
+    // `session:quest_end` end-to-end (incl. event chains with `tool_calls`,
+    // like the seeded reflect-after-quest chain). Without it, the LLM
+    // tool-close path is a dead end for the reflection loop.
     let quests_tool = QuestsTool::new(
         agent_registry.clone(),
         agent_id.clone(),
         activity_log.clone(),
     )
-    .with_event_assembly(idea_store.clone(), event_handler_store.clone());
+    .with_event_assembly(idea_store.clone(), event_handler_store.clone())
+    .with_pattern_dispatcher(pattern_dispatcher);
 
     // 3. Events tool (create/list/enable/disable/delete)
     let events_tool = EventsTool::new(

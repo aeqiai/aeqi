@@ -183,6 +183,12 @@ pub struct QueueExecutor {
     /// telegram_react). These are forwarded into `SpawnOptions::extra_tools` so
     /// only sessions driven by this executor's channel receive them.
     pub extra_tools: Vec<Arc<dyn aeqi_core::traits::Tool>>,
+    /// Daemon-level pattern dispatcher used to fire `session:quest_end` when
+    /// the autonomous worker finalizes a quest as `Done`. Without this, the
+    /// queue-driven completion path is a third dead end for the reflection
+    /// loop — `finalize_quest` only flips the row state, no event chain runs.
+    /// `None` degrades silently (no dispatch, just a warn-log).
+    pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 }
 
 #[async_trait]
@@ -412,12 +418,34 @@ impl SessionExecutor for QueueExecutor {
             // `bump_retry` only fires on the Pending path, so
             // `max_task_retries` eventually halts the cycle.
             let bump_retry = terminal_status == aeqi_quests::QuestStatus::Pending;
-            if let Err(e) = self
+            let finalize_ok = match self
                 .agent_registry
                 .finalize_quest(quest_id, terminal_status, bump_retry)
                 .await
             {
-                warn!(task = %quest_id, error = %e, "failed to finalize quest {terminal_status:?}");
+                Ok(_) => true,
+                Err(e) => {
+                    warn!(task = %quest_id, error = %e, "failed to finalize quest {terminal_status:?}");
+                    false
+                }
+            };
+
+            // Fire `session:quest_end` through the daemon-level pattern
+            // dispatcher when the autonomous worker finalizes a quest as
+            // `Done`, so the seeded reflect-after-quest chain (session.spawn
+            // → ideas.store_many) runs from this third completion path too.
+            // Mirrors the IPC and LLM tool-close paths.
+            if finalize_ok && terminal_status == aeqi_quests::QuestStatus::Done {
+                let quest_after = self.agent_registry.get_task(quest_id).await.ok().flatten();
+                dispatch_quest_end_for_queue_finalize(
+                    self.pattern_dispatcher.as_ref(),
+                    quest_id,
+                    &final_text,
+                    quest_after.as_ref(),
+                    &spawned.session_id,
+                    &spawned.agent_id,
+                )
+                .await;
             }
 
             // Emit quest_completed on the shared ActivityLog so the daemon's
@@ -468,6 +496,7 @@ impl SessionExecutor for QueueExecutor {
                             adaptive_retry: self.adaptive_retry,
                             failure_analysis_model: self.failure_analysis_model.clone(),
                             extra_tools: Vec::new(),
+                            pattern_dispatcher: self.pattern_dispatcher.clone(),
                         });
                         if let Err(e) =
                             crate::session_queue::enqueue(ss.clone(), self_executor, creator, &p)
@@ -511,5 +540,197 @@ impl SessionExecutor for QueueExecutor {
             Ok(Err(e)) => Err(e.context("agent run failed")),
             Err(e) => Err(e),
         }
+    }
+}
+
+/// Fire `session:quest_end` from the queue-driven worker's terminal-status
+/// path through the daemon's `PatternDispatcher` so the seeded
+/// reflect-after-quest chain (`session.spawn(meta:reflector-template)` →
+/// `ideas.store_many`) runs when an autonomous worker completes a quest.
+///
+/// Mirrors `dispatch_quest_end_for_ipc_close` in `ipc/quests.rs` and
+/// `dispatch_quest_end_for_llm_close` in `tools/quests.rs`. Extracted as a
+/// free function so it can be unit-tested without standing up the full
+/// QueueExecutor (which requires `SessionManager`, `AgentRegistry`, ...).
+///
+/// `quest`: the post-finalize quest row, used to populate `outcome` /
+/// `transcript_preview` in the trigger args. `None` is tolerated — the
+/// dispatch still runs with a minimal payload — because losing the row
+/// shouldn't block reflection.
+async fn dispatch_quest_end_for_queue_finalize(
+    dispatcher: Option<&Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    quest_id: &str,
+    final_text: &str,
+    quest: Option<&aeqi_quests::Quest>,
+    session_id: &str,
+    agent_id: &str,
+) {
+    let Some(dispatcher) = dispatcher else {
+        warn!(
+            quest_id,
+            "session:quest_end not dispatched from queue finalize: no pattern_dispatcher wired"
+        );
+        return;
+    };
+
+    let subject = quest.map(|q| q.name.clone()).unwrap_or_default();
+    let outcome = quest.and_then(|q| q.quest_outcome());
+
+    let trigger_args = serde_json::json!({
+        "session_id": session_id,
+        "agent_id": agent_id,
+        "quest_id": quest_id,
+        "reason": final_text,
+        "outcome": outcome,
+        "transcript_preview": format!(
+            "Quest {quest_id} ({subject}) finalized by worker: {final_text}",
+        ),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+    let exec_ctx = aeqi_core::tool_registry::ExecutionContext {
+        session_id: session_id.to_string(),
+        agent_id: agent_id.to_string(),
+        ..Default::default()
+    };
+    let handled = dispatcher
+        .dispatch("session:quest_end", &exec_ctx, &trigger_args)
+        .await;
+    if handled {
+        tracing::info!(
+            quest_id,
+            session = %session_id,
+            "session:quest_end dispatched (queue finalize → reflect-after-quest)"
+        );
+    } else {
+        debug!(
+            quest_id,
+            "session:quest_end dispatch returned false (no matching event configured)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::tool_registry::{ExecutionContext, PatternDispatcher};
+    use std::sync::Mutex;
+
+    /// Recording dispatcher: captures every `dispatch` call so tests can
+    /// assert which patterns fired and what trigger_args they carried.
+    #[derive(Default)]
+    struct RecordingDispatcher {
+        calls: Mutex<Vec<(String, String, serde_json::Value)>>,
+    }
+
+    impl PatternDispatcher for RecordingDispatcher {
+        fn dispatch<'a>(
+            &'a self,
+            pattern: &'a str,
+            ctx: &'a ExecutionContext,
+            trigger_args: &'a serde_json::Value,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+            let pattern = pattern.to_string();
+            let session_id = ctx.session_id.clone();
+            let trigger_args = trigger_args.clone();
+            Box::pin(async move {
+                self.calls
+                    .lock()
+                    .unwrap()
+                    .push((pattern, session_id, trigger_args));
+                true
+            })
+        }
+    }
+
+    fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
+        aeqi_quests::Quest {
+            id: aeqi_quests::QuestId(id.to_string()),
+            name: "Queue-finalize test quest".to_string(),
+            description: String::new(),
+            status: aeqi_quests::QuestStatus::Done,
+            priority: Default::default(),
+            agent_id: agent_id.map(str::to_string),
+            scope: aeqi_core::Scope::SelfScope,
+            depends_on: Vec::new(),
+            idea_ids: Vec::new(),
+            labels: Vec::new(),
+            retry_count: 0,
+            checkpoints: Vec::new(),
+            metadata: serde_json::Value::Null,
+            created_at: chrono::Utc::now(),
+            updated_at: Some(chrono::Utc::now()),
+            closed_at: Some(chrono::Utc::now()),
+            outcome: None,
+            worktree_branch: None,
+            worktree_path: None,
+            creator_session_id: None,
+            acceptance_criteria: None,
+        }
+    }
+
+    /// Regression lock: when the autonomous worker finalizes a quest as
+    /// `Done`, the queue executor must fire `session:quest_end` through
+    /// the wired `PatternDispatcher`. Before this fix, every quest closed
+    /// by `finalize_quest` was a third dead end for the reflection loop
+    /// — the row flipped to Done, no event chain ever ran.
+    #[tokio::test]
+    async fn queue_finalize_dispatches_session_quest_end_via_pattern_dispatcher() {
+        let recorder = Arc::new(RecordingDispatcher::default());
+        let dispatcher: Arc<dyn PatternDispatcher> = recorder.clone();
+
+        let quest = stub_quest("q-queue", Some("agent-w"));
+        dispatch_quest_end_for_queue_finalize(
+            Some(&dispatcher),
+            &quest.id.0,
+            "all green",
+            Some(&quest),
+            "sess-worker-7",
+            "agent-w",
+        )
+        .await;
+
+        let calls = recorder.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1, "must dispatch exactly once");
+        let (pattern, session_id, trigger_args) = &calls[0];
+        assert_eq!(pattern, "session:quest_end");
+        assert_eq!(
+            session_id, "sess-worker-7",
+            "real worker session_id propagates as parent_session"
+        );
+        assert_eq!(
+            trigger_args.get("quest_id").and_then(|v| v.as_str()),
+            Some("q-queue"),
+        );
+        assert_eq!(
+            trigger_args.get("agent_id").and_then(|v| v.as_str()),
+            Some("agent-w"),
+        );
+        assert_eq!(
+            trigger_args.get("reason").and_then(|v| v.as_str()),
+            Some("all green"),
+        );
+        assert!(
+            trigger_args
+                .get("transcript_preview")
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains("q-queue")),
+            "transcript_preview must reference the closing quest"
+        );
+    }
+
+    /// When no dispatcher is wired (older daemon builds, embedded tests),
+    /// the finalize path must degrade silently — never panic, never return
+    /// an error — so the quest still completes normally.
+    #[tokio::test]
+    async fn queue_finalize_without_dispatcher_is_a_no_op() {
+        dispatch_quest_end_for_queue_finalize(
+            None,
+            "q-nop",
+            "no dispatcher",
+            None,
+            "sess-x",
+            "agent-x",
+        )
+        .await;
     }
 }

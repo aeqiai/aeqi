@@ -1,3 +1,4 @@
+use aeqi_core::tool_registry::{ExecutionContext, PatternDispatcher};
 use aeqi_core::traits::{IdeaStore, Tool, ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -44,6 +45,12 @@ pub struct QuestsTool {
     /// Stores needed to fire `on_quest_end` events on close.
     idea_store: Option<Arc<dyn IdeaStore>>,
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
+    /// Dispatcher used by `action_close` to fire the `session:quest_end`
+    /// pattern through the daemon's event chain (reflect-after-quest).
+    /// Without this, the LLM-driven close path leaves the reflection seed
+    /// dormant — events with `tool_calls` get warn-and-skipped because
+    /// `assemble_ideas_for_pattern` has no `ToolDispatch`.
+    pattern_dispatcher: Option<Arc<dyn PatternDispatcher>>,
 }
 
 impl QuestsTool {
@@ -59,6 +66,7 @@ impl QuestsTool {
             session_id: None,
             idea_store: None,
             event_handler_store: None,
+            pattern_dispatcher: None,
         }
     }
 
@@ -82,6 +90,18 @@ impl QuestsTool {
     ) -> Self {
         self.idea_store = idea_store;
         self.event_handler_store = Some(event_handler_store);
+        self
+    }
+
+    /// Supply the daemon's pattern dispatcher so `action_close` can fire
+    /// `session:quest_end` end-to-end (incl. event chains with `tool_calls`,
+    /// like the seeded reflect-after-quest chain). Without this, the LLM
+    /// tool-close path is a dead end for the reflection loop.
+    pub fn with_pattern_dispatcher(
+        mut self,
+        dispatcher: Option<Arc<dyn PatternDispatcher>>,
+    ) -> Self {
+        self.pattern_dispatcher = dispatcher;
         self
     }
 
@@ -421,7 +441,23 @@ impl QuestsTool {
             })
             .await
         {
-            Ok(_) => {
+            Ok(quest) => {
+                // Fire `session:quest_end` through the daemon-level pattern
+                // dispatcher so the seeded reflect-after-quest chain
+                // (`session.spawn(meta:reflector-template)` → `ideas.store_many`)
+                // runs. Without this, the LLM-driven close path was a dead
+                // end for the reflection loop — `assemble_ideas_for_pattern`
+                // is invoked with `tool_dispatch: None`, so events with
+                // `tool_calls` get warn-and-skipped.
+                dispatch_quest_end_for_llm_close(
+                    self.pattern_dispatcher.as_ref(),
+                    quest_id,
+                    &result_owned,
+                    &quest,
+                    self.session_id.as_deref(),
+                )
+                .await;
+
                 let base = format!("Quest {quest_id} closed as done.");
                 let message = self
                     .assemble_quest_end(quest_id, &result_owned, &base)
@@ -560,5 +596,209 @@ impl Tool for QuestsTool {
 
     fn name(&self) -> &str {
         "quests"
+    }
+}
+
+/// Fire `session:quest_end` from the LLM-driven `quests(action='close')` path
+/// through the daemon's pattern dispatcher so the seeded reflect-after-quest
+/// chain (`session.spawn(meta:reflector-template)` → `ideas.store_many`) runs.
+///
+/// Mirrors `dispatch_quest_end_for_ipc_close` in `ipc/quests.rs`. Extracted as
+/// a free function so it can be unit-tested without standing up a full
+/// `QuestsTool` (which needs an `AgentRegistry` + `ActivityLog`).
+///
+/// Session-genealogy: when the calling tool has a real session_id we use it
+/// directly so the reflector's `parent_session` placeholder substitutes to the
+/// closing agent's session. When the tool was bound without a session_id
+/// (older callers), we synthesize `event:session:quest_end:<quest_id>` per the
+/// R7d convention so `session.spawn` receives a non-empty parent_session.
+async fn dispatch_quest_end_for_llm_close(
+    dispatcher: Option<&Arc<dyn PatternDispatcher>>,
+    quest_id: &str,
+    result: &str,
+    quest: &aeqi_quests::Quest,
+    caller_session_id: Option<&str>,
+) {
+    let Some(dispatcher) = dispatcher else {
+        tracing::warn!(
+            quest_id,
+            "session:quest_end not dispatched from LLM close: no pattern_dispatcher wired"
+        );
+        return;
+    };
+
+    let session_id = caller_session_id
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("event:session:quest_end:{quest_id}"));
+
+    let trigger_args = serde_json::json!({
+        "session_id": session_id,
+        "agent_id": quest.agent_id.clone().unwrap_or_default(),
+        "quest_id": quest_id,
+        "reason": result,
+        "outcome": quest.quest_outcome(),
+        "transcript_preview": format!(
+            "Quest {quest_id} ({subject}) closed by agent: {result}",
+            subject = quest.name,
+        ),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+    let exec_ctx = ExecutionContext {
+        session_id: session_id.clone(),
+        agent_id: quest.agent_id.clone().unwrap_or_default(),
+        ..Default::default()
+    };
+    let handled = dispatcher
+        .dispatch("session:quest_end", &exec_ctx, &trigger_args)
+        .await;
+    if handled {
+        tracing::info!(
+            quest_id,
+            session = %session_id,
+            "session:quest_end dispatched (LLM close → reflect-after-quest)"
+        );
+    } else {
+        tracing::debug!(
+            quest_id,
+            "session:quest_end dispatch returned false (no matching event configured)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::tool_registry::PatternDispatcher;
+    use std::sync::Mutex;
+
+    /// Recording dispatcher: captures every `dispatch` call so tests can
+    /// assert which patterns fired and what trigger_args they carried.
+    #[derive(Default)]
+    struct RecordingDispatcher {
+        calls: Mutex<Vec<(String, String, serde_json::Value)>>,
+    }
+
+    impl PatternDispatcher for RecordingDispatcher {
+        fn dispatch<'a>(
+            &'a self,
+            pattern: &'a str,
+            ctx: &'a ExecutionContext,
+            trigger_args: &'a serde_json::Value,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+            let pattern = pattern.to_string();
+            let session_id = ctx.session_id.clone();
+            let trigger_args = trigger_args.clone();
+            Box::pin(async move {
+                self.calls
+                    .lock()
+                    .unwrap()
+                    .push((pattern, session_id, trigger_args));
+                true
+            })
+        }
+    }
+
+    fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
+        aeqi_quests::Quest {
+            id: aeqi_quests::QuestId(id.to_string()),
+            name: "Quests-tool unit test".to_string(),
+            description: String::new(),
+            status: aeqi_quests::QuestStatus::Done,
+            priority: Default::default(),
+            agent_id: agent_id.map(str::to_string),
+            scope: aeqi_core::Scope::SelfScope,
+            depends_on: Vec::new(),
+            idea_ids: Vec::new(),
+            labels: Vec::new(),
+            retry_count: 0,
+            checkpoints: Vec::new(),
+            metadata: serde_json::Value::Null,
+            created_at: chrono::Utc::now(),
+            updated_at: Some(chrono::Utc::now()),
+            closed_at: Some(chrono::Utc::now()),
+            outcome: None,
+            worktree_branch: None,
+            worktree_path: None,
+            creator_session_id: None,
+            acceptance_criteria: None,
+        }
+    }
+
+    /// Regression lock: the LLM tool-close path must fire `session:quest_end`
+    /// through the wired `PatternDispatcher`. Before this fix, 22% of done
+    /// quests in production (46 of 206) closed via this path with no
+    /// reflection chain ever firing — `assemble_ideas_for_pattern` was
+    /// called with `tool_dispatch: None`, so events with `tool_calls` were
+    /// warn-and-skipped.
+    #[tokio::test]
+    async fn llm_close_dispatches_session_quest_end_via_pattern_dispatcher() {
+        let recorder = Arc::new(RecordingDispatcher::default());
+        let dispatcher: Arc<dyn PatternDispatcher> = recorder.clone();
+
+        let quest = stub_quest("q-llm", Some("agent-789"));
+        dispatch_quest_end_for_llm_close(
+            Some(&dispatcher),
+            &quest.id.0,
+            "completed by agent",
+            &quest,
+            Some("sess-real-1"),
+        )
+        .await;
+
+        let calls = recorder.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1, "must dispatch exactly once");
+        let (pattern, session_id, trigger_args) = &calls[0];
+        assert_eq!(pattern, "session:quest_end");
+        assert_eq!(
+            session_id, "sess-real-1",
+            "real caller session_id is preserved as parent_session"
+        );
+        assert_eq!(
+            trigger_args.get("quest_id").and_then(|v| v.as_str()),
+            Some("q-llm"),
+        );
+        assert_eq!(
+            trigger_args.get("reason").and_then(|v| v.as_str()),
+            Some("completed by agent"),
+        );
+        assert_eq!(
+            trigger_args.get("agent_id").and_then(|v| v.as_str()),
+            Some("agent-789"),
+        );
+    }
+
+    /// When the tool was bound without a session_id (older callers, future
+    /// non-session callers), the dispatcher still receives a non-empty
+    /// `parent_session` via the synthetic `event:session:quest_end:<quest_id>`
+    /// id (R7d convention). Required so `session.spawn` doesn't reject the
+    /// chain.
+    #[tokio::test]
+    async fn llm_close_synthesizes_session_id_when_caller_has_none() {
+        let recorder = Arc::new(RecordingDispatcher::default());
+        let dispatcher: Arc<dyn PatternDispatcher> = recorder.clone();
+
+        let quest = stub_quest("q-anon", Some("agent-789"));
+        dispatch_quest_end_for_llm_close(
+            Some(&dispatcher),
+            &quest.id.0,
+            "no session bound",
+            &quest,
+            None,
+        )
+        .await;
+
+        let calls = recorder.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].1, "event:session:quest_end:q-anon");
+    }
+
+    /// When no dispatcher is wired (older daemon builds, embedded tests),
+    /// the close path must degrade silently — never panic, never return an
+    /// error — so the quest still closes normally.
+    #[tokio::test]
+    async fn llm_close_without_dispatcher_is_a_no_op() {
+        let quest = stub_quest("q-nop", None);
+        dispatch_quest_end_for_llm_close(None, &quest.id.0, "no dispatcher", &quest, None).await;
     }
 }

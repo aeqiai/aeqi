@@ -38,6 +38,9 @@ pub(crate) struct SpawnContext {
     pub gateway_manager: Arc<GatewayManager>,
     pub stream_registry: Arc<StreamRegistry>,
     pub execution_registry: Arc<ExecutionRegistry>,
+    /// Daemon-level pattern dispatcher used by gateway-spawned
+    /// `QueueExecutor`s to fire `session:quest_end` on quest finalize.
+    pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
 }
 
 /// Dispatch a single channel row to its kind-specific spawner.
