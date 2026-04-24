@@ -38,11 +38,21 @@ const LoadingSpinner = () => (
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
+  const fetchMe = useAuthStore((s) => s.fetchMe);
 
   useEffect(() => {
     fetchAuthMode();
   }, [fetchAuthMode]);
+
+  // On a fresh page load we hydrate the token from localStorage but have
+  // no user object yet — sidebar, profile, and anywhere else that keys
+  // off `user.name`/`user.email` falls back to "You". Pull the profile
+  // once per session when we're authenticated against a real account.
+  useEffect(() => {
+    if (authMode && authMode !== "none" && token && !user) fetchMe();
+  }, [authMode, token, user, fetchMe]);
 
   if (!authMode) return <LoadingSpinner />;
   if (authMode === "none") return <>{children}</>;
