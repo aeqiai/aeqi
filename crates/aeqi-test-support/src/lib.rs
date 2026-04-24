@@ -15,6 +15,11 @@
 //! - **Fakes** — lightweight, in-memory implementations of `aeqi-core` traits
 //!   (`IdeaStore`, ...). Enough behaviour to drive the code under test; no
 //!   more. If you need real behaviour, use the real implementation.
+//! - **Harness** — [`TestHarness`] builds a real
+//!   [`aeqi_orchestrator::ipc::CommandContext`] wired against in-memory
+//!   SQLite + fake providers. Use this when a test needs to hit the
+//!   IPC boundary end-to-end (cross-agent checks, atomic supersede,
+//!   consolidation threshold fires, …).
 //!
 //! # What does NOT belong here
 //!
@@ -34,7 +39,9 @@
 
 pub mod builders;
 pub mod fakes;
+pub mod harness;
 
 // Re-export the most common names so tests can `use aeqi_test_support::*;`.
 pub use builders::{AgentBuilder, IdeaBuilder};
 pub use fakes::InMemoryIdeaStore;
+pub use harness::TestHarness;

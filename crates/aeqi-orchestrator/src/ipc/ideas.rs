@@ -1454,6 +1454,20 @@ pub async fn handle_add_idea_edge(
         return serde_json::json!({"ok": false, "error": "source and target must differ"});
     }
     let relation = request_field(request, "relation").unwrap_or("adjacent");
+    // Mirror the guard in `handle_link_idea`: typed relations must be one of
+    // the known kinds or downstream walks / MMR / graph reasoning corrupt.
+    // This is the `aeqi-cli add-idea-edge` + MCP `ideas(action='link_edge')`
+    // entry path; prior to R7b this handler wrote any string through to
+    // `store_idea_edge` verbatim, which silently fed the graph junk edges.
+    if !aeqi_ideas::relation::is_known(relation) {
+        return serde_json::json!({
+            "ok": false,
+            "error": format!(
+                "unknown relation '{relation}'. Expected one of: {}",
+                KNOWN_RELATIONS.join(", ")
+            ),
+        });
+    }
     let strength = request
         .get("strength")
         .and_then(|v| v.as_f64())
