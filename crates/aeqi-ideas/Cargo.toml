@@ -5,6 +5,13 @@ edition.workspace = true
 license.workspace = true
 description = "Unified idea store — identity, skills, knowledge, memory in one place"
 
+[features]
+default = []
+# Enable the sqlite-vec ANN virtual table + sync triggers (migration v7).
+# Off by default — Round 2 (Agent S) wires only the schema side; Agent N
+# finishes the lookup path in Round 3c.
+ann-sqlite-vec = []
+
 [dev-dependencies]
 tempfile = { workspace = true }
 

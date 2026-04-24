@@ -97,7 +97,7 @@ impl SqliteIdeas {
                 (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
-                        i.inheritance, i.tool_allow, i.tool_deny, i.scope \
+                        i.scope \
                  FROM ideas i \
                  JOIN idea_tags t ON t.idea_id = i.id \
                  WHERE LOWER(t.tag) IN ({}) \
@@ -116,17 +116,13 @@ impl SqliteIdeas {
             let mut stmt = conn.prepare(&sql)?;
             let mut entries: Vec<Idea> = stmt
                 .query_map(param_refs.as_slice(), |row| {
-                    let tool_allow_str: String =
-                        row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String =
-                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     let created_str: String = row.get(5)?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now());
                     let agent_id: Option<String> = row.get(3)?;
                     let scope = row
-                        .get::<_, String>(9)
+                        .get::<_, String>(6)
                         .ok()
                         .and_then(|s| s.parse().ok())
                         .unwrap_or_else(|| {
@@ -146,9 +142,9 @@ impl SqliteIdeas {
                         created_at,
                         score: 0.0,
                         scope,
-                        inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
-                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                        inheritance: "self".to_string(),
+                        tool_allow: Vec::new(),
+                        tool_deny: Vec::new(),
                     })
                 })?
                 .filter_map(|r| r.ok())

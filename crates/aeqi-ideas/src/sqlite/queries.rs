@@ -131,8 +131,7 @@ impl SqliteIdeas {
         }
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, session_id, created_at, \
-                        inheritance, tool_allow, tool_deny, scope \
+                "SELECT id, name, content, agent_id, session_id, created_at, scope \
                  FROM ideas \
                  WHERE agent_id IS NULL \
                  ORDER BY created_at DESC \
@@ -140,10 +139,6 @@ impl SqliteIdeas {
             )?;
             let mut entries: Vec<Idea> = stmt
                 .query_map(rusqlite::params![limit as i64], |row| {
-                    let tool_allow_str: String =
-                        row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String =
-                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     let created_str: String = row.get(5)?;
                     let created_at = DateTime::parse_from_rfc3339(&created_str)
                         .map(|d| d.with_timezone(&Utc))
@@ -161,9 +156,9 @@ impl SqliteIdeas {
                         created_at,
                         score: 0.0,
                         scope,
-                        inheritance: row.get(6).unwrap_or_else(|_| "self".to_string()),
-                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                        inheritance: "self".to_string(),
+                        tool_allow: Vec::new(),
+                        tool_deny: Vec::new(),
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -180,10 +175,9 @@ impl SqliteIdeas {
         }
         let ids = ids.to_vec();
         self.blocking(move |conn| {
-            let placeholders: Vec<String> =
-                (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -194,13 +188,9 @@ impl SqliteIdeas {
                 .collect();
             let mut entries: Vec<Idea> = stmt
                 .query_map(params.as_slice(), |row| {
-                    let tool_allow_str: String =
-                        row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
-                    let tool_deny_str: String =
-                        row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                     let agent_id: Option<String> = row.get(3)?;
                     let scope = row
-                        .get::<_, String>(9)
+                        .get::<_, String>(6)
                         .ok()
                         .and_then(|s| s.parse().ok())
                         .unwrap_or_else(|| {
@@ -225,11 +215,9 @@ impl SqliteIdeas {
                         session_id: row.get(5)?,
                         score: 1.0,
                         scope,
-                        inheritance: row
-                            .get::<_, String>(6)
-                            .unwrap_or_else(|_| "self".to_string()),
-                        tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                        tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                        inheritance: "self".to_string(),
+                        tool_allow: Vec::new(),
+                        tool_deny: Vec::new(),
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -249,21 +237,17 @@ impl SqliteIdeas {
         let agent_id = agent_id.map(|s| s.to_string());
         self.blocking(move |conn| {
             let sql = if agent_id.is_some() {
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope
                  FROM ideas WHERE name = ?1 AND agent_id = ?2 LIMIT 1"
             } else {
-                "SELECT id, name, content, agent_id, created_at, session_id, inheritance, tool_allow, tool_deny, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope
                  FROM ideas WHERE name = ?1 AND agent_id IS NULL LIMIT 1"
             };
             let mut stmt = conn.prepare(sql)?;
             let mapper = |row: &rusqlite::Row<'_>| -> rusqlite::Result<Idea> {
-                let tool_allow_str: String =
-                    row.get::<_, String>(7).unwrap_or_else(|_| "[]".to_string());
-                let tool_deny_str: String =
-                    row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
                 let agent_id: Option<String> = row.get(3)?;
                 let scope = row
-                    .get::<_, String>(9)
+                    .get::<_, String>(6)
                     .ok()
                     .and_then(|s| s.parse().ok())
                     .unwrap_or_else(|| {
@@ -288,11 +272,9 @@ impl SqliteIdeas {
                     session_id: row.get(5)?,
                     score: 1.0,
                     scope,
-                    inheritance: row
-                        .get::<_, String>(6)
-                        .unwrap_or_else(|_| "self".to_string()),
-                    tool_allow: serde_json::from_str(&tool_allow_str).unwrap_or_default(),
-                    tool_deny: serde_json::from_str(&tool_deny_str).unwrap_or_default(),
+                    inheritance: "self".to_string(),
+                    tool_allow: Vec::new(),
+                    tool_deny: Vec::new(),
                 })
             };
             let mut entries: Vec<Idea> = match agent_id.as_deref() {
