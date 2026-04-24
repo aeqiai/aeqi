@@ -10,7 +10,6 @@ pub mod dedup;
 pub mod graph;
 pub mod hybrid;
 pub mod inline_links;
-pub mod lifecycle;
 pub mod obsidian;
 pub mod redact;
 pub mod sqlite;
