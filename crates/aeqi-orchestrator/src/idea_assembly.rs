@@ -522,6 +522,21 @@ async fn dispatch_event_tool_calls(
     assembly_ctx: &AssemblyContext,
     parts: &mut Vec<String>,
 ) -> bool {
+    dispatch_event_tool_calls_with_trigger(event, dispatch, assembly_ctx, None, parts).await
+}
+
+/// Like `dispatch_event_tool_calls` but flows every scalar field of the
+/// `trigger_args` JSON object into the substitution context. Used by
+/// `EventPatternDispatcher::dispatch` so detectors can pass arbitrary
+/// payload keys (e.g. `{tag}`, `{candidate_ids}`, `{count}`) into the
+/// event's tool_call args.
+async fn dispatch_event_tool_calls_with_trigger(
+    event: &crate::event_handler::Event,
+    dispatch: &ToolDispatch<'_>,
+    assembly_ctx: &AssemblyContext,
+    trigger_args: Option<&serde_json::Value>,
+    parts: &mut Vec<String>,
+) -> bool {
     // Build substitution context from AssemblyContext fields.
     let mut sub_ctx: HashMap<String, String> = HashMap::new();
     if let Some(ref v) = assembly_ctx.user_prompt {
@@ -533,6 +548,26 @@ async fn dispatch_event_tool_calls(
     }
     if let Some(ref v) = assembly_ctx.quest_description {
         sub_ctx.insert("quest_description".to_string(), v.clone());
+    }
+    // Flow trigger_args scalar fields into sub_ctx so detectors can pass
+    // `{tag}`, `{candidate_ids}`, `{count}` etc. to event tool_calls.
+    // Only scalar values (string / number / bool) are flattened; nested
+    // objects/arrays are skipped because they don't interpolate cleanly
+    // into a `{placeholder}` slot.
+    if let Some(serde_json::Value::Object(map)) = trigger_args {
+        for (k, v) in map {
+            let maybe_scalar = match v {
+                serde_json::Value::String(s) => Some(s.clone()),
+                serde_json::Value::Number(n) => Some(n.to_string()),
+                serde_json::Value::Bool(b) => Some(b.to_string()),
+                _ => None,
+            };
+            if let Some(scalar) = maybe_scalar {
+                // ExecutionContext values win (the detector can't forge
+                // session_id / agent_id from the payload).
+                sub_ctx.entry(k.clone()).or_insert(scalar);
+            }
+        }
     }
     // Session-level values from ExecutionContext.
     sub_ctx.insert("session_id".to_string(), dispatch.ctx.session_id.clone());
@@ -994,9 +1029,14 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
 
             for event in &events {
                 if !event.tool_calls.is_empty() {
-                    let fired =
-                        dispatch_event_tool_calls(event, &dispatch, &assembly_ctx, &mut parts)
-                            .await;
+                    let fired = dispatch_event_tool_calls_with_trigger(
+                        event,
+                        &dispatch,
+                        &assembly_ctx,
+                        Some(trigger_args),
+                        &mut parts,
+                    )
+                    .await;
                     if fired {
                         handled = true;
                         // Record fire — best effort.
