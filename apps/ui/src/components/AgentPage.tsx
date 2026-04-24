@@ -10,7 +10,6 @@ import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import AgentOrgChart from "./AgentOrgChart";
 import PageTabs from "./PageTabs";
-import { IdentityCard } from "./IdentitySetup";
 import { Button, EmptyState } from "./ui";
 import ModelPicker from "./ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
@@ -85,11 +84,6 @@ export default function AgentPage({
         >
           {toast.message}
         </div>
-      )}
-
-      {/* Identity card — compact strip visible on sessions + settings tabs */}
-      {(activeTab === "sessions" || activeTab === "settings") && agent && (
-        <IdentityCard agentId={resolvedAgentId} agentName={agent.name} onToast={showToast} />
       )}
 
       {/* Tab content */}

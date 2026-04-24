@@ -293,6 +293,17 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     [dispatchMessage, setMessages],
   );
 
+  // Resend a user message verbatim within the same session — no edit
+  // flow, no forking. Appends a fresh optimistic user bubble and fires
+  // the same dispatch path the composer uses.
+  const handleResend = useCallback(
+    (text: string) => {
+      setMessages((prev) => [...prev, { role: "user", content: text, timestamp: Date.now() }]);
+      void dispatchMessage(text);
+    },
+    [dispatchMessage, setMessages],
+  );
+
   // ── Event bridge: composer in AppLayout communicates via custom events ──
 
   useEffect(() => {
@@ -378,7 +389,13 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
           {messages
             .filter((msg) => !msg.queued)
             .map((msg, i) => (
-              <MessageItem key={i} msg={msg} onFork={handleFork} onEdit={handleEdit} />
+              <MessageItem
+                key={i}
+                msg={msg}
+                onFork={handleFork}
+                onEdit={handleEdit}
+                onResend={handleResend}
+              />
             ))}
 
           <StreamingMessage
@@ -399,6 +416,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
               }}
               onFork={handleFork}
               onEdit={handleEdit}
+              onResend={handleResend}
             />
           ))}
 

@@ -406,10 +406,12 @@ const MessageItem = memo(function MessageItem({
   msg,
   onFork,
   onEdit,
+  onResend,
 }: {
   msg: Message;
   onFork?: (messageId: number) => void;
   onEdit?: (messageId: number, text: string) => void;
+  onResend?: (text: string) => void;
 }) {
   if (msg.role === "event_fire") {
     return <EventFireItem msg={msg} />;
@@ -529,6 +531,28 @@ const MessageItem = memo(function MessageItem({
             {msg.role === "user" && msg.content.trim().length > 0 && (
               <div className="asv-msg-chrome-actions">
                 <CopyButton text={msg.content} />
+                {onResend && (
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    className="asv-msg-action-btn"
+                    onClick={() => onResend(msg.content)}
+                    aria-label="Resend"
+                    title="Resend this message"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9" />
+                      <path d="M2.5 3v3h3" />
+                    </svg>
+                  </IconButton>
+                )}
                 {msg.messageId && onEdit && (
                   <IconButton
                     variant="ghost"
