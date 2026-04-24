@@ -728,10 +728,89 @@ impl AgentRegistry {
         info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");
         drop(db);
 
-        // Lifecycle events are global (seeded once at daemon boot) — nothing
-        // per-agent to create here.
+        // Lifecycle events are global (seeded once at daemon boot). Schedule
+        // events however must be per-agent — `EventHandlerStore::create`
+        // rejects global schedule:* rows because a global cron has no agent
+        // to fire against. Seed the standard daily-digest + weekly-consolidate
+        // schedules here so every freshly-spawned agent gets a vanilla
+        // reflection cadence out of the box. Idempotent — the
+        // `idx_events_unique_name` index makes duplicate inserts no-ops.
+        if let Err(e) = self
+            .install_default_scheduled_events(&agent.id, &session_id)
+            .await
+        {
+            tracing::warn!(
+                agent_id = %agent.id,
+                error = %e,
+                "failed to install default scheduled events; agent still spawned"
+            );
+        }
 
         Ok(agent)
+    }
+
+    /// Install the two standard per-agent schedule events: `daily-digest` and
+    /// `weekly-consolidate`. Both spawn a compactor session from a meta-idea
+    /// template; operators can override by calling
+    /// `events(action='update', event_id=..., …)` after spawn.
+    ///
+    /// Idempotent: relies on the UNIQUE (COALESCE(agent_id,''), name) index
+    /// on `events`. Calling twice for the same agent is a no-op.
+    pub async fn install_default_scheduled_events(
+        &self,
+        agent_id: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        let seeds: [(&str, &str, &str, &str, &str); 2] = [
+            (
+                "daily-digest",
+                "schedule:0 0 * * *",
+                "meta:daily-reflector-template",
+                "Agent={agent_id} — review last 24h",
+                session_id,
+            ),
+            (
+                "weekly-consolidate",
+                "schedule:0 0 * * 0",
+                "meta:weekly-consolidator-template",
+                "Agent={agent_id} — review last 7d",
+                session_id,
+            ),
+        ];
+
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        for (name, pattern, instructions_idea, seed_content, parent_session) in seeds {
+            let tool_calls = serde_json::json!([{
+                "tool": "session.spawn",
+                "args": {
+                    "kind": "compactor",
+                    "instructions_idea": instructions_idea,
+                    "seed_content": seed_content,
+                    "parent_session": parent_session,
+                }
+            }]);
+            let tool_calls_json =
+                serde_json::to_string(&tool_calls).unwrap_or_else(|_| "[]".to_string());
+            let event_id = uuid::Uuid::new_v4().to_string();
+            db.execute(
+                "INSERT OR IGNORE INTO events (
+                     id, agent_id, name, pattern, scope, idea_ids,
+                     query_template, query_top_k, tool_calls,
+                     enabled, cooldown_secs, system, created_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, '[]', NULL, NULL, ?6, 1, 0, 0, ?7)",
+                params![
+                    event_id,
+                    agent_id,
+                    name,
+                    pattern,
+                    Scope::SelfScope.as_str(),
+                    tool_calls_json,
+                    now,
+                ],
+            )?;
+        }
+        Ok(())
     }
 
     /// Get a specific agent by UUID.
@@ -3115,5 +3194,132 @@ mod tests {
 
         let fetched = reg.get_task(&task.id.0).await.unwrap().unwrap();
         assert_eq!(fetched.scope, Scope::Branch);
+    }
+
+    /// A freshly spawned agent gets the two default schedule events
+    /// (daily-digest + weekly-consolidate) with the correct patterns,
+    /// concrete agent_id, and a session.spawn tool call.
+    #[tokio::test]
+    async fn spawn_installs_default_scheduled_events() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("scheduled", None, None).await.unwrap();
+
+        let db = reg.db.lock().await;
+        let mut stmt = db
+            .prepare(
+                "SELECT name, pattern, agent_id, tool_calls FROM events
+                 WHERE agent_id = ?1 AND pattern LIKE 'schedule:%'
+                 ORDER BY name",
+            )
+            .unwrap();
+        let rows: Vec<(String, String, String, String)> = stmt
+            .query_map(params![agent.id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        assert_eq!(rows.len(), 2, "should seed exactly 2 schedule events");
+
+        // Alphabetical: daily-digest then weekly-consolidate.
+        assert_eq!(rows[0].0, "daily-digest");
+        assert_eq!(rows[0].1, "schedule:0 0 * * *");
+        assert_eq!(rows[0].2, agent.id);
+        let daily_tc: serde_json::Value = serde_json::from_str(&rows[0].3).unwrap();
+        assert_eq!(daily_tc[0]["tool"], "session.spawn");
+        assert_eq!(daily_tc[0]["args"]["kind"], "compactor");
+        assert_eq!(
+            daily_tc[0]["args"]["instructions_idea"],
+            "meta:daily-reflector-template"
+        );
+        assert_eq!(
+            daily_tc[0]["args"]["parent_session"],
+            agent.session_id.clone().unwrap()
+        );
+
+        assert_eq!(rows[1].0, "weekly-consolidate");
+        assert_eq!(rows[1].1, "schedule:0 0 * * 0");
+        assert_eq!(rows[1].2, agent.id);
+        let weekly_tc: serde_json::Value = serde_json::from_str(&rows[1].3).unwrap();
+        assert_eq!(
+            weekly_tc[0]["args"]["instructions_idea"],
+            "meta:weekly-consolidator-template"
+        );
+    }
+
+    /// Calling `install_default_scheduled_events` twice for the same agent is
+    /// idempotent — the unique (COALESCE(agent_id,''), name) index turns the
+    /// second insert into a no-op so we don't end up with 4 rows.
+    #[tokio::test]
+    async fn install_default_scheduled_events_is_idempotent() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("idem", None, None).await.unwrap();
+
+        // Second explicit install — spawn already ran one.
+        reg.install_default_scheduled_events(&agent.id, "fake-session")
+            .await
+            .unwrap();
+
+        let db = reg.db.lock().await;
+        let count: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE agent_id = ?1 AND pattern LIKE 'schedule:%'",
+                params![agent.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 2, "idempotent: still exactly 2 schedule events");
+    }
+
+    /// Per-agent schedule seeds must not clobber the global lifecycle events
+    /// seeded once at daemon boot — those rows have agent_id IS NULL and stay
+    /// that way after a spawn.
+    #[tokio::test]
+    async fn spawn_leaves_global_events_untouched() {
+        let reg = test_registry().await;
+
+        // Simulate a pre-existing global lifecycle event (the kind
+        // create_default_lifecycle_events inserts at boot).
+        {
+            let db = reg.db.lock().await;
+            db.execute(
+                "INSERT INTO events (
+                     id, agent_id, name, pattern, scope, idea_ids,
+                     tool_calls, enabled, cooldown_secs, system, created_at
+                 ) VALUES ('global-1', NULL, 'session:start', 'session:start',
+                          'global', '[]', '[]', 1, 0, 1, '2026-01-01T00:00:00Z')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let _agent = reg.spawn("tenant", None, None).await.unwrap();
+
+        let db = reg.db.lock().await;
+        let global_count: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE agent_id IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            global_count, 1,
+            "global lifecycle events must remain agent_id IS NULL"
+        );
+        let global_name: String = db
+            .query_row(
+                "SELECT name FROM events WHERE agent_id IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(global_name, "session:start");
     }
 }
