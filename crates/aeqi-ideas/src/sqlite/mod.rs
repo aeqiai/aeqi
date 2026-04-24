@@ -244,6 +244,14 @@ impl IdeaStore for SqliteIdeas {
         self.get_by_name_impl(name, agent_id).await
     }
 
+    async fn get_active_id_by_name(
+        &self,
+        name: &str,
+        agent_id: Option<&str>,
+    ) -> Result<Option<String>> {
+        self.get_active_id_by_name_impl(name, agent_id).await
+    }
+
     async fn reconcile_inline_edges(
         &self,
         source_id: &str,

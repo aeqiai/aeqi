@@ -8,6 +8,7 @@ use super::SqliteIdeas;
 use aeqi_core::traits::Idea;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use rusqlite::OptionalExtension;
 
 impl SqliteIdeas {
     /// List all non-expired ideas (unscored, no search ranking).
@@ -215,6 +216,32 @@ impl SqliteIdeas {
             };
             Self::enrich_tags(conn, &mut entries);
             Ok(entries.into_iter().next())
+        })
+        .await
+    }
+
+    /// Cheap id-only lookup for the unique-active `(agent_id, name)` slot.
+    /// Returns `Some(id)` when a `status='active'` row exists for that key,
+    /// `None` otherwise — including when the name only matches superseded or
+    /// archived rows. Mirrors the partial unique index from migration v8.
+    pub(super) async fn get_active_id_by_name_impl(
+        &self,
+        name: &str,
+        agent_id: Option<&str>,
+    ) -> Result<Option<String>> {
+        let name = name.to_string();
+        let agent_id = agent_id.map(|s| s.to_string());
+        self.blocking(move |conn| {
+            let sql = "SELECT id FROM ideas
+                       WHERE name = ?1
+                         AND COALESCE(agent_id, '') = COALESCE(?2, '')
+                         AND status = 'active'
+                       LIMIT 1";
+            conn.query_row(sql, rusqlite::params![name, agent_id], |row| {
+                row.get::<_, String>(0)
+            })
+            .optional()
+            .map_err(|e| anyhow::anyhow!("get_active_id_by_name: {e}"))
         })
         .await
     }

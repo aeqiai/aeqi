@@ -300,6 +300,21 @@ pub trait IdeaStore: Send + Sync {
         Ok(None)
     }
 
+    /// Fetch the id of the `status='active'` idea row matching `(agent_id, name)`,
+    /// if any. Mirrors the partial unique index
+    /// `idx_ideas_agent_name_active_unique`: at most one active row per
+    /// `(COALESCE(agent_id, ''), name)` pair. Used by the write-path dedup
+    /// short-circuit to return a pre-existing id instead of tripping UNIQUE
+    /// at INSERT time. Default is `None`; SQLite backend overrides.
+    async fn get_active_id_by_name(
+        &self,
+        name: &str,
+        agent_id: Option<&str>,
+    ) -> anyhow::Result<Option<String>> {
+        let _ = (name, agent_id);
+        Ok(None)
+    }
+
     /// Reassign ideas from one agent_id to another.
     /// Used after agent spawning to reconcile name-based references with actual UUIDs.
     async fn reassign_agent(
