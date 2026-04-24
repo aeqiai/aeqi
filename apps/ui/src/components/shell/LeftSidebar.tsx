@@ -83,10 +83,13 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
 
-  // Profile row should read as "you" — the user's real name if we have one,
-  // email local-part as fallback, "Local" in runtime (no-auth) mode.
+  // Profile row: name on top, email below in a muted secondary line.
+  // Fall back to email-local / "Local" / "You" when we don't have enough
+  // to show two lines — in those cases the row renders single-line so
+  // the same content doesn't stack on top of itself.
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
+  const userEmail = user?.name && user?.email ? user.email : null;
   // Primitive nav is scoped to the selected agent. On `/` and `/profile`
   // no agent is picked yet, so the items can't navigate anywhere — but we
   // still render them as inert placeholders so the sidebar's silhouette is
@@ -264,7 +267,16 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <span className="sidebar-nav-avatar">
               <BlockAvatar name={userName} size={18} />
             </span>
-            <span className="sidebar-nav-label">{userName}</span>
+            {userEmail ? (
+              <span className="sidebar-nav-identity">
+                <span className="sidebar-nav-identity-name">{userName}</span>
+                <span className="sidebar-nav-identity-email" title={userEmail}>
+                  {userEmail}
+                </span>
+              </span>
+            ) : (
+              <span className="sidebar-nav-label">{userName}</span>
+            )}
           </a>
           <button
             type="button"
