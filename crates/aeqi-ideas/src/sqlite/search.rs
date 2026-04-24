@@ -41,7 +41,17 @@ use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+#[cfg(feature = "ann-sqlite-vec")]
+use std::sync::atomic::{AtomicU8, Ordering};
 use tracing::warn;
+
+/// Sticky ANN availability cache for the scope-aware path in this module.
+/// 0 = unknown, 1 = ready, 2 = unavailable. Mirrors `VS_ANN_STATE` in
+/// `vector.rs` but lives here so a failure on one path doesn't disable the
+/// other. Once set to `unavailable` we stop probing until the process
+/// restarts.
+#[cfg(feature = "ann-sqlite-vec")]
+static ANN_STATE: AtomicU8 = AtomicU8::new(0);
 
 /// Internal scored-candidate view used across the stages.
 #[derive(Clone, Debug)]
@@ -168,12 +178,15 @@ impl SqliteIdeas {
         Ok(rows)
     }
 
-    /// Vector search filtered to rows that carry `tag`. Brute-force cosine
-    /// over all stored vectors for now; ANN path via sqlite-vec is available
-    /// through [`crate::vector::VectorStore::search`] and will be wired here
-    /// in a follow-up (tracked as Round 5 cleanup — N's orphaned
-    /// `try_ann_search` / `brute_force_vector_search` can plug in once
-    /// adapted to the tag-filter contract).
+    /// Vector search filtered to rows that carry `tag`.
+    ///
+    /// ANN-first: when the `ann-sqlite-vec` feature is on AND the extension
+    /// is registered, we route through `idea_vec MATCH` and return its hits
+    /// (tag-filtered + scope-filtered in the same query). On any failure —
+    /// feature off, extension missing, prepare/query error — we fall through
+    /// to the brute-force cosine path over `idea_embeddings`. The ANN
+    /// decision is sticky per-process via `ANN_STATE` so we stop re-probing
+    /// once we've learned the extension isn't available.
     fn vector_search_filtered(
         conn: &Connection,
         query_vec: &[f32],
@@ -181,6 +194,10 @@ impl SqliteIdeas {
         tag: &str,
         limit: usize,
     ) -> Vec<(String, f32)> {
+        if let Some(hits) = Self::try_ann_search(conn, query_vec, query, tag, limit) {
+            return hits;
+        }
+
         let mut conditions: Vec<String> = vec![
             "EXISTS(SELECT 1 FROM idea_tags it WHERE it.idea_id = m.id AND LOWER(it.tag) = ?1)"
                 .into(),
@@ -224,6 +241,138 @@ impl SqliteIdeas {
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(limit);
         results
+    }
+
+    /// Tag-filtered ANN nearest-neighbour search via the `idea_vec` virtual
+    /// table. Returns `None` when ANN is unavailable (feature off, extension
+    /// missing, prepare/query failure) so the caller can fall back to the
+    /// brute-force path. On success returns the same `(id, similarity)`
+    /// shape the brute-force path emits so downstream mixing is oblivious.
+    ///
+    /// Scope + visibility + supersede filters are applied in the same SQL
+    /// so the ANN path doesn't leak cross-agent ideas and doesn't resurrect
+    /// superseded rows. We ask vec0 for `k*4` neighbours, then filter and
+    /// truncate to `limit` — this lets post-hoc filtering discard up to 75%
+    /// of candidates without running short of hits.
+    #[cfg(feature = "ann-sqlite-vec")]
+    fn try_ann_search(
+        conn: &Connection,
+        query_vec: &[f32],
+        query: &IdeaQuery,
+        tag: &str,
+        limit: usize,
+    ) -> Option<Vec<(String, f32)>> {
+        use crate::sqlite::embeddings::vec_extension_ready;
+        use crate::vector::vec_to_bytes;
+
+        // Short-circuit when we already learned ANN isn't available, or when
+        // the extension never registered globally.
+        if ANN_STATE.load(Ordering::Relaxed) == 2 {
+            return None;
+        }
+        if !vec_extension_ready() {
+            ANN_STATE.store(2, Ordering::Relaxed);
+            return None;
+        }
+
+        // Build a parameterised WHERE that filters by tag + scope + (optional)
+        // supersede-exclusion. The vec0 MATCH clause goes first, then the
+        // JOIN with ideas + idea_tags handles the tag filter, then
+        // apply_scope_clause layers on agent visibility.
+        //
+        // vec0 `k` controls how many neighbours the virtual table returns
+        // before any JOIN filtering — over-fetch so the tag/scope filter has
+        // room to drop candidates without starving the caller.
+        let k: i64 = (limit as i64).saturating_mul(4).max(limit as i64);
+
+        let mut conditions: Vec<String> = vec![
+            "iv.embedding MATCH ?1".into(),
+            "iv.k = ?2".into(),
+            "EXISTS(SELECT 1 FROM idea_tags it WHERE it.idea_id = m.id AND LOWER(it.tag) = ?3)"
+                .into(),
+        ];
+        let query_bytes = vec_to_bytes(query_vec);
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
+            Box::new(query_bytes),
+            Box::new(k),
+            Box::new(tag.to_lowercase()),
+        ];
+        let mut idx = 4usize;
+
+        if !query.include_superseded {
+            conditions.push("m.status = 'active'".into());
+            conditions.push(
+                "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
+                 AND se.relation = 'supersedes')"
+                    .into(),
+            );
+        }
+
+        apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
+
+        let where_clause = conditions.join(" AND ");
+        let sql = format!(
+            "SELECT me.idea_id, me.embedding \
+             FROM idea_vec iv \
+             JOIN idea_embeddings me ON me.rowid = iv.rowid \
+             JOIN ideas m ON m.id = me.idea_id \
+             WHERE {where_clause} ORDER BY iv.distance"
+        );
+
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::debug!(
+                    error = %e,
+                    "ANN prepare failed; falling back to brute-force for this process"
+                );
+                ANN_STATE.store(2, Ordering::Relaxed);
+                return None;
+            }
+        };
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            params.iter().map(|p| p.as_ref()).collect();
+        let rows_iter = match stmt.query_map(param_refs.as_slice(), |row| {
+            let id: String = row.get(0)?;
+            let bytes: Vec<u8> = row.get(1)?;
+            Ok((id, bytes))
+        }) {
+            Ok(i) => i,
+            Err(e) => {
+                warn!(error = %e, "ANN query failed; falling back to brute-force for this process");
+                ANN_STATE.store(2, Ordering::Relaxed);
+                return None;
+            }
+        };
+
+        ANN_STATE.store(1, Ordering::Relaxed);
+        let mut hits: Vec<(String, f32)> = rows_iter
+            .filter_map(|r| r.ok())
+            .map(|(id, bytes)| {
+                let sim = cosine_similarity(query_vec, &bytes_to_vec(&bytes));
+                (id, sim)
+            })
+            .collect();
+        // vec0 returns results ordered by L2 distance. Re-sort by cosine
+        // similarity so the shape matches the brute-force fallback exactly
+        // (both paths feed the same downstream mixing code).
+        hits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        hits.truncate(limit);
+        Some(hits)
+    }
+
+    /// Feature-off stub: ANN is never available in a `--no-default-features`
+    /// build, so the brute-force path is the only path.
+    #[cfg(not(feature = "ann-sqlite-vec"))]
+    fn try_ann_search(
+        _conn: &Connection,
+        _query_vec: &[f32],
+        _query: &IdeaQuery,
+        _tag: &str,
+        _limit: usize,
+    ) -> Option<Vec<(String, f32)>> {
+        None
     }
 
     // ── Pipeline entry — search_explained ──────────────────────────────
@@ -721,13 +870,6 @@ fn apply_scope_clause(
         *idx += 1;
     }
 }
-
-// Agent N's orphaned ANN helpers (try_ann_search / brute_force_vector_search /
-// build_vector_scope_clause) were dropped at W+R merge time: R's new tag-aware
-// pipeline calls vector_search_filtered, not vector_search_scoped, so N's
-// helpers never got called. The ANN path remains available via
-// VectorStore::search in vector.rs. Re-integrating ANN into
-// vector_search_filtered is tracked as Round 5 cleanup.
 
 /// Policy lookup that never fails — falls back to a sensible default so
 /// the pipeline always has one.

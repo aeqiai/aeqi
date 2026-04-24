@@ -8,21 +8,24 @@
 use super::SqliteIdeas;
 use anyhow::Result;
 use rusqlite::Connection;
+#[cfg(feature = "ann-sqlite-vec")]
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Global flag set to true when sqlite-vec has been successfully auto-loaded
-/// into the SQLite library. `vector_search_scoped` consults this (plus a
-/// per-connection probe) to decide whether the ANN path is available.
+/// into the SQLite library. `sqlite::search::try_ann_search` consults this
+/// (plus the per-connection probe) to decide whether the ANN path is
+/// available.
+#[cfg(feature = "ann-sqlite-vec")]
 static VEC_EXTENSION_READY: AtomicBool = AtomicBool::new(false);
 
 /// Returns true if the sqlite-vec extension has been registered for this
 /// process and the `idea_vec` virtual table is therefore usable (subject to
 /// the per-connection probe in the search path).
 ///
-/// Temporarily unreferenced after the W+R merge dropped N's orphaned ANN
-/// helpers from `search.rs`. Round 5 cleanup re-integrates ANN into
-/// `vector_search_filtered` and this probe gates it again.
-#[allow(dead_code)]
+/// Called by `sqlite::search::try_ann_search` to short-circuit when the
+/// extension didn't register at process boot — keeps the brute-force path
+/// taking over without paying for a failed prepare on every query.
+#[cfg(feature = "ann-sqlite-vec")]
 pub(crate) fn vec_extension_ready() -> bool {
     VEC_EXTENSION_READY.load(Ordering::Relaxed)
 }
