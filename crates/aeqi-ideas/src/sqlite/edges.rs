@@ -116,10 +116,14 @@ impl SqliteIdeas {
     ) -> f32 {
         let result_set: std::collections::HashSet<&str> =
             result_ids.iter().map(|s| s.as_str()).collect();
+        // Exclude self-edges — R6b's `contradiction` self-loops are durable
+        // markers for "this idea was flagged wrong", not relevance signals.
+        // Strength to self is meaningless for graph-boost ranking.
         let Ok(mut stmt) = conn.prepare(
             "SELECT source_id, target_id, relation, strength \
              FROM idea_edges \
-             WHERE source_id = ?1 OR target_id = ?1",
+             WHERE (source_id = ?1 OR target_id = ?1) \
+               AND source_id != target_id",
         ) else {
             return 0.0;
         };
@@ -736,6 +740,54 @@ mod walk_tests {
         assert!(
             (c_strength - 0.49).abs() < 1e-5,
             "C ≈ 0.49, got {c_strength}"
+        );
+    }
+
+    /// `contradiction` self-edges are durable markers left by the `wrong`
+    /// feedback path (R6b). They must not feed into graph_boost — strength
+    /// to self is meaningless for ranking and would double-count the idea.
+    #[tokio::test]
+    async fn graph_boost_excludes_self_edge() {
+        use aeqi_core::traits::IdeaStore;
+        let (mem, _dir) = test_store();
+        let x = mem.store("x", "body", &[], None).await.unwrap();
+        let y = mem.store("y", "body", &[], None).await.unwrap();
+
+        // Self-edge on X (contradiction marker) + a normal edge X→Y.
+        mem.store_idea_edge(&x, &x, "contradiction", 1.0)
+            .await
+            .unwrap();
+        mem.store_idea_edge(&x, &y, "adjacent", 1.0).await.unwrap();
+
+        let result_ids = vec![x.clone(), y.clone()];
+        let boost = mem.compute_graph_boost(&x, &result_ids);
+
+        // Only the X→Y `adjacent` edge (weight 0.3) should contribute.
+        // Self-edge must be excluded.
+        assert!(
+            (boost - 0.3).abs() < 1e-5,
+            "expected boost ≈ 0.3 (adjacent only); got {boost}"
+        );
+    }
+
+    /// Sanity check: co-retrieval edges between distinct ideas are
+    /// unaffected by the self-edge filter.
+    #[tokio::test]
+    async fn graph_boost_co_retrieved_between_distinct_ideas_still_counts() {
+        use aeqi_core::traits::IdeaStore;
+        let (mem, _dir) = test_store();
+        let a = mem.store("a", "body", &[], None).await.unwrap();
+        let b = mem.store("b", "body", &[], None).await.unwrap();
+        mem.store_idea_edge(&a, &b, "co_retrieved", 1.0)
+            .await
+            .unwrap();
+
+        let result_ids = vec![a.clone(), b.clone()];
+        let boost = mem.compute_graph_boost(&a, &result_ids);
+        // co_retrieved weight is 0.25, strength 1.0 → boost 0.25.
+        assert!(
+            (boost - 0.25).abs() < 1e-5,
+            "co_retrieved edge must contribute; got {boost}"
         );
     }
 }

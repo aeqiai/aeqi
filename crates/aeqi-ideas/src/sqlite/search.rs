@@ -770,6 +770,15 @@ impl SqliteIdeas {
             })
             .collect::<Vec<_>>();
         let reranked = mmr_rerank(&scored, top_k, self.mmr_lambda, |a, b| {
+            // Defensive: MMR selects from a distinct candidate set, but
+            // being explicit guards against future callers that dedup
+            // differently. Self-similarity is always 1.0 by definition —
+            // returning it keeps the diversity math well-behaved if the
+            // input ever DOES contain a duplicate (MMR's `1 - max_sim`
+            // penalty drives it to 0, so the duplicate ranks last).
+            if a == b {
+                return 1.0;
+            }
             match (embeddings.get(a), embeddings.get(b)) {
                 (Some(va), Some(vb)) => cosine_similarity(va, vb) as f64,
                 _ => {
