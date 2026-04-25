@@ -1,5 +1,6 @@
+use aeqi_core::credentials::read_global_legacy_blob_sync;
 use aeqi_core::traits::{Provider, Tool};
-use aeqi_core::{AEQIConfig, ProviderKind, SecretStore};
+use aeqi_core::{AEQIConfig, ProviderKind};
 use anyhow::{Context, Result};
 
 /// Resolve `${ENV_VAR}` patterns in a config value. Returns empty string if
@@ -115,16 +116,20 @@ pub(crate) fn get_api_key(config: &AEQIConfig) -> Result<String> {
         .openrouter
         .as_ref()
         .context("no OpenRouter provider configured")?;
-    // Resolve ${ENV_VAR} patterns, then fall back to SecretStore.
+    // Resolve ${ENV_VAR} patterns, then fall back to the credentials
+    // substrate. SecretStore filesystem is no longer consulted — Move A
+    // migrated and purged it.
     let key = resolve_env_value(&or_config.api_key);
     if !key.is_empty() {
         return Ok(key);
     }
-    let store_path = provider_secret_store_path(config);
-    let store = SecretStore::open(&store_path)?;
-    store
-        .get("OPENROUTER_API_KEY")
-        .context("OPENROUTER_API_KEY not set. Use `aeqi secrets set OPENROUTER_API_KEY <key>`")
+    if let Some(value) = read_global_legacy_blob_sync(&config.data_dir(), "OPENROUTER_API_KEY")
+        .context("read OPENROUTER_API_KEY from credentials substrate")?
+        .filter(|v| !v.is_empty())
+    {
+        return Ok(value);
+    }
+    anyhow::bail!("OPENROUTER_API_KEY not set. Use `aeqi secrets set OPENROUTER_API_KEY <key>`");
 }
 
 pub(crate) fn provider_secret_store_path(config: &AEQIConfig) -> PathBuf {
@@ -134,6 +139,29 @@ pub(crate) fn provider_secret_store_path(config: &AEQIConfig) -> PathBuf {
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or_else(|| config.data_dir().join("secrets"))
+}
+
+/// Re-resolve provider API keys against the credentials substrate. Used after
+/// the daemon's startup migration runs — `parse()` already tried to fill
+/// `config.providers.*.api_key` from the substrate, but on the first boot the
+/// substrate was empty (SecretStore was still on disk). After migration
+/// finishes, the keys live in the substrate and we re-fill any empties.
+pub(crate) fn refresh_provider_keys_from_substrate(config: &mut AEQIConfig) {
+    let data_dir = config.data_dir();
+    if let Some(ref mut or) = config.providers.openrouter
+        && or.api_key.is_empty()
+        && let Ok(Some(value)) = read_global_legacy_blob_sync(&data_dir, "OPENROUTER_API_KEY")
+        && !value.is_empty()
+    {
+        or.api_key = value;
+    }
+    if let Some(ref mut a) = config.providers.anthropic
+        && a.api_key.is_empty()
+        && let Ok(Some(value)) = read_global_legacy_blob_sync(&data_dir, "ANTHROPIC_API_KEY")
+        && !value.is_empty()
+    {
+        a.api_key = value;
+    }
 }
 
 fn get_anthropic_api_key(config: &AEQIConfig) -> Result<String> {
@@ -146,10 +174,13 @@ fn get_anthropic_api_key(config: &AEQIConfig) -> Result<String> {
     if !key.is_empty() {
         return Ok(key);
     }
-    let store = SecretStore::open(&provider_secret_store_path(config))?;
-    store
-        .get("ANTHROPIC_API_KEY")
-        .context("ANTHROPIC_API_KEY not set. Use `aeqi secrets set ANTHROPIC_API_KEY <key>`")
+    if let Some(value) = read_global_legacy_blob_sync(&config.data_dir(), "ANTHROPIC_API_KEY")
+        .context("read ANTHROPIC_API_KEY from credentials substrate")?
+        .filter(|v| !v.is_empty())
+    {
+        return Ok(value);
+    }
+    anyhow::bail!("ANTHROPIC_API_KEY not set. Use `aeqi secrets set ANTHROPIC_API_KEY <key>`");
 }
 
 pub(crate) fn build_provider_for_runtime(

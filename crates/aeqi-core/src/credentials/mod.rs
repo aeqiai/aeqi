@@ -26,7 +26,10 @@ pub mod types;
 pub use cipher::{CredentialCipher, default_store_path};
 pub use lifecycle::{BootstrappedRow, CredentialLifecycle};
 pub use resolve::{CredentialResolveError, CredentialResolver, ResolutionScope};
-pub use store::{CredentialDb, CredentialInsert, CredentialKey, CredentialStore, CredentialUpdate};
+pub use store::{
+    CredentialDb, CredentialInsert, CredentialKey, CredentialStore, CredentialUpdate,
+    read_global_legacy_blob_sync,
+};
 pub use types::{
     BootstrapHandle, CredentialBootstrapContext, CredentialNeed, CredentialReasonCode,
     CredentialResolveContext, CredentialRow, RefreshResult, ScopeHint, ScopeKind, UsableCredential,

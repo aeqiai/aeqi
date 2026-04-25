@@ -75,36 +75,39 @@ impl ChannelConfig {
     }
 }
 
-/// Telegram bot token only. Whitelist lives in `channel_allowed_chats` —
-/// toggling a single chat must not require rewriting (and risking
-/// corruption of) the token blob.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TelegramConfig {
-    pub token: String,
-}
+/// Telegram channel marker. The kind discriminant carries the meaning;
+/// the bot token lives in the credentials substrate keyed on `(channel,
+/// <channel_id>, telegram, token)`. Whitelist lives in
+/// `channel_allowed_chats`.
+///
+/// `#[serde(default)]` lets pre-T1.9.1 config JSON (which still carried
+/// `token: "..."`) deserialize without error — the migration walker
+/// strips the inline field on the next boot.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelegramConfig {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DiscordConfig {
-    pub token: String,
-    #[serde(default)]
     pub allowed_channels: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SlackConfig {
-    pub bot_token: String,
-    #[serde(default)]
-    pub app_token: Option<String>,
-    #[serde(default)]
     pub allowed_channels: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// WhatsApp Cloud API channel.
+///
+/// `phone_number_id` is a public identifier (Meta hands it back via the
+/// console) — not a secret, so it lives in the config blob. The
+/// `access_token` and `verify_token` belong in the substrate.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WhatsappConfig {
     pub phone_number_id: String,
-    pub access_token: String,
-    #[serde(default)]
-    pub verify_token: Option<String>,
 }
 
 /// Baileys-backed WhatsApp (user's own WhatsApp Web session).
@@ -464,10 +467,12 @@ mod tests {
         AgentRegistry::open(dir.path()).unwrap()
     }
 
-    fn tg(token: &str) -> ChannelConfig {
-        ChannelConfig::Telegram(TelegramConfig {
-            token: token.into(),
-        })
+    /// Test helper — kept named `tg` so the diff is small. The token is
+    /// no longer carried on the config struct; channel_id-derived
+    /// substrate lookups are how production code resolves it. Tests that
+    /// need the token in flight should write a credentials row directly.
+    fn tg(_token: &str) -> ChannelConfig {
+        ChannelConfig::Telegram(TelegramConfig::default())
     }
 
     /// Regression guard: `get_by_id` must return the channel's real owner so
@@ -562,10 +567,9 @@ mod tests {
 
         let alice_after = store.get_by_id(&alice_before.id).await.unwrap().unwrap();
         assert_eq!(alice_after.agent_id, alice.id);
-        match alice_after.config {
-            ChannelConfig::Telegram(cfg) => assert_eq!(cfg.token, "alice-token"),
-            _ => panic!("expected telegram"),
-        }
+        // Tokens no longer live on the config struct (T1.9.1) — the test
+        // just confirms the row is reachable as Alice's telegram channel.
+        assert!(matches!(alice_after.config, ChannelConfig::Telegram(_)));
     }
 
     /// A second `create` with the same (agent_id, kind) must return
@@ -601,5 +605,38 @@ mod tests {
             ),
             "expected Conflict, got {err:?}"
         );
+    }
+
+    /// T1.9.1: legacy config JSON that still carries `token` (or
+    /// `bot_token`, etc.) in the blob must deserialize cleanly. The
+    /// `#[serde(default)]` annotation lets each typed config struct
+    /// ignore the unknown field; the migration walker strips it on the
+    /// next boot.
+    #[test]
+    fn legacy_telegram_config_json_with_inline_token_deserializes() {
+        let json = r#"{"kind":"telegram","token":"ABC"}"#;
+        let cfg: ChannelConfig = serde_json::from_str(json).expect("legacy JSON must parse");
+        assert_eq!(cfg.kind(), ChannelKind::Telegram);
+    }
+
+    #[test]
+    fn legacy_slack_config_json_with_inline_tokens_deserializes() {
+        let json =
+            r#"{"kind":"slack","bot_token":"xoxb","app_token":"xapp","allowed_channels":["C1"]}"#;
+        let cfg: ChannelConfig = serde_json::from_str(json).expect("legacy slack JSON must parse");
+        match cfg {
+            ChannelConfig::Slack(s) => assert_eq!(s.allowed_channels, vec!["C1".to_string()]),
+            _ => panic!("expected Slack"),
+        }
+    }
+
+    #[test]
+    fn legacy_whatsapp_config_json_with_inline_tokens_deserializes() {
+        let json = r#"{"kind":"whatsapp","phone_number_id":"PNI","access_token":"AT","verify_token":"VT"}"#;
+        let cfg: ChannelConfig = serde_json::from_str(json).expect("legacy WA JSON must parse");
+        match cfg {
+            ChannelConfig::Whatsapp(w) => assert_eq!(w.phone_number_id, "PNI"),
+            _ => panic!("expected Whatsapp"),
+        }
     }
 }

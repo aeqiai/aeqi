@@ -26,6 +26,7 @@ use aeqi_orchestrator::{
 use tracing::warn;
 
 pub(crate) mod telegram;
+pub(crate) mod util;
 pub(crate) mod whatsapp_baileys;
 
 /// Shared dependencies every gateway spawner needs. Cloned into each task.
@@ -41,14 +42,17 @@ pub(crate) struct SpawnContext {
     /// Daemon-level pattern dispatcher used by gateway-spawned
     /// `QueueExecutor`s to fire `session:quest_end` on quest finalize.
     pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    /// Substrate handle for channel-scoped token resolution (T1.9.1 Move B).
+    /// `None` only on configurations that pre-date the credentials table —
+    /// in that case gateway spawners refuse to spawn.
+    pub credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
 }
 
 /// Dispatch a single channel row to its kind-specific spawner.
 ///
 /// Returns `true` if a background task was spawned, `false` if the channel
-/// kind is not yet wired into a gateway (e.g. whatsapp stub) — the caller
-/// may use this to decide whether to fall back to the legacy
-/// `[channels.telegram]` config block.
+/// kind is not yet wired into a gateway (e.g. whatsapp webhook is owned by
+/// the web server, not a poller).
 pub(crate) fn dispatch(channel: Channel, ctx: &SpawnContext) -> bool {
     match channel.config {
         ChannelConfig::Telegram(cfg) => {

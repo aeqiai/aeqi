@@ -195,4 +195,87 @@ impl SecretStore {
         }
         Ok((inserted, skipped))
     }
+
+    /// Destructive purge: remove every `*.enc` blob from the secrets dir.
+    ///
+    /// Run once after `migrate_to_credentials` succeeds. The credentials
+    /// substrate becomes the sole source of truth; subsequent
+    /// `SecretStore::get` calls return errors (the daemon refuses to fall
+    /// back, so the caller must read from `CredentialStore` instead).
+    ///
+    /// **Preserves `.key`** — the credential substrate's cipher reads the
+    /// same key file from this directory, so deleting it would invalidate
+    /// every encrypted blob in the `credentials` table. This is a
+    /// deviation from the literal `fs::remove_dir_all` in the plan, forced
+    /// by the shared cipher key.
+    ///
+    /// Idempotent: missing dir, missing files, all no-ops with `Ok(())`.
+    pub fn purge_filesystem(&self) -> Result<()> {
+        if !self.path.exists() {
+            // Defensive: ensure the dir still exists for the cipher.
+            std::fs::create_dir_all(&self.path).with_context(|| {
+                format!(
+                    "failed to recreate secret store dir: {}",
+                    self.path.display()
+                )
+            })?;
+            return Ok(());
+        }
+        // Walk the dir; remove every `*.enc` file. Leave `.key` intact.
+        for entry in std::fs::read_dir(&self.path)
+            .with_context(|| format!("failed to read secret store: {}", self.path.display()))?
+        {
+            let entry = entry?;
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.ends_with(".enc") {
+                let p = entry.path();
+                std::fs::remove_file(&p)
+                    .with_context(|| format!("failed to remove secret blob: {}", p.display()))?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Move A guarantee: `purge_filesystem` removes every `.enc` blob but
+    /// leaves `.key` (the cipher key the credentials substrate decrypts
+    /// migrated blobs against). Deleting `.key` would brick the substrate.
+    #[test]
+    fn purge_filesystem_removes_enc_blobs_keeps_key() {
+        let dir = TempDir::new().unwrap();
+        let store = SecretStore::open(dir.path()).unwrap();
+        store.set("API_KEY_ONE", "value-1").unwrap();
+        store.set("API_KEY_TWO", "value-2").unwrap();
+        assert_eq!(store.list().unwrap().len(), 2);
+        let key_path = dir.path().join(".key");
+        assert!(key_path.exists(), ".key must exist after writes");
+
+        store.purge_filesystem().unwrap();
+
+        // Every `.enc` blob is gone.
+        assert!(store.list().unwrap().is_empty());
+        // `.key` survived because the credentials substrate still uses it.
+        assert!(
+            key_path.exists(),
+            "purge_filesystem must preserve .key for the credentials substrate cipher"
+        );
+    }
+
+    /// Idempotent: re-running purge on a clean dir is a no-op.
+    #[test]
+    fn purge_filesystem_is_idempotent() {
+        let dir = TempDir::new().unwrap();
+        let store = SecretStore::open(dir.path()).unwrap();
+        store.set("X", "1").unwrap();
+        store.purge_filesystem().unwrap();
+        // Second purge does not error.
+        store.purge_filesystem().unwrap();
+        assert!(store.list().unwrap().is_empty());
+    }
 }

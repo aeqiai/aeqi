@@ -83,6 +83,12 @@ pub struct CommandContext {
     /// `ideas.store_many`. `None` in tests that only exercise the store
     /// layer — the caller falls back to a no-op log.
     pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    /// Substrate handle for writing channel-scoped tokens (T1.9.1 Move B.4).
+    /// `channels.create` accepts a `token` field in its payload; the IPC
+    /// handler writes it directly into the credentials substrate before
+    /// saving the channel row, so the row's `config` JSON never carries
+    /// the secret. `None` in tests that don't need credential write-back.
+    pub credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
 }
 
 pub use crate::daemon::ActivityBuffer;

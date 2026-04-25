@@ -6,20 +6,20 @@ use aeqi_orchestrator::{
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
 use crate::cli::DaemonAction;
 use crate::helpers::{
     build_provider_for_project, build_provider_for_runtime, daemon_ipc_request, get_api_key,
-    load_config, load_config_with_agents, pid_file_path,
+    load_config, load_config_with_agents, pid_file_path, refresh_provider_keys_from_substrate,
 };
 use crate::service::{install_user_service, render_user_service, uninstall_user_service};
 
 pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonAction) -> Result<()> {
     match action {
         DaemonAction::Start => {
-            let (config, _) = load_config_with_agents(config_path)?;
+            let (mut config, _) = load_config_with_agents(config_path)?;
 
             // Check if already running.
             // In sandboxed environments (bwrap --unshare-pid), PID namespace
@@ -40,6 +40,20 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     let _ = std::fs::remove_file(&pid_path);
                 }
             }
+
+            // ── T1.9.1 — Move A: SecretStore → credentials migration ──
+            //
+            // Runs once per boot. Idempotent on a migrated system (zero-cost
+            // walk over an empty dir). Failures are fatal — a half-migrated
+            // state would silently leak secrets to a deprecated read path.
+            run_credential_migrations(&config)
+                .await
+                .context("credential migration failed; refusing to boot")?;
+
+            // After migration, re-resolve provider keys from the substrate
+            // (parse() ran before migration, so on first boot the keys are
+            // still empty in the in-memory config).
+            refresh_provider_keys_from_substrate(&mut config);
 
             let _data_dir = config.data_dir();
             let activity_stream = Arc::new(aeqi_orchestrator::ActivityStream::new());
@@ -497,6 +511,22 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
 
             let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
 
+            // Open a CredentialStore handle for gateway spawners and IPC
+            // handlers (Move B.4). Move A's migration ran before this
+            // point, so the substrate is the sole source of channel-scoped
+            // tokens.
+            let credentials_for_gateways: Option<Arc<aeqi_core::credentials::CredentialStore>> =
+                match open_credential_store(&config) {
+                    Ok(s) => Some(Arc::new(s)),
+                    Err(e) => {
+                        warn!(error = %e, "failed to open credential store for gateways — channel gateways requiring tokens will be skipped");
+                        None
+                    }
+                };
+            if let Some(ref creds) = credentials_for_gateways {
+                daemon.set_credentials(creds.clone());
+            }
+
             let spawn_ctx = crate::cmd::channel_gateways::SpawnContext {
                 session_manager: daemon.session_manager.clone(),
                 agent_registry: agent_reg.clone(),
@@ -506,6 +536,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 stream_registry: daemon.stream_registry.clone(),
                 execution_registry: daemon.execution_registry.clone(),
                 pattern_dispatcher: daemon.pattern_dispatcher.clone(),
+                credentials: credentials_for_gateways.clone(),
             };
             let mut gateway_count = 0u32;
             match channel_store.list_enabled().await {
@@ -527,52 +558,11 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 crate::cmd::channel_gateways::LiveChannelSpawner::new(spawn_ctx.clone()),
             ));
 
-            // Legacy fallback: if [channels.telegram] is configured in aeqi.toml,
-            // start a single gateway bound to the root agent.
-            if gateway_count == 0
-                && let Some(ref tg_config) = config.channels.telegram
-            {
-                let secret_store_path = config
-                    .security
-                    .secret_store
-                    .as_ref()
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| config.data_dir().join("secrets"));
-                match SecretStore::open(&secret_store_path) {
-                    Ok(secret_store) => {
-                        match secret_store.get(&tg_config.token_secret) {
-                            Ok(token) if !token.is_empty() => {
-                                // Resolve root agent for legacy binding.
-                                let root_agent_id = match agent_reg.get_root_agent().await {
-                                    Ok(Some(a)) => a.id,
-                                    _ => {
-                                        // Fall back to first configured root agent.
-                                        config
-                                            .agent_spawns
-                                            .first()
-                                            .map(|c| c.name.clone())
-                                            .unwrap_or_else(|| "root".to_string())
-                                    }
-                                };
-                                crate::cmd::channel_gateways::telegram::spawn_legacy_telegram_gateway(
-                                    root_agent_id,
-                                    token,
-                                    tg_config.allowed_chats.clone(),
-                                    spawn_ctx.clone(),
-                                );
-                            }
-                            _ => {
-                                info!(
-                                    "Telegram token not found in secret store, skipping legacy gateway"
-                                );
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!(error = %e, "failed to open secret store for legacy Telegram");
-                    }
-                }
-            }
+            // T1.9.1 stance: the legacy `[channels.telegram]` config block
+            // is no longer wired. Channels are owned by the channels table;
+            // operators provision them via the UI / `aeqi channels` IPC.
+            let _ = gateway_count;
+
             // ── Auto-index code graphs on startup ──
             // Trigger incremental indexing for each configured project repo
             // in a background task so it doesn't block daemon startup.
@@ -763,4 +753,118 @@ fn build_mcp_credential_resolver(
         Arc::new(lifecycles::ServiceAccountLifecycle),
     ];
     Ok(Some(CredentialResolver::new(store, lifecycles_vec)))
+}
+
+/// Open a fresh `CredentialStore` against `aeqi.db` + the cipher key in
+/// the configured secrets dir. Returns `Err` if either file is missing or
+/// unreadable — by the time gateway init runs, Move A has already
+/// stamped the schema and the cipher key, so an error here is a real
+/// boot failure.
+fn open_credential_store(
+    config: &aeqi_core::AEQIConfig,
+) -> Result<aeqi_core::credentials::CredentialStore> {
+    use aeqi_core::credentials::{CredentialCipher, CredentialStore};
+    use rusqlite::Connection;
+
+    let aeqi_db = config.data_dir().join("aeqi.db");
+    let conn = Connection::open(&aeqi_db)
+        .with_context(|| format!("open credentials DB at {}", aeqi_db.display()))?;
+    let secrets_dir = config
+        .security
+        .secret_store
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| config.data_dir().join("secrets"));
+    let cipher = CredentialCipher::open(&secrets_dir)
+        .with_context(|| format!("open credential cipher at {}", secrets_dir.display()))?;
+    Ok(CredentialStore::new(Arc::new(Mutex::new(conn)), cipher))
+}
+
+/// T1.9.1 — Move A + B.1 startup migration. Runs once per boot before any
+/// provider/gateway init. All-or-fail: a partial migration would leak
+/// secrets across deprecated read paths, so any error bubbles up and the
+/// daemon refuses to boot.
+///
+/// 1. Ensures `aeqi.db` exists and has the `credentials` table (matches
+///    the `aeqi-ideas` v12 schema; idempotent).
+/// 2. Migrates every `~/.aeqi/secrets/*.enc` entry into the substrate as
+///    `(global, '', legacy, <name>, static_secret)`.
+/// 3. Purges the SecretStore filesystem (`*.enc` only — the cipher key
+///    `.key` stays put because the credentials substrate decrypts blobs
+///    against it).
+/// 4. Walks every channel row and migrates any inline token-shaped fields
+///    out of `channels.config` JSON into the substrate as `(channel,
+///    <channel_id>, <kind>, <field_name>, static_secret)`.
+async fn run_credential_migrations(config: &aeqi_core::AEQIConfig) -> Result<()> {
+    use aeqi_core::credentials::{CredentialCipher, CredentialStore};
+    use rusqlite::Connection;
+
+    let data_dir = config.data_dir();
+    std::fs::create_dir_all(&data_dir)
+        .with_context(|| format!("create data dir: {}", data_dir.display()))?;
+    let aeqi_db = data_dir.join("aeqi.db");
+
+    // Open a short-lived rusqlite connection for the migration. The
+    // AgentRegistry / aeqi-ideas init paths run later and reuse this same
+    // file via their own connections — `IF NOT EXISTS` makes the schema
+    // setup race-safe.
+    let conn = Connection::open(&aeqi_db)
+        .with_context(|| format!("open aeqi.db at {}", aeqi_db.display()))?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA busy_timeout = 5000;
+         PRAGMA foreign_keys = ON;",
+    )?;
+    CredentialStore::initialize_schema(&conn).context("install credentials table schema")?;
+
+    let secrets_dir = config
+        .security
+        .secret_store
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| data_dir.join("secrets"));
+    let cipher = CredentialCipher::open(&secrets_dir)
+        .with_context(|| format!("open credential cipher at {}", secrets_dir.display()))?;
+    let store = CredentialStore::new(Arc::new(Mutex::new(conn)), cipher);
+
+    // Move A: SecretStore filesystem → credentials, then purge the dir.
+    let secret_store = SecretStore::open(&secrets_dir).with_context(|| {
+        format!(
+            "open SecretStore for migration at {}",
+            secrets_dir.display()
+        )
+    })?;
+    let (inserted, skipped) = secret_store
+        .migrate_to_credentials(&store)
+        .await
+        .context("SecretStore → credentials migration failed")?;
+    if inserted > 0 {
+        info!(
+            inserted,
+            skipped, "migrated SecretStore entries into credentials substrate"
+        );
+    }
+    secret_store
+        .purge_filesystem()
+        .context("SecretStore filesystem purge failed")?;
+
+    // Move B.1: walk channel rows, materialize any inline tokens into the
+    // substrate, strip the field from each row's config JSON.
+    let pool = aeqi_orchestrator::agent_registry::ConnectionPool::open(&aeqi_db, 2)
+        .context("open agent-registry pool for channel migration")?;
+    let pool = Arc::new(pool);
+    let (channel_inserted, channel_skipped) =
+        aeqi_orchestrator::channel_credential_migration::migrate_and_strip_channel_tokens(
+            pool.clone(),
+            &store,
+        )
+        .await
+        .context("channel token migration failed")?;
+    if channel_inserted > 0 {
+        info!(
+            channel_inserted,
+            channel_skipped, "migrated channel-config tokens into credentials substrate"
+        );
+    }
+    Ok(())
 }

@@ -3,12 +3,21 @@
 //! Channels are typed connector config (telegram/discord/slack/whatsapp)
 //! tied to an agent. Access is gated by the same tenancy walk used for
 //! every other agent-scoped resource.
+//!
+//! T1.9.1 — Move B.4: `channels.create` accepts a `token` field in the
+//! payload (alongside `kind` and other config). The handler writes the
+//! token directly to the credentials substrate as
+//! `(scope_kind=channel, scope_id=<channel_id>, provider=<kind>,
+//! name=<field_name>)`, then saves the channel row with a config blob
+//! that has no token field. The UI input shape is unchanged.
 
 use std::sync::Arc;
 
+use aeqi_core::credentials::{CredentialInsert, CredentialStore, ScopeKind};
+
 use super::request_field;
 use super::tenancy::check_agent_access;
-use crate::channel_registry::{ChannelConfig, ChannelError, ChannelStore, NewChannel};
+use crate::channel_registry::{ChannelConfig, ChannelError, ChannelKind, ChannelStore, NewChannel};
 
 fn store(ctx: &super::CommandContext) -> Arc<ChannelStore> {
     Arc::new(ChannelStore::new(ctx.agent_registry.db()))
@@ -41,6 +50,12 @@ pub async fn handle_channels_list(
 ///
 /// The `channels_upsert` name is kept for wire compatibility with existing
 /// clients, but the semantics are now strict-create.
+///
+/// T1.9.1 — Move B.4: token-shaped fields in the inbound `config` JSON
+/// (`token`, `bot_token`, `app_token`, `access_token`, `verify_token`)
+/// are siphoned off before the row is saved and written to the
+/// credentials substrate after the row is committed. The saved
+/// `channels.config` blob never carries a secret.
 pub async fn handle_channels_upsert(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -52,9 +67,37 @@ pub async fn handle_channels_upsert(
     if !check_agent_access(&ctx.agent_registry, allowed, agent_id).await {
         return serde_json::json!({"ok": false, "error": "forbidden"});
     }
-    let Some(config_value) = request.get("config").cloned() else {
+    let Some(mut config_value) = request.get("config").cloned() else {
         return serde_json::json!({"ok": false, "error": "config required"});
     };
+
+    // Discriminant lookup so we know which fields are token-shaped for
+    // this kind. Mirrors `channel_credential_migration::token_fields_for`.
+    let kind_str = config_value
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let Some(kind_str) = kind_str else {
+        return serde_json::json!({"ok": false, "error": "config.kind required"});
+    };
+    let token_fields: &'static [&'static str] = match kind_str.as_str() {
+        "telegram" => &["token"],
+        "slack" => &["bot_token", "app_token"],
+        "discord" => &["token"],
+        "whatsapp" => &["access_token", "verify_token"],
+        _ => &[],
+    };
+    let mut pending_tokens: Vec<(&'static str, String)> = Vec::new();
+    if let Some(obj) = config_value.as_object_mut() {
+        for &field in token_fields {
+            if let Some(serde_json::Value::String(s)) = obj.remove(field)
+                && !s.is_empty()
+            {
+                pending_tokens.push((field, s));
+            }
+        }
+    }
+
     let config: ChannelConfig = match serde_json::from_value(config_value) {
         Ok(c) => c,
         Err(e) => {
@@ -68,21 +111,83 @@ pub async fn handle_channels_upsert(
         agent_id: agent_id.to_string(),
         config,
     };
-    match store(ctx).create(&new).await {
-        Ok(channel) => {
-            if let Some(spawner) = ctx.channel_spawner.as_ref() {
-                spawner.spawn(channel.clone());
-            }
-            serde_json::json!({"ok": true, "channel": channel})
+    let channel = match store(ctx).create(&new).await {
+        Ok(channel) => channel,
+        Err(ChannelError::Conflict { kind }) => {
+            return serde_json::json!({
+                "ok": false,
+                "code": "conflict",
+                "kind": kind.as_str(),
+                "error": format!("a {} channel already exists for this agent — disconnect it first", kind.as_str()),
+            });
         }
-        Err(ChannelError::Conflict { kind }) => serde_json::json!({
-            "ok": false,
-            "code": "conflict",
-            "kind": kind.as_str(),
-            "error": format!("a {} channel already exists for this agent — disconnect it first", kind.as_str()),
-        }),
-        Err(ChannelError::Storage(e)) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        Err(ChannelError::Storage(e)) => {
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
+    };
+
+    // Write the harvested tokens into the credentials substrate. We do
+    // this AFTER the channel row insert so the credential is keyed on
+    // the freshly-allocated channel_id. Failures here roll back the
+    // channel row to avoid leaving an unusable gateway in place.
+    if !pending_tokens.is_empty() {
+        if let Some(creds) = ctx.credentials.as_ref() {
+            if let Err(e) =
+                write_channel_tokens(creds, &channel.id, &kind_str, pending_tokens).await
+            {
+                let _ = store(ctx).delete(&channel.id).await;
+                return serde_json::json!({
+                    "ok": false,
+                    "error": format!("failed to persist channel credentials: {e}"),
+                });
+            }
+        } else {
+            // No substrate handle on this CommandContext (test path or
+            // misconfigured daemon) — the row exists but the token
+            // didn't land. Roll back the row so the operator can retry.
+            let _ = store(ctx).delete(&channel.id).await;
+            return serde_json::json!({
+                "ok": false,
+                "error": "credentials substrate unavailable — cannot persist channel token",
+            });
+        }
     }
+
+    if let Some(spawner) = ctx.channel_spawner.as_ref() {
+        spawner.spawn(channel.clone());
+    }
+    serde_json::json!({"ok": true, "channel": channel})
+}
+
+/// Write a list of `(field_name, plaintext)` pairs into the credentials
+/// substrate keyed on the freshly-saved channel id. Used by Move B.4 so
+/// the IPC handler doesn't grow a closure-shaped match on `ChannelKind`.
+async fn write_channel_tokens(
+    credentials: &CredentialStore,
+    channel_id: &str,
+    kind: &str,
+    tokens: Vec<(&'static str, String)>,
+) -> anyhow::Result<()> {
+    // Validate the kind string is a known channel kind so we don't write
+    // a row that the gateway-side resolver will never look up.
+    if ChannelKind::parse(kind).is_none() {
+        anyhow::bail!("unknown channel kind: {kind}");
+    }
+    for (field, value) in tokens {
+        credentials
+            .insert(CredentialInsert {
+                scope_kind: ScopeKind::Channel,
+                scope_id: channel_id.to_string(),
+                provider: kind.to_string(),
+                name: field.to_string(),
+                lifecycle_kind: "static_secret".to_string(),
+                plaintext_blob: value.into_bytes(),
+                metadata: serde_json::json!({"source": "channel_ipc_create"}),
+                expires_at: None,
+            })
+            .await?;
+    }
+    Ok(())
 }
 
 /// `channels_delete { id }` → `{ ok, deleted: bool }`

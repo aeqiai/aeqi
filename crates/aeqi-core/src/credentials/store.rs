@@ -295,6 +295,51 @@ impl CredentialStore {
         Ok(rows)
     }
 
+    /// List every row matching a scope, optionally filtered to a single
+    /// `provider`. `provider=None` returns every provider in the scope.
+    /// Used by `CredentialPool::from_credentials` and Move B's channel
+    /// migration walker.
+    pub async fn list_in_scope(
+        &self,
+        scope_kind: ScopeKind,
+        scope_id: &str,
+        provider: Option<&str>,
+    ) -> Result<Vec<CredentialRow>> {
+        let scope_id = scope_id.to_string();
+        let provider = provider.map(|p| p.to_string());
+        let db = Arc::clone(&self.db);
+        let rows = tokio::task::spawn_blocking(move || -> Result<Vec<CredentialRow>> {
+            let conn = db.lock().expect("credentials mutex");
+            let iter: Vec<CredentialRow> = if let Some(p) = provider {
+                let mut stmt = conn.prepare(
+                    "SELECT id, scope_kind, scope_id, provider, name, lifecycle_kind, \
+                            encrypted_blob, metadata_json, expires_at, created_at, \
+                            last_refreshed_at, last_used_at \
+                     FROM credentials \
+                     WHERE scope_kind = ?1 AND scope_id = ?2 AND provider = ?3 \
+                     ORDER BY name",
+                )?;
+                stmt.query_map(params![scope_kind.as_str(), scope_id, p], row_to_credential)?
+                    .collect::<rusqlite::Result<Vec<_>>>()?
+            } else {
+                let mut stmt = conn.prepare(
+                    "SELECT id, scope_kind, scope_id, provider, name, lifecycle_kind, \
+                            encrypted_blob, metadata_json, expires_at, created_at, \
+                            last_refreshed_at, last_used_at \
+                     FROM credentials \
+                     WHERE scope_kind = ?1 AND scope_id = ?2 \
+                     ORDER BY provider, name",
+                )?;
+                stmt.query_map(params![scope_kind.as_str(), scope_id], row_to_credential)?
+                    .collect::<rusqlite::Result<Vec<_>>>()?
+            };
+            Ok(iter)
+        })
+        .await
+        .context("spawn_blocking join failed")??;
+        Ok(rows)
+    }
+
     /// List every row in the table — used by `aeqi doctor` and migrations.
     pub async fn list_all(&self) -> Result<Vec<CredentialRow>> {
         let db = Arc::clone(&self.db);
@@ -324,6 +369,61 @@ impl CredentialStore {
     pub fn cipher(&self) -> &CredentialCipher {
         &self.cipher
     }
+}
+
+/// Synchronous helper used during config parsing — it runs *before* an async
+/// runtime is alive, so the regular async `find` is unavailable. Opens a
+/// short-lived rusqlite connection at `data_dir/aeqi.db`, looks up
+/// `(scope_kind='global', scope_id='', provider='legacy', name=<name>)`, and
+/// returns the decrypted UTF-8 value.
+///
+/// Returns `Ok(None)` if the table or row is absent — config parsing on a
+/// pre-migration system finds no credentials, falls back to env vars, and
+/// the daemon's first boot then runs the migration that populates the
+/// table.
+pub fn read_global_legacy_blob_sync(
+    data_dir: &std::path::Path,
+    name: &str,
+) -> Result<Option<String>> {
+    let db_path = data_dir.join("aeqi.db");
+    if !db_path.exists() {
+        return Ok(None);
+    }
+    let conn = Connection::open(&db_path)
+        .with_context(|| format!("open credentials DB: {}", db_path.display()))?;
+    let table_exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='credentials'",
+            [],
+            |_| Ok(true),
+        )
+        .optional()?
+        .unwrap_or(false);
+    if !table_exists {
+        return Ok(None);
+    }
+    let row: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT encrypted_blob FROM credentials \
+             WHERE scope_kind = 'global' AND scope_id = '' \
+               AND provider = 'legacy' AND name = ?1",
+            params![name],
+            |row| row.get::<_, Vec<u8>>(0),
+        )
+        .optional()?;
+    let Some(blob) = row else {
+        return Ok(None);
+    };
+    let secrets_dir = data_dir.join("secrets");
+    let cipher = CredentialCipher::open(&secrets_dir).with_context(|| {
+        format!(
+            "open cipher key for credentials at {}",
+            secrets_dir.display()
+        )
+    })?;
+    let plain = cipher.decrypt(&blob)?;
+    let s = String::from_utf8(plain).context("credential value is not valid UTF-8")?;
+    Ok(Some(s))
 }
 
 fn row_to_credential(row: &rusqlite::Row<'_>) -> rusqlite::Result<CredentialRow> {

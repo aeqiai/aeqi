@@ -11,6 +11,7 @@ pub mod activity;
 pub mod activity_log;
 pub mod agent_registry;
 pub mod agent_router;
+pub mod channel_credential_migration;
 pub mod channel_registry;
 pub mod checkpoint;
 pub mod claude_code;

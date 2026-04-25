@@ -3,7 +3,13 @@
 //! Strategies: round_robin, least_used, random, fill_first.
 //! Exhausted keys have cooldown periods (configurable).
 //! Inspired by Hermes Agent's credential_pool.py.
+//!
+//! T1.9.1 — the pool reads its keys from the credentials substrate.
+//! `with_keys(Vec<String>, …)` is preserved for unit tests; production
+//! callers must use [`CredentialPool::from_credentials`].
 
+use aeqi_core::credentials::{CredentialStore, ScopeKind};
+use anyhow::{Context, Result};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tracing::{debug, warn};
@@ -73,8 +79,11 @@ pub struct CredentialPool {
 }
 
 impl CredentialPool {
-    /// Create a pool from a list of API keys.
-    pub fn new(keys: Vec<String>, strategy: RotationStrategy) -> Self {
+    /// Build a pool from an explicit list of keys. Test-only: production
+    /// code uses [`CredentialPool::from_credentials`] so the pool is fed
+    /// from the credentials substrate. Kept named `with_keys` (renamed
+    /// from `new`) so the substrate path is the one new callers find first.
+    pub fn with_keys(keys: Vec<String>, strategy: RotationStrategy) -> Self {
         let rate_limit_cooldown = Duration::from_secs(3600); // 1 hour
         let credentials = keys
             .into_iter()
@@ -88,6 +97,44 @@ impl CredentialPool {
             rate_limit_cooldown,
             auth_error_cooldown: Duration::from_secs(86400), // 24 hours
         }
+    }
+
+    /// Build a pool from the credentials substrate. Reads every row
+    /// matching `(scope_kind=global, scope_id="", provider=<provider>)`
+    /// with a `static_secret` lifecycle, decrypts each blob, and seeds
+    /// the pool in stable `(provider, name)` order so rotation is
+    /// reproducible.
+    ///
+    /// Returns an error if no credentials are available — a pool with
+    /// zero keys can never serve a request, so failing here is louder
+    /// than rotating to `None` at the call site.
+    pub async fn from_credentials(
+        store: &CredentialStore,
+        provider: &str,
+        strategy: RotationStrategy,
+    ) -> Result<Self> {
+        let rows = store
+            .list_in_scope(ScopeKind::Global, "", Some(provider))
+            .await
+            .with_context(|| format!("list credentials for provider {provider}"))?;
+        let mut keys = Vec::with_capacity(rows.len());
+        for row in rows {
+            if row.lifecycle_kind != "static_secret" {
+                continue;
+            }
+            let plain = store
+                .decrypt(&row)
+                .with_context(|| format!("decrypt credential row {}", row.id))?;
+            let value = String::from_utf8(plain)
+                .with_context(|| format!("credential row {} is not UTF-8", row.id))?;
+            if !value.is_empty() {
+                keys.push(value);
+            }
+        }
+        if keys.is_empty() {
+            anyhow::bail!("no credentials available for provider {provider}");
+        }
+        Ok(Self::with_keys(keys, strategy))
     }
 
     /// Get the next available credential key. Returns None if all are exhausted.
@@ -185,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_round_robin() {
-        let mut pool = CredentialPool::new(
+        let mut pool = CredentialPool::with_keys(
             vec!["key1".into(), "key2".into(), "key3".into()],
             RotationStrategy::RoundRobin,
         );
@@ -197,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_fill_first() {
-        let mut pool = CredentialPool::new(
+        let mut pool = CredentialPool::with_keys(
             vec!["key1".into(), "key2".into()],
             RotationStrategy::FillFirst,
         );
@@ -208,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_least_used() {
-        let mut pool = CredentialPool::new(
+        let mut pool = CredentialPool::with_keys(
             vec!["key1".into(), "key2".into()],
             RotationStrategy::LeastUsed,
         );
@@ -219,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_rate_limit_cooldown() {
-        let mut pool = CredentialPool::new(
+        let mut pool = CredentialPool::with_keys(
             vec!["key1".into(), "key2".into()],
             RotationStrategy::RoundRobin,
         );
@@ -231,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_all_exhausted() {
-        let mut pool = CredentialPool::new(vec!["key1".into()], RotationStrategy::RoundRobin);
+        let mut pool = CredentialPool::with_keys(vec!["key1".into()], RotationStrategy::RoundRobin);
         pool.mark_rate_limited("key1");
         assert_eq!(pool.next_key(), None);
         assert_eq!(pool.available_count(), 0);
@@ -239,8 +286,99 @@ mod tests {
 
     #[test]
     fn test_empty_pool() {
-        let mut pool = CredentialPool::new(vec![], RotationStrategy::RoundRobin);
+        let mut pool = CredentialPool::with_keys(vec![], RotationStrategy::RoundRobin);
         assert_eq!(pool.next_key(), None);
         assert_eq!(pool.total_count(), 0);
+    }
+
+    // ── T1.9.1 Move C — substrate-backed pool ──────────────────────────
+
+    use aeqi_core::credentials::{CredentialCipher, CredentialInsert, CredentialStore, ScopeKind};
+    use rusqlite::Connection;
+    use std::sync::{Arc, Mutex as StdMutex};
+
+    fn fresh_store() -> CredentialStore {
+        let conn = Connection::open_in_memory().unwrap();
+        CredentialStore::initialize_schema(&conn).unwrap();
+        let cipher = CredentialCipher::ephemeral();
+        CredentialStore::new(Arc::new(StdMutex::new(conn)), cipher)
+    }
+
+    async fn seed_global_static_secret(
+        store: &CredentialStore,
+        provider: &str,
+        name: &str,
+        value: &str,
+    ) {
+        store
+            .insert(CredentialInsert {
+                scope_kind: ScopeKind::Global,
+                scope_id: String::new(),
+                provider: provider.into(),
+                name: name.into(),
+                lifecycle_kind: "static_secret".into(),
+                plaintext_blob: value.as_bytes().to_vec(),
+                metadata: serde_json::json!({}),
+                expires_at: None,
+            })
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn from_credentials_round_robin_matches_legacy_init() {
+        let store = fresh_store();
+        seed_global_static_secret(&store, "anthropic", "k1", "key1").await;
+        seed_global_static_secret(&store, "anthropic", "k2", "key2").await;
+        seed_global_static_secret(&store, "anthropic", "k3", "key3").await;
+
+        let mut pool =
+            CredentialPool::from_credentials(&store, "anthropic", RotationStrategy::RoundRobin)
+                .await
+                .expect("pool builds");
+        // list_in_scope orders by name → deterministic ordering, matches
+        // the legacy `Vec<String>` constructor's behavior.
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            seen.push(pool.next_key().unwrap().to_string());
+        }
+        seen.sort();
+        assert_eq!(seen, vec!["key1", "key2", "key3"]);
+        assert_eq!(pool.total_count(), 3);
+    }
+
+    #[tokio::test]
+    async fn from_credentials_skips_other_providers() {
+        let store = fresh_store();
+        seed_global_static_secret(&store, "anthropic", "ant", "value-anthropic").await;
+        seed_global_static_secret(&store, "openrouter", "or", "value-openrouter").await;
+
+        let mut pool =
+            CredentialPool::from_credentials(&store, "anthropic", RotationStrategy::RoundRobin)
+                .await
+                .unwrap();
+        assert_eq!(pool.total_count(), 1);
+        assert_eq!(pool.next_key(), Some("value-anthropic"));
+    }
+
+    #[tokio::test]
+    async fn from_credentials_zero_keys_returns_clear_error() {
+        let store = fresh_store();
+        let result =
+            CredentialPool::from_credentials(&store, "anthropic", RotationStrategy::RoundRobin)
+                .await;
+        let err = match result {
+            Ok(_) => panic!("zero credentials must surface as an error"),
+            Err(e) => e,
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("no credentials available"),
+            "error must mention missing credentials, got: {msg}"
+        );
+        assert!(
+            msg.contains("anthropic"),
+            "error must mention provider name, got: {msg}"
+        );
     }
 }

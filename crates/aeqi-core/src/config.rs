@@ -1,4 +1,3 @@
-use crate::SecretStore;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -1060,32 +1059,42 @@ impl AEQIConfig {
     pub fn parse(content: &str) -> Result<Self> {
         let mut config: Self = toml::from_str(content).context("failed to parse aeqi.toml")?;
 
-        // Resolve API keys: try env vars first, then the encrypted SecretStore.
-        let secret_store = {
-            let data_dir = expand_tilde(&config.aeqi.data_dir);
-            SecretStore::open(Path::new(&data_dir).join("secrets").as_path()).ok()
-        };
+        // Resolve API keys: try env vars first, then the credentials
+        // substrate (`global`/legacy/<name>). The substrate is the post-T1.9.1
+        // sole source of truth — there is no SecretStore filesystem
+        // fallback. On pre-migration boots, the substrate read returns
+        // `Ok(None)` and the daemon's startup migration backfills the table
+        // from the SecretStore before any caller depends on the keys.
+        let data_dir = PathBuf::from(expand_tilde(&config.aeqi.data_dir));
 
         if let Some(ref mut or) = config.providers.openrouter {
             or.api_key = resolve_env(&or.api_key);
             if or.api_key.is_empty()
-                && let Some(ref store) = secret_store
+                && let Ok(Some(value)) = crate::credentials::read_global_legacy_blob_sync(
+                    &data_dir,
+                    "OPENROUTER_API_KEY",
+                )
             {
-                or.api_key = store.get("OPENROUTER_API_KEY").unwrap_or_default();
+                or.api_key = value;
             }
             if or.api_key.is_empty() {
-                warn!("OpenRouter API key is empty — check environment variable or secret store");
+                warn!(
+                    "OpenRouter API key is empty — check environment variable or credentials substrate"
+                );
             }
         }
         if let Some(ref mut a) = config.providers.anthropic {
             a.api_key = resolve_env(&a.api_key);
             if a.api_key.is_empty()
-                && let Some(ref store) = secret_store
+                && let Ok(Some(value)) =
+                    crate::credentials::read_global_legacy_blob_sync(&data_dir, "ANTHROPIC_API_KEY")
             {
-                a.api_key = store.get("ANTHROPIC_API_KEY").unwrap_or_default();
+                a.api_key = value;
             }
             if a.api_key.is_empty() {
-                warn!("Anthropic API key is empty — check environment variable or secret store");
+                warn!(
+                    "Anthropic API key is empty — check environment variable or credentials substrate"
+                );
             }
         }
 
