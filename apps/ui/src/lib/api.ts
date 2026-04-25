@@ -589,7 +589,11 @@ export const api = {
     parent_id?: string;
     system_prompt?: string;
   }) =>
-    request<{ agent_id: string }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
+    request<{
+      ok: boolean;
+      agent: { id: string; name: string; parent_id?: string | null; status?: string };
+      warnings?: string[];
+    }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
   // Delete Agent — cascade wipes the subtree; reparent (default) promotes
   // children to the grandparent. Returns { ok, deleted, cascade } on success.

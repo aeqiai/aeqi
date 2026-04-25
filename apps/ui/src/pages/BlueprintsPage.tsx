@@ -3,119 +3,100 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
-import SpawnTemplateModal from "@/components/SpawnTemplateModal";
-import BlueprintGallery, { type IdentitySummary } from "@/components/BlueprintGallery";
+import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
 import { Spinner } from "@/components/ui";
 import "@/styles/templates.css";
+import "@/styles/blueprints-store.css";
 
-type Category = "all" | "companies" | "personas";
+type Filter = "all" | "companies";
 
-const CATEGORIES: { id: Category; label: string }[] = [
+const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "companies", label: "Companies" },
-  { id: "personas", label: "Personas" },
 ];
 
-/**
- * /blueprints — the front door of æqi. A user picks a company blueprint
- * and within seconds is inside a fully-threaded runtime (seed agents,
- * events, ideas, quests already alive). Grid + card rendering lives in
- * `<BlueprintGallery>`; this page is the data + spawn-modal shell.
- *
- * Renamed: /templates → /library → /blueprints. Same data underneath,
- * but the surface stops being framed as just "templates" or "library"
- * and gets framed as the architectural plans the runtime spawns from.
- * Over time this grows into the proper store (skills, packs, workflows,
- * future distributable blueprints).
- *
- * Data flow:
- *   - On mount, try `GET /api/templates`. On any failure, fall back to
- *     local fixtures so the store is never empty.
- *   - `?start=<slug>` and `?template=<slug>` both deep-link into the
- *     gallery preview for that slug. After close, the param is stripped
- *     from the URL so the preview doesn't re-open on state changes.
- */
 export default function BlueprintsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const token = useAuthStore((s) => s.token);
+  const authMode = useAuthStore((s) => s.authMode);
+  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+
   const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
-  const [identities, setIdentities] = useState<IdentitySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modalTemplate, setModalTemplate] = useState<CompanyTemplate | null>(null);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<Category>("all");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "blueprints · æqi";
   }, []);
 
-  // Fetch both catalogs in parallel. Companies and personas are
-  // independent surfaces — a failure on either side falls back to its
-  // own default so the marketplace is never empty on one axis because
-  // the other endpoint hiccupped.
+  const isAuthed = authMode === "none" || !!token;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-
-    Promise.all([
-      api.getTemplates().catch((e: Error) => {
-        return { ok: false, templates: FALLBACK_TEMPLATES, _err: e };
-      }),
-      api.getIdentityTemplates().catch(() => {
-        return { ok: false, identities: [] };
-      }),
-    ])
-      .then(([co, id]) => {
+    api
+      .getTemplates()
+      .then((resp) => {
         if (cancelled) return;
-        const incoming = Array.isArray((co as { templates?: CompanyTemplate[] })?.templates)
-          ? ((co as { templates: CompanyTemplate[] }).templates ?? [])
-          : [];
+        const incoming = (resp as { templates?: CompanyTemplate[] })?.templates ?? [];
         setTemplates(incoming.length > 0 ? incoming : FALLBACK_TEMPLATES);
-        const ids = Array.isArray((id as { identities?: IdentitySummary[] })?.identities)
-          ? ((id as { identities: IdentitySummary[] }).identities ?? [])
-          : [];
-        setIdentities(ids);
-        const errInside = (co as { _err?: Error })?._err;
-        if (errInside) {
-          setError(errInside.message || "Could not reach the blueprint store.");
-        }
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setTemplates(FALLBACK_TEMPLATES);
+        setError(e.message || "Could not reach the blueprint store.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Filter view — search query + active category. Search is a simple
-  // substring match across name / tagline / description; case-insensitive.
   const matches = useCallback(
-    (haystack: string | undefined | null) => {
-      if (!query.trim()) return true;
-      if (!haystack) return false;
-      return haystack.toLowerCase().includes(query.trim().toLowerCase());
+    (h: string | undefined | null) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (h || "").toLowerCase().includes(q);
     },
     [query],
   );
 
-  const visibleCompanies = useMemo(() => {
-    if (category !== "all" && category !== "companies") return [];
+  const visible = useMemo(() => {
+    if (filter !== "all" && filter !== "companies") return [];
     return templates.filter((t) => matches(t.name) || matches(t.tagline) || matches(t.description));
-  }, [templates, category, matches]);
+  }, [templates, filter, matches]);
 
-  const visiblePersonas = useMemo(() => {
-    if (category !== "all" && category !== "personas") return [];
-    return identities.filter(
-      (i) => matches(i.name) || matches(i.display_name) || matches(i.description),
-    );
-  }, [identities, category, matches]);
+  const selected = useMemo(
+    () => (selectedSlug ? templates.find((t) => t.slug === selectedSlug) || null : null),
+    [selectedSlug, templates],
+  );
 
-  const totalVisible = visibleCompanies.length + visiblePersonas.length;
+  useEffect(() => {
+    setCompanyName(selected?.name || "");
+    setSubmitError(null);
+  }, [selected?.slug, selected?.name]);
+
+  useEffect(() => {
+    const deepSlug = searchParams.get("start") || searchParams.get("template");
+    if (!deepSlug || templates.length === 0) return;
+    if (templates.some((t) => t.slug === deepSlug)) {
+      setSelectedSlug(deepSlug);
+    }
+  }, [searchParams, templates]);
 
   const cleanDeepLinkParams = useCallback(() => {
     if (!searchParams.has("start") && !searchParams.has("template")) return;
@@ -125,128 +106,391 @@ export default function BlueprintsPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const handlePick = useCallback(
-    (slug: string, kind: "company" | "identity") => {
-      if (kind !== "company") return;
-      const tpl = templates.find((t) => t.slug === slug);
-      if (tpl) setModalTemplate(tpl);
+  const handleSelect = useCallback(
+    (slug: string) => {
+      setSelectedSlug(slug);
+      cleanDeepLinkParams();
     },
-    [templates],
+    [cleanDeepLinkParams],
   );
 
-  const closeModal = useCallback(() => {
-    setModalTemplate(null);
+  const handleClose = useCallback(() => {
+    setSelectedSlug(null);
+    setSubmitError(null);
     cleanDeepLinkParams();
   }, [cleanDeepLinkParams]);
 
-  const handleSpawned = useCallback(
-    (rootAgentId: string) => {
-      // Land users inside their new company: sessions tab is where the
-      // chat lives, so they can start talking immediately.
-      navigate(`/${encodeURIComponent(rootAgentId)}/sessions`);
-    },
-    [navigate],
-  );
+  const handleCustom = useCallback(() => {
+    if (!isAuthed) {
+      navigate("/signup?next=/new");
+      return;
+    }
+    navigate("/new");
+  }, [isAuthed, navigate]);
 
-  const initialSlug = searchParams.get("start") || searchParams.get("template") || undefined;
+  const handleSpawn = useCallback(async () => {
+    if (!selected) return;
+    if (!isAuthed) {
+      navigate(`/signup?next=/blueprints?start=${encodeURIComponent(selected.slug)}`);
+      return;
+    }
+    const trimmed = companyName.trim();
+    if (!trimmed) {
+      setSubmitError("Pick a name for your company.");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const resp = await api.spawnTemplate({ template: selected.slug, name: trimmed });
+      const rootId = (resp as { root_agent_id?: string })?.root_agent_id;
+      if (!rootId) throw new Error("Spawn returned no root agent id.");
+      setActiveRoot(rootId);
+      await fetchAgents();
+      navigate(`/${encodeURIComponent(rootId)}/sessions`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not spawn the blueprint.";
+      setSubmitError(msg);
+      setSubmitting(false);
+    }
+  }, [selected, isAuthed, companyName, setActiveRoot, fetchAgents, navigate]);
 
   return (
-    <div className="tpl-page">
-      <div className="tpl-inner">
-        <header className="tpl-hero">
-          <h1 className="tpl-title">blueprints — explore the runtime catalog.</h1>
-          <p className="tpl-subtitle">
-            companies you can spawn, personas you can hire, more coming. each blueprint lands you in
-            a fully-threaded runtime — agents, events, ideas, quests already alive. pick one, name
-            it, start talking.
+    <div className="bp-page">
+      <aside className="bp-rail" aria-label="Blueprint filters">
+        <h2 className="bp-rail-title">Blueprints</h2>
+        <ul className="bp-rail-list" role="tablist">
+          {FILTERS.map((f) => (
+            <li key={f.id}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={filter === f.id}
+                className={`bp-rail-item${filter === f.id ? " active" : ""}`}
+                onClick={() => setFilter(f.id)}
+              >
+                <span className="bp-rail-label">{f.label}</span>
+                <span className="bp-rail-count">
+                  {f.id === "all" ? templates.length : templates.length}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="bp-rail-foot">
+          <button type="button" className="bp-rail-custom" onClick={handleCustom}>
+            <span aria-hidden="true">+</span>
+            <span>Custom agent</span>
+          </button>
+        </div>
+      </aside>
+
+      <main className="bp-content">
+        <header className="bp-hero">
+          <h1 className="bp-hero-title">blueprints.</h1>
+          <p className="bp-hero-lede">
+            companies you can spawn in seconds — agents, ideas, events, and quests already alive.
+            pick one, name it, start talking.
           </p>
         </header>
 
-        <div className="tpl-toolbar" role="toolbar" aria-label="Filter blueprints">
-          <div className="tpl-search-wrap">
-            <svg
-              className="tpl-search-icon"
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M9 9l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <div className="bp-toolbar" role="toolbar" aria-label="Search blueprints">
+          <div className="bp-search-wrap">
+            <svg className="bp-search-icon" viewBox="0 0 14 14" aria-hidden="true">
+              <circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path
+                d="M9 9l3 3"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                fill="none"
+              />
             </svg>
             <input
               type="search"
-              className="tpl-search-input"
+              className="bp-search-input"
               placeholder="search blueprints…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search blueprints by name or description"
+              aria-label="Search blueprints"
             />
-          </div>
-          <div className="tpl-filter-pills" role="tablist" aria-label="Blueprint category">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={category === c.id}
-                className={`tpl-filter-pill${category === c.id ? " is-active" : ""}`}
-                onClick={() => setCategory(c.id)}
-              >
-                {c.label}
-              </button>
-            ))}
           </div>
         </div>
 
         {error && (
-          <div className="tpl-error" role="alert">
+          <div className="bp-error" role="alert">
             {error} — showing default blueprints.
           </div>
         )}
 
         {loading ? (
-          <div className="tpl-status">
-            <Spinner size="sm" />
-            loading blueprints…
-          </div>
-        ) : totalVisible === 0 ? (
-          <div className="tpl-empty">
-            <p className="tpl-empty-title">no blueprints match.</p>
-            <p className="tpl-empty-sub">
-              try a shorter search, or switch category to{" "}
-              <button
-                type="button"
-                className="tpl-empty-link"
-                onClick={() => {
-                  setQuery("");
-                  setCategory("all");
-                }}
-              >
-                show everything
-              </button>
-              .
-            </p>
+          <div className="bp-status">
+            <Spinner size="sm" /> loading blueprints…
           </div>
         ) : (
-          <BlueprintGallery
-            companyTemplates={visibleCompanies}
-            identityTemplates={visiblePersonas}
-            onPick={handlePick}
-            initialSlug={initialSlug}
-            onPreviewClose={cleanDeepLinkParams}
-            showKindBadge
-          />
-        )}
-      </div>
+          <div className="bp-grid" role="list">
+            <button
+              type="button"
+              role="listitem"
+              className="bp-card bp-card-custom"
+              onClick={handleCustom}
+              title="Build a custom agent without a blueprint"
+            >
+              <span className="bp-card-custom-glyph" aria-hidden="true">
+                +
+              </span>
+              <span className="bp-card-custom-title">Start blank</span>
+              <span className="bp-card-custom-sub">A custom agent, no blueprint.</span>
+            </button>
 
-      <SpawnTemplateModal
-        template={modalTemplate}
-        open={Boolean(modalTemplate)}
-        onClose={closeModal}
-        onSpawned={handleSpawned}
-      />
+            {visible.map((t) => (
+              <BlueprintCard
+                key={t.slug}
+                template={t}
+                active={selectedSlug === t.slug}
+                onSelect={() => handleSelect(t.slug)}
+              />
+            ))}
+
+            {visible.length === 0 && (
+              <div className="bp-empty">
+                <p className="bp-empty-title">no blueprints match.</p>
+                <p className="bp-empty-sub">
+                  try a shorter search.{" "}
+                  <button
+                    type="button"
+                    className="bp-empty-link"
+                    onClick={() => {
+                      setQuery("");
+                      setFilter("all");
+                    }}
+                  >
+                    show everything
+                  </button>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      <aside className={`bp-detail${selected ? " is-open" : ""}`} aria-label="Blueprint detail">
+        {selected ? (
+          <BlueprintDetail
+            template={selected}
+            companyName={companyName}
+            onCompanyNameChange={setCompanyName}
+            onClose={handleClose}
+            onSpawn={handleSpawn}
+            submitting={submitting}
+            submitError={submitError}
+            isAuthed={isAuthed}
+          />
+        ) : (
+          <BlueprintDetailEmpty />
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function BlueprintCard({
+  template,
+  active,
+  onSelect,
+}: {
+  template: CompanyTemplate;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const counts = {
+    a: template.seed_agents?.length ?? 0,
+    i: template.seed_ideas?.length ?? 0,
+    e: template.seed_events?.length ?? 0,
+    q: template.seed_quests?.length ?? 0,
+  };
+  return (
+    <button
+      type="button"
+      role="listitem"
+      className={`bp-card${active ? " active" : ""}`}
+      onClick={onSelect}
+    >
+      <h3 className="bp-card-name">{template.name}</h3>
+      {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
+      <div className="bp-card-monograms" aria-label="seed counts">
+        {(["a", "i", "e", "q"] as const).map((l) => (
+          <span key={l} className="bp-card-mono">
+            <span className="bp-card-mono-l">{l}</span>
+            <span className="bp-card-mono-n">{counts[l]}</span>
+          </span>
+        ))}
+      </div>
+    </button>
+  );
+}
+
+function BlueprintDetailEmpty() {
+  return (
+    <div className="bp-detail-empty">
+      <p className="bp-detail-empty-eyebrow">Pick a blueprint</p>
+      <p className="bp-detail-empty-line">
+        Each one spins up a fully-threaded runtime — agents, events, ideas, and quests already alive
+        when you land.
+      </p>
+    </div>
+  );
+}
+
+function BlueprintDetail({
+  template,
+  companyName,
+  onCompanyNameChange,
+  onClose,
+  onSpawn,
+  submitting,
+  submitError,
+  isAuthed,
+}: {
+  template: CompanyTemplate;
+  companyName: string;
+  onCompanyNameChange: (v: string) => void;
+  onClose: () => void;
+  onSpawn: () => void;
+  submitting: boolean;
+  submitError: string | null;
+  isAuthed: boolean;
+}) {
+  const counts = {
+    a: template.seed_agents?.length ?? 0,
+    i: template.seed_ideas?.length ?? 0,
+    e: template.seed_events?.length ?? 0,
+    q: template.seed_quests?.length ?? 0,
+  };
+  return (
+    <div className="bp-detail-card" key={template.slug}>
+      <button
+        type="button"
+        className="bp-detail-close"
+        onClick={onClose}
+        aria-label="Close detail"
+        title="Close detail"
+      >
+        ×
+      </button>
+      <header className="bp-detail-head">
+        <h2 className="bp-detail-name">{template.name}</h2>
+        {template.tagline && <p className="bp-detail-tagline">{template.tagline}</p>}
+      </header>
+      {template.description && <p className="bp-detail-desc">{template.description}</p>}
+
+      <BlueprintTreePreview template={template} />
+
+      <ul className="bp-detail-monograms" aria-label="What this blueprint seeds">
+        <li>
+          <span className="n">{counts.a}</span> agents
+        </li>
+        <li>
+          <span className="n">{counts.i}</span> ideas
+        </li>
+        <li>
+          <span className="n">{counts.e}</span> events
+        </li>
+        <li>
+          <span className="n">{counts.q}</span> quests
+        </li>
+      </ul>
+
+      <form
+        className="bp-detail-spawn"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSpawn();
+        }}
+      >
+        <label className="bp-detail-spawn-label" htmlFor="bp-company-name">
+          Company name
+        </label>
+        <input
+          id="bp-company-name"
+          type="text"
+          className="bp-detail-spawn-input"
+          value={companyName}
+          onChange={(e) => onCompanyNameChange(e.target.value)}
+          placeholder={template.name}
+          maxLength={48}
+          disabled={submitting}
+          autoComplete="off"
+        />
+        {submitError && (
+          <p className="bp-detail-spawn-error" role="alert">
+            {submitError}
+          </p>
+        )}
+        <button type="submit" className="bp-detail-spawn-btn" disabled={submitting}>
+          {submitting ? (
+            <>
+              <Spinner size="sm" />
+              spawning…
+            </>
+          ) : isAuthed ? (
+            <>Start this company</>
+          ) : (
+            <>Sign up to start</>
+          )}
+        </button>
+        {!isAuthed && (
+          <p className="bp-detail-spawn-hint">
+            Free trial. One company on us — pick any blueprint to begin.
+          </p>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function BlueprintTreePreview({ template }: { template: CompanyTemplate }) {
+  const seeds = template.seed_agents ?? [];
+  return (
+    <div className="bp-tree" aria-hidden="true">
+      <div className="bp-tree-root">
+        <span className="bp-tree-node bp-tree-node-root">
+          <span className="bp-tree-node-name">{template.name}</span>
+          <span className="bp-tree-node-tag">root</span>
+        </span>
+      </div>
+      {seeds.length > 0 && (
+        <>
+          <svg className="bp-tree-edges" viewBox="0 0 100 18" preserveAspectRatio="none">
+            {seeds.map((_, i) => {
+              const total = seeds.length;
+              const x = total === 1 ? 50 : 16 + (i * 68) / Math.max(1, total - 1);
+              return (
+                <path
+                  key={i}
+                  d={`M50 0 C50 8 ${x} 8 ${x} 18`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.6"
+                  strokeOpacity="0.45"
+                />
+              );
+            })}
+          </svg>
+          <ul className="bp-tree-children">
+            {seeds.map((seed, i) => (
+              <li
+                key={`${seed.name}-${i}`}
+                className="bp-tree-node bp-tree-node-child"
+                style={{ animationDelay: `${100 + i * 80}ms` }}
+              >
+                <span className="bp-tree-node-name">{seed.name}</span>
+                {seed.role && <span className="bp-tree-node-tag">{seed.role}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

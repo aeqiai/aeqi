@@ -333,10 +333,8 @@ function SubAgentForm({
         ...(resolvedName ? { name: resolvedName } : {}),
         ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
-      const newId =
-        (resp as Record<string, unknown>)?.agent &&
-        ((resp as Record<string, unknown>).agent as Record<string, unknown>)?.id;
-      if (typeof newId === "string" && newId.length > 0) {
+      const newId = resp.agent?.id;
+      if (newId && newId.length > 0) {
         await onSpawned(newId);
       } else {
         await onSpawned(parentId);

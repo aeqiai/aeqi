@@ -8,18 +8,6 @@ import SpawnTemplateModal from "@/components/SpawnTemplateModal";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import { api } from "@/lib/api";
 
-/**
- * Smoke tests for the templates browse → spawn → redirect flow.
- *
- * We stub `api.getTemplates` + `api.spawnTemplate` at the module level so the
- * tests exercise the component wiring without hitting the network. The flow
- * covered end-to-end:
- *   1. page mounts, catalog renders (live or fallback)
- *   2. card click opens detail view
- *   3. "Start this company" opens the spawn modal
- *   4. confirming spawns and navigates to /{root}/sessions
- */
-
 describe("BlueprintsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -29,7 +17,7 @@ describe("BlueprintsPage", () => {
     cleanup();
   });
 
-  it("renders the hero and at least one template card after loading", async () => {
+  it("renders the hero and at least one blueprint card after loading", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
@@ -46,7 +34,7 @@ describe("BlueprintsPage", () => {
     );
 
     expect(
-      await screen.findByText(/blueprints — explore the runtime catalog/i),
+      await screen.findByRole("heading", { level: 1, name: /blueprints/i }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();
@@ -66,7 +54,6 @@ describe("BlueprintsPage", () => {
       </StrictMode>,
     );
 
-    // Fallback catalog exposes the canonical three templates
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();
       expect(screen.getByText("Studio")).toBeInTheDocument();
@@ -74,7 +61,7 @@ describe("BlueprintsPage", () => {
     });
   });
 
-  it("opens the preview drawer with primitive monograms when a card is clicked", async () => {
+  it("opens the inline detail pane with seed counts when a card is clicked", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
@@ -93,13 +80,14 @@ describe("BlueprintsPage", () => {
 
     await user.click(await screen.findByText("Solo Founder"));
 
-    const dialog = await screen.findByRole("dialog", { name: "Solo Founder" });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByText("Start this company")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("seed counts").length).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Solo Founder" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("What this blueprint seeds")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company name")).toBeInTheDocument();
   });
 
-  it("auto-opens the preview drawer when ?start= matches a template", async () => {
+  it("auto-selects the blueprint when ?start= matches a slug", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
@@ -115,9 +103,10 @@ describe("BlueprintsPage", () => {
       </StrictMode>,
     );
 
-    const dialog = await screen.findByRole("dialog", { name: "Solo Founder" });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByText("Start this company")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Solo Founder" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Company name")).toBeInTheDocument();
   });
 });
 
