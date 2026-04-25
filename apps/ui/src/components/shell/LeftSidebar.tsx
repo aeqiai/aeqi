@@ -1,11 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
-import BrandMark from "@/components/BrandMark";
-import Wordmark from "@/components/Wordmark";
 import BlockAvatar from "@/components/BlockAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 import { IconButton } from "@/components/ui";
+
+// BrandMark / Wordmark are no longer rendered by the authed
+// LeftSidebar — the profile row replaces them in the top-left slot
+// (and in collapsed state). Both components stay alive in the
+// codebase via the auth pages (login, signup, verify, reset) and
+// will be wired into the future non-authed shell variant; no need
+// to import them here until that variant exists.
 
 interface LeftSidebarProps {
   agentId: string | null;
@@ -222,31 +227,30 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     >
       <div className="sidebar-header">
         <a
-          className="sidebar-brand"
-          href={sidebarCollapsed ? undefined : "/"}
+          className={`sidebar-nav-item sidebar-header-profile ${profileActive ? "active" : ""}`}
+          href={profileHref}
           onClick={(e) => {
             e.preventDefault();
             if (sidebarCollapsed) toggleSidebar();
-            else navigate("/");
+            else navigate(profileHref);
           }}
           title={sidebarCollapsed ? `Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)` : "Home"}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Home"}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : `${userName} — home`}
         >
-          {sidebarCollapsed ? (
-            <>
-              <span className="sidebar-brand-glyph">
-                <BrandMark size={20} />
+          <span className="sidebar-nav-avatar">
+            <BlockAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
+          </span>
+          {!sidebarCollapsed &&
+            (userEmail ? (
+              <span className="sidebar-nav-identity">
+                <span className="sidebar-nav-identity-name">{userName}</span>
+                <span className="sidebar-nav-identity-email" title={userEmail}>
+                  {userEmail}
+                </span>
               </span>
-              <span className="sidebar-brand-expand" aria-hidden="true">
-                <svg {...iconProps}>
-                  <rect x="2" y="3" width="12" height="10" rx="1.5" />
-                  <path d="M6.5 3v10" />
-                </svg>
-              </span>
-            </>
-          ) : (
-            <Wordmark size={22} />
-          )}
+            ) : (
+              <span className="sidebar-nav-label">{userName}</span>
+            ))}
         </a>
         {!sidebarCollapsed && (
           <IconButton
@@ -299,26 +303,38 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         {/* Search + Inbox + Settings grouped in one zone — three primary
             user-scope rail rows. Search at the top because it's the
             jump-anywhere action; Inbox is scope-aware home; Settings
-            mirrors scope. The earlier global-vs-scope split (search
-            row as divider) is gone. */}
+            mirrors scope. The keyboard-shortcuts ? button rides on
+            Search's right edge — both are keyboard-discoverability
+            affordances. */}
         <div className="sidebar-user-zone">
-          <button
-            type="button"
-            className="sidebar-nav-item sidebar-nav-item--search"
-            onClick={openPalette}
-            aria-label="Open command palette"
-            title="Search — jump to any agent, quest, or idea"
-          >
-            <svg {...iconProps}>
-              <circle cx="7" cy="7" r="4.5" />
-              <path d="M10 10l3.5 3.5" />
-            </svg>
-            <span className="sidebar-nav-label">Search</span>
-            <span className="sidebar-nav-kbd" aria-hidden="true">
-              <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
-              <kbd>K</kbd>
-            </span>
-          </button>
+          <div className="sidebar-row-pair">
+            <button
+              type="button"
+              className="sidebar-nav-item sidebar-nav-item--search"
+              onClick={openPalette}
+              aria-label="Open command palette"
+              title="Search — jump to any agent, quest, or idea"
+            >
+              <svg {...iconProps}>
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10 10l3.5 3.5" />
+              </svg>
+              <span className="sidebar-nav-label">Search</span>
+              <span className="sidebar-nav-kbd" aria-hidden="true">
+                <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
+                <kbd>K</kbd>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="sidebar-help-btn"
+              onClick={openShortcuts}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              ?
+            </button>
+          </div>
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={inboxHref}
@@ -368,39 +384,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         </div>
       </div>
 
-      <div className="sidebar-footer">
-        <a
-          className={`sidebar-nav-item ${profileActive ? "active" : ""}`}
-          href={profileHref}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(profileHref);
-          }}
-        >
-          <span className="sidebar-nav-avatar">
-            <BlockAvatar name={userName} size={16} />
-          </span>
-          {userEmail ? (
-            <span className="sidebar-nav-identity">
-              <span className="sidebar-nav-identity-name">{userName}</span>
-              <span className="sidebar-nav-identity-email" title={userEmail}>
-                {userEmail}
-              </span>
-            </span>
-          ) : (
-            <span className="sidebar-nav-label">{userName}</span>
-          )}
-        </a>
-        <button
-          type="button"
-          className="sidebar-help-btn"
-          onClick={openShortcuts}
-          aria-label="Keyboard shortcuts"
-          title="Keyboard shortcuts (?)"
-        >
-          ?
-        </button>
-      </div>
+      {/* Sidebar footer dropped — profile moved to the header (top-left,
+          replacing the brand glyph), help button moved to Search's
+          right edge. Bottom of the sidebar runs flush with the agent
+          tree's scroll viewport now. */}
       {!sidebarCollapsed && (
         <div
           className="sidebar-resizer"
