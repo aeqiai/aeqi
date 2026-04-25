@@ -9,10 +9,16 @@ import { Spinner } from "@/components/ui";
 import "@/styles/templates.css";
 
 /**
- * /templates — the front door of æqi. A user picks a company template
+ * /library — the front door of æqi. A user picks a company template
  * and within seconds is inside a fully-threaded runtime (seed agents,
  * events, ideas, quests already alive). Grid + card rendering lives in
  * `<TemplateGallery>`; this page is the data + spawn-modal shell.
+ *
+ * Renamed from /templates — same data underneath, but the surface
+ * stops being framed as "just templates" and starts being framed as
+ * the catalog the runtime grows into (skills, packs, workflows, future
+ * distributable content). For now this is the company-template gallery;
+ * over time it grows into the proper store.
  *
  * Data flow:
  *   - On mount, try `GET /api/templates`. On any failure, fall back to
@@ -21,7 +27,7 @@ import "@/styles/templates.css";
  *     gallery preview for that slug. After close, the param is stripped
  *     from the URL so the preview doesn't re-open on state changes.
  */
-export default function TemplatesPage() {
+export default function LibraryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -31,7 +37,7 @@ export default function TemplatesPage() {
   const [modalTemplate, setModalTemplate] = useState<CompanyTemplate | null>(null);
 
   useEffect(() => {
-    document.title = "templates · æqi";
+    document.title = "library · æqi";
   }, []);
 
   // Fetch catalog. On any failure, fall back to the fixture catalog so we

@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import TemplatesPage from "@/pages/TemplatesPage";
+import LibraryPage from "@/pages/LibraryPage";
 import SpawnTemplateModal from "@/components/SpawnTemplateModal";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import { api } from "@/lib/api";
@@ -20,7 +20,7 @@ import { api } from "@/lib/api";
  *   4. confirming spawns and navigates to /{root}/sessions
  */
 
-describe("TemplatesPage", () => {
+describe("LibraryPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -37,9 +37,9 @@ describe("TemplatesPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/templates"]}>
+        <MemoryRouter initialEntries={["/library"]}>
           <Routes>
-            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/library" element={<LibraryPage />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -57,9 +57,9 @@ describe("TemplatesPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/templates"]}>
+        <MemoryRouter initialEntries={["/library"]}>
           <Routes>
-            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/library" element={<LibraryPage />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -82,9 +82,9 @@ describe("TemplatesPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/templates"]}>
+        <MemoryRouter initialEntries={["/library"]}>
           <Routes>
-            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/library" element={<LibraryPage />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -106,9 +106,9 @@ describe("TemplatesPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/templates?start=solo-founder"]}>
+        <MemoryRouter initialEntries={["/library?start=solo-founder"]}>
           <Routes>
-            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/library" element={<LibraryPage />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

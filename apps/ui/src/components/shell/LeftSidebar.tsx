@@ -53,6 +53,24 @@ const InboxIcon = () => (
   </svg>
 );
 
+/* Library: a row of book spines on a shelf — the catalog as standing
+ * volumes. Same stroke weight as InboxIcon so the rail reads evenly. */
+const LibraryIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3 3v9.5M6 3v9.5M9 3v9.5M12 3v9.5" />
+    <path d="M2.5 13h11" />
+  </svg>
+);
+
+/* Protocol: two horizontal arrows in opposite directions — the
+ * inbound/outbound exchange aeqi speaks. Matches Inbox stroke weight. */
+const ProtocolIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2 5h9m-2-2 2 2-2 2" />
+    <path d="M14 11H5l2-2m-2 2 2 2" />
+  </svg>
+);
+
 const PRIMITIVES: NavItem[] = [
   { id: "agents", label: "Agents", icon: <PrimitiveLetter ch="a" />, title: "Agents · G then A" },
   { id: "events", label: "Events", icon: <PrimitiveLetter ch="e" />, title: "Events · G then E" },
@@ -216,6 +234,30 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         >
           <InboxIcon />
           <span className="sidebar-nav-label">Inbox</span>
+        </a>
+        <a
+          className={`sidebar-nav-item ${path === "/library" || path.startsWith("/library/") ? "active" : ""}`}
+          href="/library"
+          title="Library"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/library");
+          }}
+        >
+          <LibraryIcon />
+          <span className="sidebar-nav-label">Library</span>
+        </a>
+        <a
+          className={`sidebar-nav-item ${path === "/protocol" || path.startsWith("/protocol/") ? "active" : ""}`}
+          href="/protocol"
+          title="Protocol"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/protocol");
+          }}
+        >
+          <ProtocolIcon />
+          <span className="sidebar-nav-label">Protocol</span>
         </a>
       </div>
 

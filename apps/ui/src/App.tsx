@@ -15,7 +15,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 // App pages -- lazy-loaded for route-level code splitting
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
-const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
+const LibraryPage = lazy(() => import("@/pages/LibraryPage"));
+const ProtocolPage = lazy(() => import("@/pages/ProtocolPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 
 const LoadingSpinner = () => (
@@ -94,7 +95,10 @@ export default function App() {
                 <Routes>
                   {/* User-level routes */}
                   <Route path="new" element={<NewAgentPage />} />
-                  <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="library" element={<LibraryPage />} />
+                  <Route path="protocol" element={<ProtocolPage />} />
+                  {/* /templates → /library — old links keep working */}
+                  <Route path="templates" element={<Navigate to="/library" replace />} />
                   <Route path="agents" element={<AgentsPage />} />
 
                   {/* Account-action routes — auth-style standalone pages

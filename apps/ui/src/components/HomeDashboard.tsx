@@ -77,7 +77,7 @@ export default function HomeDashboard() {
     if (companies.length > 0) {
       // Existing user — hand off to the full templates page, preserve
       // the deep link so their preview still opens there.
-      navigate(`/templates?template=${encodeURIComponent(templateParam)}`, { replace: true });
+      navigate(`/library?template=${encodeURIComponent(templateParam)}`, { replace: true });
     }
   }, [templateParam, initialLoaded, companies.length, navigate]);
 
