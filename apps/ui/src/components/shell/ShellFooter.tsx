@@ -4,7 +4,7 @@ export default function ShellFooter() {
   return (
     <footer className="shell-footer" role="contentinfo">
       <p className="shell-footer-tagline">
-        By using <Wordmark size={11} className="shell-footer-wordmark" color="currentColor" /> you
+        By using <Wordmark size={9} className="shell-footer-wordmark" color="currentColor" /> you
         agree to our{" "}
         <a href="https://aeqi.ai/privacy" target="_blank" rel="noreferrer noopener">
           privacy policy

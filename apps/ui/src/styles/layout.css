@@ -65,15 +65,15 @@
    room between the card above and the viewport edge below. */
 .shell-footer {
   flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* Flex with relative positioning is the reliable way to center
+     content vertically inside a tight strip when one of the children
+     is a brand-typeface span (Zen Dots' chunky glyph metrics push
+     line-boxes around in grid layouts). Tagline centers; meta sits
+     absolutely on the right. */
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  /* Fixed compact height + horizontal padding only. Grid centers the
-     legal sentence vertically so the row reads as a single thin
-     strip — no asymmetric vertical padding to argue with. Matched
-     exactly by .content-column's padding-top so top + bottom insets
-     mirror perfectly. */
+  justify-content: center;
   height: var(--shell-footer-h);
   padding: 0 14px;
   background:
@@ -81,7 +81,7 @@
   color: var(--text-muted);
   font-size: 10px;
   letter-spacing: 0.005em;
-  line-height: 1.1;
+  line-height: 1;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -89,17 +89,9 @@
   display: none;
 }
 .shell-footer-tagline {
-  grid-column: 2;
-  /* Flexbox centers the inner SVG (Wordmark) + text on the same
-     vertical axis, then the outer grid `align-items: center` centers
-     the whole tagline inside the 18px strip. Without flex centering
-     here the inline SVG dragged the text baseline downward and the
-     line read as bottom-aligned. */
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0;
-  /* Explicit zero margin/padding — defends against any UA <p> margin
-     creeping in and pushing the line off-center. */
+  /* Defend against any UA <p> margin creeping in. */
   margin: 0;
   padding: 0;
   white-space: nowrap;
@@ -124,8 +116,13 @@
   vertical-align: baseline;
 }
 .shell-footer-meta {
-  grid-column: 3;
-  justify-self: end;
+  /* Pinned to the right edge, vertically centered against the 18px
+     strip. Absolute positioning keeps the layout calm even if the
+     legal sentence shrinks to nothing. */
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
