@@ -464,9 +464,25 @@ const MessageItem = memo(function MessageItem({
   // the row is the whole message in that case.
   const useSplit = splitAssistant != null && trailHasMeaningfulContent(splitAssistant.trail);
 
+  // Director-ask treatment: when the agent fired `question.ask`, the
+  // assistant message carries `source = "question.ask"` and (optionally) a
+  // subject. Drape the bubble in an ink panel so the chat user reads it as
+  // "this is a formal ask, not a chat reply" — same visual register as the
+  // home-page inbox row (near-black ink rail, mono uppercase eyebrow).
+  const isAsk = msg.source === "question.ask";
   return (
-    <div className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}`}>
+    <div
+      className={`asv-msg asv-msg-${msg.role}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}`}
+    >
       <div className="asv-msg-body">
+        {isAsk && (
+          <div className="asv-msg-ask-header" aria-label="Asking the director">
+            <span className="asv-msg-ask-eyebrow">ASKING THE DIRECTOR</span>
+            {msg.askSubject && msg.askSubject !== msg.content && (
+              <span className="asv-msg-ask-subject">{msg.askSubject}</span>
+            )}
+          </div>
+        )}
         {useSplit && splitAssistant ? (
           <>
             <CollapsedTrail

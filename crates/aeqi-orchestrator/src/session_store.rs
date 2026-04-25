@@ -455,16 +455,43 @@ impl SessionStore {
 
     /// Enqueue a pending message for a session. Returns the new row id.
     /// The payload is opaque JSON — the executor deserializes it.
+    ///
+    /// Side effect: if the payload looks user-originated (kind is null /
+    /// "chat" / "user_reply") AND the session currently has `awaiting_at`
+    /// set, the awaiting bit is cleared atomically in the same
+    /// transaction. This closes the stale-inbox-row hole when a director
+    /// answers an awaiting session by typing in the regular chat composer
+    /// instead of the inbox-page inline reply. Quest re-enqueues
+    /// (`kind == "quest"`) deliberately do NOT clear — they're the agent
+    /// continuing its own work, not a human responding.
     pub async fn enqueue_pending(&self, session_id: &str, payload: &str) -> Result<i64> {
-        let db = self.db.lock().await;
+        let mut db = self.db.lock().await;
         let now = Utc::now().timestamp();
-        db.execute(
+        let tx = db.transaction()?;
+        tx.execute(
             "INSERT INTO pending_messages (session_id, payload, status, created_at) \
              VALUES (?1, ?2, 'queued', ?3)",
             params![session_id, payload, now],
         )
         .context("failed to enqueue pending message")?;
-        Ok(db.last_insert_rowid())
+        let id = tx.last_insert_rowid();
+        // Peek at the payload kind; null/chat/user_reply count as user-
+        // originated. Quest re-enqueues are excluded. Parse failures are
+        // treated as user-originated (legacy raw-string payloads were the
+        // chat path).
+        let user_originated = match crate::queue_executor::QueuedMessage::from_payload(payload) {
+            Ok(qm) => !qm.is_quest(),
+            Err(_) => true,
+        };
+        if user_originated {
+            tx.execute(
+                "UPDATE sessions SET awaiting_at = NULL, awaiting_subject = NULL \
+                 WHERE id = ?1 AND awaiting_at IS NOT NULL",
+                params![session_id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(id)
     }
 
     /// Atomically claim the next queued message for a session, iff no other
@@ -3409,6 +3436,63 @@ mod tests {
         assert_eq!(
             claimed[0].content, "ship it",
             "structured payloads must surface the inner message text, not the JSON envelope"
+        );
+    }
+
+    /// A regular chat enqueue (user-originated) must clear `awaiting_at`
+    /// if the session was awaiting. This closes the stale-inbox-row hole
+    /// when a director types into the chat composer instead of using the
+    /// inbox inline reply.
+    #[tokio::test]
+    async fn enqueue_pending_clears_awaiting_for_user_payload() {
+        let store = test_store().await;
+        let session_id = store
+            .create_session("agent-z", "session", "chat reply", None, None)
+            .await
+            .unwrap();
+        store.set_awaiting(&session_id, "subj").await.unwrap();
+
+        let qm = crate::queue_executor::QueuedMessage::chat(
+            "agent-z",
+            "answering in chat",
+            None,
+            Some("web".to_string()),
+        );
+        let payload = qm.to_payload().unwrap();
+        store.enqueue_pending(&session_id, &payload).await.unwrap();
+
+        let listed = store.list_awaiting(None).await.unwrap();
+        assert!(
+            listed.iter().all(|r| r.session_id != session_id),
+            "user-originated enqueue must clear awaiting_at"
+        );
+    }
+
+    /// Quest re-enqueues must NOT clear `awaiting_at` — they're the agent
+    /// continuing its own work, not a human answering.
+    #[tokio::test]
+    async fn enqueue_pending_preserves_awaiting_for_quest_payload() {
+        let store = test_store().await;
+        let session_id = store
+            .create_session("agent-z", "session", "quest re-enqueue", None, None)
+            .await
+            .unwrap();
+        store.set_awaiting(&session_id, "subj").await.unwrap();
+
+        let qm = crate::queue_executor::QueuedMessage::quest(
+            "agent-z",
+            "continue quest",
+            "quest-id",
+            None,
+            None,
+        );
+        let payload = qm.to_payload().unwrap();
+        store.enqueue_pending(&session_id, &payload).await.unwrap();
+
+        let listed = store.list_awaiting(None).await.unwrap();
+        assert!(
+            listed.iter().any(|r| r.session_id == session_id),
+            "quest enqueue must NOT clear awaiting_at — only human replies do"
         );
     }
 

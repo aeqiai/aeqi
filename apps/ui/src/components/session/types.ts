@@ -70,6 +70,18 @@ export interface Message {
   eventFire?: EventFire;
   /** DB message ID — used for fork-from-here. */
   messageId?: number;
+  /**
+   * `session_messages.source` — set when a tool that records to the
+   * transcript wants the renderer to give the message special treatment.
+   * Today `"question.ask"` triggers the ink-panel "asking the director"
+   * presentation in the chat surface.
+   */
+  source?: string;
+  /**
+   * Companion to `source = "question.ask"` — the inbox row's preview
+   * subject. Surfaced in the message panel header.
+   */
+  askSubject?: string;
 }
 
 export interface SessionInfo {

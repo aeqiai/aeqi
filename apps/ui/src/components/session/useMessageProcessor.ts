@@ -126,6 +126,18 @@ export function useMessageProcessor() {
           agent.segments!.push({ kind: "text", text });
           agent.content += (agent.content ? "\n\n" : "") + text;
         }
+        // `source = "question.ask"` flags this message as a director-ask
+        // for the renderer. The companion `metadata.subject` carries the
+        // inbox row preview line. Stamp them on the assistant Message so
+        // MessageItem can drape an ink panel around the bubble.
+        const rawSource = typeof m.source === "string" ? m.source : null;
+        if (rawSource === "question.ask") {
+          agent.source = "question.ask";
+          const meta = (m.metadata || {}) as Record<string, unknown>;
+          if (typeof meta.subject === "string") {
+            agent.askSubject = meta.subject;
+          }
+        }
         applyAssistantMeta(agent, (m.metadata || {}) as Record<string, unknown>);
       } else if (eventType === "event_fired") {
         const meta = (m.metadata || {}) as Record<string, unknown>;
