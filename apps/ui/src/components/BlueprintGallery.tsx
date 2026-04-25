@@ -31,6 +31,10 @@ interface Props {
   initialSlug?: string;
   /** Optional: called when the preview is dismissed. Lets callers clean URL. */
   onPreviewClose?: () => void;
+  /** Show a small kind pill ("Company" / "Persona") in the corner of
+   *  each card. Used by the marketplace surface; the home zero-state
+   *  hides it because the page is single-kind anyway. */
+  showKindBadge?: boolean;
 }
 
 interface Cell {
@@ -72,7 +76,7 @@ function toIdentityCell(i: IdentitySummary): Cell {
 }
 
 /**
- * TemplateGallery — the reusable catalog surface. An asymmetric grid of
+ * BlueprintGallery — the reusable catalog surface. An asymmetric grid of
  * flat white cards on paper, each a company (or persona) the user can
  * spawn. Keyboard: j/k or arrow keys cycle cards, Enter opens preview.
  *
@@ -81,12 +85,13 @@ function toIdentityCell(i: IdentitySummary): Cell {
  * card is featured — wider, with tagline visible — to break the uniform
  * grid and give the page a focal point.
  */
-export default function TemplateGallery({
+export default function BlueprintGallery({
   companyTemplates,
   identityTemplates = [],
   onPick,
   initialSlug,
   onPreviewClose,
+  showKindBadge = false,
 }: Props) {
   const cells = useMemo<Cell[]>(() => {
     const co = companyTemplates.map(toCompanyCell);
@@ -205,6 +210,11 @@ export default function TemplateGallery({
               onFocus={() => setFocusIdx(idx)}
               aria-label={`${cell.name}${cell.tagline ? ` — ${cell.tagline}` : ""}`}
             >
+              {showKindBadge && (
+                <span className="gallery-card-kind">
+                  {cell.kind === "company" ? "Company" : "Persona"}
+                </span>
+              )}
               <h3 className="gallery-card-name">{cell.name}</h3>
               {cell.tagline && <p className="gallery-card-tagline">{cell.tagline}</p>}
               {featured && cell.description && (

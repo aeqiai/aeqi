@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import Inbox from "./inbox";
 import SpawnTemplateModal from "./SpawnTemplateModal";
-import TemplateGallery from "./TemplateGallery";
+import BlueprintGallery from "./BlueprintGallery";
 import type { Agent, CompanyTemplate } from "@/lib/types";
 
 const NO_AGENTS: Agent[] = [];
@@ -139,7 +139,7 @@ export default function HomeDashboard() {
           <h1 className="home-empty-preamble">Pick a company to begin.</h1>
         </header>
 
-        <TemplateGallery
+        <BlueprintGallery
           companyTemplates={gallery}
           onPick={handlePick}
           initialSlug={templateParam || undefined}
