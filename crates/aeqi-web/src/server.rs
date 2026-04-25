@@ -40,6 +40,14 @@ pub struct AppState {
     pub smtp: Option<SmtpConfig>,
     pub hosting: Arc<dyn aeqi_hosting::HostingProvider>,
     pub twilio_auth_token: Option<String>,
+    /// Aeqi data directory — needed by routes that open the credential DB
+    /// (`integrations` routes) directly without going through the daemon
+    /// IPC. Mirrors the path the daemon uses (`config.data_dir()`).
+    pub data_dir: PathBuf,
+    /// In-process registry of bootstrap handles keyed by uuid. Each entry
+    /// tracks one in-flight OAuth2 loopback callback handshake. Pruned
+    /// when polled past completion or when handles age out.
+    pub bootstrap_registry: Arc<crate::routes::integrations::BootstrapRegistry>,
 }
 
 /// Start the web server using settings from AEQIConfig.
@@ -110,6 +118,8 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         smtp: web.auth.smtp.clone(),
         hosting,
         twilio_auth_token: web.twilio_auth_token.clone(),
+        data_dir: data_dir.clone(),
+        bootstrap_registry: Arc::new(crate::routes::integrations::BootstrapRegistry::new()),
     };
 
     // Error if auth mode requires a secret but signing_secret resolves to the default.

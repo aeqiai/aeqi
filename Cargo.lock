@@ -322,6 +322,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sha1",
+ "tempfile",
  "tokio",
  "tower",
  "tower-http",

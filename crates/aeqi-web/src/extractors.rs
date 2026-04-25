@@ -83,6 +83,10 @@ mod tests {
             smtp: None,
             hosting: test_hosting(),
             twilio_auth_token: None,
+            data_dir: std::path::PathBuf::from("/tmp/aeqi-test"),
+            bootstrap_registry: std::sync::Arc::new(
+                crate::routes::integrations::BootstrapRegistry::new(),
+            ),
         }
     }
 
