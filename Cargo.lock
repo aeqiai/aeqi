@@ -184,6 +184,7 @@ dependencies = [
  "aeqi-mcp",
  "aeqi-pack-github",
  "aeqi-pack-google-workspace",
+ "aeqi-pack-notion",
  "aeqi-providers",
  "aeqi-quests",
  "aeqi-test-support",
@@ -250,6 +251,25 @@ dependencies = [
  "tracing",
  "urlencoding",
  "uuid",
+]
+
+[[package]]
+name = "aeqi-pack-notion"
+version = "0.12.1"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "urlencoding",
 ]
 
 [[package]]

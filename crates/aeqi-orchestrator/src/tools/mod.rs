@@ -575,6 +575,9 @@ pub fn build_orchestration_tools(
     #[cfg(feature = "github")]
     tools.extend(aeqi_pack_github::all_tools());
 
+    #[cfg(feature = "notion")]
+    tools.extend(aeqi_pack_notion::all_tools());
+
     tools
 }
 

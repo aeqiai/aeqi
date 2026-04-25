@@ -6,7 +6,7 @@ description: Current contents of aeqi's default seed pack. Queryable via ideas s
 
 # Seed Pack Catalog (vanilla install)
 
-Updated: 2026-04-24
+Updated: 2026-04-25
 
 ## Identity (1)
 
@@ -74,7 +74,7 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 - `meta:evaluation-criteria` — import checklist.
 - `meta:pack-catalog` — this file.
 
-## Wisdom packs (2)
+## Wisdom packs (3)
 
 - `meta:pack:google-workspace` — eleven native tools (Gmail / Calendar /
   Meet) backed by T1.9's `oauth2` lifecycle. Per-agent scoping;
@@ -87,6 +87,15 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   refresh-on-401 retry; rate-limit reason code; pagination capped at
   200 results. Crate `aeqi-pack-github`, default-on feature `github`
   on `aeqi-orchestrator`.
+- `meta:pack:notion` — twelve native tools across pages / databases /
+  blocks / users backed by T1.9's `oauth2` lifecycle. Per-workspace
+  scoping (`ScopeHint::User` keyed by Notion `workspace_id`);
+  refresh-on-401 retry; rate-limit reason code (`Retry-After`-aware);
+  cursor-based pagination capped at 200 results; block-append chunked
+  transparently at Notion's 100-children-per-call ceiling;
+  heterogeneous property shapes passed through verbatim. Pinned to
+  `Notion-Version: 2022-06-28`. Crate `aeqi-pack-notion`, default-on
+  feature `notion` on `aeqi-orchestrator`.
 
 ## Known gaps (things we should NOT re-import if encountered)
 
