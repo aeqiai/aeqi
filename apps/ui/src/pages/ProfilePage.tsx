@@ -4,7 +4,8 @@ import { useNav } from "@/hooks/useNav";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
-import PageTabs, { useActiveTab } from "@/components/PageTabs";
+import { useActiveTab } from "@/components/PageTabs";
+import PageRail from "@/components/PageRail";
 import { Button, IconButton, Input } from "@/components/ui";
 import SettingsIntegrationsPage from "@/pages/Settings/Integrations";
 
@@ -189,9 +190,9 @@ export default function ProfilePage() {
   const email = (user?.email as string) || "";
 
   return (
-    <>
-      <PageTabs tabs={TABS} defaultTab="profile" mode="query" />
-      <div className="account-page">
+    <div className="settings-layout">
+      <PageRail tabs={TABS} defaultTab="profile" />
+      <div className="account-page settings-content">
         {activeTab === "profile" && (
           <>
             <div className="account-profile-header">
@@ -740,7 +741,7 @@ export default function ProfilePage() {
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

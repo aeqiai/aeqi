@@ -678,6 +678,93 @@
   max-width: 520px;
 }
 
+/* ── Settings — vertical secondary rail layout ──────
+ *
+ * Two-column layout: secondary nav rail on the left, active section
+ * content on the right. Replaces the horizontal PageTabs strip that
+ * used to sit above account-page; horizontal pills cap out at ~5
+ * sections, and Settings has been past that for a while.
+ *
+ * The rail mirrors the LeftSidebar's row geometry (--sidebar-row-h
+ * cadence, currentColor labels, hover bg + active bg) so the user
+ * reads "this is navigation, like the rail outside" instantly. */
+
+.settings-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+.page-rail {
+  flex-shrink: 0;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 24px 12px;
+  border-right: 1px solid var(--border-faint);
+}
+
+.page-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.page-rail-item:hover {
+  color: var(--text-primary);
+  background: var(--state-hover);
+}
+.page-rail-item.active {
+  color: var(--text-primary);
+  background: var(--state-selected);
+  font-weight: 500;
+}
+.page-rail-label {
+  flex: 1;
+  /* Match the LeftSidebar nav label rule — collapse line-height to
+     font-size so the text centers visually next to neighboring
+     content. */
+  line-height: 1;
+}
+.page-rail-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-canvas);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  /* Drop the .account-page max-width cap so the wider content area
+     can breathe. The rail handles navigation; no need to keep the
+     section content artificially narrow. */
+  max-width: none;
+}
+
 .account-profile-header {
   display: flex;
   align-items: center;
