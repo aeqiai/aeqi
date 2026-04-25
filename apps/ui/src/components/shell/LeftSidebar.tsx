@@ -90,6 +90,20 @@ const IdeasIcon = () => (
   </svg>
 );
 
+/* Settings: three horizontal sliders with knobs at different
+ * positions. Reads as "tune / adjust / preferences" without leaning
+ * on the gear cliché — and a gear inside an account-settings context
+ * always misreads as "more options" or "config" (mechanical, generic)
+ * rather than "your settings" (personal). */
+const SettingsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
+    <circle cx="6" cy="4" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="10" cy="8" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: string }[] = [
   { id: "agents", label: "Agents", icon: <AgentsIcon />, title: "Agents · G then A" },
   { id: "events", label: "Events", icon: <EventsIcon />, title: "Events · G then E" },
@@ -321,6 +335,18 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           >
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${path === "/settings" || path === "/profile" ? "active" : ""}`}
+            href="/settings"
+            title="Your account settings"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/settings");
+            }}
+          >
+            <SettingsIcon />
+            <span className="sidebar-nav-label">Settings</span>
           </a>
         </div>
         <nav

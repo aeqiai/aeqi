@@ -50,7 +50,6 @@ export default function ContentTopBar() {
   // gear button on the right. Runtime mode has no concept of a user
   // account, so skip it there.
   const isUserScope = !agentId && (path === "/" || path === "/settings" || path === "/profile");
-  const userSettingsActive = path === "/settings" || path === "/profile";
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   // The crumb is always a link once a primitive + agent are resolved —
@@ -149,31 +148,8 @@ export default function ContentTopBar() {
             Settings
           </Button>
         )}
-        {isUserScope && appMode === "platform" && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`topbar-settings-btn${userSettingsActive ? " active" : ""}`}
-            onClick={() => navigate("/settings")}
-            title="Your account settings"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="8" cy="8" r="2" />
-              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
-            </svg>
-            Settings
-          </Button>
-        )}
+        {/* Settings button moved to the LeftSidebar (below Inbox).
+            Topbar stays focused on agent-scoped chrome + budget meter. */}
         {appMode !== "platform" && (
           <BudgetMeter
             spent={(cost?.spent_today_usd as number) ?? 0}
