@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import LeftSidebar from "./shell/LeftSidebar";
@@ -12,6 +12,8 @@ import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
+import { useShellSurface } from "@/hooks/useShellSurface";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import type { Agent } from "@/lib/types";
@@ -50,7 +52,6 @@ function findRoot(agents: Agent[], id: string): Agent | null {
  */
 export default function AppLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
   const [searching, setSearching] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
@@ -69,14 +70,14 @@ export default function AppLayout() {
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const activeRoot = useUIStore((s) => s.activeRoot);
 
-  // userSessionId derivation lifted up here so the inbox-store hook
-  // below can sit alongside every other hook at the top of the
-  // component — keeps eslint react-hooks/rules-of-hooks happy.
-  const _userSessionMatch = location.pathname.match(/^\/sessions\/([^/]+)\/?$/);
-  const _userSessionId = _userSessionMatch ? decodeURIComponent(_userSessionMatch[1]) : null;
+  // Surface flags — every "is this the X page?" derivation in one
+  // place. Pure path/param parsing; declared up here so the inbox-
+  // agent hook below can read userSessionId without violating React's
+  // rules-of-hooks (no early returns between hook calls).
+  const surface = useShellSurface(path, agentId, tab);
   const inboxAgentId = useInboxStore((s) =>
-    _userSessionId
-      ? (s.items.find((i) => i.session_id === _userSessionId)?.agent_id ?? null)
+    surface.userSessionId
+      ? (s.items.find((i) => i.session_id === surface.userSessionId)?.agent_id ?? null)
       : null,
   );
 
@@ -148,125 +149,21 @@ export default function AppLayout() {
   }, [fetchAll, rootId]);
   useDaemonSocket();
 
-  // Global keyboard shortcuts:
-  //   ⌘K / Ctrl+K — command palette
-  //   /           — command palette (vim-style)
-  //   ⌘B / Ctrl+B — toggle sidebar (VS Code convention)
-  //   ?           — shortcuts cheatsheet
-  //   Esc         — close palette / overlay
-  //   N           — spawn a sub-agent under the current agent
-  //   C           — focus the composer (write mode without a mouse)
-  //   g then a/e/q/i/s — jump to Agents / Events / Quests / Ideas / inbox
-  //                      for the current agent (vim-style go-to prefix;
-  //                      letters match the sidebar's A-E-Q-I wordmark).
-  //                      Skip when typing in an input/textarea, or when
-  //                      modifiers are held, so real text entry is never
-  //                      hijacked.
+  // Global keyboard shortcuts + custom-event bridges all live in one
+  // hook so this component reads as a layout, not a keystroke router.
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
-  // Vim-style two-key prefix. When the user taps `g`, we set a deadline ~1.5s
-  // ahead; the next letter during that window is treated as the navigation
-  // target instead of whatever shortcut it would otherwise trigger. A ref
-  // keeps the deadline stable across renders without re-binding the handler.
-  const gDeadlineRef = useRef<number>(0);
-  // The top-bar "Search" button dispatches `aeqi:open-palette` so callers
-  // don't need AppLayout-scoped state threaded down — same pattern as the
-  // per-tab `+ New X` buttons inside each inline picker.
-  useEffect(() => {
-    window.addEventListener("aeqi:open-palette", openSearch);
-    return () => window.removeEventListener("aeqi:open-palette", openSearch);
-  }, [openSearch]);
-  // UI-triggered shortcuts overlay — lets the topbar `?` button open the
-  // cheatsheet without prop-drilling the setter.
-  useEffect(() => {
-    const open = () => setShortcutsOpen(true);
-    window.addEventListener("aeqi:open-shortcuts", open);
-    return () => window.removeEventListener("aeqi:open-shortcuts", open);
-  }, []);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        if (searching) closeSearch();
-        else openSearch();
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        useUIStore.getState().toggleSidebar();
-        return;
-      }
-      if (e.key === "Escape") {
-        if (searching) closeSearch();
-        if (shortcutsOpen) setShortcutsOpen(false);
-        return;
-      }
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
-      // Palette + cheatsheet both own the keyboard while open — don't let
-      // `n` / `c` / g-prefix navigate the user out from under an overlay.
-      if (isEditable || searching || shortcutsOpen) return;
-      // Vim go-to prefix: if the previous key was `g` within the window,
-      // this key is the target. Consume + navigate, return before any other
-      // shortcut gets a chance. s→inbox, a→agents, e→events, q→quests,
-      // i→ideas. Runs even when agentId is absent (no-op on empty scope).
-      if (gDeadlineRef.current > Date.now() && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const key = e.key.toLowerCase();
-        const tabs: Record<string, string> = {
-          s: "",
-          a: "agents",
-          e: "events",
-          q: "quests",
-          i: "ideas",
-        };
-        if (key in tabs && agentId) {
-          e.preventDefault();
-          gDeadlineRef.current = 0;
-          const seg = tabs[key];
-          const base = `/${encodeURIComponent(agentId)}`;
-          navigate(seg ? `${base}/${seg}` : base);
-          return;
-        }
-        // Any other key cancels the prefix so the next tap is normal.
-        gDeadlineRef.current = 0;
-      }
-      if (e.key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        e.preventDefault();
-        gDeadlineRef.current = Date.now() + 1500;
-        return;
-      }
-      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        setShortcutsOpen((s) => !s);
-        return;
-      }
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        openSearch();
-        return;
-      }
-      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");
-        return;
-      }
-      if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("aeqi:focus-composer"));
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [searching, shortcutsOpen, openSearch, closeSearch, agentId, navigate]);
+  useGlobalShortcuts({
+    agentId,
+    searching,
+    shortcutsOpen,
+    openSearch,
+    closeSearch,
+    setShortcutsOpen,
+  });
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
-
-  // userSessionId derived above (next to the inbox-store hook) for
-  // hook-ordering reasons; aliased here so the rest of this scope
-  // reads naturally.
-  const userSessionId = _userSessionId;
 
   if (!initialLoaded) return <BootLoader />;
 
@@ -280,40 +177,12 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  // `/profile` — user-scoped profile. No agent in scope; the page is about
-  // the user, not a company. Matched via path because the route has no
-  // :agentId param (it's a top-level sibling of `/` and `/:agentId`).
-  // `/settings` is the user-scoped settings surface (formerly /profile).
-  // Legacy /profile URLs redirect there in App.tsx; we also match
-  // `tab === "profile"` defensively for any stale in-memory links.
-  const isSettings = path === "/settings" || path === "/profile" || tab === "profile";
-  // User-scoped surfaces that share the shell but render their own page
-  // content. Detected from path so they don't get caught by the agentId
-  // matcher and so isHome can exclude them cleanly.
-  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
-  const isEconomy = path === "/economy" || path.startsWith("/economy/");
-  // `/sessions/:sessionId` — user-scope inbox session view. Same shell
-  // as the agent-scope sessions surface, but the rail shows inbox items
-  // (across every agent the user can see) and the agent_id is resolved
-  // from the inbox item. (userSessionId derived above; declared early
-  // so the inbox-agent hook can be called without violating
-  // rules-of-hooks.)
-  const isUserSession = !!userSessionId;
-  // `/` — user-scoped landing. Doubles as the Inbox surface root: the
-  // sessions rail surfaces awaiting items, the main column carries
-  // greeting + caught-up status. Composer is hidden here — there's no
-  // session to be texting to until the user picks one from the rail.
-  const isHome = !agentId && !isSettings && !isBlueprints && !isEconomy && !isUserSession;
+  // Surface flags from the hook above; destructured here so the
+  // rendering logic below reads as a flat decision tree.
+  const { isHome, isSettings, isBlueprints, isEconomy, isDrive, isUserSession, userSessionId } =
+    surface;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
-
-  // Pick what renders in the main content area.
-  //   - profile                        → user profile (any scope)
-  //   - home (no agent, not profile)   → HomeDashboard (welcome + summary)
-  //   - drive                          → dedicated page (available on every agent)
-  //   - no tab                         → Inbox (agent landing — same as tab="sessions")
-  //   - everything else                → AgentPage with tab/itemId
-  const isDrive = tab === "drive";
   // Inbox is the default surface. No-tab URLs are treated identically to
   // tab="sessions" so /:agentId renders the Inbox directly — no redirect,
   // no per-agent welcome splash.

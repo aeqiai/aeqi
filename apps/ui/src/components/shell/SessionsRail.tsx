@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
@@ -116,10 +116,13 @@ function AgentRail() {
       .sort((a, b) => b.sortKey - a.sortKey);
   }, [sessions, awaitingSessionIds]);
 
-  const handleSelect = (id: string) => {
-    if (!agentId) return;
-    goAgent(agentId, "sessions", id, { replace: true });
-  };
+  const handleSelect = useCallback(
+    (id: string) => {
+      if (!agentId) return;
+      goAgent(agentId, "sessions", id, { replace: true });
+    },
+    [agentId, goAgent],
+  );
 
   return (
     <RailShell
@@ -176,9 +179,12 @@ function InboxRail({ selectedSessionId }: { selectedSessionId: string | null }) 
       .sort((a, b) => b.sortKey - a.sortKey);
   }, [rawItems, pendingDismissal]);
 
-  const handleSelect = (id: string) => {
-    navigate(`/sessions/${encodeURIComponent(id)}`, { replace: true });
-  };
+  const handleSelect = useCallback(
+    (id: string) => {
+      navigate(`/sessions/${encodeURIComponent(id)}`, { replace: true });
+    },
+    [navigate],
+  );
 
   return (
     <RailShell
@@ -218,7 +224,6 @@ function RailShell({
         )}
         {items.map((item, i) => {
           const showHeader = i === 0 || items[i - 1]?.group !== item.group;
-          const isMulti = !!item.wrapPrimary || !!item.secondary;
           return (
             <div key={item.id}>
               {showHeader && (
@@ -227,46 +232,12 @@ function RailShell({
                   <span className="sessions-rail-group-rule" />
                 </div>
               )}
-              <button
-                type="button"
-                className={`sessions-rail-row${isMulti ? " sessions-rail-row--multi" : ""}${
-                  item.id === selectedId ? " active" : ""
-                }`}
-                data-status={item.status}
-                aria-current={item.id === selectedId ? "true" : undefined}
-                onClick={() => onSelect(item.id)}
-              >
-                {streamingSessions[item.id] ? (
-                  <ThinkingDot size="md" className="sessions-rail-row-thinking" />
-                ) : (
-                  <span
-                    className={`sessions-rail-row-status${
-                      item.status === "active" ? "" : " sessions-rail-row-status--idle"
-                    }`}
-                  />
-                )}
-                <span className="sessions-rail-row-body">
-                  <span className="sessions-rail-row-primary-line">
-                    <span
-                      className={`sessions-rail-row-primary${
-                        item.wrapPrimary ? " sessions-rail-row-primary--wrap" : ""
-                      }`}
-                    >
-                      {item.primary}
-                    </span>
-                    {item.awaiting && (
-                      <span
-                        className="sessions-rail-awaiting-dot"
-                        aria-label="awaiting your reply"
-                      />
-                    )}
-                  </span>
-                  {item.secondary && (
-                    <span className="sessions-rail-row-secondary">{item.secondary}</span>
-                  )}
-                </span>
-                <span className="sessions-rail-row-time">{item.time}</span>
-              </button>
+              <RailRow
+                item={item}
+                isActive={item.id === selectedId}
+                isStreaming={!!streamingSessions[item.id]}
+                onSelect={onSelect}
+              />
             </div>
           );
         })}
@@ -274,3 +245,66 @@ function RailShell({
     </div>
   );
 }
+
+/**
+ * Memoed row. Re-renders only when its own item / active / streaming
+ * state changes — not when a sibling's WS update churns the parent's
+ * `streamingSessions` record. With ~50 awaiting items in the inbox or
+ * dozens of sessions in an active agent rail, this is the difference
+ * between rendering one row on a stream tick and rendering all of them.
+ *
+ * `item` already arrives with stable identity via the parent's
+ * `useMemo`; `onSelect` is wrapped in `useCallback` upstream. Both
+ * invariants are required for the memo equality check to pay off.
+ */
+const RailRow = memo(function RailRow({
+  item,
+  isActive,
+  isStreaming,
+  onSelect,
+}: {
+  item: SessionRow;
+  isActive: boolean;
+  isStreaming: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const handleClick = useCallback(() => onSelect(item.id), [onSelect, item.id]);
+  const isMulti = !!item.wrapPrimary || !!item.secondary;
+  return (
+    <button
+      type="button"
+      className={`sessions-rail-row${isMulti ? " sessions-rail-row--multi" : ""}${
+        isActive ? " active" : ""
+      }`}
+      data-status={item.status}
+      aria-current={isActive ? "true" : undefined}
+      onClick={handleClick}
+    >
+      {isStreaming ? (
+        <ThinkingDot size="md" className="sessions-rail-row-thinking" />
+      ) : (
+        <span
+          className={`sessions-rail-row-status${
+            item.status === "active" ? "" : " sessions-rail-row-status--idle"
+          }`}
+        />
+      )}
+      <span className="sessions-rail-row-body">
+        <span className="sessions-rail-row-primary-line">
+          <span
+            className={`sessions-rail-row-primary${
+              item.wrapPrimary ? " sessions-rail-row-primary--wrap" : ""
+            }`}
+          >
+            {item.primary}
+          </span>
+          {item.awaiting && (
+            <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
+          )}
+        </span>
+        {item.secondary && <span className="sessions-rail-row-secondary">{item.secondary}</span>}
+      </span>
+      <span className="sessions-rail-row-time">{item.time}</span>
+    </button>
+  );
+});
