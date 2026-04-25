@@ -1,0 +1,26 @@
+[package]
+name = "aeqi-pack-github"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Wisdom pack — GitHub issues / PRs / files / releases / search backed by T1.9's github_app or oauth2 lifecycle"
+
+[dependencies]
+aeqi-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+urlencoding = { workspace = true }
+
+[dev-dependencies]
+axum = { workspace = true }
+tempfile = { workspace = true }
+rusqlite = { workspace = true }
+uuid = { workspace = true }
