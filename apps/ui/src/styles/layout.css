@@ -69,10 +69,13 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  /* Tight vertical padding — the line height carries the breathing
-     room. Mirrored by a 4px top inset on .content-column so the card
-     floats with symmetric breathing on both edges. */
-  padding: 4px 14px;
+  /* Fixed compact height + horizontal padding only. Grid centers the
+     legal sentence vertically so the row reads as a single thin
+     strip — no asymmetric vertical padding to argue with. Matched
+     exactly by .content-column's padding-top so top + bottom insets
+     mirror perfectly. */
+  height: var(--shell-footer-h);
+  padding: 0 14px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.015)), var(--bg-sidebar);
   color: var(--text-muted);
@@ -922,11 +925,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: transparent;
-  /* Small top inset mirrors the .shell-footer's bottom strip — content
-     card floats with matching small gaps on both vertical edges. Same
-     "small symmetric breathing room" rule the sidebar wears. */
-  padding-top: 4px;
+  /* Paint the column in the shell tone so the top inset above the card
+     reads as a continuation of the sidebar tint, not as a white slab.
+     The content-card and shell-footer paint their own backgrounds on
+     top; only the empty top inset shows this color through. */
+  background: var(--bg-sidebar);
+  /* Top inset = footer height. Same 22px on both edges, so the card
+     floats with perfectly mirrored breathing room top + bottom. */
+  padding-top: var(--shell-footer-h);
 }
 
 /* Content card — the tinted frame. Holds the topbar and the paper

@@ -119,6 +119,14 @@
      to fit a long agent tree without scrolling. */
   --sidebar-row-h: 32px;
 
+  /* Shell footer / top inset height. Both edges of the content card
+     wear a strip of this height — bottom is the legal/privacy strip,
+     top is an empty inset so the card floats with symmetric breathing
+     room. Compact (~22px) so the legal text fits on one line without
+     wasting vertical space. The sidebar's bottom padding mirrors it
+     too (so the profile row's bottom edge aligns with the card's). */
+  --shell-footer-h: 22px;
+
   /* ── Input field language ──
      One set of tokens drives every text input, textarea, and composer
      in the app. Six ad-hoc rules (.agent-settings-input, .auth-input,
