@@ -11,6 +11,7 @@ aeqi-ideas = { workspace = true }
 aeqi-quests = { workspace = true }
 aeqi-providers = { workspace = true }
 aeqi-tools = { workspace = true }
+aeqi-mcp = { workspace = true }
 aeqi-graph = { workspace = true }
 aeqi-gates = { workspace = true }
 tokio = { workspace = true }

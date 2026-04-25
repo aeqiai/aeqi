@@ -166,7 +166,8 @@ impl McpRegistry {
         let mut snap = McpToolSnapshot::default();
         for entry in servers.values() {
             for descriptor in &entry.descriptors {
-                let tool = McpTool::new(entry.name.clone(), descriptor.clone(), self.handle.clone());
+                let tool =
+                    McpTool::new(entry.name.clone(), descriptor.clone(), self.handle.clone());
                 let full_name = tool.full_name().to_string();
                 snap.tools.push(Arc::new(tool));
                 let kinds = entry.config.caller_kinds();
@@ -211,14 +212,7 @@ async fn run_server_loop(inner: Arc<RegistryInner>, name: String) {
                         // Initial tools/list.
                         match client.list_tools().await {
                             Ok(tools) => {
-                                set_state(
-                                    &inner,
-                                    &name,
-                                    Some(client.clone()),
-                                    tools,
-                                    None,
-                                )
-                                .await;
+                                set_state(&inner, &name, Some(client.clone()), tools, None).await;
                                 info!(server = %name, "mcp server connected");
                                 backoff = Duration::from_millis(500);
                             }
@@ -476,7 +470,8 @@ fn build_transport(
                 } else {
                     // Default: send `Authorization: Bearer <token>`.
                     if let Some(bearer) = &cred.bearer {
-                        transport = transport.with_header("Authorization", format!("Bearer {bearer}"));
+                        transport =
+                            transport.with_header("Authorization", format!("Bearer {bearer}"));
                     }
                 }
             }
@@ -661,9 +656,7 @@ async fn run_server_loop_with_transport(
 
 /// Quick helper: build a [`ToolRegistry`](aeqi_core::tool_registry::ToolRegistry)
 /// pre-populated with the MCP snapshot. Used by tests.
-pub fn registry_with_snapshot(
-    snapshot: McpToolSnapshot,
-) -> aeqi_core::tool_registry::ToolRegistry {
+pub fn registry_with_snapshot(snapshot: McpToolSnapshot) -> aeqi_core::tool_registry::ToolRegistry {
     let tools = snapshot.tools.clone();
     let mut reg = aeqi_core::tool_registry::ToolRegistry::new(tools);
     for name in &snapshot.llm_only {
@@ -674,4 +667,3 @@ pub fn registry_with_snapshot(
     }
     reg
 }
-

@@ -431,6 +431,43 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 daemon.set_embedder(embedder);
             }
 
+            // T1.10 — bring up MCP servers declared in `meta:mcp-servers`.
+            //
+            // Build a credential resolver pointed at the daemon's
+            // credential DB so any MCP server with `requires_credential`
+            // resolves through the same substrate as native tools.
+            // Failure here is non-fatal — the daemon boots without MCP if
+            // anything goes wrong, and a re-run picks the seed up once
+            // it's fixed.
+            let mcp_resolver = match build_mcp_credential_resolver(&config) {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::warn!(error = %e, "could not build MCP credential resolver — MCP servers requiring credentials will be unavailable");
+                    None
+                }
+            };
+            match aeqi_orchestrator::mcp_bootstrap::bootstrap_mcp_registry(
+                daemon.idea_store.as_ref(),
+                mcp_resolver,
+            )
+            .await
+            {
+                Ok(Some(registry)) => {
+                    if let Some(sm) = Arc::get_mut(&mut daemon.session_manager) {
+                        sm.set_mcp_registry(registry.clone());
+                        info!("mcp registry wired into session manager");
+                    } else {
+                        tracing::warn!(
+                            "session_manager already shared — could not attach MCP registry; tools will not surface"
+                        );
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, "mcp bootstrap failed");
+                }
+            }
+
             daemon.set_readiness_context(
                 config.agent_spawns.len(),
                 advisor_agents.len(),
@@ -680,4 +717,50 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
         }
     }
     Ok(())
+}
+
+/// T1.10 — build a credential resolver pointed at the daemon's
+/// credential DB so MCP servers configured with `requires_credential`
+/// resolve through the same substrate as native tools.
+///
+/// Returns `Ok(None)` if the credential DB hasn't been migrated yet
+/// (legacy installations); the daemon falls back to `no resolver` and
+/// MCP servers that don't need credentials still work.
+fn build_mcp_credential_resolver(
+    config: &aeqi_core::AEQIConfig,
+) -> Result<Option<aeqi_core::credentials::CredentialResolver>> {
+    use aeqi_core::credentials::{
+        CredentialCipher, CredentialResolver, CredentialStore, lifecycles,
+    };
+    use rusqlite::Connection;
+    use std::sync::Mutex;
+
+    let aeqi_db = config.data_dir().join("aeqi.db");
+    if !aeqi_db.exists() {
+        return Ok(None);
+    }
+    let conn = Connection::open(&aeqi_db)
+        .with_context(|| format!("open credential DB at {}", aeqi_db.display()))?;
+    // Don't fail boot if the migration hasn't run yet.
+    let has_table: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='credentials'",
+            [],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    if !has_table {
+        return Ok(None);
+    }
+    let secrets_dir = config.data_dir().join("secrets");
+    let cipher = CredentialCipher::open(&secrets_dir)?;
+    let store = CredentialStore::new(Arc::new(Mutex::new(conn)), cipher);
+    let lifecycles_vec: Vec<Arc<dyn aeqi_core::credentials::CredentialLifecycle>> = vec![
+        Arc::new(lifecycles::StaticSecretLifecycle),
+        Arc::new(lifecycles::OAuth2Lifecycle),
+        Arc::new(lifecycles::DeviceSessionLifecycle),
+        Arc::new(lifecycles::GithubAppLifecycle),
+        Arc::new(lifecycles::ServiceAccountLifecycle),
+    ];
+    Ok(Some(CredentialResolver::new(store, lifecycles_vec)))
 }

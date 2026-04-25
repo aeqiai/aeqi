@@ -250,6 +250,11 @@ pub struct SessionManager {
     /// Default provider for ephemeral sessions (compactor, continuation).
     /// Set via `set_default_provider`. Used by `spawn_ephemeral_session`.
     default_provider: Option<Arc<dyn Provider>>,
+    /// Optional MCP registry handle. When set, every session adds a fresh
+    /// snapshot of the registered MCP tools to its tool list at spawn time
+    /// — so a `tools/list_changed` notification or a server reconnect
+    /// surfaces in subsequent sessions without restarting the daemon.
+    mcp_registry: Option<Arc<aeqi_mcp::McpRegistry>>,
 }
 
 impl SessionManager {
@@ -268,7 +273,16 @@ impl SessionManager {
             event_store: None,
             data_dir: None,
             default_provider: None,
+            mcp_registry: None,
         }
+    }
+
+    /// Wire an MCP registry so each spawned session receives the latest
+    /// MCP tool snapshot. `None` disables MCP integration; the daemon
+    /// path that calls this is gated on whether `meta:mcp-servers` had
+    /// any non-empty entries.
+    pub fn set_mcp_registry(&mut self, registry: Arc<aeqi_mcp::McpRegistry>) {
+        self.mcp_registry = Some(registry);
     }
 
     /// Acquire (or create) the per-session execution lock handle. Callers
@@ -833,6 +847,16 @@ impl SessionManager {
             tools.extend(orch_tools);
         } else {
             warn!(agent = %agent_name, "skipping orchestration tools: unresolved agent id");
+        }
+
+        // T1.10 — append MCP-discovered tools. Snapshot is captured at
+        // session spawn time so a server that reconnects or pushes
+        // `tools/list_changed` will surface in the next session.
+        if let Some(ref mcp) = self.mcp_registry {
+            let snap = mcp.snapshot().await;
+            for tool in snap.tools {
+                tools.push(tool);
+            }
         }
 
         // Filter tools based on agent's tool_deny list.

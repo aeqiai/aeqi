@@ -544,6 +544,10 @@ mod tests {
             // `{date.iso}`, `{agent.name}`, `{agent.id}`. If this seed
             // disappears, fresh installs lose those placeholders silently.
             "meta:placeholder-providers",
+            // T1.10 — operator-edited TOML body listing MCP servers the
+            // daemon should connect to. Empty body by default → no MCP
+            // tools register; documented schema lives in the seed.
+            "meta:mcp-servers",
         ];
         // Principle category — first entries, Karpathy-inspired,
         // rewritten in aeqi voice. The behavior heuristics surface

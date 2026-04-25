@@ -86,16 +86,15 @@ async fn install_via_mock(reg: &McpRegistry, mock: &MockServer, cfg: McpServerCo
 #[tokio::test]
 async fn t1_connect_handshake_succeeds() {
     let mock = MockServer::new();
-    mock.register_tool(
-        "ping",
-        "say pong",
-        json!({"type": "object"}),
-        |_args| json!("pong"),
-    )
+    mock.register_tool("ping", "say pong", json!({"type": "object"}), |_args| {
+        json!("pong")
+    })
     .await;
 
-    let (client, _closed) =
-        McpClientBuilder::new(Arc::new(mock.transport())).connect().await.unwrap();
+    let (client, _closed) = McpClientBuilder::new(Arc::new(mock.transport()))
+        .connect()
+        .await
+        .unwrap();
     let tools = client.list_tools().await.unwrap();
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "ping");
@@ -118,7 +117,10 @@ async fn t2_tools_register_with_namespaced_prefix() {
     wait_for_tools(&reg, "alpha", Duration::from_secs(2)).await;
     let snap = reg.snapshot().await;
     let names: Vec<_> = snap.tools.iter().map(|t| t.name().to_string()).collect();
-    assert!(names.contains(&"mcp:alpha:echo".to_string()), "got: {names:?}");
+    assert!(
+        names.contains(&"mcp:alpha:echo".to_string()),
+        "got: {names:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -127,16 +129,11 @@ async fn t2_tools_register_with_namespaced_prefix() {
 #[tokio::test]
 async fn t3_tool_call_roundtrip() {
     let mock = MockServer::new();
-    mock.register_tool(
-        "add",
-        "sum two ints",
-        json!({"type": "object"}),
-        |args| {
-            let a = args.get("a").and_then(|v| v.as_i64()).unwrap_or(0);
-            let b = args.get("b").and_then(|v| v.as_i64()).unwrap_or(0);
-            json!({"sum": a + b})
-        },
-    )
+    mock.register_tool("add", "sum two ints", json!({"type": "object"}), |args| {
+        let a = args.get("a").and_then(|v| v.as_i64()).unwrap_or(0);
+        let b = args.get("b").and_then(|v| v.as_i64()).unwrap_or(0);
+        json!({"sum": a + b})
+    })
     .await;
     let reg = registry_with_mock(&mock, "math").await;
     wait_for_tools(&reg, "math", Duration::from_secs(2)).await;
@@ -147,10 +144,7 @@ async fn t3_tool_call_roundtrip() {
         .find(|t| t.name() == "mcp:math:add")
         .unwrap()
         .clone();
-    let result = tool
-        .execute(json!({"a": 2, "b": 3}))
-        .await
-        .unwrap();
+    let result = tool.execute(json!({"a": 2, "b": 3})).await.unwrap();
     assert!(!result.is_error, "{}", result.output);
     assert!(result.output.contains("\"sum\":5"));
 }
@@ -161,17 +155,19 @@ async fn t3_tool_call_roundtrip() {
 #[tokio::test]
 async fn t4_disconnect_marks_tools_unavailable() {
     let mock = MockServer::new();
-    mock.register_tool(
-        "hello",
-        "say hi",
-        json!({"type": "object"}),
-        |_args| json!("hi"),
-    )
+    mock.register_tool("hello", "say hi", json!({"type": "object"}), |_args| {
+        json!("hi")
+    })
     .await;
     let reg = registry_with_mock(&mock, "gamma").await;
     wait_for_tools(&reg, "gamma", Duration::from_secs(2)).await;
     let snap = reg.snapshot().await;
-    let tool = snap.tools.iter().find(|t| t.name() == "mcp:gamma:hello").unwrap().clone();
+    let tool = snap
+        .tools
+        .iter()
+        .find(|t| t.name() == "mcp:gamma:hello")
+        .unwrap()
+        .clone();
     // Force-disconnect by clearing the stored client.
     aeqi_mcp::registry::test_force_disconnect(&reg, "gamma").await;
     let result = tool.execute(json!({})).await.unwrap();
@@ -185,15 +181,19 @@ async fn t4_disconnect_marks_tools_unavailable() {
 #[tokio::test]
 async fn t5_tools_list_changed_refreshes_registry() {
     let mock = MockServer::new();
-    mock.register_tool("first", "first tool", json!({"type": "object"}), |_| json!("ok"))
-        .await;
+    mock.register_tool("first", "first tool", json!({"type": "object"}), |_| {
+        json!("ok")
+    })
+    .await;
     let reg = registry_with_mock(&mock, "delta").await;
     wait_for_tools(&reg, "delta", Duration::from_secs(2)).await;
     assert_eq!(reg.snapshot().await.tools.len(), 1);
 
     // Add a tool and push the notification.
-    mock.register_tool("second", "added later", json!({"type": "object"}), |_| json!("late"))
-        .await;
+    mock.register_tool("second", "added later", json!({"type": "object"}), |_| {
+        json!("late")
+    })
+    .await;
     assert!(mock.push_tools_list_changed().await);
 
     // Wait for the registry to pick the second tool up.
@@ -209,7 +209,13 @@ async fn t5_tools_list_changed_refreshes_registry() {
         );
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    let names: Vec<_> = reg.snapshot().await.tools.iter().map(|t| t.name().to_string()).collect();
+    let names: Vec<_> = reg
+        .snapshot()
+        .await
+        .tools
+        .iter()
+        .map(|t| t.name().to_string())
+        .collect();
     assert!(names.contains(&"mcp:delta:first".to_string()));
     assert!(names.contains(&"mcp:delta:second".to_string()));
 }
@@ -289,8 +295,9 @@ async fn t6_oauth2_credential_flows_into_server_env() {
     // Resolve via the registry's internal helper — verifies the
     // credential plumbing surfaces the token into the env map without
     // actually spawning a subprocess.
-    let resolved =
-        aeqi_mcp::registry::test_resolve_credential(&cfg, Some(&resolver)).await.unwrap();
+    let resolved = aeqi_mcp::registry::test_resolve_credential(&cfg, Some(&resolver))
+        .await
+        .unwrap();
     let cred = resolved.expect("credential resolved");
     assert_eq!(cred.bearer.as_deref(), Some("ya29.test-token"));
 }
@@ -301,8 +308,10 @@ async fn t6_oauth2_credential_flows_into_server_env() {
 #[tokio::test]
 async fn t7_caller_kind_llm_only_denies_event() {
     let mock = MockServer::new();
-    mock.register_tool("safe", "llm-only", json!({"type": "object"}), |_| json!("ok"))
-        .await;
+    mock.register_tool("safe", "llm-only", json!({"type": "object"}), |_| {
+        json!("ok")
+    })
+    .await;
     let cfg = McpServerConfig {
         name: "llmonly".to_string(),
         transport: TransportKind::Stdio,
@@ -399,9 +408,15 @@ async fn t9_unreachable_server_does_not_panic() {
     // Give the spawn loop a moment to flop.
     tokio::time::sleep(Duration::from_millis(200)).await;
     let snap = reg.snapshot().await;
-    assert!(snap.tools.is_empty(), "no tools should appear for a broken server");
+    assert!(
+        snap.tools.is_empty(),
+        "no tools should appear for a broken server"
+    );
     let reason = reg.handle().unavailable_reason("broken").await;
-    assert!(reason.is_some(), "broken server must record an unavailable_reason");
+    assert!(
+        reason.is_some(),
+        "broken server must record an unavailable_reason"
+    );
     reg.shutdown().await;
 }
 
@@ -416,8 +431,10 @@ async fn t10_jsonrpc_method_not_found_maps_to_reason_code() {
     let reg = registry_with_mock(&mock, "empty").await;
     // Manually call a tool the server doesn't know about by going
     // through the client (we register a fake McpTool descriptor).
-    let (client, _closed) =
-        McpClientBuilder::new(Arc::new(mock.transport())).connect().await.unwrap();
+    let (client, _closed) = McpClientBuilder::new(Arc::new(mock.transport()))
+        .connect()
+        .await
+        .unwrap();
     let err = client
         .call_tool("nonexistent", json!({}))
         .await
@@ -446,15 +463,21 @@ async fn t11_empty_config_registers_no_tools() {
 async fn t12_same_tool_name_two_servers_no_collision() {
     let mock_a = MockServer::new();
     mock_a
-        .register_tool("read", "read tool A", json!({"type": "object"}), |_| {
-            json!({"src": "a"})
-        })
+        .register_tool(
+            "read",
+            "read tool A",
+            json!({"type": "object"}),
+            |_| json!({"src": "a"}),
+        )
         .await;
     let mock_b = MockServer::new();
     mock_b
-        .register_tool("read", "read tool B", json!({"type": "object"}), |_| {
-            json!({"src": "b"})
-        })
+        .register_tool(
+            "read",
+            "read tool B",
+            json!({"type": "object"}),
+            |_| json!({"src": "b"}),
+        )
         .await;
     let reg = McpRegistry::new(None);
     let cfg_a = McpServerConfig {
@@ -485,8 +508,18 @@ async fn t12_same_tool_name_two_servers_no_collision() {
     assert!(names.contains(&"mcp:beta:read".to_string()));
 
     // Both tools work and route to the right server.
-    let tool_a = snap.tools.iter().find(|t| t.name() == "mcp:alpha:read").unwrap().clone();
-    let tool_b = snap.tools.iter().find(|t| t.name() == "mcp:beta:read").unwrap().clone();
+    let tool_a = snap
+        .tools
+        .iter()
+        .find(|t| t.name() == "mcp:alpha:read")
+        .unwrap()
+        .clone();
+    let tool_b = snap
+        .tools
+        .iter()
+        .find(|t| t.name() == "mcp:beta:read")
+        .unwrap()
+        .clone();
     let ra = tool_a.execute(json!({})).await.unwrap();
     let rb = tool_b.execute(json!({})).await.unwrap();
     assert!(ra.output.contains("\"src\":\"a\""), "{}", ra.output);

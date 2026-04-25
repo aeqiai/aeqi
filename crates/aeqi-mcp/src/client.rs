@@ -77,7 +77,9 @@ impl McpClientBuilder {
 
     /// Bring the client up: connect the transport, run `initialize`,
     /// and start the inbound demuxer.
-    pub async fn connect(self) -> Result<(McpClient, oneshot::Receiver<TransportClosed>), McpError> {
+    pub async fn connect(
+        self,
+    ) -> Result<(McpClient, oneshot::Receiver<TransportClosed>), McpError> {
         let channels = self.transport.connect().await?;
         let (notifications_tx, _) = broadcast::channel(16);
         let inner = Arc::new(Inner {
@@ -170,10 +172,11 @@ impl McpClient {
                 version: env!("CARGO_PKG_VERSION"),
             },
         };
-        let raw = self.request("initialize", Some(serde_json::to_value(&params).unwrap())).await?;
-        let parsed: InitializeResult = serde_json::from_value(raw).map_err(|e| {
-            McpError::protocol(format!("initialize result decode failed: {e}"))
-        })?;
+        let raw = self
+            .request("initialize", Some(serde_json::to_value(&params).unwrap()))
+            .await?;
+        let parsed: InitializeResult = serde_json::from_value(raw)
+            .map_err(|e| McpError::protocol(format!("initialize result decode failed: {e}")))?;
         debug!(
             protocol = ?parsed.protocol_version,
             server = ?parsed.server_info,
@@ -202,9 +205,8 @@ impl McpClient {
             .get("tools")
             .cloned()
             .ok_or_else(|| McpError::protocol("tools/list: missing 'tools' field"))?;
-        let parsed: Vec<McpToolDescriptor> = serde_json::from_value(tools).map_err(|e| {
-            McpError::protocol(format!("tools/list decode failed: {e}"))
-        })?;
+        let parsed: Vec<McpToolDescriptor> = serde_json::from_value(tools)
+            .map_err(|e| McpError::protocol(format!("tools/list decode failed: {e}")))?;
         Ok(parsed)
     }
 

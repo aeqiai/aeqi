@@ -181,6 +181,7 @@ dependencies = [
  "aeqi-gates",
  "aeqi-graph",
  "aeqi-ideas",
+ "aeqi-mcp",
  "aeqi-providers",
  "aeqi-quests",
  "aeqi-test-support",

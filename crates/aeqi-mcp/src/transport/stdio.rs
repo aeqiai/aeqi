@@ -62,9 +62,9 @@ impl Transport for StdioTransport {
         if let Some(dir) = &self.cwd {
             cmd.current_dir(dir);
         }
-        let mut child = cmd.spawn().map_err(|e| {
-            McpError::transport(format!("failed to spawn {}: {e}", self.command))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| McpError::transport(format!("failed to spawn {}: {e}", self.command)))?;
 
         let stdin = child
             .stdin
