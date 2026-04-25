@@ -12,8 +12,19 @@ const NO_SESSIONS: SessionInfo[] = [];
 
 interface SessionRow {
   id: string;
-  name: string;
+  /** Bold body line — what the user is actually here to read. */
+  primary: string;
+  /** Optional whisper-meta line under the primary. Inbox uses it for
+   *  agent · root; agent mode leaves it undefined and the row stays
+   *  single-line. */
+  secondary?: string;
+  /** Small mono chip rendered inline with the primary. Agent mode
+   *  uses TG/WA/Web; inbox mode never sets it (the subject IS the
+   *  body, no chip). */
   badge?: string;
+  /** When true, primary wraps to up to 3 lines instead of single-line
+   *  ellipsis. Inbox mode opts in so the question reads in full. */
+  wrapPrimary?: boolean;
   time: string;
   status?: string;
   awaiting?: boolean;
@@ -40,8 +51,10 @@ interface SessionsRailProps {
  * Sessions rail — the left-adjacent index column. Two modes:
  *   - agent: per-agent session list (chat store, default)
  *   - inbox: user-scope inbox items (awaiting questions across all
- *            agents). Inbox rows surface the agent name in place of
- *            the session label so the user knows who's asking.
+ *            agents). Inbox rows surface the subject as the primary
+ *            line and the agent name as a secondary line below — the
+ *            question is the unit of triage; truncating it would
+ *            force a click just to read what's being asked.
  */
 export default function SessionsRail({ mode, selectedSessionId }: SessionsRailProps) {
   if (mode === "inbox") return <InboxRail selectedSessionId={selectedSessionId ?? null} />;
@@ -78,7 +91,7 @@ function AgentRail() {
         const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
         return {
           id: s.id,
-          name: sessionLabel(s),
+          primary: sessionLabel(s),
           badge,
           time: timeShort(tsRaw ?? null),
           status: s.status,
@@ -127,15 +140,19 @@ function InboxRail({ selectedSessionId }: { selectedSessionId: string | null }) 
     return visible
       .map((it) => {
         const ts = it.awaiting_at ? new Date(it.awaiting_at).getTime() : 0;
-        // The "name" in inbox mode is the AGENT name — the user is
-        // looking at "who's asking me", not "which session". Subject is
-        // a secondary line we surface below the agent. Falls back
-        // gracefully when joins aren't populated.
         const agentLabel = it.agent_name ?? "agent";
+        const showRoot =
+          it.root_agent_id != null && it.agent_id != null && it.root_agent_id !== it.agent_id;
+        // Subject is the line the user reads to triage. Fall back to
+        // the session name only if the join is missing (defensive —
+        // backend always populates subject on awaiting rows).
+        const subject = it.awaiting_subject || it.session_name || "(no subject)";
+        const secondary = showRoot ? `${agentLabel} · ${it.root_agent_id}` : agentLabel;
         return {
           id: it.session_id,
-          name: agentLabel,
-          badge: it.awaiting_subject || undefined,
+          primary: subject,
+          secondary,
+          wrapPrimary: true,
           time: timeShort(it.awaiting_at ?? null),
           status: "awaiting",
           awaiting: true,
@@ -188,6 +205,7 @@ function RailShell({
         )}
         {items.map((item, i) => {
           const showHeader = i === 0 || items[i - 1]?.group !== item.group;
+          const isMulti = !!item.wrapPrimary || !!item.secondary;
           return (
             <div key={item.id}>
               {showHeader && (
@@ -198,7 +216,9 @@ function RailShell({
               )}
               <button
                 type="button"
-                className={`sessions-rail-row${item.id === selectedId ? " active" : ""}`}
+                className={`sessions-rail-row${isMulti ? " sessions-rail-row--multi" : ""}${
+                  item.id === selectedId ? " active" : ""
+                }`}
                 data-status={item.status}
                 aria-current={item.id === selectedId ? "true" : undefined}
                 onClick={() => onSelect(item.id)}
@@ -212,11 +232,27 @@ function RailShell({
                     }`}
                   />
                 )}
-                <span className="sessions-rail-row-name">{item.name}</span>
-                {item.badge && <span className="sessions-rail-row-badge">{item.badge}</span>}
-                {item.awaiting && (
-                  <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
-                )}
+                <span className="sessions-rail-row-body">
+                  <span className="sessions-rail-row-primary-line">
+                    <span
+                      className={`sessions-rail-row-primary${
+                        item.wrapPrimary ? " sessions-rail-row-primary--wrap" : ""
+                      }`}
+                    >
+                      {item.primary}
+                    </span>
+                    {item.badge && <span className="sessions-rail-row-badge">{item.badge}</span>}
+                    {item.awaiting && (
+                      <span
+                        className="sessions-rail-awaiting-dot"
+                        aria-label="awaiting your reply"
+                      />
+                    )}
+                  </span>
+                  {item.secondary && (
+                    <span className="sessions-rail-row-secondary">{item.secondary}</span>
+                  )}
+                </span>
                 <span className="sessions-rail-row-time">{item.time}</span>
               </button>
             </div>

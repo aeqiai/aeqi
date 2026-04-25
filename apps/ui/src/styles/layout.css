@@ -1182,13 +1182,15 @@
    still active. */
 .sessions-rail-row {
   display: grid;
-  /* Fixed 14px gutter for the lifecycle/thinking dot so the column doesn't
-     reflow when the 4px idle dot is swapped for the 7px+glow ThinkingDot. */
-  grid-template-columns: 14px 1fr auto auto;
-  align-items: center;
+  /* 3 columns: status gutter | body stack | time anchor. Body stack
+     holds the primary line (which may carry an inline badge + awaiting
+     dot) and an optional secondary line below it. Time always anchors
+     top so a multi-line primary doesn't shove the timestamp around. */
+  grid-template-columns: 14px 1fr auto;
+  align-items: start;
   gap: 8px;
   width: 100%;
-  min-height: 36px;
+  min-height: 32px;
   padding: 6px 14px;
   border: 0;
   border-radius: 4px;
@@ -1198,6 +1200,15 @@
   text-align: left;
   cursor: pointer;
   transition: background 100ms ease;
+}
+/* Single-line variant: keep tight density for the per-agent rail. The
+   `.sessions-rail-row--multi` modifier opts inbox rows into wrap mode. */
+.sessions-rail-row:not(.sessions-rail-row--multi) {
+  align-items: center;
+}
+.sessions-rail-row--multi {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 /* No left-edge accent rail. The colored side-stripe pattern is the
    single most-overused "design touch" in admin UIs and is on impeccable's
@@ -1214,11 +1225,49 @@
 .sessions-rail-row.active {
   background: var(--state-selected);
 }
-.sessions-rail-row-name {
+.sessions-rail-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sessions-rail-row-primary-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sessions-rail-row-primary {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 450;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+/* Inbox subjects wrap so the user can read the question in full from
+   the rail. Three-line clamp covers the long tail; ~280px of rail gives
+   roughly 80–100 chars per line at 12px so the average question fits in
+   one or two lines. */
+.sessions-rail-row-primary--wrap {
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+  word-break: break-word;
+  text-overflow: clip;
+}
+.sessions-rail-row-secondary {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1241,7 +1290,7 @@
 .sessions-rail-row-thinking {
   justify-self: center;
 }
-.sessions-rail-row.active .sessions-rail-row-name {
+.sessions-rail-row.active .sessions-rail-row-primary {
   font-weight: 500;
 }
 .sessions-rail-row-badge {
@@ -1264,6 +1313,10 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   flex-shrink: 0;
+  /* Anchor the time to the primary line's baseline so wrapping the
+     subject below doesn't drift the timestamp downward. */
+  align-self: start;
+  margin-top: 2px;
 }
 .sessions-rail-row.active .sessions-rail-row-time {
   color: var(--text-secondary);
