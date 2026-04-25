@@ -691,7 +691,10 @@
     transform var(--transition-normal);
 }
 .sidebar-launch-cta:hover {
-  background: var(--bg-hover);
+  /* Matches .sidebar-nav-item:hover so the rail's hover surface reads
+     as a single material — not "primitive rows look like X, the launch
+     card looks like Y". */
+  background: var(--state-hover);
   color: var(--color-accent);
   border-color: var(--color-accent);
   border-style: solid;
