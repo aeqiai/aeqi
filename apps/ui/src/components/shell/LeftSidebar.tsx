@@ -54,16 +54,47 @@ const EconomyIcon = () => (
   </svg>
 );
 
-/* Primitive nav rows show the full lowercase word in the brand
- * typeface — no separate icon slot. The wordmark's dotted geometry
- * carries the row by itself; pairing a letter-as-icon with a
- * regular-type label always read like two voices arguing for the
- * same row. */
-const PRIMITIVES: { id: string; label: string; title: string }[] = [
-  { id: "agents", label: "agents", title: "Agents · G then A" },
-  { id: "events", label: "events", title: "Events · G then E" },
-  { id: "quests", label: "quests", title: "Quests · G then Q" },
-  { id: "ideas", label: "ideas", title: "Ideas · G then I" },
+/* Agents: a person silhouette — head circle + shoulders arc. The
+ * autonomous-entity primitive made literal at rail size. */
+const AgentsIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="8" cy="5.5" r="2.5" />
+    <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
+  </svg>
+);
+
+/* Events: a lightning bolt. Triggers fire; signals arrive. The
+ * pattern-matched runtime moment in glyph form. */
+const EventsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 2 4 9h4l-1 5 5-7H8z" />
+  </svg>
+);
+
+/* Quests: a flag on a pole. Goals in flight, not completion-shaped
+ * (which would be a checkmark and read as 'done'). */
+const QuestsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M4 2v12" />
+    <path d="M4 3h7l-2 2.5L11 8H4z" />
+  </svg>
+);
+
+/* Ideas: a lightbulb — the obvious-and-readable choice. The cliché
+ * earns its place because instant recognition matters more than
+ * cleverness on a 16px rail glyph. */
+const IdeasIcon = () => (
+  <svg {...iconProps}>
+    <path d="M5 7a3 3 0 0 1 6 0c0 1.5-1 2.5-1 3.5h-4c0-1-1-2-1-3.5z" />
+    <path d="M6.5 12h3M7 14h2" />
+  </svg>
+);
+
+const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: string }[] = [
+  { id: "agents", label: "Agents", icon: <AgentsIcon />, title: "Agents · G then A" },
+  { id: "events", label: "Events", icon: <EventsIcon />, title: "Events · G then E" },
+  { id: "quests", label: "Quests", icon: <QuestsIcon />, title: "Quests · G then Q" },
+  { id: "ideas", label: "Ideas", icon: <IdeasIcon />, title: "Ideas · G then I" },
 ];
 
 /**
@@ -125,10 +156,15 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const renderPrimitive = (item: { id: string; label: string; title: string }) => (
+  const renderPrimitive = (item: {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    title: string;
+  }) => (
     <a
       key={item.id}
-      className={`sidebar-nav-item sidebar-nav-item--primitive ${isActive(item.id) ? "active" : ""}`}
+      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
       href={navHref(item.id)}
       title={item.title}
       onClick={(e) => {
@@ -136,7 +172,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         navigate(navHref(item.id));
       }}
     >
-      <span className="sidebar-nav-primitive-label">{item.label}</span>
+      {item.icon}
+      <span className="sidebar-nav-label">{item.label}</span>
     </a>
   );
 

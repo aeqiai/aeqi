@@ -405,27 +405,6 @@
    of the brand. Single colour (inherits currentColor); the rejected
    "two-tone accent-initial" pattern is a different treatment that
    splits the label itself — this one replaces the icon entirely. */
-/* Primitive nav row — full lowercase word in the brand typeface, no
- * separate icon slot. The wordmark voice carries the row. Centered
- * so the four primitives stack like a column of brand glyphs inside
- * the surface-nav block. */
-.sidebar-nav-item--primitive {
-  justify-content: center;
-  padding: 0;
-}
-.sidebar-nav-primitive-label {
-  font-family: var(--font-brand);
-  font-weight: 500;
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  color: var(--text-muted);
-  user-select: none;
-}
-.sidebar-nav-item--primitive:hover .sidebar-nav-primitive-label,
-.sidebar-nav-item--primitive.active .sidebar-nav-primitive-label {
-  color: var(--color-accent);
-}
 
 /* ── Back button ── */
 .sidebar-back {
@@ -596,14 +575,6 @@
   flex-direction: column;
   gap: 1px;
   padding: 8px;
-  /* One accent border around the whole block — wraps the Launch CTA in
-     user scope, wraps the four primitives in agent scope. Always on,
-     same shape in both scopes; the rail's persistent "you are here as
-     identity X" indicator. The 8px inner padding leaves the inset that
-     used to live on the launch CTA itself. */
-  margin: 4px 8px;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
 }
 
 /* Agent tree takes the flexible bottom region — scrolls inside itself
