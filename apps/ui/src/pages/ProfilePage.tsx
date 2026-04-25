@@ -6,10 +6,12 @@ import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
 import PageTabs, { useActiveTab } from "@/components/PageTabs";
 import { Button, IconButton, Input } from "@/components/ui";
+import SettingsIntegrationsPage from "@/pages/Settings/Integrations";
 
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
+  { id: "integrations", label: "Integrations" },
   { id: "api", label: "API keys" },
   { id: "invites", label: "Invites" },
   { id: "preferences", label: "Preferences" },
@@ -678,6 +680,8 @@ export default function ProfilePage() {
             </div>
           </>
         )}
+
+        {activeTab === "integrations" && <SettingsIntegrationsPage />}
 
         {activeTab === "api" && <ApiKeyTab />}
 

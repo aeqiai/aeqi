@@ -45,3 +45,6 @@ sha1 = { workspace = true }
 # Optional: embedded UI assets
 rust-embed = { workspace = true, optional = true }
 mime_guess = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

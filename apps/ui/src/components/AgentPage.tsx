@@ -8,6 +8,7 @@ import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
+import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentOrgChart from "./AgentOrgChart";
 import PageTabs from "./PageTabs";
 import { Button, EmptyState } from "./ui";
@@ -18,6 +19,7 @@ const SETTINGS_SUB_TABS = [
   { id: "settings", label: "Settings" },
   { id: "channels", label: "Channels" },
   { id: "tools", label: "Tools" },
+  { id: "integrations", label: "Integrations" },
 ];
 
 // Routes that AgentPage knows how to render. No-tab resolves to the Sessions
@@ -32,6 +34,7 @@ const TABS = [
   { id: "quests", label: "Quests" },
   { id: "ideas", label: "Ideas" },
   { id: "tools", label: "Tools" },
+  { id: "integrations", label: "Integrations" },
 ];
 
 export default function AgentPage({
@@ -107,7 +110,10 @@ export default function AgentPage({
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
-      {(activeTab === "settings" || activeTab === "channels" || activeTab === "tools") && (
+      {(activeTab === "settings" ||
+        activeTab === "channels" ||
+        activeTab === "tools" ||
+        activeTab === "integrations") && (
         <SettingsShell>
           {activeTab === "settings" && (
             <SettingsPanel
@@ -121,6 +127,7 @@ export default function AgentPage({
           {activeTab === "tools" && (
             <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
           )}
+          {activeTab === "integrations" && <AgentIntegrationsTab agentId={resolvedAgentId} />}
         </SettingsShell>
       )}
     </div>
