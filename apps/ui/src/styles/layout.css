@@ -627,6 +627,9 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* Same 2px row-gap rule as .sidebar-user-zone — hover boxes need a
+     hair of breathing room or stacked rows merge into one block. */
+  gap: 2px;
 }
 .sidebar-surface-nav .sidebar-section-label {
   padding: 8px 8px 4px;
@@ -789,6 +792,10 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  /* 2px gap so adjacent hover boxes (Blueprints + Economy, or Inbox +
+     Settings) don't touch — without breathing room each row's hover
+     bg merges into the next and the column reads as one solid block. */
+  gap: 2px;
   padding: 4px 8px 8px;
 }
 .left-sidebar.collapsed .sidebar-user-zone .sidebar-nav-item {

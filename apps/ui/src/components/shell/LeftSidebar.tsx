@@ -336,18 +336,30 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
-          <a
-            className={`sidebar-nav-item ${path === "/settings" || path === "/profile" ? "active" : ""}`}
-            href="/settings"
-            title="Your account settings"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/settings");
-            }}
-          >
-            <SettingsIcon />
-            <span className="sidebar-nav-label">Settings</span>
-          </a>
+          {(() => {
+            // Scope-aware Settings: in agent scope it navigates to the
+            // agent's own settings; at user root it navigates to the
+            // user's account settings. Same row, two destinations,
+            // exactly like Inbox above.
+            const settingsHref = base ? `${base}/settings` : "/settings";
+            const settingsActive = base
+              ? path === `${base}/settings` || path.startsWith(`${base}/settings/`)
+              : path === "/settings" || path === "/profile";
+            return (
+              <a
+                className={`sidebar-nav-item ${settingsActive ? "active" : ""}`}
+                href={settingsHref}
+                title={agentId ? "Agent settings" : "Your account settings"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(settingsHref);
+                }}
+              >
+                <SettingsIcon />
+                <span className="sidebar-nav-label">Settings</span>
+              </a>
+            );
+          })()}
         </div>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
