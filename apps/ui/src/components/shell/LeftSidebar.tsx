@@ -125,6 +125,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const authMode = useAuthStore((s) => s.authMode);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -214,7 +216,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   );
 
   return (
-    <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+    <div
+      className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}
+      style={sidebarCollapsed ? undefined : { width: `${sidebarWidth}px` }}
+    >
       <div className="sidebar-header">
         <a
           className="sidebar-brand"
@@ -406,6 +411,35 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           ?
         </button>
       </div>
+      {!sidebarCollapsed && (
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            // Persistent feedback during drag — body cursor stays
+            // col-resize even when the mouse leaves the resizer hit
+            // area, and text selection is suppressed so dragging
+            // doesn't accidentally select content.
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+
+            const onMove = (ev: MouseEvent) => {
+              setSidebarWidth(ev.clientX);
+            };
+            const onUp = () => {
+              document.body.style.cursor = "";
+              document.body.style.userSelect = "";
+              window.removeEventListener("mousemove", onMove);
+              window.removeEventListener("mouseup", onUp);
+            };
+            window.addEventListener("mousemove", onMove);
+            window.addEventListener("mouseup", onUp);
+          }}
+        />
+      )}
     </div>
   );
 }

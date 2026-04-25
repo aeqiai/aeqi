@@ -139,7 +139,9 @@
   background: var(--bg-sidebar);
   flex-shrink: 0;
   position: relative;
-  transition: width var(--transition-normal);
+  /* No transition on width — drag tracking sets width every frame; a
+     transition would lag behind the cursor and feel rubber-banded.
+     Toggle-collapse remains snappy via the explicit collapsed class. */
   overflow: hidden;
   /* Bottom inset = footer strip height so the profile row's bottom edge
      lines up with .content-card's bottom edge. Without this the sidebar
@@ -147,6 +149,42 @@
      the card's baseline, breaking the horizontal baseline the shell
      relies on. */
   padding-bottom: var(--shell-footer-h, 28px);
+}
+.left-sidebar.collapsed {
+  transition: width var(--transition-normal);
+}
+
+/* Sidebar resizer — wide hit band on the right edge that fills with
+ * a subtle grey on hover/drag. Cursor flips to col-resize so the
+ * affordance reads before any mouse-down. The visible 1px line
+ * remains hairline at rest; hover/drag widens it to 4px without
+ * shifting layout (pseudo-element absolute, never reflows). */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+  user-select: none;
+}
+.sidebar-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: transparent;
+  transition:
+    background 0.12s,
+    width 0.12s;
+}
+.sidebar-resizer:hover::before,
+.sidebar-resizer:active::before {
+  background: var(--border-hover);
+  width: 4px;
 }
 .left-sidebar.collapsed {
   width: 52px;
@@ -514,6 +552,12 @@
      Without this, the inherited 1.4-1.5 line-height adds asymmetric
      padding above the text and the row reads top-heavy. */
   line-height: 1;
+  /* Defend against UA-stylesheet font on <button> ancestors. When the
+     row is rendered as a <button> (Search), browsers set an explicit
+     font-family on the button which the inner span inherits — making
+     the label render in a different typeface than the <a> rows.
+     Pinning here keeps every label in --font-sans. */
+  font-family: inherit;
 }
 
 /* Right-aligned kbd shortcut hint (e.g. ⌘K on the Search row). */

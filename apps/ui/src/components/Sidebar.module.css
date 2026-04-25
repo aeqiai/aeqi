@@ -19,11 +19,15 @@
 .node {
   display: flex;
   flex-direction: column;
+  /* 2px gap matches .sidebar-user-zone / .sidebar-tree-slot — keeps
+     hover boxes from merging when rows stack inside a node's children. */
+  gap: 2px;
 }
 
 .children {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   gap: 0;
 }
 
