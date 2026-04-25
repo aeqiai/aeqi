@@ -592,7 +592,7 @@ pub fn purge_redundant_system_events(
     Ok((legacy, shadows))
 }
 
-/// Idempotently seed all lifecycle events (8 session/context patterns + 4 middleware
+/// Idempotently seed all lifecycle events (8 session/context patterns + 5 middleware
 /// patterns) into the events table as global (`agent_id = NULL`) system events.
 ///
 /// For each pattern, the function checks whether **any** global event with that exact
@@ -606,8 +606,9 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
     // content is managed by `create_default_lifecycle_events` (which runs first on every
     // boot and refreshes tool_calls); this function's job is to return an accurate count.
 
-    // 4 middleware patterns: these were previously only covered by DEFAULT_HANDLERS in
+    // 5 middleware patterns: these were previously only covered by DEFAULT_HANDLERS in
     // ToolRegistry. Seeding them here makes every LLM-facing string operator-visible.
+    // (T1.12b adds `agent:premature_completion` to the original 4.)
     struct MiddlewareSeed {
         name: &'static str,
         pattern: &'static str,
@@ -656,6 +657,30 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                 args: serde_json::json!({
                     "role": "system",
                     "content": "[Shell Hook] Command failed: `{command}`\nOutput:\n{output}"
+                }),
+            }],
+        },
+        // ── T1.12b — premature-completion safety-net ──────────────────────
+        // Fires when an agent ends a turn with no tool calls but its last
+        // message contains a completion-shaped phrase (see
+        // `middleware::completion_guards::COMPLETION_PHRASES`). Default
+        // handler nudges the agent to either name the produced artifact or
+        // fire the artifact-producing flow expected by the surrounding event
+        // chain (e.g. `ideas.store_many` for a reflector persona). Operators
+        // override by creating their own event for the same pattern.
+        //
+        // The injected message is intentionally a confirmation request, not
+        // a halt: a turn that legitimately ended (e.g. answered a user's
+        // question with no work to do) can confirm "yes, finished — no
+        // artifact needed" on the next turn and the loop moves on.
+        MiddlewareSeed {
+            name: "on_premature_completion",
+            pattern: "agent:premature_completion",
+            tool_calls: vec![ToolCall {
+                tool: "transcript.inject".into(),
+                args: serde_json::json!({
+                    "role": "system",
+                    "content": "Your last message looked like a completion declaration but no tool calls fired this turn. Confirm the work is genuinely done by either (a) naming the produced artifact (file path / commit hash / idea name), or (b) firing the artifact-producing tool you intended (e.g. `ideas.store_many` to persist reflections). If there is no artifact to produce, reply with 'confirmed: no artifact' so the loop can advance."
                 }),
             }],
         },
@@ -2111,11 +2136,12 @@ mod tests {
         assert_eq!(hits[0].name, "exact");
     }
 
-    /// seed_lifecycle_events on an empty store inserts 8 middleware seed events
-    /// (4 detectors + ideas:threshold_reached + reflect-after-quest +
-    /// inject-recent-context + inject-director-skill). The 8 lifecycle events
-    /// are handled by create_default_lifecycle_events, which runs first on
-    /// daemon boot. On a re-run it inserts 0.
+    /// seed_lifecycle_events on an empty store inserts 9 middleware seed events
+    /// (5 detector seeds — 4 originals + T1.12b premature-completion —
+    /// + ideas:threshold_reached + reflect-after-quest + inject-recent-context
+    /// + inject-director-skill). The 8 lifecycle events are handled by
+    /// create_default_lifecycle_events, which runs first on daemon boot. On a
+    /// re-run it inserts 0.
     #[tokio::test]
     async fn seed_lifecycle_events_is_idempotent() {
         let store = test_store_with_ideas().await;
@@ -2124,11 +2150,11 @@ mod tests {
         create_default_lifecycle_events(&store).await.unwrap();
 
         // seed_lifecycle_events reports 0 for the lifecycle patterns (already present)
-        // but inserts 8 middleware-name seeds. Name-based dedup means
+        // but inserts 9 middleware-name seeds. Name-based dedup means
         // on_reflect_after_quest lands even though session:quest_end already has
         // an on_quest_end row.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        assert_eq!(n, 8, "should insert 8 middleware seed events on first run");
+        assert_eq!(n, 9, "should insert 9 middleware seed events on first run");
 
         // Re-run: every name exists → no insertions.
         let n2 = seed_lifecycle_events(&store).await.unwrap();
@@ -2136,19 +2162,19 @@ mod tests {
     }
 
     /// seed_lifecycle_events on a totally empty store (no lifecycle events yet)
-    /// reports 16 (8 lifecycle patterns absent + 8 middleware names inserted).
+    /// reports 17 (8 lifecycle patterns absent + 9 middleware names inserted).
     #[tokio::test]
     async fn seed_lifecycle_events_counts_missing_lifecycle_patterns() {
         let store = test_store_with_ideas().await;
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 8 middleware-name seeds are inserted; 8 lifecycle patterns are counted as
+        // 9 middleware-name seeds are inserted; 8 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 16,
-            "should count all 16 missing lifecycle+middleware rows on a clean store"
+            n, 17,
+            "should count all 17 missing lifecycle+middleware rows on a clean store"
         );
     }
 
@@ -2165,6 +2191,8 @@ mod tests {
             "guardrail:violation",
             "graph_guardrail:high_impact",
             "shell:command_failed",
+            // T1.12b — premature-completion safety-net.
+            "agent:premature_completion",
         ] {
             let events = store.get_events_for_exact_pattern("", pattern).await;
             assert!(

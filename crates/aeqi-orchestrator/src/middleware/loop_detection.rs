@@ -365,6 +365,7 @@ mod tests {
             agent_id: "a1",
             project_name: "test",
             latest_tool_call: record,
+            last_assistant_message: None,
         }
     }
 

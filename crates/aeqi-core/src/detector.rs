@@ -19,7 +19,7 @@ pub struct ToolCallRecord {
 
 /// Runtime context passed to each detector on every check.
 ///
-/// Fields are the union of what the four built-in detectors actually need.
+/// Fields are the union of what the built-in detectors actually need.
 /// YAGNI: no fields for future detectors — add them when a real detector
 /// requires them.
 pub struct DetectionContext<'a> {
@@ -32,6 +32,11 @@ pub struct DetectionContext<'a> {
     /// The most recently completed tool call, if detection is running in the
     /// "after tool" lifecycle slot. `None` in the "after step" slot.
     pub latest_tool_call: Option<&'a ToolCallRecord>,
+    /// (T1.12b) The agent's most recent assistant message text, populated
+    /// by the agent loop when running detectors in the "after step" slot
+    /// (no tool calls). Used by the completion-guard detector to check for
+    /// premature-completion phrases. `None` in the "after tool" slot.
+    pub last_assistant_message: Option<&'a str>,
 }
 
 /// A pattern that a detector has decided should fire.
@@ -106,6 +111,7 @@ mod tests {
             agent_id: "a1",
             project_name: "my-project",
             latest_tool_call: Some(&call),
+            last_assistant_message: None,
         };
         let patterns = d.detect(&ctx).await;
         assert_eq!(patterns.len(), 1);
@@ -120,6 +126,7 @@ mod tests {
             agent_id: "a1",
             project_name: "my-project",
             latest_tool_call: None,
+            last_assistant_message: None,
         };
         let patterns = d.detect(&ctx).await;
         assert!(patterns.is_empty());

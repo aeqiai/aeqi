@@ -9,6 +9,7 @@
 //! This is the architectural foundation for AEQI v4's composable execution layer.
 
 pub mod clarification;
+pub mod completion_guards;
 pub mod context_budget;
 pub mod context_compression;
 pub mod cost_tracking;
@@ -22,6 +23,7 @@ pub mod shell_hooks;
 pub mod test_helpers;
 
 pub use clarification::ClarificationMiddleware;
+pub use completion_guards::CompletionGuardMiddleware;
 pub use context_budget::ContextBudgetMiddleware;
 pub use context_compression::ContextCompressionMiddleware;
 pub use cost_tracking::CostTrackingMiddleware;
@@ -62,6 +64,8 @@ pub const ORDER_LOOP_DETECTION: u32 = 500;
 pub const ORDER_COST_TRACKING: u32 = 600;
 /// Shell hooks: user-configurable post-step validation via shell commands.
 pub const ORDER_SHELL_HOOKS: u32 = 750;
+/// Completion guards: detect "I'm done" phrases when no tool calls fired.
+pub const ORDER_COMPLETION_GUARDS: u32 = 800;
 /// Safety net: preserve partial work on failure (runs late).
 pub const ORDER_SAFETY_NET: u32 = 900;
 
@@ -519,6 +523,7 @@ pub async fn build_universal_chain(
         Box::new(GuardrailsMiddleware::with_defaults()),
         Box::new(ContextCompressionMiddleware::new()),
         Box::new(ClarificationMiddleware::new()),
+        Box::new(CompletionGuardMiddleware::new()),
         Box::new(SafetyNetMiddleware::new()),
     ];
 
