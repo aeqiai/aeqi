@@ -45,8 +45,7 @@ describe("BlueprintsPage", () => {
       </StrictMode>,
     );
 
-    expect(await screen.findByText("Template store")).toBeInTheDocument();
-    expect(screen.getByText("Start a company in one step.")).toBeInTheDocument();
+    expect(await screen.findByText("start a company in one step.")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();
     });

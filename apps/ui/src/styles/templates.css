@@ -1,84 +1,47 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  Templates — /templates route
+ *  Blueprints — /blueprints route
  *
- *  A catalog of pre-threaded companies. The page is the front door of
- *  AEQI: goal → company → evolving runtime. The hero reads like a
- *  bookshelf label, the grid like a store of ready-made ops.
- *
- *  Palette: dashboard light (paper + white cards + ink). One
- *  typographic gesture per section (display serif on the eyebrow,
- *  sans on the body). Jade is reserved for the primary CTA only.
+ *  Renders inside the AppLayout content card, so the page wrapper
+ *  paints NOTHING and contributes only padding. Hero is one
+ *  typographic gesture (title) plus a muted subtitle — no eyebrow,
+ *  no back link, no fade-in. The rail and topbar already provide
+ *  navigation chrome. Cards inside use --bg-canvas to sit visibly on
+ *  the paper-toned content card; primary CTAs use the accent ink per
+ *  design system v4 (graphite + ink, jade reserved for success).
  *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 .tpl-page {
   width: 100%;
-  min-height: 100%;
-  padding: 56px 32px 96px;
+  padding: 32px 32px 56px;
   display: flex;
   justify-content: center;
-  background: var(--bg-canvas);
 }
 
 .tpl-inner {
   width: 100%;
   max-width: 960px;
-  animation: tpl-fade-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes tpl-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ── Header ──────────────────────────────────────── */
 
-.tpl-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-decoration: none;
-  margin-bottom: 28px;
-  transition: color 0.12s;
-}
-.tpl-back:hover {
-  color: var(--text-secondary);
-}
-
 .tpl-hero {
-  margin-bottom: 36px;
-}
-.tpl-eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  margin: 0 0 8px;
+  margin-bottom: 32px;
 }
 .tpl-title {
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--text-primary);
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   line-height: 1.15;
 }
 .tpl-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
   margin: 0;
-  max-width: 560px;
-  line-height: 1.5;
+  max-width: 540px;
+  line-height: 1.55;
 }
 
 /* ── Grid ────────────────────────────────────────── */
@@ -89,34 +52,35 @@
   gap: 16px;
 }
 
+/* Card surface uses --bg-canvas (the muted paper tone) so it sits
+ * visibly on top of the content card's --bg-paper. Without that
+ * difference they'd disappear into the page surface. Hover is a
+ * subtle translate + border firm — no shadow theatrics. */
 .tpl-card {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 20px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition:
     border-color 0.15s,
-    transform 0.15s,
-    box-shadow 0.15s;
+    transform 0.15s;
   text-align: left;
   font: inherit;
   color: inherit;
-  min-height: 180px;
+  min-height: 168px;
 }
 .tpl-card:hover {
-  border-color: var(--border-hover);
+  border-color: var(--color-accent);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
 }
 .tpl-card:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--ring-muted);
+  border-color: var(--color-accent);
 }
 
 .tpl-card-name {

@@ -104,47 +104,24 @@ export default function BlueprintsPage() {
   return (
     <div className="tpl-page">
       <div className="tpl-inner">
-        <a
-          className="tpl-back"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/");
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M8.5 3L4.5 7l4 4" />
-          </svg>
-          Back
-        </a>
-
         <header className="tpl-hero">
-          <p className="tpl-eyebrow">Template store</p>
-          <h1 className="tpl-title">Start a company in one step.</h1>
+          <h1 className="tpl-title">start a company in one step.</h1>
           <p className="tpl-subtitle">
-            Each template lands you in a fully-threaded runtime — agents, events, ideas, and quests
-            already alive. Pick one, name it, and start talking.
+            each blueprint lands you in a fully-threaded runtime — agents, events, ideas, and quests
+            already alive. pick one, name it, start talking.
           </p>
         </header>
 
         {error && (
           <div className="tpl-error" role="alert">
-            {error} — showing default templates.
+            {error} — showing default blueprints.
           </div>
         )}
 
         {loading ? (
           <div className="tpl-status">
             <Spinner size="sm" />
-            Loading templates…
+            loading blueprints…
           </div>
         ) : (
           <TemplateGallery
