@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import RoundAvatar from "@/components/RoundAvatar";
 import { Button, Input } from "@/components/ui";
@@ -20,10 +18,6 @@ type Feedback = { type: "success" | "error"; msg: string } | null;
  * fetches `getMe()` on mount; never reaches outside the tab.
  */
 export default function ProfilePanel() {
-  const navigate = useNavigate();
-  const logout = useAuthStore((s) => s.logout);
-  const authMode = useAuthStore((s) => s.authMode);
-
   const [user, setUser] = useState<UserData | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -212,24 +206,6 @@ export default function ProfilePanel() {
         >
           {feedback.msg}
         </div>
-      )}
-
-      {authMode !== "none" && (
-        <>
-          <div className="account-divider" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="account-sign-out-btn"
-            onClick={() => {
-              logout();
-              navigate("/login");
-            }}
-          >
-            Sign out
-          </Button>
-        </>
       )}
     </>
   );

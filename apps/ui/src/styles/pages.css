@@ -707,12 +707,17 @@
   border-right: 1px solid var(--border-faint);
 }
 .page-rail-title {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  margin: 0 12px 12px;
+  /* Linear/Notion sidebar-section treatment: small + heavy + uppercase
+     tracking. Reads as a category label, not a heading — its job is
+     to name the rail's contents, not to compete with them. The actual
+     hierarchy lives in the rail items below. */
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 12px 10px;
   line-height: 1;
 }
 

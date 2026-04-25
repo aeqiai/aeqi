@@ -221,8 +221,8 @@ export default function SecurityPanel() {
               Manual entry: <code>{totpSetup.secret}</code>
             </p>
             <div className="account-field-row">
-              <input
-                className="auth-input account-totp-input"
+              <Input
+                size="lg"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
@@ -233,6 +233,7 @@ export default function SecurityPanel() {
                 }}
                 placeholder="6-digit code"
                 aria-label="Authenticator code"
+                className="account-totp-input"
               />
               <Button
                 type="button"

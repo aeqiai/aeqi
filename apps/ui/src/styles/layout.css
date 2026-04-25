@@ -753,6 +753,43 @@
      hair of breathing room or stacked rows merge into one block. */
   gap: 2px;
 }
+
+/* Sidebar bottom — sticks below the tree's scroll viewport. Holds
+   destructive / least-frequent actions (sign out today; could carry
+   workspace switcher / help in the future). Hairline above so the
+   row reads as a deliberate footer slot, not orphaned chrome. */
+.sidebar-bottom {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid var(--color-border-faint, rgba(0, 0, 0, 0.06));
+}
+.left-sidebar.collapsed .sidebar-bottom {
+  border-top-color: transparent;
+}
+
+/* Danger variant of .sidebar-nav-item — sign out, destructive
+   actions. Same row geometry as siblings (no shape change), but the
+   color shifts to error-red on hover. At rest it stays muted so it
+   doesn't compete with primary nav. */
+.sidebar-nav-item--danger {
+  background: transparent;
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--text-muted);
+}
+.sidebar-nav-item--danger:hover,
+.sidebar-nav-item--danger:focus-visible {
+  background: var(--state-hover);
+  color: var(--color-error, #c83838);
+  outline: none;
+}
 .sidebar-surface-nav .sidebar-section-label {
   padding: 8px 8px 4px;
   font-size: var(--font-size-micro);
@@ -991,6 +1028,64 @@
 }
 .left-sidebar.collapsed .sidebar-help-btn {
   display: none;
+}
+
+/* ── Public sidebar (unauthed) ──
+   The unauthed shell shares the rail's geometry but trades the profile
+   row for the wordmark and pins a Sign up / Log in CTA cluster to the
+   bottom. Same width, same insets, same nav-item styling. */
+.public-sidebar .sidebar-public-brand {
+  display: inline-flex;
+  align-items: center;
+  height: var(--sidebar-row-h);
+  padding: 0 4px;
+  text-decoration: none;
+  color: var(--color-accent);
+  border-radius: var(--radius-md);
+  transition: opacity 0.12s ease;
+}
+.public-sidebar .sidebar-public-brand:hover {
+  opacity: 0.85;
+}
+.sidebar-public-cta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 12px;
+}
+.sidebar-public-cta-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.sidebar-public-cta-btn.primary {
+  background: var(--text-primary);
+  color: var(--color-card);
+  border: 1px solid var(--text-primary);
+}
+.sidebar-public-cta-btn.primary:hover {
+  opacity: 0.88;
+}
+.sidebar-public-cta-btn.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.sidebar-public-cta-btn.ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
 }
 
 /* ── Content column — stacks the content card above the compact

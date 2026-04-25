@@ -109,6 +109,16 @@ const SettingsIcon = () => (
   </svg>
 );
 
+/* Sign out: a door + arrow stepping out. The "leaving the building"
+ * metaphor reads cleanly at 14px without rivaling the more important
+ * primitive glyphs above. */
+const SignOutIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 3H3v10h6" />
+    <path d="M7 8h7M11 5l3 3-3 3" />
+  </svg>
+);
+
 const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: string }[] = [
   { id: "agents", label: "Agents", icon: <AgentsIcon />, title: "Agents · G then A" },
   { id: "events", label: "Events", icon: <EventsIcon />, title: "Events · G then E" },
@@ -128,6 +138,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
+  const logout = useAuthStore((s) => s.logout);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
@@ -391,12 +402,31 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         <div className="sidebar-tree-slot">
           <AgentTree />
         </div>
+
+        {authMode !== "none" && (
+          <div className="sidebar-bottom">
+            <button
+              type="button"
+              className="sidebar-nav-item sidebar-nav-item--danger"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              title="Sign out of your account"
+              aria-label="Sign out"
+            >
+              <SignOutIcon />
+              <span className="sidebar-nav-label">Sign out</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Sidebar footer dropped — profile moved to the header (top-left,
-          replacing the brand glyph), help button moved to Search's
-          right edge. Bottom of the sidebar runs flush with the agent
-          tree's scroll viewport now. */}
+      {/* Profile lives in the header (top-left, replacing the brand
+          glyph); help button moved to Search's right edge. Sign-out
+          sits at the very bottom in a danger variant — destructive
+          action, last in the rail, lowest visual priority but always
+          findable. */}
       {!sidebarCollapsed && (
         <div
           className="sidebar-resizer"
