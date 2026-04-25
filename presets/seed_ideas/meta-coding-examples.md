@@ -6,7 +6,7 @@ description: Worked examples of the four behavior principles. Shows anti-pattern
 
 # Coding Examples
 
-Six anti-pattern → right-approach pairs, one per common drift. Cite when
+Seven anti-pattern → right-approach pairs, one per common drift. Cite when
 you catch yourself doing the wrong column.
 
 ---
@@ -221,6 +221,50 @@ that mask different bugs underneath.
 
 ---
 
+## 7. Loading raw data when computation suffices (Minimum sufficient)
+
+**Scenario:** User: "how many of our agents have an empty persona?"
+
+**Wrong**
+
+```rust
+// Pulls every agent row + serializes into the assistant's context window
+// so the assistant can eyeball the field across 800 entries.
+let agents = agent_registry.list_all().await?;
+let dump = serde_json::to_string_pretty(&agents)?;
+println!("{dump}");
+// Now spend 8000 tokens of context "reading" rows to answer "how many".
+```
+
+The minimum sufficient transfer is the **count**. Pulling rows so they
+can be counted by an LLM is a compression failure — the answer is one
+integer; the cost was megabytes.
+
+**Right**
+
+```sql
+-- Compute, then return the answer.
+SELECT COUNT(*) FROM agents WHERE persona_idea_id IS NULL;
+```
+
+Or one line of shell when the data lives in files:
+
+```
+rg -c '^persona_idea_id:\s*$' agents/*.toml | awk -F: '{s+=$2} END {print s}'
+```
+
+**Why:** an LLM context byte spent on raw data crowds out the byte where
+the answer lives. The minimum sufficient input is the computed answer,
+not the source it was computed from. When a question has a deterministic
+answer, write the script that prints it — don't read the data and guess.
+
+This applies to every "how many", "which ones", "where", "summarize"
+question. The first instinct should be "what's the smallest computation
+that turns this question into one fact?" not "how do I read enough to
+answer this?".
+
+---
+
 ## Summary
 
 | Drift | Tell | Reset |
@@ -231,6 +275,7 @@ that mask different bugs underneath.
 | Flags for unrequested features | "While I'm here…" | Cut every flag without a caller |
 | Reformatted while fixing | "And I cleaned up…" | Diff matches the bug |
 | Fixed without reproducing | "I think this is it…" | Failing test first, then fix |
+| Read raw data to answer | "Let me load this and look…" | Compute the answer; transfer the result |
 
-The pattern under all six: complexity timing. The wrong column isn't
+The pattern under all seven: complexity timing. The wrong column isn't
 *wrong* code — it's code that arrived before its requirement.
