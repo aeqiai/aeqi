@@ -487,11 +487,11 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-decoration: none;
-  /* Reserve a 1px border at all times so hover/active doesn't reflow
-     the row. Color is transparent until the row becomes active or
-     hovered — the black border is the rail's "you are here" indicator,
-     present once per scope-slot (Launch CTA / agent identity) and
-     once per navigation (active or hover-targeted row). */
+  /* Reserve a 1px border at all times so the hover state doesn't
+     reflow the row. Default is transparent; only hover paints the
+     accent border. Active rows do NOT get a border — they're already
+     marked by bg + color + weight; the hover border is a transient
+     pointer indicator, not an active-state one. */
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition: all 0.1s ease;
@@ -504,7 +504,6 @@
 .sidebar-nav-item.active {
   color: var(--text-primary);
   background: var(--state-selected);
-  border-color: var(--color-accent);
   font-weight: 500;
 }
 .sidebar-nav-item > svg {
