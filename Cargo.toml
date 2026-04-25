@@ -19,7 +19,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.10.0"
+version = "0.12.0"
 edition = "2024"
 license = "BUSL-1.1"
 authors = ["AEQI Contributors"]
@@ -110,20 +110,20 @@ validator = { version = "0.20", features = ["derive"] }
 tempfile = "3"
 
 # Internal crates
-aeqi-quests = { version = "0.10.0", path = "crates/aeqi-quests" }
-aeqi-core = { version = "0.10.0", path = "crates/aeqi-core" }
-aeqi-providers = { version = "0.10.0", path = "crates/aeqi-providers" }
-aeqi-tools = { version = "0.10.0", path = "crates/aeqi-tools" }
-aeqi-orchestrator = { version = "0.10.0", path = "crates/aeqi-orchestrator" }
-aeqi-ideas = { version = "0.10.0", path = "crates/aeqi-ideas" }
-aeqi-gates = { version = "0.10.0", path = "crates/aeqi-gates" }
-aeqi-web = { version = "0.10.0", path = "crates/aeqi-web" }
-aeqi-graph = { version = "0.10.0", path = "crates/aeqi-graph" }
-aeqi-hosting = { version = "0.10.0", path = "crates/aeqi-hosting" }
-aeqi-mcp = { version = "0.10.0", path = "crates/aeqi-mcp" }
-aeqi-test-support = { version = "0.10.0", path = "crates/aeqi-test-support" }
-aeqi-pack-google-workspace = { version = "0.10.0", path = "crates/aeqi-pack-google-workspace" }
-aeqi-pack-github = { version = "0.10.0", path = "crates/aeqi-pack-github" }
+aeqi-quests = { version = "0.12.0", path = "crates/aeqi-quests" }
+aeqi-core = { version = "0.12.0", path = "crates/aeqi-core" }
+aeqi-providers = { version = "0.12.0", path = "crates/aeqi-providers" }
+aeqi-tools = { version = "0.12.0", path = "crates/aeqi-tools" }
+aeqi-orchestrator = { version = "0.12.0", path = "crates/aeqi-orchestrator" }
+aeqi-ideas = { version = "0.12.0", path = "crates/aeqi-ideas" }
+aeqi-gates = { version = "0.12.0", path = "crates/aeqi-gates" }
+aeqi-web = { version = "0.12.0", path = "crates/aeqi-web" }
+aeqi-graph = { version = "0.12.0", path = "crates/aeqi-graph" }
+aeqi-hosting = { version = "0.12.0", path = "crates/aeqi-hosting" }
+aeqi-mcp = { version = "0.12.0", path = "crates/aeqi-mcp" }
+aeqi-test-support = { version = "0.12.0", path = "crates/aeqi-test-support" }
+aeqi-pack-google-workspace = { version = "0.12.0", path = "crates/aeqi-pack-google-workspace" }
+aeqi-pack-github = { version = "0.12.0", path = "crates/aeqi-pack-github" }
 
 
 [profile.release]
