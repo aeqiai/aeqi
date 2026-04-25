@@ -512,6 +512,39 @@
   line-height: 1;
 }
 
+/* Right-aligned kbd shortcut hint (e.g. ⌘K on the Search row). */
+.sidebar-nav-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.sidebar-nav-kbd kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Search row is a <button> rendered as a sidebar-nav-item. Reset
+ * native button defaults so it renders identically to the <a> rows. */
+.sidebar-nav-item--search {
+  background: transparent;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
 /* ── Footer profile identity — stacked name + email.
    Squeezes two lines into the standardized --sidebar-row-h so the
    profile row stays flush with every other nav item. 11px muted email

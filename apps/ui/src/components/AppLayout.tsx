@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } fro
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
-import ContentTopBar from "./ContentTopBar";
 import LeftSidebar from "./shell/LeftSidebar";
 import ShellFooter from "./shell/ShellFooter";
 import SessionsRail from "./shell/SessionsRail";
@@ -318,10 +317,6 @@ export default function AppLayout() {
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
-  // ContentTopBar is the layout navigation row — always mounted at a
-  // fixed height so the header band reads as one strip across the shell
-  // regardless of whether an agent is in scope.
-  const showTopBar = true;
   // AgentSessionView only mounts when AgentPage is rendered on the
   // per-agent sessions surface.
   const sessionsMounted =
@@ -347,34 +342,33 @@ export default function AppLayout() {
 
         <div className="content-column">
           <div className="content-card">
-            {showTopBar ? (
-              <>
-                <ContentTopBar />
-                <div className="content-paper">
-                  <div className="content-body-row">
-                    {showSessionsRail && (
-                      <aside className="sessions-rail-col">
-                        <SessionsRail />
-                      </aside>
-                    )}
-                    <div className="content-main-col">
-                      <div className="content-scroll">
-                        <Suspense fallback={null}>{mainContent}</Suspense>
-                      </div>
-                      {showComposer && (
-                        <ComposerRow
-                          agentId={agentId || null}
-                          base={base}
-                          sessionsMounted={sessionsMounted}
-                        />
-                      )}
-                    </div>
+            {/* ContentTopBar dropped — after moving Settings to the
+                LeftSidebar the band held only an avatar in user scope
+                and a budget meter in agent scope, both better-placed
+                inside the page that owns them. The empty strip read
+                as a gap above every page. Page content now renders
+                flush against the content card's top edge. */}
+            <div className="content-paper">
+              <div className="content-body-row">
+                {showSessionsRail && (
+                  <aside className="sessions-rail-col">
+                    <SessionsRail />
+                  </aside>
+                )}
+                <div className="content-main-col">
+                  <div className="content-scroll">
+                    <Suspense fallback={null}>{mainContent}</Suspense>
                   </div>
+                  {showComposer && (
+                    <ComposerRow
+                      agentId={agentId || null}
+                      base={base}
+                      sessionsMounted={sessionsMounted}
+                    />
+                  )}
                 </div>
-              </>
-            ) : (
-              <Suspense fallback={null}>{mainContent}</Suspense>
-            )}
+              </div>
+            </div>
           </div>
           <RateLimitBanner />
           <ShellFooter />

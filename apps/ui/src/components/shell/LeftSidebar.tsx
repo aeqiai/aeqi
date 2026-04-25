@@ -290,25 +290,25 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         </a>
       </div>
 
-      <div className="sidebar-search-row">
+      {/* Search row reshaped to match the standard nav-row geometry —
+          left icon, label, right kbd hint. Lives in its own user-zone
+          wrapper so the global Blueprints/Economy block above and the
+          scope-aware Inbox/Settings block below don't visually merge
+          into one undifferentiated stack. */}
+      <div className="sidebar-user-zone">
         <button
           type="button"
-          className="sidebar-search-pill"
+          className="sidebar-nav-item sidebar-nav-item--search"
           onClick={openPalette}
           aria-label="Open command palette"
           title="Search — jump to any agent, quest, or idea"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <circle cx="5" cy="5" r="3.2" stroke="currentColor" strokeWidth="1.3" />
-            <path
-              d="M7.5 7.5L10 10"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
+          <svg {...iconProps}>
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10 10l3.5 3.5" />
           </svg>
-          <span className="sidebar-search-label">Search</span>
-          <span className="sidebar-search-kbd" aria-hidden="true">
+          <span className="sidebar-nav-label">Search</span>
+          <span className="sidebar-nav-kbd" aria-hidden="true">
             <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
             <kbd>K</kbd>
           </span>
