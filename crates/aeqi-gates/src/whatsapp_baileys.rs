@@ -464,13 +464,33 @@ pub struct WhatsappBaileysGateway {
     channel: Arc<WhatsAppBaileysChannel>,
     jid: String,
     id: String,
+    /// JIDs the gateway is authorized to actually deliver assistant
+    /// responses to — the **outbound whitelist**. Sourced from
+    /// `channel_allowed_chats` rows where `reply_allowed = true` (plus
+    /// legacy `cfg.allowed_jids`). Empty set is permissive (matches the
+    /// inbound filter's "empty whitelist = accept all" rule).
+    ///
+    /// Without this gate, every streamed assistant turn was hand-delivered
+    /// to WhatsApp regardless of read-only state — the gate that lived on
+    /// `WhatsAppReplyTool` only covered explicit reply-tool calls (rare),
+    /// not the normal speak-output path through `deliver_response`.
+    reply_allowed_jids: Arc<std::collections::HashSet<String>>,
 }
 
 impl WhatsappBaileysGateway {
-    pub fn new(channel: Arc<WhatsAppBaileysChannel>, jid: impl Into<String>) -> Self {
+    pub fn new(
+        channel: Arc<WhatsAppBaileysChannel>,
+        jid: impl Into<String>,
+        reply_allowed_jids: Arc<std::collections::HashSet<String>>,
+    ) -> Self {
         let jid = jid.into();
         let id = format!("whatsapp-baileys:{}", jid);
-        Self { channel, jid, id }
+        Self {
+            channel,
+            jid,
+            id,
+            reply_allowed_jids,
+        }
     }
 }
 
@@ -490,6 +510,21 @@ impl SessionGateway for WhatsappBaileysGateway {
         response: &CompletedResponse,
     ) -> anyhow::Result<()> {
         if response.text.trim().is_empty() {
+            return Ok(());
+        }
+        // Outbound gate. Empty set = no whitelist configured = accept all
+        // (matches the inbound filter and the historical "no whitelist =
+        // permissive" rule). Non-empty set = strict membership check.
+        // Read-only contacts (whose `reply_allowed=false` row excludes
+        // them from this set) get their assistant turn persisted to the
+        // session transcript but the gateway does NOT push it to
+        // WhatsApp — the operator can still read what the agent would
+        // have said via the session view at /:agent/sessions/:id.
+        if !self.reply_allowed_jids.is_empty() && !self.reply_allowed_jids.contains(&self.jid) {
+            tracing::warn!(
+                jid = %self.jid,
+                "whatsapp-baileys gateway: dropping outbound — JID is set to read-only"
+            );
             return Ok(());
         }
         let out = OutgoingMessage {

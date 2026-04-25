@@ -194,8 +194,11 @@ async fn run_gateway(
             if kind != "whatsapp-baileys" || jid.is_empty() {
                 continue;
             }
-            let gw: Arc<dyn SessionGateway> =
-                Arc::new(WhatsappBaileysGateway::new(ch.clone(), jid.to_string()));
+            let gw: Arc<dyn SessionGateway> = Arc::new(WhatsappBaileysGateway::new(
+                ch.clone(),
+                jid.to_string(),
+                reply_allowed.clone(),
+            ));
             gateway_manager.register_persistent(session_id, gw).await;
         }
     }
@@ -314,8 +317,11 @@ async fn run_gateway(
             };
 
             // Register persistent gateway so streamed responses reach this JID.
-            let gw: Arc<dyn SessionGateway> =
-                Arc::new(WhatsappBaileysGateway::new(ch_clone.clone(), jid.clone()));
+            let gw: Arc<dyn SessionGateway> = Arc::new(WhatsappBaileysGateway::new(
+                ch_clone.clone(),
+                jid.clone(),
+                reply_allowed.clone(),
+            ));
             gm.register_persistent(&session_id, gw.clone()).await;
 
             // Bind the persistent gateway to the session bus and make sure
