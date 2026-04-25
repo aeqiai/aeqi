@@ -148,8 +148,32 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   };
 
   const getChats = (ch: ChannelEntry) => channelSessions.filter((s) => s.transport === ch.kind);
-  const getAllowed = (ch: ChannelEntry): number[] =>
-    ch.allowed_chats.map(Number).filter((n) => !isNaN(n));
+  // `chat_id` is TEXT server-side (see agent_registry.rs: "every transport
+  // fits — Telegram i64, WhatsApp JID, Discord snowflake, phone numbers").
+  // Compare as strings, never coerce to Number — WhatsApp JIDs like
+  // `[email protected]` and `[email protected]` parse to NaN and would
+  // silently drop from the whitelist.
+  const getAllowed = (ch: ChannelEntry): string[] => ch.allowed_chats;
+  /**
+   * Transport-aware DM/Group label. Telegram chat_ids are signed integers
+   * (negative = group / channel, positive = DM). WhatsApp uses JIDs that
+   * end in `@g.us` for groups, `@s.whatsapp.net` / `@lid` for DMs. Other
+   * transports may fit either shape; default to no label rather than guess
+   * wrong.
+   */
+  const chatKindLabel = (transport: string, chatId: string): string | null => {
+    if (transport.startsWith("whatsapp")) {
+      if (chatId.endsWith("@g.us")) return "Group";
+      if (chatId.endsWith("@s.whatsapp.net") || chatId.endsWith("@lid")) return "DM";
+      return null;
+    }
+    if (transport === "telegram") {
+      const n = Number(chatId);
+      if (!Number.isFinite(n)) return null;
+      return n < 0 ? "Group" : "DM";
+    }
+    return null;
+  };
   /**
    * Apply a change to the allowed_chats whitelist. Takes a reducer that's
    * evaluated against the latest store state at the moment of the call —
@@ -397,9 +421,10 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 checked={whitelist}
                 onChange={(e) => {
                   if (e.target.checked) {
-                    const allChats = chats
-                      .map((s) => String(Number(s.chat_id)))
-                      .filter((n) => n !== "NaN");
+                    // Use `chat_id` as-is. Coercing to Number drops every
+                    // WhatsApp JID and any non-numeric chat_id (the bug
+                    // that made this toggle no-op for WhatsApp).
+                    const allChats = chats.map((s) => s.chat_id).filter(Boolean);
                     updateAllowed(selected.id, () => allChats);
                   } else {
                     // Turning whitelist OFF clears the entire server-side
@@ -420,8 +445,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             </label>
           </div>
           {chats.map((s) => {
-            const n = Number(s.chat_id);
-            const isAllowed = allowed.includes(n);
+            const isAllowed = allowed.includes(s.chat_id);
+            const kindLabel = chatKindLabel(s.transport, s.chat_id);
             return (
               <div
                 key={s.channel_key}
@@ -434,9 +459,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               >
                 <div>
                   <span className="event-idea-key">{s.chat_id}</span>
-                  <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 8 }}>
-                    {n < 0 ? "Group" : "DM"}
-                  </span>
+                  {kindLabel && (
+                    <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 8 }}>
+                      {kindLabel}
+                    </span>
+                  )}
                 </div>
                 {whitelist ? (
                   <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
@@ -445,9 +472,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                       checked={isAllowed}
                       onChange={(e) => {
                         const add = e.target.checked;
-                        const asStr = String(n);
                         updateAllowed(selected.id, (current) =>
-                          add ? [...current, asStr] : current.filter((v) => v !== asStr),
+                          add ? [...current, s.chat_id] : current.filter((v) => v !== s.chat_id),
                         );
                       }}
                     />{" "}
