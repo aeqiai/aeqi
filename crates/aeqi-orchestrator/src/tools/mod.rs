@@ -3,12 +3,14 @@ pub mod events;
 pub mod ideas;
 pub mod openrouter_usage;
 pub mod quests;
+pub mod sessions;
 
 pub use agents::AgentsTool;
 pub use events::EventsTool;
 pub use ideas::IdeasTool;
 pub use openrouter_usage::{collect_openrouter_usage, collect_worker_usage, usage_log_path};
 pub use quests::QuestsTool;
+pub use sessions::SessionsTool;
 
 use aeqi_core::traits::{IdeaStore, Tool, ToolResult, ToolSpec};
 use anyhow::Result;
@@ -534,7 +536,7 @@ pub fn build_orchestration_tools(
     );
 
     // 4. Code tool (search/graph/transcript/usage)
-    let code_tool = CodeTool::new(graph_db_path, session_store, api_key);
+    let code_tool = CodeTool::new(graph_db_path, session_store.clone(), api_key);
 
     let mut tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(agents_tool),
@@ -542,6 +544,14 @@ pub fn build_orchestration_tools(
         Arc::new(events_tool),
         Arc::new(code_tool),
     ];
+
+    // 4b. Sessions tool (read-only FTS5 search over transcripts).
+    if let Some(ss) = session_store {
+        let sessions_tool = SessionsTool::new(ss, agent_registry.clone(), agent_id.clone());
+        tools.push(Arc::new(sessions_tool));
+    } else {
+        tracing::warn!("sessions tool unavailable: no session store configured");
+    }
 
     // 5. Ideas tool (store/search/update/delete)
     if let Some(mem) = idea_store {

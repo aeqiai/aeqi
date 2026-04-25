@@ -150,6 +150,64 @@ pub struct SessionStore {
     pub max_messages_per_chat: usize,
 }
 
+/// Idempotent migration that creates the FTS5 mirror over `session_messages`
+/// — `messages_fts` plus the `session_messages_ai/ad/au` sync triggers — and
+/// backfills the index on legacy DBs that have rows in `session_messages`
+/// but an empty FTS index.
+///
+/// Runs at daemon startup alongside [`ensure_invocation_outcome_columns`].
+/// Safe to call multiple times: every CREATE uses `IF NOT EXISTS`, and the
+/// backfill is gated on the index actually being empty.
+///
+/// Tokeniser pinned to `unicode61 remove_diacritics 2` so accented variants
+/// match plain ASCII queries (e.g. `cafe` → `café`). Legacy DBs that already
+/// have a `messages_fts` table without that tokeniser keep their existing
+/// table — `IF NOT EXISTS` is non-destructive on purpose; rebuilding the
+/// vtable would risk losing rows that the triggers haven't yet synced.
+pub fn ensure_messages_fts(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+             content,
+             content='session_messages',
+             content_rowid='id',
+             tokenize='unicode61 remove_diacritics 2'
+         );
+         CREATE TRIGGER IF NOT EXISTS session_messages_ai AFTER INSERT ON session_messages BEGIN
+             INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+         END;
+         CREATE TRIGGER IF NOT EXISTS session_messages_ad AFTER DELETE ON session_messages BEGIN
+             INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+         END;
+         CREATE TRIGGER IF NOT EXISTS session_messages_au AFTER UPDATE ON session_messages BEGIN
+             INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
+             INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+         END;",
+    )
+    .context("failed to create messages_fts virtual table + triggers")?;
+
+    // One-time backfill: only runs when the FTS index is empty AND there
+    // are messages to mirror. The triggers above keep the index in sync
+    // from this point forward, so this branch is skipped on every
+    // subsequent startup.
+    let fts_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM messages_fts", [], |row| row.get(0))?;
+    let messages_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM session_messages", [], |row| {
+            row.get(0)
+        })?;
+    if fts_count == 0 && messages_count > 0 {
+        conn.execute(
+            "INSERT INTO messages_fts(rowid, content) \
+             SELECT id, content FROM session_messages",
+            [],
+        )
+        .context("failed to backfill messages_fts from session_messages")?;
+        debug!(rows = messages_count, "messages_fts backfilled");
+    }
+
+    Ok(())
+}
+
 /// Idempotent migration that adds the T1.2 outcome columns
 /// (`outcome_score REAL`, `outcome_details TEXT`) to legacy `event_invocations`
 /// tables. Fresh DBs already get the columns from `create_invocation_tables`'s
@@ -186,6 +244,13 @@ impl SessionStore {
         }
     }
 
+    /// Borrow the underlying connection pool. Used by the `sessions.search`
+    /// tool (and only by tools that need to issue SQL the public API doesn't
+    /// already cover) — public accessor rather than a friend-style hack.
+    pub fn db(&self) -> Arc<crate::agent_registry::ConnectionPool> {
+        self.db.clone()
+    }
+
     /// Create the session-related tables and indexes. Called during AgentRegistry::open().
     pub fn create_tables(conn: &Connection) -> Result<()> {
         conn.execute_batch(
@@ -215,22 +280,6 @@ impl SessionStore {
                  covers_until TEXT NOT NULL
              );
              CREATE INDEX IF NOT EXISTS idx_summ_session ON session_summaries(session_id);
-
-             CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-                 content,
-                 content=session_messages,
-                 content_rowid=id
-             );
-             CREATE TRIGGER IF NOT EXISTS session_messages_ai AFTER INSERT ON session_messages BEGIN
-                 INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-             END;
-             CREATE TRIGGER IF NOT EXISTS session_messages_ad AFTER DELETE ON session_messages BEGIN
-                 INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-             END;
-             CREATE TRIGGER IF NOT EXISTS session_messages_au AFTER UPDATE ON session_messages BEGIN
-                 INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-                 INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-             END;
 
              CREATE TABLE IF NOT EXISTS sessions (
                  id TEXT PRIMARY KEY,
@@ -299,6 +348,8 @@ impl SessionStore {
         .context("failed to create session store tables")?;
 
         Self::create_invocation_tables(conn)?;
+
+        ensure_messages_fts(conn).context("failed to ensure messages_fts table + triggers")?;
 
         debug!("session store tables created");
 
