@@ -3,7 +3,6 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
 import LeftSidebar from "./shell/LeftSidebar";
-import ShellFooter from "./shell/ShellFooter";
 import SessionsRail from "./shell/SessionsRail";
 import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
@@ -407,7 +406,6 @@ export default function AppLayout() {
             </div>
           </div>
           <RateLimitBanner />
-          <ShellFooter />
         </div>
       </div>
       <CommandPalette open={searching} onClose={closeSearch} />

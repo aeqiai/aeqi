@@ -934,14 +934,18 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Paint the column in the shell tone so the top inset above the card
-     reads as a continuation of the sidebar tint, not as a white slab.
-     The content-card and shell-footer paint their own backgrounds on
-     top; only the empty top inset shows this color through. */
+  /* Paint the column in the shell tone so the top + bottom insets
+     above and below the card read as a continuation of the sidebar
+     tint, not as white slabs. The content-card paints its own
+     background on top; only the empty insets show this color. */
   background: var(--bg-sidebar);
-  /* Top inset = footer height. Same 22px on both edges, so the card
-     floats with perfectly mirrored breathing room top + bottom. */
+  /* Symmetric 18px insets on top and bottom — card floats with
+     matching breathing room on both vertical edges. ShellFooter was
+     removed from the layout (the legal strip kept fighting its own
+     centering); the bottom inset is now just the mirrored gap, no
+     contents. */
   padding-top: var(--shell-footer-h);
+  padding-bottom: var(--shell-footer-h);
 }
 
 /* Content card — the tinted frame. Holds the topbar and the paper

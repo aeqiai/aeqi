@@ -295,40 +295,30 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         </a>
       </div>
 
-      {/* Search row reshaped to match the standard nav-row geometry —
-          left icon, label, right kbd hint. Lives in its own user-zone
-          wrapper so the global Blueprints/Economy block above and the
-          scope-aware Inbox/Settings block below don't visually merge
-          into one undifferentiated stack. */}
-      <div className="sidebar-user-zone">
-        <button
-          type="button"
-          className="sidebar-nav-item sidebar-nav-item--search"
-          onClick={openPalette}
-          aria-label="Open command palette"
-          title="Search — jump to any agent, quest, or idea"
-        >
-          <svg {...iconProps}>
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10 10l3.5 3.5" />
-          </svg>
-          <span className="sidebar-nav-label">Search</span>
-          <span className="sidebar-nav-kbd" aria-hidden="true">
-            <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
-            <kbd>K</kbd>
-          </span>
-        </button>
-      </div>
-
       <div className="left-sidebar-body">
-        {/* Scope-aware Inbox sits below search — it's the entry point
-            into whichever scope you're currently in (your home at user
-            root, the agent's home in agent scope), unlike the global
-            Blueprints / Economy rail items above search. Wrapped in
-            sidebar-user-zone for the same 4px/8px/8px padding as the
-            global zone — keeps Inbox visually anchored, not crammed
-            against the search row above. */}
+        {/* Search + Inbox + Settings grouped in one zone — three primary
+            user-scope rail rows. Search at the top because it's the
+            jump-anywhere action; Inbox is scope-aware home; Settings
+            mirrors scope. The earlier global-vs-scope split (search
+            row as divider) is gone. */}
         <div className="sidebar-user-zone">
+          <button
+            type="button"
+            className="sidebar-nav-item sidebar-nav-item--search"
+            onClick={openPalette}
+            aria-label="Open command palette"
+            title="Search — jump to any agent, quest, or idea"
+          >
+            <svg {...iconProps}>
+              <circle cx="7" cy="7" r="4.5" />
+              <path d="M10 10l3.5 3.5" />
+            </svg>
+            <span className="sidebar-nav-label">Search</span>
+            <span className="sidebar-nav-kbd" aria-hidden="true">
+              <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
+              <kbd>K</kbd>
+            </span>
+          </button>
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={inboxHref}
