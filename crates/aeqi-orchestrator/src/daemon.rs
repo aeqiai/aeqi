@@ -483,7 +483,8 @@ impl Daemon {
                 self.agent_registry.clone(),
                 self.default_provider.clone(),
                 self.default_model.clone(),
-            );
+            )
+            .await;
         }
 
         self.spawn_signal_handlers();
@@ -2348,7 +2349,7 @@ pub fn readiness_response(
 // `aeqi_core::Agent` that runs the persona's instructions idea as its system
 // prompt and returns `result.text` as a plain string. The seeded events then
 // pipe that text through `ideas.store_many` for persistence.
-pub fn build_daemon_pattern_dispatcher(
+pub async fn build_daemon_pattern_dispatcher(
     event_handler_store: Option<Arc<crate::event_handler::EventHandlerStore>>,
     session_store: Option<Arc<SessionStore>>,
     idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
@@ -2411,7 +2412,23 @@ pub fn build_daemon_pattern_dispatcher(
     // 60s default TTL. Sharing one cache would require lifting it onto the
     // daemon, which is a larger surface change for no behavioural win.
     let tag_policy_cache = aeqi_ideas::tag_policy::default_cache();
-    let registry = build_runtime_registry_full(
+
+    // T1.13 (T1.12 follow-up) — populate the `ToolRegistry` substrate hook
+    // T1.12 added (`set_default_max_result_chars`) by computing the merged
+    // `max_result_chars` cap across every loaded tag policy. Min-merge
+    // matches `EffectivePolicy::max_result_chars`: the tightest cap among
+    // policies that declared one wins; absent any opt-in, the registry
+    // stays unbounded (pre-T1.12 behaviour). The cache loads lazily on
+    // first refresh; this call eagerly seeds it so subsequent tool
+    // executions see the cap without an extra refresh tick.
+    let merged_cap = if let Some(ref store) = idea_store {
+        tag_policy_cache
+            .merged_default_max_result_chars(store.as_ref())
+            .await
+    } else {
+        None
+    };
+    let mut registry = build_runtime_registry_full(
         idea_store.clone(),
         session_store.clone(),
         Some(dispatcher_spawn_fn),
@@ -2423,6 +2440,7 @@ pub fn build_daemon_pattern_dispatcher(
         true,
         Some(tag_policy_cache),
     );
+    registry.set_default_max_result_chars(merged_cap);
 
     let dispatcher = Arc::new(crate::idea_assembly::EventPatternDispatcher {
         event_store,

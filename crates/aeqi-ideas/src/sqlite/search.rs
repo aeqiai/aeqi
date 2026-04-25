@@ -129,6 +129,7 @@ impl SqliteIdeas {
         tag: &str,
         limit: usize,
         include_superseded: bool,
+        ban_after_wrong: Option<i64>,
     ) -> Result<Vec<(String, f32)>> {
         let fts_query = sanitise_fts5_query(&query.text);
 
@@ -155,7 +156,13 @@ impl SqliteIdeas {
             conditions.push("m.status = 'active'".into());
         }
 
-        apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
+        apply_scope_clause(
+            query,
+            &mut conditions,
+            &mut params,
+            &mut idx,
+            ban_after_wrong,
+        );
 
         let where_clause = conditions.join(" AND ");
         let sql = format!(
@@ -196,10 +203,17 @@ impl SqliteIdeas {
         tag: &str,
         limit: usize,
         include_superseded: bool,
+        ban_after_wrong: Option<i64>,
     ) -> Vec<(String, f32)> {
-        if let Some(hits) =
-            Self::try_ann_search(conn, query_vec, query, tag, limit, include_superseded)
-        {
+        if let Some(hits) = Self::try_ann_search(
+            conn,
+            query_vec,
+            query,
+            tag,
+            limit,
+            include_superseded,
+            ban_after_wrong,
+        ) {
             return hits;
         }
 
@@ -226,7 +240,13 @@ impl SqliteIdeas {
         // BM25 is unaffected — FTS5 indexes the current content directly.
         conditions.push("m.embedding_pending = 0".into());
 
-        apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
+        apply_scope_clause(
+            query,
+            &mut conditions,
+            &mut params,
+            &mut idx,
+            ban_after_wrong,
+        );
 
         let where_clause = conditions.join(" AND ");
         let sql = format!(
@@ -274,6 +294,7 @@ impl SqliteIdeas {
         tag: &str,
         limit: usize,
         include_superseded: bool,
+        ban_after_wrong: Option<i64>,
     ) -> Option<Vec<(String, f32)>> {
         use crate::sqlite::embeddings::vec_extension_ready;
         use crate::vector::vec_to_bytes;
@@ -328,7 +349,13 @@ impl SqliteIdeas {
         // hit against the pre-update vector.
         conditions.push("m.embedding_pending = 0".into());
 
-        apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
+        apply_scope_clause(
+            query,
+            &mut conditions,
+            &mut params,
+            &mut idx,
+            ban_after_wrong,
+        );
 
         let where_clause = conditions.join(" AND ");
         let sql = format!(
@@ -392,6 +419,7 @@ impl SqliteIdeas {
         _tag: &str,
         _limit: usize,
         _include_superseded: bool,
+        _ban_after_wrong: Option<i64>,
     ) -> Option<Vec<(String, f32)>> {
         None
     }
@@ -645,9 +673,28 @@ impl SqliteIdeas {
             // the caller's existing override semantics intact.
             let include_superseded =
                 query.include_superseded || ranker.policy.include_superseded_default == Some(true);
-            let bm25_list =
-                Self::bm25_search_filtered(&conn, query, tag, per_tag_width, include_superseded)
-                    .unwrap_or_default();
+            // T1.13 — per-tag `ban_after_wrong` threshold. The caller's
+            // `include_superseded` flag bypasses the ban filter the same
+            // way it bypasses the supersession filter (operator escape
+            // hatch — both filters represent default-only retrieval
+            // policies). The per-tag default-dial doesn't bypass the ban,
+            // because supersession and accumulated-wrongness are different
+            // signals: a superseded-default tag still wants to ban the
+            // ones that drew too many wrongs.
+            let ban_after_wrong = if query.include_superseded {
+                None
+            } else {
+                ranker.policy.ban_after_wrong
+            };
+            let bm25_list = Self::bm25_search_filtered(
+                &conn,
+                query,
+                tag,
+                per_tag_width,
+                include_superseded,
+                ban_after_wrong,
+            )
+            .unwrap_or_default();
             let vec_list = match query_embedding {
                 Some(qv) => Self::vector_search_filtered(
                     &conn,
@@ -656,6 +703,7 @@ impl SqliteIdeas {
                     tag,
                     per_tag_width,
                     include_superseded,
+                    ban_after_wrong,
                 ),
                 None => Vec::new(),
             };
@@ -862,11 +910,19 @@ impl SqliteIdeas {
 /// Append the visibility / anchor / agent scope clause onto the running
 /// WHERE fragment. Mirrored between BM25 and vector paths so both see the
 /// same corpus.
+///
+/// (T1.13) `ban_after_wrong` carries the per-tag retrieval ban threshold
+/// from the resolved policy. When `Some(N)`, ideas whose denormalised
+/// `wrong_feedback_count >= N` are excluded. Pre-filtered upstream by the
+/// caller's `include_superseded` flag (the operator escape hatch bypasses
+/// the ban filter the same way it bypasses the supersession filter), so
+/// callers pass `None` here when `include_superseded=true`.
 fn apply_scope_clause(
     query: &IdeaQuery,
     conditions: &mut Vec<String>,
     params: &mut Vec<Box<dyn rusqlite::types::ToSql>>,
     idx: &mut usize,
+    ban_after_wrong: Option<i64>,
 ) {
     if let Some(ref anchors) = query.visible_anchor_ids {
         if anchors.is_empty() {
@@ -887,6 +943,14 @@ fn apply_scope_clause(
     } else if let Some(ref agent_id) = query.agent_id {
         conditions.push(format!("m.agent_id = ?{idx}"));
         params.push(Box::new(agent_id.clone()));
+        *idx += 1;
+    }
+
+    // T1.13 — per-tag `ban_after_wrong` threshold. Single column compare
+    // against the trigger-maintained denormalised count on `ideas`.
+    if let Some(threshold) = ban_after_wrong {
+        conditions.push(format!("m.wrong_feedback_count < ?{idx}"));
+        params.push(Box::new(threshold));
         *idx += 1;
     }
 }
@@ -1156,5 +1220,346 @@ mod t1_1_retrieval_tests {
             !ids.iter().any(|id| *id == old_other),
             "rule-tag opt-in must not leak to unrelated-tag retrieval"
         );
+    }
+}
+
+// ── T1.13 retrieval tests ────────────────────────────────────────────
+//
+// Exercise the `ban_after_wrong` per-tag dial. Invariants:
+//   1. No policy declared → behaviour identical to pre-T1.13 (count is
+//      maintained but never consulted).
+//   2. Policy with `ban_after_wrong = N` → ideas whose
+//      `wrong_feedback_count >= N` are excluded from default search.
+//   3. Below the threshold → idea surfaces normally.
+//   4. `IdeaQuery::include_superseded = true` bypasses the ban filter
+//      (operator escape hatch — same semantics as the supersession
+//      filter).
+
+#[cfg(test)]
+mod t1_13_retrieval_tests {
+    use super::SqliteIdeas;
+    use crate::tag_policy::{TagPolicyCache, default_cache};
+    use aeqi_core::traits::{FeedbackMeta, IdeaQuery, IdeaStore};
+    use std::sync::Arc;
+    use tempfile::TempDir;
+
+    fn make_store() -> (SqliteIdeas, TempDir) {
+        let dir = TempDir::new().unwrap();
+        let db_path = dir.path().join("d.db");
+        let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
+        (store, dir)
+    }
+
+    async fn seed_policy(store: &SqliteIdeas, tag: &str, body: &str) {
+        let name = format!("meta:tag-policy:{tag}");
+        store
+            .store(&name, body, &["meta:tag-policy".to_string()], None)
+            .await
+            .unwrap();
+    }
+
+    /// Warm the cache so the synchronous `get_or_default` path used inside
+    /// `apply_scope_clause` sees the policy. Mirrors the production path
+    /// (see `t1_1_retrieval_tests::warm_cache`).
+    async fn warm_cache(cache: &TagPolicyCache, store: &SqliteIdeas, tags: &[&str]) {
+        let owned: Vec<String> = tags.iter().map(|t| t.to_string()).collect();
+        let _ = cache.resolve(store as &dyn IdeaStore, &owned).await;
+    }
+
+    async fn record_wrongs(store: &SqliteIdeas, idea_id: &str, count: usize) {
+        for _ in 0..count {
+            store
+                .record_feedback(
+                    idea_id,
+                    "wrong",
+                    1.0,
+                    FeedbackMeta {
+                        agent_id: None,
+                        session_id: None,
+                        query_text: None,
+                        note: None,
+                    },
+                )
+                .await
+                .unwrap();
+        }
+    }
+
+    /// Test 2 from the plan: trigger increments only on `signal='wrong'`.
+    /// `signal='useful'` must NOT change the count.
+    #[tokio::test]
+    async fn t1_13_trigger_counts_wrong_signal_only() {
+        let (store, _d) = make_store();
+        let id = store
+            .store("first", "body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        record_wrongs(&store, &id, 2).await;
+        // `useful` must be ignored by the trigger.
+        store
+            .record_feedback(
+                &id,
+                "useful",
+                1.0,
+                FeedbackMeta {
+                    agent_id: None,
+                    session_id: None,
+                    query_text: None,
+                    note: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        let count: i64 = store
+            .blocking(move |conn| {
+                conn.query_row(
+                    "SELECT wrong_feedback_count FROM ideas WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| r.get::<_, i64>(0),
+                )
+                .map_err(Into::into)
+            })
+            .await
+            .unwrap();
+        assert_eq!(count, 2, "only `wrong` rows must increment the column");
+    }
+
+    /// Test 3 from the plan: idea with `wrong_feedback_count >= ban_after_wrong`
+    /// is excluded from default search; idea below the threshold surfaces.
+    #[tokio::test]
+    async fn t1_13_ban_filters_at_threshold_and_keeps_below() {
+        let (store, _d) = make_store();
+        seed_policy(
+            &store,
+            "fact",
+            r#"
+            tag = "fact"
+            ban_after_wrong = 3
+        "#,
+        )
+        .await;
+
+        let banned = store
+            .store(
+                "banned-row",
+                "alpha banned body",
+                &["fact".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+        let kept = store
+            .store("kept-row", "alpha kept body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        // banned hits the threshold; kept stays one short of it.
+        record_wrongs(&store, &banned, 3).await;
+        record_wrongs(&store, &kept, 2).await;
+
+        let cache: Arc<TagPolicyCache> = default_cache();
+        warm_cache(&cache, &store, &["fact"]).await;
+
+        let mut q = IdeaQuery::new("alpha", 10);
+        q.tags = vec!["fact".to_string()];
+        let hits = store.search_explained_impl(&q, Some(cache)).await.unwrap();
+        let ids: Vec<&str> = hits.iter().map(|h| h.idea.id.as_str()).collect();
+        assert!(
+            ids.contains(&kept.as_str()),
+            "below-threshold row must surface: {ids:?}"
+        );
+        assert!(
+            !ids.contains(&banned.as_str()),
+            "at-threshold row must be filtered: {ids:?}"
+        );
+    }
+
+    /// Test 4 from the plan: `include_superseded=true` bypasses the ban
+    /// filter, mirroring its existing semantics for the supersession
+    /// filter (operator escape hatch).
+    #[tokio::test]
+    async fn t1_13_include_superseded_bypasses_ban_filter() {
+        let (store, _d) = make_store();
+        seed_policy(
+            &store,
+            "fact",
+            r#"
+            tag = "fact"
+            ban_after_wrong = 2
+        "#,
+        )
+        .await;
+        let id = store
+            .store("banned", "alpha body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        record_wrongs(&store, &id, 5).await;
+
+        let cache: Arc<TagPolicyCache> = default_cache();
+        warm_cache(&cache, &store, &["fact"]).await;
+
+        // Default search → banned.
+        let mut q = IdeaQuery::new("alpha", 10);
+        q.tags = vec!["fact".to_string()];
+        let hits = store
+            .search_explained_impl(&q, Some(cache.clone()))
+            .await
+            .unwrap();
+        assert!(
+            !hits.iter().any(|h| h.idea.id == id),
+            "default search must hide the banned row"
+        );
+
+        // Same query with the escape hatch → row resurfaces.
+        q.include_superseded = true;
+        let hits = store.search_explained_impl(&q, Some(cache)).await.unwrap();
+        assert!(
+            hits.iter().any(|h| h.idea.id == id),
+            "include_superseded=true must bypass the ban filter"
+        );
+    }
+
+    /// Test 1 from the plan: migration v13 backfills `wrong_feedback_count`
+    /// from existing `idea_feedback` rows. Simulate a pre-migration DB by
+    /// opening at v13 (every tempdir DB is fresh-baseline=v13 today), then
+    /// rerun `prepare_schema` to verify idempotency: re-running on a v13+
+    /// DB must NOT double-count the historical rows.
+    #[tokio::test]
+    async fn t1_13_migration_idempotent_does_not_double_count() {
+        let (store, _d) = make_store();
+        let id = store
+            .store("a", "alpha", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        record_wrongs(&store, &id, 3).await;
+
+        // Re-run the schema preparation. The migration table sees v13
+        // already present, the column ALTER is short-circuited by the
+        // PRAGMA check, and the backfill assigns the same count back —
+        // a row that already has 3 stays at 3.
+        let id_clone = id.clone();
+        let count_after: i64 = store
+            .blocking(move |conn| {
+                SqliteIdeas::prepare_schema(conn)?;
+                conn.query_row(
+                    "SELECT wrong_feedback_count FROM ideas WHERE id = ?1",
+                    rusqlite::params![id_clone],
+                    |r| r.get::<_, i64>(0),
+                )
+                .map_err(Into::into)
+            })
+            .await
+            .unwrap();
+        assert_eq!(count_after, 3, "re-running migration must be a no-op");
+    }
+
+    /// Test 1b: simulate a legacy v12 DB and verify the migration v13 path
+    /// (ALTER TABLE + trigger install + backfill) computes the right value
+    /// for ideas that already have feedback rows.
+    ///
+    /// Setup: open a fresh DB, store ideas, manually insert idea_feedback
+    /// rows WITHOUT firing the trigger (we're simulating pre-trigger
+    /// state), then drop the column and the trigger to mimic v12, drop the
+    /// schema_version row to v12, and re-run `prepare_schema` to apply
+    /// migration v13 on this synthetic legacy DB.
+    #[tokio::test]
+    async fn t1_13_migration_backfills_legacy_feedback_rows() {
+        let (store, _d) = make_store();
+        let idea_a = store
+            .store("a", "first body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        let idea_b = store
+            .store("b", "second body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+        let idea_c = store
+            .store("c", "third body", &["fact".to_string()], None)
+            .await
+            .unwrap();
+
+        // Synthesize a v12 DB by dropping v13's artifacts:
+        //   - drop the increment trigger so the synthetic feedback rows we
+        //     insert next don't bump the column.
+        //   - drop the column (idempotent ALTER DROP since SQLite >= 3.35).
+        //   - rewind schema_version to 12 so prepare_schema reapplies v13.
+        let idea_a_for_setup = idea_a.clone();
+        let idea_b_for_setup = idea_b.clone();
+        store
+            .blocking(move |conn| {
+                conn.execute(
+                    "DROP TRIGGER IF EXISTS tr_idea_feedback_wrong_increment",
+                    [],
+                )?;
+                conn.execute("ALTER TABLE ideas DROP COLUMN wrong_feedback_count", [])?;
+                // Stamp the synthetic DB at v12 so the migration runner sees
+                // it as "legacy v12, needs v13" rather than "fresh DB, run
+                // initial_schema". Without a row here the COALESCE(MAX,0)
+                // fallback would re-trigger initial_schema and trip on the
+                // existing tables.
+                conn.execute("DELETE FROM schema_version WHERE version >= 13", [])?;
+                conn.execute(
+                    "INSERT OR IGNORE INTO schema_version (version, applied_at) \
+                     VALUES (12, ?1)",
+                    rusqlite::params![chrono::Utc::now().to_rfc3339()],
+                )?;
+
+                // Insert 3 'wrong' rows for idea_a and 0 for idea_b. Plus a
+                // 'useful' row that must NOT be counted by the backfill.
+                let now = chrono::Utc::now().to_rfc3339();
+                for _ in 0..3 {
+                    conn.execute(
+                        "INSERT INTO idea_feedback (idea_id, signal, weight, at) \
+                         VALUES (?1, 'wrong', 1.0, ?2)",
+                        rusqlite::params![idea_a_for_setup, now],
+                    )?;
+                }
+                conn.execute(
+                    "INSERT INTO idea_feedback (idea_id, signal, weight, at) \
+                     VALUES (?1, 'useful', 1.0, ?2)",
+                    rusqlite::params![idea_b_for_setup, now],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        // Re-apply prepare_schema → migration v13 runs against the
+        // synthetic v12 DB.
+        store
+            .blocking(|conn| {
+                SqliteIdeas::prepare_schema(conn)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        // idea_a should have wrong_feedback_count=3 (3 wrong rows).
+        // idea_b should have 0 (only a 'useful' row).
+        // idea_c should have 0 (no feedback at all).
+        let counts: (i64, i64, i64) = store
+            .blocking(move |conn| {
+                let a: i64 = conn.query_row(
+                    "SELECT wrong_feedback_count FROM ideas WHERE id = ?1",
+                    rusqlite::params![idea_a],
+                    |r| r.get(0),
+                )?;
+                let b: i64 = conn.query_row(
+                    "SELECT wrong_feedback_count FROM ideas WHERE id = ?1",
+                    rusqlite::params![idea_b],
+                    |r| r.get(0),
+                )?;
+                let c: i64 = conn.query_row(
+                    "SELECT wrong_feedback_count FROM ideas WHERE id = ?1",
+                    rusqlite::params![idea_c],
+                    |r| r.get(0),
+                )?;
+                Ok((a, b, c))
+            })
+            .await
+            .unwrap();
+        assert_eq!(counts, (3, 0, 0));
     }
 }

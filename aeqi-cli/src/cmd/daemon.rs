@@ -507,7 +507,8 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 agent_reg.clone(),
                 daemon.default_provider.clone(),
                 daemon.default_model.clone(),
-            );
+            )
+            .await;
 
             let channel_store = Arc::new(aeqi_orchestrator::ChannelStore::new(agent_reg.db()));
 

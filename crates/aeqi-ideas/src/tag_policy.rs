@@ -128,6 +128,17 @@ pub struct TagPolicy {
     /// marker. Per-tool `Tool::max_result_chars()` overrides this default.
     #[serde(default)]
     pub max_result_chars: Option<usize>,
+    /// (T1.13) Threshold for the `wrong_feedback_count` retrieval ban. When
+    /// `Some(N)`, ideas carrying this tag whose `wrong_feedback_count >= N`
+    /// are excluded from default search results — too many "wrong" signals
+    /// have accumulated for the idea to be served. The tightest threshold
+    /// among the merged policies wins (min). `IdeaQuery::include_superseded
+    /// = true` bypasses the ban filter the same way it bypasses the
+    /// supersession filter (operator escape hatch). `None` (default)
+    /// preserves the pre-T1.13 behaviour where the column is maintained
+    /// but never consulted at search time.
+    #[serde(default)]
+    pub ban_after_wrong: Option<i64>,
 }
 
 /// Consolidation threshold config embedded inside a [`TagPolicy`].
@@ -194,6 +205,7 @@ impl Default for TagPolicy {
             validators: None,
             cache_breakpoint: None,
             max_result_chars: None,
+            ban_after_wrong: None,
         }
     }
 }
@@ -298,6 +310,29 @@ impl TagPolicyCache {
             return p.clone();
         }
         TagPolicy::default_for(tag)
+    }
+
+    /// (T1.12a → T1.13) Compute the merged effective `max_result_chars` cap
+    /// across every loaded tag policy. The min wins so a single restrictive
+    /// tag bounds the whole registry default; `None` means no policy
+    /// declared a cap and the registry stays unbounded (per-tool
+    /// `Tool::max_result_chars` opt-ins remain in effect).
+    ///
+    /// Refreshes the cache against `store` if stale, then folds across the
+    /// resolved policies. Used by the daemon to seed
+    /// `ToolRegistry::set_default_max_result_chars` once at startup so the
+    /// substrate hook from T1.12 is actually populated end-to-end.
+    pub async fn merged_default_max_result_chars(
+        &self,
+        store: &dyn aeqi_core::traits::IdeaStore,
+    ) -> Option<usize> {
+        self.refresh_if_stale(store).await;
+        let guard = self.inner.read().await;
+        guard
+            .policies
+            .values()
+            .filter_map(|p| p.max_result_chars)
+            .min()
     }
 
     async fn refresh_if_stale(&self, store: &dyn aeqi_core::traits::IdeaStore) {
@@ -414,6 +449,13 @@ pub struct EffectivePolicy {
     /// means no policy declared a cap (pre-T1.12 behaviour: unbounded
     /// except by `Tool::max_result_chars`).
     pub max_result_chars: Option<usize>,
+    /// (T1.13) Tightest threshold among the merged policies for the
+    /// `wrong_feedback_count` retrieval ban. The minimum wins so a single
+    /// restrictive tag bounds the whole tag-set: an idea is excluded from
+    /// default search when its count crosses the lowest declared cap.
+    /// `None` means no policy declared a threshold (pre-T1.13 behaviour:
+    /// the column exists but no ban fires).
+    pub ban_after_wrong: Option<i64>,
 }
 
 impl Default for EffectivePolicy {
@@ -429,6 +471,7 @@ impl Default for EffectivePolicy {
             validators: Vec::new(),
             cache_breakpoint: false,
             max_result_chars: None,
+            ban_after_wrong: None,
         }
     }
 }
@@ -453,6 +496,7 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         validators: Vec::new(),
         cache_breakpoint: false,
         max_result_chars: None,
+        ban_after_wrong: None,
     };
     let mut saw_non_default_time = false;
 
@@ -527,6 +571,16 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         // the tightest cap binds. Any tag declaring a cap narrows the
         // registry's effective default.
         effective.max_result_chars = match (effective.max_result_chars, policy.max_result_chars) {
+            (None, x) => x,
+            (x, None) => x,
+            (Some(a), Some(b)) => Some(a.min(b)),
+        };
+
+        // T1.13 — `ban_after_wrong` min-merges across overlapping tags so
+        // the tightest threshold binds. Any tag declaring a cap narrows the
+        // search-time ban: an idea crosses the threshold as soon as ANY
+        // contributing policy says it should.
+        effective.ban_after_wrong = match (effective.ban_after_wrong, policy.ban_after_wrong) {
             (None, x) => x,
             (x, None) => x,
             (Some(a), Some(b)) => Some(a.min(b)),
@@ -984,6 +1038,87 @@ mod tests {
         assert_eq!(eff.max_result_chars, Some(2048));
     }
 
+    // ── T1.13 dial tests ───────────────────────────────────────────────
+
+    #[test]
+    fn t1_13_ban_after_wrong_round_trips_alone() {
+        // Independent activation: only `ban_after_wrong` is set on the
+        // policy; every other T1.x dial remains None so this dial activates
+        // in isolation.
+        let body = r#"
+            tag = "fact"
+            ban_after_wrong = 3
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert_eq!(policy.ban_after_wrong, Some(3));
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+        assert!(policy.validators.is_none());
+        assert!(policy.cache_breakpoint.is_none());
+        assert!(policy.max_result_chars.is_none());
+    }
+
+    #[test]
+    fn t1_13_unset_ban_after_wrong_is_none() {
+        let body = r#"
+            tag = "fact"
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert!(policy.ban_after_wrong.is_none());
+    }
+
+    #[test]
+    fn t1_13_merge_policies_takes_min_ban_after_wrong() {
+        // Tightest threshold binds: a policy declaring 3 wins over one
+        // declaring 5 because the lower threshold trips the ban sooner.
+        let a = TagPolicy {
+            tag: "a".into(),
+            ban_after_wrong: Some(5),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ban_after_wrong: Some(3),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.ban_after_wrong, Some(3));
+    }
+
+    #[test]
+    fn t1_13_merge_policies_no_threshold_set_keeps_neutral_effective() {
+        // Baseline preservation: when no policy declares a threshold the
+        // merged value is None, matching the pre-T1.13 behaviour where the
+        // ban filter never fires.
+        let a = TagPolicy {
+            tag: "a".into(),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.ban_after_wrong.is_none());
+    }
+
+    #[test]
+    fn t1_13_merge_policies_one_threshold_one_none_keeps_the_threshold() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            ban_after_wrong: Some(4),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ban_after_wrong: None,
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.ban_after_wrong, Some(4));
+    }
+
     #[test]
     fn merge_policies_uses_non_default_time_context() {
         let a = TagPolicy {
@@ -998,5 +1133,123 @@ mod tests {
         };
         let eff = merge_policies(&[a, b]);
         assert_eq!(eff.time_context, "state");
+    }
+
+    // ── T1.12 follow-up: cache → registry default cap ──────────────────
+    //
+    // The orchestrator wires the merged `max_result_chars` cap into
+    // `ToolRegistry::set_default_max_result_chars` once at startup. The
+    // method below is the substrate-side helper that does the merge across
+    // every loaded policy. These tests pin its behaviour for callers.
+
+    #[tokio::test]
+    async fn t1_12_followup_merged_cap_min_across_loaded_policies() {
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+
+        // Two policy ideas, both declaring `max_result_chars`. Min wins.
+        store
+            .store(
+                "meta:tag-policy:shell",
+                r#"
+                tag = "shell"
+                max_result_chars = 4096
+            "#,
+                &["meta:tag-policy".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+        store
+            .store(
+                "meta:tag-policy:fact",
+                r#"
+                tag = "fact"
+                max_result_chars = 1024
+            "#,
+                &["meta:tag-policy".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let cache = TagPolicyCache::new(60);
+        let merged = cache
+            .merged_default_max_result_chars(&store as &dyn IdeaStore)
+            .await;
+        assert_eq!(merged, Some(1024), "min across declared caps must win");
+    }
+
+    #[tokio::test]
+    async fn t1_12_followup_merged_cap_none_when_no_policy_declares() {
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        store
+            .store(
+                "meta:tag-policy:fact",
+                r#"
+                tag = "fact"
+            "#,
+                &["meta:tag-policy".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let cache = TagPolicyCache::new(60);
+        let merged = cache
+            .merged_default_max_result_chars(&store as &dyn IdeaStore)
+            .await;
+        assert!(
+            merged.is_none(),
+            "no policy declared a cap → merged stays None (pre-T1.12 behaviour)"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_12_followup_merged_cap_ignores_policies_without_field() {
+        // Mixed shape: one policy declares the cap, another doesn't. The
+        // merged result must equal the declared value (the absent one is a
+        // genuine "I don't care", not a vote for unbounded).
+        use crate::sqlite::SqliteIdeas;
+        use aeqi_core::traits::IdeaStore;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        store
+            .store(
+                "meta:tag-policy:shell",
+                r#"
+                tag = "shell"
+                max_result_chars = 2048
+            "#,
+                &["meta:tag-policy".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+        store
+            .store(
+                "meta:tag-policy:fact",
+                r#"
+                tag = "fact"
+            "#,
+                &["meta:tag-policy".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let cache = TagPolicyCache::new(60);
+        let merged = cache
+            .merged_default_max_result_chars(&store as &dyn IdeaStore)
+            .await;
+        assert_eq!(merged, Some(2048));
     }
 }

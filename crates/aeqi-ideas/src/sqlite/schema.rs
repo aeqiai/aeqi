@@ -49,9 +49,9 @@ use rusqlite::Connection;
 
 /// The version stamped on a fresh DB after `initial_schema` runs. Legacy
 /// DBs that ran the old v1..v9 chain carry rows 1..9 and are not re-stamped;
-/// they catch up via the `migrations` table below. The current head is v12
-/// (T1.9 — credential lifecycle substrate).
-const BASELINE_VERSION: i64 = 12;
+/// they catch up via the `migrations` table below. The current head is v13
+/// (T1.13 — denormalised `wrong_feedback_count` column on `ideas`).
+const BASELINE_VERSION: i64 = 13;
 
 impl SqliteIdeas {
     pub fn prepare_schema(conn: &Connection) -> Result<()> {
@@ -101,6 +101,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     let migrations: &[(i64, Migration)] = &[
         (11, migration_v11_entity_edges),
         (12, migration_v12_credentials),
+        (13, migration_v13_wrong_feedback_count),
     ];
     for (version, f) in migrations {
         if *version > current {
@@ -157,7 +158,8 @@ fn initial_schema(conn: &Connection) -> Result<()> {
             embedding_pending INTEGER NOT NULL DEFAULT 1,
             valid_from TEXT,
             valid_until TEXT,
-            time_context TEXT NOT NULL DEFAULT 'timeless'
+            time_context TEXT NOT NULL DEFAULT 'timeless',
+            wrong_feedback_count INTEGER NOT NULL DEFAULT 0
         );",
     )?;
 
@@ -273,6 +275,20 @@ fn initial_schema(conn: &Connection) -> Result<()> {
          CREATE TRIGGER ideas_au AFTER UPDATE ON ideas BEGIN
              INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
              INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
+         END;",
+    )?;
+
+    // T1.13 — denormalised `wrong_feedback_count` increment trigger. Keeps
+    // the column in sync as `idea_feedback` rows with `signal='wrong'` are
+    // inserted, so the search-time `ban_after_wrong` filter can run as a
+    // single column compare instead of a per-row COUNT subquery.
+    conn.execute_batch(
+        "CREATE TRIGGER IF NOT EXISTS tr_idea_feedback_wrong_increment
+         AFTER INSERT ON idea_feedback
+         WHEN NEW.signal = 'wrong'
+         BEGIN
+             UPDATE ideas SET wrong_feedback_count = wrong_feedback_count + 1
+             WHERE id = NEW.idea_id;
          END;",
     )?;
 
@@ -623,5 +639,65 @@ fn migration_v12_credentials(conn: &Connection) -> Result<()> {
             ON credentials(expires_at)
             WHERE expires_at IS NOT NULL;",
     )?;
+    Ok(())
+}
+
+/// T1.13 — denormalised `wrong_feedback_count` column on `ideas`.
+///
+/// Finishes T1.1's deferred `ban_after_wrong` tag-policy dial. Counting
+/// `signal='wrong'` rows from `idea_feedback` per search row was hot-path
+/// expensive, so the count is denormalised onto `ideas` and maintained by an
+/// `AFTER INSERT` trigger on `idea_feedback`.
+///
+/// Three idempotent steps:
+///
+/// 1. Add the column if it doesn't already exist. Existing rows pick up the
+///    `DEFAULT 0` and are caught by the backfill below.
+/// 2. Install (or replace) the increment trigger.
+/// 3. Backfill the column from the historic `idea_feedback` rows. Re-running
+///    is safe — the assignment overwrites with the same value.
+///
+/// Note: the trigger only handles INSERTs. We deliberately do NOT decrement
+/// on DELETE because `idea_feedback` is append-only by convention; if that
+/// ever changes the trigger will need a matching `AFTER DELETE` half.
+fn migration_v13_wrong_feedback_count(conn: &Connection) -> Result<()> {
+    // Step 1 — ALTER TABLE ADD COLUMN, idempotent. SQLite returns a
+    // "duplicate column name" error when the column already exists; we
+    // detect that case via PRAGMA table_info instead of pattern-matching
+    // error strings, since SQLite's error text isn't stable across versions.
+    let column_exists: bool = conn
+        .prepare("PRAGMA table_info(ideas)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|name| name == "wrong_feedback_count");
+    if !column_exists {
+        conn.execute(
+            "ALTER TABLE ideas ADD COLUMN wrong_feedback_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
+    // Step 2 — install the increment trigger. `IF NOT EXISTS` makes this a
+    // no-op on a v13+ DB.
+    conn.execute_batch(
+        "CREATE TRIGGER IF NOT EXISTS tr_idea_feedback_wrong_increment
+         AFTER INSERT ON idea_feedback
+         WHEN NEW.signal = 'wrong'
+         BEGIN
+             UPDATE ideas SET wrong_feedback_count = wrong_feedback_count + 1
+             WHERE id = NEW.idea_id;
+         END;",
+    )?;
+
+    // Step 3 — backfill from the historic feedback table. Re-running this
+    // on a v13+ DB recomputes the same value (idempotent by construction).
+    conn.execute(
+        "UPDATE ideas SET wrong_feedback_count = (
+             SELECT COUNT(*) FROM idea_feedback
+             WHERE idea_id = ideas.id AND signal = 'wrong'
+         )",
+        [],
+    )?;
+
     Ok(())
 }
