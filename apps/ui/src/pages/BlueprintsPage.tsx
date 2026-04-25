@@ -9,16 +9,16 @@ import { Spinner } from "@/components/ui";
 import "@/styles/templates.css";
 
 /**
- * /library — the front door of æqi. A user picks a company template
+ * /blueprints — the front door of æqi. A user picks a company blueprint
  * and within seconds is inside a fully-threaded runtime (seed agents,
  * events, ideas, quests already alive). Grid + card rendering lives in
  * `<TemplateGallery>`; this page is the data + spawn-modal shell.
  *
- * Renamed from /templates — same data underneath, but the surface
- * stops being framed as "just templates" and starts being framed as
- * the catalog the runtime grows into (skills, packs, workflows, future
- * distributable content). For now this is the company-template gallery;
- * over time it grows into the proper store.
+ * Renamed: /templates → /library → /blueprints. Same data underneath,
+ * but the surface stops being framed as just "templates" or "library"
+ * and gets framed as the architectural plans the runtime spawns from.
+ * Over time this grows into the proper store (skills, packs, workflows,
+ * future distributable blueprints).
  *
  * Data flow:
  *   - On mount, try `GET /api/templates`. On any failure, fall back to
@@ -27,7 +27,7 @@ import "@/styles/templates.css";
  *     gallery preview for that slug. After close, the param is stripped
  *     from the URL so the preview doesn't re-open on state changes.
  */
-export default function LibraryPage() {
+export default function BlueprintsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -37,7 +37,7 @@ export default function LibraryPage() {
   const [modalTemplate, setModalTemplate] = useState<CompanyTemplate | null>(null);
 
   useEffect(() => {
-    document.title = "library · æqi";
+    document.title = "blueprints · æqi";
   }, []);
 
   // Fetch catalog. On any failure, fall back to the fixture catalog so we

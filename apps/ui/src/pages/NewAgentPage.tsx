@@ -140,7 +140,7 @@ function RootForm({
       <div className="new-co-container new-co-animate">
         <BackLink onClick={() => navigate("/")} label="Back" />
 
-        <button type="button" className="tpl-promo-card" onClick={() => navigate("/library")}>
+        <button type="button" className="tpl-promo-card" onClick={() => navigate("/blueprints")}>
           <span className="tpl-promo-icon" aria-hidden="true">
             <TemplateGridIcon />
           </span>

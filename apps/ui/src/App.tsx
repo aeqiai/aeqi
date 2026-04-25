@@ -15,8 +15,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 // App pages -- lazy-loaded for route-level code splitting
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
-const LibraryPage = lazy(() => import("@/pages/LibraryPage"));
-const ProtocolPage = lazy(() => import("@/pages/ProtocolPage"));
+const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
+const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 
 const LoadingSpinner = () => (
@@ -95,10 +95,12 @@ export default function App() {
                 <Routes>
                   {/* User-level routes */}
                   <Route path="new" element={<NewAgentPage />} />
-                  <Route path="library" element={<LibraryPage />} />
-                  <Route path="protocol" element={<ProtocolPage />} />
-                  {/* /templates → /library — old links keep working */}
-                  <Route path="templates" element={<Navigate to="/library" replace />} />
+                  <Route path="blueprints" element={<BlueprintsPage />} />
+                  <Route path="economy" element={<EconomyPage />} />
+                  {/* Back-compat redirects: old links keep working */}
+                  <Route path="library" element={<Navigate to="/blueprints" replace />} />
+                  <Route path="protocol" element={<Navigate to="/economy" replace />} />
+                  <Route path="templates" element={<Navigate to="/blueprints" replace />} />
                   <Route path="agents" element={<AgentsPage />} />
 
                   {/* Account-action routes — auth-style standalone pages

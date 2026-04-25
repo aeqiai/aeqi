@@ -53,21 +53,22 @@ const InboxIcon = () => (
   </svg>
 );
 
-/* Library: a row of book spines on a shelf — the catalog as standing
- * volumes. Same stroke weight as InboxIcon so the rail reads evenly. */
-const LibraryIcon = () => (
+/* Blueprints: a 4×4 grid in a frame — architectural plan paper.
+ * Reads as "specs / drawings the runtime spawns from". Same stroke
+ * weight as InboxIcon so the rail keeps even visual rhythm. */
+const BlueprintsIcon = () => (
   <svg {...iconProps}>
-    <path d="M3 3v9.5M6 3v9.5M9 3v9.5M12 3v9.5" />
-    <path d="M2.5 13h11" />
+    <rect x="2.5" y="2.5" width="11" height="11" rx="0.5" />
+    <path d="M2.5 6h11M2.5 9.5h11M6 2.5v11M9.5 2.5v11" />
   </svg>
 );
 
-/* Protocol: two horizontal arrows in opposite directions — the
- * inbound/outbound exchange aeqi speaks. Matches Inbox stroke weight. */
-const ProtocolIcon = () => (
+/* Economy: a slot-coin glyph (circle with a horizontal slit). Reads
+ * as currency / value without leaning on a culturally-loaded $ mark. */
+const EconomyIcon = () => (
   <svg {...iconProps}>
-    <path d="M2 5h9m-2-2 2 2-2 2" />
-    <path d="M14 11H5l2-2m-2 2 2 2" />
+    <circle cx="8" cy="8" r="5.5" />
+    <path d="M5.5 8h5" />
   </svg>
 );
 
@@ -236,28 +237,28 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <span className="sidebar-nav-label">Inbox</span>
         </a>
         <a
-          className={`sidebar-nav-item ${path === "/library" || path.startsWith("/library/") ? "active" : ""}`}
-          href="/library"
-          title="Library"
+          className={`sidebar-nav-item ${path === "/blueprints" || path.startsWith("/blueprints/") ? "active" : ""}`}
+          href="/blueprints"
+          title="Blueprints"
           onClick={(e) => {
             e.preventDefault();
-            navigate("/library");
+            navigate("/blueprints");
           }}
         >
-          <LibraryIcon />
-          <span className="sidebar-nav-label">Library</span>
+          <BlueprintsIcon />
+          <span className="sidebar-nav-label">Blueprints</span>
         </a>
         <a
-          className={`sidebar-nav-item ${path === "/protocol" || path.startsWith("/protocol/") ? "active" : ""}`}
-          href="/protocol"
-          title="Protocol"
+          className={`sidebar-nav-item ${path === "/economy" || path.startsWith("/economy/") ? "active" : ""}`}
+          href="/economy"
+          title="Economy"
           onClick={(e) => {
             e.preventDefault();
-            navigate("/protocol");
+            navigate("/economy");
           }}
         >
-          <ProtocolIcon />
-          <span className="sidebar-nav-label">Protocol</span>
+          <EconomyIcon />
+          <span className="sidebar-nav-label">Economy</span>
         </a>
       </div>
 
