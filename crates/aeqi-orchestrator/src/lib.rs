@@ -30,6 +30,7 @@ pub mod gateway_manager;
 pub mod hook;
 pub mod idea_assembly;
 pub mod ipc;
+pub mod mcp_bootstrap;
 pub mod message_router;
 pub mod metrics;
 pub mod middleware;

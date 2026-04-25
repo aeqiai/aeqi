@@ -153,6 +153,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "aeqi-mcp"
+version = "0.10.0"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "aeqi-orchestrator"
 version = "0.10.0"
 dependencies = [
@@ -160,6 +181,7 @@ dependencies = [
  "aeqi-gates",
  "aeqi-graph",
  "aeqi-ideas",
+ "aeqi-mcp",
  "aeqi-pack-google-workspace",
  "aeqi-providers",
  "aeqi-quests",
