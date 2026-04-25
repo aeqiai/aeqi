@@ -557,6 +557,7 @@ timeout: 5000";
             agent_id: "a1",
             project_name: "test",
             latest_tool_call: None,
+            last_assistant_message: None,
         }
     }
 
@@ -577,6 +578,7 @@ timeout: 5000";
             agent_id: "a1",
             project_name: "test",
             latest_tool_call: Some(&record),
+            last_assistant_message: None,
         };
         // Tool call slot — shell hooks must not fire.
         assert!(d.detect(&ctx).await.is_empty());

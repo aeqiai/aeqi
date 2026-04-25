@@ -156,6 +156,24 @@ pub trait Tool: Send + Sync {
         None
     }
 
+    /// (T1.12a) Maximum **in-context** result size in characters before
+    /// `ToolRegistry::invoke` truncates the output sent back to callers
+    /// (e.g. an LLM tool_result message, an event tool_call output reference).
+    ///
+    /// `None` disables per-tool truncation. When the registry has a
+    /// tag-policy default configured, that default applies for tools that
+    /// don't override.
+    ///
+    /// Returning `Some(n)`: outputs longer than `n` chars are truncated to
+    /// `n` chars and the marker
+    /// `[truncated; full result available via tool_invocation_id=<id>]`
+    /// is appended. The full original output is preserved on
+    /// `ToolResult.data._full_output` so the persistence layer can record
+    /// the un-truncated text into `event_invocations.event_invocation_steps`.
+    fn max_result_chars(&self) -> Option<usize> {
+        None
+    }
+
     /// Human-readable activity description for spinner/status display.
     /// e.g., "Reading src/main.rs", "Searching for pattern".
     fn activity_description(&self, _input: &serde_json::Value) -> Option<String> {

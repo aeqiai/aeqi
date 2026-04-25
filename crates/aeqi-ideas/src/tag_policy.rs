@@ -118,6 +118,16 @@ pub struct TagPolicy {
     /// overlapping tags is OR — any tag voting yes pins the segment.
     #[serde(default)]
     pub cache_breakpoint: Option<bool>,
+    /// (T1.12a) Per-tag default cap on the in-context size of a tool's
+    /// result, in characters. The tightest cap among the merged policies
+    /// wins (min). `None` (default) preserves the pre-T1.12 behaviour
+    /// where tool results flow back to callers unbounded except by the
+    /// tool's own `Tool::max_result_chars()` opt-in. The orchestrator
+    /// pipes the merged cap into `ToolRegistry::set_default_max_result_chars`
+    /// so the registry truncates oversized outputs with a recoverable
+    /// marker. Per-tool `Tool::max_result_chars()` overrides this default.
+    #[serde(default)]
+    pub max_result_chars: Option<usize>,
 }
 
 /// Consolidation threshold config embedded inside a [`TagPolicy`].
@@ -183,6 +193,7 @@ impl Default for TagPolicy {
             include_superseded_default: None,
             validators: None,
             cache_breakpoint: None,
+            max_result_chars: None,
         }
     }
 }
@@ -397,6 +408,12 @@ pub struct EffectivePolicy {
     /// `false` when no policy opts in (or every policy opts out), preserving
     /// the pre-T1.11 behaviour where no cache breakpoints are emitted.
     pub cache_breakpoint: bool,
+    /// (T1.12a) Tightest per-tag cap on a tool's in-context result size, in
+    /// characters. The minimum across merged policies wins so a single
+    /// restrictive tag bounds the registry's effective default. `None`
+    /// means no policy declared a cap (pre-T1.12 behaviour: unbounded
+    /// except by `Tool::max_result_chars`).
+    pub max_result_chars: Option<usize>,
 }
 
 impl Default for EffectivePolicy {
@@ -411,6 +428,7 @@ impl Default for EffectivePolicy {
             include_superseded_default: false,
             validators: Vec::new(),
             cache_breakpoint: false,
+            max_result_chars: None,
         }
     }
 }
@@ -434,6 +452,7 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         include_superseded_default: false,
         validators: Vec::new(),
         cache_breakpoint: false,
+        max_result_chars: None,
     };
     let mut saw_non_default_time = false;
 
@@ -503,6 +522,15 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         if policy.cache_breakpoint == Some(true) {
             effective.cache_breakpoint = true;
         }
+
+        // T1.12a — `max_result_chars` min-merges across overlapping tags so
+        // the tightest cap binds. Any tag declaring a cap narrows the
+        // registry's effective default.
+        effective.max_result_chars = match (effective.max_result_chars, policy.max_result_chars) {
+            (None, x) => x,
+            (x, None) => x,
+            (Some(a), Some(b)) => Some(a.min(b)),
+        };
     }
 
     effective
@@ -875,6 +903,85 @@ mod tests {
         };
         let eff = merge_policies(&[a, b]);
         assert!(!eff.cache_breakpoint);
+    }
+
+    // ── T1.12a dial tests ──────────────────────────────────────────────
+
+    #[test]
+    fn t1_12a_max_result_chars_round_trips_alone() {
+        // Independent activation: only `max_result_chars` is set on the
+        // policy; every other T1.x dial remains None so this dial activates
+        // in isolation.
+        let body = r#"
+            tag = "shell"
+            max_result_chars = 4096
+        "#;
+        let policy = TagPolicy::from_toml(body, "shell").unwrap();
+        assert_eq!(policy.max_result_chars, Some(4096));
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+        assert!(policy.validators.is_none());
+        assert!(policy.cache_breakpoint.is_none());
+    }
+
+    #[test]
+    fn t1_12a_unset_max_result_chars_is_none() {
+        let body = r#"
+            tag = "fact"
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert!(policy.max_result_chars.is_none());
+    }
+
+    #[test]
+    fn t1_12a_merge_policies_takes_min_max_result_chars() {
+        // Tightest cap binds: a policy declaring 1024 wins over one declaring
+        // 4096 because the tighter bound protects context budget.
+        let a = TagPolicy {
+            tag: "a".into(),
+            max_result_chars: Some(4096),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            max_result_chars: Some(1024),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.max_result_chars, Some(1024));
+    }
+
+    #[test]
+    fn t1_12a_merge_policies_no_cap_set_keeps_neutral_effective() {
+        // Baseline preservation: when no policy declares a cap the merged
+        // value is None, matching the pre-T1.12 unbounded behaviour.
+        let a = TagPolicy {
+            tag: "a".into(),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.max_result_chars.is_none());
+    }
+
+    #[test]
+    fn t1_12a_merge_policies_one_cap_one_none_keeps_the_cap() {
+        let a = TagPolicy {
+            tag: "a".into(),
+            max_result_chars: Some(2048),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            max_result_chars: None,
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert_eq!(eff.max_result_chars, Some(2048));
     }
 
     #[test]

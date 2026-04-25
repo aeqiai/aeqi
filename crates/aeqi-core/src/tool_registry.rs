@@ -157,6 +157,11 @@ pub struct ToolRegistry {
     llm_only: HashSet<String>,
     /// Tools that can only be called by events (event-fired), not by the LLM.
     event_only: HashSet<String>,
+    /// (T1.12a) Tag-policy-derived default cap on in-context result size, in
+    /// chars. Applies when a tool returns `None` from `max_result_chars()`.
+    /// Wired by the orchestrator from the merged `EffectivePolicy`. `None`
+    /// (default) preserves the pre-T1.12 unbounded behaviour.
+    default_max_result_chars: Option<usize>,
 }
 
 impl ToolRegistry {
@@ -171,7 +176,20 @@ impl ToolRegistry {
             tools: map,
             llm_only: HashSet::new(),
             event_only: HashSet::new(),
+            default_max_result_chars: None,
         }
+    }
+
+    /// (T1.12a) Set the registry-wide default cap on in-context result size.
+    /// Applies to tools that return `None` from `max_result_chars()`.
+    /// Pass `None` to disable the default (pre-T1.12 behaviour).
+    pub fn set_default_max_result_chars(&mut self, cap: Option<usize>) {
+        self.default_max_result_chars = cap;
+    }
+
+    /// Read the registry-wide default cap on in-context result size.
+    pub fn default_max_result_chars(&self) -> Option<usize> {
+        self.default_max_result_chars
     }
 
     /// Mark a tool as LLM-only (events and system callers are denied).
@@ -251,7 +269,8 @@ impl ToolRegistry {
 
         let needs = tool.required_credentials();
         if needs.is_empty() {
-            return tool.execute(args).await;
+            let result = tool.execute(args).await?;
+            return Ok(self.maybe_truncate_result(tool.as_ref(), result));
         }
 
         let resolver = match ctx.credential_resolver.as_ref() {
@@ -261,7 +280,8 @@ impl ToolRegistry {
                 // a vector of `None`s. Required-but-absent treatment is up
                 // to the tool's `execute_with_credentials`.
                 let none_vec = needs.iter().map(|_| None).collect::<Vec<_>>();
-                return tool.execute_with_credentials(args, none_vec).await;
+                let result = tool.execute_with_credentials(args, none_vec).await?;
+                return Ok(self.maybe_truncate_result(tool.as_ref(), result));
             }
         };
 
@@ -334,10 +354,77 @@ impl ToolRegistry {
                     *slot = Some(refreshed.clone());
                 }
             }
-            return tool.execute_with_credentials(args, resolved).await;
+            let retried = tool.execute_with_credentials(args, resolved).await?;
+            return Ok(self.maybe_truncate_result(tool.as_ref(), retried));
         }
 
-        Ok(result)
+        Ok(self.maybe_truncate_result(tool.as_ref(), result))
+    }
+
+    /// (T1.12a) Apply per-tool / tag-policy max_result_chars truncation to a
+    /// fresh `ToolResult`. The full original output is stashed under
+    /// `data._full_output` so persistence layers can still record the
+    /// un-truncated content into `event_invocations`. The marker shape is
+    /// `[truncated; full result available via tool_invocation_id=<id>]`
+    /// where `<id>` is a freshly-minted UUID; callers that persist the
+    /// truncation event log this id alongside the full output for retrieval.
+    ///
+    /// `tool.max_result_chars()` overrides the registry-level
+    /// `default_max_result_chars`. `None` from both disables truncation.
+    fn maybe_truncate_result(&self, tool: &dyn Tool, mut result: ToolResult) -> ToolResult {
+        let cap = tool.max_result_chars().or(self.default_max_result_chars);
+        let Some(cap) = cap else {
+            return result;
+        };
+        if result.output.len() <= cap {
+            return result;
+        }
+        // Honour char boundaries so we don't slice a multi-byte UTF-8 sequence.
+        let mut end = cap.min(result.output.len());
+        while end > 0 && !result.output.is_char_boundary(end) {
+            end -= 1;
+        }
+        let invocation_id = uuid::Uuid::new_v4();
+        let full = std::mem::take(&mut result.output);
+        let mut truncated = String::with_capacity(end + 96);
+        truncated.push_str(&full[..end]);
+        truncated.push_str(&format!(
+            "\n[truncated; full result available via tool_invocation_id={invocation_id}]"
+        ));
+        result.output = truncated;
+        // Stash the full original for downstream persistence. We extend
+        // existing object data when present; otherwise build a fresh map.
+        match &mut result.data {
+            serde_json::Value::Object(map) => {
+                map.insert("_full_output".to_string(), serde_json::Value::String(full));
+                map.insert(
+                    "_tool_invocation_id".to_string(),
+                    serde_json::Value::String(invocation_id.to_string()),
+                );
+            }
+            _ => {
+                let mut map = serde_json::Map::new();
+                map.insert("_full_output".to_string(), serde_json::Value::String(full));
+                map.insert(
+                    "_tool_invocation_id".to_string(),
+                    serde_json::Value::String(invocation_id.to_string()),
+                );
+                result.data = serde_json::Value::Object(map);
+            }
+        }
+        info!(
+            tool = %tool.name(),
+            tool_invocation_id = %invocation_id,
+            cap,
+            full_len = result
+                .data
+                .get("_full_output")
+                .and_then(|v| v.as_str())
+                .map(|s| s.len())
+                .unwrap_or(0),
+            "tool result truncated; full output preserved on data._full_output"
+        );
+        result
     }
 
     /// Whether the named tool's `output` is context (e.g. `ideas.assemble`)
@@ -402,6 +489,33 @@ mod tests {
         }
         fn name(&self) -> &str {
             &self.name
+        }
+    }
+
+    /// Returns a fixed-size `output` so we can verify truncation cleanly.
+    struct OversizedTool {
+        name: String,
+        size: usize,
+        per_tool_cap: Option<usize>,
+    }
+
+    #[async_trait]
+    impl Tool for OversizedTool {
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::success("a".repeat(self.size)))
+        }
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: self.name.clone(),
+                description: "oversized tool".into(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }
+        }
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn max_result_chars(&self) -> Option<usize> {
+            self.per_tool_cap
         }
     }
 
@@ -531,6 +645,154 @@ mod tests {
                 "invoke_pattern must return false (no event store) for {pattern}"
             );
         }
+    }
+
+    // ── T1.12a max_result_chars truncation ─────────────────────────────────
+
+    /// Test 1: tool returning oversized result with a tight per-tool cap →
+    /// in-context output is truncated and the marker is appended; the full
+    /// original output is preserved on `data._full_output` so the
+    /// persistence layer can record the un-truncated text.
+    #[tokio::test]
+    async fn t1_12a_per_tool_cap_truncates_with_marker_and_preserves_full() {
+        let tool = Arc::new(OversizedTool {
+            name: "big".into(),
+            size: 10_000,
+            per_tool_cap: Some(512),
+        });
+        let reg = ToolRegistry::new(vec![tool]);
+        let ctx = ExecutionContext::test("s", "a");
+
+        let res = reg
+            .invoke("big", serde_json::json!({}), CallerKind::System, &ctx)
+            .await
+            .unwrap();
+
+        // First 512 chars are kept verbatim, then the marker is appended.
+        assert!(
+            res.output.starts_with(&"a".repeat(512)),
+            "first 512 chars must survive truncation, got: {}",
+            &res.output[..res.output.len().min(40)]
+        );
+        assert!(
+            res.output
+                .contains("[truncated; full result available via tool_invocation_id="),
+            "marker must be appended; got: {}",
+            &res.output[res.output.len().saturating_sub(120)..]
+        );
+        // Marker shape is recoverable: ends with `=<id>]`.
+        assert!(res.output.trim_end().ends_with(']'));
+        // Full original is preserved on data._full_output for persistence.
+        let full = res
+            .data
+            .get("_full_output")
+            .and_then(|v| v.as_str())
+            .expect("_full_output must be present on truncated result");
+        assert_eq!(full.len(), 10_000);
+        // The invocation id is also exposed for log correlation.
+        assert!(
+            res.data
+                .get("_tool_invocation_id")
+                .and_then(|v| v.as_str())
+                .is_some()
+        );
+    }
+
+    /// Test 2: a tool that does NOT override `max_result_chars` and a
+    /// registry without a default cap → no truncation, no marker, no
+    /// `_full_output` side channel.
+    #[tokio::test]
+    async fn t1_12a_no_cap_means_no_truncation() {
+        let tool = Arc::new(OversizedTool {
+            name: "big".into(),
+            size: 10_000,
+            per_tool_cap: None,
+        });
+        let reg = ToolRegistry::new(vec![tool]);
+        let ctx = ExecutionContext::test("s", "a");
+
+        let res = reg
+            .invoke("big", serde_json::json!({}), CallerKind::System, &ctx)
+            .await
+            .unwrap();
+        assert_eq!(res.output.len(), 10_000);
+        assert!(!res.output.contains("[truncated"));
+        assert!(res.data.is_null());
+    }
+
+    /// Test 3: tag-policy default applies when the tool doesn't override.
+    /// The registry's `set_default_max_result_chars` represents the merged
+    /// effective policy from `tag_policy.rs`; a tool returning `None`
+    /// inherits this cap.
+    #[tokio::test]
+    async fn t1_12a_registry_default_applies_when_tool_does_not_override() {
+        let tool = Arc::new(OversizedTool {
+            name: "big".into(),
+            size: 10_000,
+            per_tool_cap: None,
+        });
+        let mut reg = ToolRegistry::new(vec![tool]);
+        reg.set_default_max_result_chars(Some(1024));
+        let ctx = ExecutionContext::test("s", "a");
+
+        let res = reg
+            .invoke("big", serde_json::json!({}), CallerKind::System, &ctx)
+            .await
+            .unwrap();
+        assert!(res.output.len() < 10_000, "output must be truncated");
+        assert!(res.output.starts_with(&"a".repeat(1024)));
+        assert!(
+            res.output
+                .contains("[truncated; full result available via tool_invocation_id=")
+        );
+        assert_eq!(
+            res.data
+                .get("_full_output")
+                .and_then(|v| v.as_str())
+                .map(|s| s.len()),
+            Some(10_000)
+        );
+    }
+
+    /// Test 4: per-tool override beats the registry default. Tool says
+    /// 2048 chars; registry default is 1024 → the tool's looser cap applies
+    /// (2048).
+    #[tokio::test]
+    async fn t1_12a_tool_override_beats_registry_default() {
+        let tool = Arc::new(OversizedTool {
+            name: "big".into(),
+            size: 10_000,
+            per_tool_cap: Some(2048),
+        });
+        let mut reg = ToolRegistry::new(vec![tool]);
+        reg.set_default_max_result_chars(Some(1024));
+        let ctx = ExecutionContext::test("s", "a");
+
+        let res = reg
+            .invoke("big", serde_json::json!({}), CallerKind::System, &ctx)
+            .await
+            .unwrap();
+        assert!(res.output.starts_with(&"a".repeat(2048)));
+        // The 1025th char must still be present (proving the registry
+        // default of 1024 did NOT bind). The marker portion of `output`
+        // may contain hex 'a's from the UUID, so split at the marker
+        // boundary before counting.
+        let marker_idx = res
+            .output
+            .find("\n[truncated;")
+            .expect("truncation marker must be present");
+        assert_eq!(
+            res.output[..marker_idx]
+                .chars()
+                .filter(|c| *c == 'a')
+                .count(),
+            2048,
+            "exactly 2048 'a' chars must precede the marker (per-tool cap binds, not 1024 default)"
+        );
+        assert!(
+            res.output
+                .contains("[truncated; full result available via tool_invocation_id=")
+        );
     }
 
     #[test]

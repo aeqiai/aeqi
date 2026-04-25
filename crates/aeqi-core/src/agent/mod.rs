@@ -1281,6 +1281,11 @@ impl Agent {
                         agent_id: self.config.agent_id.as_deref().unwrap_or(&self.config.name),
                         project_name: &self.config.project_name,
                         latest_tool_call: None,
+                        // T1.12b: surface the assistant's final message so
+                        // completion-guard detectors can scan it for
+                        // premature-completion phrases without re-walking
+                        // the transcript.
+                        last_assistant_message: Some(final_text.as_str()),
                     };
                     self.run_detectors(&ctx).await;
                 }
@@ -1503,6 +1508,7 @@ impl Agent {
                                     .unwrap_or(&self.config.name),
                                 project_name: &self.config.project_name,
                                 latest_tool_call: Some(&record),
+                                last_assistant_message: None,
                             };
                             self.run_detectors(&ctx).await;
                         }
@@ -2393,6 +2399,7 @@ mod tests {
             agent_id: "agent-1",
             project_name: "test-project",
             latest_tool_call: Some(&record),
+            last_assistant_message: None,
         };
 
         let fired = agent.run_detectors_test(&ctx).await;
