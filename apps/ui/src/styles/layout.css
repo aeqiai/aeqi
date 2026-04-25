@@ -524,6 +524,11 @@
 }
 .sidebar-nav-label {
   flex: 1;
+  /* line-height: 1 collapses the label's line-box to its font-size so
+     the glyph baseline sits in geometric center next to the 16px icon.
+     Without this, the inherited 1.4-1.5 line-height adds asymmetric
+     padding above the text and the row reads top-heavy. */
+  line-height: 1;
 }
 
 /* ── Footer profile identity — stacked name + email.
