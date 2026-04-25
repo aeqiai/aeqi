@@ -4,6 +4,7 @@ import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Spinner } from "@/components/ui";
 import AppLayout from "@/components/AppLayout";
+import PublicLayout from "@/components/PublicLayout";
 
 // Auth pages -- loaded eagerly since they gate entry
 import LoginPage from "@/pages/LoginPage";
@@ -16,6 +17,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
+const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
+const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -59,6 +62,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Wrapper for the two public-app surfaces (`/blueprints`, `/economy`).
+ * Authed visitors see the full AppLayout dispatch (the page renders
+ * inside the agent shell, with the rail's nav items already pointing
+ * here). Unauthed visitors see PublicLayout — same shell silhouette,
+ * brand wordmark in the corner, only Blueprints/Economy on the rail,
+ * Sign up / Log in CTAs pinned below.
+ */
+function PublicOrAppShell({ publicPage }: { publicPage: React.ReactNode }) {
+  const authMode = useAuthStore((s) => s.authMode);
+  const token = useAuthStore((s) => s.token);
+  const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
+
+  useEffect(() => {
+    fetchAuthMode();
+  }, [fetchAuthMode]);
+
+  if (!authMode) return <LoadingSpinner />;
+  // Authed (or no-auth daemon) — defer to the full shell, which
+  // dispatches BlueprintsPage / EconomyPage from the URL itself.
+  if (authMode === "none" || token) return <AppLayout />;
+  return <PublicLayout>{publicPage}</PublicLayout>;
+}
+
 // `/` always lands on the user-scoped home dashboard. We used to auto-bounce
 // to the last-visited company via localStorage; that made it impossible to
 // actually see the home view once a root was in scope, so the bounce is gone.
@@ -85,6 +112,22 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+          {/* Public app surfaces — Blueprints (the runtime catalog) and
+              Economy (coming-soon skeleton). Both are reachable without
+              auth via PublicLayout; authed visitors fall through to
+              AppLayout, which dispatches the same pages inside the
+              full shell. */}
+          <Route
+            path="/blueprints"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route path="/economy" element={<PublicOrAppShell publicPage={<EconomyPage />} />} />
+          {/* Legacy public-surface aliases — kept here so unauthed
+              visitors don't bounce through the protected shell. */}
+          <Route path="/library" element={<Navigate to="/blueprints" replace />} />
+          <Route path="/protocol" element={<Navigate to="/economy" replace />} />
+          <Route path="/templates" element={<Navigate to="/blueprints" replace />} />
+
           {/* Protected routes */}
           <Route
             path="/*"
@@ -97,16 +140,16 @@ export default function App() {
                   <Route path="agents" element={<AgentsPage />} />
                   <Route path="change-password" element={<ChangePasswordPage />} />
 
-                  {/* Home dashboard + profile + blueprints + economy + every
-                      agent at /:agentId/... share the same shell — AppLayout
-                      decides content from path + params. User-scoped routes
-                      are registered before :agentId so react-router prefers
-                      the literal match. */}
+                  {/* Home dashboard + profile + every agent at
+                      /:agentId/... share the same shell — AppLayout
+                      decides content from path + params. /blueprints
+                      and /economy are routed publicly above and never
+                      enter the protected branch. User-scoped routes
+                      are registered before :agentId so react-router
+                      prefers the literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="settings" element={null} />
-                    <Route path="blueprints" element={null} />
-                    <Route path="economy" element={null} />
                     {/* User-scope inbox session viewer: opens a single
                         awaiting session inline at user scope, with the
                         sessions rail showing all pending items across
@@ -114,13 +157,9 @@ export default function App() {
                         is resolved from the inbox item by session_id,
                         not from the URL. */}
                     <Route path="sessions/:sessionId" element={null} />
-                    {/* Legacy redirects: /profile → /settings, /library →
-                        /blueprints, /protocol → /economy, /templates →
-                        /blueprints. Old links / bookmarks don't dead-end. */}
+                    {/* /profile is a per-user alias for /settings; old
+                        links / bookmarks don't dead-end. */}
                     <Route path="profile" element={<Navigate to="/settings" replace />} />
-                    <Route path="library" element={<Navigate to="/blueprints" replace />} />
-                    <Route path="protocol" element={<Navigate to="/economy" replace />} />
-                    <Route path="templates" element={<Navigate to="/blueprints" replace />} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />
