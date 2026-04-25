@@ -12,6 +12,7 @@
 //! `handle_answer_inbox` — and verifies they assemble a coherent end-to-end
 //! flow with tenancy enforcement on top of the unit-tested primitives.
 
+use aeqi_orchestrator::ipc::agents::handle_set_can_ask_director;
 use aeqi_orchestrator::ipc::inbox::{handle_answer_inbox, handle_inbox};
 use aeqi_orchestrator::queue_executor::QueuedMessage;
 use aeqi_test_support::TestHarness;
@@ -258,6 +259,64 @@ async fn user_reply_payload_decoded_for_agent_loop() {
     assert_eq!(
         claimed[0].content, "the actual user words",
         "the agent loop must see clean text, not the QueuedMessage JSON envelope"
+    );
+}
+
+/// `handle_set_can_ask_director` flips the column on the agent row. Read
+/// it back via the registry and verify the bit is set.
+#[tokio::test]
+async fn set_can_ask_director_toggles_capability() {
+    let h = TestHarness::build().await.unwrap();
+    let agent_id = h.spawn_agent("alpha").await.unwrap();
+
+    // Default is off.
+    let before = h.registry().get(&agent_id).await.unwrap().unwrap();
+    assert!(
+        !before.can_ask_director,
+        "fresh agent should not have can_ask_director set"
+    );
+
+    let resp = handle_set_can_ask_director(
+        &h.ctx(),
+        &serde_json::json!({ "agent_id": agent_id, "value": true }),
+        &None,
+    )
+    .await;
+    assert_eq!(resp["ok"], serde_json::json!(true));
+
+    let after = h.registry().get(&agent_id).await.unwrap().unwrap();
+    assert!(
+        after.can_ask_director,
+        "after handler call, can_ask_director should be true"
+    );
+}
+
+/// Tenancy gate on the toggle handler: a caller whose allow-list points at
+/// a different root cannot flip the bit.
+#[tokio::test]
+async fn set_can_ask_director_tenancy_blocks() {
+    let h = TestHarness::build().await.unwrap();
+    let agent_id = h.spawn_agent("alpha").await.unwrap();
+
+    let allowed = Some(vec!["beta".to_string()]);
+    let resp = handle_set_can_ask_director(
+        &h.ctx(),
+        &serde_json::json!({ "agent_id": agent_id, "value": true }),
+        &allowed,
+    )
+    .await;
+    assert_eq!(resp["ok"], serde_json::json!(false));
+    assert_eq!(
+        resp["error"].as_str().unwrap_or_default(),
+        "access denied",
+        "expected access-denied, got: {resp:?}"
+    );
+
+    // And the bit didn't move.
+    let after = h.registry().get(&agent_id).await.unwrap().unwrap();
+    assert!(
+        !after.can_ask_director,
+        "blocked call must not flip the column"
     );
 }
 

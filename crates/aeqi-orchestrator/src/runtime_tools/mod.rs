@@ -108,10 +108,12 @@ pub fn build_runtime_registry_full(
         Arc::new(TranscriptInjectTool::new(session_store.clone())),
         Arc::new(TranscriptReplaceMiddleTool::new(session_store)),
         Arc::new(SessionStatusTool),
+        Arc::new(QuestionAskTool::stub()),
         spawn_tool,
     ];
 
     let mut reg = ToolRegistry::new(tools);
+    reg.set_llm_only("question.ask");
 
     // ideas.assemble: event-only — fetches by name and injects context.
     // Allowing the LLM to call this directly would let it inject arbitrary ideas.
@@ -142,6 +144,7 @@ pub fn build_runtime_registry_full(
     // ideas.search: open — LLM and events can both run semantic searches.
     // session.status: open — anyone can emit a status message.
     // session.spawn: LLM can spawn sessions (for delegation); events can too.
+    // question.ask: LLM-only — agents fire to surface a question to a director.
 
     reg
 }
@@ -265,6 +268,41 @@ mod tests {
         assert!(
             required.iter().any(|v| v.as_str() == Some("name")),
             "ideas.store must require 'name'"
+        );
+    }
+
+    /// `question.ask` must appear in `runtime_tool_specs` so the event editor
+    /// validates against its schema instead of rejecting it as "unknown tool".
+    /// The stub is registered in `build_runtime_registry_full` precisely for
+    /// this exposure — the wired tool with the real `AskFn` is added in
+    /// `session_manager` at session-build time.
+    #[test]
+    fn question_ask_spec_exposed_to_event_editor() {
+        let specs = runtime_tool_specs();
+        let spec = specs
+            .get("question.ask")
+            .expect("question.ask must appear in runtime_tool_specs for event editor validation");
+        assert_eq!(spec.name, "question.ask");
+    }
+
+    /// `question.ask` is LLM-only — agents fire it to surface a question to a
+    /// director. Events must NOT be able to call it directly (the inbox
+    /// surface is the only way operators can answer; events shouldn't be able
+    /// to forge an awaiting state on a session).
+    #[test]
+    fn question_ask_is_registered_llm_only() {
+        let reg = build_runtime_registry(None, None);
+        assert!(
+            reg.can_call("question.ask", CallerKind::Llm),
+            "LLM must be able to call question.ask"
+        );
+        assert!(
+            !reg.can_call("question.ask", CallerKind::Event),
+            "events must NOT be able to call question.ask"
+        );
+        assert!(
+            reg.can_call("question.ask", CallerKind::System),
+            "system bypasses ACL"
         );
     }
 }

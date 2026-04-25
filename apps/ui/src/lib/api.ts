@@ -641,6 +641,15 @@ export const api = {
       body: JSON.stringify({ tool_deny: toolDeny }),
     }),
 
+  setCanAskDirector: (agentId: string, value: boolean) =>
+    request<{ ok: boolean; error?: string }>(
+      `/agents/${encodeURIComponent(agentId)}/can-ask-director`,
+      {
+        method: "POST",
+        body: JSON.stringify({ value }),
+      },
+    ),
+
   // Ideas by IDs
   getIdeasByIds: (ids: string[]) =>
     request<{

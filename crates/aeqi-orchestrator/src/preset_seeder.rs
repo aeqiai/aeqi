@@ -722,6 +722,83 @@ mod tests {
         }
     }
 
+    /// Director-inbox contract: the `how-to-ask-the-director` skill seed must
+    /// install on a vanilla boot so every agent (regardless of capability) can
+    /// discover the firing-discipline rules for `question.ask`. Without this
+    /// idea, the global `on_inject_director_skill` event in
+    /// `seed_lifecycle_events` would assemble nothing at session:start. If the
+    /// preset file is renamed or deleted, that side of the wiring goes silent
+    /// — this test catches the regression.
+    #[tokio::test]
+    async fn seed_preset_ideas_installs_question_ask_skill() {
+        let (_tmp, store) = setup_store().await;
+
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = manifest_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root resolves from CARGO_MANIFEST_DIR");
+        let presets_dir = repo_root.join("presets");
+        assert!(
+            presets_dir
+                .join("seed_ideas")
+                .join("how-to-ask-the-director.md")
+                .is_file(),
+            "expected how-to-ask-the-director.md at {}/seed_ideas",
+            presets_dir.display(),
+        );
+
+        let _guard = PRESETS_ENV_LOCK.lock().await;
+        unsafe {
+            std::env::set_var("AEQI_PRESETS_DIR", &presets_dir);
+        }
+        let results = seed_preset_ideas(&store).await.unwrap();
+        unsafe {
+            std::env::remove_var("AEQI_PRESETS_DIR");
+        }
+
+        let seen = results.iter().any(|r| r.name == "how-to-ask-the-director");
+        assert!(
+            seen,
+            "seed_preset_ideas did not process 'how-to-ask-the-director'; \
+             saw: {:?}",
+            results.iter().map(|r| &r.name).collect::<Vec<_>>(),
+        );
+
+        let db = store.db.lock().await;
+        let present: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM ideas WHERE agent_id IS NULL AND name = ?1",
+                rusqlite::params![&"how-to-ask-the-director"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            present, 1,
+            "'how-to-ask-the-director' must land in the global idea store \
+             exactly once (agent_id IS NULL)"
+        );
+
+        // Frontmatter tags must transfer to idea_tags so the skill is
+        // discoverable via ideas(action='search', tags=['skill']).
+        let required_tags = ["skill", "meta", "agent"];
+        for tag in required_tags {
+            let has_tag: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM idea_tags t \
+                     JOIN ideas i ON i.id = t.idea_id \
+                     WHERE i.name = ?1 AND t.tag = ?2",
+                    rusqlite::params![&"how-to-ask-the-director", &tag],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                has_tag, 1,
+                "'how-to-ask-the-director' must carry the '{tag}' tag"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn purge_matches_magical_loli_pack_and_leaves_clean_ideas() {
         let (_tmp, store) = setup_store().await;

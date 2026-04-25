@@ -69,14 +69,6 @@ pub enum Activity {
         #[serde(skip_serializing_if = "Option::is_none")]
         runtime: Option<RuntimeExecution>,
     },
-    /// The worker needs clarification before continuing.
-    ClarificationNeeded {
-        quest_id: String,
-        question: String,
-        options: Vec<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        runtime: Option<RuntimeExecution>,
-    },
     /// Real-time chat stream event from the agent loop.
     /// Used by CLI TUI and WebSocket chat clients for token-by-token rendering.
     ChatStream {
@@ -153,12 +145,6 @@ impl Activity {
             ),
             Self::CheckpointCreated { quest_id, .. } => (
                 "execution.checkpoint".into(),
-                None,
-                Some(quest_id.clone()),
-                content,
-            ),
-            Self::ClarificationNeeded { quest_id, .. } => (
-                "execution.blocked".into(),
                 None,
                 Some(quest_id.clone()),
                 content,

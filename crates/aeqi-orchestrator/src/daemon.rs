@@ -1438,6 +1438,10 @@ impl Daemon {
                     crate::ipc::agents::handle_create_budget_policy(&ctx, &request, &allowed_roots)
                         .await
                 }
+                "set_can_ask_director" => {
+                    crate::ipc::agents::handle_set_can_ask_director(&ctx, &request, &allowed_roots)
+                        .await
+                }
                 "inbox" => crate::ipc::inbox::handle_inbox(&ctx, &request, &allowed_roots).await,
                 "answer_inbox" => {
                     crate::ipc::inbox::handle_answer_inbox(&ctx, &request, &allowed_roots).await

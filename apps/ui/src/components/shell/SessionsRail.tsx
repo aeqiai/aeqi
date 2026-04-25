@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
+import { useInboxStore } from "@/store/inbox";
 import { useNav } from "@/hooks/useNav";
 import { ThinkingDot } from "@/components/ui";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
@@ -58,6 +59,11 @@ export default function SessionsRail() {
     agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
   );
   const streamingSessions = useChatStore((s) => s.streamingSessions);
+  const inboxItems = useInboxStore((s) => s.items);
+  const awaitingSessionIds = useMemo(
+    () => new Set(inboxItems.map((i) => i.session_id)),
+    [inboxItems],
+  );
 
   const items = useMemo<ThreadRow[]>(() => {
     return sessions
@@ -128,6 +134,9 @@ export default function SessionsRail() {
                 )}
                 <span className="threads-rail-row-name">{item.name}</span>
                 {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
+                {awaitingSessionIds.has(item.id) && (
+                  <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
+                )}
                 <span className="threads-rail-row-time">{item.time}</span>
               </button>
             </div>

@@ -115,4 +115,25 @@ describe("inbox store", () => {
       expect(selectInboxCount(useInboxStore.getState())).toBe(2);
     });
   });
+
+  describe("clearInbox", () => {
+    it("resets all state to initial values", () => {
+      useInboxStore.setState({
+        items: [makeItem("a"), makeItem("b")],
+        loading: true,
+        error: "boom",
+        lastFetchedAt: 12345,
+        pendingDismissal: new Set<string>(["a"]),
+      });
+
+      useInboxStore.getState().clearInbox();
+
+      const s = useInboxStore.getState();
+      expect(s.items).toHaveLength(0);
+      expect(s.loading).toBe(false);
+      expect(s.error).toBeNull();
+      expect(s.lastFetchedAt).toBeNull();
+      expect(s.pendingDismissal.size).toBe(0);
+    });
+  });
 });

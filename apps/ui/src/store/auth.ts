@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { api } from "@/lib/api";
 import type { AppMode } from "@/lib/appMode";
 import { useUIStore } from "@/store/ui";
+import { useInboxStore } from "@/store/inbox";
 import { clearSessionData } from "@/lib/session";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
@@ -327,6 +328,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem("aeqi_app_mode");
     localStorage.removeItem("aeqi_auth_mode");
     useUIStore.getState().setActiveRoot("");
+    useInboxStore.getState().clearInbox();
     set({
       token: null,
       user: null,

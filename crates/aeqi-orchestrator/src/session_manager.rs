@@ -915,9 +915,16 @@ impl SessionManager {
                             .await;
                         // 4. Best-effort pattern dispatch. Operators can wire
                         //    `question:awaiting` events to fire side effects
-                        //    (telegram ping, consolidation, …). Fire-and-forget
-                        //    so a slow event chain doesn't block the agent's
-                        //    return-from-tool path.
+                        //    (telegram ping, consolidation, …).
+                        //    Fire-and-forget — intentional asymmetry with
+                        //    `session:quest_end` (queue_executor.rs ~line 492)
+                        //    which IS awaited because reflection-on-completion
+                        //    must finish before the session closes. For
+                        //    `question:awaiting` the trade-off flips: a slow
+                        //    operator-configured event chain (telegram ping
+                        //    with retry, consolidation) shouldn't block the
+                        //    agent's return-from-tool path. The pattern fires
+                        //    for notification side-effects, not control flow.
                         if let Some(dispatcher) = dispatcher {
                             let prompt_preview: String = req.prompt.chars().take(200).collect();
                             let trigger_args = serde_json::json!({

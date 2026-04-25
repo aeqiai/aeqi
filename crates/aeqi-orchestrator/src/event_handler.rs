@@ -775,6 +775,30 @@ pub async fn seed_lifecycle_events(store: &EventHandlerStore) -> anyhow::Result<
                 },
             ],
         },
+        // ── question.ask skill — director-inbox guidance ──────────────────
+        // Surfaces the `how-to-ask-the-director` skill at session:start so
+        // every agent sees the firing-discipline rules for `question.ask`
+        // (when to escalate vs. ask in chat vs. just decide). The idea body
+        // also documents the `can_ask_director` capability gate, so agents
+        // without the capability still understand why the tool is dark.
+        //
+        // Loaded unconditionally for every session:start (Option B): the
+        // text is harmless to agents that lack the capability — the gate
+        // lives at the question.ask tool layer. A capability-aware filter
+        // would need new query_template plumbing; the skill text itself is
+        // the cheaper, ship-able answer.
+        //
+        // ideas.assemble has produces_context() = true, so the assembled
+        // markdown flows into the LLM's session-start context alongside the
+        // existing on_session_start primer.
+        MiddlewareSeed {
+            name: "on_inject_director_skill",
+            pattern: "session:start",
+            tool_calls: vec![ToolCall {
+                tool: "ideas.assemble".into(),
+                args: serde_json::json!({ "names": ["how-to-ask-the-director"] }),
+            }],
+        },
     ];
 
     // Middleware seeds are deduped by (agent_id IS NULL, name) so two seeds
@@ -2087,11 +2111,11 @@ mod tests {
         assert_eq!(hits[0].name, "exact");
     }
 
-    /// seed_lifecycle_events on an empty store inserts 7 middleware seed events
+    /// seed_lifecycle_events on an empty store inserts 8 middleware seed events
     /// (4 detectors + ideas:threshold_reached + reflect-after-quest +
-    /// inject-recent-context). The 8 lifecycle events are handled by
-    /// create_default_lifecycle_events, which runs first on daemon boot.
-    /// On a re-run it inserts 0.
+    /// inject-recent-context + inject-director-skill). The 8 lifecycle events
+    /// are handled by create_default_lifecycle_events, which runs first on
+    /// daemon boot. On a re-run it inserts 0.
     #[tokio::test]
     async fn seed_lifecycle_events_is_idempotent() {
         let store = test_store_with_ideas().await;
@@ -2100,11 +2124,11 @@ mod tests {
         create_default_lifecycle_events(&store).await.unwrap();
 
         // seed_lifecycle_events reports 0 for the lifecycle patterns (already present)
-        // but inserts 7 middleware-name seeds. Name-based dedup means
+        // but inserts 8 middleware-name seeds. Name-based dedup means
         // on_reflect_after_quest lands even though session:quest_end already has
         // an on_quest_end row.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        assert_eq!(n, 7, "should insert 7 middleware seed events on first run");
+        assert_eq!(n, 8, "should insert 8 middleware seed events on first run");
 
         // Re-run: every name exists → no insertions.
         let n2 = seed_lifecycle_events(&store).await.unwrap();
@@ -2112,19 +2136,19 @@ mod tests {
     }
 
     /// seed_lifecycle_events on a totally empty store (no lifecycle events yet)
-    /// reports 15 (8 lifecycle patterns absent + 7 middleware names inserted).
+    /// reports 16 (8 lifecycle patterns absent + 8 middleware names inserted).
     #[tokio::test]
     async fn seed_lifecycle_events_counts_missing_lifecycle_patterns() {
         let store = test_store_with_ideas().await;
 
         // Do NOT call create_default_lifecycle_events first.
         let n = seed_lifecycle_events(&store).await.unwrap();
-        // 7 middleware-name seeds are inserted; 8 lifecycle patterns are counted as
+        // 8 middleware-name seeds are inserted; 8 lifecycle patterns are counted as
         // "absent before this run" even though create_default_lifecycle_events hasn't
         // inserted them yet. The count reflects what was missing.
         assert_eq!(
-            n, 15,
-            "should count all 15 missing lifecycle+middleware rows on a clean store"
+            n, 16,
+            "should count all 16 missing lifecycle+middleware rows on a clean store"
         );
     }
 
@@ -2222,6 +2246,55 @@ mod tests {
         assert_eq!(injector.tool_calls.len(), 2);
         assert_eq!(injector.tool_calls[0].tool, "ideas.search");
         assert_eq!(injector.tool_calls[1].tool, "transcript.inject");
+    }
+
+    /// Director-inbox wiring: the `on_inject_director_skill` middleware seed
+    /// fires on `session:start` and assembles `how-to-ask-the-director` so
+    /// every agent sees the firing-discipline rules for `question.ask`. The
+    /// seed must compose alongside the existing `on_session_start` lifecycle
+    /// row (both events fire on the same pattern). If the seed disappears or
+    /// its tool_calls drift, agents that have `can_ask_director = true`
+    /// silently lose their operating manual for the tool — this test catches
+    /// that regression.
+    #[tokio::test]
+    async fn seed_lifecycle_events_installs_director_skill_on_session_start() {
+        let store = test_store_with_ideas().await;
+        create_default_lifecycle_events(&store).await.unwrap();
+        seed_lifecycle_events(&store).await.unwrap();
+
+        let session_start = store
+            .get_events_for_exact_pattern("", "session:start")
+            .await;
+        let director_skill = session_start
+            .iter()
+            .find(|e| e.name == "on_inject_director_skill")
+            .expect("on_inject_director_skill must be seeded on session:start");
+        assert!(director_skill.system, "must be a system event");
+        assert!(director_skill.enabled, "must be enabled by default");
+        assert_eq!(
+            director_skill.tool_calls.len(),
+            1,
+            "seed must have a single ideas.assemble tool_call"
+        );
+        assert_eq!(director_skill.tool_calls[0].tool, "ideas.assemble");
+        let names = director_skill.tool_calls[0]
+            .args
+            .get("names")
+            .and_then(|v| v.as_array())
+            .expect("ideas.assemble args must include 'names' array");
+        assert_eq!(names.len(), 1);
+        assert_eq!(
+            names[0].as_str(),
+            Some("how-to-ask-the-director"),
+            "must assemble the director skill idea by canonical name"
+        );
+
+        // The original on_session_start lifecycle row must still be present —
+        // the new seed composes alongside it, never replaces it.
+        assert!(
+            session_start.iter().any(|e| e.name == "on_session_start"),
+            "on_session_start lifecycle seed must coexist with on_inject_director_skill"
+        );
     }
 
     /// Bug C migration: when a pre-Round-6 `on_reflect_after_quest` row

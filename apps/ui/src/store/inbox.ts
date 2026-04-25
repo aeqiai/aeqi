@@ -29,6 +29,7 @@ export interface InboxState {
   pushInboxUpdate: (payload: InboxUpdatePayload) => void;
   dismissOptimistically: (sessionId: string) => void;
   restoreItem: (sessionId: string) => void;
+  clearInbox: () => void;
 }
 
 /**
@@ -151,6 +152,16 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       const next = new Set(s.pendingDismissal);
       next.delete(sessionId);
       return { pendingDismissal: next };
+    });
+  },
+
+  clearInbox: () => {
+    set({
+      items: [],
+      loading: false,
+      error: null,
+      lastFetchedAt: null,
+      pendingDismissal: new Set<string>(),
     });
   },
 }));

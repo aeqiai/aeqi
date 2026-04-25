@@ -153,6 +153,24 @@
   box-shadow: 0 0 0 2px var(--color-card);
 }
 
+/* Sessions-rail awaiting affordance — same dot, sat on the sidebar tint
+   instead of the card surface. Mirrors the inbox-row-avatar-dot rhythm so
+   the user reads "this thread is in your inbox" without a legend. */
+.sessions-rail-awaiting-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  animation: inbox-pulse 1.6s ease-in-out infinite;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sessions-rail-awaiting-dot {
+    animation: none !important;
+  }
+}
+
 .inbox-row-meta {
   grid-column: 2;
   grid-row: 1;

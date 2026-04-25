@@ -18,6 +18,10 @@ pub fn routes() -> Router<AppState> {
         .route("/agents/{id}/activate", post(agent_activate))
         .route("/agents/{id}/model", axum::routing::put(agent_set_model))
         .route("/agents/{id}/tools", axum::routing::put(agent_set_tools))
+        .route(
+            "/agents/{id}/can-ask-director",
+            post(agent_set_can_ask_director),
+        )
         .route("/agents/{id}/identity", get(agent_identity))
         .route("/agents/{id}/files", post(save_agent_file))
         .route("/agents/{id}", axum::routing::delete(agent_delete))
@@ -89,6 +93,21 @@ async fn agent_set_model(
         scope.as_ref(),
         "agent_set_model",
         merge_path_id(body, "id", id),
+    )
+    .await
+}
+
+async fn agent_set_can_ask_director(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "set_can_ask_director",
+        merge_path_id(body, "agent_id", id),
     )
     .await
 }

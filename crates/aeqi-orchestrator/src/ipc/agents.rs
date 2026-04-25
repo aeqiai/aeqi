@@ -147,6 +147,7 @@ pub async fn handle_agent_spawn(
         .map(str::trim)
         .filter(|s| !s.is_empty());
     let can_self_delegate = request.get("can_self_delegate").and_then(|v| v.as_bool());
+    let can_ask_director = request.get("can_ask_director").and_then(|v| v.as_bool());
 
     let agent = match ctx.agent_registry.spawn(name, parent_id, model).await {
         Ok(a) => a,
@@ -162,6 +163,14 @@ pub async fn handle_agent_spawn(
             .await
     {
         warnings.push(format!("can_self_delegate update failed: {e}"));
+    }
+    if let Some(cad) = can_ask_director
+        && let Err(e) = ctx
+            .agent_registry
+            .set_can_ask_director(&agent.id, cad)
+            .await
+    {
+        warnings.push(format!("can_ask_director update failed: {e}"));
     }
 
     if let Some(prompt) = system_prompt {
@@ -416,5 +425,34 @@ pub async fn handle_create_budget_policy(
             Ok(id) => serde_json::json!({"ok": true, "id": id}),
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
+    }
+}
+
+/// Toggle the `can_ask_director` capability on an existing agent. Mirrors the
+/// post-spawn shape used by `handle_agent_delete` for tenancy: the caller's
+/// scope must include the agent's root before the column can be flipped.
+pub async fn handle_set_can_ask_director(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let agent_id = request_field(request, "agent_id").unwrap_or("");
+    if agent_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "agent_id required"});
+    }
+    let value = match request.get("value").and_then(|v| v.as_bool()) {
+        Some(b) => b,
+        None => return serde_json::json!({"ok": false, "error": "value (bool) required"}),
+    };
+    if !check_agent_access(&ctx.agent_registry, allowed, agent_id).await {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+    match ctx
+        .agent_registry
+        .set_can_ask_director(agent_id, value)
+        .await
+    {
+        Ok(()) => serde_json::json!({"ok": true}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
 }

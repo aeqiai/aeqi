@@ -251,10 +251,12 @@ fn ensure_invocation_outcome_columns(conn: &Connection) -> rusqlite::Result<()> 
 }
 
 /// Idempotent migration that adds the director-inbox columns
-/// (`awaiting_at TEXT`, `awaiting_subject TEXT`) to legacy `sessions` tables.
-/// Fresh DBs already get them from `create_tables`'s CREATE TABLE — this
-/// helper exists for DBs that were created before the inbox feature landed.
-/// Both columns are nullable; existing rows become NULL with no further work.
+/// (`awaiting_at TEXT`, `awaiting_subject TEXT`) and the partial inbox index
+/// to the `sessions` table. This helper is the sole source of truth for those
+/// columns: `create_tables` no longer declares them inline, mirroring the
+/// `can_self_delegate` precedent. Both columns are nullable; on a legacy DB
+/// existing rows become NULL with no further work, and on a fresh DB the
+/// helper runs immediately after `CREATE TABLE` so the schema converges.
 fn ensure_session_awaiting_columns(conn: &Connection) -> rusqlite::Result<()> {
     let cols: std::collections::HashSet<String> = {
         let mut stmt = conn.prepare("PRAGMA table_info(sessions)")?;
@@ -335,15 +337,12 @@ impl SessionStore {
                  closed_at TEXT,
                  parent_id TEXT,
                  quest_id TEXT,
-                 first_message TEXT,
-                 awaiting_at TEXT,
-                 awaiting_subject TEXT
+                 first_message TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_sess_agent ON sessions(agent_id);
              CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);
              CREATE INDEX IF NOT EXISTS idx_sess_parent ON sessions(parent_id);
              CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);
-             CREATE INDEX IF NOT EXISTS idx_sess_awaiting ON sessions(awaiting_at) WHERE awaiting_at IS NOT NULL;
 
              CREATE TABLE IF NOT EXISTS senders (
                  id           TEXT PRIMARY KEY,
@@ -3252,6 +3251,49 @@ mod tests {
         };
         assert!(cols.contains("awaiting_at"));
         assert!(cols.contains("awaiting_subject"));
+    }
+
+    /// Fresh-install path: `create_tables` (which calls the migration helper
+    /// transitively via `create_invocation_tables`) leaves the new DB with the
+    /// awaiting columns. This guards the consolidation: the CREATE TABLE block
+    /// no longer declares the columns inline, so the migration helper is the
+    /// sole source of truth and must run on every boot — including the first.
+    #[tokio::test]
+    async fn migration_runs_on_fresh_install() {
+        let pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = pool.lock().await;
+            SessionStore::create_tables(&conn).unwrap();
+            let cols: std::collections::HashSet<String> = {
+                let mut stmt = conn.prepare("PRAGMA table_info(sessions)").unwrap();
+                stmt.query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+            assert!(
+                cols.contains("awaiting_at"),
+                "fresh DB must expose awaiting_at via the migration helper"
+            );
+            assert!(
+                cols.contains("awaiting_subject"),
+                "fresh DB must expose awaiting_subject via the migration helper"
+            );
+            // The partial inbox index must also be present after a fresh
+            // create_tables — the migration helper owns that creation now.
+            let idx_present: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master \
+                     WHERE type = 'index' AND name = 'idx_sess_awaiting'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                idx_present, 1,
+                "idx_sess_awaiting must be created on fresh install"
+            );
+        }
     }
 
     /// `set_awaiting` / `clear_awaiting` round-trip writes and reads via the
