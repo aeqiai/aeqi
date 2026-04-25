@@ -251,7 +251,7 @@ function RootForm({
         </button>
 
         <p className="new-co-hint">
-          An empty agent starts with no threads. You can rename or re-skin it anytime.
+          An empty agent starts with no sessions. You can rename or re-skin it anytime.
         </p>
       </div>
     </div>

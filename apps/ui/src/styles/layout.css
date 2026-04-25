@@ -926,7 +926,7 @@
   background: transparent;
 }
 
-/* Threads rail — the Inbox's left-side index column, now embedded
+/* Sessions rail — the Inbox's left-side index column, now embedded
    inside the content card (below the topbar, above the composer). The
    right-hand hairline keeps it reading as the index pane of a
    master/detail pair. */
@@ -945,7 +945,7 @@
     display: none;
   }
 }
-.threads-rail {
+.sessions-rail {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -960,7 +960,7 @@
    the top. Left: sigil + lowercase word (brand font, matching sidebar nav
    tree). Right: one small, flat "new" CTA. The pattern collapses the
    orphan "+ at the top" that each page used to sprout individually.
-   Shared across threads rail, ideas list, events list, quests board. */
+   Shared across sessions rail, ideas list, events list, quests board. */
 .primitive-head {
   display: flex;
   align-items: center;
@@ -1078,7 +1078,7 @@
 .primitive-head-new:hover svg {
   opacity: 1;
 }
-.threads-rail-list {
+.sessions-rail-list {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1088,16 +1088,16 @@
 /* Group header — editorial divider: small mono label on the left with
    a hairline rule stretching to the right edge. Reads like a Bloomberg
    section break, not a centered/indented pill. */
-.threads-rail-group {
+.sessions-rail-group {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 18px 14px 6px;
 }
-.threads-rail-group:first-child {
+.sessions-rail-group:first-child {
   padding-top: 10px;
 }
-.threads-rail-group-label {
+.sessions-rail-group-label {
   /* Lowercase plain-English label, matching the home-inbox group
      vocabulary (`today` / `yesterday` / `earlier this week` / `older`).
      Mono uppercase here was over-shouting — these are stations along a
@@ -1110,7 +1110,7 @@
   color: var(--text-muted);
   flex-shrink: 0;
 }
-.threads-rail-group-rule {
+.sessions-rail-group-rule {
   flex: 1;
   height: 1px;
   background: var(--border);
@@ -1121,7 +1121,7 @@
    layout. Selection is carried by background tint + name weight alone
    — no left-edge accent stripe. The live dot marks sessions that are
    still active. */
-.threads-rail-row {
+.sessions-rail-row {
   display: grid;
   /* Fixed 14px gutter for the lifecycle/thinking dot so the column doesn't
      reflow when the 4px idle dot is swapped for the 7px+glow ThinkingDot. */
@@ -1145,17 +1145,17 @@
    absolute-ban list. AEQI memory also flags it as rejected-and-reverted
    on tabs/primitives. Active state is carried by `--state-selected` bg +
    font-weight shift on the row name. */
-.threads-rail-row:hover,
-.threads-rail-row:focus-visible {
+.sessions-rail-row:hover,
+.sessions-rail-row:focus-visible {
   background: var(--state-hover);
 }
-.threads-rail-row:focus-visible {
+.sessions-rail-row:focus-visible {
   outline: none;
 }
-.threads-rail-row.active {
+.sessions-rail-row.active {
   background: var(--state-selected);
 }
-.threads-rail-row-name {
+.sessions-rail-row-name {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 450;
@@ -1168,7 +1168,7 @@
 /* Lifecycle indicator — small quiet dot marking an open (non-closed) session.
    Deliberately unobtrusive: the loud accent + pulse is reserved for the
    `<ThinkingDot>` that replaces this dot while a turn is streaming. */
-.threads-rail-row-status {
+.sessions-rail-row-status {
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -1176,16 +1176,16 @@
   flex-shrink: 0;
   justify-self: center;
 }
-.threads-rail-row-status--idle {
+.sessions-rail-row-status--idle {
   background: transparent;
 }
-.threads-rail-row-thinking {
+.sessions-rail-row-thinking {
   justify-self: center;
 }
-.threads-rail-row.active .threads-rail-row-name {
+.sessions-rail-row.active .sessions-rail-row-name {
   font-weight: 500;
 }
-.threads-rail-row-badge {
+.sessions-rail-row-badge {
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 500;
@@ -1198,7 +1198,7 @@
   letter-spacing: 0.04em;
   flex-shrink: 0;
 }
-.threads-rail-row-time {
+.sessions-rail-row-time {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
@@ -1206,23 +1206,23 @@
   letter-spacing: 0.01em;
   flex-shrink: 0;
 }
-.threads-rail-row.active .threads-rail-row-time {
+.sessions-rail-row.active .sessions-rail-row-time {
   color: var(--text-secondary);
 }
-.threads-rail-empty {
+.sessions-rail-empty {
   padding: 32px 20px;
   text-align: center;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.threads-rail-empty-title {
+.sessions-rail-empty-title {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
 }
-.threads-rail-empty-hint {
+.sessions-rail-empty-hint {
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-muted);
@@ -1242,7 +1242,7 @@
 }
 
 /* Scroll-fade: a gradient mask above the floating composer so the last
-   few lines of thread text dissolve into paper as they pass behind the
+   few lines of session text dissolve into paper as they pass behind the
    card. Sits between the scroll content (z:0) and the composer (z:2).
    Height tracks --composer-height (published by ComposerRow's
    ResizeObserver) so the fade and the card expand together when the

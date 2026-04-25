@@ -278,8 +278,8 @@ export function sessionLabel(s: SessionInfo): string {
       .replace(/^telegram:\s*/i, "")
       .replace(/^whatsapp:\s*/i, "");
     const trimmed = stripped.trim();
-    // Sessions that inherited the agent's name/slug carry no thread info —
-    // treat them as untitled and fall through to first_message.
+    // Sessions that inherited the agent's name/slug carry no session-specific
+    // info — treat them as untitled and fall through to first_message.
     const looksLikeAgentRef = s.agent_name && trimmed.toLowerCase() === s.agent_name.toLowerCase();
     if (
       stripped &&

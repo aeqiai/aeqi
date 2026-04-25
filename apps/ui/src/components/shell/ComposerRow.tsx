@@ -172,7 +172,7 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
   }, []);
 
   // Publish the composer's live height as --composer-height on the enclosing
-  // .content-main-col so the thread's bottom padding and scroll-fade grow
+  // .content-main-col so the session's bottom padding and scroll-fade grow
   // with the card. Without this, typing a multi-line draft would push the
   // last message underneath the expanding composer.
   const rowRef = useRef<HTMLDivElement>(null);

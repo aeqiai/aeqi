@@ -330,7 +330,7 @@ export default function AppLayout() {
   // surfaces (agents/events/quests/ideas) own their own editing
   // affordances and don't need a persistent composer eating vertical space.
   const showComposer = sessionsMounted;
-  // Sessions surface gets its own left-adjacent threads rail. Every other
+  // Sessions surface gets its own left-adjacent sessions rail. Every other
   // tab owns its full width and embeds its own picker in the page body.
   const showSessionsRail =
     effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome;

@@ -14,13 +14,11 @@ interface EmptyStateProps {
 /**
  * Per-agent chat empty state. Shown at `/:agentId` when the user has
  * landed on the agent's home but no specific session is selected, or
- * when a fresh thread is being started.
+ * when a fresh session is being started.
  *
- * Rejected the prior generic "what can you do?" suggestions in favor
- * of a context-aware status line + three conversational opener
- * prompts that pull the agent into surfacing its own context. Reads
- * as: "here's who I am and what I'm in the middle of — what do you
- * want to talk about?"
+ * Context-aware status line + three conversational openers that pull
+ * the agent into surfacing its own context. Reads as: "here's who I
+ * am and what I'm in the middle of — what do you want to talk about?"
  *
  * Stats line follows the design system's mono-for-numbers rule.
  * Suggestions are quiet — text + hairline border, no fill — so they
@@ -85,7 +83,7 @@ export default function EmptyState({
 
   return (
     <div className="asv-empty">
-      <div className="asv-empty-eyebrow">new thread</div>
+      <div className="asv-empty-eyebrow">new session</div>
       <h1 className="asv-empty-title">{displayName}</h1>
       {segments.length > 0 && (
         <div className="asv-empty-stats" aria-label="agent context">
@@ -102,7 +100,7 @@ export default function EmptyState({
         </div>
       )}
       <div className="asv-empty-hint">
-        Type below to talk to {agentName}. Threads stay on Home; the agent replies in real time.
+        Type below to talk to {agentName}. Sessions stay on Home; the agent replies in real time.
       </div>
       <div className="asv-empty-suggestions">
         {[

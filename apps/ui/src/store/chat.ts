@@ -44,7 +44,7 @@ interface ChatState {
   clearQueuedDrafts: (sessionId: string) => void;
   /**
    * Per-agent session list, populated by the active AgentSessionView so the
-   * SessionsRail (left-adjacent threads column) can render the same data
+   * SessionsRail (left-adjacent sessions column) can render the same data
    * without re-fetching.
    */
   sessionsByAgent: Record<string, SessionInfo[]>;

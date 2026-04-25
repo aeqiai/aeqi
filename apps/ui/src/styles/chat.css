@@ -54,7 +54,7 @@
 }
 
 /* ── Messages area ──
-   Thread stretches across the full content card. User input stays as a
+   Session stretches across the full content card. User input stays as a
    right-aligned bubble with its own max-width; assistant prose runs
    along the left edge so the agent's turn has room to breathe. The
    bubble vs. no-bubble contrast already carries the speaker change, so
@@ -1210,7 +1210,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* Caps to the same 720-wide column as the thread, so the input stays
+  /* Caps to the same 720-wide column as the session, so the input stays
      vertically aligned with the message rows above it. Parent
      .persistent-composer right-aligns this pane. */
   max-width: 720px;

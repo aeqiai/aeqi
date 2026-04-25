@@ -773,7 +773,7 @@
 /* ── Persistent composer ──
    The persistent composer sits on paper as the precision instrument
    at the bottom of the shell. Spans the full content-column width —
-   the 720px thread cap above owns its own rhythm; the composer is
+   the 720px session cap above owns its own rhythm; the composer is
    its own row and earns its own span. */
 .persistent-composer {
   width: 100%;

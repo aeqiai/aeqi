@@ -142,21 +142,6 @@ export interface DashboardStats {
   active_agents: Agent[];
 }
 
-export interface ThreadEvent {
-  id: number;
-  session_id?: string;
-  event_type: string;
-  role: string;
-  content: string;
-  timestamp: string;
-  source?: string | null;
-  metadata?: Record<string, unknown> | null;
-}
-
-export interface ChatThreadState {
-  sessionId?: string;
-}
-
 export interface User {
   id: string;
   email: string;

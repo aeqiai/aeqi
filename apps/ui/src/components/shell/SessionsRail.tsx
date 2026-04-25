@@ -9,7 +9,7 @@ import { recencyBucket, timeShort, type RecencyBucket } from "@/lib/format";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
-interface ThreadRow {
+interface SessionRow {
   id: string;
   name: string;
   badge?: string;
@@ -20,13 +20,12 @@ interface ThreadRow {
 }
 
 /**
- * Threads rail — the left-adjacent index column for the Inbox surface.
+ * Sessions rail — the left-adjacent index column for the Inbox surface.
  *
  * Mounted between the primary LeftSidebar and the main content column when
  * the current tab is Inbox (sessions). Other tabs render their own inline
  * picker inside the content column. Dense single-line rows with a status
- * dot, the thread label, and a right-aligned relative timestamp —
- * Bloomberg-Terminal-for-threads.
+ * dot, the session label, and a right-aligned relative timestamp.
  */
 export default function SessionsRail() {
   const { agentId, itemId } = useParams<{ agentId?: string; itemId?: string }>();
@@ -42,7 +41,7 @@ export default function SessionsRail() {
     [inboxItems],
   );
 
-  const items = useMemo<ThreadRow[]>(() => {
+  const items = useMemo<SessionRow[]>(() => {
     return sessions
       .filter((s) => s.session_type !== "task")
       .map((s) => {
@@ -78,12 +77,12 @@ export default function SessionsRail() {
   };
 
   return (
-    <div className="threads-rail">
-      <div className="threads-rail-list">
+    <div className="sessions-rail">
+      <div className="sessions-rail-list">
         {items.length === 0 && (
-          <div className="threads-rail-empty">
-            <div className="threads-rail-empty-title">No threads yet</div>
-            <div className="threads-rail-empty-hint">Type below to start one</div>
+          <div className="sessions-rail-empty">
+            <div className="sessions-rail-empty-title">no sessions yet</div>
+            <div className="sessions-rail-empty-hint">type below to start one</div>
           </div>
         )}
         {items.map((item, i) => {
@@ -91,33 +90,33 @@ export default function SessionsRail() {
           return (
             <div key={item.id}>
               {showHeader && (
-                <div className="threads-rail-group">
-                  <span className="threads-rail-group-label">{item.group}</span>
-                  <span className="threads-rail-group-rule" />
+                <div className="sessions-rail-group">
+                  <span className="sessions-rail-group-label">{item.group}</span>
+                  <span className="sessions-rail-group-rule" />
                 </div>
               )}
               <button
                 type="button"
-                className={`threads-rail-row${item.id === itemId ? " active" : ""}`}
+                className={`sessions-rail-row${item.id === itemId ? " active" : ""}`}
                 data-status={item.status}
                 aria-current={item.id === itemId ? "true" : undefined}
                 onClick={() => handleSelect(item.id)}
               >
                 {streamingSessions[item.id] ? (
-                  <ThinkingDot size="md" className="threads-rail-row-thinking" />
+                  <ThinkingDot size="md" className="sessions-rail-row-thinking" />
                 ) : (
                   <span
-                    className={`threads-rail-row-status${
-                      item.status === "active" ? "" : " threads-rail-row-status--idle"
+                    className={`sessions-rail-row-status${
+                      item.status === "active" ? "" : " sessions-rail-row-status--idle"
                     }`}
                   />
                 )}
-                <span className="threads-rail-row-name">{item.name}</span>
-                {item.badge && <span className="threads-rail-row-badge">{item.badge}</span>}
+                <span className="sessions-rail-row-name">{item.name}</span>
+                {item.badge && <span className="sessions-rail-row-badge">{item.badge}</span>}
                 {awaitingSessionIds.has(item.id) && (
                   <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
                 )}
-                <span className="threads-rail-row-time">{item.time}</span>
+                <span className="sessions-rail-row-time">{item.time}</span>
               </button>
             </div>
           );
