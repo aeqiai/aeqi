@@ -185,6 +185,7 @@ dependencies = [
  "aeqi-pack-github",
  "aeqi-pack-google-workspace",
  "aeqi-pack-notion",
+ "aeqi-pack-slack",
  "aeqi-providers",
  "aeqi-quests",
  "aeqi-test-support",
@@ -270,6 +271,27 @@ dependencies = [
  "tokio",
  "tracing",
  "urlencoding",
+]
+
+[[package]]
+name = "aeqi-pack-slack"
+version = "0.12.1"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "urlencoding",
+ "uuid",
 ]
 
 [[package]]

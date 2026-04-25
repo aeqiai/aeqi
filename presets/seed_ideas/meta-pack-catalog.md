@@ -96,6 +96,14 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
   heterogeneous property shapes passed through verbatim. Pinned to
   `Notion-Version: 2022-06-28`. Crate `aeqi-pack-notion`, default-on
   feature `notion` on `aeqi-orchestrator`.
+- `meta:pack:slack` — fourteen native tools across channels /
+  messages / reactions / users / search backed by T1.9's `oauth2`
+  lifecycle. Per-workspace scoping (`ScopeHint::User`, scope_id =
+  Slack workspace_id); refresh-on-401 retry; rate-limit reason code
+  (HTTP 429 + `Retry-After` honoured); cursor-based pagination capped
+  at 200 results; `ok=false` envelope translated to clean
+  `slack_error`. Crate `aeqi-pack-slack`, default-on feature `slack`
+  on `aeqi-orchestrator`.
 
 ## Known gaps (things we should NOT re-import if encountered)
 

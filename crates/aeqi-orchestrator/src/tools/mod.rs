@@ -578,6 +578,9 @@ pub fn build_orchestration_tools(
     #[cfg(feature = "notion")]
     tools.extend(aeqi_pack_notion::all_tools());
 
+    #[cfg(feature = "slack")]
+    tools.extend(aeqi_pack_slack::all_tools());
+
     tools
 }
 
