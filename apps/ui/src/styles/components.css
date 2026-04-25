@@ -851,3 +851,310 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* ── Integrations (UI1) ───────────────────────────────────
+   Stack of integration cards with status pills. Hairline-bordered
+   cards on paper, jade dot for connected, amber for expired,
+   near-black for disconnected, red for hard errors. Modal lives
+   on top of an opaque graphite scrim. */
+
+.integrations-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.integrations-panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.integrations-panel-heading {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.integrations-panel-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 64ch;
+}
+
+.integrations-panel-loading {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 16px 0;
+}
+
+.integrations-panel-error {
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+
+.integrations-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.integration-card {
+  background: var(--bg-paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.integration-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.integration-card-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.integration-card-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+.integration-card-soon {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  border: 1px solid var(--border-faint);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.integration-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.integration-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.integration-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.integration-card-meta-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.integration-card-meta-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.integration-card-scopes {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.integration-card-scopes summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.integration-card-scope-list {
+  list-style: none;
+  padding: 4px 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.integration-card-scope-list code {
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
+  padding: 1px 6px;
+  border-radius: var(--key-pill-radius);
+  word-break: break-all;
+}
+
+.integration-card-warning {
+  font-size: 12px;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  margin: 0;
+}
+
+/* Status pill — used both inside cards and in the future Tools detail
+   surfaces. Compact dot + label, neutral background. */
+.integration-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.integration-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.integration-status-label {
+  white-space: nowrap;
+}
+
+/* Connect modal — modal-backdrop pattern matches the rest of the dashboard
+   (see modals.css) but kept self-contained so the integrations surface can
+   ship without touching layout.css or modals.css. */
+.integration-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 11, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.integration-modal-card {
+  background: var(--bg-paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-popover);
+}
+
+.integration-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.integration-modal-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.integration-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+
+.integration-modal-close:hover {
+  color: var(--text-primary);
+  background: var(--state-hover);
+}
+
+.integration-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.integration-modal-status {
+  margin: 0;
+}
+
+.integration-modal-status--ok {
+  color: var(--success);
+}
+
+.integration-modal-status--error {
+  color: var(--error);
+}
+
+.integration-modal-fallback {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.integration-modal-fallback a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.integration-modal-scope {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.integration-modal-scope code {
+  font-family: var(--font-mono);
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
+  padding: 1px 6px;
+  border-radius: var(--key-pill-radius);
+  font-size: 11px;
+}
+
+.integration-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-faint);
+}
