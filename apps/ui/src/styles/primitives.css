@@ -119,6 +119,13 @@
      to fit a long agent tree without scrolling. */
   --sidebar-row-h: 32px;
 
+  /* Width of the second-rail panel that sits between the primary
+     LeftSidebar and the content card — used by .sessions-rail-col and
+     .content-topbar-action. 300px gives the two-line inbox row enough
+     room to render a real subject (~80–100 chars at 12px) plus a
+     secondary meta line, without crowding the main content column. */
+  --sidebar-panel-width: 300px;
+
   /* Shell footer / top inset height. Both edges of the content card
      wear a strip of this height — bottom is the legal/privacy strip,
      top is an empty inset so the card floats with symmetric breathing

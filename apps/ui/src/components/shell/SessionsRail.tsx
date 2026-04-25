@@ -15,15 +15,10 @@ interface SessionRow {
   /** Bold body line — what the user is actually here to read. */
   primary: string;
   /** Optional whisper-meta line under the primary. Inbox uses it for
-   *  agent · root; agent mode leaves it undefined and the row stays
-   *  single-line. */
+   *  agent · root; agent mode uses it for the channel name. */
   secondary?: string;
-  /** Small mono chip rendered inline with the primary. Agent mode
-   *  uses TG/WA/Web; inbox mode never sets it (the subject IS the
-   *  body, no chip). */
-  badge?: string;
-  /** When true, primary wraps to up to 3 lines instead of single-line
-   *  ellipsis. Inbox mode opts in so the question reads in full. */
+  /** When true, primary wraps to up to 2 lines instead of single-line
+   *  ellipsis. Both modes opt in for visual consistency. */
   wrapPrimary?: boolean;
   time: string;
   status?: string;
@@ -80,19 +75,26 @@ function AgentRail() {
       .filter((s) => s.session_type !== "task")
       .map((s) => {
         const n = s.name?.toLowerCase() || "";
-        const badge = n.includes("telegram")
-          ? "TG"
+        // Channel resolves from the session name first (caught
+        // upstream when a transport-prefixed session lands), then
+        // from session_type. We render this as the secondary meta
+        // line — same grammar as inbox mode's agent_name secondary.
+        const channel = n.includes("telegram")
+          ? "telegram"
           : n.includes("whatsapp")
-            ? "WA"
+            ? "whatsapp"
             : s.session_type === "web"
-              ? "Web"
-              : undefined;
+              ? "web"
+              : s.session_type === "interactive"
+                ? "interactive"
+                : s.session_type;
         const tsRaw = s.last_active || s.created_at;
         const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
         return {
           id: s.id,
           primary: sessionLabel(s),
-          badge,
+          secondary: channel,
+          wrapPrimary: true,
           time: timeShort(tsRaw ?? null),
           status: s.status,
           awaiting: awaitingSessionIds.has(s.id),
@@ -241,7 +243,6 @@ function RailShell({
                     >
                       {item.primary}
                     </span>
-                    {item.badge && <span className="sessions-rail-row-badge">{item.badge}</span>}
                     {item.awaiting && (
                       <span
                         className="sessions-rail-awaiting-dot"
