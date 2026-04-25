@@ -572,6 +572,9 @@ pub fn build_orchestration_tools(
     #[cfg(feature = "google-workspace")]
     tools.extend(aeqi_pack_google_workspace::all_tools());
 
+    #[cfg(feature = "github")]
+    tools.extend(aeqi_pack_github::all_tools());
+
     tools
 }
 
