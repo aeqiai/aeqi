@@ -21,9 +21,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::chat_stream::ChatStreamSender;
+use crate::credentials::{CredentialResolver, ResolutionScope};
 use crate::traits::{Tool, ToolResult};
 
 /// Decouples the agent's pattern-firing path from the orchestrator's event store.
@@ -78,7 +79,7 @@ pub enum CallerKind {
 ///
 /// Tools that need session context read it here, not from args, so operator-
 /// writable event args cannot forge identity or session state.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct ExecutionContext {
     pub session_id: String,
     pub agent_id: String,
@@ -93,6 +94,35 @@ pub struct ExecutionContext {
     /// Sender for emitting Status events on the current session's stream.
     /// `None` in tests or contexts without a live stream.
     pub chat_stream: Option<ChatStreamSender>,
+    /// Optional credential resolver. When wired, `ToolRegistry::invoke`
+    /// resolves `Tool::required_credentials()` before calling the tool.
+    /// `None` in bare-CLI / test contexts where no credential substrate is
+    /// available — tools that declare credentials gracefully degrade by
+    /// receiving `None` for each slot (and may surface a tool error if
+    /// they treat the credential as required).
+    pub credential_resolver: Option<CredentialResolver>,
+    /// Optional user/channel/installation scoping for the resolver. The
+    /// `agent_id` field above always populates the agent-scope fallback.
+    pub credential_scope: ResolutionScope,
+}
+
+impl std::fmt::Debug for ExecutionContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionContext")
+            .field("session_id", &self.session_id)
+            .field("agent_id", &self.agent_id)
+            .field("user_input", &self.user_input)
+            .field("transcript_tail", &self.transcript_tail)
+            .field("quest_description", &self.quest_description)
+            .field("tool_deny", &self.tool_deny)
+            .field("has_chat_stream", &self.chat_stream.is_some())
+            .field(
+                "has_credential_resolver",
+                &self.credential_resolver.is_some(),
+            )
+            .field("credential_scope", &self.credential_scope)
+            .finish()
+    }
 }
 
 impl ExecutionContext {
@@ -184,6 +214,14 @@ impl ToolRegistry {
     ///  1. `ctx.tool_deny` — per-agent runtime deny list (highest priority).
     ///  2. Registry `llm_only` / `event_only` sets — per-tool caller ACL.
     ///  3. Tool not found → error.
+    ///
+    /// Credential resolution:
+    ///  - If the tool declares `required_credentials()` and `ctx` has a
+    ///    [`CredentialResolver`] wired up, each need is resolved against
+    ///    the substrate before `execute_with_credentials` is called.
+    ///  - A required credential that fails to resolve becomes a
+    ///    `ToolResult::error` carrying a stable reason code (see
+    ///    `CredentialReasonCode::as_str`) instead of invoking the tool.
     pub async fn invoke(
         &self,
         tool_name: &str,
@@ -211,7 +249,51 @@ impl ToolRegistry {
             .get(tool_name)
             .ok_or_else(|| anyhow::anyhow!("unknown tool: {tool_name}"))?;
 
-        tool.execute(args).await
+        let needs = tool.required_credentials();
+        if needs.is_empty() {
+            return tool.execute(args).await;
+        }
+
+        let resolver = match ctx.credential_resolver.as_ref() {
+            Some(r) => r,
+            None => {
+                // No resolver wired — tools that declared credentials get
+                // a vector of `None`s. Required-but-absent treatment is up
+                // to the tool's `execute_with_credentials`.
+                let none_vec = needs.iter().map(|_| None).collect::<Vec<_>>();
+                return tool.execute_with_credentials(args, none_vec).await;
+            }
+        };
+
+        // Build the resolution scope from ctx (agent_id always present;
+        // user/channel/installation come from ctx.credential_scope).
+        let mut scope = ctx.credential_scope.clone();
+        if scope.agent_id.is_none() && !ctx.agent_id.is_empty() {
+            scope.agent_id = Some(ctx.agent_id.clone());
+        }
+
+        let mut resolved: Vec<Option<crate::credentials::UsableCredential>> =
+            Vec::with_capacity(needs.len());
+        for need in &needs {
+            match resolver.resolve(need, &scope).await {
+                Ok(opt) => resolved.push(opt),
+                Err(e) => {
+                    warn!(
+                        tool = %tool_name,
+                        provider = need.provider,
+                        name = need.name,
+                        code = %e.code,
+                        "credential resolution failed",
+                    );
+                    return Ok(ToolResult::error(format!(
+                        "{}: {} (provider={} name={})",
+                        e.code, e.message, need.provider, need.name
+                    )));
+                }
+            }
+        }
+
+        tool.execute_with_credentials(args, resolved).await
     }
 
     /// Whether the named tool's `output` is context (e.g. `ideas.assemble`)
