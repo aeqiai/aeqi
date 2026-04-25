@@ -538,6 +538,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 execution_registry: daemon.execution_registry.clone(),
                 pattern_dispatcher: daemon.pattern_dispatcher.clone(),
                 credentials: credentials_for_gateways.clone(),
+                channel_store: channel_store.clone(),
             };
             let mut gateway_count = 0u32;
             match channel_store.list_enabled().await {

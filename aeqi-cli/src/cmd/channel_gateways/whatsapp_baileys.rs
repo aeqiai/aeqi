@@ -158,7 +158,7 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
 async fn run_gateway(
     ch: Arc<WhatsAppBaileysChannel>,
     agent_id: String,
-    _channel_id: String,
+    channel_id: String,
     reply_allowed: Arc<HashSet<String>>,
     ctx: SpawnContext,
 ) {
@@ -172,6 +172,7 @@ async fn run_gateway(
         execution_registry,
         pattern_dispatcher,
         credentials: _credentials,
+        channel_store,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(ch.as_ref()).await {
@@ -240,6 +241,8 @@ async fn run_gateway(
         let session_store_clone = session_store.clone();
         let pattern_dispatcher = pattern_dispatcher.clone();
         let reply_allowed = reply_allowed.clone();
+        let channel_store_clone = channel_store.clone();
+        let channel_id_clone = channel_id.clone();
 
         tokio::spawn(async move {
             let user_sender_id = if let Some(ref ss) = session_store_clone {
@@ -294,21 +297,91 @@ async fn run_gateway(
                 None
             };
 
-            // Read-only short-circuit. If the sender is in the inbound
-            // whitelist but NOT in `reply_allowed` (i.e., the operator
-            // marked them read-only via the channel UI), the user's
-            // message has already been persisted to the transcript above
-            // — but we MUST NOT spawn the agent. Spawning would burn
-            // LLM tokens producing a reply that the gateway gate would
-            // then drop anyway. Cleaner + cheaper to never run.
+            // Live whitelist resolution. We DON'T trust the captured
+            // `reply_allowed` Arc anymore — it's set at gateway-spawn
+            // time, so dropdown changes the operator makes during
+            // runtime never reach the running gate. Query the DB per
+            // message instead. The cost is one indexed SQLite read per
+            // inbound — trivial vs an LLM call.
             //
-            // Empty `reply_allowed` set means "no whitelist configured"
-            // — treat as permissive, matches the inbound filter.
-            if !reply_allowed.is_empty() && !reply_allowed.contains(&jid) {
+            // Three branches:
+            //   1. JID is in `channel_allowed_chats` with reply_allowed=1
+            //      → spawn the agent (auto-reply path).
+            //   2. JID is in `channel_allowed_chats` with reply_allowed=0
+            //      → user message is already persisted above; skip spawn.
+            //      Operator sees the message in the session UI.
+            //   3. JID is NOT in `channel_allowed_chats` (first contact)
+            //      → INSERT it as reply_allowed=0 so the operator can
+            //      SEE the contact in the channel UI and decide whether
+            //      to flip them to auto-reply. Skip spawn. Without this,
+            //      unknown contacts would be silently dropped at the
+            //      bridge level — operator never knows anyone tried.
+            //
+            // Empty whitelist = "no contacts configured yet" still means
+            // permissive (matches the historic rule). Once the table
+            // has at least one row, the strict path engages.
+            let known = match channel_store_clone
+                .list_allowed_chats(&channel_id_clone)
+                .await
+            {
+                Ok(rows) => rows,
+                Err(e) => {
+                    tracing::warn!(
+                        jid = %jid,
+                        error = %e,
+                        "whatsapp-baileys: failed to fetch allowed_chats live; falling back to captured set"
+                    );
+                    // Best-effort fallback: skip spawn unless the
+                    // captured set explicitly authorizes. Conservative
+                    // when DB is misbehaving.
+                    if !reply_allowed.is_empty() && !reply_allowed.contains(&jid) {
+                        return;
+                    }
+                    Vec::new()
+                }
+            };
+            let entry = known.iter().find(|a| a.chat_id == jid);
+            let table_empty = known.is_empty();
+            let should_spawn = match entry {
+                Some(a) if a.reply_allowed => true,
+                Some(_) => false, // explicit read-only
+                None => {
+                    if table_empty {
+                        // No whitelist configured → permissive. Don't
+                        // auto-record (would change semantics for
+                        // unconfigured channels).
+                        true
+                    } else {
+                        // Whitelist active + unknown JID → auto-record
+                        // so operator sees them in the UI; don't spawn.
+                        let auto_added = aeqi_orchestrator::AllowedChat {
+                            chat_id: jid.clone(),
+                            reply_allowed: false,
+                        };
+                        if let Err(e) = channel_store_clone
+                            .add_allowed_chat(&channel_id_clone, &auto_added)
+                            .await
+                        {
+                            tracing::warn!(
+                                jid = %jid,
+                                error = %e,
+                                "whatsapp-baileys: failed to auto-record unknown JID"
+                            );
+                        } else {
+                            tracing::info!(
+                                jid = %jid,
+                                "whatsapp-baileys: first contact from unknown JID — auto-recorded as read-only; flip via channel UI to enable auto-reply"
+                            );
+                        }
+                        false
+                    }
+                }
+            };
+            if !should_spawn {
                 tracing::info!(
                     jid = %jid,
                     session_id = %session_id,
-                    "whatsapp-baileys: read-only contact, persisting message but skipping agent spawn"
+                    "whatsapp-baileys: read-only / pending contact — message persisted, skipping agent spawn"
                 );
                 return;
             }

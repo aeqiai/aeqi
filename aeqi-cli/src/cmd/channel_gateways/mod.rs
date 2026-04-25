@@ -46,6 +46,13 @@ pub(crate) struct SpawnContext {
     /// `None` only on configurations that pre-date the credentials table —
     /// in that case gateway spawners refuse to spawn.
     pub credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
+    /// Channel allow-list store. Per-message handlers query this live so
+    /// reply_allowed dropdown changes apply immediately (no captured-Arc
+    /// staleness) AND so unknown-JID first contacts can auto-record into
+    /// `channel_allowed_chats` as `reply_allowed=false`. Otherwise the
+    /// operator can never SEE a JID they haven't already whitelisted —
+    /// the catch-22 the user surfaced.
+    pub channel_store: Arc<aeqi_orchestrator::ChannelStore>,
 }
 
 /// Dispatch a single channel row to its kind-specific spawner.

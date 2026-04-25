@@ -98,6 +98,7 @@ async fn run_telegram_gateway(
         execution_registry,
         pattern_dispatcher,
         credentials: _credentials,
+        channel_store: _channel_store,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(tg_channel.as_ref()).await {
