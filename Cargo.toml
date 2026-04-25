@@ -16,6 +16,7 @@ members = [
     "crates/aeqi-test-support",
     "crates/aeqi-pack-google-workspace",
     "crates/aeqi-pack-github",
+    "crates/aeqi-pack-notion",
 ]
 
 [workspace.package]
@@ -124,6 +125,7 @@ aeqi-mcp = { version = "0.12.1", path = "crates/aeqi-mcp" }
 aeqi-test-support = { version = "0.12.1", path = "crates/aeqi-test-support" }
 aeqi-pack-google-workspace = { version = "0.12.1", path = "crates/aeqi-pack-google-workspace" }
 aeqi-pack-github = { version = "0.12.1", path = "crates/aeqi-pack-github" }
+aeqi-pack-notion = { version = "0.12.1", path = "crates/aeqi-pack-notion" }
 
 
 [profile.release]
