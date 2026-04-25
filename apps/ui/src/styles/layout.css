@@ -90,9 +90,21 @@
 }
 .shell-footer-tagline {
   grid-column: 2;
+  /* Flexbox centers the inner SVG (Wordmark) + text on the same
+     vertical axis, then the outer grid `align-items: center` centers
+     the whole tagline inside the 18px strip. Without flex centering
+     here the inline SVG dragged the text baseline downward and the
+     line read as bottom-aligned. */
+  display: flex;
+  align-items: center;
+  gap: 0;
+  /* Explicit zero margin/padding — defends against any UA <p> margin
+     creeping in and pushing the line off-center. */
   margin: 0;
+  padding: 0;
   white-space: nowrap;
   color: var(--text-secondary);
+  line-height: 1;
 }
 .shell-footer-tagline a {
   color: inherit;
